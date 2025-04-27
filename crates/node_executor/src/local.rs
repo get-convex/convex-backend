@@ -285,6 +285,7 @@ mod tests {
         assert_obj,
         execution_context::ExecutionContext,
         fastrace_helpers::EncodedSpan,
+        json::JsonSerializable,
         log_lines::{
             run_function_and_collect_log_lines,
             LogLines,
@@ -987,8 +988,10 @@ export {
                     }),
                     UdfType::Action,
                     Some(Visibility::Public),
-                    ArgsValidator::try_from(json!({"type": "object", "value": {"a": {"fieldType": {"type": "string"}, "optional": false}}})).unwrap(),
-                    ReturnsValidator::try_from(json!({"type": "string"})).unwrap()
+                    ArgsValidator::json_deserialize_value(
+                        json!({"type": "object", "value": {"a": {"fieldType": {"type": "string"}, "optional": false}}})
+                    ).unwrap(),
+                    ReturnsValidator::json_deserialize_value(json!({"type": "string"})).unwrap()
                 )?,
             ]
         );

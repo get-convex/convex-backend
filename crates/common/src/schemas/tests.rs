@@ -1,9 +1,6 @@
 use cmd_util::env::env_config;
 use proptest::prelude::*;
-use serde_json::{
-    json,
-    Value as JsonValue,
-};
+use serde_json::json;
 use value::{
     assert_obj,
     ConvexObject,
@@ -15,8 +12,10 @@ use value::{
 
 use crate::{
     db_schema_with_vector_indexes,
+    json::JsonSerializable,
     object_validator,
     schemas::{
+        json::DatabaseSchemaJson,
         validator::{
             FieldValidator,
             ValidationContext,
@@ -34,7 +33,7 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 64 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
     #[test]
     fn test_database_schema_roundtrips(v in any::<DatabaseSchema>()) {
-        assert_roundtrips::<DatabaseSchema, JsonValue>(v);
+        assert_roundtrips::<DatabaseSchema, DatabaseSchemaJson>(v);
     }
 
     #[test]
@@ -166,7 +165,7 @@ fn test_nonexistent_table_name_reference() {
         ],
         "schemaValidation": true
     });
-    DatabaseSchema::try_from(schema_json).unwrap();
+    DatabaseSchema::json_deserialize_value(schema_json).unwrap();
 }
 
 #[test]
@@ -599,8 +598,8 @@ fn test_invalid_field_name() {
         ],
         "schemaValidation": true
     });
-    let error =
-        DatabaseSchema::try_from(schema_json).expect_err("Successfully created invalid schema");
+    let error = DatabaseSchema::json_deserialize_value(schema_json)
+        .expect_err("Successfully created invalid schema");
     assert!(error.to_string().contains("Identifiers must start with"));
 
     // This schema has a nested field with an invalid name ("123 nested")
@@ -633,8 +632,8 @@ fn test_invalid_field_name() {
         ],
         "schemaValidation": true
     });
-    let error =
-        DatabaseSchema::try_from(schema_json).expect_err("Successfully created invalid schema");
+    let error = DatabaseSchema::json_deserialize_value(schema_json)
+        .expect_err("Successfully created invalid schema");
     assert!(error.to_string().contains("Identifiers must start with"));
 }
 
@@ -651,7 +650,7 @@ fn test_json_backwards_compatibility() -> anyhow::Result<()> {
             },
         ],
     });
-    let schema = DatabaseSchema::try_from(schema_json)?;
+    let schema = DatabaseSchema::json_deserialize_value(schema_json)?;
     assert!(!schema.schema_validation);
     Ok(())
 }

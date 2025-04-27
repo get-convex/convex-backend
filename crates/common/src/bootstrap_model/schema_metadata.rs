@@ -2,14 +2,16 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::Value as JsonValue;
 use value::codegen_convex_serialization;
 
 use super::schema_state::{
     SchemaState,
     SerializedSchemaState,
 };
-use crate::schemas::DatabaseSchema;
+use crate::{
+    json::JsonSerializable,
+    schemas::DatabaseSchema,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -20,13 +22,11 @@ pub struct SchemaMetadata {
 
 impl SchemaMetadata {
     pub fn database_schema(&self) -> anyhow::Result<DatabaseSchema> {
-        let deserialized_value: JsonValue = serde_json::from_str(&self.raw_schema)?;
-        DatabaseSchema::try_from(deserialized_value)
+        DatabaseSchema::json_deserialize(&self.raw_schema)
     }
 
     pub fn new(state: SchemaState, schema: DatabaseSchema) -> anyhow::Result<Self> {
-        let json_schema: JsonValue = schema.try_into()?;
-        let raw_schema = serde_json::to_string(&json_schema)?;
+        let raw_schema = schema.json_serialize()?;
         Ok(Self { state, raw_schema })
     }
 }

@@ -45,7 +45,7 @@ use crate::{
         },
         vector_index::VectorDimensions,
     },
-    json::invalid_json,
+    json::JsonSerializable,
     schemas::{
         invalid_top_level_type_in_schema,
         SearchIndexSchema,
@@ -58,19 +58,21 @@ use crate::{
     },
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct DatabaseSchemaJson {
-    tables: Vec<JsonValue>,
+pub struct DatabaseSchemaJson {
+    tables: Vec<TableDefinitionJson>,
     schema_validation: Option<bool>,
 }
 
-impl TryFrom<JsonValue> for DatabaseSchema {
+impl JsonSerializable for DatabaseSchema {
+    type Json = DatabaseSchemaJson;
+}
+
+impl TryFrom<DatabaseSchemaJson> for DatabaseSchema {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let j: DatabaseSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
-
+    fn try_from(j: DatabaseSchemaJson) -> Result<Self, Self::Error> {
         let tables = j
             .tables
             .into_iter()
@@ -90,7 +92,7 @@ impl TryFrom<JsonValue> for DatabaseSchema {
     }
 }
 
-impl TryFrom<DatabaseSchema> for JsonValue {
+impl TryFrom<DatabaseSchema> for DatabaseSchemaJson {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -99,48 +101,35 @@ impl TryFrom<DatabaseSchema> for JsonValue {
             schema_validation,
         }: DatabaseSchema,
     ) -> anyhow::Result<Self> {
-        let database_schema_json = DatabaseSchemaJson {
+        Ok(DatabaseSchemaJson {
             tables: tables
                 .into_values()
-                .map(JsonValue::try_from)
+                .map(TableDefinitionJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
             schema_validation: Some(schema_validation),
-        };
-        Ok(serde_json::to_value(database_schema_json)?)
+        })
     }
 }
 
-impl TryFrom<ConvexValue> for DatabaseSchema {
-    type Error = anyhow::Error;
-
-    fn try_from(v: ConvexValue) -> anyhow::Result<Self> {
-        v.to_internal_json().try_into()
-    }
-}
-
-impl TryFrom<DatabaseSchema> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(database_schema: DatabaseSchema) -> anyhow::Result<Self> {
-        JsonValue::try_from(database_schema)?.try_into()
-    }
-}
-
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct TableDefinitionJson {
+pub struct TableDefinitionJson {
     table_name: String,
-    indexes: Vec<JsonValue>,
-    search_indexes: Option<Vec<JsonValue>>,
-    vector_indexes: Option<Vec<JsonValue>>,
-    document_type: Option<JsonValue>,
+    indexes: Vec<IndexSchemaJson>,
+    search_indexes: Option<Vec<SearchIndexSchemaJson>>,
+    vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
+    document_type: Option<ValidatorJson>,
+}
+
+impl JsonSerializable for TableDefinition {
+    type Json = TableDefinitionJson;
 }
 
 // Collect the index names separately from the deduplicating map so that we can
 // complain complain about duplicate names
-fn parse_names_and_indexes<T: TryFrom<JsonValue, Error = anyhow::Error>>(
+fn parse_names_and_indexes<T: TryFrom<U, Error = anyhow::Error>, U>(
     table_name: &TableName,
-    indexes: Vec<JsonValue>,
+    indexes: Vec<U>,
     descriptor: impl Fn(&T) -> &IndexDescriptor,
 ) -> anyhow::Result<(Vec<IndexDescriptor>, BTreeMap<IndexDescriptor, T>)> {
     itertools::process_results(
@@ -172,11 +161,10 @@ fn validate_unique_index_fields<T, Y: Clone + Eq + std::hash::Hash>(
     Ok(())
 }
 
-impl TryFrom<JsonValue> for TableDefinition {
+impl TryFrom<TableDefinitionJson> for TableDefinition {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let j: TableDefinitionJson = serde_json::from_value(value).with_context(invalid_json)?;
+    fn try_from(j: TableDefinitionJson) -> Result<Self, Self::Error> {
         let search_indexes = j.search_indexes.unwrap_or_default();
         let vector_indexes = j.vector_indexes.unwrap_or_default();
 
@@ -267,7 +255,7 @@ impl TryFrom<JsonValue> for TableDefinition {
     }
 }
 
-impl TryFrom<TableDefinition> for JsonValue {
+impl TryFrom<TableDefinition> for TableDefinitionJson {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -282,43 +270,46 @@ impl TryFrom<TableDefinition> for JsonValue {
         let table_name = String::from(table_name);
         let indexes = indexes
             .into_values()
-            .map(JsonValue::try_from)
+            .map(IndexSchemaJson::try_from)
             .collect::<anyhow::Result<Vec<_>>>()?;
         let search_indexes = Some(
             search_indexes
                 .into_values()
-                .map(JsonValue::try_from)
+                .map(SearchIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
-        let document_type = document_type.map(JsonValue::try_from).transpose()?;
+        let document_type = document_type.map(ValidatorJson::try_from).transpose()?;
         let vector_indexes = Some(
             vector_indexes
                 .into_values()
-                .map(JsonValue::try_from)
+                .map(VectorIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
-        Ok(serde_json::to_value(TableDefinitionJson {
+        Ok(TableDefinitionJson {
             table_name,
             indexes,
             search_indexes,
             vector_indexes,
             document_type,
-        })?)
+        })
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct IndexSchemaJson {
+pub struct IndexSchemaJson {
     index_descriptor: String,
     fields: Vec<String>,
 }
 
-impl TryFrom<JsonValue> for IndexSchema {
+impl JsonSerializable for IndexSchema {
+    type Json = IndexSchemaJson;
+}
+
+impl TryFrom<IndexSchemaJson> for IndexSchema {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let j: IndexSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
+    fn try_from(j: IndexSchemaJson) -> Result<Self, Self::Error> {
         let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let fields = j
             .fields
@@ -340,7 +331,7 @@ impl TryFrom<JsonValue> for IndexSchema {
     }
 }
 
-impl TryFrom<IndexSchema> for JsonValue {
+impl TryFrom<IndexSchema> for IndexSchemaJson {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -349,20 +340,19 @@ impl TryFrom<IndexSchema> for JsonValue {
             fields,
         }: IndexSchema,
     ) -> anyhow::Result<Self> {
-        let index_schema_json = IndexSchemaJson {
+        Ok(IndexSchemaJson {
             index_descriptor: String::from(index_descriptor),
             fields: Vec::<FieldPath>::from(fields)
                 .into_iter()
                 .map(String::from)
                 .collect::<Vec<_>>(),
-        };
-        Ok(serde_json::to_value(index_schema_json)?)
+        })
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct VectorIndexSchemaJson {
+pub struct VectorIndexSchemaJson {
     index_descriptor: String,
     vector_field: String,
     dimensions: Option<u32>,
@@ -370,11 +360,14 @@ struct VectorIndexSchemaJson {
     filter_fields: Vec<String>,
 }
 
-impl TryFrom<JsonValue> for VectorIndexSchema {
+impl JsonSerializable for VectorIndexSchema {
+    type Json = VectorIndexSchemaJson;
+}
+
+impl TryFrom<VectorIndexSchemaJson> for VectorIndexSchema {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let j: VectorIndexSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
+    fn try_from(j: VectorIndexSchemaJson) -> Result<Self, Self::Error> {
         let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let vector_field = j.vector_field.parse().with_context(|| {
             index_validation_error::invalid_index_field(&index_descriptor, &j.vector_field)
@@ -400,7 +393,7 @@ impl TryFrom<JsonValue> for VectorIndexSchema {
     }
 }
 
-impl TryFrom<VectorIndexSchema> for JsonValue {
+impl TryFrom<VectorIndexSchema> for VectorIndexSchemaJson {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -412,7 +405,7 @@ impl TryFrom<VectorIndexSchema> for JsonValue {
             ..
         }: VectorIndexSchema,
     ) -> anyhow::Result<Self> {
-        let vector_index_schema_json = VectorIndexSchemaJson {
+        Ok(VectorIndexSchemaJson {
             index_descriptor: String::from(index_descriptor),
             vector_field: String::from(vector_field),
             dimensions: Some(dimension.into()),
@@ -421,24 +414,26 @@ impl TryFrom<VectorIndexSchema> for JsonValue {
                 .into_iter()
                 .map(String::from)
                 .collect::<Vec<_>>(),
-        };
-        Ok(serde_json::to_value(vector_index_schema_json)?)
+        })
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct SearchIndexSchemaJson {
+pub struct SearchIndexSchemaJson {
     index_descriptor: String,
     search_field: String,
     filter_fields: BTreeSet<String>,
 }
 
-impl TryFrom<JsonValue> for SearchIndexSchema {
+impl JsonSerializable for SearchIndexSchema {
+    type Json = SearchIndexSchemaJson;
+}
+
+impl TryFrom<SearchIndexSchemaJson> for SearchIndexSchema {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let j: SearchIndexSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
+    fn try_from(j: SearchIndexSchemaJson) -> Result<Self, Self::Error> {
         let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let search_field = j.search_field.parse().with_context(|| {
             index_validation_error::invalid_index_field(&index_descriptor, &j.search_field)
@@ -457,7 +452,7 @@ impl TryFrom<JsonValue> for SearchIndexSchema {
     }
 }
 
-impl TryFrom<SearchIndexSchema> for JsonValue {
+impl TryFrom<SearchIndexSchema> for SearchIndexSchemaJson {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -468,23 +463,22 @@ impl TryFrom<SearchIndexSchema> for JsonValue {
             ..
         }: SearchIndexSchema,
     ) -> anyhow::Result<Self> {
-        let search_index_json = SearchIndexSchemaJson {
+        Ok(SearchIndexSchemaJson {
             index_descriptor: index_descriptor.to_string(),
             search_field: String::from(search_field),
             filter_fields: filter_fields
                 .into_iter()
                 .map(String::from)
                 .collect::<BTreeSet<_>>(),
-        };
-        Ok(serde_json::to_value(search_index_json)?)
+        })
     }
 }
 
-impl TryFrom<JsonValue> for DocumentSchema {
+impl TryFrom<ValidatorJson> for DocumentSchema {
     type Error = anyhow::Error;
 
-    fn try_from(v: JsonValue) -> Result<Self, Self::Error> {
-        let schema_type: Validator = v.try_into()?;
+    fn try_from(json: ValidatorJson) -> Result<Self, Self::Error> {
+        let schema_type = Validator::try_from(json)?;
         match schema_type {
             Validator::Any => Ok(DocumentSchema::Any),
             Validator::Union(value) => {
@@ -515,18 +509,18 @@ impl TryFrom<JsonValue> for DocumentSchema {
     }
 }
 
-impl TryFrom<DocumentSchema> for JsonValue {
+impl TryFrom<DocumentSchema> for ValidatorJson {
     type Error = anyhow::Error;
 
-    fn try_from(d: DocumentSchema) -> anyhow::Result<JsonValue> {
+    fn try_from(d: DocumentSchema) -> anyhow::Result<ValidatorJson> {
         match d {
-            DocumentSchema::Any => JsonValue::try_from(Validator::Any),
+            DocumentSchema::Any => ValidatorJson::try_from(Validator::Any),
             DocumentSchema::Union(mut object_schemas) => {
                 if object_schemas.len() == 1 {
                     let single_schema = object_schemas.pop().unwrap();
-                    JsonValue::try_from(Validator::Object(single_schema))
+                    ValidatorJson::try_from(Validator::Object(single_schema))
                 } else {
-                    JsonValue::try_from(Validator::Union(
+                    ValidatorJson::try_from(Validator::Union(
                         object_schemas.into_iter().map(Validator::Object).collect(),
                     ))
                 }
@@ -535,19 +529,21 @@ impl TryFrom<DocumentSchema> for JsonValue {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-struct FieldTypeJson {
-    field_type: JsonValue,
+pub struct FieldTypeJson {
+    field_type: ValidatorJson,
     optional: bool,
 }
 
-impl TryFrom<JsonValue> for FieldValidator {
+impl JsonSerializable for FieldValidator {
+    type Json = FieldTypeJson;
+}
+
+impl TryFrom<FieldTypeJson> for FieldValidator {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> anyhow::Result<Self> {
-        let field_type_json: FieldTypeJson =
-            serde_json::from_value(value).context("Not a field validator")?;
+    fn try_from(field_type_json: FieldTypeJson) -> anyhow::Result<Self> {
         Ok(FieldValidator {
             validator: field_type_json.field_type.try_into()?,
             optional: field_type_json.optional,
@@ -555,22 +551,21 @@ impl TryFrom<JsonValue> for FieldValidator {
     }
 }
 
-impl TryFrom<FieldValidator> for JsonValue {
+impl TryFrom<FieldValidator> for FieldTypeJson {
     type Error = anyhow::Error;
 
-    fn try_from(f: FieldValidator) -> anyhow::Result<JsonValue> {
-        let field_type_json = FieldTypeJson {
-            field_type: JsonValue::try_from(f.validator)?,
+    fn try_from(f: FieldValidator) -> anyhow::Result<FieldTypeJson> {
+        Ok(FieldTypeJson {
+            field_type: ValidatorJson::try_from(f.validator)?,
             optional: f.optional,
-        };
-        Ok(serde_json::to_value(field_type_json)?)
+        })
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[serde(tag = "type")]
-enum ValidatorJson {
+pub enum ValidatorJson {
     Null,
     Number,
     Bigint,
@@ -586,25 +581,29 @@ enum ValidatorJson {
         table_name: String,
     },
     Array {
-        value: JsonValue,
+        value: Box<ValidatorJson>,
     },
     Set {
-        value: JsonValue,
+        value: Box<ValidatorJson>,
     },
     Map {
-        keys: JsonValue,
-        values: JsonValue,
+        keys: Box<ValidatorJson>,
+        values: Box<ValidatorJson>,
     },
     Record {
-        keys: JsonValue,
-        values: JsonValue,
+        keys: Box<ValidatorJson>,
+        values: Box<FieldTypeJson>,
     },
     Object {
-        value: JsonValue,
+        value: BTreeMap<String, FieldTypeJson>,
     },
     Union {
-        value: Vec<JsonValue>,
+        value: Vec<ValidatorJson>,
     },
+}
+
+impl JsonSerializable for Validator {
+    type Json = ValidatorJson;
 }
 
 impl TryFrom<ValidatorJson> for Validator {
@@ -621,15 +620,15 @@ impl TryFrom<ValidatorJson> for Validator {
             ValidatorJson::Any => Ok(Validator::Any),
             ValidatorJson::Literal { value } => Ok(Validator::Literal(value.try_into()?)),
             ValidatorJson::Id { table_name } => Ok(Validator::Id(table_name.parse()?)),
-            ValidatorJson::Array { value } => Ok(Validator::Array(Box::new(value.try_into()?))),
-            ValidatorJson::Set { value } => Ok(Validator::Set(Box::new(value.try_into()?))),
+            ValidatorJson::Array { value } => Ok(Validator::Array(Box::new((*value).try_into()?))),
+            ValidatorJson::Set { value } => Ok(Validator::Set(Box::new((*value).try_into()?))),
             ValidatorJson::Map { keys, values } => Ok(Validator::Map(
-                Box::new(keys.try_into()?),
-                Box::new(values.try_into()?),
+                Box::new((*keys).try_into()?),
+                Box::new((*values).try_into()?),
             )),
             ValidatorJson::Record { keys, values } => {
                 let error_short_code = "InvalidRecordType";
-                let keys_validator = Validator::try_from(keys)?;
+                let keys_validator = Validator::try_from(*keys)?;
                 if !keys_validator.is_subset(&Validator::String) {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         error_short_code,
@@ -640,7 +639,7 @@ impl TryFrom<ValidatorJson> for Validator {
                         )
                     ))
                 }
-                let values_validator = FieldValidator::try_from(values)?;
+                let values_validator = FieldValidator::try_from(*values)?;
                 if keys_validator.is_string_subtype_with_string_literal() {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         error_short_code,
@@ -670,20 +669,11 @@ impl TryFrom<ValidatorJson> for Validator {
     }
 }
 
-impl TryFrom<JsonValue> for Validator {
+impl TryFrom<Validator> for ValidatorJson {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> anyhow::Result<Self> {
-        let schema_type_json: ValidatorJson = serde_json::from_value(value)?;
-        schema_type_json.try_into()
-    }
-}
-
-impl TryFrom<Validator> for JsonValue {
-    type Error = anyhow::Error;
-
-    fn try_from(s: Validator) -> anyhow::Result<JsonValue> {
-        let schema_type = match s {
+    fn try_from(s: Validator) -> anyhow::Result<ValidatorJson> {
+        Ok(match s {
             Validator::Id(table_name) => ValidatorJson::Id {
                 table_name: table_name.to_string(),
             },
@@ -697,21 +687,21 @@ impl TryFrom<Validator> for JsonValue {
                 value: literal.try_into()?,
             },
             Validator::Array(t) => ValidatorJson::Array {
-                value: JsonValue::try_from(*t)?,
+                value: Box::new(ValidatorJson::try_from(*t)?),
             },
             Validator::Set(t) => ValidatorJson::Set {
-                value: JsonValue::try_from(*t)?,
+                value: Box::new(ValidatorJson::try_from(*t)?),
             },
             Validator::Map(k, v) => ValidatorJson::Map {
-                keys: JsonValue::try_from(*k)?,
-                values: JsonValue::try_from(*v)?,
+                keys: Box::new(ValidatorJson::try_from(*k)?),
+                values: Box::new(ValidatorJson::try_from(*v)?),
             },
             Validator::Record(k, v) => ValidatorJson::Record {
-                keys: JsonValue::try_from(*k)?,
-                values: JsonValue::try_from(FieldValidator {
+                keys: Box::new(ValidatorJson::try_from(*k)?),
+                values: Box::new(FieldTypeJson::try_from(FieldValidator {
                     optional: false,
                     validator: *v,
-                })?,
+                })?),
             },
             Validator::Object(o) => ValidatorJson::Object {
                 value: o.try_into()?,
@@ -719,12 +709,11 @@ impl TryFrom<Validator> for JsonValue {
             Validator::Union(v) => ValidatorJson::Union {
                 value: v
                     .into_iter()
-                    .map(JsonValue::try_from)
+                    .map(ValidatorJson::try_from)
                     .collect::<anyhow::Result<Vec<_>>>()?,
             },
             Validator::Any => ValidatorJson::Any,
-        };
-        Ok(serde_json::to_value(schema_type)?)
+        })
     }
 }
 
@@ -756,13 +745,10 @@ impl TryFrom<LiteralValidator> for JsonValue {
     }
 }
 
-impl TryFrom<JsonValue> for ObjectValidator {
+impl TryFrom<BTreeMap<String, FieldTypeJson>> for ObjectValidator {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let JsonValue::Object(value) = value else {
-            anyhow::bail!("Object must be an object");
-        };
+    fn try_from(value: BTreeMap<String, FieldTypeJson>) -> Result<Self, Self::Error> {
         let schema = ObjectValidator(
             value
                 .into_iter()
@@ -781,14 +767,14 @@ impl TryFrom<JsonValue> for ObjectValidator {
     }
 }
 
-impl TryFrom<ObjectValidator> for JsonValue {
+impl TryFrom<ObjectValidator> for BTreeMap<String, FieldTypeJson> {
     type Error = anyhow::Error;
 
-    fn try_from(o: ObjectValidator) -> anyhow::Result<JsonValue> {
-        let mut map = serde_json::Map::new();
+    fn try_from(o: ObjectValidator) -> anyhow::Result<BTreeMap<String, FieldTypeJson>> {
+        let mut map = BTreeMap::new();
         for (field, field_type) in o.0 {
-            map.insert(field.to_string(), JsonValue::try_from(field_type)?);
+            map.insert(field.to_string(), FieldTypeJson::try_from(field_type)?);
         }
-        Ok(JsonValue::Object(map))
+        Ok(map)
     }
 }

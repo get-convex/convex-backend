@@ -58,7 +58,9 @@ use model::{
     modules::{
         function_validators::{
             ArgsValidator,
+            ArgsValidatorJson,
             ReturnsValidator,
+            ReturnsValidatorJson,
         },
         module_versions::{
             invalid_function_name_error,
@@ -461,7 +463,7 @@ impl<RT: Runtime> Actions<RT> {
                         f.name, path, udf_type,
                     ))));
                 }
-                let args = match f.args.clone() {
+                let args = match f.args {
                     Some(json_args) => match ArgsValidator::try_from(json_args) {
                         Ok(validator) => validator,
                         Err(parse_error) => {
@@ -472,9 +474,9 @@ impl<RT: Runtime> Actions<RT> {
                     },
                     None => ArgsValidator::Unvalidated,
                 };
-                let returns = match f.returns.clone() {
-                    Some(json_returns) => ReturnsValidator::try_from(json_returns.clone())
-                        .map_err(|e| {
+                let returns = match f.returns {
+                    Some(json_returns) => {
+                        ReturnsValidator::try_from(json_returns).map_err(|e| {
                             ErrorMetadata::bad_request(
                                 "InvalidNodeActionReturnsValidator",
                                 format!(
@@ -483,10 +485,11 @@ impl<RT: Runtime> Actions<RT> {
                                     f.name, path
                                 ),
                             )
-                        })?,
+                        })?
+                    },
                     None => ReturnsValidator::Unvalidated,
                 };
-                let visibility = f.visibility.clone().map(Visibility::from);
+                let visibility = f.visibility.map(Visibility::from);
 
                 // Extract source position
                 let pos = if let Some(Some(token)) =
@@ -866,8 +869,8 @@ pub struct AnalyzedNodeFunction {
     lineno: u32,
     udf_type: String,
     visibility: Option<VisibilityJson>,
-    args: Option<JsonValue>,
-    returns: Option<JsonValue>,
+    args: Option<ArgsValidatorJson>,
+    returns: Option<ReturnsValidatorJson>,
 }
 
 #[derive(Debug)]

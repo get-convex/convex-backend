@@ -7,10 +7,13 @@ use chrono::{
     DateTime,
     Utc,
 };
-use common::value::{
-    ConvexObject,
-    FieldPath,
-    IdentifierFieldName,
+use common::{
+    schemas::json::TableDefinitionJson,
+    value::{
+        ConvexObject,
+        FieldPath,
+        IdentifierFieldName,
+    },
 };
 use serde::{
     Deserialize,
@@ -145,7 +148,7 @@ pub struct TruncateTableArgs {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTableArgs {
-    pub table_definition: serde_json::Value, // TableDefinition
+    pub table_definition: TableDefinitionJson,
 }
 #[cfg(test)]
 mod tests {

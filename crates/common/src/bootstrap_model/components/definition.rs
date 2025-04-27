@@ -23,6 +23,7 @@ use crate::{
         ComponentName,
         Reference,
     },
+    json::JsonSerializable as _,
     schemas::validator::Validator,
 };
 
@@ -338,7 +339,7 @@ impl TryFrom<ComponentArgumentValidator> for SerializedComponentArgumentValidato
     fn try_from(r: ComponentArgumentValidator) -> anyhow::Result<Self> {
         Ok(match r {
             ComponentArgumentValidator::Value(v) => SerializedComponentArgumentValidator::Value {
-                value: serde_json::to_string(&JsonValue::try_from(v)?)?,
+                value: v.json_serialize()?,
             },
         })
     }
@@ -350,9 +351,7 @@ impl TryFrom<SerializedComponentArgumentValidator> for ComponentArgumentValidato
     fn try_from(r: SerializedComponentArgumentValidator) -> anyhow::Result<Self> {
         Ok(match r {
             SerializedComponentArgumentValidator::Value { value: v } => {
-                ComponentArgumentValidator::Value(Validator::try_from(serde_json::from_str::<
-                    JsonValue,
-                >(&v)?)?)
+                ComponentArgumentValidator::Value(Validator::json_deserialize(&v)?)
             },
         })
     }

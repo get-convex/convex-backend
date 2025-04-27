@@ -14,6 +14,7 @@ use anyhow::{
 };
 use common::{
     errors::JsError,
+    json::JsonSerializable as _,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         ISOLATE_ANALYZE_USER_TIMEOUT,
@@ -480,17 +481,7 @@ fn parse_args_validator<'s, RT: Runtime>(
                 },
             };
             let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
-            let args_json = match serde_json::from_str::<JsonValue>(&result_str) {
-                Ok(args_json) => args_json,
-                Err(json_error) => {
-                    let message = format!(
-                        "Invalid JSON returned from {function_identifier_for_error}.exportArgs(): \
-                         {json_error}"
-                    );
-                    return Ok(Err(JsError::from_message(message)));
-                },
-            };
-            match ArgsValidator::try_from(args_json) {
+            match ArgsValidator::json_deserialize(&result_str) {
                 Ok(validator) => validator,
                 Err(parse_error) => {
                     let message = format!(
@@ -543,17 +534,7 @@ fn parse_returns_validator<'s, RT: Runtime>(
                 },
             };
             let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
-            let output_json = match serde_json::from_str::<JsonValue>(&result_str) {
-                Ok(validator) => validator,
-                Err(parse_error) => {
-                    let message = format!(
-                        "Invalid JSON returned from \
-                         {function_identifier_for_error}.exportReturns(): {parse_error}"
-                    );
-                    return Ok(Err(JsError::from_message(message)));
-                },
-            };
-            match ReturnsValidator::try_from(output_json) {
+            match ReturnsValidator::json_deserialize(&result_str) {
                 Ok(validator) => validator,
                 Err(parse_error) => {
                     let message = format!(

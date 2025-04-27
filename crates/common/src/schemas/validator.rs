@@ -1147,6 +1147,7 @@ mod tests {
 
     use super::Validator;
     use crate::{
+        json::JsonSerializable as _,
         schemas::{
             validator::{
                 FieldValidator,
@@ -1290,7 +1291,7 @@ mod tests {
                 },
             }
         });
-        assert!(Validator::try_from(validator_json).is_ok());
+        assert!(Validator::json_deserialize_value(validator_json).is_ok());
         Ok(())
     }
 
@@ -1317,7 +1318,7 @@ mod tests {
                 },
             }
         });
-        assert!(Validator::try_from(validator_json).is_ok());
+        assert!(Validator::json_deserialize_value(validator_json).is_ok());
         Ok(())
     }
 
@@ -1344,7 +1345,7 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        must_let::must_let!(let Err(e) = Validator::json_deserialize_value(validator_json));
         assert_eq!(e.short_msg(), "InvalidRecordType");
         Ok(())
     }
@@ -1371,7 +1372,7 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        must_let::must_let!(let Err(e) = Validator::json_deserialize_value(validator_json));
         assert_eq!(e.short_msg(), "InvalidRecordType");
         Ok(())
     }
@@ -1399,7 +1400,7 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        must_let::must_let!(let Err(e) = Validator::json_deserialize_value(validator_json));
         assert_eq!(e.short_msg(), "InvalidRecordType");
         Ok(())
     }
@@ -1436,7 +1437,7 @@ mod tests {
                 },
             }
         });
-        assert!(Validator::try_from(validator_json).is_ok());
+        assert!(Validator::json_deserialize_value(validator_json).is_ok());
         Ok(())
     }
 
@@ -1472,7 +1473,7 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        must_let::must_let!(let Err(e) = Validator::json_deserialize_value(validator_json));
         assert_eq!(e.short_msg(), "InvalidRecordType");
         Ok(())
     }
@@ -1498,7 +1499,7 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        must_let::must_let!(let Err(e) = Validator::json_deserialize_value(validator_json));
         assert_eq!(e.short_msg(), "InvalidRecordType");
         Ok(())
     }

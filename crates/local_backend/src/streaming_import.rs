@@ -24,6 +24,7 @@ use common::{
         extract::Json,
         HttpResponseError,
     },
+    schemas::json::DatabaseSchemaJson,
 };
 use convex_fivetran_destination::api_types::{
     BatchWriteRow,
@@ -106,8 +107,8 @@ pub async fn get_schema(
         .get_schema(TableNamespace::root_component(), &identity)
         .await?;
     Ok(Json(match schema {
-        None => serde_json::Value::Null,
-        Some(schema) => schema.try_into()?,
+        None => None,
+        Some(schema) => Some(DatabaseSchemaJson::try_from(schema)?),
     }))
 }
 

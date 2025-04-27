@@ -13,6 +13,7 @@ use crate::{
         MAX_TEXT_INDEX_FILTER_FIELDS_SIZE,
         MAX_VECTOR_INDEX_FILTER_FIELDS_SIZE,
     },
+    json::JsonSerializable,
     schemas::{
         DatabaseSchema,
         MAX_INDEXES_PER_TABLE,
@@ -23,8 +24,8 @@ static TOO_MANY_INDEXES: LazyLock<Vec<JsonValue>> = LazyLock::new(|| {
     (0..MAX_INDEXES_PER_TABLE + 1)
         .map(|i| {
             json!({
-                "indexDescriptor": i,
-                "fields": [i]
+                "indexDescriptor": format!("index{i}"),
+                "fields": ["x"],
             })
         })
         .collect()
@@ -37,8 +38,8 @@ static TOO_MANY_INDEX_FIELDS: LazyLock<Vec<String>> = LazyLock::new(|| {
 });
 
 fn index_validation_test(schema_value: JsonValue) -> ErrorMetadata {
-    let e =
-        DatabaseSchema::try_from(schema_value).expect_err("Successfully created invalid schema");
+    let e = DatabaseSchema::json_deserialize_value(schema_value)
+        .expect_err("Successfully created invalid schema");
     e.downcast::<ErrorMetadata>()
         .unwrap_or_else(|e| panic!("Error <{e}> is not an ErrorMetadata"))
 }
@@ -247,7 +248,7 @@ fn test_vector_indexes_same_fields_different_dimensions_are_valid() -> anyhow::R
         ],
         "schemaValidation": true,
     });
-    DatabaseSchema::try_from(value)?;
+    DatabaseSchema::json_deserialize_value(value)?;
     Ok(())
 }
 
@@ -902,7 +903,7 @@ fn test_many_search_indexes() -> anyhow::Result<()> {
         ],
         "schemaValidation": true,
     });
-    DatabaseSchema::try_from(value)?;
+    DatabaseSchema::json_deserialize_value(value)?;
     Ok(())
 }
 
@@ -928,7 +929,7 @@ fn test_many_vector_indexes() -> anyhow::Result<()> {
         ],
         "schemaValidation": true,
     });
-    DatabaseSchema::try_from(value)?;
+    DatabaseSchema::json_deserialize_value(value)?;
     Ok(())
 }
 

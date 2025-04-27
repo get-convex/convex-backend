@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use common::{
+    json::JsonSerializable,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
@@ -263,8 +264,7 @@ impl SchemaEnvironment {
             v8_schema_result.map_err(|_| invalid_schema_export_error())?;
 
         let result_str = helpers::to_rust_string(&mut scope, &v8_schema_str)?;
-        let schema_json: JsonValue = serde_json::from_str(&result_str)?;
-        DatabaseSchema::try_from(schema_json).map_err(|e| {
+        DatabaseSchema::json_deserialize(&result_str).map_err(|e| {
             if e.is_bad_request() {
                 e
             } else {

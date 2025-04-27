@@ -1,5 +1,6 @@
 use common::{
     errors::JsError,
+    json::JsonSerializable,
     schemas::validator::{
         ObjectValidator,
         Validator,
@@ -9,7 +10,10 @@ use common::{
 use errors::ErrorMetadataAnyhowExt;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
-use serde_json::Value as JsonValue;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use value::{
     ConvexArray,
     ConvexValue,
@@ -80,11 +84,18 @@ impl ArgsValidator {
     }
 }
 
-impl TryFrom<JsonValue> for ArgsValidator {
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct ArgsValidatorJson(<Validator as JsonSerializable>::Json);
+
+impl JsonSerializable for ArgsValidator {
+    type Json = ArgsValidatorJson;
+}
+
+impl TryFrom<ArgsValidatorJson> for ArgsValidator {
     type Error = anyhow::Error;
 
-    fn try_from(json: JsonValue) -> Result<Self, Self::Error> {
-        let args = match Validator::try_from(json).map_err(|e| {
+    fn try_from(json: ArgsValidatorJson) -> Result<Self, Self::Error> {
+        let args = match Validator::try_from(json.0).map_err(|e| {
             e.wrap_error_message(|msg| {
                 format!("Error in args validator: {msg}\n\
                     See https://docs.convex.dev/functions/validation for \
@@ -99,7 +110,7 @@ impl TryFrom<JsonValue> for ArgsValidator {
     }
 }
 
-impl TryFrom<ArgsValidator> for JsonValue {
+impl TryFrom<ArgsValidator> for ArgsValidatorJson {
     type Error = anyhow::Error;
 
     fn try_from(args: ArgsValidator) -> Result<Self, Self::Error> {
@@ -108,7 +119,7 @@ impl TryFrom<ArgsValidator> for JsonValue {
             ArgsValidator::Validated(args_schema) => Validator::Object(args_schema),
         };
 
-        JsonValue::try_from(validator)
+        Ok(ArgsValidatorJson(validator.try_into()?))
     }
 }
 
@@ -151,13 +162,20 @@ impl ReturnsValidator {
     }
 }
 
-impl TryFrom<JsonValue> for ReturnsValidator {
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct ReturnsValidatorJson(Option<<Validator as JsonSerializable>::Json>);
+
+impl JsonSerializable for ReturnsValidator {
+    type Json = ReturnsValidatorJson;
+}
+
+impl TryFrom<ReturnsValidatorJson> for ReturnsValidator {
     type Error = anyhow::Error;
 
-    fn try_from(json: JsonValue) -> Result<Self, Self::Error> {
-        Ok(match json {
-            JsonValue::Null => ReturnsValidator::Unvalidated,
-            json => ReturnsValidator::Validated(Validator::try_from(json).map_err(|e| {
+    fn try_from(json: ReturnsValidatorJson) -> Result<Self, Self::Error> {
+        Ok(match json.0 {
+            None => ReturnsValidator::Unvalidated,
+            Some(v) => ReturnsValidator::Validated(Validator::try_from(v).map_err(|e| {
                 e.wrap_error_message(|msg| {
                     format!("Error in returns validator: {msg}\n\
                             See https://docs.convex.dev/functions/validation for \
@@ -168,13 +186,13 @@ impl TryFrom<JsonValue> for ReturnsValidator {
     }
 }
 
-impl TryFrom<ReturnsValidator> for JsonValue {
+impl TryFrom<ReturnsValidator> for ReturnsValidatorJson {
     type Error = anyhow::Error;
 
     fn try_from(returns: ReturnsValidator) -> Result<Self, Self::Error> {
         match returns {
-            ReturnsValidator::Unvalidated => Ok(JsonValue::Null),
-            ReturnsValidator::Validated(output_schema) => JsonValue::try_from(output_schema),
+            ReturnsValidator::Unvalidated => Ok(Self(None)),
+            ReturnsValidator::Validated(output_schema) => Ok(Self(Some(output_schema.try_into()?))),
         }
     }
 }
@@ -183,12 +201,13 @@ impl TryFrom<ReturnsValidator> for JsonValue {
 mod tests {
     use cmd_util::env::env_config;
     use proptest::prelude::*;
-    use serde_json::Value as JsonValue;
     use sync_types::testing::assert_roundtrips;
 
     use crate::modules::function_validators::{
         ArgsValidator,
+        ArgsValidatorJson,
         ReturnsValidator,
+        ReturnsValidatorJson,
     };
 
     proptest! {
@@ -197,12 +216,12 @@ mod tests {
         )]
         #[test]
         fn test_args_roundtrips(v in any::<ArgsValidator>()) {
-            assert_roundtrips::<ArgsValidator, JsonValue>(v);
+            assert_roundtrips::<ArgsValidator, ArgsValidatorJson>(v);
         }
 
         #[test]
         fn test_returns_roundtrips(v in any::<ReturnsValidator>()) {
-            assert_roundtrips::<ReturnsValidator, JsonValue>(v);
+            assert_roundtrips::<ReturnsValidator, ReturnsValidatorJson>(v);
         }
     }
 }

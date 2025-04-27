@@ -9,7 +9,10 @@ use common::{
         SerializedComponentDefinitionMetadata,
     },
     components::ComponentDefinitionPath,
-    schemas::DatabaseSchema,
+    schemas::{
+        json::DatabaseSchemaJson,
+        DatabaseSchema,
+    },
     types::NodeDependency,
 };
 use semver::Version;
@@ -119,7 +122,7 @@ pub struct EvaluatedComponentDefinition {
 #[serde(rename_all = "camelCase")]
 pub struct SerializedEvaluatedComponentDefinition {
     definition: SerializedComponentDefinitionMetadata,
-    schema: Option<JsonValue>,
+    schema: Option<DatabaseSchemaJson>,
     functions: BTreeMap<String, SerializedAnalyzedModule>,
     udf_config: JsonValue,
 }

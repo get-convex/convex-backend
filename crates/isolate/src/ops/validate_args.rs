@@ -1,4 +1,5 @@
 use anyhow::Context;
+use common::json::JsonSerializable as _;
 use model::{
     modules::function_validators::ArgsValidator,
     virtual_system_mapping,
@@ -22,8 +23,8 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
         return Err(anyhow::anyhow!("export_args result not a string"));
     };
 
-    let args_validator: ArgsValidator = match serde_json::from_str::<JsonValue>(&validator_string) {
-        Ok(args_json) => ArgsValidator::try_from(args_json)?,
+    let args_validator = match ArgsValidator::json_deserialize(&validator_string) {
+        Ok(v) => v,
         Err(json_error) => {
             let message = format!("Unable to parse JSON returned from `exportArgs`: {json_error}");
             return Err(anyhow::anyhow!(message));

@@ -8,6 +8,7 @@ use std::{
 use async_lru::async_lru::SizedValue;
 use common::{
     http::RoutedHttpPath,
+    json::JsonSerializable,
     types::{
         HttpActionRoute,
         RoutableMethod,
@@ -21,7 +22,6 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::Value as JsonValue;
 use sync_types::{
     CanonicalizedModulePath,
     FunctionName,
@@ -274,34 +274,28 @@ impl AnalyzedFunction {
         args: ArgsValidator,
         returns: ReturnsValidator,
     ) -> anyhow::Result<Self> {
-        let args_json = JsonValue::try_from(args)?;
-        let returns_json = JsonValue::try_from(returns)?;
+        let args_json = args.json_serialize()?;
+        let returns_json = returns.json_serialize()?;
         Ok(Self {
             name,
             pos,
             udf_type,
             visibility,
-            args_str: Some(serde_json::to_string(&args_json)?),
-            returns_str: Some(serde_json::to_string(&returns_json)?),
+            args_str: Some(args_json),
+            returns_str: Some(returns_json),
         })
     }
 
     pub fn args(&self) -> anyhow::Result<ArgsValidator> {
         match &self.args_str {
-            Some(args) => {
-                let deserialized_value: JsonValue = serde_json::from_str(args)?;
-                ArgsValidator::try_from(deserialized_value)
-            },
+            Some(args) => ArgsValidator::json_deserialize(args),
             None => Ok(ArgsValidator::Unvalidated),
         }
     }
 
     pub fn returns(&self) -> anyhow::Result<ReturnsValidator> {
         match &self.returns_str {
-            Some(returns) => {
-                let deserialized_value: JsonValue = serde_json::from_str(returns)?;
-                ReturnsValidator::try_from(deserialized_value)
-            },
+            Some(returns) => ReturnsValidator::json_deserialize(returns),
             None => Ok(ReturnsValidator::Unvalidated),
         }
     }

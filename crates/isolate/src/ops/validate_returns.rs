@@ -1,4 +1,5 @@
 use anyhow::Context;
+use common::json::JsonSerializable as _;
 use model::{
     modules::function_validators::ReturnsValidator,
     virtual_system_mapping,
@@ -21,15 +22,14 @@ pub fn op_validate_returns<'b, P: OpProvider<'b>>(
         return Err(anyhow::anyhow!("export_args result not a string"));
     };
 
-    let returns_validator: ReturnsValidator =
-        match serde_json::from_str::<JsonValue>(&validator_string) {
-            Ok(args_json) => ReturnsValidator::try_from(args_json)?,
-            Err(json_error) => {
-                let message =
-                    format!("Unable to parse JSON returned from `exportReturns`: {json_error}");
-                return Err(anyhow::anyhow!(message));
-            },
-        };
+    let returns_validator = match ReturnsValidator::json_deserialize(&validator_string) {
+        Ok(v) => v,
+        Err(json_error) => {
+            let message =
+                format!("Unable to parse JSON returned from `exportReturns`: {json_error}");
+            return Err(anyhow::anyhow!(message));
+        },
+    };
 
     let function_result = ConvexValue::try_from(function_result)?;
 

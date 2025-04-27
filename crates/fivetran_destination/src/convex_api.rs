@@ -11,6 +11,7 @@ use chrono::{
     Utc,
 };
 use common::{
+    json::JsonSerializable,
     schemas::{
         DatabaseSchema,
         TableDefinition,
@@ -178,8 +179,8 @@ impl Destination for ConvexApi {
             return Ok(None);
         };
 
-        let schema =
-            DatabaseSchema::try_from(value).context("Can’t deserialize the retrived schema")?;
+        let schema = DatabaseSchema::json_deserialize_value(value)
+            .context("Can’t deserialize the retrived schema")?;
         Ok(Some(schema))
     }
 
