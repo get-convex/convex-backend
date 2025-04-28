@@ -32,7 +32,10 @@ use common::{
         CursorPosition,
         Order,
     },
-    runtime::try_join,
+    runtime::{
+        assert_send,
+        try_join,
+    },
     static_span,
     types::{
         DatabaseIndexUpdate,
@@ -362,9 +365,9 @@ impl DatabaseIndexSnapshot {
         }
     }
 
-    async fn start_range_fetch(
+    async fn start_range_fetch<'a>(
         &self,
-        range_request: RangeRequest,
+        range_request: &'a RangeRequest,
     ) -> anyhow::Result<
         // Ok means we have a result immediately, Err means we need to fetch.
         Result<
@@ -372,7 +375,11 @@ impl DatabaseIndexSnapshot {
                 Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
                 CursorPosition,
             ),
-            (IndexId, RangeRequest, Vec<DatabaseIndexSnapshotCacheResult>),
+            (
+                IndexId,
+                &'a RangeRequest,
+                Vec<DatabaseIndexSnapshotCacheResult>,
+            ),
         >,
     > {
         let index = match self.index_registry.require_enabled(
@@ -399,6 +406,7 @@ impl DatabaseIndexSnapshot {
             let err = index_not_a_database_index_error(
                 &range_request
                     .index_name
+                    .clone()
                     .map_table(&self.table_mapping.tablet_to_name())?,
             );
             anyhow::bail!(err);
@@ -484,7 +492,7 @@ impl DatabaseIndexSnapshot {
     /// Query the given index at the snapshot.
     pub async fn range_batch(
         &mut self,
-        range_requests: BTreeMap<BatchKey, RangeRequest>,
+        range_requests: &BTreeMap<BatchKey, RangeRequest>,
     ) -> BTreeMap<
         BatchKey,
         anyhow::Result<(
@@ -496,7 +504,7 @@ impl DatabaseIndexSnapshot {
         let mut ranges_to_fetch = BTreeMap::new();
         let mut results = BTreeMap::new();
 
-        for (batch_key, range_request) in range_requests {
+        for (&batch_key, range_request) in range_requests {
             let result = self.start_range_fetch(range_request).await;
             match result {
                 Err(e) => {
@@ -511,10 +519,9 @@ impl DatabaseIndexSnapshot {
             }
         }
 
-        let persistence = self.persistence.clone();
-        let fetch_results: Vec<_> = stream::iter(ranges_to_fetch.into_iter().map(
-            move |(batch_key, (index_id, range_request, cache_results))| {
-                let persistence = persistence.clone();
+        let f = stream::iter(ranges_to_fetch.into_iter().map(
+            |(batch_key, (index_id, range_request, cache_results))| {
+                let persistence = self.persistence.clone();
                 async move {
                     let any_misses = cache_results.iter().any(|result| {
                         matches!(result, DatabaseIndexSnapshotCacheResult::CacheMiss(_))
@@ -536,8 +543,8 @@ impl DatabaseIndexSnapshot {
             },
         ))
         .buffer_unordered(20)
-        .collect()
-        .await;
+        .collect();
+        let fetch_results: Vec<_> = assert_send(f).await;
 
         for (batch_key, index_id, range_request, fetch_result) in fetch_results {
             let result: anyhow::Result<_> = try {

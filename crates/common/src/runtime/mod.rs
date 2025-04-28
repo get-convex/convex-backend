@@ -230,7 +230,7 @@ pub async fn try_join_buffered<
 // Work around "higher-ranked lifetime errors" due to the borrow checker's
 // inability (bug) to determine that some futures are in fact send.  See
 // https://github.com/rust-lang/rust/issues/102211#issuecomment-1367900125
-fn assert_send<'a, T>(
+pub fn assert_send<'a, T>(
     fut: impl 'a + Send + Future<Output = T>,
 ) -> impl 'a + Send + Future<Output = T> {
     fut

@@ -134,7 +134,7 @@ impl TransactionIndex {
     /// pending writes.
     async fn range_no_deps(
         &mut self,
-        ranges: BTreeMap<BatchKey, RangeRequest>,
+        ranges: &BTreeMap<BatchKey, RangeRequest>,
     ) -> BTreeMap<
         BatchKey,
         anyhow::Result<(
@@ -143,12 +143,12 @@ impl TransactionIndex {
         )>,
     > {
         let snapshot = &mut self.database_index_snapshot;
-        let mut snapshot_results = snapshot.range_batch(ranges.clone()).await;
+        let mut snapshot_results = snapshot.range_batch(ranges).await;
 
         let batch_size = ranges.len();
         let mut results = BTreeMap::new();
 
-        for (batch_key, range_request) in ranges {
+        for (&batch_key, range_request) in ranges {
             let item_result: anyhow::Result<_> = try {
                 let (snapshot_result_vec, cursor) = snapshot_results
                     .remove(&batch_key)
@@ -339,7 +339,7 @@ impl TransactionIndex {
             .range_no_deps(
                 // We use max_rows as size hint. We might receive more or less
                 // due to pending deletes or inserts in the transaction.
-                ranges_to_fetch.clone(),
+                &ranges_to_fetch,
             )
             .await;
 
@@ -438,7 +438,7 @@ impl TransactionIndex {
         let mut preloaded = BTreeMap::new();
         while !remaining_interval.is_empty() {
             let (documents, cursor) = self
-                .range_no_deps(btreemap! { 0 => RangeRequest {
+                .range_no_deps(&btreemap! { 0 => RangeRequest {
                     index_name: tablet_index_name.clone(),
                     printable_index_name: printable_index_name.clone(),
                     interval: remaining_interval,
