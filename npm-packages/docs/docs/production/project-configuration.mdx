@@ -72,3 +72,37 @@ server, instead of being bundled, via the `node.externalPackages` field.
 The Convex code generation can be configured to generate a CommonJS-version of
 the `_generated/api.js` file via the `generateCommonJSApi` field.
 [Read more](/docs/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).
+
+### Using static code generation (beta)
+
+Convex's code generation heavily relies on TypeScript's type inference. This
+makes updates snappy and jump-to-definition work for the `api` and `internal`
+objects, but it often slows down with large codebases.
+
+If you're running into language server performance issues, you can instruct the
+Convex CLI to generate static versions of the `_generated/api.d.ts` and
+`_generated/dataModel.d.ts`:
+
+```json title="convex.json"
+{
+  "codegen": {
+    "staticApi": true,
+    "staticDataModel": true
+  }
+}
+```
+
+This will greatly improve autocomplete and incremental typechecking performance,
+but it does have some tradeoffs:
+
+- These types only update when `convex dev` is running.
+- Jump-to-definition no longer works. To find `api.example.f`, you'll need to
+  manually open `convex/example.ts` and find `f`.
+- Functions no longer have return type inference and will default to `v.any()`
+  if they don't have a returns validator.
+- [TypeScript enums](https://www.typescriptlang.org/docs/handbook/enums.html) no
+  longer work in schema or API definitions. Use unions of string literal types
+  instead.
+
+This feature is currently in beta, and we'd love to improve these limitations.
+Let us know if you run into any issues or have any feedback!
