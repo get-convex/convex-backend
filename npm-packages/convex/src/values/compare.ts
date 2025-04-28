@@ -1,4 +1,5 @@
 import { Value } from "./value.js";
+import { compareUTF8 } from "./compare_utf8.js";
 
 export function compareValues(k1: Value | undefined, k2: Value | undefined) {
   return compareAsTuples(makeComparable(k1), makeComparable(k2));
@@ -22,6 +23,12 @@ function compareSameTypeValues<T>(v1: T, v2: T): number {
       throw new Error(`Unexpected type ${v2 as any}`);
     }
     return compareNumbers(v1, v2);
+  }
+  if (typeof v1 === "string") {
+    if (typeof v2 !== "string") {
+      throw new Error(`Unexpected type ${v2 as any}`);
+    }
+    return compareUTF8(v1, v2);
   }
   if (
     typeof v1 === "bigint" ||

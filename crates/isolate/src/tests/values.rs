@@ -76,6 +76,7 @@ async fn test_compare(rt: TestRuntime, values: Vec<ConvexValue>) -> anyhow::Resu
     }
     Ok(())
 }
+
 #[convex_macro::test_runtime]
 async fn test_compare_nan_and_zero(rt: TestRuntime) -> anyhow::Result<()> {
     // This is the most basic test for special values like `NaN` and negative zero.
@@ -91,6 +92,18 @@ async fn test_compare_nan_and_zero(rt: TestRuntime) -> anyhow::Result<()> {
             test_compare(rt.clone(), vec![values[i].clone(), values[j].clone()]).await?;
         }
     }
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_compare_utf16_strings(rt: TestRuntime) -> anyhow::Result<()> {
+    // This test case was surfaced by proptests -- JS has UTF-16 strings that get
+    // compared differently in JS vs. Rust.
+    let values = vec![
+        ConvexValue::String("𐏍ꢕ¥🕴JಏÚﶒ੫'".to_string().try_into()?),
+        ConvexValue::String("ﹲ𓓄\\𝕆".to_string().try_into()?),
+    ];
+    test_compare(rt.clone(), values).await?;
     Ok(())
 }
 
