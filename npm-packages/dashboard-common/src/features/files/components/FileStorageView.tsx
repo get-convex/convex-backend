@@ -4,13 +4,13 @@ import React, { useRef, useState } from "react";
 import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { toast } from "@common/lib/utils";
-import { NentSwitcher } from "@common/elements/NentSwitcher";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { PageContent } from "@common/elements/PageContent";
 import { useUploadFiles } from "./Uploader";
 import { FileStorageHeader } from "./FileStorageHeader";
 import { FilesList } from "./FilesList";
+import { usePaginatedFileMetadata } from "../lib/usePaginatedFileMetadata";
 
 export function FileStorageView() {
   const [selectedFiles, setSelectedFiles] = useState<
@@ -24,9 +24,34 @@ export function FileStorageView() {
   const useUploadFilesResult = useUploadFiles();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Get filters and other file metadata
+  const {
+    files,
+    status,
+    loadMore,
+    isPaused,
+    isLoadingPausedData,
+    isRateLimited,
+    togglePaused,
+    reload,
+    filters,
+    setFilters,
+  } = usePaginatedFileMetadata();
+
+  const [fileId, setFileId] = useState("");
+
   const totalNumFiles = useQuery(udfs.fileStorageV2.numFiles, {
     componentId: useNents().selectedNent?.id ?? null,
   });
+
+  const file = useQuery(
+    udfs.fileStorageV2.getFile,
+    fileId
+      ? {
+          storageId: fileId,
+        }
+      : "skip",
+  );
 
   return (
     <PageContent>
@@ -67,21 +92,35 @@ export function FileStorageView() {
           void handleUpload(e.dataTransfer.files);
         }}
       >
-        <div className="flex flex-col">
-          <div className="w-fit min-w-60">
-            <NentSwitcher />
-          </div>
-          <FileStorageHeader
-            selectedFiles={selectedFilesArr}
-            useUploadFilesResult={useUploadFilesResult}
-            totalNumFiles={totalNumFiles}
-          />
-        </div>
+        <FileStorageHeader
+          selectedFiles={selectedFilesArr}
+          useUploadFilesResult={useUploadFilesResult}
+          totalNumFiles={totalNumFiles}
+          filters={filters}
+          setFilters={setFilters}
+          fileId={fileId}
+          setFileId={setFileId}
+        />
         <FilesList
           selectedFiles={selectedFiles}
           setSelectedFiles={setSelectedFiles}
           containerRef={containerRef}
-          totalNumFiles={totalNumFiles}
+          totalNumFiles={fileId ? (file ? 1 : 0) : totalNumFiles}
+          files={fileId ? (file ? [file] : []) : files}
+          status={status}
+          loadMore={loadMore}
+          isPaused={isPaused}
+          isLoadingPausedData={isLoadingPausedData}
+          isRateLimited={isRateLimited}
+          togglePaused={togglePaused}
+          reload={reload}
+          hasFilters={
+            !!fileId ||
+            filters.minCreationTime !== undefined ||
+            filters.maxCreationTime !== undefined
+          }
+          filters={filters}
+          setFilters={setFilters}
         />
         {isDraggingFile && (
           // eslint-disable-next-line no-restricted-syntax

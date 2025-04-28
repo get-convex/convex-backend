@@ -11,11 +11,9 @@ import { EmptySection } from "@common/elements/EmptySection";
 import { FileIcon } from "@radix-ui/react-icons";
 import { Sheet } from "@ui/Sheet";
 import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
-import {
-  usePaginatedFileMetadata,
-  FILE_METADATA_PAGE_SIZE,
-} from "../lib/usePaginatedFileMetadata";
+import { FILE_METADATA_PAGE_SIZE } from "../lib/usePaginatedFileMetadata";
 import { FileStorageListHeader } from "./FileStorageListHeader";
+import { FileFilters } from "./FileStorageHeader";
 import {
   FileStorageListItemInner,
   FILE_ITEM_SIZE,
@@ -31,57 +29,27 @@ function useFileColumns() {
         id: "select",
         size: 40,
         header: "Select",
-        cell: () => (
-          <span className="flex w-full justify-center pr-2">
-            {/* Checkbox component rendered in the list item directly */}
-          </span>
-        ),
       }),
       columnHelper.accessor("_id", {
         header: "ID",
         size: 220,
-        cell: () => (
-          <div className="flex min-w-20 items-center gap-1">
-            {/* Content rendered in the list item directly */}
-          </div>
-        ),
       }),
       columnHelper.accessor("size", {
         header: "Size",
         size: 90,
-        cell: () => (
-          <div className="min-w-20 font-mono">
-            {/* Content rendered in the list item directly */}
-          </div>
-        ),
       }),
       columnHelper.accessor("contentType", {
-        header: "Content Type",
+        header: "Content type",
         size: 200,
-        cell: () => (
-          <div className="w-full min-w-36 truncate font-mono">
-            {/* Content rendered in the list item directly */}
-          </div>
-        ),
       }),
       columnHelper.accessor("_creationTime", {
-        header: "Uploaded At",
+        header: "Uploaded at",
         size: 180,
-        cell: () => (
-          <div className="truncate">
-            {/* Content rendered in the list item directly */}
-          </div>
-        ),
       }),
       columnHelper.display({
         id: "actions",
         size: 90,
         header: "Actions",
-        cell: () => (
-          <div>
-            {/* FileActions component rendered in the list item directly */}
-          </div>
-        ),
       }),
     ],
     [],
@@ -93,6 +61,17 @@ export function FilesList({
   setSelectedFiles,
   containerRef,
   totalNumFiles,
+  files,
+  status,
+  loadMore,
+  isPaused,
+  isLoadingPausedData,
+  isRateLimited,
+  togglePaused,
+  reload,
+  hasFilters,
+  filters,
+  setFilters,
 }: {
   selectedFiles: Record<Id<"_storage">, boolean>;
   setSelectedFiles: React.Dispatch<
@@ -100,25 +79,25 @@ export function FilesList({
   >;
   containerRef: React.RefObject<HTMLDivElement>;
   totalNumFiles: number | undefined;
+  files: FileMetadata[];
+  status: "LoadingFirstPage" | "LoadingMore" | "CanLoadMore" | "Exhausted";
+  loadMore: (numItems: number) => void;
+  isPaused: boolean;
+  isLoadingPausedData: boolean;
+  isRateLimited: boolean;
+  togglePaused: () => void;
+  reload: () => void;
+  hasFilters: boolean;
+  filters: FileFilters;
+  setFilters: (filters: FileFilters) => void;
 }) {
-  const {
-    files: results,
-    status,
-    loadMore,
-    isPaused,
-    isLoadingPausedData,
-    isRateLimited,
-    togglePaused,
-    reload,
-  } = usePaginatedFileMetadata();
-
   // Remove the selection of files that no longer exist
   const prevResults = useRef<FileMetadata[]>();
   useEffect(() => {
-    if (prevResults.current === results) return;
-    prevResults.current = results;
+    if (prevResults.current === files) return;
+    prevResults.current = files;
 
-    const existingFileIds = new Set(results.map((r) => r._id));
+    const existingFileIds = new Set(files.map((r) => r._id));
 
     const updatedSelectedFiles = Object.fromEntries(
       Object.entries(selectedFiles).filter(([id]) =>
@@ -132,7 +111,7 @@ export function FilesList({
     ) {
       setSelectedFiles(updatedSelectedFiles);
     }
-  }, [results, selectedFiles, setSelectedFiles]);
+  }, [files, selectedFiles, setSelectedFiles]);
 
   // Calculate selection state for header
   const selectedCount = Object.values(selectedFiles).filter(Boolean).length;
@@ -147,19 +126,19 @@ export function FilesList({
     } else {
       // Select all visible files
       const newSelectedFiles = {} as Record<Id<"_storage">, boolean>;
-      results.forEach((file) => {
+      files.forEach((file) => {
         newSelectedFiles[file._id] = true;
       });
       setSelectedFiles(newSelectedFiles);
     }
-  }, [allSelected, someSelected, results, setSelectedFiles]);
+  }, [allSelected, someSelected, files, setSelectedFiles]);
 
   // Setup Tanstack table
   const columns = useFileColumns();
 
   const tableInstance = useReactTable({
     columns,
-    data: results,
+    data: files,
     getCoreRowModel: getCoreRowModel(),
     enableRowSelection: true,
     enableMultiRowSelection: true,
@@ -173,11 +152,11 @@ export function FilesList({
   // Memoize item data to prevent unnecessary re-renders
   const itemData = useMemo(
     () => ({
-      files: results,
+      files,
       table: tableInstance,
       selectionMap: selectedFiles,
     }),
-    [results, tableInstance, selectedFiles],
+    [files, tableInstance, selectedFiles],
   );
 
   return (
@@ -199,11 +178,17 @@ export function FilesList({
             allSelected={allSelected}
             someSelected={someSelected}
             toggleSelectAll={toggleSelectAll}
+            filters={filters}
+            setFilters={setFilters}
           />
           {status === "LoadingFirstPage" ? (
             <Loading className="max-w-[60rem]" />
-          ) : results.length === 0 && status !== "CanLoadMore" ? (
-            <div className="h-full max-w-[60rem]">
+          ) : files.length === 0 && status !== "CanLoadMore" ? (
+            hasFilters ? (
+              <div className="mt-2 flex w-full items-center justify-center text-content-secondary">
+                No files match your filters.
+              </div>
+            ) : (
               <EmptySection
                 sheet={false}
                 Icon={FileIcon}
@@ -215,9 +200,9 @@ export function FilesList({
                   children: "Learn more about file storage.",
                 }}
               />
-            </div>
+            )
           ) : (
-            <div className="grow">
+            <div className="h-full">
               <InfiniteScrollList
                 className="min-w-[36.25rem] scrollbar"
                 style={{
@@ -225,7 +210,7 @@ export function FilesList({
                 }}
                 overscanCount={25}
                 outerRef={containerRef}
-                items={results}
+                items={files}
                 totalNumItems={totalNumFiles}
                 itemKey={(idx, data) =>
                   data.files[idx]?._id || `loading-${idx}`

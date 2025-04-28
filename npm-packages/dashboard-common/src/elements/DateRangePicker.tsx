@@ -9,6 +9,14 @@ import { Popover } from "@ui/Popover";
 import { Button } from "@ui/Button";
 import { Calendar } from "@common/elements/Calendar";
 
+export type DateRangeShortcut = {
+  value: string;
+  label: string;
+  from: Date;
+  to: Date;
+  disableFilters?: boolean;
+};
+
 export function DateRangePicker({
   minDate,
   maxDate,
@@ -16,18 +24,58 @@ export function DateRangePicker({
   setDate,
   shortcuts,
   formatDate = (d: Date) => format(d, "LLL dd, y"),
+  disabled = false,
+  dateFilterEnabled = true,
+  prefix,
 }: {
   minDate?: Date;
   maxDate?: Date;
   date: {
-    from: Date;
-    to: Date;
+    from?: Date;
+    to?: Date;
   };
-  setDate: (date: DateRange, shortcut?: string) => void;
-  shortcuts?: { value: string; label: string; from: Date; to: Date }[];
+  setDate: (date: DateRange, shortcut?: DateRangeShortcut) => void;
+  shortcuts?: DateRangeShortcut[];
   formatDate?: (date: Date) => string;
+  disabled?: boolean;
+  dateFilterEnabled?: boolean;
+  prefix?: string;
 }) {
   const { from, to } = date;
+
+  // Track current selected shortcut
+  const [activeShortcut, setActiveShortcut] = React.useState<string | null>(
+    null,
+  );
+
+  // Initialize activeShortcut based on dateFilterEnabled
+  React.useEffect(() => {
+    if (!dateFilterEnabled) {
+      // Set to "anytime" when filters are disabled
+      setActiveShortcut("anytime");
+    } else if (shortcuts && from && to) {
+      // Check if current date range matches any shortcut
+      const matchingShortcut = shortcuts.find(
+        (s) =>
+          !s.disableFilters &&
+          s.from.toDateString() === from.toDateString() &&
+          s.to.toDateString() === to.toDateString(),
+      );
+      setActiveShortcut(matchingShortcut?.value || null);
+    }
+  }, [dateFilterEnabled, from, to, shortcuts]);
+
+  // When a calendar selection is made, we need to track it for rendering,
+  // but defer to the parent component for state management
+  const [selectedRange, setSelectedRange] = React.useState<
+    DateRange | undefined
+  >(from && to ? { from, to } : undefined);
+
+  // Update selected range when date props change
+  React.useEffect(() => {
+    setSelectedRange(from && to ? { from, to } : undefined);
+  }, [from, to]);
+
   return (
     <Popover
       placement="bottom-start"
@@ -36,37 +84,49 @@ export function DateRangePicker({
           variant="neutral"
           className="w-fit justify-start text-left font-normal"
           icon={<CalendarIcon className="size-4" />}
+          disabled={disabled}
         >
-          {from ? (
-            to ? (
-              <>
-                {formatDate(from)} – {formatDate(to)}
-              </>
+          <div className="flex items-center gap-1">
+            {prefix && <span className="font-semibold">{prefix}</span>}
+            {dateFilterEnabled ? (
+              from && to ? (
+                <>
+                  {formatDate(from)} – {formatDate(to)}
+                </>
+              ) : from ? (
+                formatDate(from)
+              ) : (
+                <span>Pick a date</span>
+              )
             ) : (
-              formatDate(from)
-            )
-          ) : (
-            <span>Pick a date</span>
-          )}
+              <span>Any time</span>
+            )}
+          </div>
         </Button>
       }
     >
       {({ close }) => (
         <div className="flex flex-col gap-4 md:flex-row">
           {shortcuts && (
-            <div className="flex flex-col gap-2 border-b pb-4 pr-4 md:border-b-0 md:border-r md:pb-0">
+            <div className="flex w-[13rem] flex-col gap-2 border-b pb-4 md:border-b-0 md:border-r md:pb-0">
               {shortcuts.map((s) => (
                 <Button
                   key={s.label}
                   variant="unstyled"
                   onClick={() => {
+                    setActiveShortcut(s.value);
+                    // Clear the internal selected range for "Any time"
+                    if (s.disableFilters) {
+                      setSelectedRange(undefined);
+                    } else {
+                      setSelectedRange({ from: s.from, to: s.to });
+                    }
                     close();
-                    setDate(s, s.value);
+                    setDate(s, s);
                   }}
-                  className="-ml-4 flex w-fit items-start gap-1 rounded p-1 text-xs hover:bg-background-tertiary"
+                  className="-ml-4 flex w-full items-start gap-1 rounded p-1 text-xs hover:bg-background-tertiary"
                   icon={
-                    s.from.toDateString() === from.toDateString() &&
-                    s.to.toDateString() === to.toDateString() ? (
+                    activeShortcut === s.value ? (
                       <CheckIcon className="mt-1" />
                     ) : (
                       <div className="size-4" />
@@ -75,9 +135,15 @@ export function DateRangePicker({
                 >
                   <div className="flex flex-col items-start">
                     {s.label}{" "}
-                    <span className="text-xs text-content-secondary">
-                      {formatDate(s.from)} – {formatDate(s.to)}
-                    </span>
+                    {!s.disableFilters ? (
+                      <span className="text-xs text-content-secondary">
+                        {formatDate(s.from)} – {formatDate(s.to)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-content-secondary">
+                        Show all results
+                      </span>
+                    )}
                   </div>
                 </Button>
               ))}
@@ -88,14 +154,18 @@ export function DateRangePicker({
             mode="range"
             fromDate={minDate}
             toDate={maxDate}
-            defaultMonth={from}
-            selected={{ from, to }}
-            onSelect={(d, selectedDay) => {
+            defaultMonth={from || new Date()}
+            selected={selectedRange}
+            onSelect={(d) => {
               if (!d) return;
-              if (selectedDay > from && selectedDay < to) {
-                setDate({ from: d.to, to: d.to });
-                return;
-              }
+
+              // Clear active shortcut when manually selecting dates
+              setActiveShortcut(null);
+
+              // Update internal selected range for immediate UI feedback
+              setSelectedRange(d);
+
+              // Pass the date range to parent component
               setDate(d);
             }}
             numberOfMonths={2}

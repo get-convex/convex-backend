@@ -78,6 +78,7 @@ export function usePausedLiveData<TResult, TArgs>({
   const [lastCursor, setLastCursor] = useState<string | null>(null);
   const [canLoadMore, setCanLoadMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const currentArgsRef = useRef(args);
 
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
@@ -183,6 +184,22 @@ export function usePausedLiveData<TResult, TArgs>({
   useMount(() => {
     isPaused && void loadFirstPage();
   });
+
+  // Check if args have changed, and if isPaused, reload the data
+  useEffect(() => {
+    // Check if there are meaningful differences in the args
+    const argsChanged =
+      JSON.stringify(args) !== JSON.stringify(currentArgsRef.current);
+
+    if (argsChanged) {
+      currentArgsRef.current = args;
+
+      // If we're paused and args changed, reload the data with the new args
+      if (isPaused && !isLoadingPausedData) {
+        void loadFirstPage();
+      }
+    }
+  }, [args, isPaused, isLoadingPausedData, loadFirstPage]);
 
   return {
     pausedData,

@@ -2,13 +2,15 @@ import { PlayCircleIcon, PauseCircleIcon } from "@heroicons/react/24/outline";
 import {
   ExclamationTriangleIcon,
   ReloadIcon,
-  CaretDownIcon,
+  CaretUpIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { Spinner } from "@ui/Spinner";
 import { Checkbox } from "@ui/Checkbox";
+import classNames from "classnames";
+import { FileFilters } from "./FileStorageHeader";
 
 export const FILE_STORAGE_LIST_GRID_CLASSES =
   "grid grid-cols-[2.5rem_minmax(5rem,1fr)_minmax(1.875rem,5.625rem)_minmax(3.75rem,12.5rem)_minmax(3.75rem,11.25rem)_5.625rem] ";
@@ -22,6 +24,8 @@ export function FileStorageListHeader({
   allSelected,
   someSelected,
   toggleSelectAll,
+  filters,
+  setFilters,
 }: {
   isPaused: boolean;
   isLoadingPausedData: boolean;
@@ -31,7 +35,16 @@ export function FileStorageListHeader({
   allSelected: boolean;
   someSelected: boolean;
   toggleSelectAll: () => void;
+  filters: FileFilters;
+  setFilters: (filters: FileFilters) => void;
 }) {
+  const toggleSortOrder = () => {
+    setFilters({
+      ...filters,
+      order: filters.order === "asc" ? "desc" : "asc",
+    });
+  };
+
   return (
     <div className="relative min-w-[36.25rem] border-b p-2 py-3 text-xs text-content-secondary">
       <div
@@ -59,9 +72,25 @@ export function FileStorageListHeader({
           </Tooltip>
         </div>
         <div>Size</div>
-        <div>Content Type</div>
+        <div>Content type</div>
         <div className="flex items-center gap-1">
-          Uploaded At <CaretDownIcon />
+          Uploaded at{" "}
+          <Button
+            variant="neutral"
+            size="xs"
+            className="-ml-1.5 h-auto border-none bg-transparent p-0 text-content-secondary"
+            onClick={toggleSortOrder}
+            aria-label={`Sort by upload time ${filters.order === "asc" ? "descending" : "ascending"}`}
+            tip={`Click to sort ${filters.order === "asc" ? "newest first" : "oldest first"}`}
+            icon={
+              <CaretUpIcon
+                className={classNames(
+                  "transition-all m-1.5 border rounded",
+                  filters.order === "desc" ? "rotate-180" : "",
+                )}
+              />
+            }
+          />
         </div>
         <div className="absolute right-2 ml-auto flex items-center justify-between">
           <div className="flex items-center gap-2">

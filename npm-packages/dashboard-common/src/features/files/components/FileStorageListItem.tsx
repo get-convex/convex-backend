@@ -10,7 +10,7 @@ import { FileActions } from "./FileActions";
 import { FILE_STORAGE_LIST_GRID_CLASSES } from "./FileStorageListHeader";
 
 // Define the item props type
-export type FileStoragEListItemProps = {
+export type FileStorageListItemProps = {
   data: {
     files: FileMetadata[];
     table: ReturnType<typeof useReactTable<FileMetadata>>;
@@ -38,7 +38,7 @@ export function FileStorageListItemInner({
   data,
   index,
   style,
-}: FileStoragEListItemProps) {
+}: FileStorageListItemProps) {
   const file = data.files[index];
   if (!file) {
     return (

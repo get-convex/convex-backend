@@ -73,13 +73,13 @@ export const fileMetadata = queryGeneric({
 
 export const getFile = queryGeneric({
   args: {
-    storageId: v.id("_storage"),
+    storageId: v.string(),
   },
   handler: async (
     { db, storage },
-    { storageId }: { storageId: Id<"_storage"> },
+    { storageId }: { storageId: string },
   ): Promise<FileMetadata | null> => {
-    const file = await db.system.get(storageId);
+    const file = await db.system.get(storageId as Id<"_storage">);
     if (!file) {
       return null;
     }

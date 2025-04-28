@@ -157,7 +157,7 @@ export function Uploader({
   const fileInput = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-2">
       <Tooltip wrapsButton tip={cantUploadFilesReason} side="left">
         <label
           htmlFor="uploader"

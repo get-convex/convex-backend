@@ -100,13 +100,13 @@ export function UsagePeriodSelector({
         date.from &&
           date.to &&
           onChange(
-            shortcut === "current"
+            shortcut?.value === "current"
               ? {
                   type: "currentBillingPeriod",
                   from: currentBillingPeriod.start,
                   to: currentBillingPeriod.end,
                 }
-              : shortcut === "last"
+              : shortcut?.value === "last"
                 ? {
                     type: "presetPeriod",
                     from: monthBefore(currentBillingPeriod.start),
