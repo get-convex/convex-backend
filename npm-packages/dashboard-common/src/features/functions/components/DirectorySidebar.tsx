@@ -6,6 +6,7 @@ import {
 } from "@common/lib/functions/FunctionsProvider";
 import { FileTree } from "@common/features/functions/components/FileTree";
 import { NentSwitcher } from "@common/elements/NentSwitcher";
+import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 
 export function DirectorySidebar({
   onChangeFunction,
@@ -31,17 +32,20 @@ export function DirectorySidebar({
         <NentSwitcher />
         <h5>Functions</h5>
       </div>
-      <input
-        id="Search functions"
-        placeholder="Search functions..."
-        onChange={onChange}
-        defaultValue={searchTerm}
-        type="search"
-        className={classNames(
-          "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-          "focus:outline-none bg-background-secondary font-normal border-b px-3",
-        )}
-      />
+      <div className="flex items-center gap-1 border-b px-3 py-1.5">
+        <MagnifyingGlassIcon className="text-content-secondary" />
+        <input
+          id="Search functions"
+          placeholder="Search functions..."
+          onChange={onChange}
+          defaultValue={searchTerm}
+          type="search"
+          className={classNames(
+            "placeholder:text-content-tertiary truncate relative w-full text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+            "focus:outline-none bg-background-secondary font-normal",
+          )}
+        />
+      </div>
       <div className="w-full overflow-x-hidden pt-1 scrollbar">
         <FileTree
           tree={rootEntries}

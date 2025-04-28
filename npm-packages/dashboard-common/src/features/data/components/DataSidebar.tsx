@@ -1,4 +1,4 @@
-import { CodeIcon, PlusIcon } from "@radix-ui/react-icons";
+import { CodeIcon, MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
@@ -49,17 +49,20 @@ export function DataSidebar({
         </div>
       </div>
       {tables.size > 0 && (
-        <input
-          id="Search tables"
-          placeholder="Search tables..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          type="search"
-          className={classNames(
-            "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-            "focus:outline-none bg-background-secondary font-normal border-b px-3",
-          )}
-        />
+        <div className="flex items-center gap-1 border-b px-3 py-1.5">
+          <MagnifyingGlassIcon className="text-content-secondary" />
+          <input
+            id="Search tables"
+            placeholder="Search tables..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            type="search"
+            className={classNames(
+              "placeholder:text-content-tertiary truncate relative w-full text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+              "focus:outline-none bg-background-secondary font-normal",
+            )}
+          />
+        </div>
       )}
       <div className={cn("flex-1 overflow-auto scrollbar px-3 pt-1")}>
         <div className="flex flex-col gap-0.5">
