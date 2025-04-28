@@ -84,7 +84,14 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
           ),
       },
     ];
-    if (selectionWithinProject.kind === "ownDev") {
+    // Also get the prod cloud deployment if we're using a cloud-hosted dev-deployment
+    if (
+      selectionWithinProject.kind === "ownDev" &&
+      !(
+        deploymentSelection.kind === "existingDeployment" &&
+        deploymentSelection.deploymentToActOn.source === "selfHosted"
+      )
+    ) {
       const prodDeployment: DeploymentSelectionWithinProject = { kind: "prod" };
       const prodCredentials = await loadSelectedDeploymentCredentials(
         ctx,
