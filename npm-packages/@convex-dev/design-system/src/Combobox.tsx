@@ -81,10 +81,6 @@ export function Combobox<T>({
 
   const [isOpen, setIsOpen] = useState(false);
 
-  // Keeps track of the whether we should prevent the dropdown from closing
-  // This is used to prevent the dropdown from closing when clicking on a link or tooltip
-  const [preventClose, setPreventClose] = useState(false);
-
   const { styles, attributes, update } = usePopper(
     referenceElement,
     popperElement,
@@ -132,27 +128,14 @@ export function Combobox<T>({
     }
   }, [isOpen, update]);
 
-  // Reset preventClose after a short delay
-  useEffect(() => {
-    if (preventClose) {
-      const timer = setTimeout(() => {
-        setPreventClose(false);
-      }, 200);
-
-      return () => clearTimeout(timer);
-    }
-  }, [preventClose]);
-
   return (
     <HeadlessCombobox
       value={
         options.find((o) => isEqual(selectedOption, o.value))?.value || null
       }
       onChange={(option) => {
-        if (!preventClose) {
-          setSelectedOption(option);
-          setQuery("");
-        }
+        setSelectedOption(option);
+        setQuery("");
       }}
       disabled={disabled}
     >
@@ -285,21 +268,6 @@ export function Combobox<T>({
                                   "block w-full whitespace-nowrap",
                                   selected && "font-semibold",
                                 )}
-                                onPointerDownCapture={(e) => {
-                                  // Stop propagation if clicking on a link or tooltip
-                                  if (e.target instanceof HTMLElement) {
-                                    const closest = e.target.closest(
-                                      'a, [role="tooltip"]',
-                                    );
-                                    if (closest) {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-
-                                      // Set preventClose to true
-                                      setPreventClose(true);
-                                    }
-                                  }
-                                }}
                               >
                                 {Option ? (
                                   <Option
