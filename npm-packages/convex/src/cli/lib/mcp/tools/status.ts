@@ -89,7 +89,7 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       selectionWithinProject.kind === "ownDev" &&
       !(
         deploymentSelection.kind === "existingDeployment" &&
-        deploymentSelection.deploymentToActOn.source === "selfHosted"
+        deploymentSelection.deploymentToActOn.deploymentFields === null
       )
     ) {
       const prodDeployment: DeploymentSelectionWithinProject = { kind: "prod" };
