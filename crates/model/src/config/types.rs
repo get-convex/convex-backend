@@ -12,7 +12,10 @@ use std::{
 };
 
 use common::{
-    auth::AuthInfo,
+    auth::{
+        AuthInfo,
+        SerializedAuthInfo,
+    },
     obj,
     types::ModuleEnvironment,
 };
@@ -142,7 +145,7 @@ impl ConfigMetadata {
 pub struct ConfigFile {
     pub functions: String,
     // Deprecated, moved to AuthConfig.providers
-    pub auth_info: Option<Vec<AuthInfo>>,
+    pub auth_info: Option<Vec<SerializedAuthInfo>>,
 }
 
 impl TryFrom<ConfigMetadata> for ConvexObject {

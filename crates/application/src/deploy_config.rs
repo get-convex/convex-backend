@@ -194,7 +194,14 @@ impl<RT: Runtime> Application<RT> {
                 auth_info: if config.config.auth_info.is_empty() {
                     None
                 } else {
-                    Some(config.config.auth_info.clone())
+                    let auth_info = config
+                        .config
+                        .auth_info
+                        .clone()
+                        .into_iter()
+                        .map(|v| v.try_into())
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Some(auth_info)
                 },
             },
         )

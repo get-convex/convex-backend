@@ -1,4 +1,5 @@
 use common::{
+    auth::AuthInfo,
     http::RequestDestination,
     types::ModuleEnvironment,
 };
@@ -53,9 +54,12 @@ export default {
     )
     .await
     .unwrap();
+    let AuthInfo::Oidc { ref domain, .. } = config[0] else {
+        anyhow::bail!("Expected OIDC auth info");
+    };
     assert_eq!(
-        config[0].domain,
-        IssuerUrl::new("http://127.0.0.1:8001".to_string())?
+        domain,
+        &IssuerUrl::new("http://127.0.0.1:8001".to_string())?
     );
     Ok(())
 }
@@ -101,9 +105,12 @@ export default {
     )
     .await
     .unwrap();
+    let AuthInfo::Oidc { ref domain, .. } = config[0] else {
+        anyhow::bail!("Expected OIDC auth info");
+    };
     assert_eq!(
-        config[0].domain,
-        IssuerUrl::new("https://xkcd.example.com".to_string())?
+        domain,
+        &IssuerUrl::new("https://xkcd.example.com".to_string())?
     );
     Ok(())
 }

@@ -5,7 +5,10 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    auth::AuthConfig,
+    auth::{
+        AuthConfig,
+        SerializedAuthConfig,
+    },
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
@@ -253,13 +256,12 @@ impl AuthConfigEnvironment {
         }
 
         let config_str = json_stringify(&mut scope, config_val)?;
-        Ok(
-            serde_json::from_str(&config_str).map_err(|error| {
-                AuthConfigNotMatchingSchemaError {
-                    error: strip_position(&error.to_string()),
-                }
-            })?,
-        )
+        let config: AuthConfig = serde_json::from_str::<SerializedAuthConfig>(&config_str)
+            .map_err(|error| AuthConfigNotMatchingSchemaError {
+                error: strip_position(&error.to_string()),
+            })?
+            .try_into()?;
+        Ok(config)
     }
 }
 

@@ -32,9 +32,9 @@ use openidconnect::{
         CoreJwsSigningAlgorithm,
         CoreProviderMetadata,
     },
-    ClaimsVerificationError,
     ClientId,
     DiscoveryError,
+    IssuerUrl,
 };
 use serde::{
     Deserialize,
@@ -96,7 +96,7 @@ pub fn token_to_authorization_header(token: AuthenticationToken) -> anyhow::Resu
     }
 }
 
-/// Validate an OpenID Connect ID token.
+/// Validate a token against a list of Convex auth providers.
 pub async fn validate_id_token<F, E>(
     token_str: Auth0IdToken,
     // The http client is injected here so we can unit test this filter without needing to actually
@@ -109,110 +109,218 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    let token = CoreIdTokenWithCustomClaims::from_str(&token_str.0).context(
-        ErrorMetadata::unauthenticated("InvalidAuthHeader", "Could not parse as id token"),
-    )?;
-    let (audiences, issuer) = {
-        let verifier = CoreIdTokenVerifier::new_insecure_without_verification();
-        let claims = match token.claims(&verifier, |_: Option<&openidconnect::Nonce>| Ok(())) {
-            Ok(claims) => Ok(claims),
-            Err(e @ ClaimsVerificationError::Expired(_)) => {
-                let msg = e.to_string();
-                Err(e).context(ErrorMetadata::unauthenticated("IdTokenExpired", msg))
-            },
-            e @ Err(_) => e.context("Token claim verification error"),
-        }?;
-        (
-            claims
-                .audiences()
-                .iter()
-                .map(|aud| aud.to_string())
-                .collect::<Vec<_>>(),
-            claims.issuer(),
-        )
+    let since_epoch = system_time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("couldn't calculate unix timestamp?")
+        .as_secs() as i64;
+    let chrono_utc = chrono::Utc.timestamp_opt(since_epoch, 0).unwrap();
+
+    // All tokens are JWTs, so start with that to pull out the issuer and audiences
+    // to route the token to the correct provider.
+    let (auth_info, token_issuer) = {
+        let encoded_token = JWT::<biscuit::Empty, biscuit::Empty>::new_encoded(&token_str.0);
+
+        // NB: A malicious token can at worst point us to the wrong provider, but then
+        // subsequent token verification will fail.
+        let payload =
+            encoded_token
+                .unverified_payload()
+                .context(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Could not parse JWT payload",
+                ))?;
+        let Some(issuer) = payload.registered.issuer else {
+            anyhow::bail!(ErrorMetadata::unauthenticated(
+                "InvalidAuthHeader",
+                "Missing issuer in JWT payload"
+            ));
+        };
+        let Some(audiences) = payload.registered.audience else {
+            anyhow::bail!(ErrorMetadata::unauthenticated(
+                "InvalidAuthHeader",
+                "Missing audience in JWT payload"
+            ));
+        };
+        let audiences = match audiences {
+            biscuit::SingleOrMultiple::Single(audience) => vec![audience],
+            biscuit::SingleOrMultiple::Multiple(audiences) => audiences,
+        };
+        // Find the provider matching this token
+        let auth_info = auth_infos
+            .into_iter()
+            .find(|info| info.matches_token(&audiences, &issuer))
+            .context(ErrorMetadata::unauthenticated(
+                "NoAuthProvider",
+                "No auth provider found matching the given token",
+            ))?;
+        (auth_info, issuer)
     };
-    // Find the provider matching this token
-    let auth_info = auth_infos
-        .into_iter()
-        .find(|info| {
-            // Some authentication providers (Auth0, lookin' at you) tell developers that
-            // their identity domain doesn't have a trailing slash, but the OIDC tokens do
-            // have one in the `issuer` field. This is consistent with what the OIDC
-            // Discovery response will contain, but the value entered in the instance config
-            // may or may not have the slash.
-            audiences.contains(&info.application_id)
-                && info.domain.trim_end_matches('/') == issuer.trim_end_matches('/')
-        })
-        .context(ErrorMetadata::unauthenticated(
-            "NoAuthProvider",
-            "No auth provider found matching the given token",
-        ))?;
-    // Use the OpenID Connect Discovery protocol to get the public keys for this
-    // provider.
-    // TODO(CX-606): Add an caching layer that respects the HTTP cache headers
-    // in the response.
-    let metadata = CoreProviderMetadata::discover_async(issuer.clone(), &http_client)
-        .await
-        .map_err(|e| {
-            let short = "AuthProviderDiscoveryFailed";
-            let long = format!("Auth provider discovery of {} failed", issuer.as_str());
-            match e {
-                DiscoveryError::Response(code, body, _) => {
-                    let long = format!("{long}: {} {}", code, String::from_utf8_lossy(&body));
-                    let Ok(code) = http::StatusCode::from_u16(code.as_u16()) else {
-                        return ErrorMetadata::bad_request(short, long);
-                    };
-                    if let Some(em) =
-                        ErrorMetadata::from_http_status_code(code, short, long.clone())
-                    {
-                        em
-                    } else {
-                        ErrorMetadata::bad_request(short, long)
-                    }
-                },
-                e => {
-                    tracing::error!(
-                        "Error discovering auth provider: {}, {}",
-                        issuer.as_str(),
-                        e
+    // Okay, now that we've picked with auth provider to use, actually do token
+    // verification.
+    match auth_info {
+        AuthInfo::Oidc { application_id, .. } => {
+            // Use the OpenID Connect Discovery protocol to get the public keys for this
+            // provider.
+            // TODO(CX-606): Add an caching layer that respects the HTTP cache headers
+            // in the response.
+
+            let issuer_url = IssuerUrl::new(token_issuer.clone())?;
+            let metadata = CoreProviderMetadata::discover_async(issuer_url, &http_client)
+                .await
+                .map_err(|e| {
+                    let short = "AuthProviderDiscoveryFailed";
+                    let long = format!(
+                        "Auth provider discovery of {} failed",
+                        token_issuer.as_str()
                     );
-                    ErrorMetadata::bad_request(short, long)
-                },
-            }
-        })?;
-    // Create a verifier for the provider using this metadata. Set the verifier
-    // to enforce that the issuer and audience match.
-    // Note for posterity: this verifier will reject tokens containing multiple
-    // audiences. It's very uncommon for an identity provider to create a token with
-    // multiple valid audiences, so we don't handle that case yet.
-    let verifier = CoreIdTokenVerifier::new_public_client(
-        ClientId::new(auth_info.application_id),
-        metadata.issuer().clone(),
-        metadata.jwks().clone(),
-    )
-    .set_allowed_algs([
-        // RS256, the most common algorithm and used by Clerk and Auth0 (by default)
-        CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,
-        // EdDSA (this is only Ed25519)
-        CoreJwsSigningAlgorithm::EdDsa,
-    ])
-    .require_issuer_match(true)
-    .require_audience_match(true)
-    .set_time_fn(|| {
-        chrono::Utc
-            .timestamp_opt(
-                system_time
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .expect("couldn't calculate unix timestamp?")
-                    .as_secs() as i64,
-                0,
+                    match e {
+                        DiscoveryError::Response(code, body, _) => {
+                            let long =
+                                format!("{long}: {} {}", code, String::from_utf8_lossy(&body));
+                            let Ok(code) = http::StatusCode::from_u16(code.as_u16()) else {
+                                return ErrorMetadata::bad_request(short, long);
+                            };
+                            if let Some(em) =
+                                ErrorMetadata::from_http_status_code(code, short, long.clone())
+                            {
+                                em
+                            } else {
+                                ErrorMetadata::bad_request(short, long)
+                            }
+                        },
+                        e => {
+                            tracing::error!(
+                                "Error discovering auth provider: {}, {}",
+                                token_issuer.as_str(),
+                                e
+                            );
+                            ErrorMetadata::bad_request(short, long)
+                        },
+                    }
+                })?;
+            // Create a verifier for the provider using this metadata. Set the verifier
+            // to enforce that the issuer and audience match.
+            // Note for posterity: this verifier will reject tokens containing multiple
+            // audiences. It's very uncommon for an identity provider to create a token with
+            // multiple valid audiences, so we don't handle that case yet.
+            let verifier = CoreIdTokenVerifier::new_public_client(
+                ClientId::new(application_id),
+                metadata.issuer().clone(),
+                metadata.jwks().clone(),
             )
-            .unwrap()
-    });
-    UserIdentity::from_token(token, verifier).context(ErrorMetadata::unauthenticated(
-        "Unauthenticated",
-        "Could not verify token claim",
-    ))
+            .set_allowed_algs([
+                // RS256, the most common algorithm and used by Clerk and Auth0 (by default)
+                CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,
+                // EdDSA (this is only Ed25519)
+                CoreJwsSigningAlgorithm::EdDsa,
+            ])
+            .require_issuer_match(true)
+            .require_audience_match(true)
+            .set_time_fn(|| chrono_utc);
+            let token = CoreIdTokenWithCustomClaims::from_str(&token_str.0).context(
+                ErrorMetadata::unauthenticated("InvalidAuthHeader", "Could not parse as id token"),
+            )?;
+            UserIdentity::from_token(token, verifier).context(ErrorMetadata::unauthenticated(
+                "Unauthenticated",
+                "Could not verify token claim",
+            ))
+        },
+        AuthInfo::CustomJwt {
+            application_id,
+            jwks: jwks_uri,
+            issuer,
+            algorithm,
+        } => {
+            let application_json = http::HeaderValue::from_static("application/json");
+            let request = http::Request::builder()
+                .uri(jwks_uri)
+                .method(http::Method::GET)
+                .header(http::header::ACCEPT, application_json.clone())
+                .body(vec![])?;
+            let response = http_client(request).await.map_err(|e| {
+                ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    format!("Could not fetch JWKS: {e}"),
+                )
+            })?;
+            if response.status() != http::StatusCode::OK {
+                anyhow::bail!(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Could not fetch JWKS"
+                ));
+            }
+            if response.headers().get(http::header::CONTENT_TYPE) != Some(&application_json) {
+                anyhow::bail!(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Invalid Content-Type when fetching JWKS"
+                ));
+            }
+            let jwks: JWKSet<biscuit::Empty> = serde_json::de::from_slice(response.body())
+                .with_context(|| {
+                    ErrorMetadata::unauthenticated(
+                        "InvalidAuthHeader",
+                        "Invalid auth jwks response body",
+                    )
+                })?;
+            let token = JWT::<serde_json::Value, biscuit::Empty>::new_encoded(&token_str.0);
+            let decoded_token = token
+                .decode_with_jwks(&jwks, Some(algorithm.into()))
+                .context(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Could not decode token",
+                ))?;
+            let payload = decoded_token.payload()?;
+            let Some(ref token_issuer) = payload.registered.issuer else {
+                anyhow::bail!(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Missing issuer in JWT payload"
+                ));
+            };
+            if token_issuer != issuer.as_str() {
+                anyhow::bail!(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    format!("Invalid issuer: {} != {}", token_issuer, issuer)
+                ));
+            }
+            let Some(ref token_audience) = payload.registered.audience else {
+                anyhow::bail!(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Missing audience in JWT payload"
+                ));
+            };
+            if let Some(application_id) = application_id {
+                if !token_audience
+                    .iter()
+                    .any(|audience| audience == &application_id)
+                {
+                    let audiences = token_audience
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>();
+                    anyhow::bail!(ErrorMetadata::unauthenticated(
+                        "InvalidAuthHeader",
+                        format!("Invalid audience: {application_id} not in {audiences:?}"),
+                    ));
+                }
+            }
+            let validation_options = ValidationOptions {
+                temporal_options: TemporalOptions {
+                    now: Some(chrono_utc),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            decoded_token
+                .validate(validation_options)
+                .context(ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Could not validate token",
+                ))?;
+            UserIdentity::from_custom_jwt(decoded_token, token_str.0).context(
+                ErrorMetadata::unauthenticated("InvalidAuthHeader", "Could not verify token claim"),
+            )
+        },
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -590,7 +698,7 @@ mod tests {
         validate_id_token(
             Auth0IdToken(id_token),
             fake_http_client(provider_metadata, jwks),
-            vec![AuthInfo {
+            vec![AuthInfo::Oidc {
                 application_id: (*audience).clone(),
                 domain: issuer_url,
             }],

@@ -16,7 +16,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
-    auth::AuthInfo,
+    auth::{
+        AuthInfo,
+        SerializedAuthInfo,
+    },
     bootstrap_model::components::definition::SerializedComponentDefinitionMetadata,
     http::{
         extract::Json,
@@ -87,7 +90,11 @@ impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
                 .into_iter()
                 .map(|(k, v)| Ok((String::from(k), JsonValue::from(ConvexObject::try_from(v)?))))
                 .collect::<anyhow::Result<_>>()?,
-            app_auth: value.app_auth,
+            app_auth: value
+                .app_auth
+                .into_iter()
+                .map(SerializedAuthInfo::try_from)
+                .collect::<anyhow::Result<_>>()?,
             analysis: value
                 .analysis
                 .into_iter()
@@ -127,7 +134,11 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
                     ))
                 })
                 .collect::<anyhow::Result<_>>()?,
-            app_auth: value.app_auth,
+            app_auth: value
+                .app_auth
+                .into_iter()
+                .map(AuthInfo::try_from)
+                .collect::<anyhow::Result<_>>()?,
             analysis: value
                 .analysis
                 .into_iter()
@@ -149,7 +160,7 @@ pub struct SerializedStartPushResponse {
     component_definition_packages: BTreeMap<String, JsonValue>,
 
     // Analysis results.
-    app_auth: Vec<AuthInfo>,
+    app_auth: Vec<SerializedAuthInfo>,
     analysis: BTreeMap<String, SerializedEvaluatedComponentDefinition>,
 
     // Typechecking results.

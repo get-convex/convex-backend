@@ -28,7 +28,7 @@ backoff = { version = "0.4", features = [ "tokio" ] }
 base32 = "0.5.0"
 base-62 = { rev = "6f91a3da4b83f20379469835f64195bd52d7b9dd", git = "https://github.com/kryptco/base62.rs" }
 base64 = "0.13"
-biscuit = "0.7.0"
+biscuit = { rev = "05bdaab2f43d144aedc9ef2dfcdb87d304540afd", git = "https://github.com/get-convex/biscuit" }
 bitvec = "1.0.1"
 byteorder = "1.5.0"
 bytes = "1.6.0"

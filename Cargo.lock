@@ -1315,8 +1315,7 @@ checksum = "288c7b1c00556959bb7dc822d8adad4a30edd0d3a1fcc6839515792b8f300e5f"
 [[package]]
 name = "biscuit"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e28fc7c56c61743a01d0d1b73e4fed68b8a4f032ea3a2d4bb8c6520a33fc05a"
+source = "git+https://github.com/get-convex/biscuit?rev=05bdaab2f43d144aedc9ef2dfcdb87d304540afd#05bdaab2f43d144aedc9ef2dfcdb87d304540afd"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -1853,6 +1852,7 @@ dependencies = [
  "async-trait",
  "axum 0.8.1",
  "axum-extra",
+ "biscuit",
  "bitvec",
  "byteorder",
  "bytes",
@@ -4854,6 +4854,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
+ "biscuit",
  "byteorder",
  "chrono",
  "clap",

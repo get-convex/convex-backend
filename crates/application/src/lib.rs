@@ -1834,7 +1834,13 @@ impl<RT: Runtime> Application<RT> {
             .await?;
             Ok(auth_config.providers)
         } else {
-            Ok(config.auth_info.clone().unwrap_or_default())
+            config
+                .auth_info
+                .clone()
+                .unwrap_or_default()
+                .into_iter()
+                .map(AuthInfo::try_from)
+                .collect::<Result<Vec<_>, _>>()
         }
     }
 

@@ -26,18 +26,53 @@ impl TryFrom<ConvexObject> for AuthInfoPersisted {
 
     fn try_from(o: ConvexObject) -> Result<Self, Self::Error> {
         let mut fields: BTreeMap<_, _> = o.into();
-        let application_id = match fields.remove("applicationID") {
-            Some(ConvexValue::String(s)) => s.into(),
-            _ => anyhow::bail!("Missing or invalid applicationID field for AuthInfo"),
+
+        let is_oidc = match fields.remove("type") {
+            // Default to OIDC
+            None => true,
+            Some(ConvexValue::String(s)) if &s[..] == "oidc" => true,
+            Some(ConvexValue::String(s)) if &s[..] == "customJwt" => false,
+            f => anyhow::bail!("Missing or invalid type field for AuthInfo: {f:?}"),
         };
-        let domain = match fields.remove("domain") {
-            Some(ConvexValue::String(s)) => IssuerUrl::new(s.into())?,
-            _ => anyhow::bail!("Missing or invalid domain field for AuthInfo"),
+        let result = if is_oidc {
+            let application_id = match fields.remove("applicationID") {
+                Some(ConvexValue::String(s)) => s.into(),
+                _ => anyhow::bail!("Missing or invalid applicationID field for AuthInfo"),
+            };
+            let domain = match fields.remove("domain") {
+                Some(ConvexValue::String(s)) => IssuerUrl::new(s.into())?,
+                _ => anyhow::bail!("Missing or invalid domain field for AuthInfo"),
+            };
+            AuthInfo::Oidc {
+                application_id,
+                domain,
+            }
+        } else {
+            let application_id = match fields.remove("applicationID") {
+                Some(ConvexValue::String(s)) => Some(s.into()),
+                Some(ConvexValue::Null) | None => None,
+                v => anyhow::bail!("Invalid applicationID field for AuthInfo: {v:?}"),
+            };
+            let issuer = match fields.remove("issuer") {
+                Some(ConvexValue::String(s)) => IssuerUrl::new(s.into())?,
+                _ => anyhow::bail!("Missing or invalid issuer field for AuthInfo"),
+            };
+            let jwks = match fields.remove("jwks") {
+                Some(ConvexValue::String(s)) => s.into(),
+                _ => anyhow::bail!("Missing or invalid jwks field for AuthInfo"),
+            };
+            let algorithm = match fields.remove("algorithm") {
+                Some(ConvexValue::String(s)) => s.parse()?,
+                _ => anyhow::bail!("Missing or invalid algorithm field for AuthInfo"),
+            };
+            AuthInfo::CustomJwt {
+                application_id,
+                issuer,
+                jwks,
+                algorithm,
+            }
         };
-        Ok(Self(AuthInfo {
-            application_id,
-            domain,
-        }))
+        Ok(Self(result))
     }
 }
 
@@ -45,10 +80,28 @@ impl TryFrom<AuthInfoPersisted> for ConvexObject {
     type Error = anyhow::Error;
 
     fn try_from(info: AuthInfoPersisted) -> Result<Self, Self::Error> {
-        obj!(
-            "applicationID" => info.0.application_id,
-            "domain" => info.0.domain.to_string(),
-        )
+        let result = match info.0 {
+            AuthInfo::Oidc {
+                application_id,
+                domain,
+            } => obj!(
+                "applicationID" => application_id,
+                "domain" => domain.to_string(),
+            )?,
+            AuthInfo::CustomJwt {
+                application_id,
+                issuer,
+                jwks,
+                algorithm,
+            } => obj!(
+                "type" => "customJwt",
+                "applicationID" => application_id,
+                "issuer" => issuer.to_string(),
+                "jwks" => jwks,
+                "algorithm" => String::from(algorithm),
+            )?,
+        };
+        Ok(result)
     }
 }
 

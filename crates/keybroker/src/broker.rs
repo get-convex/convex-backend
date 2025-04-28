@@ -12,6 +12,7 @@ use std::{
 };
 
 use anyhow::Context;
+use biscuit::JWT;
 pub use common::types::SystemKey;
 use common::{
     components::ComponentId,
@@ -376,8 +377,9 @@ pub struct UserIdentity {
     pub issuer: String,
     pub expiration: SystemTime,
     pub attributes: UserIdentityAttributes,
-    // The original token this user identity was created from.
-    pub original_token: CoreIdTokenWithCustomClaims,
+    // The original token this user identity was created from. This may either by an
+    // OIDC JWT or a custom JWT.
+    pub original_token: String,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -410,7 +412,7 @@ impl From<UserIdentity> for pb::convex_identity::UserIdentity {
             issuer: Some(issuer),
             expiration: Some(expiration.into()),
             attributes: Some(attributes.into()),
-            original_token: Some(original_token.to_string()),
+            original_token: Some(original_token),
         }
     }
 }
@@ -441,6 +443,43 @@ pub struct CustomClaims(HashMap<String, serde_json::Value>);
 impl AdditionalClaims for CustomClaims {}
 
 impl UserIdentity {
+    pub fn from_custom_jwt(
+        token: JWT<serde_json::Value, biscuit::Empty>,
+        original_token: String,
+    ) -> Result<Self, anyhow::Error> {
+        let payload = token.payload()?;
+        let subject = payload.registered.subject.as_ref().ok_or_else(|| {
+            ErrorMetadata::unauthenticated("InvalidAuthHeader", "Missing subject")
+        })?;
+        let issuer =
+            payload.registered.issuer.as_ref().ok_or_else(|| {
+                ErrorMetadata::unauthenticated("InvalidAuthHeader", "Missing issuer")
+            })?;
+        let Some(expiry) = payload.registered.expiry else {
+            anyhow::bail!(ErrorMetadata::unauthenticated(
+                "InvalidAuthHeader",
+                "Missing expiry"
+            ));
+        };
+        let mut custom_claims = BTreeMap::new();
+        if let serde_json::Value::Object(ref properties) = payload.private {
+            custom_claims = extract_custom_jwt_claims(properties);
+        }
+        Ok(UserIdentity {
+            subject: subject.clone(),
+            issuer: issuer.clone(),
+            expiration: (*expiry).into(),
+            attributes: UserIdentityAttributes {
+                token_identifier: UserIdentifier::construct(issuer, subject),
+                subject: Some(subject.clone()),
+                issuer: Some(issuer.clone()),
+                custom_claims,
+                ..Default::default()
+            },
+            original_token,
+        })
+    }
+
     pub fn from_token(
         token: CoreIdTokenWithCustomClaims,
         verifier: CoreIdTokenVerifier,
@@ -492,7 +531,7 @@ impl UserIdentity {
             subject: subject.clone(),
             issuer: issuer.clone(),
             expiration: claims.expiration().into(),
-            original_token: token,
+            original_token: token.to_string(),
             attributes: UserIdentityAttributes {
                 token_identifier: UserIdentifier::construct(&issuer, &subject),
                 subject: Some(subject),
@@ -557,6 +596,22 @@ impl UserIdentity {
     pub fn is_expired(&self, current_time: SystemTime) -> bool {
         current_time >= self.expiration
     }
+}
+
+fn extract_custom_jwt_claims(
+    payload: &serde_json::Map<String, serde_json::Value>,
+) -> BTreeMap<String, String> {
+    let mut result = BTreeMap::new();
+    for (key, value) in payload {
+        if let serde_json::Value::Object(nested_object) = value {
+            for (nested_key, value) in extract_custom_jwt_claims(nested_object) {
+                result.insert(format!("{key}.{nested_key}"), value);
+            }
+        } else {
+            result.insert(key.clone(), value.to_string());
+        }
+    }
+    result
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
