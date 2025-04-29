@@ -195,6 +195,51 @@ export const deriveBits = z.union([
   algorithmNameLiteralWithParams("X25519", ecdhKeyDeriveParams),
 ]);
 
+// not supported
+const _rsaOaepParams = z.object({
+  label: z.optional(bufferSource),
+});
+
+const _aesCtrParams = z.object({
+  counter: bufferSource.refine((b) => b.length === 16),
+  length: z.number(),
+});
+
+const _aesCbcParams = z.object({
+  iv: bufferSource.refine((b) => b.length === 16),
+});
+
+const aesGcmParams = z.object({
+  // Unlike the spec we require exactly 96-bit nonces
+  iv: bufferSource.refine((b) => b.length === 12),
+  additionalData: z.optional(bufferSource),
+  // Unlike the spec we require 128-bit tags
+  tagLength: z.literal(128).default(128),
+  // tagLength: z
+  //   .union([
+  //     z.literal(32),
+  //     z.literal(64),
+  //     z.literal(96),
+  //     z.literal(104),
+  //     z.literal(112),
+  //     z.literal(120),
+  //     z.literal(128),
+  //   ])
+  //   .default(128),
+});
+
+// only AES-GCM supported for now
+// export const encryptDecrypt = z.union([
+//   algorithmNameLiteralWithParams("RSA-OAEP", rsaOaepParams),
+//   algorithmNameLiteralWithParams("AES-CTR", aesCtrParams),
+//   algorithmNameLiteralWithParams("AES-CBC", aesCbcParams),
+//   algorithmNameLiteralWithParams("AES-GCM", aesGcmParams),
+// ]);
+export const encryptDecrypt = algorithmNameLiteralWithParams(
+  "AES-GCM",
+  aesGcmParams,
+);
+
 const unknownAlgorithm = "Unrecognized or invalid algorithm";
 
 export const normalizeAlgorithmSign = (
@@ -269,6 +314,17 @@ export const normalizeAlgorithmGenerateKey = (
   const result = generateKey.safeParse(input);
   if (!result.success) {
     throw new DOMException(unknownAlgorithm);
+  } else {
+    return result.data;
+  }
+};
+
+export const normalizeAlgorithmEncryptDecrypt = (
+  input: unknown,
+): z.infer<typeof encryptDecrypt> => {
+  const result = encryptDecrypt.safeParse(input);
+  if (!result.success) {
+    throw new DOMException(`${unknownAlgorithm}: ${result.error.message}`);
   } else {
     return result.data;
   }

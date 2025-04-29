@@ -15,6 +15,7 @@ import {
 import {
   normalizeAlgorithmDeriveBits,
   normalizeAlgorithmDigest,
+  normalizeAlgorithmEncryptDecrypt,
   normalizeAlgorithmGenerateKey,
   normalizeAlgorithmGetKeyLength,
   normalizeAlgorithmImportKey,
@@ -105,12 +106,86 @@ class SubtleCrypto {
     return result.buffer;
   }
 
-  async encrypt() {
-    throwNotImplementedMethodError("encrypt", "SubtleCrypto");
+  async encrypt(
+    algorithm:
+      | AlgorithmIdentifier
+      | RsaOaepParams
+      | AesCtrParams
+      | AesCbcParams
+      | AesGcmParams,
+    key: CryptoKey,
+    data: BufferSource,
+  ): Promise<ArrayBuffer> {
+    const prefix = "Failed to execute 'encrypt' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 3, prefix);
+    const dataCopy = copyBuffer(data);
+    const normalizedAlgorithm = normalizeAlgorithmEncryptDecrypt(algorithm);
+    const handle = key[_handle];
+    const innerKey = KEY_STORE.get(handle);
+    if (normalizedAlgorithm.name !== key.algorithm.name) {
+      throw new DOMException(
+        "Encryption algorithm doesn't match key algorithm.",
+        "InvalidAccessError",
+      );
+    }
+    if (!key[_usages].includes("encrypt")) {
+      throw new DOMException(
+        "Key does not support the 'encrypt' operation.",
+        "InvalidAccessError",
+      );
+    }
+    switch (normalizedAlgorithm.name) {
+      case "AES-GCM":
+        if (![16, 32].includes(innerKey.data.length)) {
+          throwUncatchableDeveloperError(
+            `Unsupported AES-GCM key length: ${innerKey.data.length * 8}; only 128 and 256 bit keys supported`,
+          );
+        }
+        break;
+    }
+    return performOp("crypto/encrypt", normalizedAlgorithm, innerKey, dataCopy)
+      .buffer;
   }
 
-  async decrypt() {
-    throwNotImplementedMethodError("decrypt", "SubtleCrypto");
+  async decrypt(
+    algorithm:
+      | AlgorithmIdentifier
+      | RsaOaepParams
+      | AesCtrParams
+      | AesCbcParams
+      | AesGcmParams,
+    key: CryptoKey,
+    data: BufferSource,
+  ): Promise<ArrayBuffer> {
+    const prefix = "Failed to execute 'decrypt' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 3, prefix);
+    const dataCopy = copyBuffer(data);
+    const normalizedAlgorithm = normalizeAlgorithmEncryptDecrypt(algorithm);
+    const handle = key[_handle];
+    const innerKey = KEY_STORE.get(handle);
+    if (normalizedAlgorithm.name !== key.algorithm.name) {
+      throw new DOMException(
+        "Decryption algorithm doesn't match key algorithm.",
+        "InvalidAccessError",
+      );
+    }
+    if (!key[_usages].includes("decrypt")) {
+      throw new DOMException(
+        "Key does not support the 'decrypt' operation.",
+        "InvalidAccessError",
+      );
+    }
+    switch (normalizedAlgorithm.name) {
+      case "AES-GCM":
+        if (![16, 32].includes(innerKey.data.length)) {
+          throwUncatchableDeveloperError(
+            `Unsupported AES-GCM key length: ${innerKey.data.length * 8}`,
+          );
+        }
+        break;
+    }
+    return performOp("crypto/decrypt", normalizedAlgorithm, innerKey, dataCopy)
+      .buffer;
   }
 
   async sign(

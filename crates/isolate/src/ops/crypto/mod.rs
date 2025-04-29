@@ -14,6 +14,12 @@ use anyhow::Context;
 use deno_core::ToJsBuffer;
 use rand::Rng;
 use ring::{
+    aead::{
+        Aad,
+        LessSafeKey,
+        Nonce,
+        UnboundKey,
+    },
     agreement::Algorithm as RingAlgorithm,
     digest,
     hmac::{
@@ -160,6 +166,26 @@ pub fn op_crypto_digest<'b, P: OpProvider<'b>>(
     data: ByteBuf,
 ) -> anyhow::Result<ToJsBuffer> {
     CryptoOps::subtle_digest(algorithm, data.into_vec())
+}
+
+#[convex_macro::v8_op]
+pub fn op_crypto_encrypt<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    algorithm: EncryptDecryptAlgorithm,
+    key: KeyData,
+    data: ByteBuf,
+) -> anyhow::Result<ToJsBuffer> {
+    Ok(CryptoOps::subtle_encrypt(algorithm, key, data.into_vec())?.into())
+}
+
+#[convex_macro::v8_op]
+pub fn op_crypto_decrypt<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    algorithm: EncryptDecryptAlgorithm,
+    key: KeyData,
+    data: ByteBuf,
+) -> anyhow::Result<ToJsBuffer> {
+    Ok(CryptoOps::subtle_decrypt(algorithm, key, data.into_vec())?.into())
 }
 
 #[convex_macro::v8_op]
@@ -406,6 +432,18 @@ pub struct DeriveKeyArg {
     // named_curve: Option<CryptoNamedCurve>,
     // HKDF
     // info: Option<ByteBuf>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "name")]
+#[serde(rename_all_fields = "camelCase")]
+pub enum EncryptDecryptAlgorithm {
+    #[serde(rename = "AES-GCM")]
+    AesGcm {
+        iv: ByteBuf,
+        additional_data: Option<ByteBuf>,
+        tag_length: usize,
+    },
 }
 
 #[derive(Deserialize)]
@@ -765,6 +803,92 @@ impl CryptoOps {
             .into();
 
         Ok(output)
+    }
+
+    pub fn subtle_encrypt(
+        algorithm: EncryptDecryptAlgorithm,
+        key: KeyData,
+        mut data: Vec<u8>,
+    ) -> anyhow::Result<Vec<u8>> {
+        match algorithm {
+            EncryptDecryptAlgorithm::AesGcm {
+                iv,
+                additional_data,
+                tag_length,
+            } => {
+                anyhow::ensure!(matches!(key.r#type, KeyType::Secret));
+                let alg = match key.data.len() {
+                    16 => &ring::aead::AES_128_GCM,
+                    32 => &ring::aead::AES_256_GCM,
+                    _ => anyhow::bail!("unsupported key length {}", key.data.len()),
+                };
+                // TODO: consider supporting shorter tag lengths (`ring` does not allow this)
+                anyhow::ensure!(
+                    tag_length == 8 * alg.tag_len(),
+                    "invalid tag len {tag_length}"
+                );
+                let key = LessSafeKey::new(
+                    UnboundKey::new(alg, &key.data)
+                        .ok()
+                        .context("invalid AES-GCM key")?,
+                );
+                key.seal_in_place_append_tag(
+                    // TODO: consider supporting GHASH construction for nonces (`ring` does not
+                    // support this)
+                    Nonce::try_assume_unique_for_key(&iv)
+                        .ok()
+                        .context("wrong AES-GCM IV length")?,
+                    Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
+                    &mut data,
+                )
+                .ok()
+                .context("AES-GCM encryption failed")?;
+                Ok(data)
+            },
+        }
+    }
+
+    pub fn subtle_decrypt(
+        algorithm: EncryptDecryptAlgorithm,
+        key: KeyData,
+        mut data: Vec<u8>,
+    ) -> anyhow::Result<Vec<u8>> {
+        match algorithm {
+            EncryptDecryptAlgorithm::AesGcm {
+                iv,
+                additional_data,
+                tag_length,
+            } => {
+                anyhow::ensure!(matches!(key.r#type, KeyType::Secret));
+                let alg = match key.data.len() {
+                    16 => &ring::aead::AES_128_GCM,
+                    32 => &ring::aead::AES_256_GCM,
+                    _ => anyhow::bail!("unsupported key length {}", key.data.len()),
+                };
+                anyhow::ensure!(
+                    tag_length == 8 * alg.tag_len(),
+                    "invalid tag len {tag_length}"
+                );
+                let key = LessSafeKey::new(
+                    UnboundKey::new(alg, &key.data)
+                        .ok()
+                        .context("invalid AES-GCM key")?,
+                );
+                let plaintext_len = key
+                    .open_in_place(
+                        Nonce::try_assume_unique_for_key(&iv)
+                            .ok()
+                            .context("wrong AES-GCM IV length")?,
+                        Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
+                        &mut data,
+                    )
+                    .ok()
+                    .context("AES-GCM decryption failed")?
+                    .len();
+                data.truncate(plaintext_len);
+                Ok(data)
+            },
+        }
     }
 }
 

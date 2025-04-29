@@ -38,6 +38,10 @@ use common::{
         EnvVarValue,
     },
 };
+use crypto::{
+    op_crypto_decrypt,
+    op_crypto_encrypt,
+};
 use deno_core::{
     v8,
     ModuleSpecifier,
@@ -407,6 +411,8 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "crypto/verifyEd25519" => op_crypto_verify_ed25519(provider, args, rv)?,
         "crypto/deriveBits" => op_crypto_derive_bits(provider, args, rv)?,
         "crypto/digest" => op_crypto_digest(provider, args, rv)?,
+        "crypto/encrypt" => op_crypto_encrypt(provider, args, rv)?,
+        "crypto/decrypt" => op_crypto_decrypt(provider, args, rv)?,
         "crypto/importKey" => op_crypto_import_key(provider, args, rv)?,
         "crypto/importSpkiEd25519" => op_crypto_import_spki_ed25519(provider, args, rv)?,
         "crypto/importPkcs8Ed25519" => op_crypto_import_pkcs8_ed25519(provider, args, rv)?,

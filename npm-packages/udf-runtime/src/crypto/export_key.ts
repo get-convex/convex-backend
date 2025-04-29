@@ -532,19 +532,14 @@ export function aes(format, key, innerKey) {
 
       // 4.
       const algorithm = key[_algorithm];
-      switch (algorithm.length) {
-        case 128:
-          jwk.alg = aesJwkAlg[algorithm.name][128];
-          break;
-        case 192:
-          jwk.alg = aesJwkAlg[algorithm.name][192];
-          break;
-        case 256:
-          jwk.alg = aesJwkAlg[algorithm.name][256];
-          break;
-        default:
-          throw new DOMException("Invalid key length", "NotSupportedError");
+      if (!Object.prototype.hasOwnProperty.call(aesJwkAlg, algorithm.name)) {
+        throw new DOMException("Invalid JWK algorithm", "NotSupportedError");
       }
+      const alg = aesJwkAlg[algorithm.name];
+      if (!Object.prototype.hasOwnProperty.call(alg, algorithm.length)) {
+        throw new DOMException("Invalid key length", "NotSupportedError");
+      }
+      jwk.alg = alg[algorithm.length];
 
       // 5.
       jwk.key_ops = key.usages;
