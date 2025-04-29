@@ -1240,7 +1240,7 @@ fn resolved_id_param(id: &ResolvedDocumentId) -> Param {
 }
 
 fn index_params((ts, update): &(Timestamp, DatabaseIndexUpdate)) -> [Param; NUM_INDEX_PARAMS] {
-    let key: Vec<u8> = update.key.clone().into_bytes().0;
+    let key: Vec<u8> = update.key.to_bytes().0;
     let key_sha256 = Sha256::hash(&key);
     let key = SplitKey::new(key);
 

@@ -250,7 +250,7 @@ impl<RT: Runtime> MultiTableIterator<RT> {
             tablet_id,
             by_id,
             IndexedFields::by_id(),
-            cursor.map(|id| CursorPosition::After(IndexKey::new(vec![], id.into()).into_bytes())),
+            cursor.map(|id| CursorPosition::After(IndexKey::new(vec![], id.into()).to_bytes())),
         );
         pin_mut!(stream);
         while let Some((_, rev)) = stream.try_next().await? {
@@ -325,7 +325,7 @@ impl<RT: Runtime> MultiTableIterator<RT> {
                 let index_key = rev
                     .value
                     .index_key(&indexed_fields, persistence_version)
-                    .into_bytes();
+                    .to_bytes();
                 skipped_keys.insert(index_key, rev.ts, rev.value, rev.prev_ts);
             }
         } else {
@@ -482,7 +482,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
             let index_key = rev
                 .value
                 .index_key(indexed_fields, persistence_version)
-                .into_bytes();
+                .to_bytes();
             if !cursor_has_walked(lower_bound, &index_key) {
                 output.insert(index_key, rev.ts, rev.value, rev.prev_ts);
             }

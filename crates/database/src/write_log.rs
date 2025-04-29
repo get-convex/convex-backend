@@ -655,7 +655,7 @@ mod tests {
         let table_id = id_generator.user_table_id(&"t".parse()?).tablet_id;
         let id = id_generator.user_generate(&"t".parse()?);
         let index_key = IndexKey::new(vec![val!(5)], id.into());
-        let index_key_binary: BinaryKey = index_key.into_bytes().into();
+        let index_key_binary: BinaryKey = index_key.to_bytes().into();
         let index_name =
             TabletIndexName::new(table_id, IndexDescriptor::new("by_k").unwrap()).unwrap();
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("k" => 5))?;

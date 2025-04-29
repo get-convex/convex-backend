@@ -79,7 +79,7 @@ impl ApproxSize for DocumentLogEntry {
 
 impl ApproxSize for DatabaseIndexUpdate {
     fn approx_size(&self) -> usize {
-        self.index_id.size() + self.key.clone().into_bytes().len() + ResolvedDocumentId::MIN.size()
+        self.index_id.size() + self.key.to_bytes().len() + ResolvedDocumentId::MIN.size()
     }
 }
 

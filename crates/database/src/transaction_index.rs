@@ -599,7 +599,7 @@ impl TransactionIndex {
             Some(index) => {
                 let full_index_id = DeveloperDocumentId::new(index_table_number, index.id());
                 let index_key = IndexKey::new(vec![], full_index_id);
-                Interval::prefix(index_key.into_bytes().into())
+                Interval::prefix(index_key.to_bytes().into())
             },
             // On a name lookup miss, depend on all indexes.
             None => Interval::all(),
@@ -649,7 +649,7 @@ impl TransactionIndexMap {
 
     pub fn insert(&mut self, k: IndexKey, v: Option<&ResolvedDocument>) {
         self.inner
-            .insert(k.into_bytes().0, v.map(PackedDocument::pack));
+            .insert(k.to_bytes().0, v.map(PackedDocument::pack));
     }
 }
 
@@ -1178,7 +1178,7 @@ mod tests {
             result,
             vec![(
                 doc.index_key(&IndexedFields::by_id()[..], persistence_version)
-                    .into_bytes(),
+                    .to_bytes(),
                 doc,
                 WriteTimestamp::Pending
             )],
@@ -1331,20 +1331,20 @@ mod tests {
                 (
                     alice
                         .index_key(&by_id_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     alice.clone(),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
                     zack.index_key(&by_id_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     zack.clone(),
                     WriteTimestamp::Committed(now3)
                 ),
                 (
                     david
                         .index_key(&by_id_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     david.clone(),
                     WriteTimestamp::Pending
                 ),
@@ -1354,11 +1354,7 @@ mod tests {
         expected_reads.record_indexed_derived(
             TabletIndexName::by_id(index_table_id),
             IndexedFields::by_id(),
-            Interval::prefix(
-                IndexKey::new(vec![], by_id_index.into())
-                    .into_bytes()
-                    .into(),
-            ),
+            Interval::prefix(IndexKey::new(vec![], by_id_index.into()).to_bytes().into()),
         );
         // Note: We do not expect the reads to include the range from this query, since
         // that will be tracked later when the query results are consumed
@@ -1386,20 +1382,20 @@ mod tests {
                 (
                     alice
                         .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     alice.clone(),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
                     david
                         .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     david.clone(),
                     WriteTimestamp::Pending
                 ),
                 (
                     zack.index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     zack.clone(),
                     WriteTimestamp::Committed(now3)
                 ),
@@ -1427,7 +1423,7 @@ mod tests {
             CursorPosition::After(
                 david
                     .index_key(&by_name_fields[..], persistence_version)
-                    .into_bytes()
+                    .to_bytes()
             )
         );
         assert_eq!(
@@ -1436,14 +1432,14 @@ mod tests {
                 (
                     alice
                         .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     alice.clone(),
                     WriteTimestamp::Committed(now1)
                 ),
                 (
                     david
                         .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     david.clone(),
                     WriteTimestamp::Pending
                 ),
@@ -1472,21 +1468,21 @@ mod tests {
             vec![
                 (
                     zack.index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     zack,
                     WriteTimestamp::Committed(now3)
                 ),
                 (
                     david
                         .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     david,
                     WriteTimestamp::Pending
                 ),
                 (
                     alice
                         .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes(),
+                        .to_bytes(),
                     alice,
                     WriteTimestamp::Committed(now1)
                 ),

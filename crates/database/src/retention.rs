@@ -643,7 +643,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     {
                         let index_key = prev_rev
                             .index_key(index_fields, persistence_version)
-                            .into_bytes();
+                            .to_bytes();
                         let key_sha256 = Sha256::hash(&index_key);
                         let key = SplitKey::new(index_key.clone().0);
                         log_retention_expired_index_entry(false, false);
@@ -660,9 +660,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         ));
                         match maybe_doc.as_ref() {
                             Some(doc) => {
-                                let next_index_key = doc
-                                    .index_key(index_fields, persistence_version)
-                                    .into_bytes();
+                                let next_index_key =
+                                    doc.index_key(index_fields, persistence_version).to_bytes();
                                 if index_key == next_index_key {
                                     continue;
                                 }

@@ -1200,7 +1200,7 @@ mod tests {
                 FieldPath::new(ids).ok()
             }).collect();
             let ver = PersistenceVersion::V5;
-            let index_key_bytes = doc.index_key(&field_paths, ver).into_bytes();
+            let index_key_bytes = doc.index_key(&field_paths, ver).to_bytes();
             assert_eq!(
                 index_key_bytes,
                 *PackedDocument::pack(&doc).index_key(

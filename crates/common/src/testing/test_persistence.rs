@@ -117,7 +117,7 @@ impl Persistence for TestPersistence {
         }
         inner.is_fresh = false;
         for (ts, update) in indexes {
-            let index_key_bytes = update.key.clone().into_bytes();
+            let index_key_bytes = update.key.to_bytes();
             anyhow::ensure!(
                 conflict_strategy == ConflictStrategy::Overwrite
                     || !inner

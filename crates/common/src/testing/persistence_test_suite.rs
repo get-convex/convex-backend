@@ -994,7 +994,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             CreationTime::ONE,
             assert_obj!("value" => expected_value),
         )?;
-        let key = doc.index_key(&fields, p.reader().version()).into_bytes();
+        let key = doc.index_key(&fields, p.reader().version()).to_bytes();
         assert_eq!(
             results,
             vec![(
@@ -1069,8 +1069,8 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                         tablet_id,
                         ts,
                         &Interval {
-                            start: StartIncluded(keys[i].clone().into_bytes().into()),
-                            end: End::after_prefix(&BinaryKey::from(keys[j].clone().into_bytes())),
+                            start: StartIncluded(keys[i].to_bytes().into()),
+                            end: End::after_prefix(&BinaryKey::from(keys[j].to_bytes())),
                         },
                         order,
                         100,
@@ -1094,7 +1094,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                     .into_iter()
                     .map(|k| {
                         (
-                            k.clone().into_bytes(),
+                            k.to_bytes(),
                             LatestDocument {
                                 ts,
                                 value: keys_to_doc.get(&k).unwrap().clone(),
@@ -1162,7 +1162,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
                 },
             ));
             index_to_results.entry(index_id).or_default().push((
-                key.into_bytes(),
+                key.to_bytes(),
                 LatestDocument {
                     ts,
                     value: doc,

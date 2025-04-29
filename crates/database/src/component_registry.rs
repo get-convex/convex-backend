@@ -303,7 +303,7 @@ impl ComponentRegistry {
         id: DeveloperDocumentId,
         reads: &mut TransactionReadSet,
     ) -> Option<&ParsedDocument<ComponentMetadata>> {
-        let index_key = IndexKey::new(vec![], id).into_bytes().into();
+        let index_key = IndexKey::new(vec![], id).to_bytes().into();
         reads.record_indexed_derived(
             TabletIndexName::by_id(self.components_tablet),
             IndexedFields::by_id(),

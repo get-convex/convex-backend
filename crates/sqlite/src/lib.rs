@@ -300,7 +300,7 @@ impl Persistence for SqlitePersistence {
         };
         for (ts, update) in indexes {
             let index_id = update.index_id;
-            let key: Vec<u8> = update.key.into_bytes().0;
+            let key: Vec<u8> = update.key.to_bytes().0;
             match update.value {
                 DatabaseIndexValue::Deleted => {
                     insert_index_query.execute(params![

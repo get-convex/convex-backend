@@ -125,7 +125,7 @@ impl BackendInMemoryIndexes {
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
         for (ts, index_doc) in index_documents.into_values() {
             let index_key = IndexKey::new(vec![], index_doc.developer_id());
-            meta_index_map.insert(index_key.into_bytes(), ts, &index_doc);
+            meta_index_map.insert(index_key.to_bytes(), ts, &index_doc);
         }
 
         let mut in_memory_indexes = OrdMap::new();
@@ -257,7 +257,7 @@ impl BackendInMemoryIndexes {
                         match insertion {
                             Some(ref doc) => {
                                 assert_eq!(*doc_id, doc.id());
-                                key_set.insert(update.key.clone().into_bytes(), ts, doc);
+                                key_set.insert(update.key.to_bytes(), ts, doc);
                             },
                             None => panic!("Unexpected index update: {:?}", update.value),
                         }
@@ -329,7 +329,7 @@ impl DatabaseIndexMap {
     }
 
     fn remove(&mut self, k: &IndexKey, ts: Timestamp) {
-        let k = k.clone().into_bytes().0;
+        let k = k.to_bytes().0;
         self.inner.remove(&k);
         self.last_modified = cmp::max(self.last_modified, ts);
     }
@@ -553,12 +553,8 @@ impl DatabaseIndexSnapshot {
                     // Populate all index point lookups that can result in the given
                     // document.
                     for (some_index, index_key) in self.index_registry.index_keys(&doc) {
-                        self.cache.populate(
-                            some_index.id(),
-                            index_key.into_bytes(),
-                            ts,
-                            doc.clone(),
-                        );
+                        self.cache
+                            .populate(some_index.id(), index_key.to_bytes(), ts, doc.clone());
                     }
                 }
                 let (interval_read, _) = range_request
@@ -815,7 +811,7 @@ mod cache_tests {
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!())?;
         let index_key_bytes = doc
             .index_key(&IndexedFields::by_id(), PersistenceVersion::default())
-            .into_bytes();
+            .to_bytes();
         let ts = Timestamp::must(100);
         cache.populate(index_id, index_key_bytes.clone(), ts, doc.clone());
 
@@ -845,7 +841,7 @@ mod cache_tests {
         let fields = vec!["age".parse()?];
         let index_key_bytes1 = doc1
             .index_key(&fields, PersistenceVersion::default())
-            .into_bytes();
+            .to_bytes();
         let ts1 = Timestamp::must(100);
         cache.populate(index_id, index_key_bytes1.clone(), ts1, doc1.clone());
 
@@ -853,7 +849,7 @@ mod cache_tests {
         let doc2 = ResolvedDocument::new(id2, CreationTime::ONE, assert_obj!("age" => 40.0))?;
         let index_key_bytes2 = doc2
             .index_key(&fields, PersistenceVersion::default())
-            .into_bytes();
+            .to_bytes();
         let ts2 = Timestamp::must(150);
         cache.populate(index_id, index_key_bytes2.clone(), ts2, doc2.clone());
 
@@ -978,7 +974,7 @@ mod cache_tests {
             let fields = vec!["age".parse().unwrap()];
             let index_key_bytes = doc
                 .index_key(&fields, PersistenceVersion::default())
-                .into_bytes();
+                .to_bytes();
             cache.populate(index_id, index_key_bytes.clone(), ts, doc.clone());
             (index_key_bytes, doc)
         };

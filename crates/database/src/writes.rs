@@ -343,7 +343,7 @@ impl Writes {
                 vec![],
                 DeveloperDocumentId::new(table_mapping.tables_id.table_number, tablet_id.0),
             )
-            .into_bytes();
+            .to_bytes();
             reads.record_indexed_derived(
                 TabletIndexName::by_id(table_mapping.tables_id.tablet_id),
                 IndexedFields::by_id(),
@@ -385,7 +385,7 @@ impl Writes {
         // begin timestamp, and here we take a dependency on the ID to make sure
         // it cannot be created by a parallel commit.
         let index_name = TabletIndexName::by_id(document_id.tablet_id);
-        let id_bytes = IndexKey::new(vec![], document_id.into()).into_bytes();
+        let id_bytes = IndexKey::new(vec![], document_id.into()).to_bytes();
         reads.record_indexed_derived(
             index_name,
             IndexedFields::by_id(),

@@ -1292,7 +1292,7 @@ fn resolved_id_param(id: &ResolvedDocumentId) -> Vec<u8> {
 }
 
 fn index_params(query: &mut Vec<mysql_async::Value>, ts: Timestamp, update: DatabaseIndexUpdate) {
-    let key: Vec<u8> = update.key.clone().into_bytes().0;
+    let key: Vec<u8> = update.key.to_bytes().0;
     let key_sha256 = Sha256::hash(&key);
     let key = SplitKey::new(key);
 

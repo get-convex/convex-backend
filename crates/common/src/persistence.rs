@@ -411,7 +411,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
             index_id,
             tablet_id,
             read_timestamp,
-            &Interval::prefix(key.into_bytes().into()),
+            &Interval::prefix(key.to_bytes().into()),
             Order::Asc,
             2,
             retention_validator,
