@@ -21,7 +21,10 @@ use common::{
         report_error,
         JsError,
     },
-    execution_context::ExecutionContext,
+    execution_context::{
+        ExecutionContext,
+        ExecutionId,
+    },
     fastrace_helpers::get_sampled_span,
     identity::InertIdentity,
     knobs::{
@@ -67,6 +70,7 @@ use model::{
     },
     modules::ModuleModel,
 };
+use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
@@ -225,6 +229,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 &mut self.context.rt.rng(),
                 BTreeMap::new(),
             );
+            let sentry_hub = sentry::Hub::with(|hub| sentry::Hub::new_from_top(hub));
             let context = self.context.clone();
             let tx = self.job_finished_tx.clone();
             // TODO: cancel this handle with the application
@@ -240,7 +245,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         },
                     }
                 }
-                .in_span(root),
+                .in_span(root)
+                .bind_hub(sentry_hub),
             );
             self.running_job_ids.insert(job_id);
         }
@@ -410,6 +416,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         let caller = FunctionCaller::Cron;
         let (component, component_path) = self.get_job_component(&mut tx, job.id).await?;
         let context = ExecutionContext::new(request_id, &caller);
+        sentry::configure_scope(|scope| scope.set_tag("execution_id", &context.execution_id));
         let path = CanonicalizedComponentFunctionPath {
             component: component_path,
             udf_path: job.cron_spec.udf_path.clone(),
@@ -543,9 +550,17 @@ impl<RT: Runtime> CronJobContext<RT> {
         let caller = FunctionCaller::Cron;
         match job.state {
             CronJobState::Pending => {
+                // Create a new execution ID
+                let context = ExecutionContext::new(request_id, &caller);
+                sentry::configure_scope(|scope| {
+                    scope.set_tag("execution_id", &context.execution_id)
+                });
+
                 // Set state to in progress
                 let mut updated_job = job.clone();
-                updated_job.state = CronJobState::InProgress;
+                updated_job.state = CronJobState::InProgress {
+                    execution_id: Some(context.execution_id.clone()),
+                };
                 CronModel::new(&mut tx, component)
                     .update_job_state(updated_job.cron_next_run())
                     .await?;
@@ -554,7 +569,6 @@ impl<RT: Runtime> CronJobContext<RT> {
                     .await?;
 
                 // Execute the action
-                let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
                     component: component_path,
                     udf_path: job.cron_spec.udf_path.clone(),
@@ -605,11 +619,14 @@ impl<RT: Runtime> CronJobContext<RT> {
                 }
                 self.function_log.log_action(completion, usage_tracker);
             },
-            CronJobState::InProgress => {
+            CronJobState::InProgress { ref execution_id } => {
                 // This case can happen if there is a system error while executing
                 // the action or if backend exits after executing the action but
                 // before updating the state. Since we execute actions at most once,
                 // complete this job and log the error.
+                if let Some(id) = execution_id {
+                    sentry::configure_scope(|scope| scope.set_tag("execution_id", id));
+                }
                 let err =
                     JsError::from_message("Transient error while executing action".to_string());
                 let status = CronJobStatus::Err(err.to_string());
@@ -617,12 +634,13 @@ impl<RT: Runtime> CronJobContext<RT> {
                     log_lines: vec![].into(),
                     is_truncated: false,
                 };
-
-                // TODO: This is wrong. We don't know the executionId the action has been
-                // started with. We generate a new executionId and use it to log the failures. I
-                // guess the correct behavior here is to store the executionId in the state so
-                // we can log correctly here.
-                let context = ExecutionContext::new(request_id, &caller);
+                // Restore the execution ID of the failed execution.
+                let context = ExecutionContext::new_from_parts(
+                    request_id,
+                    execution_id.clone().unwrap_or_else(ExecutionId::new),
+                    caller.parent_scheduled_job(),
+                    caller.is_root(),
+                );
                 let mut model = CronModel::new(&mut tx, component);
                 model
                     .insert_cron_job_log(&job, status, log_lines, 0.0)
@@ -645,8 +663,9 @@ impl<RT: Runtime> CronJobContext<RT> {
                     component: component_path,
                     udf_path: job.cron_spec.udf_path,
                 };
+                let mut err = err.into();
                 self.function_log.log_action_system_error(
-                    &err.into(),
+                    &err,
                     path,
                     job.cron_spec.udf_args.clone(),
                     identity,
@@ -655,6 +674,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                     vec![].into(),
                     context,
                 )?;
+                report_error(&mut err).await;
             },
         }
         Ok(())
@@ -778,11 +798,12 @@ impl<RT: Runtime> CronJobContext<RT> {
                         mutation_retry_count.is_none(),
                         "Actions should not have mutation_retry_count set"
                     );
+                    let mut err = anyhow::anyhow!(
+                        "Skipping {num_skipped} run(s) of {name} because multiple scheduled runs \
+                         are in the past"
+                    );
                     self.function_log.log_action_system_error(
-                        &anyhow::anyhow!(
-                            "Skipping {num_skipped} run(s) of {name} because multiple scheduled \
-                             runs are in the past"
-                        ),
+                        &err,
                         CanonicalizedComponentFunctionPath {
                             component: component_path,
                             udf_path: job.cron_spec.udf_path.clone(),
@@ -794,6 +815,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                         vec![].into(),
                         context,
                     )?;
+                    report_error(&mut err).await;
                 },
                 UdfType::Query | UdfType::HttpAction => {
                     anyhow::bail!("Executing unexpected function type as a cron")

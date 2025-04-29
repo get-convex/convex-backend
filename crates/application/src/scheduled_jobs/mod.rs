@@ -25,7 +25,10 @@ use common::{
         report_error,
         JsError,
     },
-    execution_context::ExecutionContext,
+    execution_context::{
+        ExecutionContext,
+        ExecutionId,
+    },
     fastrace_helpers::get_sampled_span,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
@@ -91,6 +94,7 @@ use model::{
     },
 };
 use parking_lot::Mutex;
+use sentry::SentryFutureExt;
 use sync_types::Timestamp;
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
@@ -321,6 +325,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 &mut self.context.rt.rng(),
                 BTreeMap::new(),
             );
+            let sentry_hub = sentry::Hub::with(|hub| sentry::Hub::new_from_top(hub));
             // TODO: cancel this handle with the application
             self.context.rt.spawn_background(
                 "spawn_scheduled_job",
@@ -328,7 +333,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                     context.execute_job(job, job_id).await;
                     let _ = tx.send(job_id).await;
                 }
-                .in_span(root),
+                .in_span(root)
+                .bind_hub(sentry_hub),
             );
 
             self.running_job_ids.insert(job_id);
@@ -747,9 +753,17 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         match job.state {
             ScheduledJobState::Pending => {
+                // Create a new execution ID
+                let context = ExecutionContext::new(request_id, &caller);
+                sentry::configure_scope(|scope| {
+                    scope.set_tag("execution_id", &context.execution_id)
+                });
+
                 // Set state to in progress
                 let mut updated_job = job.clone();
-                updated_job.state = ScheduledJobState::InProgress;
+                updated_job.state = ScheduledJobState::InProgress {
+                    execution_id: Some(context.execution_id.clone()),
+                };
                 SchedulerModel::new(&mut tx, namespace)
                     .replace(job_id, updated_job.clone())
                     .await?;
@@ -758,7 +772,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
 
                 // Execute the action
-                let context = ExecutionContext::new(request_id, &caller);
                 let path = job.path.clone();
                 let completion = self
                     .runner
@@ -792,11 +805,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 }
                 self.function_log.log_action(completion, usage_tracker);
             },
-            ScheduledJobState::InProgress => {
+            ScheduledJobState::InProgress { ref execution_id } => {
                 // This case can happen if there is a system error while executing
                 // the action or if backend exits after executing the action but
                 // before updating the state. Since we execute actions at most once,
                 // complete this job and log the error.
+                if let Some(id) = execution_id {
+                    sentry::configure_scope(|scope| scope.set_tag("execution_id", id));
+                }
                 let message = "Transient error while executing action".to_string();
                 SchedulerModel::new(&mut tx, namespace)
                     .complete(job_id, ScheduledJobState::Failed(message.clone()))
@@ -804,14 +820,17 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_action_error")
                     .await?;
-                // TODO: This is wrong. We don't know the executionId the action has been
-                // started with. We generate a new executionId and use it to log the failures. I
-                // guess the correct behavior here is to store the executionId in the state so
-                // we can log correctly here.
-                let context = ExecutionContext::new(request_id, &caller);
+                // Restore the execution ID of the failed execution.
+                let context = ExecutionContext::new_from_parts(
+                    request_id,
+                    execution_id.clone().unwrap_or_else(ExecutionId::new),
+                    caller.parent_scheduled_job(),
+                    caller.is_root(),
+                );
                 let path = job.path.clone();
+                let mut err = JsError::from_message(message).into();
                 self.function_log.log_action_system_error(
-                    &JsError::from_message(message).into(),
+                    &err,
                     path,
                     job.udf_args()?,
                     identity.into(),
@@ -820,6 +839,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     vec![].into(),
                     context,
                 )?;
+                report_error(&mut err).await;
             },
             state => {
                 anyhow::bail!(

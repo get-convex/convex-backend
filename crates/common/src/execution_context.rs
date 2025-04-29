@@ -8,6 +8,10 @@ use std::{
 
 use anyhow::Context;
 use rand::Rng;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use serde_json::{
     json,
     Value as JsonValue,
@@ -193,6 +197,24 @@ impl FromStr for ExecutionId {
 impl Display for ExecutionId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Serialize for ExecutionId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ExecutionId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|s| s.parse().map_err(serde::de::Error::custom))
     }
 }
 

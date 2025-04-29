@@ -420,7 +420,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                     for cron in crons.values() {
                         let next_run = CronNextRun {
                             cron_job_id: cron.id.developer_id,
-                            state: cron.state,
+                            state: cron.state.clone(),
                             prev_ts: cron.prev_ts,
                             next_ts: cron.next_ts,
                         };

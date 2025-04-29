@@ -13,6 +13,7 @@ use anyhow::{
 use common::{
     components::ComponentId,
     document::ParsedDocument,
+    execution_context::ExecutionId,
     log_lines::RawLogLines,
     types::Timestamp,
 };
@@ -97,7 +98,7 @@ impl CronJob {
     pub fn cron_next_run(&self) -> CronNextRun {
         CronNextRun {
             cron_job_id: self.id.developer_id,
-            state: self.state,
+            state: self.state.clone(),
             prev_ts: self.prev_ts,
             next_ts: self.next_ts,
         }
@@ -490,14 +491,17 @@ impl TryFrom<JsonValue> for CronSpec {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum CronJobState {
     // Yet to be attempted.
     Pending,
     // Started but not completed yet. Used to make actions execute at most once.
-    InProgress,
+    //
+    // TODO: remove `None` case for cron jobs that started before we started
+    // recording execution id.
+    InProgress { execution_id: Option<ExecutionId> },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

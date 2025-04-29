@@ -232,6 +232,7 @@ dependencies = [
  "runtime",
  "search",
  "semver 1.0.23",
+ "sentry",
  "serde",
  "serde_json",
  "shape_inference",

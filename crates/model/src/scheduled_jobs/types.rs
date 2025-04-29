@@ -3,6 +3,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
     },
+    execution_context::ExecutionId,
     types::Timestamp,
 };
 #[cfg(any(test, feature = "testing"))]
@@ -181,7 +182,10 @@ pub enum ScheduledJobState {
     Pending,
     /// Job has started running but is not completed yet. This state only
     /// applies to actions, and is used to make actions execute at most once.
-    InProgress,
+    ///
+    /// TODO: remove `None` case for scheduled jobs that started before we
+    /// started recording execution id.
+    InProgress { execution_id: Option<ExecutionId> },
 
     /// Completion states
     /// Job finished running successully with no errors.
@@ -199,7 +203,7 @@ pub enum ScheduledJobState {
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SerializedScheduledJobState {
     Pending,
-    InProgress,
+    InProgress { execution_id: Option<ExecutionId> },
     Success,
     Failed { error: String },
     Canceled,
@@ -211,7 +215,9 @@ impl TryFrom<ScheduledJobState> for SerializedScheduledJobState {
     fn try_from(state: ScheduledJobState) -> anyhow::Result<Self> {
         match state {
             ScheduledJobState::Pending => Ok(SerializedScheduledJobState::Pending),
-            ScheduledJobState::InProgress => Ok(SerializedScheduledJobState::InProgress),
+            ScheduledJobState::InProgress { execution_id } => {
+                Ok(SerializedScheduledJobState::InProgress { execution_id })
+            },
             ScheduledJobState::Success => Ok(SerializedScheduledJobState::Success),
             ScheduledJobState::Failed(e) => Ok(SerializedScheduledJobState::Failed { error: e }),
             ScheduledJobState::Canceled => Ok(SerializedScheduledJobState::Canceled),
@@ -225,7 +231,9 @@ impl TryFrom<SerializedScheduledJobState> for ScheduledJobState {
     fn try_from(value: SerializedScheduledJobState) -> anyhow::Result<Self> {
         match value {
             SerializedScheduledJobState::Pending => Ok(ScheduledJobState::Pending),
-            SerializedScheduledJobState::InProgress => Ok(ScheduledJobState::InProgress),
+            SerializedScheduledJobState::InProgress { execution_id } => {
+                Ok(ScheduledJobState::InProgress { execution_id })
+            },
             SerializedScheduledJobState::Success => Ok(ScheduledJobState::Success),
             SerializedScheduledJobState::Failed { error } => Ok(ScheduledJobState::Failed(error)),
             SerializedScheduledJobState::Canceled => Ok(ScheduledJobState::Canceled),

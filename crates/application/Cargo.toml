@@ -57,6 +57,7 @@ rand = { workspace = true }
 regex = { workspace = true }
 search = { path = "../search" }
 semver = { workspace = true }
+sentry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 shape_inference = { path = "../shape_inference" }

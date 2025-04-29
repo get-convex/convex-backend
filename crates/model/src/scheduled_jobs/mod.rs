@@ -257,7 +257,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             if let Some(parent_scheduled_job_state) = parent_scheduled_job_state {
                 match parent_scheduled_job_state {
                     ScheduledJobState::Pending
-                    | ScheduledJobState::InProgress
+                    | ScheduledJobState::InProgress { .. }
                     | ScheduledJobState::Failed(_)
                     | ScheduledJobState::Success => scheduled_job,
                     ScheduledJobState::Canceled => {
@@ -308,7 +308,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         state: ScheduledJobState,
     ) -> anyhow::Result<()> {
         match state {
-            ScheduledJobState::InProgress | ScheduledJobState::Pending => {
+            ScheduledJobState::InProgress { .. } | ScheduledJobState::Pending => {
                 anyhow::bail!("invalid state for completing a scheduled job")
             },
             ScheduledJobState::Canceled
@@ -320,7 +320,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         };
         let job: ParsedDocument<ScheduledJob> = job.parse()?;
         match job.state {
-            ScheduledJobState::Pending | ScheduledJobState::InProgress => {},
+            ScheduledJobState::Pending | ScheduledJobState::InProgress { .. } => {},
             ScheduledJobState::Canceled => {
                 // If the job is already canceled. Completing is a no-op. We
                 // should proceed without throwing an error.
@@ -352,7 +352,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
     pub async fn cancel(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
         if let Some(scheduled_job) = self.check_status(id).await? {
             match scheduled_job {
-                ScheduledJobState::Pending | ScheduledJobState::InProgress => {
+                ScheduledJobState::Pending | ScheduledJobState::InProgress { .. } => {
                     self.complete(id, ScheduledJobState::Canceled).await?;
                 },
                 ScheduledJobState::Canceled
