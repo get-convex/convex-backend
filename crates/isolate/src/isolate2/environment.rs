@@ -11,10 +11,7 @@ use common::{
 };
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use value::{
-    NamespacedTableMapping,
-    TableMappingValue,
-};
+use value::NamespacedTableMapping;
 
 #[derive(Debug)]
 pub struct EnvironmentOutcome {
@@ -47,5 +44,4 @@ pub trait Environment {
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome>;
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }

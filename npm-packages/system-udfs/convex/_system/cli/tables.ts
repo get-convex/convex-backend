@@ -7,13 +7,13 @@ export default queryPrivateSystem({
     paginationOpts: paginationOptsValidator,
   },
   handler: async () => {
-    const tables: Record<number, string> = performOp(
-      "getTableMappingWithoutSystemTables",
-    );
+    const tables: Record<number, string> = performOp("getTableMapping");
     // We don't need to paginate but keep the PaginationResult return type for backwards
     // compatibility.
     return {
-      page: Object.values(tables).map((name) => ({ name })),
+      page: Object.values(tables)
+        .map((name) => ({ name }))
+        .filter(({ name }) => !name.startsWith("_")),
       isDone: true,
       continueCursor: "end",
     };

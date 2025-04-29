@@ -54,7 +54,6 @@ use value::{
     ConvexObject,
     FieldName,
     NamespacedTableMapping,
-    TableMappingValue,
 };
 
 use super::{
@@ -495,13 +494,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                 "EnvironmentVariablesUnsupported",
                 "Environment variables are only supported in the app's convex.config.ts.",
             ))
-    }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoTableMappingFetchDuringDefinitionEvaluation",
-            "Getting the table mapping unsupported when evaluating app definition"
-        ))
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {

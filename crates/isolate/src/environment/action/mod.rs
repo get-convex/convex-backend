@@ -103,7 +103,6 @@ use value::{
     JsonPackedValue,
     NamespacedTableMapping,
     Size,
-    TableMappingValue,
 };
 
 pub use self::{
@@ -1358,10 +1357,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
         self.phase.get_environment_variable(name)
-    }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        anyhow::bail!("get_table_mapping_without_system_tables unsupported in actions")
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {

@@ -18,7 +18,7 @@ use crate::{
 pub enum TableNamespace {
     /// For tables that have a single global namespace, e.g. _tables, _index,
     /// _db.
-    /// Also for tables in the root component.
+    /// Also for tables in the root component, including system tables.
     Global,
 
     /// Some tables are namespaced by component, like user tables,
@@ -435,6 +435,16 @@ impl NamespacedTableMapping {
                 .copied()
         }
     }
+
+    pub fn to_value(self, with_system_tables: bool) -> TableMappingValue {
+        TableMappingValue(
+            self.iter()
+                .filter(|(tablet_id, ..)| self.is_active(*tablet_id))
+                .filter(|(_, _, name)| with_system_tables || !name.is_system())
+                .map(|(_, number, name)| (number, name.clone()))
+                .collect(),
+        )
+    }
 }
 
 fn table_does_not_exist(table: &TableName) -> ErrorMetadata {
@@ -445,16 +455,3 @@ fn table_does_not_exist(table: &TableName) -> ErrorMetadata {
 /// `getTableMapping` operation. It omits system tables.
 #[derive(Serialize)]
 pub struct TableMappingValue(BTreeMap<TableNumber, TableName>);
-
-impl From<NamespacedTableMapping> for TableMappingValue {
-    fn from(table_mapping: NamespacedTableMapping) -> Self {
-        TableMappingValue(
-            table_mapping
-                .iter()
-                .filter(|(_, _, name)| !name.is_system())
-                .filter(|(tablet_id, ..)| table_mapping.is_active(*tablet_id))
-                .map(|(_, number, name)| (number, name.clone()))
-                .collect(),
-        )
-    }
-}

@@ -459,7 +459,6 @@ mod op_provider {
     use value::{
         heap_size::WithHeapSize,
         NamespacedTableMapping,
-        TableMappingValue,
     };
 
     use super::CallbackContext;
@@ -580,12 +579,6 @@ mod op_provider {
 
         fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
             self.context_state()?.environment.get_all_table_mappings()
-        }
-
-        fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-            self.context_state()?
-                .environment
-                .get_table_mapping_without_system_tables()
         }
 
         fn create_text_decoder(&mut self, decoder: TextDecoderResource) -> anyhow::Result<Uuid> {

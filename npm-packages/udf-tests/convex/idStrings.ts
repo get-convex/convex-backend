@@ -10,7 +10,7 @@ import { performOp } from "udf-syscall-ffi";
  * so that it can be tested in UDF tests.
  */
 export const getTableMapping = query(async () => {
-  return performOp("getTableMappingWithoutSystemTables");
+  return performOp("getTableMapping");
 });
 
 export const normalizeId = query({

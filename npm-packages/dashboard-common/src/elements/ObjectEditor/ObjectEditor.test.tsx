@@ -64,7 +64,7 @@ const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
   .registerQueryFake(udfs.getVersion.default, () => "0.19.0")
   .registerQueryFake(udfs.components.list, () => [])
-  .registerQueryFake(udfs.getTableMapping.default, () => {});
+  .registerQueryFake(udfs.getTableMapping.default, () => ({}));
 
 describe("ObjectEditor", () => {
   beforeEach(jest.clearAllMocks);

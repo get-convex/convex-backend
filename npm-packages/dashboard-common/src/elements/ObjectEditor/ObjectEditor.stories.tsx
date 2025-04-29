@@ -9,7 +9,7 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
   .registerQueryFake(udfs.components.list, () => [])
-  .registerQueryFake(udfs.getTableMapping.default, () => null);
+  .registerQueryFake(udfs.getTableMapping.default, () => ({}));
 
 export default {
   component: ObjectEditor,

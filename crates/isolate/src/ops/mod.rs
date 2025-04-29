@@ -50,7 +50,6 @@ use validate_returns::op_validate_returns;
 use value::{
     heap_size::WithHeapSize,
     NamespacedTableMapping,
-    TableMappingValue,
 };
 
 use self::{
@@ -91,7 +90,7 @@ use self::{
         op_crypto_verify,
         op_crypto_verify_ed25519,
     },
-    database::op_get_table_mapping_without_system_tables,
+    database::op_get_table_mapping,
     environment_variables::op_environment_variables_get,
     errors::{
         op_error_stack,
@@ -198,7 +197,6 @@ pub trait OpProvider<'b> {
         -> anyhow::Result<Option<EnvVarValue>>;
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
@@ -348,11 +346,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
         let state = self.state_mut()?;
         state.environment.get_all_table_mappings()
     }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        let state = self.state_mut()?;
-        state.environment.get_table_mapping_without_system_tables()
-    }
 }
 
 pub fn run_op<'b, P: OpProvider<'b>>(
@@ -402,9 +395,7 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "btoa" => op_btoa(provider, args, rv)?,
         "structuredClone" => op_structured_clone(provider, args.get(1), rv)?,
         "environmentVariables/get" => op_environment_variables_get(provider, args, rv)?,
-        "getTableMappingWithoutSystemTables" => {
-            op_get_table_mapping_without_system_tables(provider, args, rv)?
-        },
+        "getTableMapping" => op_get_table_mapping(provider, args, rv)?,
         "validateArgs" => op_validate_args(provider, args, rv)?,
         "validateReturns" => op_validate_returns(provider, args, rv)?,
 

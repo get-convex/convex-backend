@@ -96,7 +96,6 @@ use value::{
     JsonPackedValue,
     NamespacedTableMapping,
     Size,
-    TableMappingValue,
     MAX_DOCUMENT_NESTING,
     MAX_USER_SIZE,
     VALUE_TOO_LARGE_SHORT_MSG,
@@ -236,11 +235,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
         self.phase.get_environment_variable(name)
-    }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        let namespace = self.phase.component()?.into();
-        Ok(self.phase.tx()?.table_mapping().namespace(namespace).into())
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {

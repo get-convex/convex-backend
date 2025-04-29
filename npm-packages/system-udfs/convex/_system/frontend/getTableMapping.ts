@@ -9,6 +9,14 @@ import { queryPrivateSystem } from "../secretSystemTables";
 export default queryPrivateSystem({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async () => {
-    return performOp("getTableMappingWithoutSystemTables");
+    const tableMapping: Record<number, string> =
+      await performOp("getTableMapping");
+    return Object.fromEntries(
+      Object.entries(tableMapping).filter(
+        ([, name]) =>
+          !name.startsWith("_") ||
+          ["_scheduled_jobs", "_file_storage"].includes(name),
+      ),
+    );
   },
 });

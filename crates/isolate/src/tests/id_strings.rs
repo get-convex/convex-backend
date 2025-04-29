@@ -46,7 +46,6 @@ async fn test_table_mapping_from_system_udf(rt: TestRuntime) -> anyhow::Result<(
         let value = t.query("idStrings:getTableMapping", assert_obj!()).await?;
         must_let!(let ConvexValue::Object(entries) = value);
 
-        assert_eq!(1, entries.len());
         assert_eq!(
             &ConvexValue::String("table".try_into()?),
             entries.get(&table_number_field).unwrap()

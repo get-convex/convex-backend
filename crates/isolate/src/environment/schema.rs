@@ -40,10 +40,7 @@ use model::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use value::{
-    NamespacedTableMapping,
-    TableMappingValue,
-};
+use value::NamespacedTableMapping;
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -103,13 +100,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoEnvironmentVariablesInSchema",
             "Environment variables unsupported when evaluating schema"
-        ))
-    }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoTableMappingFetchInSchema",
-            "Getting the table mapping unsupported when evaluating schema"
         ))
     }
 

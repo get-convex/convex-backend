@@ -39,10 +39,7 @@ use model::{
 use rand_chacha::ChaCha12Rng;
 use regex::Regex;
 use serde_json::Value as JsonValue;
-use value::{
-    NamespacedTableMapping,
-    TableMappingValue,
-};
+use value::NamespacedTableMapping;
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -119,13 +116,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
                 ))
             })
             .map(Some)
-    }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoTableMappingFetchDuringAuthConfig",
-            "Getting the table mapping unsupported when evaluating auth config file"
-        ))
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {

@@ -11,10 +11,7 @@ use common::{
         UnixTimestamp,
     },
     types::EnvVarValue,
-    value::{
-        NamespacedTableMapping,
-        TableMappingValue,
-    },
+    value::NamespacedTableMapping,
 };
 use deno_core::{
     sourcemap::SourceMap,
@@ -134,10 +131,6 @@ impl IsolateEnvironment<TestRuntime> for TestEnvironment {
         _name: common::types::EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
         Ok(None)
-    }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        panic!("get_table_mapping_without_system_tables() unimplemented");
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {

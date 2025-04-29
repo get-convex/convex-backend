@@ -85,7 +85,6 @@ use value::{
     JsonPackedValue,
     NamespacedTableMapping,
     TableMapping,
-    TableMappingValue,
     TableName,
     TableNamespace,
     TableNumber,
@@ -471,11 +470,6 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         self.check_executing()?;
         Ok(self.shared.get_all_table_mappings())
     }
-
-    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        self.check_executing()?;
-        Ok(self.shared.get_table_mapping_without_system_tables())
-    }
 }
 
 async fn run_request<RT: Runtime>(
@@ -782,14 +776,6 @@ impl<RT: Runtime> UdfShared<RT> {
         inner
             .table_mapping
             .namespace(TableNamespace::by_component_TODO())
-    }
-
-    fn get_table_mapping_without_system_tables(&self) -> TableMappingValue {
-        let inner = self.inner.lock();
-        inner
-            .table_mapping
-            .namespace(TableNamespace::by_component_TODO())
-            .into()
     }
 }
 

@@ -23,7 +23,11 @@ export default queryGeneric({
         let normalizedId = null;
         if (tableName.startsWith("_")) {
           normalizedId = db.system.normalizeId(
-            tableName as SystemTableNames,
+            (tableName === "_file_storage"
+              ? "_storage"
+              : tableName === "_scheduled_jobs"
+                ? "_scheduled_functions"
+                : tableName) as SystemTableNames,
             id,
           );
         } else {

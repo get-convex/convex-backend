@@ -81,7 +81,7 @@ export function useIdDecorations(
     const doProcessDecorations = async () => {
       decorationIds = await processDecorations({
         documentRefs,
-        tableMapping,
+        tableMapping: tableMapping ?? {},
         prefersDark,
         componentId,
         showTableNames,
