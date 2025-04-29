@@ -185,7 +185,7 @@ export function FileStorageHeader({
             >
               <span className="text-xs">Total Files</span>
               {totalNumFiles !== undefined && (
-                <span className="font-semibold">
+                <span className="font-semibold tabular-nums">
                   {totalNumFiles.toLocaleString()}
                 </span>
               )}
