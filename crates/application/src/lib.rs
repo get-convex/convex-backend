@@ -2932,6 +2932,8 @@ impl<RT: Runtime> Application<RT> {
         component_id: ComponentId,
         path: Option<CanonicalizedComponentFunctionPath>,
         identity: Identity,
+        start_next_ts: Option<Timestamp>,
+        end_next_ts: Option<Timestamp>,
     ) -> anyhow::Result<()> {
         loop {
             let count = self
@@ -2944,6 +2946,8 @@ impl<RT: Runtime> Application<RT> {
                             component_id,
                             path.clone(),
                             *MAX_JOBS_CANCEL_BATCH,
+                            start_next_ts,
+                            end_next_ts,
                         )
                         .into()
                     },
@@ -2961,9 +2965,11 @@ impl<RT: Runtime> Application<RT> {
         component_id: ComponentId,
         path: Option<CanonicalizedComponentFunctionPath>,
         max_jobs: usize,
+        start_next_ts: Option<Timestamp>,
+        end_next_ts: Option<Timestamp>,
     ) -> anyhow::Result<(usize, Vec<DeploymentAuditLogEvent>)> {
         let count = SchedulerModel::new(tx, component_id.into())
-            .cancel_all(path, max_jobs)
+            .cancel_all(path, max_jobs, start_next_ts, end_next_ts)
             .await?;
         Ok((count, vec![]))
     }

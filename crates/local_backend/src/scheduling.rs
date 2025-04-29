@@ -25,6 +25,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use sync_types::Timestamp;
 use value::TableNamespace;
 
 use crate::{
@@ -44,6 +45,11 @@ pub struct CancelAllJobsRequest {
     /// happen if a function is scheduled from a different component.
     pub component_path: Option<String>,
     pub udf_path: Option<String>,
+
+    // Optional inclusive lower bound for the row's `startTs`.
+    pub start_next_ts: Option<u64>,
+    // Optional exclusive upper bound for the row's `startTs`.
+    pub end_next_ts: Option<u64>,
 }
 
 #[debug_handler]
@@ -54,6 +60,8 @@ pub async fn cancel_all_jobs(
         component_id,
         udf_path,
         component_path,
+        start_next_ts,
+        end_next_ts,
     }): Json<CancelAllJobsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member_with_write_access(&identity)?;
@@ -73,8 +81,24 @@ pub async fn cancel_all_jobs(
             udf_path,
         }),
     };
+    let start_next_ts =
+        start_next_ts
+            .map(Timestamp::try_from)
+            .transpose()
+            .context(ErrorMetadata::bad_request(
+                "InvalidStartNextTs",
+                "start_next_ts must be a valid timestamp",
+            ))?;
+    let end_next_ts =
+        end_next_ts
+            .map(Timestamp::try_from)
+            .transpose()
+            .context(ErrorMetadata::bad_request(
+                "InvalidEndNextTs",
+                "end_next_ts must be a valid timestamp",
+            ))?;
     st.application
-        .cancel_all_jobs(component_id, path, identity)
+        .cancel_all_jobs(component_id, path, identity, start_next_ts, end_next_ts)
         .await?;
 
     Ok(StatusCode::OK)

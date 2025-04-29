@@ -147,7 +147,7 @@ async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(job.next_ts.is_some());
 
     // Cancel the scheduled job
-    model.cancel_all(Some(path), 1).await?;
+    model.cancel_all(Some(path), 1, None, None).await?;
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Canceled);
     application.commit_test(tx).await?;
@@ -169,7 +169,7 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
     let (job_id, job) = jobs[0].clone().into_id_and_value();
 
     // Cancel the scheduled job
-    model.cancel_all(Some(path), 1).await?;
+    model.cancel_all(Some(path), 1, None, None).await?;
 
     application.commit_test(tx).await?;
 

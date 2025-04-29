@@ -381,6 +381,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         &mut self,
         path: Option<CanonicalizedComponentFunctionPath>,
         limit: usize,
+        start_next_ts: Option<Timestamp>,
+        end_next_ts: Option<Timestamp>,
     ) -> anyhow::Result<usize> {
         let index_query = match path {
             Some(path) => {
@@ -404,7 +406,14 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                         UDF_PATH_FIELD.clone(),
                         ConvexValue::try_from(udf_path.to_string())?.into(),
                     ),
-                    IndexRangeExpression::Gt(NEXT_TS_FIELD.clone(), value::ConvexValue::Null),
+                    IndexRangeExpression::Gte(
+                        NEXT_TS_FIELD.clone(),
+                        i64::from(start_next_ts.unwrap_or(Timestamp::MIN)).into(),
+                    ),
+                    IndexRangeExpression::Lt(
+                        NEXT_TS_FIELD.clone(),
+                        i64::from(end_next_ts.unwrap_or(Timestamp::MAX)).into(),
+                    ),
                 ];
                 Query::index_range(IndexRange {
                     index_name: SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
@@ -414,10 +423,16 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 .filter(component_path_filter)
             },
             None => {
-                let range = vec![IndexRangeExpression::Gt(
-                    NEXT_TS_FIELD.clone(),
-                    value::ConvexValue::Null,
-                )];
+                let range = vec![
+                    IndexRangeExpression::Gte(
+                        NEXT_TS_FIELD.clone(),
+                        i64::from(start_next_ts.unwrap_or(Timestamp::MIN)).into(),
+                    ),
+                    IndexRangeExpression::Lt(
+                        NEXT_TS_FIELD.clone(),
+                        i64::from(end_next_ts.unwrap_or(Timestamp::MAX)).into(),
+                    ),
+                ];
                 Query::index_range(IndexRange {
                     index_name: SCHEDULED_JOBS_INDEX.clone(),
                     range,
