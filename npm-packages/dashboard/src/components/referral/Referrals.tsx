@@ -1,15 +1,11 @@
-import React, { useId, useState } from "react";
+import React from "react";
 import { ReferralState, Team } from "generatedApi";
-import { TextInput } from "@ui/TextInput";
-import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { useTeamOrbSubscription } from "api/billing";
 import { Sheet } from "@ui/Sheet";
-import { cn } from "@ui/cn";
 import { Callout } from "@ui/Callout";
 import { useReferralState } from "api/referrals";
 import { Loading } from "@ui/Loading";
-import { useCopy } from "@common/lib/useCopy";
-import { logEvent } from "convex-analytics";
+import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { ReferralsBenefits } from "./ReferralsBenefits";
 
 // Keep in sync with MAX_REFERRALS_BONUS in big_brain_lib/src/model/referrals.rs
@@ -48,9 +44,11 @@ export function ReferralsInner({
       <h2>Referrals</h2>
 
       {isPaidPlan && (
-        <Callout>
+        <Callout variant="upsell">
           <div className="flex flex-col gap-1">
-            <p>Thank you for subscribing to Convex!</p>
+            <p className="font-semibold">
+              Thank you for subscribing to Convex!
+            </p>
             <p>
               As a paid plan subscriber, you won’t get additional resources for
               referring friends or being referred by someone, but your friends
@@ -75,7 +73,7 @@ export function ReferralsInner({
           <hr className="grow" />
         </div>
 
-        <ul className="mb-3 mt-4 grid gap-x-2 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[repeat(6,auto)]">
+        <ul className="mb-3 mt-4 grid gap-x-2 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
           <ReferralsBenefits />
         </ul>
 
@@ -138,38 +136,10 @@ export function ReferralsInner({
 }
 
 function ReferralLink({ referralCode }: { referralCode: string }) {
-  const id = useId();
-  const [copied, setCopied] = useState(false);
-
-  const copy = useCopy("Referral link");
-
   return (
-    <div className="my-6 max-w-72">
-      <TextInput
-        id={id}
-        value={`convex.dev/referral/${referralCode}`}
-        readOnly
-        label="Your referral link"
-        Icon={copied ? Copied : CopyIcon}
-        iconTooltip={copied ? "Copied" : "Copy to clipboard"}
-        action={async () => {
-          copy(`https://www.convex.dev/referral/${referralCode}`);
-          logEvent("copied referral link");
-
-          setCopied(true);
-          setTimeout(() => {
-            setCopied(false);
-          }, 3000);
-        }}
-      />
+    <div className="my-6 flex max-w-72 flex-col gap-1">
+      <span className="text-sm">Your referral link:</span>
+      <CopyTextButton text={`https://convex.dev/referral/${referralCode}`} />
     </div>
-  );
-}
-
-function Copied({ className }: { className?: string }) {
-  return (
-    <CheckIcon
-      className={cn(className, "text-green-700 dark:text-green-400")}
-    />
   );
 }

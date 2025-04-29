@@ -37,7 +37,7 @@ export default withAuthenticatedPage(() => {
     subscription === undefined ? undefined : subscription === null;
   const [prefersReferralsBannerHidden, setPrefersReferralsBannerHidden] =
     useGlobalLocalStorage("prefersReferralsBannerHidden", false);
-  const ReferralsBannerVisible =
+  const isReferralsBannerVisible =
     isFreePlan && team && referralState && !prefersReferralsBannerHidden;
 
   return (
@@ -69,7 +69,7 @@ export default withAuthenticatedPage(() => {
                     </Callout>
                   )}
 
-                {ReferralsBannerVisible && (
+                {isReferralsBannerVisible && (
                   <ReferralsBanner
                     className="mb-4"
                     team={team}

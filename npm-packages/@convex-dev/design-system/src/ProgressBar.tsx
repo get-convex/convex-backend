@@ -14,7 +14,7 @@ export function ProgressBar({
   return (
     <div
       className={cn(
-        "h-4 overflow-hidden rounded bg-background-tertiary",
+        "h-4 overflow-hidden rounded-full bg-background-tertiary",
         className,
       )}
       role="progressbar"

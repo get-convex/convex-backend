@@ -1,12 +1,9 @@
-import { CheckIcon, CopyIcon, DotsVerticalIcon } from "@radix-ui/react-icons";
-import { logEvent } from "convex-analytics";
+import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { Menu, MenuItem } from "@ui/Menu";
 import { ProgressBar } from "@ui/ProgressBar";
-import { TextInput } from "@ui/TextInput";
 import { cn } from "@ui/cn";
-import { useCopy } from "@common/lib/useCopy";
 import { ReferralState, Team } from "generatedApi";
-import { useId, useState } from "react";
+import { CopyTextButton } from "@common/elements/CopyTextButton";
 
 interface ReferralsBannerProps {
   team: Team;
@@ -21,44 +18,26 @@ export function ReferralsBanner({
   onHide,
   className,
 }: ReferralsBannerProps) {
-  const [copied, setCopied] = useState(false);
-  const id = useId();
-
   const referralsCount = referralState?.referrals.length || 0;
   const referralsComplete = referralsCount >= 5;
   const referralCode = team?.referralCode;
 
-  const copy = useCopy("Referral link");
-
   return (
     <div
       className={cn(
-        "border border-purple-400 rounded-md flex bg-background-secondary",
+        "border rounded-md flex items-center gap-2 bg-background-secondary pl-4 pr-2 overflow-x-auto",
         className,
       )}
     >
-      <div className="flex grow gap-2 py-2 pl-4 md:items-center md:justify-between">
-        <div className="flex grow flex-col gap-2 xl:flex-row xl:items-center">
-          <span className="text-balance text-sm">
-            Boost your account limits up to 5× by sharing your referral code:{" "}
+      <div className="flex grow items-center gap-2 py-2 md:justify-between">
+        <div className="flex max-w-prose grow flex-col flex-wrap gap-2 xl:flex-row xl:items-center">
+          <span className="text-balance text-sm font-medium">
+            Boost your resource usage limits by up to 5 times by sharing your
+            referral code{" "}
           </span>
           <div className="w-72">
-            <TextInput
-              id={id}
-              labelHidden
-              value={`convex.dev/referral/${referralCode}`}
-              readOnly
-              Icon={copied ? CheckIcon : CopyIcon}
-              iconTooltip={copied ? "Copied" : "Copy to clipboard"}
-              action={async () => {
-                copy(`https://www.convex.dev/referral/${referralCode}`);
-                logEvent("copied referral link from referrals banner");
-
-                setCopied(true);
-                setTimeout(() => {
-                  setCopied(false);
-                }, 3000);
-              }}
+            <CopyTextButton
+              text={`https://convex.dev/referral/${referralCode}`}
             />
           </div>
         </div>
@@ -88,6 +67,7 @@ export function ReferralsBanner({
           "aria-label": "Open project settings",
           variant: "neutral",
           inline: true,
+          className: "w-fit h-fit",
           icon: <DotsVerticalIcon className="text-content-secondary" />,
         }}
       >

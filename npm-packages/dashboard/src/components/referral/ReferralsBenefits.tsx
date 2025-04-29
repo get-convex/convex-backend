@@ -5,31 +5,31 @@ export function ReferralsBenefits() {
     <>
       <Benefit>
         <strong>
-          + 1M <small>/ month</small>
+          +1M <small>/ month</small>
         </strong>{" "}
         function calls
       </Benefit>
       <Benefit>
         <strong>
-          + 20&nbsp;GB⋅h <small>/ month</small>
+          +20&nbsp;GB-hours <small>/ month</small>
         </strong>{" "}
         action compute
       </Benefit>
       <Benefit>
-        <strong>+ 0.5&nbsp;GB</strong> database storage
+        <strong>+0.5&nbsp;GB</strong> database storage
       </Benefit>
       <Benefit>
         <strong>
-          + 1&nbsp;GB <small>/ month</small>
+          +1&nbsp;GB <small>/ month</small>
         </strong>{" "}
         database bandwidth
       </Benefit>
       <Benefit>
-        <strong>+ 1&nbsp;GB</strong> file storage
+        <strong>+1&nbsp;GB</strong> file storage
       </Benefit>
       <Benefit>
         <strong>
-          + 1&nbsp;GB <small>/ month</small>
+          +1&nbsp;GB <small>/ month</small>
         </strong>{" "}
         file bandwidth
       </Benefit>
