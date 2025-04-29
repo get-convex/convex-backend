@@ -33,7 +33,14 @@ import { useTrackCellChanges } from "@common/features/data/components/Table/Data
 import { useValidator } from "@common/features/data/components/Table/DataCell/utils/useValidator";
 import { SchemaJson } from "@common/lib/format";
 import { stringifyValue } from "@common/lib/stringifyValue";
-import { Button } from "@ui/Button";
+import { buttonClasses } from "@ui/Button";
+import { Loading } from "@ui/Loading";
+import { useQuery } from "convex/react";
+import udfs from "@common/udfs";
+import { useNents } from "@common/lib/useNents";
+import { getReferencedTableName } from "@common/lib/utils";
+import { ReadonlyCode } from "@common/elements/ReadonlyCode";
+import { Tooltip } from "@ui/Tooltip";
 
 export type DataCellProps = {
   value: Value;
@@ -83,6 +90,7 @@ function DataCellImpl({
   const columnName = column.Header as string;
   const stringValue = typeof value === "string" ? value : stringifyValue(value);
   const isHoveringCell = useHoverDirty(cellRef);
+  const [isFocused, setIsFocused] = useState(false);
   const isSystemField = columnName?.startsWith("_");
   const isEditable = !isSystemField && canManageTable;
   const isDateField = columnName === "_creationTime";
@@ -222,7 +230,6 @@ function DataCellImpl({
             "font-mono text-xs text-content-primary",
             "w-full h-full flex items-center focus:outline-none",
             "focus:ring-1 focus:ring-border-selected text-left",
-            "peer",
             isContextMenuOpen && "ring-1 ring-border-selected",
             !isEditable && "cursor-default",
           )}
@@ -232,11 +239,21 @@ function DataCellImpl({
           role={isEditable ? "button" : undefined}
           type="button"
           tabIndex={0}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onKeyDown={arrowKeyHandler(cellRef)}
           onDoubleClick={clickHandler(isEditable, cellRef, editValue)}
         >
           {idReferenceLink !== undefined && columnName !== "_id" && (
-            <Link2Icon className="mr-2 flex-none text-content-secondary" />
+            <Tooltip
+              tip={<DocumentPreview id={value} />}
+              contentClassName="bg-background-secondary animate-fadeInFromLoading"
+              maxWidthClassName="max-w-[22rem]"
+              delayDuration={250}
+              wrapsButton
+            >
+              <Link2Icon className="mr-2 flex-none text-content-secondary" />
+            </Tooltip>
           )}
           <DataCellValue
             {...{
@@ -261,39 +278,40 @@ function DataCellImpl({
             />
           )}
         </button>
-        {/* Opens context menu, only visible on hover */}
-        <Button
-          data-testid="cell-context-menu-button"
-          size="xs"
-          variant="neutral"
-          onClick={() =>
-            cellRef.current &&
-            contextMenuCallback({
-              x: cellRef.current.getBoundingClientRect().right,
-              y: cellRef.current.getBoundingClientRect().top,
-            })
-          }
-          className={classNames(
-            "absolute z-20 shadow-sm",
-            isHoveringCell ? "block" : "hidden",
-            "group peer-focus:block peer-focus:[focused]",
-            "animate-none",
-          )}
-          style={{
-            right:
-              (cellRef.current?.clientWidth || 0) < 64
-                ? -16
-                : densityValues.paddingX - 4,
-          }}
-          icon={isHoveringCell && <DotsVerticalIcon />}
-        >
-          {!isHoveringCell && (
-            <KeyboardShortcut
-              value={["CtrlOrCmd", "Return"]}
-              className="text-xs text-content-secondary"
-            />
-          )}
-        </Button>
+        {(isHoveringCell || isFocused) && (
+          // eslint-disable-next-line react/forbid-elements
+          <button
+            data-testid="cell-context-menu-button"
+            type="button"
+            onClick={() =>
+              cellRef.current &&
+              contextMenuCallback({
+                x: cellRef.current.getBoundingClientRect().right,
+                y: cellRef.current.getBoundingClientRect().top,
+              })
+            }
+            className={classNames(
+              buttonClasses({ size: "xs", variant: "neutral" }),
+              "absolute z-20 shadow-sm",
+              isFocused && "focused",
+              "animate-none",
+            )}
+            style={{
+              right:
+                (cellRef.current?.clientWidth || 0) < 64
+                  ? -16
+                  : densityValues.paddingX - 4,
+            }}
+          >
+            {isHoveringCell && <DotsVerticalIcon />}
+            {!isHoveringCell && (
+              <KeyboardShortcut
+                value={["CtrlOrCmd", "Return"]}
+                className="text-xs text-content-secondary"
+              />
+            )}
+          </button>
+        )}
       </div>
       {/* Show a side panel to view the value of the current cell */}
       {showDetail && (
@@ -427,3 +445,38 @@ const clickHandler =
     const selection = window.getSelection();
     selection?.selectAllChildren(cellRef.current!);
   };
+
+function DocumentPreview({ id }: { id: string | Value }) {
+  // Safely convert id to string if it's not already
+  const stringId = typeof id === "string" ? id : String(id);
+
+  const componentId = useNents().selectedNent?.id ?? null;
+  const tableMapping = useQuery(udfs.getTableMapping.default, {
+    componentId,
+  });
+  const tableName = getReferencedTableName(tableMapping, stringId);
+
+  const docs = useQuery(udfs.listById.default, {
+    componentId,
+    ids: [{ id: stringId, tableName: tableName ?? "" }],
+  });
+
+  if (!docs) {
+    return <Loading className="h-8 w-80" />;
+  }
+
+  if (!docs?.[0]) {
+    return <div>Document not found.</div>;
+  }
+
+  return (
+    <div className="w-80">
+      <ReadonlyCode
+        disableLineNumbers
+        code={stringifyValue(docs[0] ?? null, true, true)}
+        path={`documentPreview-${stringId}`}
+        height={{ type: "content", maxHeightRem: 20 }}
+      />
+    </div>
+  );
+}

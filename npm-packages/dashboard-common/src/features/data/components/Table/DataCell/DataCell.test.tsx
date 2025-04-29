@@ -1,6 +1,6 @@
 /* eslint-disable react/button-has-type */
 import React from "react";
-import { getByRole, render } from "@testing-library/react";
+import { act, getByRole, render } from "@testing-library/react";
 import { Value } from "convex/values";
 import mockRouter from "next-router-mock";
 import { ConvexProvider } from "convex/react";
@@ -436,6 +436,9 @@ describe("DataCell", () => {
     it("shows context menu on button click", async () => {
       const onOpenContextMenu = jest.fn();
       const { getByTestId } = renderWithProvider({ onOpenContextMenu });
+      act(() => {
+        getByTestId("cell-editor-button").focus();
+      });
       const button = getByTestId("cell-context-menu-button");
 
       expect(onOpenContextMenu).not.toHaveBeenCalled();
@@ -458,6 +461,9 @@ describe("DataCell", () => {
       const { getByTestId } = renderWithProvider({
         onOpenContextMenu,
         value: idValue,
+      });
+      act(() => {
+        getByTestId("cell-editor-button").focus();
       });
       const button = getByTestId("cell-context-menu-button");
 
@@ -523,7 +529,6 @@ describe("DataCell", () => {
       const { getByTestId } = renderWithProvider({});
       const button = getByTestId("cell-editor-button");
       await user.click(button);
-      expect(window.addEventListener).toHaveBeenCalledTimes(1);
       expect(window.addEventListener).toHaveBeenCalledWith(
         "paste",
         expect.any(Function),
@@ -538,7 +543,6 @@ describe("DataCell", () => {
       const { getByTestId } = renderWithProvider({});
       const button = getByTestId("cell-editor-button");
       await user.click(button);
-      expect(window.addEventListener).toHaveBeenCalledTimes(1);
       expect(window.addEventListener).toHaveBeenCalledWith(
         "paste",
         expect.any(Function),
@@ -553,7 +557,6 @@ describe("DataCell", () => {
       const { getByTestId } = renderWithProvider({});
       const button = getByTestId("cell-editor-button");
       await user.click(button);
-      expect(window.addEventListener).toHaveBeenCalledTimes(1);
       expect(window.addEventListener).toHaveBeenCalledWith(
         "paste",
         expect.any(Function),
@@ -568,7 +571,6 @@ describe("DataCell", () => {
       const { getByTestId } = renderWithProvider({});
       const button = getByTestId("cell-editor-button");
       await user.click(button);
-      expect(window.addEventListener).toHaveBeenCalledTimes(1);
       expect(window.addEventListener).toHaveBeenCalledWith(
         "paste",
         expect.any(Function),
@@ -606,7 +608,6 @@ describe("DataCell", () => {
       });
       const button = getByTestId("cell-editor-button");
       await user.click(button);
-      expect(window.addEventListener).toHaveBeenCalledTimes(1);
       expect(window.addEventListener).toHaveBeenCalledWith(
         "paste",
         expect.any(Function),

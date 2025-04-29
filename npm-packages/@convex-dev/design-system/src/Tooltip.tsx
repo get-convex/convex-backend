@@ -10,21 +10,27 @@ export function Tooltip({
   side = "bottom",
   align = "center",
   className,
+  contentClassName,
   wrapsButton = false,
+  delayDuration = 0,
+  maxWidthClassName = "max-w-[16rem]",
 }: {
   children: React.ReactNode;
   tip: React.ReactNode | undefined;
   side?: TooltipSide;
   align?: "start" | "end" | "center";
   className?: string;
+  contentClassName?: string;
+  maxWidthClassName?: string;
   wrapsButton?: boolean;
+  delayDuration?: number;
 }) {
   // Some existing callsites pass in boolean so we do a truthy check
   if (!tip) {
     return <>{children}</>;
   }
   return (
-    <RadixTooltip.Provider delayDuration={0}>
+    <RadixTooltip.Provider delayDuration={delayDuration}>
       <RadixTooltip.Root>
         <RadixTooltip.Trigger
           asChild={wrapsButton}
@@ -36,7 +42,11 @@ export function Tooltip({
           <RadixTooltip.Content
             side={side}
             align={align}
-            className="z-50 max-w-[16rem] break-words rounded border bg-background-secondary/70 p-1 text-center text-xs shadow-sm backdrop-blur-[2px] transition-opacity"
+            className={classNames(
+              "z-50 break-words rounded border bg-background-secondary/70 p-1 text-center text-xs shadow-sm backdrop-blur-[2px] transition-opacity",
+              maxWidthClassName,
+              contentClassName,
+            )}
             role="tooltip"
             sideOffset={5}
           >
