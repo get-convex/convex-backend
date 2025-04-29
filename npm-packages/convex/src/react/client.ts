@@ -2,7 +2,6 @@ import { BaseConvexClient } from "../browser/index.js";
 import type { OptimisticUpdate, QueryToken } from "../browser/index.js";
 import React, { useContext, useMemo } from "react";
 import { convexToJson, Value } from "../values/index.js";
-import ReactDOM from "react-dom";
 import { QueryJournal } from "../browser/sync/protocol.js";
 import {
   AuthTokenFetcher,
@@ -26,9 +25,6 @@ import { instantiateDefaultLogger, Logger } from "../browser/logging.js";
 
 if (typeof React === "undefined") {
   throw new Error("Required dependency 'react' not found");
-}
-if (typeof ReactDOM === "undefined") {
-  throw new Error("Required dependency 'react-dom' not found");
 }
 
 // TODO Typedoc doesn't generate documentation for the comment below perhaps
@@ -521,16 +517,14 @@ export class ConvexReactClient {
   }
 
   private transition(updatedQueries: QueryToken[]) {
-    ReactDOM.unstable_batchedUpdates(() => {
-      for (const queryToken of updatedQueries) {
-        const callbacks = this.listeners.get(queryToken);
-        if (callbacks) {
-          for (const callback of callbacks) {
-            callback();
-          }
+    for (const queryToken of updatedQueries) {
+      const callbacks = this.listeners.get(queryToken);
+      if (callbacks) {
+        for (const callback of callbacks) {
+          callback();
         }
       }
-    });
+    }
   }
 }
 

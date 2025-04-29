@@ -1,8 +1,6 @@
 import { test, expect } from "vitest";
 import { Long } from "../browser/long.js";
 
-import ReactDOM from "react-dom";
-
 import { ConvexReactClient } from "./client.js";
 import {
   ClientMessage,
@@ -26,7 +24,6 @@ test("ConvexReactClient ends subscriptions on close", async () => {
     const client = testReactClient(address);
     const watch = client.watchQuery(anyApi.myQuery.default, {});
     let timesCallbackRan = 0;
-    let timesReactScheduled = 0;
     watch.onUpdate(() => timesCallbackRan++);
 
     expect((await receive()).type).toEqual("Connect");
@@ -43,33 +40,15 @@ test("ConvexReactClient ends subscriptions on close", async () => {
 
     send(transition());
 
-    // Monkey-patch to mock out this react-dom function.
-    // Mocking in Jest like `jest.mock('react-dom')` doesn't work with ESM yet.
-    const orig = ReactDOM.unstable_batchedUpdates;
-    try {
-      const scheduledCallback = await new Promise<() => void>((resolve) => {
-        ReactDOM.unstable_batchedUpdates = function mock(cb: any) {
-          timesReactScheduled++;
-          resolve(cb);
-        };
-      });
-      expect(timesReactScheduled).toEqual(1);
+    // After the callback has been registered but before the callback has been
+    // run, close the client.
+    const closePromise = client.close();
 
-      // After the callback has been registered with unstable_batchedUpdates but
-      // before the callback has been run, close the client.
-      const closePromise = client.close();
+    expect(timesCallbackRan).toEqual(0);
 
-      // Later, React calls the callback. This should do nothing.
-      scheduledCallback();
-      expect(timesCallbackRan).toEqual(0);
-
-      // After the internal client has closed, same nothing.
-      await closePromise;
-      scheduledCallback();
-      expect(timesCallbackRan).toEqual(0);
-    } finally {
-      ReactDOM.unstable_batchedUpdates = orig;
-    }
+    // After the internal client has closed, same nothing.
+    await closePromise;
+    expect(timesCallbackRan).toEqual(0);
   });
 });
 

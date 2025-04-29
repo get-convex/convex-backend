@@ -5,6 +5,13 @@
 - The `npx convex login --login-flow paste` flag can be used to explicitly opt
   into the manual token paste login method.
 
+- Drop support for React 17 and remove use of `unstable_batchedUpdates` as react
+  18 introduced
+  [Automatic batching](https://react.dev/blog/2022/03/29/react-v18#new-feature-automatic-batching)
+
+- Remove dependency on `react-dom`, making it possible to use on "React Native
+  only" projects.
+
 ## 1.23.0
 
 - `npx convex dev` now supports the option of running Convex locally without an
