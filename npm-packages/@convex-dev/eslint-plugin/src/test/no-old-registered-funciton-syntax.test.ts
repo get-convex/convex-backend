@@ -7,7 +7,7 @@ const ruleTester = new RuleTester({
       ecmaVersion: 2020,
       sourceType: "module",
       projectService: {
-        allowDefaultProject: ["*.ts*"],
+        allowDefaultProject: ["*.ts*", "convex/*.ts*"],
       },
     },
   },
