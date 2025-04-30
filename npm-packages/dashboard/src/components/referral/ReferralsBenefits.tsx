@@ -5,6 +5,12 @@ export function ReferralsBenefits() {
     <>
       <Benefit>
         <strong>
+          +85,000&nbsp;tokens <small>/ month</small>
+        </strong>{" "}
+        Chef tokens
+      </Benefit>
+      <Benefit>
+        <strong>
           +1M <small>/ month</small>
         </strong>{" "}
         function calls

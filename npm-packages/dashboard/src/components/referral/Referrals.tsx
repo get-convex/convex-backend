@@ -6,6 +6,7 @@ import { Callout } from "@ui/Callout";
 import { useReferralState } from "api/referrals";
 import { Loading } from "@ui/Loading";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
+import Link from "next/link";
 import { ReferralsBenefits } from "./ReferralsBenefits";
 
 // Keep in sync with MAX_REFERRALS_BONUS in big_brain_lib/src/model/referrals.rs
@@ -62,7 +63,15 @@ export function ReferralsInner({
         <h3>Refer friends and earn free Convex resources</h3>
         <p className="mt-1 max-w-lg text-content-secondary">
           Each time you refer someone, both of your teams get the following
-          benefits on top of your free plan limits.
+          benefits on top of your{" "}
+          <Link
+            href="https://www.convex.dev/pricing"
+            target="_blank"
+            className="text-content-link hover:underline"
+          >
+            free plan limits
+          </Link>
+          .
         </p>
 
         <div className="my-4 flex items-center gap-4">
