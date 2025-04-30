@@ -1,5 +1,4 @@
 import React, { forwardRef, useContext } from "react";
-import classNames from "classnames";
 import { tv } from "tailwind-variants";
 import { Tooltip, TooltipSide } from "@ui/Tooltip";
 import { UrlObject } from "url";
@@ -132,10 +131,9 @@ const button = tv({
   base: "inline-flex animate-fadeInFromLoading select-none items-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:border focus-visible:border-border-selected focus-visible:outline-none",
   variants: {
     variant: {
-      primary:
-        "border-util-accent bg-util-accent text-white hover:bg-util-accent/80",
-      neutral: "text-content-primary hover:bg-background-primary",
-      danger: "text-content-error hover:bg-background-errorSecondary",
+      primary: "border-white/30 bg-util-accent text-white",
+      neutral: "text-content-primary",
+      danger: "text-content-error",
     },
     icon: {
       true: "gap-1.5",
@@ -146,11 +144,7 @@ const button = tv({
       inline: "",
     },
     disabled: {
-      true: classNames(
-        "cursor-not-allowed",
-        "bg-neutral-1 border-neutral-1 text-neutral-4 hover:bg-neutral-1",
-        "dark:bg-neutral-11 dark:border-neutral-11 dark:text-neutral-6 dark:hover:bg-neutral-11",
-      ),
+      true: "cursor-not-allowed opacity-50",
       false: "cursor-pointer",
     },
     focused: {
@@ -169,32 +163,32 @@ const button = tv({
       variant: "primary",
       accent: "inline",
       class: "bg-transparent text-content-accent hover:bg-background-tertiary",
-      disabled: false,
     },
     {
       variant: "primary",
       focused: true,
       accent: "none",
       class: "bg-util-accent/80 text-white",
-      disabled: false,
     },
     {
       variant: "primary",
       focused: true,
       accent: "inline",
       class: "bg-background-tertiary",
-      disabled: false,
     },
     {
       variant: "neutral",
       accent: "none",
       class: "bg-background-tertiary",
-      disabled: false,
     },
     {
       variant: "neutral",
       accent: "none",
-      class: "border bg-background-secondary hover:bg-background-tertiary",
+      class: "border bg-background-secondary",
+    },
+    {
+      variant: "neutral",
+      class: "hover:bg-background-tertiary",
       disabled: false,
     },
     {
@@ -202,32 +196,44 @@ const button = tv({
       focused: true,
       accent: ["none", "inline"],
       class: "bg-background-primary",
-      disabled: false,
     },
     {
       variant: "neutral",
       focused: true,
       accent: "none",
       class: "border border-border-selected bg-background-secondary",
-      disabled: false,
     },
     {
       variant: "danger",
       accent: "none",
-      class: "border-background-error bg-background-error",
-      disabled: false,
+      class:
+        "border-background-error border-content-error/30 bg-background-error",
     },
     {
       variant: "danger",
       focused: true,
       class: "bg-background-errorSecondary text-content-error",
-      disabled: false,
     },
     {
-      disabled: true,
-      accent: "inline",
-      class:
-        "bg-transparent text-neutral-4 hover:bg-transparent dark:bg-transparent dark:text-neutral-6",
+      variant: "primary",
+      disabled: false,
+      accent: "none",
+      class: "hover:bg-util-accent/80",
+    },
+    {
+      variant: "danger",
+      disabled: false,
+      class: "hover:bg-background-errorSecondary",
+    },
+    {
+      variant: "neutral",
+      disabled: false,
+      class: "hover:bg-background-primary",
+    },
+    {
+      variant: "danger",
+      disabled: false,
+      class: "hover:bg-background-errorSecondary",
     },
   ],
   defaultVariants: {
