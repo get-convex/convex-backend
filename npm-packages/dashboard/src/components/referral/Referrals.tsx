@@ -8,6 +8,7 @@ import { Loading } from "@ui/Loading";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import Link from "next/link";
 import { ReferralsBenefits } from "./ReferralsBenefits";
+import { ReferralProgress } from "./ReferralProgress";
 
 // Keep in sync with MAX_REFERRALS_BONUS in big_brain_lib/src/model/referrals.rs
 export const MAX_REFERRALS = 5;
@@ -38,7 +39,7 @@ export function ReferralsInner({
   referralState: ReferralState | undefined;
 }) {
   const sourceReferralTeamName = referralState?.referredBy;
-  const referralsCount = referralState?.referrals.length;
+  const isFreePlan = isPaidPlan === false;
 
   return (
     <>
@@ -107,15 +108,14 @@ export function ReferralsInner({
 
       <Sheet>
         <div className="flex flex-col gap-4 text-sm">
-          <h3>
-            Your referrals
-            {referralState !== undefined && (
-              <>
-                {" "}
-                ({referralsCount}/{MAX_REFERRALS})
-              </>
-            )}
-          </h3>
+          <div className="flex flex-col gap-4 py-2 md:grow md:flex-row md:items-center md:justify-between md:gap-2">
+            <h3>Your referrals</h3>
+            <div className="flex flex-col gap-1 xl:max-w-prose xl:grow xl:flex-row-reverse xl:items-center xl:gap-2">
+              {isFreePlan && referralState && (
+                <ReferralProgress referralState={referralState} />
+              )}
+            </div>
+          </div>
           {referralState === undefined ? (
             <Loading fullHeight={false} className="h-48" />
           ) : (

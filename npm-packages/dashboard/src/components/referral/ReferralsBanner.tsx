@@ -1,9 +1,9 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { Menu, MenuItem } from "@ui/Menu";
-import { ProgressBar } from "@ui/ProgressBar";
 import { cn } from "@ui/cn";
 import { ReferralState, Team } from "generatedApi";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
+import { ReferralProgress } from "./ReferralProgress";
 
 interface ReferralsBannerProps {
   team: Team;
@@ -18,8 +18,6 @@ export function ReferralsBanner({
   onHide,
   className,
 }: ReferralsBannerProps) {
-  const referralsCount = referralState?.referrals.length || 0;
-  const referralsComplete = referralsCount >= 5;
   const referralCode = team?.referralCode;
 
   return (
@@ -42,23 +40,7 @@ export function ReferralsBanner({
           </div>
         </div>
         <div className="hidden flex-col gap-1 md:flex xl:grow xl:flex-row-reverse xl:items-center xl:gap-2">
-          {!referralsComplete ? (
-            <>
-              <ProgressBar
-                fraction={referralsCount / 5}
-                ariaLabel="Referral progress"
-                variant="solid"
-                className="w-full"
-              />
-              <span className="whitespace-nowrap text-sm font-medium">
-                {referralsCount}/5 referral boosts applied
-              </span>
-            </>
-          ) : (
-            <p className="max-w-[24ch] text-balance text-right text-sm font-medium xl:max-w-none">
-              🎉 Congrats, your app limits have been boosted 5 times!
-            </p>
-          )}
+          <ReferralProgress referralState={referralState} />
         </div>
       </div>
       <Menu
