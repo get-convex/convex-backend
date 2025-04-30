@@ -7,20 +7,27 @@ import React from "react";
 
 import {
   anyApi,
+  FunctionArgs,
   FunctionReference,
+  FunctionReturnType,
+  getFunctionName,
   makeFunctionReference,
   PaginationOptions,
   PaginationResult,
 } from "../server/index.js";
 import { assert, Equals } from "../test/type_testing.js";
-import { Value } from "../values/index.js";
+import { compareValues, convexToJson, Value } from "../values/index.js";
 import { ConvexProvider, ConvexReactClient } from "./client.js";
 import {
   PaginatedQueryArgs,
   resetPaginationId,
   usePaginatedQuery,
+  PaginatedQueryItem,
+  insertAtTop,
+  insertAtPosition,
+  PaginatedQueryReference,
 } from "./use_paginated_query.js";
-import { PaginatedQueryItem } from "./use_paginated_query.js";
+import { OptimisticLocalStore } from "../browser/index.js";
 
 const address = "https://127.0.0.1:3001";
 
@@ -422,5 +429,589 @@ describe("PaginatedQueryItem", () => {
     >;
     type ActualReturnType = PaginatedQueryItem<MyQueryFunction>;
     assert<Equals<ActualReturnType, ReturnType>>();
+  });
+});
+
+class LocalQueryStoreFake implements OptimisticLocalStore {
+  queries: Record<
+    string,
+    Record<string, { args: Record<string, Value>; value: undefined | Value }>
+  > = {};
+  constructor() {
+    this.queries = {};
+  }
+  setQuery(query: FunctionReference<"query">, args: any, value: any) {
+    const queriesByName = this.queries[getFunctionName(query)] ?? {};
+    this.queries[getFunctionName(query)] = queriesByName;
+    const rawArgs = args ?? {};
+
+    const serializedArgs = JSON.stringify(convexToJson(rawArgs));
+    queriesByName[serializedArgs] = { args: rawArgs, value };
+  }
+
+  getAllQueries<Query extends FunctionReference<"query">>(
+    query: Query,
+  ): Array<{
+    args: FunctionArgs<Query>;
+    value: undefined | FunctionReturnType<Query>;
+  }> {
+    return Object.values(this.queries[getFunctionName(query)] ?? {}).map(
+      (q) => ({
+        args: q.args,
+        value: q.value,
+      }),
+    );
+  }
+
+  getQuery(query: FunctionReference<"query">, args: any) {
+    const serializedArgs = JSON.stringify(convexToJson(args));
+    return this.queries[getFunctionName(query)]?.[serializedArgs];
+  }
+}
+
+function getPaginatedQueryResults<
+  Query extends PaginatedQueryReference,
+>(options: {
+  localQueryStore: LocalQueryStoreFake;
+  query: Query;
+  argsToMatch?: Partial<PaginatedQueryArgs<Query>>;
+}) {
+  const { localQueryStore, query, argsToMatch } = options;
+  const allQueries = localQueryStore.getAllQueries(query);
+  const relevantQueries = allQueries.filter((q) =>
+    argsMatch({ args: q.args, argsToMatch }),
+  );
+  const loadedQueries: Array<{
+    args: FunctionArgs<Query>;
+    value: FunctionReturnType<Query>;
+  }> = [];
+  for (const query of relevantQueries) {
+    expect(query.value).toBeDefined();
+    loadedQueries.push({ args: query.args, value: query.value! });
+  }
+  const firstPage = loadedQueries.find(
+    (q) => q.args.paginationOpts.cursor === null,
+  );
+  if (!firstPage) {
+    return [];
+  }
+  const sortedResults = [...firstPage.value.page];
+  let currentCursor = firstPage.value.continueCursor;
+  while (currentCursor !== null) {
+    const nextPage = loadedQueries.find(
+      (r) => r.args.paginationOpts.cursor === currentCursor,
+    );
+    if (nextPage === undefined) {
+      break;
+    }
+    sortedResults.push(...nextPage.value.page);
+    if (nextPage.value.isDone) {
+      break;
+    }
+    currentCursor = nextPage.value.continueCursor;
+  }
+  return sortedResults;
+}
+
+function argsMatch<Query extends PaginatedQueryReference>(options: {
+  args: FunctionArgs<Query>;
+  argsToMatch?: Partial<PaginatedQueryArgs<Query>>;
+}) {
+  if (options.argsToMatch === undefined) {
+    return true;
+  }
+  return Object.keys(options.argsToMatch).every((key) => {
+    // @ts-expect-error xcxc
+    return compareValues(options.args[key], options.argsToMatch[key]) === 0;
+  });
+}
+function setupPages<Query extends PaginatedQueryReference>(options: {
+  localQueryStore: LocalQueryStoreFake;
+  paginatedQuery: Query;
+  args: PaginatedQueryArgs<Query>;
+  pages: Array<Array<PaginatedQueryItem<Query>>>;
+  isDone: boolean;
+}) {
+  let currentCursor = null;
+  for (let i = 0; i < options.pages.length; i++) {
+    const page = options.pages[i];
+    const nextCursor = `cursor${i}`;
+    options.localQueryStore.setQuery(
+      options.paginatedQuery,
+      {
+        ...options.args,
+        paginationOpts: {
+          cursor: currentCursor,
+          id: JSON.stringify(options.args),
+          numItems: 10,
+        },
+      },
+      {
+        page,
+        continueCursor: nextCursor,
+        isDone: i === options.pages.length - 1 ? options.isDone : false,
+      },
+    );
+    currentCursor = nextCursor;
+  }
+}
+
+describe("insertAtTop", () => {
+  test("does not insert if the query is not loaded", () => {
+    const localQueryStore = new LocalQueryStoreFake();
+    const paginatedQuery = anyApi.messages.list;
+
+    insertAtTop({
+      paginatedQuery,
+      localQueryStore,
+      item: { author: "Sarah", content: "Hello, world!" },
+    });
+    expect(localQueryStore.getAllQueries(paginatedQuery).length).toBe(0);
+  });
+
+  test("inserts at top", () => {
+    const localQueryStore = new LocalQueryStoreFake();
+    const paginatedQuery: FunctionReference<
+      "query",
+      "public",
+      { paginationOpts: PaginationOptions },
+      PaginationResult<{ author: string; content: string }>
+    > = anyApi.messages.list;
+    setupPages({
+      localQueryStore,
+      paginatedQuery,
+      args: {},
+      pages: [
+        [
+          { author: "Alice", content: "Hello, world!" },
+          { author: "Bob", content: "Hello, world!" },
+        ],
+      ],
+      isDone: false,
+    });
+
+    insertAtTop({
+      paginatedQuery,
+      localQueryStore,
+      item: { author: "Sarah", content: "Hello, world!" },
+    });
+    const sortedResults = getPaginatedQueryResults({
+      localQueryStore,
+      query: paginatedQuery,
+    });
+    expect(sortedResults).toEqual([
+      { author: "Sarah", content: "Hello, world!" },
+      { author: "Alice", content: "Hello, world!" },
+      { author: "Bob", content: "Hello, world!" },
+    ]);
+  });
+
+  test("inserts at top multiple pages", () => {
+    const localQueryStore = new LocalQueryStoreFake();
+    const paginatedQuery = anyApi.messages.list;
+    setupPages({
+      localQueryStore,
+      paginatedQuery,
+      args: {},
+      pages: [
+        [
+          { author: "Alice", content: "Hello, world!" },
+          { author: "Bob", content: "Hello, world!" },
+        ],
+        [
+          { author: "Charlie", content: "Hello, world!" },
+          { author: "Dave", content: "Hello, world!" },
+        ],
+      ],
+      isDone: false,
+    });
+    insertAtTop({
+      paginatedQuery,
+      localQueryStore,
+      item: { author: "Sarah", content: "Hello, world!" },
+    });
+    const sortedResults = getPaginatedQueryResults({
+      localQueryStore,
+      query: paginatedQuery,
+    });
+    expect(sortedResults).toEqual([
+      { author: "Sarah", content: "Hello, world!" },
+      { author: "Alice", content: "Hello, world!" },
+      { author: "Bob", content: "Hello, world!" },
+      { author: "Charlie", content: "Hello, world!" },
+      { author: "Dave", content: "Hello, world!" },
+    ]);
+  });
+
+  test("respects filters", () => {
+    const localQueryStore = new LocalQueryStoreFake();
+    const paginatedQuery = anyApi.messages.list;
+    setupPages({
+      localQueryStore,
+      paginatedQuery,
+      args: { channel: "general" },
+      pages: [
+        [
+          { author: "Alice", content: "Hello, world!" },
+          { author: "Bob", content: "Hello, world!" },
+        ],
+      ],
+      isDone: false,
+    });
+    setupPages({
+      localQueryStore,
+      paginatedQuery,
+      args: { channel: "marketing" },
+      pages: [
+        [
+          { author: "Charlie", content: "Hello, world!" },
+          { author: "Dave", content: "Hello, world!" },
+        ],
+      ],
+      isDone: false,
+    });
+
+    insertAtTop({
+      paginatedQuery,
+      localQueryStore,
+      argsToMatch: { channel: "general" },
+      item: { author: "Sarah", content: "Hello, world!" },
+    });
+
+    const sortedResults = getPaginatedQueryResults({
+      localQueryStore,
+      query: paginatedQuery,
+      argsToMatch: { channel: "general" },
+    });
+    expect(sortedResults).toEqual([
+      { author: "Sarah", content: "Hello, world!" },
+      { author: "Alice", content: "Hello, world!" },
+      { author: "Bob", content: "Hello, world!" },
+    ]);
+  });
+});
+
+describe("insertAtPosition", () => {
+  const defaultPages = [
+    [
+      { author: "Dave", rank: 40 },
+      { author: "Charlie", rank: 30 },
+    ],
+    [
+      { author: "Bob", rank: 20 },
+      { author: "Alice", rank: 10 },
+    ],
+  ];
+
+  describe("descending", () => {
+    test("inserts in middle", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 15 },
+        sortOrder: "desc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Dave", rank: 40 },
+        { author: "Charlie", rank: 30 },
+        { author: "Bob", rank: 20 },
+        { author: "Sarah", rank: 15 },
+        { author: "Alice", rank: 10 },
+      ]);
+    });
+
+    test("inserts at top", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 55 },
+        sortOrder: "desc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Sarah", rank: 55 },
+        { author: "Dave", rank: 40 },
+        { author: "Charlie", rank: 30 },
+        { author: "Bob", rank: 20 },
+        { author: "Alice", rank: 10 },
+      ]);
+    });
+
+    test("inserts at bottom if list is done", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: true,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 5 },
+        sortOrder: "desc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Dave", rank: 40 },
+        { author: "Charlie", rank: 30 },
+        { author: "Bob", rank: 20 },
+        { author: "Alice", rank: 10 },
+        { author: "Sarah", rank: 5 },
+      ]);
+    });
+
+    test("does not insert at bottom if list is still loading", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 5 },
+        sortOrder: "desc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Dave", rank: 40 },
+        { author: "Charlie", rank: 30 },
+        { author: "Bob", rank: 20 },
+        { author: "Alice", rank: 10 },
+      ]);
+    });
+
+    test("inserts on page boundary", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 29 },
+        sortOrder: "desc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Dave", rank: 40 },
+        { author: "Charlie", rank: 30 },
+        { author: "Sarah", rank: 29 },
+        { author: "Bob", rank: 20 },
+        { author: "Alice", rank: 10 },
+      ]);
+    });
+  });
+
+  describe("ascending", () => {
+    const defaultPages = [
+      [
+        { author: "Alice", rank: 10 },
+        { author: "Bob", rank: 20 },
+      ],
+      [
+        { author: "Charlie", rank: 30 },
+        { author: "Dave", rank: 40 },
+      ],
+    ];
+    test("inserts in middle", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 15 },
+        sortOrder: "asc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Alice", rank: 10 },
+        { author: "Sarah", rank: 15 },
+        { author: "Bob", rank: 20 },
+        { author: "Charlie", rank: 30 },
+        { author: "Dave", rank: 40 },
+      ]);
+    });
+
+    test("inserts at top", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 5 },
+        sortOrder: "asc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Sarah", rank: 5 },
+        { author: "Alice", rank: 10 },
+        { author: "Bob", rank: 20 },
+        { author: "Charlie", rank: 30 },
+        { author: "Dave", rank: 40 },
+      ]);
+    });
+
+    test("inserts at bottom if list is done", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: true,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 50 },
+        sortOrder: "asc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Alice", rank: 10 },
+        { author: "Bob", rank: 20 },
+        { author: "Charlie", rank: 30 },
+        { author: "Dave", rank: 40 },
+        { author: "Sarah", rank: 50 },
+      ]);
+    });
+
+    test("does not insert at bottom if list is still loading", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 50 },
+        sortOrder: "asc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Alice", rank: 10 },
+        { author: "Bob", rank: 20 },
+        { author: "Charlie", rank: 30 },
+        { author: "Dave", rank: 40 },
+      ]);
+    });
+
+    test("inserts on page boundary", () => {
+      const localQueryStore = new LocalQueryStoreFake();
+      const paginatedQuery = anyApi.messages.list;
+      setupPages({
+        localQueryStore,
+        paginatedQuery,
+        args: {},
+        pages: defaultPages,
+        isDone: false,
+      });
+      insertAtPosition({
+        paginatedQuery,
+        localQueryStore,
+        item: { author: "Sarah", rank: 21 },
+        sortOrder: "asc",
+        sortKeyFromItem: (item) => item.rank,
+      });
+      const sortedResults = getPaginatedQueryResults({
+        localQueryStore,
+        query: paginatedQuery,
+      });
+      expect(sortedResults).toEqual([
+        { author: "Alice", rank: 10 },
+        { author: "Bob", rank: 20 },
+        { author: "Sarah", rank: 21 },
+        { author: "Charlie", rank: 30 },
+        { author: "Dave", rank: 40 },
+      ]);
+    });
   });
 });

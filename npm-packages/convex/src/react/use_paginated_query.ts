@@ -16,6 +16,7 @@ import {
 } from "../server/api.js";
 import { BetterOmit, Expand } from "../type_utils.js";
 import { useConvex } from "./client.js";
+import { compareValues } from "../values/compare.js";
 
 /**
  * A {@link server.FunctionReference} that is usable with {@link usePaginatedQuery}.
@@ -568,4 +569,340 @@ export function optimisticallyUpdateValueInPaginatedQuery<
       }
     }
   }
+}
+
+/**
+ * Updates a paginated query to insert an element at the top of the list.
+ *
+ * This is regardless of the sort order, so if the list is in descending order,
+ * the inserted element will be treated as the "biggest" element, but if it's
+ * ascending, it'll be treated as the "smallest".
+ *
+ * Example:
+ * ```ts
+ * const createTask = useMutation(api.tasks.create)
+ *   .withOptimisticUpdate((localStore, mutationArgs) => {
+ *   insertAtTop({
+ *     paginatedQuery: api.tasks.list,
+ *     argsToMatch: { listId: mutationArgs.listId },
+ *     localQueryStore: localStore,
+ *     item: { _id: crypto.randomUUID() as Id<"tasks">, title: mutationArgs.title, completed: false },
+ *   });
+ * });
+ * ```
+ *
+ * @param options.paginatedQuery - A function reference to the paginated query.
+ * @param options.argsToMatch - Optional arguments that must be in each relevant paginated query.
+ * This is useful if you use the same query function with different arguments to load
+ * different lists.
+ * @param options.localQueryStore
+ * @param options.item The item to insert.
+ * @returns
+ */
+export function insertAtTop<Query extends PaginatedQueryReference>(options: {
+  paginatedQuery: Query;
+  argsToMatch?: Partial<PaginatedQueryArgs<Query>>;
+  localQueryStore: OptimisticLocalStore;
+  item: PaginatedQueryItem<Query>;
+}) {
+  const { paginatedQuery, argsToMatch, localQueryStore, item } = options;
+  const queries = localQueryStore.getAllQueries(paginatedQuery);
+  const queriesThatMatch = queries.filter((q) => {
+    if (argsToMatch === undefined) {
+      return true;
+    }
+    return Object.keys(argsToMatch).every(
+      // @ts-expect-error -- This should be safe since both should be plain objects
+      (k) => compareValues(argsToMatch[k], q.args[k]) === 0,
+    );
+  });
+  const firstPage = queriesThatMatch.find(
+    (q) => q.args.paginationOpts.cursor === null,
+  );
+  if (firstPage === undefined || firstPage.value === undefined) {
+    // first page is not loaded, so don't update it until it loads
+    return;
+  }
+  localQueryStore.setQuery(paginatedQuery, firstPage.args, {
+    ...firstPage.value,
+    page: [item, ...firstPage.value.page],
+  });
+}
+
+/**
+ * Updates a paginated query to insert an element at the bottom of the list.
+ *
+ * This is regardless of the sort order, so if the list is in descending order,
+ * the inserted element will be treated as the "smallest" element, but if it's
+ * ascending, it'll be treated as the "biggest".
+ *
+ * This only has an effect if the last page is loaded, since otherwise it would result
+ * in the element being inserted at the end of whatever is loaded (which is the middle of the list)
+ * and then popping out once the optimistic update is over.
+ *
+ * @param options.paginatedQuery - A function reference to the paginated query.
+ * @param options.argsToMatch - Optional arguments that must be in each relevant paginated query.
+ * This is useful if you use the same query function with different arguments to load
+ * different lists.
+ * @param options.localQueryStore
+ * @param options.element The element to insert.
+ * @returns
+ */
+export function insertAtBottomIfLoaded<
+  Query extends PaginatedQueryReference,
+>(options: {
+  paginatedQuery: Query;
+  argsToMatch?: Partial<PaginatedQueryArgs<Query>>;
+  localQueryStore: OptimisticLocalStore;
+  item: PaginatedQueryItem<Query>;
+}) {
+  const { paginatedQuery, localQueryStore, item, argsToMatch } = options;
+  const queries = localQueryStore.getAllQueries(paginatedQuery);
+  const queriesThatMatch = queries.filter((q) => {
+    if (argsToMatch === undefined) {
+      return true;
+    }
+    return Object.keys(argsToMatch).every(
+      // @ts-expect-error -- This should be safe since both should be plain objects
+      (k) => compareValues(argsToMatch[k], q.args[k]) === 0,
+    );
+  });
+  const lastPage = queriesThatMatch.find(
+    (q) => q.value !== undefined && q.value.isDone,
+  );
+  if (lastPage === undefined) {
+    // last page is not loaded, so don't update it since the item would immediately pop out
+    // when the server updates
+    return;
+  }
+  localQueryStore.setQuery(paginatedQuery, lastPage.args, {
+    ...lastPage.value!,
+    page: [...lastPage.value!.page, item],
+  });
+}
+
+type LocalQueryResult<Query extends FunctionReference<"query">> = {
+  args: FunctionArgs<Query>;
+  value: undefined | FunctionReturnType<Query>;
+};
+
+type LoadedResult<Query extends FunctionReference<"query">> = {
+  args: FunctionArgs<Query>;
+  value: FunctionReturnType<Query>;
+};
+
+/**
+ * This is a helper function for inserting an item at a specific position in a paginated query.
+ *
+ * You must provide the sortOrder and a function for deriving the sort key (an array of values) from an item in the list.
+ *
+ * This will only work if the server query uses the same sort order and sort key as the optimistic update.
+ *
+ * Example:
+ * ```ts
+ * const createTask = useMutation(api.tasks.create)
+ *   .withOptimisticUpdate((localStore, mutationArgs) => {
+ *   insertAtPosition({
+ *     paginatedQuery: api.tasks.listByPriority,
+ *     argsToMatch: { listId: mutationArgs.listId },
+ *     sortOrder: "asc",
+ *     sortKeyFromItem: (item) => [item.priority, item._creationTime],
+ *     localQueryStore: localStore,
+ *     item: {
+ *       _id: crypto.randomUUID() as Id<"tasks">,
+ *       _creationTime: Date.now(),
+ *       title: mutationArgs.title,
+ *       completed: false,
+ *       priority: mutationArgs.priority,
+ *     },
+ *   });
+ * });
+ * ```
+ * @param options.paginatedQuery - A function reference to the paginated query.
+ * @param options.argsToMatch - Optional arguments that must be in each relevant paginated query.
+ * This is useful if you use the same query function with different arguments to load
+ * different lists.
+ * @param options.sortOrder - The sort order of the paginated query ("asc" or "desc").
+ * @param options.sortKeyFromItem - A function for deriving the sort key (an array of values) from an element in the list.
+ * Including a tie-breaker field like `_creationTime` is recommended.
+ * @param options.localQueryStore
+ * @param options.item - The item to insert.
+ * @returns
+ */
+export function insertAtPosition<
+  Query extends PaginatedQueryReference,
+>(options: {
+  paginatedQuery: Query;
+  argsToMatch?: Partial<PaginatedQueryArgs<Query>>;
+  sortOrder: "asc" | "desc";
+  sortKeyFromItem: (element: PaginatedQueryItem<Query>) => Value | Value[];
+  localQueryStore: OptimisticLocalStore;
+  item: PaginatedQueryItem<Query>;
+}) {
+  const {
+    paginatedQuery,
+    sortOrder,
+    sortKeyFromItem,
+    localQueryStore,
+    item,
+    argsToMatch,
+  } = options;
+
+  const queries: LocalQueryResult<Query>[] =
+    localQueryStore.getAllQueries(paginatedQuery);
+  // Group into sets of pages for the same usePaginatedQuery. Grouping is by all
+  // args except paginationOpts, but including paginationOpts.id.
+  const queryGroups: Record<string, LocalQueryResult<Query>[]> = {};
+  for (const query of queries) {
+    if (
+      argsToMatch !== undefined &&
+      !Object.keys(argsToMatch).every(
+        (k) =>
+          // @ts-ignore why is this not working?
+          argsToMatch[k] === query.args[k],
+      )
+    ) {
+      continue;
+    }
+    const key = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(query.args).map(([k, v]) => [
+          k,
+          k === "paginationOpts" ? (v as any).id : v,
+        ]),
+      ),
+    );
+    queryGroups[key] ??= [];
+    queryGroups[key].push(query);
+  }
+  for (const pageQueries of Object.values(queryGroups)) {
+    insertAtPositionInPages({
+      pageQueries,
+      paginatedQuery,
+      sortOrder,
+      sortKeyFromItem,
+      localQueryStore,
+      item,
+    });
+  }
+}
+
+function insertAtPositionInPages<
+  Query extends PaginatedQueryReference,
+>(options: {
+  pageQueries: LocalQueryResult<Query>[];
+  paginatedQuery: Query;
+  sortOrder: "asc" | "desc";
+  sortKeyFromItem: (element: PaginatedQueryItem<Query>) => Value | Value[];
+  localQueryStore: OptimisticLocalStore;
+  item: PaginatedQueryItem<Query>;
+}) {
+  const {
+    pageQueries,
+    sortOrder,
+    sortKeyFromItem,
+    localQueryStore,
+    item,
+    paginatedQuery,
+  } = options;
+  const insertedKey = sortKeyFromItem(item);
+  const loadedPages: LoadedResult<Query>[] = pageQueries.filter(
+    (q): q is LoadedResult<Query> =>
+      q.value !== undefined && q.value.page.length > 0,
+  );
+  const sortedPages = loadedPages.sort((a, b) => {
+    const aKey = sortKeyFromItem(a.value.page[0]);
+    const bKey = sortKeyFromItem(b.value.page[0]);
+    if (sortOrder === "asc") {
+      return compareValues(aKey, bKey);
+    } else {
+      return compareValues(bKey, aKey);
+    }
+  });
+
+  // check if the inserted element is before the first page
+  const firstLoadedPage = sortedPages[0];
+  if (firstLoadedPage === undefined) {
+    // no pages, so don't update until they load
+    return;
+  }
+  const firstPageKey = sortKeyFromItem(firstLoadedPage.value.page[0]);
+  const isBeforeFirstPage =
+    sortOrder === "asc"
+      ? compareValues(insertedKey, firstPageKey) <= 0
+      : compareValues(insertedKey, firstPageKey) >= 0;
+  if (isBeforeFirstPage) {
+    if (firstLoadedPage.args.paginationOpts.cursor === null) {
+      localQueryStore.setQuery(paginatedQuery, firstLoadedPage.args, {
+        ...firstLoadedPage.value,
+        page: [item, ...firstLoadedPage.value.page],
+      });
+    } else {
+      // if the very first page is not loaded
+      return;
+    }
+    return;
+  }
+
+  const lastLoadedPage = sortedPages[sortedPages.length - 1];
+  if (lastLoadedPage === undefined) {
+    // no pages, so don't update until they load
+    return;
+  }
+  const lastPageKey = sortKeyFromItem(
+    lastLoadedPage.value.page[lastLoadedPage.value.page.length - 1],
+  );
+  const isAfterLastPage =
+    sortOrder === "asc"
+      ? compareValues(insertedKey, lastPageKey) >= 0
+      : compareValues(insertedKey, lastPageKey) <= 0;
+  if (isAfterLastPage) {
+    // Only update if the last page is done loading, otherwise it will pop out
+    // when the server updates the query
+    if (lastLoadedPage.value.isDone) {
+      localQueryStore.setQuery(paginatedQuery, lastLoadedPage.args, {
+        ...lastLoadedPage.value,
+        page: [...lastLoadedPage.value.page, item],
+      });
+    }
+    return;
+  }
+
+  // if sorted in ascending order, find the first page that starts with a key greater than the inserted element,
+  // and update the page before it
+  // if sorted in descending order, find the first page that starts with a key less than the inserted element,
+  // and update the page before it
+
+  const successorPageIndex = sortedPages.findIndex((p) =>
+    sortOrder === "asc"
+      ? compareValues(sortKeyFromItem(p.value.page[0]), insertedKey) > 0
+      : compareValues(sortKeyFromItem(p.value.page[0]), insertedKey) < 0,
+  );
+  const pageToUpdate =
+    successorPageIndex === -1
+      ? sortedPages[sortedPages.length - 1]
+      : sortedPages[successorPageIndex - 1];
+  if (pageToUpdate === undefined) {
+    // no pages, so don't update until they load
+    return;
+  }
+  // If ascending, find the first element that is greater than or equal to the inserted element
+  // If descending, find the first element that is less than or equal to the inserted element
+  const indexWithinPage = pageToUpdate.value.page.findIndex((e) =>
+    sortOrder === "asc"
+      ? compareValues(sortKeyFromItem(e), insertedKey) >= 0
+      : compareValues(sortKeyFromItem(e), insertedKey) <= 0,
+  );
+  const newPage =
+    indexWithinPage === -1
+      ? [...pageToUpdate.value.page, item]
+      : [
+          ...pageToUpdate.value.page.slice(0, indexWithinPage),
+          item,
+          ...pageToUpdate.value.page.slice(indexWithinPage),
+        ];
+  localQueryStore.setQuery(paginatedQuery, pageToUpdate.args, {
+    ...pageToUpdate.value,
+    page: newPage,
+  });
 }
