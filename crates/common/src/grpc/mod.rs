@@ -63,12 +63,13 @@ impl ConvexGrpcService {
     pub fn add_service<S>(mut self, service: S) -> Self
     where
         S: tower::Service<
-                http::Request<tonic::body::BoxBody>,
-                Response = http::Response<tonic::body::BoxBody>,
+                http::Request<tonic::body::Body>,
+                Response = http::Response<tonic::body::Body>,
                 Error = Infallible,
             > + ReflectionService
             + Clone
             + Send
+            + Sync
             + 'static,
         S::Future: Send + 'static,
     {
@@ -84,7 +85,7 @@ impl ConvexGrpcService {
         self
     }
 
-    pub async fn serve<F>(mut self, addr: SocketAddr, shutdown: F) -> anyhow::Result<()>
+    pub async fn serve<F>(self, addr: SocketAddr, shutdown: F) -> anyhow::Result<()>
     where
         F: Future<Output = ()>,
     {
