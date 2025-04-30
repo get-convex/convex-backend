@@ -241,9 +241,7 @@ pub async fn try_join_buffer_unordered<
     C: Default + Send + 'static + Extend<T>,
 >(
     name: &'static str,
-    tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
-        + Send
-        + 'static,
+    tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static> + Send,
 ) -> anyhow::Result<C> {
     assert_send(
         stream::iter(tasks.map(|task| try_join(name, task)))

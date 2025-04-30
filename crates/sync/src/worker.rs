@@ -767,20 +767,18 @@ impl<RT: Runtime> SyncWorker<RT> {
         let need_fetch: Vec<_> = self.state.need_fetch().collect();
         let host = self.host.clone();
         let client_version = self.config.client_version.clone();
-        let subscriptions_client = subscriptions_client.clone();
         Ok(async move {
             let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
-                "update_queries_inner",
+                "update_query",
                 need_fetch.into_iter().map(move |query| {
                     let api = api.clone();
                     let host = host.clone();
                     let identity_ = identity.clone();
                     let client_version = client_version.clone();
                     let current_subscription = remaining_subscriptions.remove(&query.query_id);
-                    let span = Span::enter_with_local_parent("update_query")
-                        .with_property(|| ("udf_path", query.udf_path.clone().to_string()));
                     let subscriptions_client = subscriptions_client.clone();
                     async move {
+                        LocalSpan::add_property(|| ("udf_path", query.udf_path.to_string()));
                         let new_subscription = match current_subscription {
                             Some(subscription) => {
                                 if subscription.extend_validity(new_ts).await? {
@@ -851,7 +849,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                         };
                         Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
                     }
-                    .in_span(span)
                 }),
             )
             .await;
