@@ -94,7 +94,7 @@ mime = "0.3"
 mime2ext = "0.1.52"
 fastrace = { version = "0.7", features = [ "enable" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
-mysql_async = { git = "https://github.com/get-convex/mysql_async", rev = "79852269aeee694b6fc8794282be25ef753cfd41", default-features = false, features = [ "default-rustls-ring" ] }
+mysql_async = { version = "0.36.0", default-features = false, features = [ "default-rustls-ring" ] }
 native-tls = "^0.2.10"
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
