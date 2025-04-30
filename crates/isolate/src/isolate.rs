@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context as _;
 use common::{
     errors::TIMEOUT_ERROR_MESSAGE,
     knobs::{
@@ -284,7 +285,15 @@ impl<RT: Runtime> Isolate<RT> {
         client_id: Arc<String>,
         environment: E,
     ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>)> {
-        self.check_isolate_clean()?;
+        // Double check that the isolate is clean.
+        // It's unexpected to encounter this error, since we are supposed to
+        // have already checked after the last request finished, but in practice
+        // it does happen - so make this error retryable.
+        self.check_isolate_clean()
+            .context(ErrorMetadata::rejected_before_execution(
+                "IsolateNotClean",
+                "Selected isolate was not clean",
+            ))?;
         // Acquire a concurrency permit without counting it against the timeout.
         let permit = tokio::select! {
             biased;
