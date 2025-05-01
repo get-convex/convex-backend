@@ -83,7 +83,7 @@ export const defaultValueForShape = (shape: Shape): Value | undefined => {
   }
 };
 
-const COMMON_UTC_TIMESTAMP_RANGE = [1e12, 2e12]; // ~2001 to 2033
+const COMMON_UTC_TIMESTAMP_RANGE = [1e12, 4.1e12]; // ~2001 to ~2100
 export const isInCommonUTCTimestampRange = (value: number) =>
   value > COMMON_UTC_TIMESTAMP_RANGE[0] &&
   value < COMMON_UTC_TIMESTAMP_RANGE[1];
