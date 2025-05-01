@@ -55,7 +55,9 @@ function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
                 {new Date(invoice.invoiceDate).toLocaleDateString()}
               </td>
               <td className="py-2 text-sm">
-                <StatusPill status={invoice.status} />
+                <StatusPill
+                  status={invoice.hasFailedPayment ? "failed" : invoice.status}
+                />
               </td>
               <td className="py-2 text-sm">
                 {parseFloat(invoice.total).toLocaleString("en-US", {
@@ -97,6 +99,7 @@ const statusColors: Record<InvoiceResponse["status"], string> = {
   issued: "bg-background-warning",
   draft: "bg-blue-200 dark:bg-blue-800",
   void: "bg-background-error",
+  failed: "bg-background-error",
   synced: "bg-background-tertiary",
 };
 function StatusPill({ status }: { status: InvoiceResponse["status"] }) {
