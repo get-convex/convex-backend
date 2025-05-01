@@ -11,6 +11,10 @@ use std::{
 
 use bytes::Bytes;
 use flexbuffers::Buffer;
+use serde::{
+    Serialize,
+    Serializer,
+};
 
 #[derive(Clone, Debug)]
 pub struct ByteBuffer {
@@ -88,6 +92,15 @@ impl Deref for StringBuffer {
 
     fn deref(&self) -> &str {
         unsafe { str::from_utf8_unchecked(&self.inner[..]) }
+    }
+}
+
+impl Serialize for StringBuffer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (**self).serialize(serializer)
     }
 }
 
