@@ -135,8 +135,8 @@ rusqlite = { version = "0.32", features = [ "bundled" ] }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 schemars = { version = "0.8" }
 semver = { version = "1", features = [ "serde" ] }
-sentry = { version = "0.36", features = [ "anyhow", "tower", "tower-http" ] }
-sentry-tracing = "0.36"
+sentry = { version = "0.37", features = [ "anyhow", "tower", "tower-http" ] }
+sentry-tracing = "0.37"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "unbounded_depth" ] }
 sha1 = { version = "0.10.5", features = [ "oid" ] }
