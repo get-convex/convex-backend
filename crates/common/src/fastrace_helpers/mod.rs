@@ -21,6 +21,9 @@ use serde::Deserialize;
 
 use crate::knobs::REQUEST_TRACE_SAMPLE_CONFIG;
 
+pub mod interceptor;
+pub mod layer;
+
 static SAMPLING_CONFIG_FROM_LOADER: LazyLock<Mutex<Option<SamplingConfig>>> =
     LazyLock::new(|| Mutex::new(None));
 

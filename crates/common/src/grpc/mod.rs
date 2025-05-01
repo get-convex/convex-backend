@@ -91,6 +91,7 @@ impl ConvexGrpcService {
     {
         let known_methods = Arc::new(self.known_methods);
         let convex_layers = ServiceBuilder::new()
+            .layer(crate::fastrace_helpers::layer::TraceparentReceivingLayer)
             .layer_fn(move |s| TokioInstrumentationService::new(known_methods.clone(), s))
             .layer(sentry_tower::NewSentryLayer::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::with_transaction());

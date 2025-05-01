@@ -1098,7 +1098,8 @@ where
     }
 }
 
-pub const TRACEPARENT_HEADER: &str = "traceparent";
+pub const TRACEPARENT_HEADER_STR: &str = "traceparent";
+pub const TRACEPARENT_HEADER: HeaderName = HeaderName::from_static(TRACEPARENT_HEADER_STR);
 
 pub struct ExtractTraceparent(pub Option<SpanContext>);
 
@@ -1114,7 +1115,7 @@ where
     ) -> Result<Self, Self::Rejection> {
         let traceparent = parts
             .headers
-            .get(HeaderName::from_static(TRACEPARENT_HEADER))
+            .get(TRACEPARENT_HEADER)
             .and_then(|h| h.to_str().ok())
             .and_then(SpanContext::decode_w3c_traceparent);
         Ok(Self(traceparent))
