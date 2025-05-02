@@ -1,16 +1,41 @@
 # Changelog
 
-## Unreleased
+## 1.24.0
+
+- Drop support for React 17 and remove use of `unstable_batchedUpdates` as React
+  18 introduced
+  [Automatic batching](https://react.dev/blog/2022/03/29/react-v18#new-feature-automatic-batching)
+
+  If you use React 17 and choose to override the change in supported peer
+  dependencies (please don't), you may notice query updates are no longer
+  batched: it's possible for one Convex query update to occur on a different
+  React render than another causing single frames of discrepancies in UI or
+  worse, errors if you have code that relies on the client-side consistency like
+  client-side joins.
+
+  You may also notice nothing. Without batched updates some queries may be a few
+  milliseconds ahead of other queries, which is still much less than the
+  differences in other data fetching solutions, e.g. React Query or SWR, in
+  non-batched mode.
+
+- Remove dependency on `react-dom`, making it possible to use on "React Native
+  only" projects without overriding any dependency resolution.
+
+- New optimistic update helpers for paginated queries: three helpers
+  `insertAtTop`, `insertAtBottomIfLoaded`, and `insertAtPosition`.
 
 - The `npx convex login --login-flow paste` flag can be used to explicitly opt
   into the manual token paste login method.
 
-- Drop support for React 17 and remove use of `unstable_batchedUpdates` as react
-  18 introduced
-  [Automatic batching](https://react.dev/blog/2022/03/29/react-v18#new-feature-automatic-batching)
+- Fix MCP servers for self-hosted deployments: previously MCP CLI commands were
+  attempting to contact a cloud deployment (which didn't exist) in self-hosted
+  setups.
 
-- Remove dependency on `react-dom`, making it possible to use on "React Native
-  only" projects.
+- New `compareValues` function exported from `convex/values` which matches
+  Convex values semantics as implemented in backends. This function should match
+  the Rust implementation in backend (and it property-tested in pursuit of
+  this!) but in the event of discrepancies the Rust implementation should be
+  considered authoritative.
 
 ## 1.23.0
 
