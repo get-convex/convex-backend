@@ -114,6 +114,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         type={type ?? "button"}
         tabIndex={0}
         onClick={onClick}
+        style={{ "--final-opacity": disabled ? 0.5 : 1 } as React.CSSProperties}
         className={buttonClassName}
         disabled={disabled || loading}
         // There is something weird here with `forwardRef`, I’d expect this to work without `any`
@@ -153,7 +154,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
 });
 
 const button = tv({
-  base: "relative inline-flex animate-fadeInFromLoading select-none items-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:border focus-visible:border-border-selected focus-visible:outline-none",
+  base: "animate-fadeInToVar relative inline-flex select-none items-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:border focus-visible:border-border-selected focus-visible:outline-none",
   variants: {
     variant: {
       primary: "border-white/30 bg-util-accent text-white",
@@ -169,7 +170,7 @@ const button = tv({
       inline: "",
     },
     disabled: {
-      true: "cursor-not-allowed opacity-50",
+      true: "cursor-not-allowed opacity-50 disabled:cursor-not-allowed disabled:opacity-50",
       false: "cursor-pointer",
     },
     loading: {

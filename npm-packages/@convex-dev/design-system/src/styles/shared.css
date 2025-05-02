@@ -1,4 +1,5 @@
 @tailwind base;
+@tailwind utilities;
 
 :root {
   --red-100: 252, 215, 203;
@@ -190,5 +191,23 @@ html.dark {
       dark:bg-red-950
       dark:border-red-900
       dark:text-red-200 !important;
+  }
+}
+/* Used for elements that need to fade in to a specific opacity
+   this can't be defined in the tailwind config because you cannot interpolate 
+   variables in tailwind keyframes.
+ */
+@keyframes fadeInToVar {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: var(--final-opacity, 1);
+  }
+}
+
+@layer utilities {
+  .animate-fadeInToVar {
+    animation: fadeInToVar 0.3s ease-out forwards;
   }
 }
