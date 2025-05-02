@@ -212,7 +212,7 @@ dependencies = [
  "itertools 0.14.0",
  "keybroker",
  "libc",
- "lru 0.12.0",
+ "lru 0.13.0",
  "maplit",
  "metrics",
  "mime2ext",
@@ -410,7 +410,7 @@ dependencies = [
  "errors",
  "fastrace",
  "futures",
- "lru 0.12.0",
+ "lru 0.13.0",
  "metrics",
  "parking_lot",
  "rand 0.9.0",
@@ -5204,11 +5204,11 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1efa59af2ddfad1854ae27d75009d538d0998b4b2fd47083e743ac1a10e46c60"
+checksum = "227748d55f2f0ab4735d87fd623798cb6b664512fe979705f829c9f81c934465"
 dependencies = [
- "hashbrown 0.14.5",
+ "hashbrown 0.15.2",
 ]
 
 [[package]]
