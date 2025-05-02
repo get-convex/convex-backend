@@ -94,11 +94,11 @@ mime = "0.3"
 mime2ext = "0.1.52"
 fastrace = { version = "0.7", features = [ "enable" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
-mysql_async = { version = "0.36.0", default-features = false, features = [ "default-rustls-ring" ] }
+mysql_async = { version = "0.36.0", default-features = false, features = [ "default-rustls" ] }
 native-tls = "^0.2.10"
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
-openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "f21c7999356bd374a683d13378bd2a6c0ebdbf11", features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits" ] }
+openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "f21c7999356bd374a683d13378bd2a6c0ebdbf11", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }
 phf = { version = "0.11.2", features = [ "macros" ] }
@@ -162,7 +162,7 @@ tokio-postgres = { version = "0.7.10", features = [ "with-serde_json-1" ] }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.26.2", features = [ "native-tls-vendored" ] }
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util" ] }
-tonic = { package = "tonic", version = "0.13", features = [ "gzip", "tls-ring", "tls-native-roots" ] }
+tonic = { package = "tonic", version = "0.13", features = [ "gzip", "tls-aws-lc", "tls-native-roots" ] }
 tonic-build = "0.13"
 tonic-health = "0.13"
 tower = { version = "0.5.2", features = [ "limit", "timeout", "util" ] }
