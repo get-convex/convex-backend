@@ -39,7 +39,7 @@ message QueryRequest {
   uint32 limit = 6;
   StorageKey disk_index = 7;
   StorageType storage_type = 8;
-  optional string encoded_parent_trace = 9;
+  reserved 9;
 }
 
 message TextQuery {
@@ -123,7 +123,7 @@ message CandidateRevision {
 message TextCompactionRequest {
    repeated FragmentedTextSegmentPaths segments = 1;
    StorageType storage_type = 2;
-  optional string encoded_parent_trace = 3;
+  reserved 3;
 }
 
 message FragmentedTextSegment {
@@ -149,13 +149,13 @@ message VectorQueryRequest {
   uint32 overfetch_delta = 4;
   FragmentedVectorSegmentPathsList segments = 5;
   StorageType storage_type = 6;
-  optional string encoded_parent_trace = 7;
+  reserved 7;
 }
 
 message VectorPrefetchRequest {
   FragmentedVectorSegmentPathsList segments = 1;
   StorageType storage_type = 2;
-  optional string encoded_parent_trace = 3;
+  reserved 3;
 }
 
 message VectorPrefetchResponse {}
@@ -164,7 +164,7 @@ message VectorCompactionRequest {
   FragmentedVectorSegmentPathsList segments = 1;
   uint32 dimension = 2;
   StorageType storage_type = 3;
-  optional string encoded_parent_trace = 4;
+  reserved 4;
 }
 
 message VectorCompactionResponse {
@@ -249,7 +249,7 @@ message FetchTermOrdinalsRequest {
     StorageType storage_type = 1;
     StorageKey segment = 2;
     repeated FieldAndTermValues field_and_term_values = 3;
-    optional string encoded_parent_trace = 4;
+    reserved 4;
 }
 
 message FetchTermOrdinalsResponse {
@@ -283,7 +283,7 @@ message QueryTokensRequest {
   FragmentedTextSegmentPaths segment = 2;
   repeated TokenQuery token_queries = 3;
   optional uint32 max_results = 4;
-  optional string encoded_parent_trace = 5;
+  reserved 5;
 }
 
 message FragmentedTextSegmentPaths {
@@ -322,7 +322,7 @@ message QueryBm25StatsRequest {
   StorageType storage_type = 1;
   FragmentedTextSegmentPaths segment = 2;
   repeated bytes terms = 3;
-  optional string encoded_parent_trace = 4;
+  reserved 4;
 }
 
 message QueryBm25StatsResponse {
@@ -345,7 +345,7 @@ message QueryPostingListsRequest {
   StorageType storage_type = 1;
   FragmentedTextSegmentPaths segment = 2;
   PostingListQuery query = 3;
-  optional string encoded_parent_trace = 4;
+  reserved 4;
 }
 
 message PostingListQuery {
