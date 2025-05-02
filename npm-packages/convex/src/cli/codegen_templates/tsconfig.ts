@@ -2,7 +2,7 @@ export function tsconfigCodegen() {
   return `{
   /* This TypeScript project config describes the environment that
    * Convex functions run in and is used to typecheck them.
-   * You can modify it, but some settings required to use Convex.
+   * You can modify it, but some settings are required to use Convex.
    */
   "compilerOptions": {
     /* These settings are not required by Convex and can be modified. */
