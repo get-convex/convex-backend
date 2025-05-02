@@ -147,11 +147,13 @@ export async function getAuthToken() {
 </TabItem>
 <TabItem value="auth0" label="Auth0">
 ```ts title="app/auth.ts"
+// You'll need v4.3 or later of @auth0/nextjs-auth0
 import { getSession } from '@auth0/nextjs-auth0';
 
 export async function getAuthToken() {
-  const { accessToken } = await getSession();
-  return accessToken;
+  const session = await getSession();
+  const idToken = session.tokenSet.idToken;
+  return idToken;
 }
 ```
 </TabItem>
