@@ -153,11 +153,6 @@ html.dark {
     @apply font-semibold;
   }
 
-  .scrollbar {
-    @apply scrollbar-thin scrollbar-thumb-neutral-1 scrollbar-corner-background-secondary
-    scrollbar-thumb-rounded dark:scrollbar-thumb-neutral-8;
-  }
-
   /* Position the toast close button on the top right corner so that it draws less attention */
   html [data-sonner-toaster][dir="ltr"] {
     --toast-close-button-start: unset;
@@ -209,5 +204,10 @@ html.dark {
 @layer utilities {
   .animate-fadeInToVar {
     animation: fadeInToVar 0.3s ease-out forwards;
+  }
+
+  .scrollbar {
+    @apply scrollbar-thin scrollbar-thumb-neutral-1 scrollbar-corner-background-secondary
+    scrollbar-thumb-rounded dark:scrollbar-thumb-neutral-8;
   }
 }
