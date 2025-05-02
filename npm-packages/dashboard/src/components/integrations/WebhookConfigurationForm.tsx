@@ -37,6 +37,7 @@ export function WebhookConfigurationForm({
         onChange={formState.handleChange}
         id="url"
         label="URL"
+        placeholder="Enter a URL to send logs to"
         error={formState.errors.url}
       />
       <div className="flex justify-end">

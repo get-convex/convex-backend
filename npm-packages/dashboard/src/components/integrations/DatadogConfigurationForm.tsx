@@ -130,6 +130,7 @@ export function DatadogConfigurationForm({
         type={showApiKey ? "text" : "password"}
         onChange={formState.handleChange}
         id="ddApiKey"
+        className="max-w-full"
         placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         action={() => setShowApiKey(!showApiKey)}
         Icon={showApiKey ? EyeNoneIcon : EyeOpenIcon}

@@ -111,6 +111,7 @@ export function AxiomConfigurationForm({
         value={formState.values.apiKey}
         type={showApiKey ? "text" : "password"}
         onChange={formState.handleChange}
+        className="max-w-full"
         id="apiKey"
         placeholder="xxxx-xxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
         action={() => setShowApiKey(!showApiKey)}
