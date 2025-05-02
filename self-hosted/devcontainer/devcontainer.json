@@ -1,0 +1,29 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
+{
+  "name": "convex-dev",
+
+  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  // Lifecycle events
+  "postCreateCommand": "npm install -g convex && npx convex dev --once",
+  "postAttachCommand": "git config --global diff.ool ...",
+  "postStartCommand": "git config --global --add safe.directory /workspaces/${localWorkspaceFolderBasename}",
+
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.convex,target=/home/node/.convex,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.cache/convex,target=/home/node/.cache,type=bind,consistency=cached"
+  ],
+
+  // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+  "remoteUser": "node",
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  "forwardPorts": [3210, 6790, 6791],
+
+  // Configure tool-specific properties.
+  "customizations": {}
+}
