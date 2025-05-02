@@ -1644,6 +1644,16 @@ impl<RT: Runtime> Inner<RT> {
         let name = scheduled_job_next_ts_metric();
         // -Infinity means there is no scheduled job
         let value = next_job_ts.map_or(-f32::INFINITY, |ts| signed_duration_since(now, ts));
+        if value > 0.0 {
+            self.log_manager.send_logs(vec![LogEvent {
+                timestamp: UnixTimestamp::from_secs_f64(
+                    now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs_f64(),
+                ),
+                event: StructuredLogEvent::ScheduledJobLag {
+                    lag_seconds: Duration::from_secs_f32(value.max(0.0)),
+                },
+            }]);
+        }
         match self.metrics.add_gauge(name, now, value) {
             Ok(()) => (),
             Err(UdfMetricsError::SamplePrecedesCutoff { ts: _, cutoff }) => {

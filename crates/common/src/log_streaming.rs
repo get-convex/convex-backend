@@ -108,6 +108,9 @@ pub enum StructuredLogEvent {
         action: String,
         metadata: serde_json::Map<String, JsonValue>,
     },
+    ScheduledJobLag {
+        lag_seconds: Duration,
+    },
     // User-specified topics -- not yet implemented.
     // See here for more details: https://www.notion.so/Log-Streaming-in-Convex-19a1dfadd6924c33b29b2796b0f5b2e2
     // User {
@@ -293,6 +296,13 @@ impl LogEvent {
                         "actionMetadata": metadata
                     })
                 },
+                StructuredLogEvent::ScheduledJobLag { lag_seconds } => {
+                    serialize_map!({
+                        "_timestamp": ms,
+                        "_topic":  "_scheduled_job_lag",
+                        "lag_seconds": lag_seconds.as_secs()
+                    })
+                },
             },
             LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
@@ -395,6 +405,13 @@ impl LogEvent {
                         "audit_log_action": action,
                         // stringified JSON to avoid
                         "audit_log_metadata": serde_json::to_string(metadata).map_err(serde::ser::Error::custom)?
+                    })
+                },
+                StructuredLogEvent::ScheduledJobLag { lag_seconds } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "scheduled_job_lag",
+                        "lag_seconds": lag_seconds.as_secs()
                     })
                 },
             },
