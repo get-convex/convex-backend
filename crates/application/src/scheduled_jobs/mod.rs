@@ -414,6 +414,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     pub async fn execute_job(&self, job: ScheduledJob, job_id: ResolvedDocumentId) {
         // Generate a new request_id for every schedule job execution attempt.
         let request_id = RequestId::new();
+        sentry::configure_scope(|scope| scope.set_tag("request_id", &request_id));
         match self
             .run_function(
                 request_id,
@@ -452,6 +453,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             .await?;
         if !success {
             // Continue without scheduling retry since the job state has changed
+            // This can happen for actions that encounter a system error during
+            // their execution.
+            // TODO: we should not even get to this function in that case.
+            report_error(&mut system_error).await;
             return Ok(());
         }
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
