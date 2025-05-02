@@ -16,6 +16,7 @@ use common::{
     execution_context::ExecutionId,
     log_lines::RawLogLines,
     types::Timestamp,
+    RequestId,
 };
 use saffron::Cron;
 use serde::{
@@ -501,7 +502,10 @@ pub enum CronJobState {
     //
     // TODO: remove `None` case for cron jobs that started before we started
     // recording execution id.
-    InProgress { execution_id: Option<ExecutionId> },
+    InProgress {
+        request_id: Option<RequestId>,
+        execution_id: Option<ExecutionId>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -275,12 +275,8 @@ impl<RT: Runtime> CronJobContext<RT> {
     pub async fn execute_job(&self, job: CronJob) -> ResolvedDocumentId {
         let mut function_backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
-            // Use a new request_id for every cron job execution attempt.
-            let request_id = RequestId::new();
             let mutation_retry_count = function_backoff.failures() as usize;
-            let result = self
-                .run_function(request_id, job.clone(), mutation_retry_count)
-                .await;
+            let result = self.run_function(job.clone(), mutation_retry_count).await;
             match result {
                 Ok(result) => {
                     metrics::log_cron_job_success(function_backoff.failures());
@@ -299,7 +295,6 @@ impl<RT: Runtime> CronJobContext<RT> {
 
     async fn run_function(
         &self,
-        request_id: RequestId,
         job: CronJob,
         mutation_retry_count: usize,
     ) -> anyhow::Result<ResolvedDocumentId> {
@@ -334,13 +329,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         let job_id = job.id;
         match udf_type {
             UdfType::Mutation => {
-                self.handle_mutation(request_id, tx, job, usage_tracker, mutation_retry_count)
+                self.handle_mutation(tx, job, usage_tracker, mutation_retry_count)
                     .await?
             },
-            UdfType::Action => {
-                self.handle_action(request_id, tx, job, usage_tracker)
-                    .await?
-            },
+            UdfType::Action => self.handle_action(tx, job, usage_tracker).await?,
             udf_type => {
                 anyhow::bail!(
                     "Cron trying to execute {} which is a {} function. This should have been \
@@ -405,7 +397,6 @@ impl<RT: Runtime> CronJobContext<RT> {
 
     async fn handle_mutation(
         &self,
-        request_id: RequestId,
         mut tx: Transaction<RT>,
         job: CronJob,
         usage_tracker: FunctionUsageTracker,
@@ -415,8 +406,9 @@ impl<RT: Runtime> CronJobContext<RT> {
         let identity = tx.inert_identity();
         let caller = FunctionCaller::Cron;
         let (component, component_path) = self.get_job_component(&mut tx, job.id).await?;
+        let request_id = RequestId::new();
         let context = ExecutionContext::new(request_id, &caller);
-        sentry::configure_scope(|scope| scope.set_tag("execution_id", &context.execution_id));
+        sentry::configure_scope(|scope| context.add_sentry_tags(scope));
         let path = CanonicalizedComponentFunctionPath {
             component: component_path,
             udf_path: job.cron_spec.udf_path.clone(),
@@ -535,7 +527,6 @@ impl<RT: Runtime> CronJobContext<RT> {
 
     async fn handle_action(
         &self,
-        request_id: RequestId,
         mut tx: Transaction<RT>,
         job: CronJob,
         usage_tracker: FunctionUsageTracker,
@@ -550,15 +541,15 @@ impl<RT: Runtime> CronJobContext<RT> {
         let caller = FunctionCaller::Cron;
         match job.state {
             CronJobState::Pending => {
-                // Create a new execution ID
+                // Create a new request & execution ID
+                let request_id = RequestId::new();
                 let context = ExecutionContext::new(request_id, &caller);
-                sentry::configure_scope(|scope| {
-                    scope.set_tag("execution_id", &context.execution_id)
-                });
+                sentry::configure_scope(|scope| context.add_sentry_tags(scope));
 
                 // Set state to in progress
                 let mut updated_job = job.clone();
                 updated_job.state = CronJobState::InProgress {
+                    request_id: Some(context.request_id.clone()),
                     execution_id: Some(context.execution_id.clone()),
                 };
                 CronModel::new(&mut tx, component)
@@ -619,14 +610,14 @@ impl<RT: Runtime> CronJobContext<RT> {
                 }
                 self.function_log.log_action(completion, usage_tracker);
             },
-            CronJobState::InProgress { ref execution_id } => {
+            CronJobState::InProgress {
+                ref request_id,
+                ref execution_id,
+            } => {
                 // This case can happen if there is a system error while executing
                 // the action or if backend exits after executing the action but
                 // before updating the state. Since we execute actions at most once,
                 // complete this job and log the error.
-                if let Some(id) = execution_id {
-                    sentry::configure_scope(|scope| scope.set_tag("execution_id", id));
-                }
                 let err =
                     JsError::from_message("Transient error while executing action".to_string());
                 let status = CronJobStatus::Err(err.to_string());
@@ -636,11 +627,12 @@ impl<RT: Runtime> CronJobContext<RT> {
                 };
                 // Restore the execution ID of the failed execution.
                 let context = ExecutionContext::new_from_parts(
-                    request_id,
+                    request_id.clone().unwrap_or_else(RequestId::new),
                     execution_id.clone().unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
                 );
+                sentry::configure_scope(|scope| context.add_sentry_tags(scope));
                 let mut model = CronModel::new(&mut tx, component);
                 model
                     .insert_cron_job_log(&job, status, log_lines, 0.0)

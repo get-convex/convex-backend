@@ -5,6 +5,7 @@ use common::{
     },
     execution_context::ExecutionId,
     types::Timestamp,
+    RequestId,
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
@@ -185,7 +186,10 @@ pub enum ScheduledJobState {
     ///
     /// TODO: remove `None` case for scheduled jobs that started before we
     /// started recording execution id.
-    InProgress { execution_id: Option<ExecutionId> },
+    InProgress {
+        request_id: Option<RequestId>,
+        execution_id: Option<ExecutionId>,
+    },
 
     /// Completion states
     /// Job finished running successully with no errors.
@@ -203,9 +207,14 @@ pub enum ScheduledJobState {
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SerializedScheduledJobState {
     Pending,
-    InProgress { execution_id: Option<ExecutionId> },
+    InProgress {
+        request_id: Option<RequestId>,
+        execution_id: Option<ExecutionId>,
+    },
     Success,
-    Failed { error: String },
+    Failed {
+        error: String,
+    },
     Canceled,
 }
 
@@ -215,9 +224,13 @@ impl TryFrom<ScheduledJobState> for SerializedScheduledJobState {
     fn try_from(state: ScheduledJobState) -> anyhow::Result<Self> {
         match state {
             ScheduledJobState::Pending => Ok(SerializedScheduledJobState::Pending),
-            ScheduledJobState::InProgress { execution_id } => {
-                Ok(SerializedScheduledJobState::InProgress { execution_id })
-            },
+            ScheduledJobState::InProgress {
+                request_id,
+                execution_id,
+            } => Ok(SerializedScheduledJobState::InProgress {
+                request_id,
+                execution_id,
+            }),
             ScheduledJobState::Success => Ok(SerializedScheduledJobState::Success),
             ScheduledJobState::Failed(e) => Ok(SerializedScheduledJobState::Failed { error: e }),
             ScheduledJobState::Canceled => Ok(SerializedScheduledJobState::Canceled),
@@ -231,9 +244,13 @@ impl TryFrom<SerializedScheduledJobState> for ScheduledJobState {
     fn try_from(value: SerializedScheduledJobState) -> anyhow::Result<Self> {
         match value {
             SerializedScheduledJobState::Pending => Ok(ScheduledJobState::Pending),
-            SerializedScheduledJobState::InProgress { execution_id } => {
-                Ok(ScheduledJobState::InProgress { execution_id })
-            },
+            SerializedScheduledJobState::InProgress {
+                request_id,
+                execution_id,
+            } => Ok(ScheduledJobState::InProgress {
+                request_id,
+                execution_id,
+            }),
             SerializedScheduledJobState::Success => Ok(ScheduledJobState::Success),
             SerializedScheduledJobState::Failed { error } => Ok(ScheduledJobState::Failed(error)),
             SerializedScheduledJobState::Canceled => Ok(ScheduledJobState::Canceled),

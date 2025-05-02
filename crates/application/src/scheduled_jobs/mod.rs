@@ -412,16 +412,8 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     // This handles re-running the scheduled function on transient errors. It
     // guarantees that the job was successfully run or the job state changed.
     pub async fn execute_job(&self, job: ScheduledJob, job_id: ResolvedDocumentId) {
-        // Generate a new request_id for every schedule job execution attempt.
-        let request_id = RequestId::new();
-        sentry::configure_scope(|scope| scope.set_tag("request_id", &request_id));
         match self
-            .run_function(
-                request_id,
-                job.clone(),
-                job_id,
-                job.attempts.count_failures() as usize,
-            )
+            .run_function(job.clone(), job_id, job.attempts.count_failures() as usize)
             .await
         {
             Ok(()) => {
@@ -489,7 +481,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn run_function(
         &self,
-        request_id: RequestId,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
         mutation_retry_count: usize,
@@ -536,6 +527,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
+                let request_id = RequestId::new();
                 let context = ExecutionContext::new(request_id, &caller);
                 // We don't know what the UdfType is since this is an invalid module.
                 // Log as mutation for now.
@@ -558,19 +550,11 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         // scheduling, but the modules can have been modified since scheduling.
         match udf_type {
             UdfType::Mutation => {
-                self.handle_mutation(
-                    request_id,
-                    caller,
-                    tx,
-                    job,
-                    job_id,
-                    usage_tracker,
-                    mutation_retry_count,
-                )
-                .await?
+                self.handle_mutation(caller, tx, job, job_id, usage_tracker, mutation_retry_count)
+                    .await?
             },
             UdfType::Action => {
-                self.handle_action(request_id, caller, tx, job, job_id, usage_tracker)
+                self.handle_action(caller, tx, job, job_id, usage_tracker)
                     .await?
             },
             udf_type => {
@@ -591,6 +575,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
+                let request_id = RequestId::new();
                 let context = ExecutionContext::new(request_id, &caller);
                 match udf_type {
                     UdfType::Query => {
@@ -639,7 +624,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn handle_mutation(
         &self,
-        request_id: RequestId,
         caller: FunctionCaller,
         mut tx: Transaction<RT>,
         job: ScheduledJob,
@@ -648,7 +632,9 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         let start = self.rt.monotonic_now();
+        let request_id = RequestId::new();
         let context = ExecutionContext::new(request_id, &caller);
+        sentry::configure_scope(|scope| context.add_sentry_tags(scope));
         let identity = tx.inert_identity();
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         let path = job.path.clone();
@@ -746,7 +732,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn handle_action(
         &self,
-        request_id: RequestId,
         caller: FunctionCaller,
         tx: Transaction<RT>,
         job: ScheduledJob,
@@ -758,15 +743,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         match job.state {
             ScheduledJobState::Pending => {
-                // Create a new execution ID
+                // Create a new request & execution ID
+                let request_id = RequestId::new();
                 let context = ExecutionContext::new(request_id, &caller);
-                sentry::configure_scope(|scope| {
-                    scope.set_tag("execution_id", &context.execution_id)
-                });
+                sentry::configure_scope(|scope| context.add_sentry_tags(scope));
 
                 // Set state to in progress
                 let mut updated_job = job.clone();
                 updated_job.state = ScheduledJobState::InProgress {
+                    request_id: Some(context.request_id.clone()),
                     execution_id: Some(context.execution_id.clone()),
                 };
                 SchedulerModel::new(&mut tx, namespace)
@@ -810,14 +795,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 }
                 self.function_log.log_action(completion, usage_tracker);
             },
-            ScheduledJobState::InProgress { ref execution_id } => {
+            ScheduledJobState::InProgress {
+                ref request_id,
+                ref execution_id,
+            } => {
                 // This case can happen if there is a system error while executing
                 // the action or if backend exits after executing the action but
                 // before updating the state. Since we execute actions at most once,
                 // complete this job and log the error.
-                if let Some(id) = execution_id {
-                    sentry::configure_scope(|scope| scope.set_tag("execution_id", id));
-                }
                 let message = "Transient error while executing action".to_string();
                 SchedulerModel::new(&mut tx, namespace)
                     .complete(job_id, ScheduledJobState::Failed(message.clone()))
@@ -825,13 +810,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_action_error")
                     .await?;
-                // Restore the execution ID of the failed execution.
+                // Restore the request & execution ID of the failed execution.
                 let context = ExecutionContext::new_from_parts(
-                    request_id,
+                    request_id.clone().unwrap_or_else(RequestId::new),
                     execution_id.clone().unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
                 );
+                sentry::configure_scope(|scope| context.add_sentry_tags(scope));
                 let path = job.path.clone();
                 let mut err = JsError::from_message(message).into();
                 self.function_log.log_action_system_error(

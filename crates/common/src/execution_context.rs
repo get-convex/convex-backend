@@ -83,6 +83,11 @@ impl ExecutionContext {
             is_root: true,
         }
     }
+
+    pub fn add_sentry_tags(&self, scope: &mut sentry::Scope) {
+        scope.set_tag("request_id", &self.request_id);
+        scope.set_tag("execution_id", &self.execution_id);
+    }
 }
 
 impl HeapSize for ExecutionContext {
@@ -152,6 +157,24 @@ impl Display for RequestId {
 impl HeapSize for RequestId {
     fn heap_size(&self) -> usize {
         self.0.heap_size()
+    }
+}
+
+impl Serialize for RequestId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_str().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RequestId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(RequestId)
     }
 }
 
