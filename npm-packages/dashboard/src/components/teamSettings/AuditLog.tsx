@@ -7,7 +7,6 @@ import { useProjects } from "api/projects";
 import { useTeamMembers } from "api/teams";
 import { AuditLogAction, Team } from "generatedApi";
 import { useRouter } from "next/router";
-import { Spinner } from "@ui/Spinner";
 import { AuditLogContent } from "./AuditLogContent";
 import { AuditLogToolbar } from "./AuditLogToolbar";
 
@@ -93,7 +92,7 @@ export function AuditLog({ team }: { team: Team }) {
                 variant="neutral"
                 disabled={!hasMore || isLoading}
                 tip={hasMore ? undefined : "There are no more entries to load."}
-                icon={isLoading ? <Spinner /> : undefined}
+                loading={isLoading}
               >
                 Load more
               </Button>

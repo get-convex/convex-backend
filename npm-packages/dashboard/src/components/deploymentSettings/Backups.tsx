@@ -424,12 +424,11 @@ export function BackupScheduleSelectorInner({
           <Button
             type="submit"
             disabled={
-              (value === initialValue &&
-                periodicity === defaultPeriodicity &&
-                defaultDayOfWeek === selectedDow) ||
-              isSubmitting
+              value === initialValue &&
+              periodicity === defaultPeriodicity &&
+              defaultDayOfWeek === selectedDow
             }
-            icon={isSubmitting ? <Spinner /> : undefined}
+            loading={isSubmitting}
           >
             Change
           </Button>

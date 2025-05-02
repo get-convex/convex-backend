@@ -2,7 +2,6 @@ import { useAuth0 } from "hooks/useAuth0";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { Spinner } from "@ui/Spinner";
 import { TextInput } from "@ui/TextInput";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
@@ -155,7 +154,7 @@ function ProfileForm({
             disabled={
               name === profile.name || (name ? name.length > 128 : false)
             }
-            icon={isLoading ? <Spinner /> : undefined}
+            loading={isLoading}
           >
             Save
           </Button>

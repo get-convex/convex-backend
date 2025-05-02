@@ -166,7 +166,7 @@ export function Combobox<T>({
                   data-testid={`combobox-button-${label}`}
                   className={cn(
                     "flex gap-1 w-full items-center group",
-                    "truncate relative text-left text-content-primary rounded-md disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+                    "truncate relative text-left text-content-primary rounded-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background-secondary",
                     "border focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-none bg-background-secondary text-sm",
                     "hover:bg-background-tertiary",
                     "cursor-pointer",

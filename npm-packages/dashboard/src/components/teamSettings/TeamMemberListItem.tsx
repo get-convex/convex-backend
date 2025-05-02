@@ -11,7 +11,6 @@ import { useRef, useState } from "react";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { Combobox, Option } from "@ui/Combobox";
-import { Spinner } from "@ui/Spinner";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { useMount } from "react-use";
@@ -135,42 +134,40 @@ export function TeamMemberListItem({
               </div>
             </Tooltip>
           ) : (
-            <>
-              {isUpdatingRole && <Spinner />}
-              <Combobox
-                buttonClasses="w-fit"
-                disableSearch
-                label="Role"
-                options={roleOptions}
-                selectedOption={member.role}
-                buttonProps={{
-                  tip: (
-                    <span>
-                      Change this member's{" "}
-                      <Link
-                        href="https://docs.convex.dev/dashboard/teams#roles-and-permissions"
-                        className="underline"
-                      >
-                        team role
-                      </Link>
-                      .
-                    </span>
-                  ),
-                  tipSide: "top",
-                }}
-                setSelectedOption={async (role) => {
-                  if (!role) {
-                    return;
-                  }
-                  setIsUpdatingRole(true);
-                  try {
-                    await onChangeRole({ memberId: member.id, role });
-                  } finally {
-                    setIsUpdatingRole(false);
-                  }
-                }}
-              />
-            </>
+            <Combobox
+              buttonClasses="w-fit"
+              disableSearch
+              label="Role"
+              options={roleOptions}
+              selectedOption={member.role}
+              buttonProps={{
+                loading: isUpdatingRole,
+                tip: (
+                  <span>
+                    Change this member's{" "}
+                    <Link
+                      href="https://docs.convex.dev/dashboard/teams#roles-and-permissions"
+                      className="underline"
+                    >
+                      team role
+                    </Link>
+                    .
+                  </span>
+                ),
+                tipSide: "top",
+              }}
+              setSelectedOption={async (role) => {
+                if (!role) {
+                  return;
+                }
+                setIsUpdatingRole(true);
+                try {
+                  await onChangeRole({ memberId: member.id, role });
+                } finally {
+                  setIsUpdatingRole(false);
+                }
+              }}
+            />
           )}
         </div>
         <Button

@@ -187,12 +187,18 @@ const config: Config = {
         fadeInFromLoading: "fadeIn 0.3s",
         vhs: "vhs 0.5s linear 0.25s 1 normal forwards",
         blinkFill: "blinkFill 1.2s ease-in-out infinite",
-        rotate: "fadeIn 1.2s, rotate 1.2s ease-in-out infinite",
+        rotate: "fadeIn 0.8s, rotate 0.75s linear infinite",
+        dashLength: "dashLength 1.5s ease-in-out infinite",
       },
       keyframes: {
         rotate: {
           "0%": { transform: "rotate(0deg)" },
           "100%": { transform: "rotate(360deg)" },
+        },
+        dashLength: {
+          "0%": { strokeDasharray: "1 99" },
+          "50%": { strokeDasharray: "35 65" },
+          "100%": { strokeDasharray: "1 99" },
         },
         blinkFill: {
           "0%": {

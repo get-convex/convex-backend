@@ -294,11 +294,10 @@ export function UpgradePlanContent({
                 isLoadingPromo ||
                 (requiresPaymentMethod && !formState.values.paymentMethod) ||
                 !formState.values.billingAddress ||
-                !formState.isValid ||
-                formState.isSubmitting
+                !formState.isValid
               }
               type="submit"
-              icon={formState.isSubmitting && <Spinner />}
+              loading={formState.isSubmitting}
               tip={
                 requiresPaymentMethod && !formState.values.paymentMethod
                   ? "Add a payment method to continue."

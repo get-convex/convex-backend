@@ -5,7 +5,6 @@ import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
 import { useState } from "react";
 import { useFormik } from "formik";
-import { Spinner } from "@ui/Spinner";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCreateTeamAccessToken, useAuthorizeApp } from "api/accessTokens";
@@ -260,7 +259,6 @@ export function AuthorizeProject() {
               </div>
             )}
             <div className="ml-auto mt-4 flex items-center gap-2">
-              {isRedirecting && !formState.isSubmitting && <Spinner />}
               <Button
                 variant="neutral"
                 onClick={() => {
@@ -283,13 +281,10 @@ export function AuthorizeProject() {
                     ? "Select or create a project to continue"
                     : undefined
                 }
-                disabled={
-                  formState.isSubmitting || !selectedProjectId || isRedirecting
-                }
+                disabled={!selectedProjectId || isRedirecting}
+                loading={formState.isSubmitting}
               >
-                {formState.isSubmitting
-                  ? "Authorizing"
-                  : `Authorize ${callingApplication.name}`}
+                Authorize {callingApplication.name}
               </Button>
             </div>
           </div>

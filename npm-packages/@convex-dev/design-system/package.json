@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/design-system",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "sideEffects": false,
   "files": [

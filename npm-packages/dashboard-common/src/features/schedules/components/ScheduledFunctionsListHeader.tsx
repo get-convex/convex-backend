@@ -7,7 +7,6 @@ import {
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { Spinner } from "@ui/Spinner";
 
 export function ScheduledFunctionsListHeader({
   isPaused,
@@ -49,14 +48,8 @@ export function ScheduledFunctionsListHeader({
         )}
         {isPaused && (
           <Button
-            icon={
-              isLoadingPausedData ? (
-                <Spinner className="opacity-50" />
-              ) : (
-                <ReloadIcon />
-              )
-            }
-            disabled={isLoadingPausedData}
+            icon={<ReloadIcon />}
+            loading={isLoadingPausedData}
             variant="neutral"
             className="animate-fadeInFromLoading text-xs"
             size="xs"

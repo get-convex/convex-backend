@@ -11,7 +11,6 @@ import {
 import { Sheet } from "@ui/Sheet";
 import { Combobox } from "@ui/Combobox";
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useRouter } from "next/router";
@@ -102,16 +101,12 @@ export function TransferProject() {
         <div className="mb-4 flex flex-col gap-1">
           <Combobox
             label={
-              <div className="flex items-center gap-2">
-                Destination Team
-                {loading && (
-                  <Spinner className="ml-0 animate-fadeInFromLoading opacity-50" />
-                )}
-              </div>
+              <div className="flex items-center gap-2">Destination Team</div>
             }
             labelHidden={false}
             placeholder="Select a team"
             buttonProps={{
+              loading,
               tip:
                 validationError ||
                 (!isAdminOfOldTeam &&

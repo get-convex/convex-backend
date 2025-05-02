@@ -10,7 +10,6 @@ import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { Button } from "@ui/Button";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { useState } from "react";
-import { Spinner } from "@ui/Spinner";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 export function AuthorizedApplications({
@@ -87,11 +86,9 @@ function AuthorizedApplicationListItem({
           </div>
           <Button
             variant="danger"
-            icon={
-              isDeleting ? <Spinner className="opacity-50" /> : <Cross2Icon />
-            }
-            disabled={isDeleting}
+            icon={<Cross2Icon />}
             onClick={() => setShowConfirmation(true)}
+            loading={isDeleting}
           >
             Revoke
           </Button>

@@ -1,6 +1,5 @@
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { Spinner } from "@ui/Spinner";
 import { Checkbox } from "@ui/Checkbox";
 import { Modal } from "@ui/Modal";
 import difference from "lodash/difference";
@@ -147,10 +146,9 @@ export function MemberProjectRolesModal({
           <Button
             type="submit"
             disabled={
-              (addedProjects.length === 0 && removedProjects.length === 0) ||
-              isSaving
+              addedProjects.length === 0 && removedProjects.length === 0
             }
-            icon={isSaving && <Spinner />}
+            loading={isSaving}
           >
             Save
           </Button>

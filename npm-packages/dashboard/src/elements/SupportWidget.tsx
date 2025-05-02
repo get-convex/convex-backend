@@ -8,7 +8,6 @@ import {
 import { captureException, captureMessage } from "@sentry/nextjs";
 import { Button } from "@ui/Button";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
-import { Spinner } from "@ui/Spinner";
 import { toast } from "@common/lib/utils";
 import { Sheet } from "@ui/Sheet";
 import { TextInput } from "@ui/TextInput";
@@ -226,8 +225,8 @@ function SupportForm() {
       <Button
         type="submit"
         className="justify-center"
-        disabled={formState.isSubmitting || !formState.isValid}
-        icon={formState.isSubmitting && <Spinner />}
+        disabled={!formState.isValid}
+        loading={formState.isSubmitting}
       >
         Send
       </Button>

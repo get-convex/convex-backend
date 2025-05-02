@@ -1,5 +1,4 @@
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 import { toast } from "@common/lib/utils";
 import { Callout } from "@ui/Callout";
 import { Modal } from "@ui/Modal";
@@ -77,8 +76,8 @@ export function GenerateDeployKeyWithNameButton({
               />
               <Button
                 type="submit"
-                disabled={disabledReason !== null || isLoading}
-                icon={isLoading && <Spinner />}
+                disabled={disabledReason !== null}
+                loading={isLoading}
               >
                 Save
               </Button>
@@ -136,7 +135,7 @@ export function GenerateDeployKeyButton({
         </div>
       ) : (
         <Button
-          disabled={disabledReason !== null || isLoading}
+          disabled={disabledReason !== null}
           tip={
             disabledReason === null
               ? undefined
@@ -158,7 +157,8 @@ export function GenerateDeployKeyButton({
             }
           }}
           className="my-2 mr-auto"
-          icon={isLoading ? <Spinner /> : <PlusIcon />}
+          loading={isLoading}
+          icon={<PlusIcon />}
         >
           {getGenerateButtonText(deploymentType)}
         </Button>

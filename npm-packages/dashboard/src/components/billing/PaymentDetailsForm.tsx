@@ -10,7 +10,6 @@ import {
   SetupIntent,
 } from "@stripe/stripe-js";
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 
 export function PaymentDetailsForm({
   retrieveSetupIntent,
@@ -63,8 +62,8 @@ export function PaymentDetailsForm({
       <Button
         type="submit"
         className="w-fit"
-        disabled={isLoading || !stripe || !elements}
-        icon={isLoading && <Spinner />}
+        disabled={!stripe || !elements}
+        loading={isLoading}
         size="sm"
       >
         Save payment method

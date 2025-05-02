@@ -3,6 +3,8 @@ import { tv } from "tailwind-variants";
 import { Tooltip, TooltipSide } from "@ui/Tooltip";
 import { UrlObject } from "url";
 import { UIContext } from "@ui/UIContext";
+import { Spinner } from "@ui/Spinner";
+import classNames from "classnames";
 
 export type ButtonProps = {
   children?: React.ReactNode;
@@ -15,6 +17,7 @@ export type ButtonProps = {
   disabled?: boolean;
   tip?: React.ReactNode;
   tipSide?: TooltipSide;
+  loading?: boolean;
 } & Pick<
   React.HTMLProps<HTMLElement>,
   | "tabIndex"
@@ -39,6 +42,7 @@ export type ButtonProps = {
         // In most cases you shouldn’t use this. This is only useful when you
         // need the event sent before the native link behavior is handled.
         onClickOfAnchorLink?: React.AnchorHTMLAttributes<HTMLAnchorElement>["onClick"];
+        download?: boolean;
         type?: never;
         target?: React.AnchorHTMLAttributes<HTMLAnchorElement>["target"];
       }
@@ -56,6 +60,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
     icon,
     tip,
     tipSide,
+    loading = false,
     ...props
   },
   ref,
@@ -76,6 +81,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
           focused,
           className,
           size,
+          loading,
         });
   if (href !== undefined && !disabled) {
     return (
@@ -108,7 +114,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         tabIndex={0}
         onClick={onClick}
         className={buttonClassName}
-        disabled={disabled}
+        disabled={disabled || loading}
         // There is something weird here with `forwardRef`, I’d expect this to work without `any`
         ref={ref as any}
         {...htmlProps}
@@ -122,13 +128,31 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
        */}
         {icon && <div>{icon}</div>}
         {children}
+        {loading && (
+          <div
+            className={classNames(
+              "transition-none absolute left-1/2 -translate-x-1/2",
+            )}
+          >
+            <span className="sr-only">(Loading...)</span>
+            <Spinner
+              className={
+                variant === "primary"
+                  ? "text-white"
+                  : variant === "danger"
+                    ? "text-content-error"
+                    : undefined
+              }
+            />
+          </div>
+        )}
       </button>
     </Tooltip>
   );
 });
 
 const button = tv({
-  base: "inline-flex animate-fadeInFromLoading select-none items-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:border focus-visible:border-border-selected focus-visible:outline-none",
+  base: "relative inline-flex animate-fadeInFromLoading select-none items-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:border focus-visible:border-border-selected focus-visible:outline-none",
   variants: {
     variant: {
       primary: "border-white/30 bg-util-accent text-white",
@@ -147,6 +171,10 @@ const button = tv({
       true: "cursor-not-allowed opacity-50",
       false: "cursor-pointer",
     },
+    loading: {
+      true: "cursor-not-allowed text-transparent",
+      false: "",
+    },
     focused: {
       true: "",
       false: "",
@@ -163,6 +191,7 @@ const button = tv({
       variant: "primary",
       accent: "inline",
       class: "bg-transparent text-content-accent hover:bg-background-tertiary",
+      loading: false,
     },
     {
       variant: "primary",
@@ -190,6 +219,7 @@ const button = tv({
       variant: "neutral",
       class: "hover:bg-background-tertiary",
       disabled: false,
+      loading: false,
     },
     {
       variant: "neutral",
@@ -219,21 +249,25 @@ const button = tv({
       disabled: false,
       accent: "none",
       class: "hover:bg-util-accent/80",
+      loading: false,
     },
     {
       variant: "danger",
       disabled: false,
       class: "hover:bg-background-errorSecondary",
+      loading: false,
     },
     {
       variant: "neutral",
       disabled: false,
       class: "hover:bg-background-primary",
+      loading: false,
     },
     {
       variant: "danger",
       disabled: false,
       class: "hover:bg-background-errorSecondary",
+      loading: false,
     },
   ],
   defaultVariants: {
@@ -254,9 +288,17 @@ export function buttonClasses({
   focused,
   className,
   size,
+  loading,
 }: Pick<
   ButtonProps,
-  "variant" | "disabled" | "focused" | "className" | "size" | "inline" | "icon"
+  | "variant"
+  | "disabled"
+  | "focused"
+  | "className"
+  | "size"
+  | "inline"
+  | "icon"
+  | "loading"
 >) {
   return variant === "unstyled"
     ? className
@@ -268,5 +310,6 @@ export function buttonClasses({
         focused,
         className,
         size,
+        loading,
       });
 }

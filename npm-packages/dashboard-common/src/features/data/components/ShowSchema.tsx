@@ -86,7 +86,7 @@ export function ShowSchema({
             )}
 
             {inProgressSchema && (
-              <div className="flex items-center gap-1 text-sm text-content-secondary">
+              <div className="mt-4 flex items-center gap-1 text-sm text-content-secondary">
                 <div>
                   <Spinner />
                 </div>{" "}

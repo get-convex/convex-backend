@@ -1,7 +1,6 @@
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
 import { useState } from "react";
-import { Spinner } from "@ui/Spinner";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
 import { Team } from "generatedApi";
@@ -153,23 +152,10 @@ export function RedeemReferralForm({
                 <div>
                   <Button
                     type="submit"
-                    disabled={
-                      !selectedTeam ||
-                      isSubmitting ||
-                      teamEligibility === undefined ||
-                      !teamEligibility.eligible
-                    }
+                    disabled={!selectedTeam || !teamEligibility?.eligible}
+                    loading={isSubmitting || teamEligibility === undefined}
                   >
-                    {isSubmitting ? (
-                      <Spinner className="h-4 w-4" />
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        Get my free resources
-                        {teamEligibility === undefined && (
-                          <Spinner className="h-4 w-4" />
-                        )}
-                      </div>
-                    )}
+                    Get my free resources
                   </Button>
                 </div>
               </form>

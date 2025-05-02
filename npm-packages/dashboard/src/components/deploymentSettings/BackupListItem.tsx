@@ -406,10 +406,8 @@ function RestoreConfirmation({
 
             onClose();
           }}
-          disabled={
-            (needsCheckboxConfirmation && !checkboxConfirmation) || isSubmitting
-          }
-          icon={isSubmitting ? <Spinner /> : undefined}
+          disabled={needsCheckboxConfirmation && !checkboxConfirmation}
+          loading={isSubmitting}
         >
           Restore
         </Button>
@@ -466,8 +464,7 @@ function DeleteOrCancelBackupModal({
 
             onClose();
           }}
-          icon={isSubmitting ? <Spinner /> : undefined}
-          disabled={isSubmitting}
+          loading={isSubmitting}
         >
           {action === "delete" ? "Delete" : "Cancel"} Backup
         </Button>
@@ -720,7 +717,8 @@ export function BackupNowButton({
     <Button
       variant="neutral"
       className="w-fit"
-      icon={isOngoing ? <Spinner /> : <ArchiveIcon />}
+      loading={isOngoing}
+      icon={<ArchiveIcon />}
       onClick={async () => {
         await doBackup();
         if (onBackupRequested) {
@@ -728,7 +726,6 @@ export function BackupNowButton({
         }
       }}
       disabled={
-        isOngoing ||
         nonFailedBackupsForDeployment === undefined ||
         nonFailedBackupsForDeployment.length >= maxCloudBackups ||
         !canPerformActions

@@ -9,7 +9,6 @@ import {
 } from "api/billing";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 import { formatDate } from "@common/lib/format";
 import { Sheet } from "@ui/Sheet";
 import { useFormik } from "formik";
@@ -84,7 +83,7 @@ export function SubscriptionOverview({
                   !hasAdminPermissions &&
                   "You do not have permission to modify the team subscription."
                 }
-                icon={isResuming ? <Spinner /> : null}
+                loading={isResuming}
                 onClick={async () => {
                   setIsResuming(true);
                   try {
@@ -381,20 +380,15 @@ function BillingContactForm({
             <Button
               type="submit"
               disabled={
-                !formState.dirty ||
-                !formState.isValid ||
-                formState.isSubmitting ||
-                !hasAdminPermissions
+                !formState.dirty || !formState.isValid || !hasAdminPermissions
               }
               tip={
                 !hasAdminPermissions &&
                 "You do not have permission to update the billing contact"
               }
-              icon={formState.isSubmitting ? <Spinner /> : null}
+              loading={formState.isSubmitting}
             >
-              {formState.isSubmitting
-                ? "Saving Billing Contact..."
-                : "Save Billing Contact"}
+              Save Billing Contact
             </Button>
             <Button
               type="button"
@@ -546,18 +540,15 @@ function BillingAddressForm({
               disabled={
                 !formState.dirty ||
                 !formState.values.billingAddress ||
-                formState.isSubmitting ||
                 !hasAdminPermissions
               }
               tip={
                 !hasAdminPermissions &&
                 "You do not have permission to update the billing address"
               }
-              icon={formState.isSubmitting ? <Spinner /> : null}
+              loading={formState.isSubmitting}
             >
-              {formState.isSubmitting
-                ? "Saving Billing Address..."
-                : "Save Billing Address"}
+              Save Billing Address
             </Button>
             <Button
               type="button"

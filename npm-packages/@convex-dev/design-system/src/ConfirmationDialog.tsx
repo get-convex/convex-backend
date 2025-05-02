@@ -1,7 +1,6 @@
 import React, { ReactNode, useState } from "react";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 import { Modal } from "@ui/Modal";
 
 export function ConfirmationDialog({
@@ -63,6 +62,7 @@ export function ConfirmationDialog({
             </div>
             <TextInput
               id="validation"
+              aria-label={`Enter ${validationText} to continue`}
               labelHidden
               onKeyDown={(e) =>
                 e.key === "Enter" && !disabled && handleConfirm()
@@ -86,7 +86,7 @@ export function ConfirmationDialog({
           data-testid="confirm-button"
           disabled={disabled || isConfirming}
           onClick={handleConfirm}
-          icon={isConfirming ? <Spinner /> : undefined}
+          loading={isConfirming}
           variant={variant}
         >
           {confirmText}

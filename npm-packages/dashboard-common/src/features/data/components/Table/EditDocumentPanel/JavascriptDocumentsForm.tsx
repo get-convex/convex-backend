@@ -7,7 +7,6 @@ import omitBy from "lodash/omitBy";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 
 function isDocument(
   value: Value | undefined,
@@ -137,11 +136,7 @@ export function JavascriptDocumentsForm({
               {validationMessage}
             </p>
           )}
-          <Button
-            disabled={disabled}
-            onClick={save}
-            icon={isSaving ? <Spinner /> : null}
-          >
+          <Button disabled={disabled} onClick={save} loading={isSaving}>
             {mode === "patchDocuments" ? "Apply" : "Save"}
           </Button>
         </div>

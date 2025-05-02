@@ -1,5 +1,4 @@
 import { Button } from "@ui/Button";
-import { Spinner } from "@ui/Spinner";
 import { Checkbox } from "@ui/Checkbox";
 import { Modal } from "@ui/Modal";
 import { TeamMemberLink } from "elements/TeamMemberLink";
@@ -159,11 +158,8 @@ export function ProjectAdminFormModal({
 
           <Button
             type="submit"
-            disabled={
-              (addedAdmins.length === 0 && removedAdmins.length === 0) ||
-              isSaving
-            }
-            icon={isSaving && <Spinner />}
+            disabled={addedAdmins.length === 0 && removedAdmins.length === 0}
+            loading={isSaving}
           >
             Save
           </Button>

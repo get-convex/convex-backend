@@ -149,7 +149,7 @@ export function MultiSelectCombobox({
                 <Combobox.Button
                   className={classNames(
                     "flex gap-2 w-full justify-between",
-                    "truncate relative rounded-md py-1.5 px-1.5 text-left text-sm text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+                    "truncate relative rounded-md py-1.5 px-1.5 text-left text-sm text-content-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background-secondary",
                     "border",
                     "focus:border-border-selected focus:outline-none bg-background-secondary hover:bg-background-tertiary",
                     open && "border-border-selected",

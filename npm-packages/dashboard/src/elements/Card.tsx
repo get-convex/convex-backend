@@ -34,13 +34,13 @@ export function Card({
     <div
       className={classNames(
         "relative border rounded-md bg-background-secondary",
-        "flex items-center gap-4",
+        "flex items-center gap-4 px-4",
         "hover:border-border-selected",
         cardClassName,
       )}
     >
       {!href ? (
-        <div className={classNames("flex-grow p-4", contentClassName)}>
+        <div className={classNames("flex-grow py-4", contentClassName)}>
           {children}
         </div>
       ) : (
@@ -48,7 +48,7 @@ export function Card({
           href={href}
           passHref
           className={classNames(
-            "flex-grow cursor-pointer min-w-0 p-4",
+            "flex-grow cursor-pointer min-w-0 py-4",
             contentClassName,
           )}
         >

@@ -13,7 +13,6 @@ import { Loading } from "@ui/Loading";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { SchemaJson, displaySchema } from "@common/lib/format";
 import { useRunTestFunction } from "@common/features/functionRunner/lib/client";
-import { Spinner } from "@ui/Spinner";
 import { ComponentId } from "@common/lib/useNents";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {
@@ -422,8 +421,8 @@ export function useFunctionEditor(
         onClick={onSave}
         size="sm"
         className={classNames("items-center justify-center", "w-full")}
-        disabled={isInFlight}
-        icon={isInFlight ? <Spinner /> : <PlayIcon />}
+        loading={isInFlight}
+        icon={<PlayIcon />}
       >
         Run Custom Query
       </Button>

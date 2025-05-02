@@ -8,7 +8,6 @@ import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { toast } from "@common/lib/utils";
 import { RequestFilter } from "@common/lib/appMetrics";
-import { Spinner } from "@ui/Spinner";
 import { ComponentId } from "@common/lib/useNents";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {
@@ -173,13 +172,11 @@ export function useFunctionResult({
           size="sm"
           className="w-full max-w-[48rem] items-center justify-center"
           disabled={
-            isInFlight ||
-            disabled ||
-            (isProd && !prodEditsEnabled) ||
-            !canRunFunction
+            disabled || (isProd && !prodEditsEnabled) || !canRunFunction
           }
+          loading={isInFlight}
           onClick={runFunction}
-          icon={isInFlight ? <Spinner /> : <PlayIcon />}
+          icon={<PlayIcon />}
         >
           Run {udfType.toLowerCase()}
         </Button>

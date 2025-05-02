@@ -1,8 +1,7 @@
 import { DownloadIcon, TrashIcon } from "@radix-ui/react-icons";
 import { useContext, useState } from "react";
-import Link from "next/link";
 import { FileMetadata } from "system-udfs/convex/_system/frontend/fileStorageV2";
-import { Button, buttonClasses } from "@ui/Button";
+import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
@@ -36,20 +35,15 @@ export function FileActions({ file }: { file: FileMetadata }) {
           file.size < 10_000_000 && <PreviewImage url={file.url} />
         }
       >
-        <Link
+        <Button
           href={file.url}
-          passHref
-          className={buttonClasses({
-            variant: "primary",
-            size: "sm",
-            inline: true,
-          })}
           aria-label="Download File"
           download
+          inline
           target="_blank"
         >
           <DownloadIcon aria-label="Download" />
-        </Link>
+        </Button>
       </Tooltip>
       <Button
         aria-label="Delete File"

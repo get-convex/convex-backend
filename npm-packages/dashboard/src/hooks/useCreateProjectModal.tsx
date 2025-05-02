@@ -2,7 +2,6 @@ import { Modal } from "@ui/Modal";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { Loading } from "@ui/Loading";
-import { Spinner } from "@ui/Spinner";
 import { ReactElement, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -116,14 +115,12 @@ export function CreateProjectForm({
       />
 
       <Button
-        disabled={
-          !formState.dirty || formState.isSubmitting || !formState.isValid
-        }
+        disabled={!formState.dirty || !formState.isValid}
         className={cn("h-fit", showLabel ? "mt-6" : "")}
         size="sm"
         type="submit"
         aria-label="submit"
-        icon={formState.isSubmitting ? <Spinner /> : undefined}
+        loading={formState.isSubmitting}
       >
         {formState.isSubmitting ? "Creating" : "Create"}
       </Button>
