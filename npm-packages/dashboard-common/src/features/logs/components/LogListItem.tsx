@@ -38,7 +38,7 @@ export function LogListItem({
       className={classNames(
         "flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
-        setShownLog && "hover:bg-background-tertiary",
+        setShownLog && "hover:bg-background-tertiary/80",
       )}
       style={{
         height: setShownLog ? ITEM_SIZE : undefined,
@@ -95,7 +95,7 @@ export function LogListItem({
             )
           )}
           <div className="flex items-center gap-2">
-            <p className="rounded bg-background-tertiary p-0.5 px-1 text-[11px]">
+            <p className="rounded bg-background-tertiary/80 p-0.5 px-1 text-[11px]">
               {log.udfType.charAt(0).toUpperCase()}
             </p>
             <FunctionNameOption

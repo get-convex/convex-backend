@@ -168,7 +168,7 @@ function PauseBanner() {
   }
 
   return (
-    <div className="bg-background-error py-2 text-center text-content-error">
+    <div className="border-y bg-background-error py-2 text-center text-content-error">
       This deployment is paused. Resume your deployment on the{" "}
       <Link
         passHref
