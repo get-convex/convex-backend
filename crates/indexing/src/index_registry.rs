@@ -24,11 +24,15 @@ use common::{
         AsComparator,
     },
     document::{
+        PackedDocument,
         ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
-    index::IndexKey,
+    index::{
+        IndexKey,
+        IndexKeyBytes,
+    },
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
@@ -49,7 +53,9 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
+    FieldPath,
     InternalId,
+    ResolvedDocumentId,
     TableMapping,
     TableNamespace,
     TableNumber,
@@ -165,10 +171,16 @@ impl IndexRegistry {
         Ok(())
     }
 
-    pub(crate) fn index_keys<'a>(
+    /// Returns the index keys for `document` for all the registered indexes on
+    /// its table.
+    ///
+    /// N.B.: if `D` is a `ResolvedDocument` the returned keys are `IndexKey`s,
+    /// but if it's a `PackedDocument` then this function returns
+    /// `IndexKeyBytes` directly.
+    pub(crate) fn index_keys<'a, D: IndexedDocument>(
         &'a self,
-        document: &'a ResolvedDocument,
-    ) -> impl Iterator<Item = (&'a Index, IndexKey)> + 'a {
+        document: &'a D,
+    ) -> impl Iterator<Item = (&'a Index, D::IndexKey)> + 'a {
         iter::from_coroutine(
             #[coroutine]
             move || {
@@ -181,7 +193,7 @@ impl IndexRegistry {
                     {
                         yield (
                             index,
-                            document.index_key(&fields[..], self.persistence_version()),
+                            document.index_key_bytes(&fields[..], self.persistence_version()),
                         );
                     }
                 }
@@ -606,6 +618,47 @@ impl IndexRegistry {
             .into_iter()
             .map(|registry: &IndexRegistry| registry.index_ids())
             .all_equal()
+    }
+}
+
+pub trait IndexedDocument {
+    type IndexKey;
+    fn id(&self) -> ResolvedDocumentId;
+    fn index_key_bytes(
+        &self,
+        fields: &[FieldPath],
+        persistence_version: PersistenceVersion,
+    ) -> Self::IndexKey;
+}
+
+impl IndexedDocument for ResolvedDocument {
+    type IndexKey = IndexKey;
+
+    fn id(&self) -> ResolvedDocumentId {
+        self.id()
+    }
+
+    fn index_key_bytes(
+        &self,
+        fields: &[FieldPath],
+        persistence_version: PersistenceVersion,
+    ) -> IndexKey {
+        self.index_key(fields, persistence_version)
+    }
+}
+impl IndexedDocument for PackedDocument {
+    type IndexKey = IndexKeyBytes;
+
+    fn id(&self) -> ResolvedDocumentId {
+        self.id()
+    }
+
+    fn index_key_bytes(
+        &self,
+        fields: &[FieldPath],
+        persistence_version: PersistenceVersion,
+    ) -> IndexKeyBytes {
+        self.index_key_owned(fields, persistence_version)
     }
 }
 

@@ -17,6 +17,7 @@ use serde::{
 };
 
 #[derive(Clone, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ByteBuffer {
     inner: Bytes,
 }

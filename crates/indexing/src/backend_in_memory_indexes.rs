@@ -81,7 +81,7 @@ pub trait InMemoryIndexes: Send + Sync {
         order: Order,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>>;
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>>;
 }
 
 /// [`BackendInMemoryIndexes`] maintains in-memory database indexes. With the
@@ -103,7 +103,7 @@ impl InMemoryIndexes for BackendInMemoryIndexes {
         order: Order,
         _tablet_id: TabletId,
         _table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>> {
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
         Ok(self
             .in_memory_indexes
             .get(&index_id)
@@ -249,7 +249,7 @@ impl BackendInMemoryIndexes {
             match self.in_memory_indexes.get_mut(&update.index_id) {
                 Some(key_set) => match &update.value {
                     DatabaseIndexValue::Deleted => {
-                        key_set.remove(&update.key, ts);
+                        key_set.remove(&update.key.to_bytes(), ts);
                     },
                     DatabaseIndexValue::NonClustered(ref doc_id) => {
                         // All in-memory indexes are clustered. Get the document
@@ -287,7 +287,7 @@ impl BackendInMemoryIndexes {
 pub struct DatabaseIndexMap {
     // We use OrdMap to provide efficient copy-on-write.
     // Note that all in-memory indexes are clustered.
-    inner: OrdMap<Vec<u8>, (Timestamp, PackedDocument)>,
+    inner: OrdMap<IndexKeyBytes, (Timestamp, PackedDocument)>,
     /// The timestamp of the last update to the index.
     last_modified: Timestamp,
 }
@@ -316,21 +316,20 @@ impl DatabaseIndexMap {
     fn range(
         &self,
         interval: &Interval,
-    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, ResolvedDocument)> + '_ {
+    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, LazyDocument)> + '_ {
         let _s = static_span!();
         self.inner
             .range(interval)
-            .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.unpack()))
+            .map(|(k, (ts, v))| (k.clone(), *ts, v.clone().into()))
     }
 
     fn insert(&mut self, k: IndexKeyBytes, ts: Timestamp, v: &ResolvedDocument) {
-        self.inner.insert(k.0, (ts, PackedDocument::pack(v)));
+        self.inner.insert(k, (ts, PackedDocument::pack(v)));
         self.last_modified = cmp::max(self.last_modified, ts);
     }
 
-    fn remove(&mut self, k: &IndexKey, ts: Timestamp) {
-        let k = k.to_bytes().0;
-        self.inner.remove(&k);
+    fn remove(&mut self, k: &IndexKeyBytes, ts: Timestamp) {
+        self.inner.remove(k);
         self.last_modified = cmp::max(self.last_modified, ts);
     }
 }
@@ -372,7 +371,7 @@ impl DatabaseIndexSnapshot {
         // Ok means we have a result immediately, Err means we need to fetch.
         Result<
             (
-                Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+                Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
                 CursorPosition,
             ),
             (
@@ -496,7 +495,7 @@ impl DatabaseIndexSnapshot {
     ) -> BTreeMap<
         BatchKey,
         anyhow::Result<(
-            Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+            Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
             CursorPosition,
         )>,
     > {
@@ -554,7 +553,7 @@ impl DatabaseIndexSnapshot {
                     // document.
                     for (some_index, index_key) in self.index_registry.index_keys(&doc) {
                         self.cache
-                            .populate(some_index.id(), index_key.to_bytes(), ts, doc.clone());
+                            .populate(some_index.id(), index_key, ts, doc.clone());
                     }
                 }
                 let (interval_read, _) = range_request
@@ -579,8 +578,8 @@ impl DatabaseIndexSnapshot {
         range_request: RangeRequest,
         cache_results: Vec<DatabaseIndexSnapshotCacheResult>,
     ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
-        Vec<(Timestamp, ResolvedDocument)>,
+        Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
+        Vec<(Timestamp, PackedDocument)>,
         CursorPosition,
     )> {
         let mut results = vec![];
@@ -590,7 +589,7 @@ impl DatabaseIndexSnapshot {
                 DatabaseIndexSnapshotCacheResult::Document(index_key, ts, document) => {
                     // Serve from cache.
                     log_transaction_cache_query(true);
-                    results.push((index_key, ts, document));
+                    results.push((index_key, ts, document.into()));
                 },
                 DatabaseIndexSnapshotCacheResult::CacheMiss(interval) => {
                     log_transaction_cache_query(false);
@@ -605,8 +604,8 @@ impl DatabaseIndexSnapshot {
                     while let Some((key, rev)) =
                         instrument!(b"Persistence::try_next", stream.try_next()).await?
                     {
-                        cache_miss_results.push((rev.ts, rev.value.clone()));
-                        results.push((key, rev.ts, rev.value));
+                        cache_miss_results.push((rev.ts, PackedDocument::pack(&rev.value)));
+                        results.push((key, rev.ts, rev.value.into()));
                         if results.len() >= range_request.max_size {
                             break;
                         }
@@ -656,14 +655,15 @@ struct DatabaseIndexSnapshotCache {
     /// After the cache has been fully populated, `db.get`s which do point
     /// queries against by_id will be cached, and any indexed query against
     /// by_age that is a subset of (<age:18>, Unbounded) will be cached.
-    documents: OrdMap<IndexId, BTreeMap<IndexKeyBytes, (Timestamp, ResolvedDocument)>>,
+    documents: OrdMap<IndexId, BTreeMap<IndexKeyBytes, (Timestamp, PackedDocument)>>,
     intervals: OrdMap<IndexId, IntervalSet>,
     cache_size: usize,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 enum DatabaseIndexSnapshotCacheResult {
-    Document(IndexKeyBytes, Timestamp, ResolvedDocument),
+    Document(IndexKeyBytes, Timestamp, PackedDocument),
     CacheMiss(Interval),
 }
 
@@ -687,7 +687,7 @@ impl DatabaseIndexSnapshotCache {
         index_id: IndexId,
         index_key_bytes: IndexKeyBytes,
         ts: Timestamp,
-        doc: ResolvedDocument,
+        doc: PackedDocument,
     ) {
         let _s = static_span!();
         // Allow cache to exceed max size by one document, so we can detect that
@@ -778,6 +778,7 @@ mod cache_tests {
         bootstrap_model::index::database_index::IndexedFields,
         document::{
             CreationTime,
+            PackedDocument,
             ResolvedDocument,
         },
         interval::{
@@ -813,6 +814,7 @@ mod cache_tests {
             .index_key(&IndexedFields::by_id(), PersistenceVersion::default())
             .to_bytes();
         let ts = Timestamp::must(100);
+        let doc = PackedDocument::pack(&doc);
         cache.populate(index_id, index_key_bytes.clone(), ts, doc.clone());
 
         let cached_result = cache.get(
@@ -843,6 +845,7 @@ mod cache_tests {
             .index_key(&fields, PersistenceVersion::default())
             .to_bytes();
         let ts1 = Timestamp::must(100);
+        let doc1 = PackedDocument::pack(&doc1);
         cache.populate(index_id, index_key_bytes1.clone(), ts1, doc1.clone());
 
         let id2 = id_generator.user_generate(&"users".parse()?);
@@ -851,6 +854,7 @@ mod cache_tests {
             .index_key(&fields, PersistenceVersion::default())
             .to_bytes();
         let ts2 = Timestamp::must(150);
+        let doc2 = PackedDocument::pack(&doc2);
         cache.populate(index_id, index_key_bytes2.clone(), ts2, doc2.clone());
 
         let interval_gt_18 = Interval {
@@ -975,6 +979,7 @@ mod cache_tests {
             let index_key_bytes = doc
                 .index_key(&fields, PersistenceVersion::default())
                 .to_bytes();
+            let doc = PackedDocument::pack(&doc);
             cache.populate(index_id, index_key_bytes.clone(), ts, doc.clone());
             (index_key_bytes, doc)
         };
@@ -1026,4 +1031,30 @@ pub struct RangeRequest {
     pub interval: Interval,
     pub order: Order,
     pub max_size: usize,
+}
+
+pub enum LazyDocument {
+    Resolved(ResolvedDocument),
+    Packed(PackedDocument),
+}
+
+impl From<ResolvedDocument> for LazyDocument {
+    fn from(value: ResolvedDocument) -> Self {
+        Self::Resolved(value)
+    }
+}
+
+impl From<PackedDocument> for LazyDocument {
+    fn from(value: PackedDocument) -> Self {
+        Self::Packed(value)
+    }
+}
+
+impl LazyDocument {
+    pub fn unpack(self) -> ResolvedDocument {
+        match self {
+            LazyDocument::Resolved(doc) => doc,
+            LazyDocument::Packed(doc) => doc.unpack(),
+        }
+    }
 }

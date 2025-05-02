@@ -50,6 +50,7 @@ use indexing::{
         index_not_a_database_index_error,
         BatchKey,
         DatabaseIndexSnapshot,
+        LazyDocument,
         RangeRequest,
     },
     index_registry::{
@@ -138,7 +139,7 @@ impl TransactionIndex {
     ) -> BTreeMap<
         BatchKey,
         anyhow::Result<(
-            Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+            Vec<(IndexKeyBytes, LazyDocument, WriteTimestamp)>,
             CursorPosition,
         )>,
     > {
@@ -199,7 +200,7 @@ impl TransactionIndex {
                                     if let Some(pending_doc) = maybe_pending_doc {
                                         range_results.push((
                                             pending_key,
-                                            pending_doc,
+                                            pending_doc.into(),
                                             WriteTimestamp::Pending,
                                         ));
                                     };
@@ -210,7 +211,7 @@ impl TransactionIndex {
                                     if let Some(pending_doc) = maybe_pending_doc {
                                         range_results.push((
                                             pending_key,
-                                            pending_doc,
+                                            pending_doc.into(),
                                             WriteTimestamp::Pending,
                                         ));
                                     };
@@ -232,7 +233,7 @@ impl TransactionIndex {
                             if let Some(pending_doc) = maybe_pending_doc {
                                 range_results.push((
                                     pending_key,
-                                    pending_doc,
+                                    pending_doc.into(),
                                     WriteTimestamp::Pending,
                                 ));
                             };
@@ -362,6 +363,7 @@ impl TransactionIndex {
                 let mut within_bytes_limit = true;
                 let out: Vec<_> = documents
                     .into_iter()
+                    .map(|(key, doc, ts)| (key, doc.unpack(), ts))
                     .take(max_size)
                     .take_while(|(_, document, _)| {
                         within_bytes_limit = total_bytes < *TRANSACTION_MAX_READ_SIZE_BYTES;
@@ -450,6 +452,7 @@ impl TransactionIndex {
                 .context("batch_key missing")??;
             (_, remaining_interval) = interval.split(cursor, Order::Asc);
             for (_, document, _) in documents {
+                let document = document.unpack();
                 let key = document.value().0.get_path(&indexed_field).cloned();
                 anyhow::ensure!(
                     preloaded.insert(key, document).is_none(),
@@ -522,7 +525,7 @@ impl TransactionIndex {
             self.database_index_updates
                 .entry(update.index_id)
                 .or_insert_with(TransactionIndexMap::new)
-                .insert(update.key.clone(), new_value);
+                .insert(update.key.to_bytes(), new_value);
         }
 
         // If we are updating a document, the old and new ids must be the same.
@@ -647,9 +650,8 @@ impl TransactionIndexMap {
             .map(|(k, v)| (IndexKeyBytes(k.clone()), v.as_ref().map(|v| v.unpack())))
     }
 
-    pub fn insert(&mut self, k: IndexKey, v: Option<&ResolvedDocument>) {
-        self.inner
-            .insert(k.to_bytes().0, v.map(PackedDocument::pack));
+    pub fn insert(&mut self, k: IndexKeyBytes, v: Option<&ResolvedDocument>) {
+        self.inner.insert(k.0, v.map(PackedDocument::pack));
     }
 }
 

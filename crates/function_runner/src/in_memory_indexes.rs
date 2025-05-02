@@ -19,7 +19,6 @@ use common::{
         CreationTime,
         PackedDocument,
         ParseDocument,
-        ResolvedDocument,
     },
     index::IndexKeyBytes,
     interval::Interval,
@@ -64,6 +63,7 @@ use indexing::{
     backend_in_memory_indexes::{
         DatabaseIndexSnapshot,
         InMemoryIndexes,
+        LazyDocument,
     },
     index_registry::IndexRegistry,
 };
@@ -467,7 +467,7 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
         order: Order,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>> {
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
         let Some(index_map) = self
             .cache
             .get_or_load(
@@ -487,9 +487,9 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
                 index_map
                     .0
                     .range(interval)
-                    .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.unpack())),
+                    .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.clone().into())),
             )
-            .collect::<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>();
+            .collect::<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>();
         Ok(Some(range))
     }
 }

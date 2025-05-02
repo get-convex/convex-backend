@@ -42,6 +42,7 @@ pub use self::buffer::{
 };
 use self::flexbuilder::FlexBuilder;
 
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct PackedValue<B: Buffer>
 where
     B::BufferString: Clone,

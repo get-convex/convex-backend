@@ -775,6 +775,7 @@ impl DeveloperDocument {
 /// document ID will contain more information that the `_id` field of the value
 /// when we are using ID strings.
 #[derive(Clone, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct PackedDocument(PackedValue<ByteBuffer>, ResolvedDocumentId);
 
 impl PackedDocument {
@@ -819,6 +820,16 @@ impl PackedDocument {
         }
         let Ok(()) = write_sort_key(ConvexValue::from(self.id()), out);
         &buffer.0
+    }
+
+    pub fn index_key_owned(
+        &self,
+        fields: &[FieldPath],
+        persistence_version: PersistenceVersion,
+    ) -> IndexKeyBytes {
+        let mut buffer = IndexKeyBuffer::new();
+        self.index_key(fields, persistence_version, &mut buffer);
+        buffer.0
     }
 }
 
