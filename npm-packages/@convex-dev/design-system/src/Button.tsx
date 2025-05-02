@@ -92,6 +92,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
           // There is something weird here with `forwardRef`, I’d expect this to work without `any`
           ref={ref as any}
           role="link"
+          rel="noopener noreferrer"
           className={buttonClassName}
           tabIndex={0}
           target={target}
@@ -192,6 +193,12 @@ const button = tv({
       accent: "inline",
       class: "bg-transparent text-content-accent hover:bg-background-tertiary",
       loading: false,
+    },
+    {
+      variant: "primary",
+      accent: "inline",
+      class: "hover:bg-transparent",
+      disabled: true,
     },
     {
       variant: "primary",

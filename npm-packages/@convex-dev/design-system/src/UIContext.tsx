@@ -16,6 +16,7 @@ type LinkProps = {
   target?: string;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
   passHref?: boolean;
+  rel?: React.AnchorHTMLAttributes<HTMLAnchorElement>["rel"];
 } & React.RefAttributes<HTMLAnchorElement>;
 
 function encodeQuery(query: UrlObject["query"]): string {
