@@ -835,6 +835,10 @@ pub async fn stats_middleware<RM: RouteMapper>(
         Some(span_ctx) if *PROPAGATE_UPSTREAM_TRACES => Span::root(route.to_owned(), span_ctx),
         _ => Span::noop(),
     };
+
+    // Add the request_id to sentry
+    sentry::configure_scope(|scope| scope.set_tag("request_id", &request_id));
+
     let resp = next.run(req).in_span(root).await;
 
     let client_version_s = client_version.to_string();
@@ -858,9 +862,6 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
     let route = route_metric_mapper.map_route(route);
     let is_test = resolved_host.instance_name.starts_with("test-");
-
-    // Add the request_id to sentry
-    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
 
     log_http_request(
         &client_version_s,
