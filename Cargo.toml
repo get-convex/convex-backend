@@ -17,9 +17,9 @@ async_zip_0_0_9 = { package = "async_zip", version = "0.0.9", default-features =
 cbc = { version = "0.1.2" }
 csv-async = "1.2"
 atomic_refcell = "0.1.13"
-aws-config = "1"
-aws-sdk-s3 = "1"
-aws-smithy-http = "0.62"
+aws-config = { version = "1.6", default-features = false, features = [ "client-hyper", "default-https-client", "rustls", "rt-tokio" ] }
+aws-sdk-s3 = { version = "1.83", default-features = false, features = [ "default-https-client", "rt-tokio", "sigv4a" ] }
+aws-smithy-http = "0.60.8"
 aws-smithy-types-convert = { version = "0.60", features = [ "convert-streams" ] }
 aws-types = "1"
 axum = { version = "0.8", features = [ "ws", "original-uri", "macros", "multipart" ] }
