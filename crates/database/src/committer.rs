@@ -257,8 +257,6 @@ impl<RT: Runtime> Committer<RT> {
                         span_commit_id = Some(commit_id);
                         Span::root("bump_max_repeatable", SpanContext::random())
                     });
-                    let local_span =  Span::enter_with_parent("queue_bump_max_repeatable", committer_span);
-                    local_span.set_local_parent();
                     // Advance the repeatable read timestamp so non-leaders can
                     // establish a recent repeatable snapshot.
                     next_bump_wait = None;
@@ -592,7 +590,7 @@ impl<RT: Runtime> Committer<RT> {
         let outer_span = Span::enter_with_parent("outer_bump_max_repeatable_ts", root_span);
         self.persistence_writes.push_back(
             async move {
-                let _span = Span::enter_with_parent("inner_bump_max_repeatable_ts", &outer_span);
+                let span = Span::enter_with_parent("inner_bump_max_repeatable_ts", &outer_span);
                 // The MaxRepeatableTimestamp persistence global ensures all future
                 // commits on future leaders will be after new_max_repeatable, and followers
                 // can know this timestamp is repeatable.
@@ -601,6 +599,7 @@ impl<RT: Runtime> Committer<RT> {
                         PersistenceGlobalKey::MaxRepeatableTimestamp,
                         new_max_repeatable.into(),
                     )
+                    .in_span(span)
                     .await?;
                 Ok(PersistenceWrite::MaxRepeatableTimestamp {
                     new_max_repeatable,
