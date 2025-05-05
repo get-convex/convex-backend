@@ -27,7 +27,6 @@ import { usePatchDocumentField } from "@common/features/data/components/Table/ut
 import { arrowKeyHandler } from "@common/features/data/components/Table/utils/arrowKeyHandler";
 import { toggleAdjacent } from "@common/features/data/components/Table/utils/toggleAdjacent";
 import { SchemaJson } from "@common/lib/format";
-import { Loading } from "@ui/Loading";
 
 type DataRowProps = {
   data: {
@@ -63,18 +62,35 @@ function DataRowImpl(props: DataRowProps) {
   const { densityValues } = useTableDensity();
   return index >= data.rows.length ? (
     <div
-      className="ml-[1px]"
+      className="DataRow flex"
       style={{ ...style, height: densityValues.height }}
     >
-      <Loading>
-        {firstRow ? (
-          firstRow.cells.map((cell) => (
-            <div {...cell.getCellProps()} className="h-full border-r" />
-          ))
-        ) : (
-          <div className="ml-4 mt-4 h-4 w-full rounded bg-neutral-8/20 dark:bg-neutral-3/20" />
-        )}
-      </Loading>
+      {firstRow ? (
+        firstRow.cells.map((cell, idx) => (
+          <div
+            {...cell.getCellProps()}
+            className={classNames("h-full flex items-center justify-center", {
+              "border-r": cell !== firstRow.cells[firstRow.cells.length - 1],
+            })}
+            style={{
+              width: cell.getCellProps().style?.width,
+              paddingTop: densityValues.paddingY,
+              paddingBottom: densityValues.paddingY,
+              paddingLeft: densityValues.paddingX,
+              paddingRight: densityValues.paddingX,
+            }}
+          >
+            <div
+              className="h-4 bg-background-tertiary"
+              style={{
+                width: idx === 0 ? "1rem" : "100%",
+              }}
+            />
+          </div>
+        ))
+      ) : (
+        <div className="ml-4 mt-4 h-4 w-full rounded bg-neutral-8/20 dark:bg-neutral-3/20" />
+      )}
     </div>
   ) : (
     <DataRowLoaded {...props} />
