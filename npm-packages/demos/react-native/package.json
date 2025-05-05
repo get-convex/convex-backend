@@ -14,7 +14,7 @@
     "expo-status-bar": "~1.12.0",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
-    "react-native": "0.78.0",
+    "react-native": "0.78.2",
     "react-native-dotenv": "^3.4.8",
     "react-native-get-random-values": "~1.11.0"
   },
