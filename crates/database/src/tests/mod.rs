@@ -472,11 +472,7 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     let id = UserFacingModel::new_root_for_test(&mut tx)
         .insert("table".parse()?, assert_obj!())
         .await?;
-    let id_ = id.to_resolved(
-        tx.table_mapping()
-            .namespace(TableNamespace::test_user())
-            .number_to_tablet(),
-    )?;
+    let id_ = tx.resolve_developer_id(&id, TableNamespace::test_user())?;
     let document = tx.get(id_).await?.unwrap();
     database.commit(tx).await?;
 
@@ -1425,11 +1421,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let doc_id_user_facing = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), object.clone())
         .await?;
-    let doc0_id = doc_id_user_facing.to_resolved(
-        tx.table_mapping()
-            .namespace(TableNamespace::test_user())
-            .number_to_tablet(),
-    )?;
+    let doc0_id = tx.resolve_developer_id(&doc_id_user_facing, TableNamespace::test_user())?;
     let doc0_id_str: String = DeveloperDocumentId::from(doc0_id).encode();
     database.commit(tx).await?;
     let object_with_id = assert_obj!("_id" => &*doc0_id_str, "value" => 2);
@@ -1520,11 +1512,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let doc0_id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), object)
         .await?;
-    let doc0_id_inner = doc0_id.to_resolved(
-        tx.table_mapping()
-            .namespace(TableNamespace::test_user())
-            .number_to_tablet(),
-    )?;
+    let doc0_id_inner = tx.resolve_developer_id(&doc0_id, TableNamespace::test_user())?;
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;

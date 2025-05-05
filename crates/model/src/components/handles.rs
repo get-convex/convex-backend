@@ -107,12 +107,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         handle: FunctionHandle,
     ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
         let id = DeveloperDocumentId::from(handle);
-        let resolved_id = id.to_resolved(
-            self.tx
-                .table_mapping()
-                .namespace(TableNamespace::Global)
-                .number_to_tablet(),
-        )?;
+        let resolved_id = self.tx.resolve_developer_id(&id, TableNamespace::Global)?;
         let Some(document) = self.tx.get(resolved_id).await? else {
             anyhow::bail!(function_handle_not_found());
         };

@@ -480,9 +480,7 @@ pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT
     let cron_from_doc =
         async |namespace: TableNamespace, doc: ResolvedDocument, tx: &mut Transaction<RT>| {
             let next_run: ParsedDocument<CronNextRun> = doc.parse()?;
-            let cron_job_id = next_run
-                .cron_job_id
-                .to_resolved(tx.table_mapping().namespace(namespace).number_to_tablet())?;
+            let cron_job_id = tx.resolve_developer_id(&next_run.cron_job_id, namespace)?;
             let job: ParsedDocument<CronJobMetadata> = tx
                 .get(cron_job_id)
                 .await?

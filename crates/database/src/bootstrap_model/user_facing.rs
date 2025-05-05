@@ -112,12 +112,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         {
             return Ok(None);
         }
-        let id_ = id.to_resolved(
-            self.tx
-                .table_mapping()
-                .namespace(self.namespace)
-                .number_to_tablet(),
-        )?;
+        let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
         let physical_table_name = self
             .tx
             .table_mapping()
@@ -258,12 +253,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         self.require_active_component().await?;
         self.tx.retention_validator.fail_if_falling_behind()?;
 
-        let id_ = id.to_resolved(
-            self.tx
-                .table_mapping()
-                .namespace(self.namespace)
-                .number_to_tablet(),
-        )?;
+        let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.patch_inner(id_, value).await?;
 
@@ -294,12 +284,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             check_user_size(value.size())?;
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
-        let id_ = id.to_resolved(
-            self.tx
-                .table_mapping()
-                .namespace(self.namespace)
-                .number_to_tablet(),
-        )?;
+        let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
         let developer_document = new_document.to_developer();
@@ -319,12 +304,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         self.require_active_component().await?;
         self.tx.retention_validator.fail_if_falling_behind()?;
 
-        let id_ = id.to_resolved(
-            self.tx
-                .table_mapping()
-                .namespace(self.namespace)
-                .number_to_tablet(),
-        )?;
+        let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
         let document = self.tx.delete_inner(id_).await?;
         Ok(document.to_developer())
     }

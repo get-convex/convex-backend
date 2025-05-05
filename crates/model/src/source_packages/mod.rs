@@ -78,12 +78,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         source_package_id: SourcePackageId,
     ) -> anyhow::Result<ParsedDocument<SourcePackage>> {
         let id: DeveloperDocumentId = source_package_id.into();
-        let document_id = id.to_resolved(
-            self.tx
-                .table_mapping()
-                .namespace(self.namespace)
-                .number_to_tablet(),
-        )?;
+        let document_id = self.tx.resolve_developer_id(&id, self.namespace)?;
         self.tx
             .get(document_id)
             .await?

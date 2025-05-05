@@ -250,6 +250,14 @@ impl<RT: Runtime> Transaction<RT> {
         self.metadata.table_mapping()
     }
 
+    pub fn resolve_developer_id(
+        &mut self,
+        id: &DeveloperDocumentId,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        id.to_resolved(self.table_mapping().namespace(namespace).number_to_tablet())
+    }
+
     pub fn virtual_system_mapping(&self) -> &VirtualSystemMapping {
         &self.virtual_system_mapping
     }
