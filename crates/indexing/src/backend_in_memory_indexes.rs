@@ -24,6 +24,7 @@ use common::{
     },
     instrument,
     interval::{
+        End,
         Interval,
         IntervalSet,
     },
@@ -655,7 +656,7 @@ struct DatabaseIndexSnapshotCache {
     /// After the cache has been fully populated, `db.get`s which do point
     /// queries against by_id will be cached, and any indexed query against
     /// by_age that is a subset of (<age:18>, Unbounded) will be cached.
-    documents: OrdMap<IndexId, BTreeMap<IndexKeyBytes, (Timestamp, PackedDocument)>>,
+    documents: OrdMap<(IndexId, IndexKeyBytes), (Timestamp, PackedDocument)>,
     intervals: OrdMap<IndexId, IntervalSet>,
     cache_size: usize,
 }
@@ -696,9 +697,7 @@ impl DatabaseIndexSnapshotCache {
             let result_size: usize = doc.value().size();
             let interval = Interval::prefix(index_key_bytes.clone().into());
             self.documents
-                .entry(index_id)
-                .or_default()
-                .insert(index_key_bytes, (ts, doc));
+                .insert((index_id, index_key_bytes), (ts, doc));
             self.intervals.entry(index_id).or_default().add(interval);
             self.cache_size += result_size;
         }
@@ -741,20 +740,19 @@ impl DatabaseIndexSnapshotCache {
             }
             if in_set {
                 cache_hit_count += 1;
-                match self.documents.get(&index_id) {
-                    None => {},
-                    Some(range) => {
-                        results.extend(range.range(&component_interval).map(
-                            |(index_key, (ts, doc))| {
-                                DatabaseIndexSnapshotCacheResult::Document(
-                                    index_key.clone(),
-                                    *ts,
-                                    doc.clone(),
-                                )
-                            },
-                        ));
-                    },
-                }
+                let range = self
+                    .documents
+                    .range((index_id, IndexKeyBytes(component_interval.start.0.into()))..)
+                    .take_while(|&((index, key), _)| {
+                        *index == index_id
+                            && match &component_interval.end {
+                                End::Excluded(end) => key[..] < end[..],
+                                End::Unbounded => true,
+                            }
+                    });
+                results.extend(range.map(|((_, index_key), (ts, doc))| {
+                    DatabaseIndexSnapshotCacheResult::Document(index_key.clone(), *ts, doc.clone())
+                }));
             } else {
                 results.push(DatabaseIndexSnapshotCacheResult::CacheMiss(
                     component_interval,
