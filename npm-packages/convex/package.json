@@ -233,7 +233,7 @@
     "CLI tool dependencies are listed in devDependencies instead."
   ],
   "dependencies": {
-    "esbuild": "0.25.1",
+    "esbuild": "0.25.2",
     "jwt-decode": "^4.0.0",
     "prettier": "3.5.3"
   },
@@ -295,7 +295,7 @@
     "detect-port": "^2.1.0",
     "dotenv": "^16.4.7",
     "encoding": "^0.1.13",
-    "esbuild": "0.25.1",
+    "esbuild": "0.25.2",
     "esbuild-plugin-external-global": "~1.0.1",
     "eslint": "9.21.0",
     "eslint-config-prettier": "^10.0.0",

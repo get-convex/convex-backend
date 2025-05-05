@@ -10,7 +10,7 @@
     "assert": "2.1.0",
     "convex": "workspace:*",
     "local-store": "workspace:*",
-    "esbuild": "0.25.1",
+    "esbuild": "0.25.2",
     "vitest": "^1.6.1",
     "@vitest/browser": "~2.1.8"
   },
