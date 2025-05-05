@@ -818,8 +818,8 @@ importers:
         specifier: ~0.13.0
         version: 0.13.4
       posthog-js:
-        specifier: ~1.225.0
-        version: 1.225.1(@rrweb/types@2.0.0-alpha.17)
+        specifier: ~1.234.0
+        version: 1.234.11(@rrweb/types@2.0.0-alpha.17)
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2858,8 +2858,8 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       posthog-js:
-        specifier: ~1.225.0
-        version: 1.225.1(@rrweb/types@2.0.0-alpha.17)
+        specifier: ~1.234.0
+        version: 1.234.11(@rrweb/types@2.0.0-alpha.17)
       prism-react-renderer:
         specifier: 1.3.5
         version: 1.3.5(react@18.3.1)
@@ -18274,10 +18274,16 @@ packages:
     resolution: {integrity: sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-js@1.225.1:
-    resolution: {integrity: sha512-JO12aGlKbznD91osyNPgsQXP4jwLYdDtGrEL6idjGBb4ETFpud6tfe2Jdaow3672c3fNjFFNyu2ybXC3793VOA==}
+  posthog-js@1.234.11:
+    resolution: {integrity: sha512-46gf5AI7U8KTuRQulfQ21kSG1eOPDUZ4mudMJbGMX3yc0iTA8X//BsLFzIQXoPgr3LeXMr6/0OPlCQlUk97gNA==}
     peerDependencies:
       '@rrweb/types': 2.0.0-alpha.17
+      rrweb-snapshot: 2.0.0-alpha.17
+    peerDependenciesMeta:
+      '@rrweb/types':
+        optional: true
+      rrweb-snapshot:
+        optional: true
 
   postmark@4.0.5:
     resolution: {integrity: sha512-nerZdd3TwOH4CgGboZnlUM/q7oZk0EqpZgJL+Y3Nup8kHeaukxouQ6JcFF3EJEijc4QbuNv1TefGhboAKtf/SQ==}
@@ -28087,6 +28093,7 @@ snapshots:
   '@rrweb/types@2.0.0-alpha.17':
     dependencies:
       rrweb-snapshot: 2.0.0-alpha.18
+    optional: true
 
   '@rtsao/scc@1.1.0': {}
 
@@ -42323,13 +42330,14 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-js@1.225.1(@rrweb/types@2.0.0-alpha.17):
+  posthog-js@1.234.11(@rrweb/types@2.0.0-alpha.17):
     dependencies:
-      '@rrweb/types': 2.0.0-alpha.17
       core-js: 3.40.0
       fflate: 0.4.8
       preact: 10.25.4
       web-vitals: 4.2.4
+    optionalDependencies:
+      '@rrweb/types': 2.0.0-alpha.17
 
   postmark@4.0.5:
     dependencies:
@@ -43506,6 +43514,7 @@ snapshots:
   rrweb-snapshot@2.0.0-alpha.18:
     dependencies:
       postcss: 8.5.3
+    optional: true
 
   rtl-css-js@1.16.1:
     dependencies:
