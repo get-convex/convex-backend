@@ -253,13 +253,14 @@ impl<RT: Runtime> Actions<RT> {
 
         tracing::info!(
             "Total:{:?}, executor:{:?}, download:{:?}, import:{:?}, udf:{:?}, \
-             env_invocations:{:?}, aws_request_id:{:?}",
+             env_invocations:{:?}, memory_allocated_mb:{:?}, aws_request_id:{:?}",
             timer.elapsed(),
             execute_result.total_executor_time,
             execute_result.download_time,
             execute_result.import_time,
             execute_result.udf_time,
             execute_result.num_invocations,
+            execute_result.memory_allocated_mb,
             aws_request_id,
         );
         let total_time = timer.finish();
