@@ -260,7 +260,7 @@
   "devDependencies": {
     "@auth0/auth0-react": "2.3.0",
     "@babel/parser": "^7.26.3",
-    "@babel/types": "7.26.9",
+    "@babel/types": "7.27.0",
     "@clerk/clerk-react": "^5.20.0",
     "@commander-js/extra-typings": "^11.1.0",
     "@eslint/compat": "~1.2.4",
