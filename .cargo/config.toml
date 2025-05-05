@@ -3,7 +3,7 @@ CARGO_WORKSPACE_ROOT = { value = "", relative = true }
 CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
 
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-Ctarget-cpu=neoverse-n1"]
+rustflags = ["-Ctarget-cpu=neoverse-n1", "-Cforce-frame-pointers=yes"]
 
 [target.aarch64-apple-darwin]
 rustflags = ["-Ctarget-cpu=apple-m1"]
