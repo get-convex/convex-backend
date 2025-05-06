@@ -2,11 +2,11 @@
 // https://github.com/denoland/deno/blob/main/ext/crypto/import_key.rs
 
 use anyhow::Context as _;
+use aws_lc_rs::signature::EcdsaKeyPair;
 use deno_core::ToJsBuffer;
 use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::EncodePrivateKey;
 use pkcs1::UintRef;
-use ring::signature::EcdsaKeyPair;
 use serde::{
     Deserialize,
     Serialize,
@@ -549,32 +549,19 @@ fn import_key_ec_jwk(
 }
 
 fn validate_ecdsa_pkcs8(
-    key_alg: &'static ring::signature::EcdsaSigningAlgorithm,
+    key_alg: &'static aws_lc_rs::signature::EcdsaSigningAlgorithm,
     pkcs8: &[u8],
-) -> Result<(), ring::error::KeyRejected> {
-    EcdsaKeyPair::from_pkcs8(
-        key_alg,
-        pkcs8,
-        // This randomness does not affect whether the key is accepted or rejected, and we throw
-        // away the returned keypair
-        &ring::rand::SystemRandom::new(),
-    )?;
+) -> Result<(), aws_lc_rs::error::KeyRejected> {
+    EcdsaKeyPair::from_pkcs8(key_alg, pkcs8)?;
     Ok(())
 }
 
 fn validate_ecdsa_private_key(
-    key_alg: &'static ring::signature::EcdsaSigningAlgorithm,
+    key_alg: &'static aws_lc_rs::signature::EcdsaSigningAlgorithm,
     private_key: &[u8],
     public_key: &[u8],
-) -> Result<(), ring::error::KeyRejected> {
-    EcdsaKeyPair::from_private_key_and_public_key(
-        key_alg,
-        private_key,
-        public_key,
-        // This randomness does not affect whether the key is accepted or rejected, and we throw
-        // away the returned keypair
-        &ring::rand::SystemRandom::new(),
-    )?;
+) -> Result<(), aws_lc_rs::error::KeyRejected> {
+    EcdsaKeyPair::from_private_key_and_public_key(key_alg, private_key, public_key)?;
     Ok(())
 }
 

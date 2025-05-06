@@ -21,6 +21,7 @@ async-broadcast = { workspace = true }
 async-channel = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
+aws-lc-rs = { workspace = true }
 axum = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
@@ -65,7 +66,6 @@ proptest-http = { workspace = true, optional = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 regex = { workspace = true }
-ring = { workspace = true }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
 semver = { workspace = true }

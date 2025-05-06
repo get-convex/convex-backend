@@ -9,8 +9,8 @@ impl CryptoRng {
         CryptoRng(())
     }
 
-    /// Returns a `ring`-compatible random number generator
-    pub fn ring(&self) -> ring::rand::SystemRandom {
-        ring::rand::SystemRandom::new()
+    /// Returns a `aws_lc_rs`-compatible random number generator
+    pub fn aws_lc(&self) -> aws_lc_rs::rand::SystemRandom {
+        aws_lc_rs::rand::SystemRandom::new()
     }
 }

@@ -1,12 +1,12 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/ext/crypto/ed25519.rs
 
-use deno_core::ToJsBuffer;
-use elliptic_curve::pkcs8::PrivateKeyInfo;
-use ring::signature::{
+use aws_lc_rs::signature::{
     Ed25519KeyPair,
     KeyPair,
 };
+use deno_core::ToJsBuffer;
+use elliptic_curve::pkcs8::PrivateKeyInfo;
 use spki::{
     der::{
         asn1::BitString,
@@ -40,7 +40,7 @@ impl CryptoOps {
     }
 
     pub fn verify_ed25519(pubkey: &[u8], data: &[u8], signature: &[u8]) -> bool {
-        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, pubkey)
+        aws_lc_rs::signature::UnparsedPublicKey::new(&aws_lc_rs::signature::ED25519, pubkey)
             .verify(data, signature)
             .is_ok()
     }

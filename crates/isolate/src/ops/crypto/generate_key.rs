@@ -1,16 +1,17 @@
 use anyhow::Context as _;
-use deno_core::ToJsBuffer;
-use openssl::{
-    bn::BigNum,
-    rsa::Rsa,
-};
-use ring::{
+use aws_lc_rs::{
+    encoding::AsBigEndian as _,
     rand::SecureRandom,
     signature::{
         EcdsaKeyPair,
         Ed25519KeyPair,
         KeyPair,
     },
+};
+use deno_core::ToJsBuffer;
+use openssl::{
+    bn::BigNum,
+    rsa::Rsa,
 };
 
 use super::{
@@ -26,7 +27,7 @@ use crate::environment::crypto_rng::CryptoRng;
 
 impl CryptoOps {
     pub fn generate_keypair(
-        rng: CryptoRng,
+        _rng: CryptoRng,
         algorithm: GenerateKeypairAlgorithm,
     ) -> anyhow::Result<GeneratedKeypair> {
         match algorithm {
@@ -53,21 +54,17 @@ impl CryptoOps {
                 name: Algorithm::Ecdsa | Algorithm::Ecdh,
                 named_curve,
             } => {
-                let private_key_pkcs8 =
-                    EcdsaKeyPair::generate_pkcs8(named_curve.into(), &rng.ring())
-                        .ok()
-                        .context("failed to generate ecdsa keypair")?;
-                let keypair = EcdsaKeyPair::from_pkcs8(
-                    named_curve.into(),
-                    private_key_pkcs8.as_ref(),
-                    &rng.ring(),
-                )
-                .ok()
-                .context("failed to parse ecdsa pkcs8 that we just generated")?;
+                let keypair = EcdsaKeyPair::generate(named_curve.into())
+                    .context("failed to generate ecdsa keypair")?;
                 Ok(GeneratedKeypair {
                     private_raw_data: GeneratedKey::KeyData(RustRawKeyData::Private(
                         // private key is PKCS#8-encoded
-                        private_key_pkcs8.as_ref().to_vec().into(),
+                        keypair
+                            .to_pkcs8v1()
+                            .context("failed to serialize ecdsa keypair")?
+                            .as_ref()
+                            .to_vec()
+                            .into(),
                     )),
                     public_raw_data: GeneratedKey::KeyData(RustRawKeyData::Public(
                         // public key is just the elliptic curve point
@@ -78,23 +75,16 @@ impl CryptoOps {
             GenerateKeypairAlgorithm::Curve25519 {
                 name: Curve25519Algorithm::Ed25519,
             } => {
-                let pkcs8_keypair = Ed25519KeyPair::generate_pkcs8(&rng.ring())
-                    .ok()
-                    .context("failed to generate ed25519 key")?;
-                // ring is really annoying and needs to jump through hoops to get the public key
-                // that we just generated
-                let public_key = Ed25519KeyPair::from_pkcs8(pkcs8_keypair.as_ref())
-                    .ok()
-                    .context("failed to parse ed25519 pkcs8 that we just generated")?
-                    .public_key()
-                    .as_ref()
-                    .to_vec();
-                // ring is really really annoying and doesn't export the raw
-                // seed at all, so use RustCrypto instead
-                let private_key = Self::import_pkcs8_ed25519(pkcs8_keypair.as_ref())
-                    .context("failed to import ed25519 pkcs8 that we just generated")?;
+                let keypair =
+                    Ed25519KeyPair::generate().context("failed to generate ed25519 key")?;
+                let public_key = keypair.public_key().as_ref().to_vec();
+                let private_key = keypair
+                    .seed()
+                    .context("failed to get generated ed25519 seed")?
+                    .as_be_bytes()
+                    .context("failed to get generated ed25519 seed")?;
                 Ok(GeneratedKeypair {
-                    private_raw_data: GeneratedKey::RawBytes(private_key),
+                    private_raw_data: GeneratedKey::RawBytes(private_key.as_ref().to_vec().into()),
                     public_raw_data: GeneratedKey::RawBytes(public_key.into()),
                 })
             },
@@ -112,7 +102,7 @@ impl CryptoOps {
     pub fn generate_key_bytes(rng: CryptoRng, length: usize) -> anyhow::Result<ToJsBuffer> {
         anyhow::ensure!(length <= 1024, "key too long");
         let mut buf = vec![0; length];
-        rng.ring()
+        rng.aws_lc()
             .fill(&mut buf)
             .ok()
             .context("failed to generate random bytes")?;

@@ -11,18 +11,9 @@ mod x25519;
 use std::num::NonZeroU32;
 
 use anyhow::Context;
-use deno_core::ToJsBuffer;
-use openssl::{
-    pkey::PKey,
-    rsa::Rsa,
-    sign::{
-        RsaPssSaltlen,
-        Verifier,
-    },
-};
-use rand::Rng;
-use ring::{
+use aws_lc_rs::{
     aead::{
+        self,
         Aad,
         LessSafeKey,
         Nonce,
@@ -42,6 +33,16 @@ use ring::{
         KeyPair,
     },
 };
+use deno_core::ToJsBuffer;
+use openssl::{
+    pkey::PKey,
+    rsa::Rsa,
+    sign::{
+        RsaPssSaltlen,
+        Verifier,
+    },
+};
+use rand::Rng;
 use serde::{
     Deserialize,
     Serialize,
@@ -338,10 +339,10 @@ pub enum CryptoHash {
 impl From<CryptoHash> for HmacAlgorithm {
     fn from(hash: CryptoHash) -> HmacAlgorithm {
         match hash {
-            CryptoHash::Sha1 => ring::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
-            CryptoHash::Sha256 => ring::hmac::HMAC_SHA256,
-            CryptoHash::Sha384 => ring::hmac::HMAC_SHA384,
-            CryptoHash::Sha512 => ring::hmac::HMAC_SHA512,
+            CryptoHash::Sha1 => aws_lc_rs::hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY,
+            CryptoHash::Sha256 => aws_lc_rs::hmac::HMAC_SHA256,
+            CryptoHash::Sha384 => aws_lc_rs::hmac::HMAC_SHA384,
+            CryptoHash::Sha512 => aws_lc_rs::hmac::HMAC_SHA512,
         }
     }
 }
@@ -379,8 +380,8 @@ pub enum CryptoNamedCurve {
 impl From<CryptoNamedCurve> for &RingAlgorithm {
     fn from(curve: CryptoNamedCurve) -> &'static RingAlgorithm {
         match curve {
-            CryptoNamedCurve::P256 => &ring::agreement::ECDH_P256,
-            CryptoNamedCurve::P384 => &ring::agreement::ECDH_P384,
+            CryptoNamedCurve::P256 => &aws_lc_rs::agreement::ECDH_P256,
+            CryptoNamedCurve::P384 => &aws_lc_rs::agreement::ECDH_P384,
         }
     }
 }
@@ -388,8 +389,8 @@ impl From<CryptoNamedCurve> for &RingAlgorithm {
 impl From<CryptoNamedCurve> for &EcdsaSigningAlgorithm {
     fn from(curve: CryptoNamedCurve) -> &'static EcdsaSigningAlgorithm {
         match curve {
-            CryptoNamedCurve::P256 => &ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-            CryptoNamedCurve::P384 => &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
+            CryptoNamedCurve::P256 => &aws_lc_rs::signature::ECDSA_P256_SHA256_FIXED_SIGNING,
+            CryptoNamedCurve::P384 => &aws_lc_rs::signature::ECDSA_P384_SHA384_FIXED_SIGNING,
         }
     }
 }
@@ -397,8 +398,8 @@ impl From<CryptoNamedCurve> for &EcdsaSigningAlgorithm {
 impl From<CryptoNamedCurve> for &EcdsaVerificationAlgorithm {
     fn from(curve: CryptoNamedCurve) -> &'static EcdsaVerificationAlgorithm {
         match curve {
-            CryptoNamedCurve::P256 => &ring::signature::ECDSA_P256_SHA256_FIXED,
-            CryptoNamedCurve::P384 => &ring::signature::ECDSA_P384_SHA384_FIXED,
+            CryptoNamedCurve::P256 => &aws_lc_rs::signature::ECDSA_P256_SHA256_FIXED,
+            CryptoNamedCurve::P384 => &aws_lc_rs::signature::ECDSA_P384_SHA384_FIXED,
         }
     }
 }
@@ -597,8 +598,8 @@ impl CryptoOps {
                 // (but `ring` does not support it).
                 let rng = rng()?;
 
-                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &rng.ring())
-                    .map_err(|e| anyhow::anyhow!(e))?;
+                let key_pair =
+                    EcdsaKeyPair::from_pkcs8(curve, key).map_err(|e| anyhow::anyhow!(e))?;
                 // We only support P256-SHA256 & P384-SHA384. These are recommended signature
                 // pairs. https://briansmith.org/rustdoc/ring/signature/index.html#statics
                 if let Some(hash) = hash {
@@ -609,7 +610,7 @@ impl CryptoOps {
                 };
 
                 let signature = key_pair
-                    .sign(&rng.ring(), data)
+                    .sign(&rng.aws_lc(), data)
                     .map_err(|e| anyhow::anyhow!(e))?;
 
                 // Signature data as buffer.
@@ -620,7 +621,7 @@ impl CryptoOps {
 
                 let key = HmacKey::new(hash, key);
 
-                let signature = ring::hmac::sign(&key, data);
+                let signature = aws_lc_rs::hmac::sign(&key, data);
                 signature.as_ref().to_vec()
             },
             _ => return Err(type_error("Unsupported algorithm".to_string())),
@@ -680,7 +681,7 @@ impl CryptoOps {
             Algorithm::Hmac => {
                 let hash: HmacAlgorithm = hash.ok_or_else(not_supported)?.into();
                 let key = HmacKey::new(hash, &key.data);
-                ring::hmac::verify(&key, data, signature).is_ok()
+                aws_lc_rs::hmac::verify(&key, data, signature).is_ok()
             },
             Algorithm::Ecdsa => {
                 let signing_alg: &EcdsaSigningAlgorithm =
@@ -692,15 +693,8 @@ impl CryptoOps {
 
                 let public_key_bytes = match key.r#type {
                     KeyType::Private => {
-                        private_key = EcdsaKeyPair::from_pkcs8(
-                            signing_alg,
-                            &key.data,
-                            // This RNG would only be used if we used this key for *signing*, but
-                            // all we are doing is constructing its public key which is
-                            // deterministic
-                            &ring::rand::SystemRandom::new(),
-                        )
-                        .map_err(|e| anyhow::anyhow!(e))?;
+                        private_key = EcdsaKeyPair::from_pkcs8(signing_alg, &key.data)
+                            .map_err(|e| anyhow::anyhow!(e))?;
 
                         private_key.public_key().as_ref()
                     },
@@ -709,7 +703,7 @@ impl CryptoOps {
                 };
 
                 let public_key =
-                    ring::signature::UnparsedPublicKey::new(verify_alg, public_key_bytes);
+                    aws_lc_rs::signature::UnparsedPublicKey::new(verify_alg, public_key_bytes);
 
                 public_key.verify(data, signature).is_ok()
             },
@@ -774,8 +768,8 @@ impl CryptoOps {
             } => {
                 anyhow::ensure!(matches!(key.r#type, KeyType::Secret));
                 let alg = match key.data.len() {
-                    16 => &ring::aead::AES_128_GCM,
-                    32 => &ring::aead::AES_256_GCM,
+                    16 => &aead::AES_128_GCM,
+                    32 => &aead::AES_256_GCM,
                     _ => anyhow::bail!("unsupported key length {}", key.data.len()),
                 };
                 // TODO: consider supporting shorter tag lengths (`ring` does not allow this)
@@ -817,8 +811,8 @@ impl CryptoOps {
             } => {
                 anyhow::ensure!(matches!(key.r#type, KeyType::Secret));
                 let alg = match key.data.len() {
-                    16 => &ring::aead::AES_128_GCM,
-                    32 => &ring::aead::AES_256_GCM,
+                    16 => &aead::AES_128_GCM,
+                    32 => &aead::AES_256_GCM,
                     _ => anyhow::bail!("unsupported key length {}", key.data.len()),
                 };
                 anyhow::ensure!(
