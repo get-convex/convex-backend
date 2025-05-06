@@ -44,8 +44,8 @@ export function DeploymentSettingsLayout({
         {/* Make space for the header above */}
         <div className="flex h-full w-full overflow-y-hidden">
           {isWide && sidebar}
-          <div className=" w-full min-w-[22rem] grow overflow-auto p-8 scrollbar">
-            <div className="flex h-full flex-col gap-6 sm:max-w-[65rem]">
+          <div className="flex w-full min-w-[22rem] grow overflow-auto scrollbar">
+            <div className="flex h-fit grow flex-col gap-6 p-6 sm:max-w-[65rem]">
               {children}
             </div>
           </div>
