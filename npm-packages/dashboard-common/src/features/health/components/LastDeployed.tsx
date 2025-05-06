@@ -7,6 +7,7 @@ import { Loading } from "@ui/Loading";
 import { useEffect, useState } from "react";
 import semver from "semver";
 import { Button } from "@ui/Button";
+import { DoubleArrowUpIcon } from "@radix-ui/react-icons";
 
 function useLatestConvexVersion(currentVersion: string | undefined) {
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -28,7 +29,14 @@ function useLatestConvexVersion(currentVersion: string | undefined) {
         setLatestVersion(data.version);
 
         if (currentVersion && data.version) {
-          const hasNewVersion = semver.gt(data.version, currentVersion);
+          const currentSemver = semver.parse(currentVersion);
+          const latestSemver = semver.parse(data.version);
+          if (!currentSemver || !latestSemver) return;
+          const isHigherMinor =
+            latestSemver.major === currentSemver.major &&
+            latestSemver.minor > currentSemver.minor;
+          const isHigherMajor = latestSemver.major > currentSemver.major;
+          const hasNewVersion = isHigherMajor || isHigherMinor;
           setHasUpdate(hasNewVersion);
         }
       } catch (e) {
@@ -82,7 +90,7 @@ export function LastDeployed() {
       <div className="flex h-full w-full grow flex-wrap justify-between px-2 pb-2">
         {content}
         {serverVersion && (
-          <div className="flex items-center gap-2">
+          <div className="flex h-8 items-center gap-2">
             <span className="animate-fadeInFromLoading text-sm text-content-secondary">
               Convex v{serverVersion}
             </span>
@@ -99,12 +107,12 @@ export function LastDeployed() {
                         : "patch"
                     : ""
                 } update is available for Convex (${serverVersion} → ${latestVersion})`}
-                className="bg-util-accent p-0.5 px-1 text-white"
+                size="xs"
+                aria-label="Convex NPM Package Upgrade Available"
                 href="https://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog"
                 target="_blank"
-              >
-                Update Available
-              </Button>
+                icon={<DoubleArrowUpIcon />}
+              />
             )}
           </div>
         )}
