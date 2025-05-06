@@ -1161,6 +1161,7 @@ async fn log_middleware(
     if path == "/instance_version"
         || path == "/instance_name"
         || path == "/get_backend_info"
+        || path == "/get_deployment_state"
         || path == "/"
     {
         // Skip logging for these high volume, less useful endpoints
