@@ -161,6 +161,8 @@ pub struct FunctionExecution {
 
     // Number of retries prior to a successful execution. Only applicable for mutations.
     pub mutation_retry_count: Option<usize>,
+
+    pub occ_info: Option<OccInfo>,
 }
 
 impl HeapSize for FunctionExecution {
@@ -253,9 +255,19 @@ impl FunctionExecution {
                 source: self.event_source(None),
                 error: self.params.err().cloned(),
                 execution_time,
+                occ_info: match &self.occ_info {
+                    Some(occ_info) => Some(log_streaming::OccInfo {
+                        table_name: occ_info.table_name.clone(),
+                        document_id: occ_info.document_id.clone(),
+                        write_source: occ_info.write_source.clone(),
+                        retry_count: occ_info.retry_count,
+                    }),
+                    None => None,
+                },
                 usage_stats: log_streaming::AggregatedFunctionUsageStats {
                     database_read_bytes: self.usage_stats.database_read_bytes,
                     database_write_bytes: self.usage_stats.database_write_bytes,
+                    database_read_documents: self.usage_stats.database_read_documents,
                     storage_read_bytes: self.usage_stats.storage_read_bytes,
                     storage_write_bytes: self.usage_stats.storage_write_bytes,
                     vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,
@@ -647,6 +659,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             identity: outcome.identity.clone(),
             context,
             mutation_retry_count: None,
+            occ_info: None,
         };
         self.log_execution(execution, true);
     }
@@ -757,7 +770,9 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
                     context.request_id.clone(),
-                    CallType::Mutation { occ_info },
+                    CallType::Mutation {
+                        occ_info: occ_info.clone(),
+                    },
                     outcome.result.is_ok(),
                     usage_stats,
                 );
@@ -793,6 +808,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             identity: outcome.identity,
             context,
             mutation_retry_count: Some(mutation_retry_count),
+            occ_info,
         };
         self.log_execution(execution, true);
     }
@@ -885,6 +901,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             identity: outcome.identity,
             context: completion.context,
             mutation_retry_count: None,
+            occ_info: None,
         };
         self.log_execution(execution, /* send_console_events */ false)
     }
@@ -1023,6 +1040,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             identity: outcome.identity,
             context,
             mutation_retry_count: None,
+            occ_info: None,
         };
         self.log_execution(execution, /* send_console_events */ false);
     }

@@ -84,6 +84,7 @@ impl UsageCounter {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct OccInfo {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
@@ -782,6 +783,7 @@ impl FunctionUsageStats {
         AggregatedFunctionUsageStats {
             database_read_bytes: self.database_egress_size.values().sum(),
             database_write_bytes: self.database_ingress_size.values().sum(),
+            database_read_documents: self.database_egress_rows.values().sum(),
             storage_read_bytes: self.storage_egress_size.values().sum(),
             storage_write_bytes: self.storage_ingress_size.values().sum(),
             vector_index_read_bytes: self.vector_egress_size.values().sum(),
@@ -1021,6 +1023,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
 pub struct AggregatedFunctionUsageStats {
     pub database_read_bytes: u64,
     pub database_write_bytes: u64,
+    pub database_read_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,

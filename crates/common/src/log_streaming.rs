@@ -68,11 +68,20 @@ pub struct LogEvent {
 pub struct AggregatedFunctionUsageStats {
     pub database_read_bytes: u64,
     pub database_write_bytes: u64,
+    pub database_read_documents: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
     pub action_memory_used_mb: Option<u64>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct OccInfo {
+    pub table_name: Option<String>,
+    pub document_id: Option<String>,
+    pub write_source: Option<String>,
+    pub retry_count: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -93,6 +102,7 @@ pub enum StructuredLogEvent {
         error: Option<JsError>,
         execution_time: Duration,
         usage_stats: AggregatedFunctionUsageStats,
+        occ_info: Option<OccInfo>,
     },
     /// Topic for exceptions. These happen when a UDF raises an exception from
     /// JS
@@ -244,6 +254,7 @@ impl LogEvent {
                     error,
                     execution_time,
                     usage_stats,
+                    ..
                 } => {
                     let (reason, status) = match error {
                         Some(err) => (Some(err.to_string()), "failure"),
@@ -339,6 +350,7 @@ impl LogEvent {
                     error,
                     execution_time,
                     usage_stats,
+                    occ_info,
                 } => {
                     let function_source = source.to_json_map();
                     let (status, error_message) = match error {
@@ -349,6 +361,7 @@ impl LogEvent {
                     struct Usage {
                         database_read_bytes: u64,
                         database_write_bytes: u64,
+                        database_read_documents: u64,
                         file_storage_read_bytes: u64,
                         file_storage_write_bytes: u64,
                         vector_storage_read_bytes: u64,
@@ -362,9 +375,11 @@ impl LogEvent {
                         "execution_time_ms": execution_time.as_millis(),
                         "status": status,
                         "error_message": error_message,
+                        "occ_info": occ_info,
                         "usage": Usage {
                             database_read_bytes: usage_stats.database_read_bytes,
                             database_write_bytes: usage_stats.database_write_bytes,
+                            database_read_documents: usage_stats.database_read_documents,
                             file_storage_read_bytes: usage_stats.storage_read_bytes,
                             file_storage_write_bytes: usage_stats.storage_write_bytes,
                             vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
