@@ -12,7 +12,12 @@ import {
   convexToJson,
   jsonToConvex,
 } from "../values/index.js";
-import { instantiateDefaultLogger, logForFunction, Logger } from "./logging.js";
+import {
+  instantiateDefaultLogger,
+  instantiateNoopLogger,
+  logForFunction,
+  Logger,
+} from "./logging.js";
 import { FunctionArgs, UserIdentityAttributes } from "../server/index.js";
 
 export const STATUS_CODE_OK = 200;
@@ -62,7 +67,10 @@ export class ConvexHttpClient {
    */
   constructor(
     address: string,
-    options?: { skipConvexDeploymentUrlCheck?: boolean; logger?: Logger },
+    options?: {
+      skipConvexDeploymentUrlCheck?: boolean;
+      logger?: Logger | boolean;
+    },
   ) {
     if (typeof options === "boolean") {
       throw new Error(
@@ -73,7 +81,12 @@ export class ConvexHttpClient {
     if (opts.skipConvexDeploymentUrlCheck !== true) {
       validateDeploymentUrl(address);
     }
-    this.logger = opts.logger ?? instantiateDefaultLogger({ verbose: false });
+    this.logger =
+      options?.logger === false
+        ? instantiateNoopLogger({ verbose: false })
+        : options?.logger !== true && options?.logger
+          ? options.logger
+          : instantiateDefaultLogger({ verbose: false });
     this.address = address;
     this.debug = true;
   }

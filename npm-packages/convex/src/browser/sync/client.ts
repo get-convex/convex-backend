@@ -4,6 +4,7 @@ import {
   createHybridErrorStacktrace,
   forwardData,
   instantiateDefaultLogger,
+  instantiateNoopLogger,
   logFatalError,
   Logger,
 } from "../logging.js";
@@ -70,12 +71,12 @@ export interface BaseConvexClientOptions {
    */
   verbose?: boolean;
   /**
-   * A logger. If not provided, logs to the console.
+   * A logger, `true`, or `false`. If not provided or `true`, logs to the console.
+   * If `false`, logs are not printed anywhere.
    *
-   * You can construct your own logger to customize logging to log elsewhere
-   * or not log at all.
+   * You can construct your own logger to customize logging to log elsewhere.
    */
-  logger?: Logger;
+  logger?: Logger | boolean;
   /**
    * Sends additional metrics to Convex for debugging purposes.
    *
@@ -255,8 +256,11 @@ export class BaseConvexClient {
     this.debug = options.reportDebugInfoToConvex ?? false;
     this.address = address;
     this.logger =
-      options.logger ??
-      instantiateDefaultLogger({ verbose: options.verbose ?? false });
+      options.logger === false
+        ? instantiateNoopLogger({ verbose: options.verbose ?? false })
+        : options.logger !== true && options.logger
+          ? options.logger
+          : instantiateDefaultLogger({ verbose: options.verbose ?? false });
     // Substitute http(s) with ws(s)
     const i = address.search("://");
     if (i === -1) {

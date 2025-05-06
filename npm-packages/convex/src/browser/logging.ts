@@ -110,6 +110,10 @@ export function instantiateDefaultLogger(options: {
   return logger;
 }
 
+export function instantiateNoopLogger(options: { verbose: boolean }): Logger {
+  return new Logger(options);
+}
+
 export function logForFunction(
   logger: Logger,
   type: "info" | "error",

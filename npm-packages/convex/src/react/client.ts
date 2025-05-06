@@ -21,7 +21,11 @@ import {
   makeFunctionReference,
 } from "../server/api.js";
 import { EmptyObject } from "../server/registration.js";
-import { instantiateDefaultLogger, Logger } from "../browser/logging.js";
+import {
+  instantiateDefaultLogger,
+  instantiateNoopLogger,
+  Logger,
+} from "../browser/logging.js";
 
 if (typeof React === "undefined") {
   throw new Error("Required dependency 'react' not found");
@@ -256,8 +260,11 @@ export class ConvexReactClient {
     this.address = address;
     this.listeners = new Map();
     this._logger =
-      options?.logger ??
-      instantiateDefaultLogger({ verbose: options?.verbose ?? false });
+      options?.logger === false
+        ? instantiateNoopLogger({ verbose: options?.verbose ?? false })
+        : options?.logger !== true && options?.logger
+          ? options.logger
+          : instantiateDefaultLogger({ verbose: options?.verbose ?? false });
     this.options = { ...options, logger: this._logger };
   }
 
