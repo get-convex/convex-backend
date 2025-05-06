@@ -24,6 +24,8 @@ pub struct BackendInfoPersisted {
     pub project: ProjectId,
     pub deployment: DeploymentId,
     pub deployment_type: DeploymentType,
+    pub project_name: Option<String>,
+    pub project_slug: Option<String>,
 
     // Entitlements
     pub streaming_export_enabled: bool,
@@ -38,6 +40,8 @@ impl From<BackendInfoPersisted> for BackendInfo {
             project_id: bi.project,
             deployment_id: bi.deployment,
             deployment_type: bi.deployment_type,
+            project_name: bi.project_name,
+            project_slug: bi.project_slug,
             streaming_export_enabled: Some(bi.streaming_export_enabled),
             provision_concurrency: Some(bi.provision_concurrency),
             log_streaming_enabled: Some(bi.log_streaming_enabled),
@@ -51,6 +55,8 @@ impl From<BackendInfo> for BackendInfoPersisted {
             team: bi.team_id,
             project: bi.project_id,
             deployment: bi.deployment_id,
+            project_name: bi.project_name,
+            project_slug: bi.project_slug,
             streaming_export_enabled: bi.streaming_export_enabled.unwrap_or_default(),
             deployment_type: bi.deployment_type,
             provision_concurrency: bi
@@ -85,6 +91,8 @@ impl TryFrom<BackendInfoPersisted> for ConvexObject {
             "streamingExportEnabled" => b.streaming_export_enabled,
             "provisionConcurrency" => (b.provision_concurrency as i64),
             "logStreamingEnabled" => b.log_streaming_enabled,
+            "projectName" => b.project_name,
+            "projectSlug" => b.project_slug,
         )
     }
 }
@@ -134,11 +142,23 @@ impl TryFrom<ConvexObject> for BackendInfoPersisted {
             object_fields.remove("logStreamingEnabled"),
             Some(ConvexValue::Boolean(true))
         );
+
+        let project_name = match object_fields.remove("projectName") {
+            Some(ConvexValue::String(s)) => Some(s.to_string()),
+            _ => None,
+        };
+        let project_slug = match object_fields.remove("projectSlug") {
+            Some(ConvexValue::String(s)) => Some(s.to_string()),
+            _ => None,
+        };
+
         Ok(Self {
             team,
             project,
             deployment,
             deployment_type,
+            project_name,
+            project_slug,
             streaming_export_enabled,
             provision_concurrency,
             log_streaming_enabled,

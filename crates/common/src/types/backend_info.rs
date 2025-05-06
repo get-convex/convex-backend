@@ -17,6 +17,9 @@ pub const DEFAULT_PROVISION_CONCURRENCY: i32 = 0;
 pub struct BackendInfo {
     pub team_id: TeamId,
     pub project_id: ProjectId,
+    pub project_name: Option<String>,
+    pub project_slug: Option<String>,
+
     pub deployment_id: DeploymentId,
     pub deployment_type: DeploymentType,
 
@@ -34,6 +37,8 @@ impl Default for BackendInfo {
             project_id: ProjectId(17),
             deployment_id: DeploymentId(2021),
             deployment_type: DeploymentType::Dev,
+            project_name: Some("Default Project".to_string()),
+            project_slug: Some("default-project".to_string()),
             streaming_export_enabled: Some(false),
             provision_concurrency: Some(DEFAULT_PROVISION_CONCURRENCY),
             log_streaming_enabled: Some(false),
