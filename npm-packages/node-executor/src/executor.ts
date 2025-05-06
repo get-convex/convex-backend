@@ -29,6 +29,11 @@ import { buildDeps, BuildDepsRequest } from "./build_deps";
 import { ConvexError, JSONValue } from "convex/values";
 import { logDebug, logDurationMs } from "./log";
 
+const AWS_LAMBDA_FUNCTION_MEMORY_SIZE = parseInt(
+  process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ?? "512",
+  10,
+);
+
 // When we bundle commonJS modules as ESM with esbuild, the bundled code might still use
 // `require`, exports, module, __dirname or __filename despite being in ESM.
 //
@@ -96,6 +101,7 @@ export async function invoke(
   }
 
   logDurationMs("Total invocation time", start);
+  logDebug(`Memory allocated: ${AWS_LAMBDA_FUNCTION_MEMORY_SIZE}MB`);
   responseStream.write(JSON.stringify(result));
 }
 
@@ -180,17 +186,6 @@ export async function execute(
   const local = await maybeDownloadAndLinkPackages(request.sourcePackage);
   const downloadTimeMs = logDurationMs("downloadTime", start);
 
-  // Grab this value before we sanitize the environment variables.
-  const memoryAllocatedMb = parseInt(
-    process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ?? "512",
-    10,
-  );
-  if (process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE === undefined) {
-    logDebug(
-      "AWS_LAMBDA_FUNCTION_MEMORY_SIZE is not set, using default of 512MB",
-    );
-  }
-
   const syscalls = new SyscallsImpl(
     request.udfPath,
     request.requestId,
@@ -237,7 +232,7 @@ export async function execute(
     downloadTimeMs,
     totalExecutorTimeMs,
     syscallTrace: syscalls.syscallTrace,
-    memoryAllocatedMb,
+    memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
   };
 }
 
