@@ -561,8 +561,21 @@ version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b756939cb2f8dc900aa6dcd505e6e2428e9cae7ff7b028c49e3946efa70878"
 dependencies = [
- "aws-lc-sys",
+ "aws-lc-sys 0.28.0",
  "zeroize",
+]
+
+[[package]]
+name = "aws-lc-sys"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77926887776171ced7d662120a75998e444d3750c951abfe07f90da130514b1f"
+dependencies = [
+ "bindgen",
+ "cc",
+ "cmake",
+ "dunce",
+ "fs_extra",
 ]
 
 [[package]]
@@ -4608,11 +4621,14 @@ dependencies = [
  "model",
  "multer",
  "must-let",
+ "openssl",
  "p256 0.13.2",
  "p384",
  "parking_lot",
  "pb",
  "phf",
+ "pkcs1",
+ "pkcs8 0.10.2",
  "pretty_assertions",
  "prometheus",
  "proptest",
@@ -4622,7 +4638,6 @@ dependencies = [
  "rand_chacha 0.9.0",
  "regex",
  "ring",
- "rsa",
  "runtime",
  "search",
  "semver 1.0.23",
@@ -6070,6 +6085,7 @@ version = "0.9.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8288979acd84749c744a9014b4382d42b8f7b2592847b5afb2ed29e5d16ede07"
 dependencies = [
+ "aws-lc-sys 0.27.1",
  "cc",
  "libc",
  "openssl-src",

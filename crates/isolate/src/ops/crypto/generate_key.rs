@@ -1,5 +1,9 @@
 use anyhow::Context as _;
 use deno_core::ToJsBuffer;
+use openssl::{
+    bn::BigNum,
+    rsa::Rsa,
+};
 use ring::{
     rand::SecureRandom,
     signature::{
@@ -7,10 +11,6 @@ use ring::{
         Ed25519KeyPair,
         KeyPair,
     },
-};
-use rsa::pkcs1::{
-    EncodeRsaPrivateKey,
-    EncodeRsaPublicKey,
 };
 
 use super::{
@@ -35,16 +35,17 @@ impl CryptoOps {
                 modulus_length,
                 public_exponent,
             } => {
-                let exp = rsa::BigUint::from_bytes_be(&public_exponent);
-                let private_key =
-                    rsa::RsaPrivateKey::new_with_exp(&mut rng.rsa(), modulus_length, &exp)?;
-                let public_key = private_key.to_public_key();
+                let exp = BigNum::from_slice(&public_exponent)?;
+                let private_key = Rsa::generate_with_e(
+                    modulus_length.try_into().context("bad modulus length")?,
+                    &exp,
+                )?;
                 Ok(GeneratedKeypair {
                     private_raw_data: GeneratedKey::KeyData(RustRawKeyData::Private(
-                        private_key.to_pkcs1_der()?.as_bytes().to_vec().into(),
+                        private_key.private_key_to_der()?.into(),
                     )),
                     public_raw_data: GeneratedKey::KeyData(RustRawKeyData::Public(
-                        public_key.to_pkcs1_der()?.into_vec().into(),
+                        private_key.public_key_to_der_pkcs1()?.into(),
                     )),
                 })
             },

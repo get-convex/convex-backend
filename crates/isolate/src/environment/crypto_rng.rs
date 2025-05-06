@@ -13,9 +13,4 @@ impl CryptoRng {
     pub fn ring(&self) -> ring::rand::SystemRandom {
         ring::rand::SystemRandom::new()
     }
-
-    /// Returns an `rsa`-compatible random number generator
-    pub fn rsa(&self) -> rsa::rand_core::OsRng {
-        rsa::rand_core::OsRng
-    }
 }

@@ -5,18 +5,18 @@ use anyhow::Context as _;
 use deno_core::ToJsBuffer;
 use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::EncodePrivateKey;
+use pkcs1::UintRef;
 use ring::signature::EcdsaKeyPair;
-use rsa::{
-    pkcs1::UintRef,
-    pkcs8::der::Decode as RsaDecode,
-};
 use serde::{
     Deserialize,
     Serialize,
 };
 use serde_bytes::ByteBuf;
 use spki::{
-    der::Encode as SpkiEncode,
+    der::{
+        Decode as _,
+        Encode as SpkiEncode,
+    },
     SubjectPublicKeyInfoRef,
 };
 
@@ -142,7 +142,7 @@ fn import_key_rsa_jwk(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             jwt_b64_int_or_err!(modulus, &n, "invalid modulus");
             jwt_b64_int_or_err!(public_exponent, &e, "invalid public exponent");
 
-            let public_key = rsa::pkcs1::RsaPublicKey {
+            let public_key = pkcs1::RsaPublicKey {
                 modulus,
                 public_exponent,
             };
@@ -179,7 +179,7 @@ fn import_key_rsa_jwk(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             jwt_b64_int_or_err!(exponent2, &dq, "invalid second CRT exponent");
             jwt_b64_int_or_err!(coefficient, &qi, "invalid CRT coefficient");
 
-            let private_key = rsa::pkcs1::RsaPrivateKey {
+            let private_key = pkcs1::RsaPrivateKey {
                 modulus,
                 public_exponent,
                 private_exponent,
@@ -227,9 +227,8 @@ fn import_key_rsassa(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             }
 
             // 8-9.
-            let public_key =
-                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
-                    .map_err(|e| data_error(e.to_string()))?;
+            let public_key = pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = public_key
                 .encoded_len()
@@ -264,7 +263,7 @@ fn import_key_rsassa(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             }
 
             // 8-9.
-            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key)
+            let private_key = pkcs1::RsaPrivateKey::from_der(pk_info.private_key)
                 .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = private_key
@@ -308,9 +307,8 @@ fn import_key_rsapss(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             }
 
             // 8-9.
-            let public_key =
-                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
-                    .map_err(|e| data_error(e.to_string()))?;
+            let public_key = pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = public_key
                 .encoded_len()
@@ -345,7 +343,7 @@ fn import_key_rsapss(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             }
 
             // 8-9.
-            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key)
+            let private_key = pkcs1::RsaPrivateKey::from_der(pk_info.private_key)
                 .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = private_key
@@ -389,9 +387,8 @@ fn import_key_rsaoaep(key_data: KeyData) -> Result<ImportKeyResult, anyhow::Erro
             }
 
             // 8-9.
-            let public_key =
-                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
-                    .map_err(|e| data_error(e.to_string()))?;
+            let public_key = pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = public_key
                 .encoded_len()
@@ -426,7 +423,7 @@ fn import_key_rsaoaep(key_data: KeyData) -> Result<ImportKeyResult, anyhow::Erro
             }
 
             // 8-9.
-            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(pk_info.private_key)
+            let private_key = pkcs1::RsaPrivateKey::from_der(pk_info.private_key)
                 .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = private_key

@@ -7,13 +7,6 @@ use deno_core::ToJsBuffer;
 use elliptic_curve::sec1::ToEncodedPoint;
 use errors::ErrorMetadata;
 use p256::pkcs8::DecodePrivateKey;
-use rsa::{
-    pkcs1::{
-        DecodeRsaPrivateKey,
-        EncodeRsaPublicKey,
-    },
-    RsaPrivateKey,
-};
 use serde::{
     Deserialize,
     Serialize,
@@ -67,15 +60,14 @@ impl V8RawKeyData {
         match self {
             V8RawKeyData::Public(data) => Ok(Cow::Borrowed(data)),
             V8RawKeyData::Private(data) => {
-                let private_key = RsaPrivateKey::from_pkcs1_der(data)
+                let private_key = openssl::rsa::Rsa::private_key_from_der(data)
                     .map_err(|_| type_error("expected valid private key"))?;
 
                 let public_key_doc = private_key
-                    .to_public_key()
-                    .to_pkcs1_der()
+                    .public_key_to_der()
                     .map_err(|_| type_error("expected valid public key"))?;
 
-                Ok(Cow::Owned(public_key_doc.as_bytes().into()))
+                Ok(Cow::Owned(public_key_doc))
             },
             _ => Err(type_error("expected public key")),
         }

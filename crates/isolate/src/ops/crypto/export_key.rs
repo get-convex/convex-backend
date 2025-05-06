@@ -8,21 +8,20 @@ use const_oid::{
 use deno_core::ToJsBuffer;
 use elliptic_curve::sec1::ToEncodedPoint;
 use p256::pkcs8::DecodePrivateKey;
-use rsa::{
-    pkcs1::der::Decode,
-    pkcs8::der::{
-        asn1::UintRef,
-        Encode,
-    },
-};
+use pkcs1::UintRef;
 use serde::{
     Deserialize,
     Serialize,
 };
 use spki::{
     der::{
-        asn1,
-        asn1::BitString,
+        self,
+        asn1::{
+            self,
+            BitString,
+        },
+        Decode as _,
+        Encode as _,
     },
     AlgorithmIdentifier,
     AlgorithmIdentifierOwned,
@@ -176,16 +175,14 @@ fn export_key_rsa(
 
             // version is 0 when publickey is None
 
-            let pk_info = rsa::pkcs8::PrivateKeyInfo {
+            let pk_info = pkcs8::PrivateKeyInfo {
                 public_key: None,
-                algorithm: rsa::pkcs8::AlgorithmIdentifierRef {
+                algorithm: pkcs8::AlgorithmIdentifierRef {
                     // rsaEncryption(1)
-                    oid: rsa::pkcs8::ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1"),
+                    oid: pkcs8::ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1"),
                     // parameters field should not be omitted (None).
                     // It MUST have ASN.1 type NULL as per defined in RFC 3279 Section 2.3.1
-                    parameters: Some(rsa::pkcs8::der::asn1::AnyRef::from(
-                        rsa::pkcs8::der::asn1::Null,
-                    )),
+                    parameters: Some(der::asn1::AnyRef::from(der::asn1::Null)),
                 },
                 private_key,
             };
@@ -198,7 +195,7 @@ fn export_key_rsa(
         },
         ExportKeyFormat::JwkPublic => {
             let public_key = key_data.as_rsa_public_key()?;
-            let public_key = rsa::pkcs1::RsaPublicKey::from_der(&public_key).map_err(|_| {
+            let public_key = pkcs1::RsaPublicKey::from_der(&public_key).map_err(|_| {
                 custom_error("DOMExceptionOperationError", "failed to decode public key")
             })?;
 
@@ -209,7 +206,7 @@ fn export_key_rsa(
         },
         ExportKeyFormat::JwkPrivate => {
             let private_key = key_data.as_rsa_private_key()?;
-            let private_key = rsa::pkcs1::RsaPrivateKey::from_der(private_key).map_err(|_| {
+            let private_key = pkcs1::RsaPrivateKey::from_der(private_key).map_err(|_| {
                 custom_error("DOMExceptionOperationError", "failed to decode private key")
             })?;
 

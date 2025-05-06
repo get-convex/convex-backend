@@ -10,6 +10,7 @@ use spki::{
         Decode,
         Encode,
     },
+    AlgorithmIdentifierRef,
     SubjectPublicKeyInfo,
 };
 
@@ -86,9 +87,9 @@ impl CryptoOps {
 
     pub fn export_pkcs8_x25519(pkey: &[u8]) -> Result<ToJsBuffer, AnyError> {
         // This should probably use OneAsymmetricKey instead
-        let pk_info = rsa::pkcs8::PrivateKeyInfo {
+        let pk_info = PrivateKeyInfo {
             public_key: None,
-            algorithm: rsa::pkcs8::AlgorithmIdentifierRef {
+            algorithm: AlgorithmIdentifierRef {
                 // id-X25519
                 oid: X25519_OID,
                 parameters: None,

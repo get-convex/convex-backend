@@ -12,6 +12,14 @@ use std::num::NonZeroU32;
 
 use anyhow::Context;
 use deno_core::ToJsBuffer;
+use openssl::{
+    pkey::PKey,
+    rsa::Rsa,
+    sign::{
+        RsaPssSaltlen,
+        Verifier,
+    },
+};
 use rand::Rng;
 use ring::{
     aead::{
@@ -34,31 +42,11 @@ use ring::{
         KeyPair,
     },
 };
-use rsa::{
-    pkcs1::{
-        DecodeRsaPrivateKey,
-        DecodeRsaPublicKey,
-    },
-    signature::{
-        RandomizedSigner,
-        SignatureEncoding,
-        Signer,
-        Verifier,
-    },
-    RsaPrivateKey,
-    RsaPublicKey,
-};
 use serde::{
     Deserialize,
     Serialize,
 };
 use serde_bytes::ByteBuf;
-use sha1::Sha1;
-use sha2::{
-    Sha256,
-    Sha384,
-    Sha512,
-};
 use uuid::Uuid;
 
 use self::{
@@ -73,7 +61,6 @@ use self::{
     shared::{
         not_supported,
         type_error,
-        AnyError,
         RustRawKeyData,
         V8RawKeyData,
     },
@@ -370,6 +357,17 @@ impl From<CryptoHash> for &'static digest::Algorithm {
     }
 }
 
+impl From<CryptoHash> for openssl::hash::MessageDigest {
+    fn from(hash: CryptoHash) -> openssl::hash::MessageDigest {
+        match hash {
+            CryptoHash::Sha1 => openssl::hash::MessageDigest::sha1(),
+            CryptoHash::Sha256 => openssl::hash::MessageDigest::sha256(),
+            CryptoHash::Sha384 => openssl::hash::MessageDigest::sha384(),
+            CryptoHash::Sha512 => openssl::hash::MessageDigest::sha512(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub enum CryptoNamedCurve {
     #[serde(rename = "P-256")]
@@ -552,62 +550,43 @@ impl CryptoOps {
         named_curve: Option<CryptoNamedCurve>,
     ) -> anyhow::Result<Vec<u8>> {
         let signature = match algorithm {
-            Algorithm::RsassaPkcs1v15 => {
-                use rsa::pkcs1v15::SigningKey;
-                let private_key = RsaPrivateKey::from_pkcs1_der(key)?;
-                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
-                    CryptoHash::Sha1 => {
-                        let signing_key = SigningKey::<Sha1>::new(private_key);
-                        signing_key.sign(data)
+            Algorithm::RsassaPkcs1v15 | Algorithm::RsaPss => {
+                let key_pair: openssl::pkey::PKey<_> =
+                    Rsa::private_key_from_der(key)?.try_into()?;
+                let hash_algorithm = hash
+                    .ok_or_else(|| type_error("Missing argument hash".to_string()))?
+                    .into();
+                let padding_algorithm = match algorithm {
+                    Algorithm::RsassaPkcs1v15 => openssl::rsa::Padding::PKCS1,
+                    Algorithm::RsaPss => {
+                        // RSA-PSS uses randomized padding; this requires the
+                        // crypto RNG (although openssl-rs doesn't ask for it
+                        // explicitly)
+                        _ = rng()?;
+                        openssl::rsa::Padding::PKCS1_PSS
                     },
-                    CryptoHash::Sha256 => {
-                        let signing_key = SigningKey::<Sha256>::new(private_key);
-                        signing_key.sign(data)
-                    },
-                    CryptoHash::Sha384 => {
-                        let signing_key = SigningKey::<Sha384>::new(private_key);
-                        signing_key.sign(data)
-                    },
-                    CryptoHash::Sha512 => {
-                        let signing_key = SigningKey::<Sha512>::new(private_key);
-                        signing_key.sign(data)
-                    },
+                    _ => unreachable!(),
+                };
+                let mut signer = openssl::sign::Signer::new(hash_algorithm, &key_pair)?;
+                signer
+                    .set_rsa_padding(padding_algorithm)
+                    .context("invalid padding algorithm")?;
+                if let Algorithm::RsaPss = algorithm {
+                    signer
+                        .set_rsa_pss_saltlen(RsaPssSaltlen::custom(
+                            salt_length
+                                .context("Missing argument saltLength")?
+                                .try_into()
+                                .context("invalid saltLength")?,
+                        ))
+                        .context("invalid saltLength")?;
+                } else {
+                    anyhow::ensure!(salt_length.is_none(), "only PSS takes saltLength");
                 }
-                .to_vec()
-            },
-            Algorithm::RsaPss => {
-                use rsa::pss::SigningKey;
-                let private_key = RsaPrivateKey::from_pkcs1_der(key)?;
-                // RSA-PSS uses randomized padding; this requires the crypto RNG
-                let rng = rng()?;
-
-                let salt_len = salt_length
-                    .ok_or_else(|| type_error("Missing argument saltLength".to_string()))?
-                    as usize;
-
-                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
-                    CryptoHash::Sha1 => {
-                        let signing_key =
-                            SigningKey::<Sha1>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(&mut rng.rsa(), data)
-                    },
-                    CryptoHash::Sha256 => {
-                        let signing_key =
-                            SigningKey::<Sha256>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(&mut rng.rsa(), data)
-                    },
-                    CryptoHash::Sha384 => {
-                        let signing_key =
-                            SigningKey::<Sha384>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(&mut rng.rsa(), data)
-                    },
-                    CryptoHash::Sha512 => {
-                        let signing_key =
-                            SigningKey::<Sha512>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(&mut rng.rsa(), data)
-                    },
-                }
-                .to_vec()
+                let mut signature = vec![0; signer.len()?];
+                let actual_len = signer.sign_oneshot(&mut signature, data)?;
+                signature.truncate(actual_len);
+                signature
             },
             Algorithm::Ecdsa => {
                 let curve: &EcdsaSigningAlgorithm = named_curve.ok_or_else(not_supported)?.into();
@@ -660,66 +639,43 @@ impl CryptoOps {
         hash: Option<CryptoHash>,
     ) -> anyhow::Result<bool> {
         let verification = match algorithm {
-            Algorithm::RsassaPkcs1v15 => {
-                use rsa::pkcs1v15::{
-                    Signature,
-                    VerifyingKey,
+            Algorithm::RsassaPkcs1v15 | Algorithm::RsaPss => {
+                let hash_algorithm = hash
+                    .ok_or_else(|| type_error("Missing argument hash".to_string()))?
+                    .into();
+                let (private_key, public_key);
+                let mut verifier = match key.r#type {
+                    KeyType::Private => {
+                        private_key = PKey::try_from(Rsa::private_key_from_der(&key.data)?)?;
+                        Verifier::new(hash_algorithm, private_key.as_ref())?
+                    },
+                    KeyType::Public => {
+                        public_key = PKey::try_from(Rsa::public_key_from_der_pkcs1(&key.data)?)?;
+                        Verifier::new(hash_algorithm, public_key.as_ref())?
+                    },
+                    KeyType::Secret => anyhow::bail!("unexpected KeyType::Secret"),
                 };
-                let public_key = read_rsa_public_key(key)?;
-                let signature: Signature = signature.as_ref().try_into()?;
-                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
-                    CryptoHash::Sha1 => {
-                        let verifying_key = VerifyingKey::<Sha1>::new(public_key);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                    CryptoHash::Sha256 => {
-                        let verifying_key = VerifyingKey::<Sha256>::new(public_key);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                    CryptoHash::Sha384 => {
-                        let verifying_key = VerifyingKey::<Sha384>::new(public_key);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                    CryptoHash::Sha512 => {
-                        let verifying_key = VerifyingKey::<Sha512>::new(public_key);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                }
-            },
-            Algorithm::RsaPss => {
-                use rsa::pss::{
-                    Signature,
-                    VerifyingKey,
+                let padding_algorithm = match algorithm {
+                    Algorithm::RsassaPkcs1v15 => openssl::rsa::Padding::PKCS1,
+                    Algorithm::RsaPss => openssl::rsa::Padding::PKCS1_PSS,
+                    _ => unreachable!(),
                 };
-                let public_key = read_rsa_public_key(key)?;
-                let signature: Signature = signature.as_ref().try_into()?;
-
-                let salt_len = salt_length
-                    .ok_or_else(|| type_error("Missing argument saltLength".to_string()))?
-                    as usize;
-
-                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
-                    CryptoHash::Sha1 => {
-                        let verifying_key: VerifyingKey<Sha1> =
-                            VerifyingKey::new_with_salt_len(public_key, salt_len);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                    CryptoHash::Sha256 => {
-                        let verifying_key: VerifyingKey<Sha256> =
-                            VerifyingKey::new_with_salt_len(public_key, salt_len);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                    CryptoHash::Sha384 => {
-                        let verifying_key: VerifyingKey<Sha384> =
-                            VerifyingKey::new_with_salt_len(public_key, salt_len);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
-                    CryptoHash::Sha512 => {
-                        let verifying_key: VerifyingKey<Sha512> =
-                            VerifyingKey::new_with_salt_len(public_key, salt_len);
-                        verifying_key.verify(data, &signature).is_ok()
-                    },
+                verifier
+                    .set_rsa_padding(padding_algorithm)
+                    .context("invalid padding algorithm")?;
+                if let Algorithm::RsaPss = algorithm {
+                    verifier
+                        .set_rsa_pss_saltlen(RsaPssSaltlen::custom(
+                            salt_length
+                                .context("Missing argument saltLength")?
+                                .try_into()
+                                .context("invalid saltLength")?,
+                        ))
+                        .context("invalid saltLength")?;
+                } else {
+                    anyhow::ensure!(salt_length.is_none(), "only PSS takes saltLength");
                 }
+                verifier.verify_oneshot(signature, data)?
             },
             Algorithm::Hmac => {
                 let hash: HmacAlgorithm = hash.ok_or_else(not_supported)?.into();
@@ -890,13 +846,4 @@ impl CryptoOps {
             },
         }
     }
-}
-
-fn read_rsa_public_key(key_data: KeyData) -> Result<RsaPublicKey, AnyError> {
-    let public_key = match key_data.r#type {
-        KeyType::Private => RsaPrivateKey::from_pkcs1_der(&key_data.data)?.to_public_key(),
-        KeyType::Public => RsaPublicKey::from_pkcs1_der(&key_data.data)?,
-        KeyType::Secret => unreachable!("unexpected KeyType::Secret"),
-    };
-    Ok(public_key)
 }

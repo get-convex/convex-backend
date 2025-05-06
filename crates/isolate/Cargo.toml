@@ -50,11 +50,14 @@ mime = { workspace = true }
 model = { path = "../model" }
 multer = { workspace = true }
 must-let = { workspace = true, optional = true }
+openssl = { workspace = true }
 p256 = { workspace = true }
 p384 = { workspace = true }
 parking_lot = { workspace = true }
 pb = { path = "../pb" }
 phf = { workspace = true }
+pkcs1 = "0.7.5"
+pkcs8 = "0.10.2"
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
@@ -63,7 +66,6 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 regex = { workspace = true }
 ring = { workspace = true }
-rsa = { workspace = true }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
 semver = { workspace = true }

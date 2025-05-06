@@ -99,6 +99,7 @@ native-tls = "^0.2.10"
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "f21c7999356bd374a683d13378bd2a6c0ebdbf11", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
+openssl = { version = "0.10.72", features = [ "aws-lc" ] }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }
 phf = { version = "0.11.2", features = [ "macros" ] }
