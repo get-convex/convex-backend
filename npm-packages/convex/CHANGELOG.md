@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.24.1
+
+- Accept `true` and `false` as values for logger in all clients, making
+  disabling logs from convex functions run on a development deployment simpler:
+  it's no longer necessary write your own no-op logger.
+
 ## 1.24.0
 
 - Drop support for React 17 and remove use of `unstable_batchedUpdates` as React
