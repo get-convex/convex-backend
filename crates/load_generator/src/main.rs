@@ -52,7 +52,6 @@ use common::{
         HttpResponseError,
         NoopRouteMapper,
     },
-    metrics::register_prometheus_exporter,
 };
 use event_receiver::Event;
 use futures::{
@@ -63,6 +62,7 @@ use futures::{
 };
 use health_check::wait_for_http_health;
 use log_interleaver::LogInterleaver;
+use performance_stats::exporter::register_prometheus_exporter;
 use runtime::prod::ProdRuntime;
 use serde::{
     Deserialize,

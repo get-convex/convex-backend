@@ -1849,7 +1849,6 @@ dependencies = [
  "pb_extras",
  "pin-project",
  "prometheus",
- "prometheus-hyper",
  "proptest",
  "proptest-derive",
  "proptest-http",
@@ -6325,6 +6324,7 @@ dependencies = [
  "axum",
  "common",
  "errors",
+ "futures",
  "humansize",
  "jemalloc_pprof",
  "parking_lot",
@@ -6333,6 +6333,8 @@ dependencies = [
  "textplots",
  "tikv-jemalloc-sys",
  "tikv-jemallocator",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -6768,21 +6770,6 @@ dependencies = [
  "parking_lot",
  "protobuf",
  "thiserror 1.0.59",
-]
-
-[[package]]
-name = "prometheus-hyper"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4599cd06b4c85ba573bf2edf4e5ca5c3f32505ead7fb1f0c7d9a4b90195e1ab1"
-dependencies = [
- "bytes",
- "http-body-util",
- "hyper",
- "hyper-util",
- "prometheus",
- "tokio",
- "tracing",
 ]
 
 [[package]]

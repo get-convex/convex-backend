@@ -1,16 +1,5 @@
-use std::{
-    net::SocketAddr,
-    time::Duration,
-};
+use std::time::Duration;
 
-use futures::{
-    future::{
-        BoxFuture,
-        Either,
-    },
-    pin_mut,
-    FutureExt,
-};
 use metrics::{
     log_counter,
     log_counter_with_labels,
@@ -22,17 +11,10 @@ use metrics::{
     IntoLabel,
     StaticMetricLabel,
     Timer,
-    CONVEX_METRICS_REGISTRY,
 };
 use prometheus::{
     VMHistogram,
     VMHistogramVec,
-};
-use sync_types::backoff::Backoff;
-
-use crate::runtime::{
-    Runtime,
-    SpawnHandle,
 };
 
 register_convex_counter!(
@@ -123,48 +105,6 @@ pub fn static_repeatable_ts_timer(is_recent: bool) -> Timer<VMHistogramVec> {
 register_convex_counter!(ERRORS_REPORTED_TOTAL, "Count of errors reported", &["type"]);
 pub fn log_errors_reported_total(tag: StaticMetricLabel) {
     log_counter_with_labels(&ERRORS_REPORTED_TOTAL, 1, vec![tag]);
-}
-
-pub type FlushMetrics<RT: Runtime> = impl FnOnce() -> BoxFuture<'static, ()>;
-
-pub fn register_prometheus_exporter<RT: Runtime>(
-    rt: RT,
-    bind_addr: SocketAddr,
-) -> (Box<dyn SpawnHandle>, FlushMetrics<RT>) {
-    let rt_ = rt.clone();
-    let handle = rt.clone().spawn("prometheus_exporter", async move {
-        let mut backoff = Backoff::new(Duration::from_millis(10), Duration::from_secs(10));
-        while let Err(e) = prometheus_hyper::Server::run(
-            &*CONVEX_METRICS_REGISTRY,
-            bind_addr,
-            futures::future::pending(),
-        )
-        .await
-        {
-            let delay = backoff.fail(&mut rt.rng());
-            tracing::error!(
-                "Prometheus exporter server failed with error {e:?}, restarting after {}ms delay",
-                delay.as_millis()
-            );
-            continue;
-        }
-    });
-    let flush = || {
-        async move {
-            // Prometheus scrapes metrics every 30s.
-            let shutdown = tokio::signal::ctrl_c();
-            let flush_fut = rt_.wait(Duration::from_secs(60));
-            pin_mut!(shutdown);
-            pin_mut!(flush_fut);
-            tracing::info!("Flushing metrics (60s)... Ctrl-C to skip");
-            match futures::future::select(shutdown, flush_fut).await {
-                Either::Left(_) => tracing::info!("Got another ctrl-C, shutting down"),
-                Either::Right(_) => tracing::info!("Finished flushing metrics"),
-            }
-        }
-        .boxed()
-    };
-    (handle, flush)
 }
 
 register_convex_histogram!(LOAD_ID_TRACKER_SECONDS, "Time to load IdTracker in seconds");

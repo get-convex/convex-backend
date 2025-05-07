@@ -55,7 +55,6 @@ pb = { path = "../pb" }
 pb_extras = { path = "../pb_extras" }
 pin-project = { workspace = true }
 prometheus = { workspace = true }
-prometheus-hyper = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 proptest-http = { workspace = true, optional = true }
