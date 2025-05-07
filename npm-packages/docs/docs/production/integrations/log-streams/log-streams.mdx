@@ -78,11 +78,17 @@ schema defined below.
 Log events have a well-defined JSON schema that allow building complex,
 type-safe pipelines ingesting log events.
 
-All events will have the following two fields:
+All events will have the following three fields:
 
 - `topic`: string, categorizes a log event, one of
   `["verification", "console", "function_execution", "audit_log"]`
 - `timestamp`: number, Unix epoch timestamp in milliseconds as an integer
+- `convex`: An object containing metadata related to your Convex deployment,
+  including `deployment_name`, `deployment_type`, `project_name`, and
+  `project_slug`.
+
+Note: In the Axiom integration, event-specific information will be available
+under the `data` field.
 
 ### `verification` events
 
@@ -149,10 +155,22 @@ Schema:
 - `mutation_retry_count`: number, the number of previous failed executions (for
   mutations only) run before a successful one. Only applicable to mutations and
   actions.
+- `occ_info`: object, if the function call resulted in an OCC (write conflict
+  between two functions), this field will be present and contain information
+  relating to the OCC.
+  [Learn more about write conflicts](https://docs.convex.dev/error/#1).
+  - `table_name`: table the conflict occurred in
+  - `document_id`: Id of the document that received conflicting writes
+  - `write_source`: name of the function that conflicted writes against
+    `table_name`
+  - `retry_count`: the number of previously failed attempts before the current
+    function execution
 - `usage`:
   - `database_read_bytes`: number
   - `database_write_bytes`: number, this and `database_read_bytes` make up the
     database bandwidth used by the function
+  - `database_read_documents`: number, the number of documents read by the
+    function
   - `file_storage_read_bytes`: number
   - `file_storage_write_bytes`: number, this and `file_storage_read_bytes` make
     up the file bandwidth used by the function
@@ -180,6 +198,7 @@ Example event for a query:
     "usage": {
       "database_read_bytes": 1077,
       "database_write_bytes": 0,
+      "database_read_documents": 3,
       "file_storage_read_bytes": 0,
       "file_storage_write_bytes": 0,
       "vector_storage_read_bytes": 0,
@@ -201,6 +220,18 @@ The following fields are added under `function` for all `console` and
 - `request_id`: string, the
   [request ID](/docs/functions/debugging.mdx#finding-relevant-logs-by-request-id)
   of the function.
+
+### `scheduled_job_lag` events
+
+These events are periodically sent by the scheduler reporting the delay in
+executing your scheduled functions.
+
+Schema:
+
+- `topic`: `"scheduled_job_lag"`
+- `timestamp`: Unix epoch timestamp in milliseconds
+- `lag_seconds`: The difference between `timestamp` and the scheduled run time
+  of the oldest overdue scheduled job, in seconds.
 
 ### `audit_log` events
 
