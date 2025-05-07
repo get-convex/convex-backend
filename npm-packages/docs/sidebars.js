@@ -13,6 +13,34 @@ const sidebars = {
       className: "convex-sidebar-home",
     },
     {
+      type: "link",
+      href: "https://dashboard.convex.dev",
+      label: "Dashboard",
+      className:
+        "convex-sidebar-dashboard convex-sidebar-mobile-only convex-sidebar-external-link",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/",
+      label: "Blog",
+      className:
+        "convex-sidebar-stack convex-sidebar-mobile-only convex-sidebar-external-link",
+    },
+    {
+      type: "link",
+      href: "https://github.com/get-convex",
+      label: "GitHub",
+      className:
+        "convex-sidebar-github convex-sidebar-mobile-only convex-sidebar-external-link",
+    },
+    {
+      type: "link",
+      href: "https://convex.dev/community",
+      label: "Discord",
+      className:
+        "convex-sidebar-discord convex-sidebar-mobile-only convex-sidebar-external-link",
+    },
+    {
       type: "html",
       value: '<hr class="convex-menu-divider" />',
       defaultStyle: false,

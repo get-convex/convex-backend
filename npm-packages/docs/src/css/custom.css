@@ -142,7 +142,7 @@
 /* Fix the size of the logo when the content on the right is scrolled
 and the navbar is hidden, no good classname */
 div.convex-sidebar-header img {
-  height: 3rem;
+  height: 2.5rem;
   margin-right: 0;
 }
 
@@ -170,10 +170,25 @@ for when the whole page is scrolled down */
 
 /* Stylize "docs" in the navbar  */
 .navbar__items:not(.navbar__items--right) .navbar__item:nth-child(3) {
+  display: flex;
   font-size: 1.75rem;
   padding-left: 0;
   padding-right: 3rem;
   color: var(--convex-docs-logo-font-color);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.convex-docs-title {
+  display: none;
+}
+
+@media (min-width: 997px) {
+  .convex-docs-title {
+    display: block;
+    width: auto;
+    height: 2.5rem;
+  }
 }
 
 /* "docs" in the navbar hover */
@@ -197,7 +212,6 @@ for when the whole page is scrolled down */
     margin: var(--ifm-navbar-item-padding-vertical)
       var(--ifm-navbar-item-padding-horizontal);
     display: inline-block;
-    margin-top: 6px;
     background-color: var(--ifm-navbar-link-color);
     font-size: 0;
   }
@@ -221,6 +235,10 @@ for when the whole page is scrolled down */
     display: none;
   }
 
+  .convex-blog-button {
+    @apply ml-2;
+  }
+
   .navbar__items .convex-github-logo {
     mask: url("../../static/img/github-logo.svg") no-repeat center;
   }
@@ -233,6 +251,7 @@ for when the whole page is scrolled down */
     background-color: var(--ifm-navbar-link-hover-color);
   }
 }
+
 /* END: Icon links in top nav */
 
 /* Fix the padding around the light mode / dark mode switcher
@@ -649,6 +668,11 @@ ul.menu__list {
   background: var(--ifm-menu-color-background-active);
 }
 
+/* Navbar: Hide the default Docusaurus search box */
+.navbar__items--right [class*="searchBox_"] {
+  display: none;
+}
+
 /* Tutorial is special, it forwards to an internal page. Remove all this when we ban section pages. */
 .convex-sidebar-tutorial .menu__list-item-collapsible--active {
   background: var(--ifm-background-color);
@@ -721,9 +745,43 @@ html[data-theme="dark"] .convex-menu-header {
   min-height: 1.875rem;
 }
 
+/* Sidebar: Hide the button to go to the primary menu on mobile (we use only the secondary menu) */
+.navbar-sidebar__back {
+  display: none;
+}
+
+/* Sidebar: Fix the header layout on mobile */
+.navbar-sidebar .navbar__brand {
+  flex: 1;
+}
+
+/* Sidebar: Mobile-only items (that are shown in the navbar on larger screens) */
+@media (min-width: 997px) {
+  .convex-sidebar-mobile-only {
+    display: none;
+  }
+}
+
+/* Sidebar: Move the “external link” icon to the right */
+.convex-sidebar-external-link svg {
+  margin-left: auto;
+}
+
 /* START: Icons for each top level item */
 .convex-sidebar-home {
   --convex-icon: url("../../static/img/sidebar-icons/home.svg");
+}
+
+.convex-sidebar-stack {
+  --convex-icon: url("../../static/img/sidebar-icons/stack.svg");
+}
+
+.convex-sidebar-discord {
+  --convex-icon: url("../../static/img/sidebar-icons/discord.svg");
+}
+
+.convex-sidebar-github {
+  --convex-icon: url("../../static/img/sidebar-icons/github.svg");
 }
 
 .convex-sidebar-tutorial {
