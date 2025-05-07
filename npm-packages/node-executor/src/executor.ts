@@ -29,10 +29,24 @@ import { buildDeps, BuildDepsRequest } from "./build_deps";
 import { ConvexError, JSONValue } from "convex/values";
 import { logDebug, logDurationMs } from "./log";
 
+// Small hack to detect if we're running in the dynamic or static lambda.
+const AWS_LAMBDA_EXECUTOR_TYPE = (
+  process.env.AWS_LAMBDA_FUNCTION_NAME ?? ""
+).endsWith("-d")
+  ? "DYNAMIC"
+  : "STATIC";
+
 const AWS_LAMBDA_FUNCTION_MEMORY_SIZE = parseInt(
   process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ?? "512",
   10,
 );
+
+// We allocate extra memory (4GB) for dynamic lambdas, but don't want to charge customers for this implementation detail.
+// We report 512MB (which may be an undercharge) but this should only be a temporary state while the static lambda deploys.
+const AWS_LAMBDA_BILLED_MEMORY_SIZE =
+  AWS_LAMBDA_EXECUTOR_TYPE === "DYNAMIC"
+    ? 512
+    : AWS_LAMBDA_FUNCTION_MEMORY_SIZE;
 
 // When we bundle commonJS modules as ESM with esbuild, the bundled code might still use
 // `require`, exports, module, __dirname or __filename despite being in ESM.
@@ -102,6 +116,14 @@ export async function invoke(
 
   logDurationMs("Total invocation time", start);
   logDebug(`Memory allocated: ${AWS_LAMBDA_FUNCTION_MEMORY_SIZE}MB`);
+  if (
+    AWS_LAMBDA_EXECUTOR_TYPE === "DYNAMIC" &&
+    AWS_LAMBDA_BILLED_MEMORY_SIZE !== AWS_LAMBDA_FUNCTION_MEMORY_SIZE
+  ) {
+    logDebug(
+      `Dynamic executor used: reporting ${AWS_LAMBDA_BILLED_MEMORY_SIZE}MB of billed memory`,
+    );
+  }
   responseStream.write(JSON.stringify(result));
 }
 
@@ -232,7 +254,7 @@ export async function execute(
     downloadTimeMs,
     totalExecutorTimeMs,
     syscallTrace: syscalls.syscallTrace,
-    memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
+    memoryAllocatedMb: AWS_LAMBDA_BILLED_MEMORY_SIZE,
   };
 }
 
