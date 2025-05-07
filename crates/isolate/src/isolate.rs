@@ -8,7 +8,6 @@ use std::{
 
 use anyhow::Context as _;
 use common::{
-    errors::TIMEOUT_ERROR_MESSAGE,
     knobs::{
         FUNRUN_INITIAL_PERMIT_TIMEOUT,
         ISOLATE_MAX_HEAP_EXTRA_SIZE,
@@ -300,8 +299,8 @@ impl<RT: Runtime> Isolate<RT> {
             permit = self.limiter.acquire(client_id) => permit,
             () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT) => {
                 anyhow::bail!(ErrorMetadata::rejected_before_execution(
-                    "SystemTimeoutError",
-                    TIMEOUT_ERROR_MESSAGE,
+                    "InitialPermitTimeoutError",
+                    "Couldn't acquire a permit on this funrun",
                 ));
             }
         };
