@@ -78,7 +78,7 @@ export class ConvexClient {
     | ReturnType<typeof setTimeout>
     | undefined;
   private _closed: boolean;
-  disabled: boolean;
+  private _disabled: boolean;
   /**
    * Once closed no registered callbacks will fire again.
    */
@@ -88,6 +88,9 @@ export class ConvexClient {
   get client(): BaseConvexClient {
     if (this._client) return this._client;
     throw new Error("ConvexClient is disabled");
+  }
+  get disabled(): boolean {
+    return this._disabled;
   }
 
   /**
@@ -101,7 +104,7 @@ export class ConvexClient {
     }
     const { disabled, ...baseOptions } = options;
     this._closed = false;
-    this.disabled = !!disabled;
+    this._disabled = !!disabled;
     if (
       defaultWebSocketConstructor &&
       !("webSocketConstructor" in baseOptions) &&
@@ -254,13 +257,14 @@ export class ConvexClient {
    * `fetchToken` will be called automatically again if a token expires.
    * `fetchToken` should return `null` if the token cannot be retrieved, for example
    * when the user's rights were permanently revoked.
-   * @param fetchToken - an async function returning the JWT-encoded OpenID Connect Identity Token
+   * @param fetchToken - an async function returning the JWT (typically an OpenID Connect Identity Token)
    * @param onChange - a callback that will be called when the authentication status changes
    */
   setAuth(
     fetchToken: AuthTokenFetcher,
     onChange?: (isAuthenticated: boolean) => void,
   ) {
+    if (this.disabled) return;
     this.client.setAuth(
       fetchToken,
       onChange ??
