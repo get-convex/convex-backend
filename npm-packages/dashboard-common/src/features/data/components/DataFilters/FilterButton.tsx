@@ -61,8 +61,7 @@ export function FilterButton({
       icon={<MixerHorizontalIcon className="size-3.5" />}
       focused={open}
       className={cn(
-        "w-fit rounded-l-none text-xs border border-border-transparent",
-        open && "rounded-b-none border-b-0",
+        "w-fit rounded-l-none text-xs border-0 border-l",
         hasAnyEnabledFilters &&
           "bg-blue-100/50 dark:bg-blue-700/50 hover:bg-blue-100/70 dark:hover:bg-blue-700/70",
       )}
