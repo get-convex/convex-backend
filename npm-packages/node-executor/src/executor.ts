@@ -27,7 +27,7 @@ import { Syscalls, SyscallsImpl } from "./syscalls";
 import { SourcePackage, maybeDownloadAndLinkPackages } from "./source_package";
 import { buildDeps, BuildDepsRequest } from "./build_deps";
 import { ConvexError, JSONValue } from "convex/values";
-import { logDebug, logDurationMs } from "./log";
+import { log, logDebug, logDurationMs } from "./log";
 
 // Small hack to detect if we're running in the dynamic or static lambda.
 const AWS_LAMBDA_EXECUTOR_TYPE = (
@@ -95,10 +95,39 @@ export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
   return createHash("md5").update(JSON.stringify(envs)).digest("hex");
 }
 
+function unhandledRejectionHandler(responseStream: Writable, e: unknown) {
+  // Respond with a user error.
+  log("handling unhandledRejection");
+  const response = {
+    type: "error",
+    message: `Unhandled promise rejection: ${extractErrorMessage(e)}`,
+    frames: [],
+    syscallTrace: (globalSyscalls as SyscallsImpl | null)?.syscallTrace,
+    memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
+  };
+  if (e instanceof Error) {
+    e.stack; // calls overridden prepareStackTrace
+    if ((e as any).__frameData) {
+      response.frames = JSON.parse((e as any).__frameData);
+    }
+  }
+  const json = JSON.stringify(response);
+  log(json);
+  // Use `.end()` to make sure that no other finish message makes it into the
+  // stream, then exit the process to prevent any ongoing async work from
+  // leaking into the next invocation.
+  responseStream.on("finish", () => process.exit(1));
+  responseStream.end(json);
+}
+
 export async function invoke(
   request: ExecuteRequest | AnalyzeRequest | BuildDepsRequest,
   responseStream: Writable,
 ) {
+  process.removeAllListeners("unhandledRejection");
+  process.on("unhandledRejection", (e: unknown) =>
+    unhandledRejectionHandler(responseStream, e),
+  );
   const start = performance.now();
   setupConsole(responseStream);
   numInvocations += 1;
