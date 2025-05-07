@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 
-import { Donut } from "./PlanSummary";
+import { Donut } from "./Donut";
 
 const meta: Meta<typeof Donut> = {
   component: Donut,

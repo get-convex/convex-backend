@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/design-system",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -90,6 +90,10 @@
     "./Combobox": {
       "import": "./dist/Combobox.jsx",
       "types": "./dist/Combobox.d.ts"
+    },
+    "./Donut": {
+      "import": "./dist/Donut.jsx",
+      "types": "./dist/Donut.d.ts"
     },
     "./KeyboardShortcut": {
       "import": "./dist/KeyboardShortcut.jsx",

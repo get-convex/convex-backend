@@ -43,7 +43,7 @@ export function Tooltip({
             side={side}
             align={align}
             className={classNames(
-              "z-50 break-words rounded border bg-background-secondary/70 p-1 text-center text-xs shadow-sm backdrop-blur-[2px] transition-opacity",
+              "z-50 break-words rounded border bg-background-secondary shadow-sm p-1 text-center text-xs",
               maxWidthClassName,
               contentClassName,
             )}
