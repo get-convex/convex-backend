@@ -16,7 +16,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { documentValidatorForTable } from "@common/features/data/components/Table/utils/validators";
-import { displayObjectFieldSchema, prettier } from "@common/lib/format";
+import { ValidatorTooltip } from "./ValidatorTooltip";
 
 type ColumnHeaderProps = {
   column: HeaderGroup<GenericDocument>;
@@ -76,18 +76,10 @@ export function ColumnHeader({
   // Get the validator information for the tooltip
   const documentValidator =
     activeSchema && documentValidatorForTable(activeSchema, tableName);
-  const validatorTooltip =
-    documentValidator?.type === "object" &&
-    documentValidator.value[columnName] ? (
-      <pre className="w-fit text-left">
-        <code>
-          {prettier(
-            displayObjectFieldSchema(documentValidator.value[columnName]),
-            40,
-          ).slice(0, -1)}
-        </code>
-      </pre>
-    ) : null;
+  const fieldSchema =
+    documentValidator?.type === "object"
+      ? documentValidator.value[columnName]
+      : undefined;
 
   return (
     <div
@@ -111,7 +103,11 @@ export function ColumnHeader({
           )}
         />
       )}
-      <Tooltip tip={validatorTooltip}>
+      <ValidatorTooltip
+        fieldSchema={fieldSchema}
+        columnName={columnName}
+        disableTooltip={!!isResizingColumn}
+      >
         <div
           className="flex items-center space-x-2"
           ref={ref}
@@ -173,7 +169,7 @@ export function ColumnHeader({
             </Tooltip>
           )}
         </div>
-      </Tooltip>
+      </ValidatorTooltip>
     </div>
   );
 }

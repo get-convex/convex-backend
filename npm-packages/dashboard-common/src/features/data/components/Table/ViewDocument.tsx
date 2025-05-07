@@ -1,22 +1,18 @@
 import { GenericDocument } from "convex/server";
 import { useState } from "react";
 import { TextInput } from "@ui/TextInput";
-import { Tooltip } from "@ui/Tooltip";
 import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
 import { EditDocumentField } from "@common/features/data/components/Table/EditDocumentField";
 import {
   documentValidatorForTable,
   validatorForColumn,
 } from "@common/features/data/components/Table/utils/validators";
-import {
-  SchemaJson,
-  displayObjectFieldSchema,
-  prettier,
-} from "@common/lib/format";
+import { SchemaJson, displayObjectFieldSchema } from "@common/lib/format";
 import { useNents } from "@common/lib/useNents";
 import { CopyButton } from "@common/elements/CopyButton";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { Button } from "@ui/Button";
+import { ValidatorTooltip } from "./ValidatorTooltip";
 
 export function ViewDocument({
   rows,
@@ -130,27 +126,16 @@ export function ViewDocument({
                   <div className="shrink text-xs font-medium">{column}</div>
                   {documentValidator?.type === "object" &&
                   documentValidator.value[column] ? (
-                    <Tooltip
-                      tip={
-                        <pre className="w-fit text-left">
-                          <code>
-                            {prettier(
-                              displayObjectFieldSchema(
-                                documentValidator.value[column],
-                              ),
-                              40,
-                            ).slice(0, -1)}
-                          </code>
-                        </pre>
-                      }
-                      className="mt-[-3px] max-w-[60%] truncate"
+                    <ValidatorTooltip
+                      fieldSchema={documentValidator.value[column]}
+                      columnName={column}
                     >
                       <code className="ml-auto  truncate text-right text-xs text-content-tertiary">
                         {displayObjectFieldSchema(
                           documentValidator.value[column],
                         )}
                       </code>
-                    </Tooltip>
+                    </ValidatorTooltip>
                   ) : null}
                 </div>
                 {editingColumn === column ? (
