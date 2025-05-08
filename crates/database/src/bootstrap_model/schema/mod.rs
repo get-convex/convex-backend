@@ -3,7 +3,10 @@ mod tests;
 pub mod types;
 
 use std::{
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
     time::Duration,
 };
 
@@ -115,9 +118,9 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         } else {
             None
         };
-        let schema_diff: Option<SchemaDiff> =
-            (previous_schema != next_schema).then_some(SchemaDiff {
-                previous_schema,
+        let schema_diff: Option<SchemaDiff> = (previous_schema.as_deref() != next_schema.as_ref())
+            .then_some(SchemaDiff {
+                previous_schema: previous_schema.map(Arc::unwrap_or_clone),
                 next_schema: next_schema.clone(),
             });
         if let Some(schema_id) = schema_id {
@@ -216,7 +219,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub async fn get_by_state(
         &mut self,
         state: SchemaState,
-    ) -> anyhow::Result<Option<(ResolvedDocumentId, DatabaseSchema)>> {
+    ) -> anyhow::Result<Option<(ResolvedDocumentId, Arc<DatabaseSchema>)>> {
         anyhow::ensure!(
             state.is_unique(),
             "Getting schema by state is only permitted for Pending, Validated, or Active states, \
@@ -239,7 +242,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             }
         }
         if let Some((id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
-            if active_schema == schema {
+            if *active_schema == schema {
                 if let Some((id, _pending_schema)) = self.get_by_state(SchemaState::Pending).await?
                 {
                     self.mark_overwritten(id).await?;
@@ -260,14 +263,14 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                 anyhow::bail!("Invalid schema state: both pending and validated schemas exist")
             },
             (Some((id, existing_schema)), None) => {
-                if existing_schema == schema {
+                if *existing_schema == schema {
                     return Ok((id, SchemaState::Pending));
                 } else {
                     self.mark_overwritten(id).await?;
                 }
             },
             (None, Some((id, existing_schema))) => {
-                if existing_schema == schema {
+                if *existing_schema == schema {
                     return Ok((id, SchemaState::Validated));
                 } else {
                     self.mark_overwritten(id).await?;

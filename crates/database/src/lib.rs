@@ -11,6 +11,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(cow_is_borrowed)]
 #![feature(try_find)]
+#![feature(once_cell_try)]
 
 mod bootstrap_model;
 mod committer;

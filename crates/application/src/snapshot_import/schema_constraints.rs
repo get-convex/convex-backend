@@ -1,4 +1,7 @@
-use std::collections::BTreeSet;
+use std::{
+    collections::BTreeSet,
+    sync::Arc,
+};
 
 use common::{
     bootstrap_model::schema::SchemaState,
@@ -138,7 +141,7 @@ impl ImportSchemaConstraints {
 pub type SchemasForImport = Vec<(
     TableNamespace,
     SchemaState,
-    (ResolvedDocumentId, DatabaseSchema),
+    (ResolvedDocumentId, Arc<DatabaseSchema>),
 )>;
 
 /// Documents in an imported table should match the schema.

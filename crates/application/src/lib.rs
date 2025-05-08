@@ -3395,7 +3395,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         namespace: TableNamespace,
         identity: &Identity,
-    ) -> anyhow::Result<Option<DatabaseSchema>> {
+    ) -> anyhow::Result<Option<Arc<DatabaseSchema>>> {
         let mut tx = self.begin(identity.clone()).await?;
         let mut model = SchemaModel::new(&mut tx, namespace);
         Ok(model

@@ -717,7 +717,7 @@ mod tables_to_revalidate {
         "table2" => DocumentSchema::Union(vec![object_validator!("field" => FieldValidator::required_field_type(Validator::String))]));
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &schema_validation_disabled,
-            Some(schema_validation_enabled),
+            Some(&schema_validation_enabled),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -767,7 +767,7 @@ mod tables_to_revalidate {
         "table3" => document_with_literal()?);
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &superset_db_schema,
-            Some(db_schema),
+            Some(&db_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -787,7 +787,7 @@ mod tables_to_revalidate {
 
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &db_schema_enforced,
-            Some(db_schema_unenforced),
+            Some(&db_schema_unenforced),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -830,7 +830,7 @@ mod tables_to_revalidate {
         // Skips validation in the situation described above
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
-            Some(old_schema.clone()),
+            Some(&old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -841,7 +841,7 @@ mod tables_to_revalidate {
         let new_schema = one_field_schema(literals_validator(vec!["a", "b", "d"])?)?;
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
-            Some(old_schema),
+            Some(&old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -873,7 +873,7 @@ mod tables_to_revalidate {
 
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
-            Some(old_schema),
+            Some(&old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -945,7 +945,7 @@ mod tables_to_revalidate {
 
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
-            Some(old_schema),
+            Some(&old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
             &|_name| Some(shape.clone()),
@@ -986,7 +986,7 @@ mod tables_to_revalidate {
         let table_name = TableName::from_str("table")?;
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
-            Some(old_schema),
+            Some(&old_schema),
             &id_generator.namespace(TableNamespace::test_user()),
             &VirtualSystemMapping::default(),
             &|name| {
@@ -1015,7 +1015,7 @@ mod tables_to_revalidate {
         let table_name = TableName::from_str("table")?;
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
-            Some(old_schema),
+            Some(&old_schema),
             &id_generator.namespace(TableNamespace::test_user()),
             &id_generator.virtual_system_mapping,
             &|name| {

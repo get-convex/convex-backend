@@ -1,6 +1,9 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
+use std::{
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
+    sync::Arc,
 };
 
 use anyhow::Context;
@@ -108,7 +111,7 @@ pub async fn get_schema(
         .await?;
     Ok(Json(match schema {
         None => None,
-        Some(schema) => Some(DatabaseSchemaJson::try_from(schema)?),
+        Some(schema) => Some(DatabaseSchemaJson::try_from(Arc::unwrap_or_clone(schema))?),
     }))
 }
 

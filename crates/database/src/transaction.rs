@@ -727,7 +727,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         namespace: TableNamespace,
         state: SchemaState,
-    ) -> anyhow::Result<Option<(ResolvedDocumentId, DatabaseSchema)>> {
+    ) -> anyhow::Result<Option<(ResolvedDocumentId, Arc<DatabaseSchema>)>> {
         if !self
             .table_mapping()
             .namespace(namespace)

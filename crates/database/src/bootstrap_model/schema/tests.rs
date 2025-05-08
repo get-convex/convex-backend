@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::Arc,
+};
 
 use common::{
     bootstrap_model::schema::{
@@ -54,7 +57,7 @@ async fn test_submit_same_pending_schema(rt: TestRuntime) -> anyhow::Result<()> 
     assert_eq!(state, SchemaState::Pending);
     assert_eq!(
         model.get_by_state(SchemaState::Pending).await?,
-        Some((id, db_schema.clone()))
+        Some((id, Arc::new(db_schema.clone())))
     );
 
     // Submitting the same schema should give back the same id
@@ -106,7 +109,7 @@ async fn test_submit_new_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(state, SchemaState::Pending);
     assert_eq!(
         model.get_by_state(SchemaState::Pending).await?,
-        Some((id, db_schema_1.clone()))
+        Some((id, Arc::new(db_schema_1.clone())))
     );
     // New schema submitted should replace the old pending schema
     let db_schema_2 = db_schema!("table" => DocumentSchema::Any);
@@ -114,10 +117,16 @@ async fn test_submit_new_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(schema_2_state, SchemaState::Pending);
     assert_ne!(db_schema_2_id, id);
     let pending_schema = model.get_by_state(SchemaState::Pending).await?;
-    assert_eq!(pending_schema, Some((db_schema_2_id, db_schema_2.clone())));
+    assert_eq!(
+        pending_schema,
+        Some((db_schema_2_id, Arc::new(db_schema_2.clone())))
+    );
     model.mark_validated(db_schema_2_id).await?;
     let validated_schema = model.get_by_state(SchemaState::Validated).await?;
-    assert_eq!(validated_schema, Some((db_schema_2_id, db_schema_2)));
+    assert_eq!(
+        validated_schema,
+        Some((db_schema_2_id, Arc::new(db_schema_2)))
+    );
     assert!(model.get_by_state(SchemaState::Pending).await?.is_none());
 
     // Submit db_schema_1 as pending again, the validated schema should be
@@ -126,7 +135,7 @@ async fn test_submit_new_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(state, SchemaState::Pending);
     assert_eq!(
         model.get_by_state(SchemaState::Pending).await?,
-        Some((id, db_schema_1.clone()))
+        Some((id, Arc::new(db_schema_1.clone())))
     );
     assert!(model.get_by_state(SchemaState::Validated).await?.is_none());
     let SchemaMetadata {

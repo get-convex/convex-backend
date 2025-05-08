@@ -741,14 +741,15 @@ async fn import_objects<RT: Runtime>(
     for (tablet_id, (namespace, _table_number, table_name)) in
         table_mapping_for_import.to_delete.clone().into_iter()
     {
-        let schema_tables = SchemaModel::new(&mut tx, namespace)
+        let schema = SchemaModel::new(&mut tx, namespace)
             .get_by_state(SchemaState::Active)
-            .await?
-            .map(|(_id, active_schema)| active_schema.tables)
-            .unwrap_or_default();
+            .await?;
+        let schema_tables = schema
+            .as_ref()
+            .map(|(_id, active_schema)| &active_schema.tables);
 
         // Delete if it's not in the schema
-        if !schema_tables.contains_key(&table_name) {
+        if !schema_tables.is_some_and(|t| t.contains_key(&table_name)) {
             continue;
         }
         // If it was written by the import, don't clear it or delete it.

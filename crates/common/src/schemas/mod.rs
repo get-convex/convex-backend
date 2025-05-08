@@ -271,7 +271,7 @@ macro_rules! db_schema_with_vector_indexes {
 impl DatabaseSchema {
     pub fn tables_to_validate<'a, C: ShapeConfig, S: ShapeCounter, F>(
         new_schema: &'a DatabaseSchema,
-        active_schema: Option<DatabaseSchema>,
+        active_schema: Option<&DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         shape_provider: &F,
@@ -290,7 +290,7 @@ impl DatabaseSchema {
                 Self::must_revalidate_table(
                     table_name,
                     table_definition,
-                    &active_schema,
+                    active_schema,
                     table_mapping,
                     virtual_system_mapping,
                     &shape_provider(table_name),
@@ -304,7 +304,7 @@ impl DatabaseSchema {
     fn must_revalidate_table<C: ShapeConfig, S: ShapeCounter>(
         table_name: &TableName,
         table_definition: &TableDefinition,
-        active_schema: &Option<DatabaseSchema>,
+        active_schema: Option<&DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         table_shape: &Option<Shape<C, S>>,

@@ -1,4 +1,10 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        OnceLock,
+    },
+};
 
 use common::{
     bootstrap_model::{
@@ -43,16 +49,17 @@ pub struct SchemaRegistry {
     // Stores schemas where state.is_unique() is true.
     namespaced: OrdMap<TableNamespace, NamespacedSchemaRegistry>,
 }
-#[derive(Debug, Clone, PartialEq)]
-struct SchemaRegistryEntry {
-    metadata: SchemaMetadata,
-    database_schema: Option<DatabaseSchema>,
-}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 struct NamespacedSchemaRegistry {
     schemas_by_state: OrdMap<SchemaState, ResolvedDocumentId>,
-    database_schemas: BTreeMap<ResolvedDocumentId, SchemaRegistryEntry>,
+    database_schemas: OrdMap<ResolvedDocumentId, Arc<SchemaRegistryEntry>>,
+}
+
+#[derive(Debug, PartialEq)]
+struct SchemaRegistryEntry {
+    metadata: SchemaMetadata,
+    database_schema: OnceLock<Arc<DatabaseSchema>>,
 }
 
 impl NamespacedSchemaRegistry {
@@ -63,27 +70,23 @@ impl NamespacedSchemaRegistry {
     }
 
     pub fn get(
-        &mut self,
+        &self,
         state: &SchemaState,
-    ) -> anyhow::Result<Option<(ResolvedDocumentId, DatabaseSchema)>> {
+    ) -> anyhow::Result<Option<(ResolvedDocumentId, Arc<DatabaseSchema>)>> {
         let doc_id = self.schemas_by_state.get(state);
         let Some(doc_id) = doc_id else {
             return Ok(None);
         };
-        let Some(entry) = self.database_schemas.get_mut(doc_id) else {
+        let Some(entry) = self.database_schemas.get(doc_id) else {
             anyhow::bail!(
                 "Schema registry missing database schema for document {}",
                 doc_id
             );
         };
-        let database_schema = match &mut entry.database_schema {
-            None => {
-                let schema = entry.metadata.database_schema()?;
-                entry.database_schema = Some(schema.clone());
-                schema
-            },
-            Some(schema) => schema.clone(),
-        };
+        let database_schema = entry
+            .database_schema
+            .get_or_try_init(|| entry.metadata.database_schema().map(Arc::new))?
+            .clone();
         Ok(Some((*doc_id, database_schema)))
     }
 
@@ -115,11 +118,17 @@ impl NamespacedSchemaRegistry {
         self.schemas_by_state.insert(state, doc.id());
         self.database_schemas.insert(
             doc.id(),
-            SchemaRegistryEntry {
-                metadata: doc.into_value(),
-                database_schema: None,
-            },
+            Arc::new(SchemaRegistryEntry::new(doc.into_value())),
         );
+    }
+}
+
+impl SchemaRegistryEntry {
+    fn new(metadata: SchemaMetadata) -> Self {
+        SchemaRegistryEntry {
+            metadata,
+            database_schema: OnceLock::new(),
+        }
     }
 }
 
@@ -136,17 +145,9 @@ impl SchemaRegistry {
                     .iter()
                     .map(|s| (s.state.clone(), s.id()))
                     .collect();
-                let database_schemas: BTreeMap<_, _> = relevant_schemas
+                let database_schemas: OrdMap<_, _> = relevant_schemas
                     .into_iter()
-                    .map(|s| {
-                        (
-                            s.id(),
-                            SchemaRegistryEntry {
-                                metadata: s.into_value(),
-                                database_schema: None,
-                            },
-                        )
-                    })
+                    .map(|s| (s.id(), Arc::new(SchemaRegistryEntry::new(s.into_value()))))
                     .collect();
                 (
                     namespace,
@@ -206,12 +207,12 @@ impl SchemaRegistry {
     }
 
     pub fn get_by_state(
-        &mut self,
+        &self,
         namespace: TableNamespace,
         state: SchemaState,
         schema_tablet: TabletId,
         reads: &mut TransactionReadSet,
-    ) -> anyhow::Result<Option<(ResolvedDocumentId, DatabaseSchema)>> {
+    ) -> anyhow::Result<Option<(ResolvedDocumentId, Arc<DatabaseSchema>)>> {
         // Reading from the schema_registry, so take read dependency
         // directly.
         let state_value = val!(state.clone());
@@ -227,7 +228,7 @@ impl SchemaRegistry {
         let interval = index_range.compile(fields.clone())?;
         reads.record_indexed_derived(TabletIndexName::by_id(schema_tablet), fields, interval);
 
-        let namespaced_registry = self.namespaced.get_mut(&namespace);
+        let namespaced_registry = self.namespaced.get(&namespace);
         let Some(namespaced_registry) = namespaced_registry else {
             return Ok(None);
         };

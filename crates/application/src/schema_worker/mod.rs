@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    sync::Arc,
     time::Duration,
 };
 
@@ -64,9 +65,9 @@ pub struct PendingSchemaWork {
     timer: StatusTimer,
     table_mapping: NamespacedTableMapping,
     virtual_system_mapping: VirtualSystemMapping,
-    db_schema: DatabaseSchema,
+    db_schema: Arc<DatabaseSchema>,
     ts: RepeatableTimestamp,
-    active_schema: Option<DatabaseSchema>,
+    active_schema: Option<Arc<DatabaseSchema>>,
     by_id_indexes: BTreeMap<TabletId, IndexId>,
 }
 
@@ -150,7 +151,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         {
             let tables_to_check = DatabaseSchema::tables_to_validate(
                 &db_schema,
-                active_schema,
+                active_schema.as_deref(),
                 &table_mapping,
                 &virtual_system_mapping,
                 &|table_name| {
