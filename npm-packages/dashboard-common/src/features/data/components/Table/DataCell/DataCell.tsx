@@ -41,6 +41,7 @@ import { useNents } from "@common/lib/useNents";
 import { getReferencedTableName } from "@common/lib/utils";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { Tooltip } from "@ui/Tooltip";
+import { cn } from "@ui/cn";
 
 export type DataCellProps = {
   value: Value;
@@ -290,7 +291,7 @@ function DataCellImpl({
                 y: cellRef.current.getBoundingClientRect().top,
               })
             }
-            className={classNames(
+            className={cn(
               buttonClasses({ size: "xs", variant: "neutral" }),
               "absolute z-20 shadow-sm",
               isFocused && "focused",
