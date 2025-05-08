@@ -3142,8 +3142,8 @@ importers:
         specifier: ^144.0.0
         version: 144.0.0(encoding@0.1.13)
       stripe:
-        specifier: ^10.14.0
-        version: 10.17.0
+        specifier: ^18.0.0
+        version: 18.1.0(@types/node@18.19.70)
       twilio:
         specifier: ^5.0.0
         version: 5.5.0
@@ -19999,9 +19999,14 @@ packages:
   strip-literal@2.1.1:
     resolution: {integrity: sha512-631UJ6O00eNGfMiWG78ck80dfBab8X6IVFB51jZK5Icd7XAs60Z5y7QdSd/wGIklnWvRbUNloVzhOKKmutxQ6Q==}
 
-  stripe@10.17.0:
-    resolution: {integrity: sha512-JHV2KoL+nMQRXu3m9ervCZZvi4DDCJfzHUE6CmtJxR9TmizyYfrVuhGvnsZLLnheby9Qrnf4Hq6iOEcejGwnGQ==}
-    engines: {node: ^8.1 || >=10.*}
+  stripe@18.1.0:
+    resolution: {integrity: sha512-MLDiniPTHqcfIT3anyBPmOEcaiDhYa7/jRaNypQ3Rt2SJnayQZBvVbFghIziUCZdltGAndm/ZxVOSw6uuSCDig==}
+    engines: {node: '>=12.*'}
+    peerDependencies:
+      '@types/node': '>=12.x.x'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   strnum@1.0.5:
     resolution: {integrity: sha512-J8bbNyKKXl5qYcR36TIO8W3mVGVHrmmxsd5PAItGkmyzwJvybiw2IVq5nqd0i4LSNSkB/sx9VHllbfFdr9k1JA==}
@@ -28951,7 +28956,7 @@ snapshots:
       '@storybook/client-logger': 7.6.20
       '@storybook/core-events': 7.6.20
       '@storybook/global': 5.0.0
-      qs: 6.13.1
+      qs: 6.14.0
       telejson: 7.2.0
       tiny-invariant: 1.3.3
 
@@ -44357,10 +44362,11 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  stripe@10.17.0:
+  stripe@18.1.0(@types/node@18.19.70):
     dependencies:
+      qs: 6.14.0
+    optionalDependencies:
       '@types/node': 18.19.70
-      qs: 6.13.1
 
   strnum@1.0.5: {}
 
