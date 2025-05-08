@@ -122,7 +122,7 @@ export function ScheduledFunctionsContentToolbar() {
                   )}
                 </span>
               ) : (
-                "all functions"
+                `all functions${currentOpenFunction?.componentPath ? " in the selected component." : ""}`
               )}
               .
             </div>
