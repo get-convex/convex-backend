@@ -72,7 +72,7 @@ const PAUSE_DURING_GENERATE_VALUE_LABEL: &str = "generate_value";
 /// errors for other requests to the same key that happen to be waiting. The
 /// cost is that we have to spawn more value calculating threads and that the
 /// desired concurrency of the cache may not match that of the caller.
-pub struct AsyncLru<RT: Runtime, Key, Value> {
+pub struct AsyncLru<RT: Runtime, Key, Value: ?Sized> {
     runtime: RT,
     inner: Arc<Mutex<Inner<RT, Key, Value>>>,
     label: &'static str,
@@ -80,9 +80,9 @@ pub struct AsyncLru<RT: Runtime, Key, Value> {
 }
 
 pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
-pub type ValueGenerator<Key, Value> = BoxFuture<'static, HashMap<Key, anyhow::Result<Value>>>;
+pub type ValueGenerator<Key, Value> = BoxFuture<'static, HashMap<Key, anyhow::Result<Arc<Value>>>>;
 
-impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
+impl<RT: Runtime, Key, Value: ?Sized> Clone for AsyncLru<RT, Key, Value> {
     fn clone(&self) -> Self {
         Self {
             runtime: self.runtime.clone(),
@@ -92,7 +92,7 @@ impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
         }
     }
 }
-enum CacheResult<Value> {
+enum CacheResult<Value: ?Sized> {
     Ready {
         value: Arc<Value>,
         // Memoize the size to guard against implementations of `SizedValue`
@@ -105,7 +105,7 @@ enum CacheResult<Value> {
     },
 }
 
-impl<Value: SizedValue> SizedValue for CacheResult<Value> {
+impl<Value: SizedValue + ?Sized> SizedValue for CacheResult<Value> {
     fn size(&self) -> u64 {
         match self {
             CacheResult::Ready { size, .. } => *size,
@@ -114,7 +114,7 @@ impl<Value: SizedValue> SizedValue for CacheResult<Value> {
     }
 }
 
-struct Inner<RT: Runtime, Key, Value> {
+struct Inner<RT: Runtime, Key, Value: ?Sized> {
     cache: LruCache<Key, CacheResult<Value>>,
     current_size: u64,
     max_size: u64,
@@ -122,7 +122,7 @@ struct Inner<RT: Runtime, Key, Value> {
     tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value>>,
 }
 
-impl<RT: Runtime, Key, Value> Inner<RT, Key, Value> {
+impl<RT: Runtime, Key, Value: ?Sized> Inner<RT, Key, Value> {
     fn new(
         cache: LruCache<Key, CacheResult<Value>>,
         max_size: u64,
@@ -176,7 +176,7 @@ type BuildValueRequest<Key, Value> = (
     async_broadcast::Sender<BuildValueResult<Value>>,
 );
 
-enum Status<Value> {
+enum Status<Value: ?Sized> {
     Ready(Arc<Value>),
     Waiting(async_broadcast::Receiver<BuildValueResult<Value>>),
     Kickoff(
@@ -185,7 +185,7 @@ enum Status<Value> {
     ),
 }
 
-impl<Value> std::fmt::Display for Status<Value> {
+impl<Value: ?Sized> std::fmt::Display for Status<Value> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Status::Ready(_) => write!(f, "Ready"),
@@ -198,7 +198,7 @@ impl<Value> std::fmt::Display for Status<Value> {
 impl<
         RT: Runtime,
         Key: Hash + Eq + Debug + Clone + Send + Sync + 'static,
-        Value: Send + Sync + 'static + SizedValue,
+        Value: Send + Sync + 'static + SizedValue + ?Sized,
     > AsyncLru<RT, Key, Value>
 {
     /// Create a new fixed size LRU where the maximum size is determined by
@@ -257,12 +257,11 @@ impl<
         rt: RT,
         inner: Arc<Mutex<Inner<RT, Key, Value>>>,
         key: Key,
-        value: anyhow::Result<Value>,
+        value: anyhow::Result<Arc<Value>>,
     ) -> anyhow::Result<Arc<Value>> {
         let mut inner = inner.lock();
         match value {
-            Ok(value) => {
-                let result = Arc::new(value);
+            Ok(result) => {
                 let new_value = CacheResult::Ready {
                     size: result.size(),
                     value: result.clone(),
@@ -335,13 +334,14 @@ impl<
         result
     }
 
-    pub async fn get(
+    pub async fn get<V: 'static>(
         &self,
         key: Key,
-        value_generator: SingleValueGenerator<Value>,
+        value_generator: SingleValueGenerator<V>,
     ) -> anyhow::Result<Arc<Value>>
     where
         Key: Clone,
+        Arc<Value>: From<V>,
     {
         let timer = async_lru_get_timer(self.label);
         let key_ = key.clone();
@@ -350,7 +350,7 @@ impl<
                 &key_,
                 Box::pin(async move {
                     let mut hashmap = HashMap::new();
-                    hashmap.insert(key, value_generator.await);
+                    hashmap.insert(key, value_generator.await.map(<Arc<Value>>::from));
                     hashmap
                 }),
             )
@@ -609,8 +609,8 @@ mod tests {
                 "k1",
                 async move {
                     let mut hashmap = HashMap::new();
-                    hashmap.insert("k1", Ok(1));
-                    hashmap.insert("k2", Ok(2));
+                    hashmap.insert("k1", Ok(Arc::new(1)));
+                    hashmap.insert("k2", Ok(Arc::new(2)));
                     hashmap.insert("k3", Err(anyhow::anyhow!("k3 failed")));
                     hashmap
                 }

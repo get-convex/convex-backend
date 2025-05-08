@@ -5,20 +5,20 @@ use std::{
 };
 
 use anyhow::Context;
-use async_lru::async_lru::{
-    AsyncLru,
-    SizedValue,
+use async_lru::{
+    async_lru::SizedValue,
+    multi_type_async_lru::{
+        LruKey,
+        MultiTypeAsyncLru,
+    },
 };
 use async_trait::async_trait;
 use common::{
-    bootstrap_model::{
-        index::INDEX_TABLE,
-        tables::TABLES_TABLE,
-    },
     document::{
         CreationTime,
         PackedDocument,
         ParseDocument,
+        ResolvedDocument,
     },
     index::IndexKeyBytes,
     interval::Interval,
@@ -134,18 +134,22 @@ fn make_transaction<RT: Runtime>(
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
-struct CacheKey {
+struct IndexCacheKey {
     instance_name: String,
     index_id: InternalId,
     last_modified: Timestamp,
 }
 
-/// The cache value is the same as [DatabaseIndexMap] apart from keeping track
-/// of last modified timestamps. The [OrdMap] keys are the index keys.
-#[derive(Clone)]
-struct CacheValue(WithHeapSize<BTreeMap<Vec<u8>, (Timestamp, PackedDocument)>>);
+impl LruKey for IndexCacheKey {
+    type Value = IndexCacheValue;
+}
 
-impl SizedValue for CacheValue {
+/// The cache value is the same as [DatabaseIndexMap] apart from keeping track
+/// of last modified timestamps. The [BTreeMap] keys are the index keys.
+#[derive(Clone)]
+struct IndexCacheValue(WithHeapSize<BTreeMap<Vec<u8>, (Timestamp, PackedDocument)>>);
+
+impl SizedValue for IndexCacheValue {
     fn size(&self) -> u64 {
         self.0.heap_size() as u64
     }
@@ -153,7 +157,7 @@ impl SizedValue for CacheValue {
 
 #[derive(Clone)]
 pub(crate) struct InMemoryIndexCache<RT: Runtime> {
-    cache: AsyncLru<RT, CacheKey, CacheValue>,
+    cache: MultiTypeAsyncLru<RT>,
     rt: RT,
 }
 
@@ -164,7 +168,7 @@ async fn load_index(
     persistence_snapshot: PersistenceSnapshot,
     tablet_id: TabletId,
     table_name: String,
-) -> anyhow::Result<CacheValue> {
+) -> anyhow::Result<Arc<IndexCacheValue>> {
     let _timer = load_index_timer(&table_name, &instance_name);
     let index_map: BTreeMap<Vec<u8>, (Timestamp, PackedDocument)> = persistence_snapshot
         .index_scan(
@@ -178,13 +182,45 @@ async fn load_index(
         .try_collect()
         .await?;
     log_funrun_index_load_rows(index_map.len() as u64, &table_name, &instance_name);
-    Ok(CacheValue(index_map.into()))
+    Ok(Arc::new(IndexCacheValue(index_map.into())))
+}
+
+#[fastrace::trace]
+async fn load_unpacked_index(
+    instance_name: &str,
+    index_id: IndexId,
+    persistence_snapshot: &PersistenceSnapshot,
+    tablet_id: TabletId,
+    table_name: &str,
+) -> anyhow::Result<(Vec<ResolvedDocument>, u64)> {
+    let _timer = load_index_timer(table_name, instance_name);
+    let documents: Vec<ResolvedDocument> = persistence_snapshot
+        .index_scan(
+            index_id,
+            tablet_id,
+            &Interval::all(),
+            Order::Asc,
+            usize::MAX,
+        )
+        .map_ok(|(_, rev)| rev.value)
+        .try_collect()
+        .await?;
+    log_funrun_index_load_rows(documents.len() as u64, table_name, instance_name);
+    let size = documents.iter().map(|d| d.size() as u64).sum();
+    Ok((documents, size))
+}
+
+struct WithSize<T>(T, u64);
+impl<T> SizedValue for WithSize<T> {
+    fn size(&self) -> u64 {
+        self.1
+    }
 }
 
 impl<RT: Runtime> InMemoryIndexCache<RT> {
     pub fn new(rt: RT) -> Self {
         Self {
-            cache: AsyncLru::new(
+            cache: MultiTypeAsyncLru::new(
                 rt.clone(),
                 *FUNRUN_INDEX_CACHE_SIZE,
                 *FUNRUN_INDEX_CACHE_CONCURRENCY,
@@ -202,16 +238,19 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         &self,
         instance_name: String,
         index_id: IndexId,
-        last_modified: &BTreeMap<IndexId, Timestamp>,
+        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
         persistence_snapshot: PersistenceSnapshot,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<Option<Arc<CacheValue>>> {
-        let Some(key) = last_modified.get(&index_id).map(|ts| CacheKey {
-            instance_name: instance_name.clone(),
-            index_id,
-            last_modified: *ts,
-        }) else {
+    ) -> anyhow::Result<Option<Arc<IndexCacheValue>>> {
+        let Some(key) = in_memory_index_last_modified
+            .get(&index_id)
+            .map(|ts| IndexCacheKey {
+                instance_name: instance_name.clone(),
+                index_id,
+                last_modified: *ts,
+            })
+        else {
             return Ok(None);
         };
         let table_name = table_name.to_string();
@@ -234,30 +273,269 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         cache_value_result
     }
 
-    #[fastrace::trace(properties = { "table_name": "{table_name:?}" })]
-    pub async fn must_get_or_load<'a>(
+    /// Returns the TableRegistry together with its last-modified time
+    #[fastrace::trace]
+    async fn load_table_registry(
         &self,
         instance_name: String,
-        index_id: IndexId,
-        last_modified: &BTreeMap<IndexId, Timestamp>,
+        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
         persistence_snapshot: PersistenceSnapshot,
-        tablet_id: TabletId,
-        table_name: TableName,
-        // needed to hoist the `Arc` otherwise the iterator lifetimes don't work
-        temp: &'a mut Option<Arc<CacheValue>>,
-    ) -> anyhow::Result<impl Iterator<Item = &'a PackedDocument> + 'a> {
-        let index_map = self
-            .get_or_load(
-                instance_name.clone(),
-                index_id,
-                last_modified,
-                persistence_snapshot,
-                tablet_id,
-                table_name.clone(),
+        &BootstrapMetadata {
+            tables_by_id,
+            tables_tablet_id,
+            ..
+        }: &BootstrapMetadata,
+    ) -> anyhow::Result<(Timestamp, TableRegistry)> {
+        #[derive(Hash, PartialEq, Eq, Debug, Clone)]
+        struct Key {
+            instance_name: String,
+            tables_last_modified: Timestamp,
+        }
+        impl LruKey for Key {
+            type Value = WithSize<TableRegistry>;
+        }
+        let tables_last_modified = *in_memory_index_last_modified
+            .get(&tables_by_id)
+            .context("_tables not configured to be in-memory")?;
+        const NAME: &str = "_table_registry";
+        log_funrun_index_cache_get(NAME, &instance_name);
+        let table_registry = self
+            .cache
+            .get(
+                Key {
+                    instance_name: instance_name.clone(),
+                    tables_last_modified,
+                },
+                async move {
+                    let (documents, size) = load_unpacked_index(
+                        &instance_name,
+                        tables_by_id,
+                        &persistence_snapshot,
+                        tables_tablet_id,
+                        NAME,
+                    )
+                    .await?;
+                    let (table_mapping, table_states) =
+                        DatabaseSnapshot::<RT>::table_mapping_and_states(
+                            documents.into_iter().map(|doc| doc.parse()).try_collect()?,
+                        );
+                    let registry = TableRegistry::bootstrap(
+                        table_mapping,
+                        table_states,
+                        persistence_snapshot.persistence().version(),
+                    )?;
+                    // We don't have `HeapSize` implemented for `TableRegistry`
+                    // so just approximate its size using the size of the
+                    // documents it was made from.
+                    Ok(WithSize(registry, size))
+                }
+                .boxed(),
             )
-            .await?
-            .with_context(|| format!("Index on {table_name} for {instance_name} not found"))?;
-        Ok(temp.insert(index_map).0.iter().map(|(_k, (_ts, v))| v))
+            .await?;
+        Ok((tables_last_modified, table_registry.0.clone()))
+    }
+
+    #[fastrace::trace]
+    async fn load_index_registry(
+        &self,
+        instance_name: String,
+        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
+        table_registry: (Timestamp, TableRegistry),
+        persistence_snapshot: PersistenceSnapshot,
+        &BootstrapMetadata {
+            index_by_id,
+            index_tablet_id,
+            ..
+        }: &BootstrapMetadata,
+    ) -> anyhow::Result<(Timestamp, IndexRegistry)> {
+        #[derive(Hash, PartialEq, Eq, Debug, Clone)]
+        struct Key {
+            instance_name: String,
+            last_modified: Timestamp,
+        }
+        impl LruKey for Key {
+            type Value = WithSize<IndexRegistry>;
+        }
+        let indexes_last_modified = *in_memory_index_last_modified
+            .get(&index_by_id)
+            .context("_index not configured to be in-memory")?;
+        const NAME: &str = "_index_registry";
+        log_funrun_index_cache_get(NAME, &instance_name);
+        let index_registry = self
+            .cache
+            .get(
+                Key {
+                    instance_name: instance_name.clone(),
+                    // We use the max of the two timestamps as our cache key
+                    // because it's "as if" `load_unpacked_index` is reading at
+                    // that timestamp.
+                    last_modified: table_registry.0.max(indexes_last_modified),
+                },
+                async move {
+                    let (documents, size) = load_unpacked_index(
+                        &instance_name,
+                        index_by_id,
+                        &persistence_snapshot,
+                        index_tablet_id,
+                        NAME,
+                    )
+                    .await?;
+                    let index_registry = IndexRegistry::bootstrap(
+                        table_registry.1.table_mapping(),
+                        documents.into_iter(),
+                        persistence_snapshot.persistence().version(),
+                    )?;
+                    DatabaseSnapshot::<RT>::verify_invariants(&table_registry.1, &index_registry)?;
+                    Ok(WithSize(index_registry, size))
+                }
+                .boxed(),
+            )
+            .await?;
+        Ok((indexes_last_modified, index_registry.0.clone()))
+    }
+
+    #[fastrace::trace]
+    async fn load_component_registry(
+        &self,
+        instance_name: String,
+        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
+        table_registry: (Timestamp, TableRegistry),
+        index_registry: (Timestamp, IndexRegistry),
+        persistence_snapshot: PersistenceSnapshot,
+    ) -> anyhow::Result<(Timestamp, ComponentRegistry)> {
+        #[derive(Hash, PartialEq, Eq, Debug, Clone)]
+        struct Key {
+            instance_name: String,
+            last_modified: Timestamp,
+        }
+        impl LruKey for Key {
+            type Value = WithSize<ComponentRegistry>;
+        }
+        let component_tablet_id = table_registry
+            .1
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENTS_TABLE)?
+            .tablet_id;
+        let components_by_id = index_registry.1.must_get_by_id(component_tablet_id)?.id;
+        let components_last_modified = *in_memory_index_last_modified
+            .get(&components_by_id)
+            .context("_components not configured to be in-memory")?;
+        const NAME: &str = "_component_registry";
+        log_funrun_index_cache_get(NAME, &instance_name);
+        let component_registry = self
+            .cache
+            .get(
+                Key {
+                    instance_name: instance_name.clone(),
+                    last_modified: table_registry
+                        .0
+                        .max(index_registry.0)
+                        .max(components_last_modified),
+                },
+                async move {
+                    let (documents, size) = load_unpacked_index(
+                        &instance_name,
+                        components_by_id,
+                        &persistence_snapshot,
+                        component_tablet_id,
+                        NAME,
+                    )
+                    .await?;
+                    let component_registry = ComponentRegistry::bootstrap(
+                        table_registry.1.table_mapping(),
+                        documents.into_iter().map(|d| d.parse()).try_collect()?,
+                    )?;
+                    Ok(WithSize(component_registry, size))
+                }
+                .boxed(),
+            )
+            .await?;
+        Ok((components_last_modified, component_registry.0.clone()))
+    }
+
+    #[fastrace::trace]
+    async fn load_schema_registry(
+        &self,
+        instance_name: String,
+        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
+        table_registry: (Timestamp, TableRegistry),
+        index_registry: (Timestamp, IndexRegistry),
+        component_registry: (Timestamp, ComponentRegistry),
+        persistence_snapshot: PersistenceSnapshot,
+    ) -> anyhow::Result<(Timestamp, SchemaRegistry)> {
+        #[derive(Hash, PartialEq, Eq, Debug, Clone)]
+        struct Key {
+            instance_name: String,
+            last_modified: Timestamp,
+        }
+        impl LruKey for Key {
+            type Value = WithSize<SchemaRegistry>;
+        }
+        let table_mapping = table_registry.1.table_mapping();
+        // Each component's namespace has a _schemas table.
+        // Note there may be _schemas table in other namespaces, but we don't care about
+        // those (and also they're not necessarily loaded into memory yet).
+        // This argument only applies because we're in the function runner, which
+        // can only operate in components' namespaces -- internal database workers
+        // like IndexWorker and SchemaWorker include schemas from all namespaces.
+        let component_ids = component_registry
+            .1
+            .all_component_paths(&mut TransactionReadSet::new())
+            .into_keys();
+        let mut last_modified_ts = table_registry
+            .0
+            .max(index_registry.0)
+            .max(component_registry.0);
+        let mut schema_tables = vec![];
+        const NAME: &str = "_schema_registry";
+        for component_id in component_ids {
+            let namespace = component_id.into();
+            let schema_tablet =
+                table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
+            let index_id = index_registry.1.must_get_by_id(schema_tablet)?.id;
+            let schemas_last_modified = *in_memory_index_last_modified
+                .get(&index_id)
+                .context("_schemas not configured to be in-memory")?;
+            last_modified_ts = last_modified_ts.max(schemas_last_modified);
+            schema_tables.push((namespace, schema_tablet, index_id));
+            log_funrun_index_cache_get(NAME, &instance_name);
+        }
+        let schema_registry = self
+            .cache
+            .get(
+                Key {
+                    instance_name: instance_name.clone(),
+                    last_modified: last_modified_ts,
+                },
+                async move {
+                    let mut size = 0;
+                    let mut schema_docs = BTreeMap::new();
+                    for (namespace, schema_tablet, index_id) in schema_tables {
+                        let (component_documents, component_size) = load_unpacked_index(
+                            &instance_name,
+                            index_id,
+                            &persistence_snapshot,
+                            schema_tablet,
+                            NAME,
+                        )
+                        .await?;
+                        schema_docs.insert(
+                            namespace,
+                            component_documents
+                                .into_iter()
+                                .map(|d| d.parse())
+                                .try_collect()?,
+                        );
+                        size += component_size;
+                    }
+                    let schema_registry = SchemaRegistry::bootstrap(schema_docs);
+                    Ok(WithSize(schema_registry, size))
+                }
+                .boxed(),
+            )
+            .await?;
+        Ok((last_modified_ts, schema_registry.0.clone()))
     }
 
     #[fastrace::trace]
@@ -265,123 +543,58 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         &self,
         persistence_snapshot: PersistenceSnapshot,
         instance_name: String,
-        in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
-        BootstrapMetadata {
-            tables_by_id,
-            index_by_id,
-            tables_tablet_id,
-            index_tablet_id,
-        }: BootstrapMetadata,
+        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
+        bootstrap_metadata: BootstrapMetadata,
     ) -> anyhow::Result<(
         TableRegistry,
         SchemaRegistry,
         ComponentRegistry,
         IndexRegistry,
-        DatabaseIndexSnapshot,
     )> {
-        let (mut index_tmp, mut table_tmp) = (None, None);
-        let index_documents_fut = self.must_get_or_load(
-            instance_name.clone(),
-            index_by_id,
-            &in_memory_index_last_modified,
-            persistence_snapshot.clone(),
-            index_tablet_id,
-            INDEX_TABLE.clone(),
-            &mut index_tmp,
-        );
-        let table_documents_fut = self.must_get_or_load(
-            instance_name.clone(),
-            tables_by_id,
-            &in_memory_index_last_modified,
-            persistence_snapshot.clone(),
-            tables_tablet_id,
-            TABLES_TABLE.clone(),
-            &mut table_tmp,
-        );
-        let (index_documents, table_documents) =
-            futures::future::try_join(index_documents_fut, table_documents_fut).await?;
-        let (table_mapping, table_states) = DatabaseSnapshot::<RT>::table_mapping_and_states(
-            table_documents.map(|doc| doc.parse()).try_collect()?,
-        );
-        let index_registry = IndexRegistry::bootstrap(
-            &table_mapping,
-            index_documents,
-            persistence_snapshot.persistence().version(),
-        )?;
-
-        let table_registry = TableRegistry::bootstrap(
-            table_mapping.clone(),
-            table_states,
-            persistence_snapshot.persistence().version(),
-        )?;
-        DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;
-        let component_tablet = table_mapping
-            .namespace(TableNamespace::Global)
-            .id(&COMPONENTS_TABLE)?
-            .tablet_id;
-        let components_by_id = index_registry.must_get_by_id(component_tablet)?.id;
-        let component_docs = self
-            .must_get_or_load(
+        // This is unfortunate but we need this cascade of cached lookups
+        // because we don't know what cache keys to use until the previous
+        // registry has been fetched.
+        let table_registry = self
+            .load_table_registry(
                 instance_name.clone(),
-                components_by_id,
-                &in_memory_index_last_modified,
+                in_memory_index_last_modified,
                 persistence_snapshot.clone(),
-                component_tablet,
-                COMPONENTS_TABLE.clone(),
-                &mut None,
+                &bootstrap_metadata,
             )
-            .await?
-            .map(|d| d.parse())
-            .try_collect()?;
-        let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
-        // Each component's namespace has a _schemas table.
-        // Note there may be _schemas table in other namespaces, but we don't care about
-        // those (and also they're not necessarily loaded into memory yet).
-        // This argument only applies because we're in the function runner, which
-        // can only operate in components' namespaces -- internal database workers
-        // like IndexWorker and SchemaWorker include schemas from all namespaces.
-        let mut schema_docs = BTreeMap::new();
-        let component_ids = component_registry
-            .all_component_paths(&mut TransactionReadSet::new())
-            .into_keys();
-        for component_id in component_ids {
-            let namespace = component_id.into();
-            let schema_tablet =
-                table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
-            let index_id = index_registry.must_get_by_id(schema_tablet)?.id;
-            let mut tmp = None;
-            let schema_doc_iter = self
-                .must_get_or_load(
-                    instance_name.clone(),
-                    index_id,
-                    &in_memory_index_last_modified,
-                    persistence_snapshot.clone(),
-                    schema_tablet,
-                    SCHEMAS_TABLE.clone(),
-                    &mut tmp,
-                )
-                .await?;
-            schema_docs.insert(namespace, schema_doc_iter.map(|d| d.parse()).try_collect()?);
-        }
-        let schema_registry = SchemaRegistry::bootstrap(schema_docs);
-        let in_memory_indexes = FunctionRunnerInMemoryIndexes {
-            cache: self.clone(),
-            instance_name: instance_name.clone(),
-            backend_last_modified: in_memory_index_last_modified,
-            persistence_snapshot: persistence_snapshot.clone(),
-        };
-        let database_index_snapshot = DatabaseIndexSnapshot::new(
-            index_registry.clone(),
-            Arc::new(in_memory_indexes),
-            table_mapping,
-            persistence_snapshot,
-        );
+            .await?;
+        let index_registry = self
+            .load_index_registry(
+                instance_name.clone(),
+                in_memory_index_last_modified,
+                table_registry.clone(),
+                persistence_snapshot.clone(),
+                &bootstrap_metadata,
+            )
+            .await?;
+        let component_registry = self
+            .load_component_registry(
+                instance_name.clone(),
+                in_memory_index_last_modified,
+                table_registry.clone(),
+                index_registry.clone(),
+                persistence_snapshot.clone(),
+            )
+            .await?;
+        let schema_registry = self
+            .load_schema_registry(
+                instance_name,
+                in_memory_index_last_modified,
+                table_registry.clone(),
+                index_registry.clone(),
+                component_registry.clone(),
+                persistence_snapshot,
+            )
+            .await?;
         Ok((
-            table_registry,
-            schema_registry,
-            component_registry,
-            index_registry,
-            database_index_snapshot,
+            table_registry.1,
+            schema_registry.1,
+            component_registry.1,
+            index_registry.1,
         ))
     }
 
@@ -415,20 +628,28 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         let persistence_snapshot =
             repeatable_persistence.read_snapshot(repeatable_persistence.upper_bound())?;
 
-        let (
-            table_registry,
-            schema_registry,
-            component_registry,
-            index_registry,
-            database_index_snapshot,
-        ) = self
+        let (table_registry, schema_registry, component_registry, index_registry) = self
             .load_registries(
-                persistence_snapshot,
-                instance_name,
-                in_memory_index_last_modified,
+                persistence_snapshot.clone(),
+                instance_name.clone(),
+                &in_memory_index_last_modified,
                 bootstrap_metadata,
             )
             .await?;
+
+        let in_memory_indexes = FunctionRunnerInMemoryIndexes {
+            cache: self.clone(),
+            instance_name,
+            backend_last_modified: in_memory_index_last_modified,
+            persistence_snapshot: persistence_snapshot.clone(),
+        };
+        let database_index_snapshot = DatabaseIndexSnapshot::new(
+            index_registry.clone(),
+            Arc::new(in_memory_indexes),
+            table_registry.table_mapping().clone(),
+            persistence_snapshot,
+        );
+
         make_transaction(
             ts,
             identity,

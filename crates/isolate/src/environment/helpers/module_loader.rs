@@ -32,7 +32,7 @@ pub async fn get_module_and_prefetch(
     modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
     source_package: ParsedDocument<SourcePackage>,
-) -> HashMap<(CanonicalizedModulePath, SourcePackageId), anyhow::Result<FullModuleSource>> {
+) -> HashMap<(CanonicalizedModulePath, SourcePackageId), anyhow::Result<Arc<FullModuleSource>>> {
     let _timer = module_load_timer("package");
     let all_source_result =
         download_module_source_from_package(modules_storage, source_package).await;
@@ -50,7 +50,7 @@ pub async fn get_module_and_prefetch(
         },
         Ok(all_source) => all_source
             .into_iter()
-            .map(|(path, source)| (path, Ok(source)))
+            .map(|(path, source)| (path, Ok(Arc::new(source))))
             .collect(),
     }
 }
