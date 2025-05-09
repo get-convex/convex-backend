@@ -1,9 +1,6 @@
-import React from "react";
+import React, { ReactNode } from "react";
 import Link from "@docusaurus/Link";
-// eslint-disable-next-line
-// @ts-expect-error ts(2307) Internal module doesn't have types
-import { useDocById } from "@docusaurus/theme-common/internal";
-import { ReactNode } from "@mdx-js/react/lib";
+import { useDocById } from "@docusaurus/plugin-content-docs/client";
 import Heading from "@theme/Heading";
 
 type Item = {
