@@ -9,22 +9,21 @@ The Convex database provides a relational data model, stores JSON-like
 documents, and can be used with or without a schema. It "just works," giving you
 predictable query performance in an easy-to-use interface.
 
-Query and mutation [functions](/docs/functions.mdx) read and write data through
-a lightweight JavaScript API. There is nothing to set up and no need to write
-any SQL. Just use JavaScript to express your app's needs.
+Query and mutation [functions](/functions.mdx) read and write data through a
+lightweight JavaScript API. There is nothing to set up and no need to write any
+SQL. Just use JavaScript to express your app's needs.
 
 Start by learning about the basics of [tables](#tables), [documents](#documents)
 and [schemas](#schemas) below, then move on to
-[Reading Data](/docs/database/reading-data/reading-data.mdx) and
-[Writing Data](/docs/database/writing-data.mdx).
+[Reading Data](/database/reading-data/reading-data.mdx) and
+[Writing Data](/database/writing-data.mdx).
 
 As your app grows more complex you'll need more from your database:
 
-- Relational data modeling with [Document IDs](/docs/database/document-ids.mdx)
-- Fast querying with [Indexes](/docs/database/reading-data/indexes/indexes.md)
-- Exposing large datasets with
-  [Paginated Queries](/docs/database/pagination.mdx)
-- Type safety by [Defining a Schema](/docs/database/schemas.mdx)
+- Relational data modeling with [Document IDs](/database/document-ids.mdx)
+- Fast querying with [Indexes](/database/reading-data/indexes/indexes.md)
+- Exposing large datasets with [Paginated Queries](/database/pagination.mdx)
+- Type safety by [Defining a Schema](/database/schemas.mdx)
 - Interoperability with data
   [Import & Export](docs/database/import-export/import-export.mdx)
 
@@ -57,9 +56,9 @@ These are all valid Convex documents:
 ```
 
 They can also contain references to other documents in other tables. See
-[Data Types](/docs/database/types.md) to learn more about the types supported in
-Convex and [Document IDs](/docs/database/document-ids.mdx) to learn about how to
-use those types to model your data.
+[Data Types](/database/types.md) to learn more about the types supported in
+Convex and [Document IDs](/database/document-ids.mdx) to learn about how to use
+those types to model your data.
 
 ## Schemas
 
@@ -82,7 +81,7 @@ export default defineSchema({
 You can choose to be as flexible as you want by using types such as `v.any()` or
 as specific as you want by precisely describing a `v.object()`.
 
-See [the schema documentation](/docs/database/schemas.mdx) to learn more about
+See [the schema documentation](/database/schemas.mdx) to learn more about
 schemas.
 
 <CardLink

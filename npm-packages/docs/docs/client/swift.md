@@ -8,13 +8,13 @@ The Convex Swift client library enables your iOS or macOS application to
 interact with your Convex backend. It allows your frontend code to:
 
 1. Call
-   your [queries](/docs/functions/query-functions.mdx), [mutations](/docs/functions/mutation-functions.mdx) and [actions](/docs/functions/actions.mdx)
-2. Authenticate users using [Auth0](/docs/auth/auth0.mdx)
+   your [queries](/functions/query-functions.mdx), [mutations](/functions/mutation-functions.mdx) and [actions](/functions/actions.mdx)
+2. Authenticate users using [Auth0](/auth/auth0.mdx)
 
 The library is open source
 and [available on GitHub](https://github.com/get-convex/convex-swift).
 
-Follow the [Swift Quickstart](/docs/quickstart/swift.mdx) to get started.
+Follow the [Swift Quickstart](/quickstart/swift.mdx) to get started.
 
 ## Installation
 
@@ -113,16 +113,16 @@ Assuming the `colors:get` query accepts an `onlyFavorites` argument, the value
 can be received and used to perform logic in the query function.
 
 <Admonition type="tip">
-Use [Decodable structs](/docs/client/swift/data-types.md#custom-data-types)
+Use [Decodable structs](/client/swift/data-types.md#custom-data-types)
 to automatically convert Convex objects to Swift structs.
 </Admonition>
 
 <Admonition type="caution">
 * There are important gotchas when
-  [sending and receiving numbers](/docs/client/swift/data-types.md#numerical-types)
+  [sending and receiving numbers](/client/swift/data-types.md#numerical-types)
   between Swift and Convex.
 * Depending on your backend functions, you may need to deal with
-  [reserved Swift keywords](/docs/client/swift/data-types.md#field-name-conversion).
+  [reserved Swift keywords](/client/swift/data-types.md#field-name-conversion).
 </Admonition>
 
 ### Subscription lifetime
@@ -134,7 +134,7 @@ underlying query subscription to Convex will be canceled.
 ## Editing Data
 
 You can use the `mutation` method on `ConvexClient` to trigger a
-backend [mutation](/docs/functions/mutation-functions.mdx).
+backend [mutation](/functions/mutation-functions.mdx).
 
 `mutation` is an `async` method so you'll need to call it within a `Task`.
 Mutations can return a value or not.
@@ -150,7 +150,7 @@ let isColorAdded: Bool = try await convex.mutation("colors:put", with: ["color":
 
 If an error occurs during a call to `mutation`, it will throw. Typically you may
 want to
-catch [`ConvexError`](/docs/functions/error-handling/application-errors.mdx) and `ServerError` and
+catch [`ConvexError`](/functions/error-handling/application-errors.mdx) and `ServerError` and
 handle them however is appropriate in your application.
 
 Here’s a small example of how you might handle an error from `colors:put` if it
@@ -171,14 +171,14 @@ details.
 ## Calling third-party APIs
 
 You can use the `action` method on `ConvexClient` to trigger a
-backend [action](/docs/functions/actions.mdx).
+backend [action](/functions/actions.mdx).
 
 Calls to `action` can accept arguments, return values and throw exceptions just
 like calls to `mutation`.
 
 Even though you can call actions from your client code, it's not always the
 right choice. See the action docs for tips
-on [calling actions from clients](/docs/functions/actions.mdx#calling-actions-from-clients).
+on [calling actions from clients](/functions/actions.mdx#calling-actions-from-clients).
 
 ## Authentication with Auth0
 
@@ -191,9 +191,8 @@ See
 the [README](https://github.com/get-convex/convex-swift-auth0/blob/main/README.md) in
 the `convex-swift-auth0` repo for more detailed setup instructions, and
 the [Workout example app](https://github.com/get-convex/ios-convex-workout) which
-is configured for Auth0. The
-overall [Convex authentication docs](/docs/auth.mdx) are a good resource as
-well.
+is configured for Auth0. The overall [Convex authentication docs](/auth.mdx) are
+a good resource as well.
 
 It should also be possible to integrate other similar OpenID Connect
 authentication providers. See
@@ -202,11 +201,11 @@ in the `convex-swift` repo for more info.
 
 ## Production and dev deployments
 
-When you're ready to move toward [production](/docs/production.mdx) for your
-app, you can setup your Xcode build system to point different build targets to
-different Convex deployments. Build environment configuration is highly
-specialized, and it’s possible that you or your team have different conventions,
-but this is one way to approach the problem.
+When you're ready to move toward [production](/production.mdx) for your app, you
+can setup your Xcode build system to point different build targets to different
+Convex deployments. Build environment configuration is highly specialized, and
+it’s possible that you or your team have different conventions, but this is one
+way to approach the problem.
 
 1. Create “Dev” and “Prod” folders in your project sources.
 2. Add an `Env.swift` file in each one with contents like:
@@ -282,7 +281,7 @@ https://github.com/nalexn/clean-architecture-swiftui.
 ## Under the hood
 
 The Swift Convex library is built on top of the
-official [Convex Rust client](/docs/client/rust.md). It handles maintaining a
+official [Convex Rust client](/client/rust.md). It handles maintaining a
 WebSocket connection with the Convex backend and implements the full Convex
 protocol.
 

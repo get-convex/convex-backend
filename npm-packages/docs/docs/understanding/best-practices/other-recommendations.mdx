@@ -19,17 +19,17 @@ your application. If you want guidance specific to your app's needs or have
 discovered other ways of using Convex,
 [message us on Discord](https://convex.dev/community)!
 
-## Use [TypeScript](/docs/understanding/best-practices/typescript.mdx)
+## Use [TypeScript](/understanding/best-practices/typescript.mdx)
 
 All Convex libraries have complete type annotations and using theses types is a
 great way to learn the framework.
 
 Even better, Convex supports [code generation](/generated-api/) to create types
-that are specific to your app's [schema](/docs/database/schemas.mdx) and
-[Convex functions](/docs/functions.mdx).
+that are specific to your app's [schema](/database/schemas.mdx) and
+[Convex functions](/functions.mdx).
 
 Code generation is run automatically by
-[`npx convex dev`](/docs/cli.md#run-the-convex-dev-server).
+[`npx convex dev`](/cli.md#run-the-convex-dev-server).
 
 ## Check generated code into version control
 
@@ -49,17 +49,17 @@ file called `.env` or `.env.production`.
 
 ## Functions
 
-### Use [argument validation](/docs/functions/validation.mdx) in all public functions.
+### Use [argument validation](/functions/validation.mdx) in all public functions.
 
 Argument validation prevents malicious users from calling your functions with
 the wrong types of arguments. It's okay to skip argument validation for
-[internal functions](/docs/functions/internal-functions.mdx) because they are
-not publicly accessible.
+[internal functions](/functions/internal-functions.mdx) because they are not
+publicly accessible.
 
 ### Use `console.log` to debug your Convex functions.
 
 All server-side logs from Convex functions are shown on the
-[dashboard Logs page](/docs/dashboard/deployments/logs.md). If a server-side
+[dashboard Logs page](/dashboard/deployments/logs.md). If a server-side
 exception occurs, it will also be logged as an error event.
 
 On a **dev deployment** the logs will also be forwarded to the client and will
@@ -77,7 +77,7 @@ Helper functions allow sharing code while still executing the entire query or
 mutation in a single transaction. For actions, sharing code via helper functions
 instead of using `ctx.runAction` reduces function calls and resource usage.
 
-See the [TypeScript page](/docs/understanding/best-practices/typescript.mdx) for
+See the [TypeScript page](/understanding/best-practices/typescript.mdx) for
 useful types.
 
 <TSAndJSSnippet sourceTS={Teams} sourceJS={TeamsJS} title="convex/teams.js" />
@@ -101,16 +101,16 @@ limited scenarios, such as calling third-party services.
 
 ### Use indexes or paginate all large database queries.
 
-[Database indexes](/docs/database/reading-data/indexes/indexes.md) with
-[range expressions](/docs/database/reading-data/indexes/indexes.md#querying-documents-using-indexes)
+[Database indexes](/database/reading-data/indexes/indexes.md) with
+[range expressions](/database/reading-data/indexes/indexes.md#querying-documents-using-indexes)
 allow you to write efficient database queries that only scan a small number of
-documents in the table. [Pagination](/docs/database/pagination.mdx) allows you
-to quickly display incremental lists of results. If your table could contain
-more than a few thousand documents, you should consider pagination or an index
-with a range expression to ensure that your queries stay fast.
+documents in the table. [Pagination](/database/pagination.mdx) allows you to
+quickly display incremental lists of results. If your table could contain more
+than a few thousand documents, you should consider pagination or an index with a
+range expression to ensure that your queries stay fast.
 
 For more details, check out our
-[Introduction to Indexes and Query Performance](/docs/database/reading-data/indexes/indexes-and-query-perf.md)
+[Introduction to Indexes and Query Performance](/database/reading-data/indexes/indexes-and-query-perf.md)
 article.
 
 ### Use tables to separate logical object types.
@@ -118,9 +118,9 @@ article.
 Even though Convex does support nested documents, it is often better to put
 separate objects into separate tables and use `Id`s to create references between
 them. This will give you more flexibility when loading and
-[querying documents](/docs/database/reading-data/reading-data.mdx).
+[querying documents](/database/reading-data/reading-data.mdx).
 
-You can read more about this at [Document IDs](/docs/database/document-ids.mdx).
+You can read more about this at [Document IDs](/database/document-ids.mdx).
 
 ## UI patterns
 
@@ -130,7 +130,7 @@ The [`useQuery` React hook](/api/modules/react#usequery) will return `undefined`
 when it is first mounted, before the query has been loaded from Convex. Once a
 query is loaded it will never be `undefined` again (even as the data reactively
 updates). `undefined` is not a valid return type for queries (you can see the
-types that Convex supports at [Data Types](/docs/database/types.md))
+types that Convex supports at [Data Types](/database/types.md))
 
 You can use this as a signal for when to render loading indicators and
 placeholder UI.
@@ -140,8 +140,8 @@ placeholder UI.
 By default all relevant `useQuery` hooks will update automatically after a
 mutation is synced from Convex. If you would like some interactions to happen
 even faster, you can add
-[optimistic updates](/docs/client/react/optimistic-updates.mdx) to your
-`useMutation` calls so that the UI updates instantaneously.
+[optimistic updates](/client/react/optimistic-updates.mdx) to your `useMutation`
+calls so that the UI updates instantaneously.
 
 ### Use an exception handling service and error boundaries to manage errors.
 
@@ -149,5 +149,5 @@ Inevitably, your Convex functions will have bugs and hit exceptions. If you have
 an exception handling service and error boundaries configured, you can ensure
 that you hear about these errors and your users see appropriate UI.
 
-See [Error Handling](/docs/functions/error-handling/error-handling.mdx) for more
+See [Error Handling](/functions/error-handling/error-handling.mdx) for more
 information.

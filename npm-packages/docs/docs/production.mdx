@@ -10,8 +10,8 @@ deploy and maintain a production version of your app.
 ## Project management
 
 When you sign up for Convex, a Convex team is created for you. You can
-[create more teams from the dashboard](/docs/dashboard/teams.md) and add other
-people to them as members. You can upgrade your team to the
+[create more teams from the dashboard](/dashboard/teams.md) and add other people
+to them as members. You can upgrade your team to the
 [Pro plan](https://www.convex.dev/pricing) for additional features, higher
 limits and usage-based pricing.
 
@@ -32,22 +32,20 @@ projects, see [staging](#staging-environment) below.
 
 Your Convex deployments run your backend logic and in most cases you will also
 develop a client that uses the backend. If your client is a web app, follow the
-[Hosting and Deployment](/docs/production/hosting/hosting.mdx) guide, to learn
-how to deploy your client and your Convex backend together.
+[Hosting and Deployment](/production/hosting/hosting.mdx) guide, to learn how to
+deploy your client and your Convex backend together.
 
 You can also deploy your backend on its own. Check out the
-[Project Configuration](/docs/production/project-configuration.mdx) page to
-learn more.
+[Project Configuration](/production/project-configuration.mdx) page to learn
+more.
 
 ## Staging environment
 
-With Convex
-[preview deployments](/docs/production/hosting/preview-deployments.mdx) your
-team can test out changes before deploying them to production. If you need a
-more permanent staging environment, you can use a separate Convex project, and
+With Convex [preview deployments](/production/hosting/preview-deployments.mdx)
+your team can test out changes before deploying them to production. If you need
+a more permanent staging environment, you can use a separate Convex project, and
 deploy to it by setting the `CONVEX_DEPLOY_KEY` environment variable when
-running
-[`npx convex deploy`](/docs/cli.md#deploy-convex-functions-to-production).
+running [`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
 
 ## Typical team development workflow
 
@@ -56,7 +54,7 @@ Teams developing on Convex usually follow this workflow:
 1. If this is the team's first project, one team member creates a team on the
    dashboard.
 2. One team member creates a project by running `npx convex dev`, perhaps
-   starting with a [quickstart](/docs/quickstarts.mdx) or a
+   starting with a [quickstart](/quickstarts.mdx) or a
    [template](https://www.convex.dev/templates).
 3. The team member creates a Git repository from the initial code and shares it
    with their team (via GitHub, GitLab etc.).
@@ -71,11 +69,11 @@ Teams developing on Convex usually follow this workflow:
      dev deployment with synthetic seed data.
    - Members of a team with the [Pro plan](https://www.convex.dev/pricing) can
      get separate
-     [preview deployments](/docs/production/hosting/preview-deployments.mdx) to
-     test each other's pull-requests.
+     [preview deployments](/production/hosting/preview-deployments.mdx) to test
+     each other's pull-requests.
 6. Deployment to production can happen
-   [automatically](/docs/production/hosting/hosting.mdx) when changes get merged
-   to the designated branch (say `main`).
+   [automatically](/production/hosting/hosting.mdx) when changes get merged to
+   the designated branch (say `main`).
    - Alternatively one of the team members can deploy to production manually by
      running `npx convex deploy`.
 

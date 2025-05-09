@@ -18,12 +18,12 @@ A schema is a description of
 While it is possible to use Convex _without_ defining a schema, adding a
 `schema.ts` file will ensure that the documents in your tables are the correct
 type. If you're using
-[TypeScript](/docs/understanding/best-practices/typescript.mdx), adding a schema
-will also give you end-to-end type safety throughout your app.
+[TypeScript](/understanding/best-practices/typescript.mdx), adding a schema will
+also give you end-to-end type safety throughout your app.
 
 We recommend beginning your project without a schema for rapid prototyping and
 then adding a schema once you've solidified your plan. To learn more see our
-[Schema Philosophy](/docs/database/advanced/schema-philosophy.md).
+[Schema Philosophy](/database/advanced/schema-philosophy.md).
 
 **Example:**
 [TypeScript and Schemas](https://github.com/get-convex/convex-demos/tree/main/typescript)
@@ -42,12 +42,12 @@ has 2 tables: messages and users. Each table is defined using the
 the document type is defined using the validator builder,
 [`v`](/api/modules/values#v). In addition to the fields listed, Convex will also
 automatically add `_id` and `_creationTime` fields. To learn more, see
-[System Fields](/docs/database/types.md#system-fields).
+[System Fields](/database/types.md#system-fields).
 
 <Admonition type="tip" title="Generating a Schema">
 
 While writing your schema, it can be helpful to consult the
-[Convex Dashboard](/docs/dashboard/deployments/data.md#generating-a-schema). The
+[Convex Dashboard](/dashboard/deployments/data.md#generating-a-schema). The
 "Generate Schema" button in the "Data" view suggests a schema declaration based
 on the data in your tables.
 
@@ -77,8 +77,8 @@ export default defineSchema({
 ```
 
 It additionally allows you to define unions, optional property, string literals,
-and more. [Argument validation](/docs/functions/validation.mdx) and schemas both
-use the same validator builder, `v`.
+and more. [Argument validation](/functions/validation.mdx) and schemas both use
+the same validator builder, `v`.
 
 #### Optional fields
 
@@ -270,8 +270,8 @@ won't be validated).
 ## Schema validation
 
 Schemas are pushed automatically in
-[`npx convex dev`](/docs/cli.md#run-the-convex-dev-server) and
-[`npx convex deploy`](/docs/cli.md#deploy-convex-functions-to-production).
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) and
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
 
 The first push after a schema is added or modified will validate that all
 existing documents match the schema. If there are documents that fail
@@ -337,14 +337,14 @@ document, then set the reference on the preferences document:
   sourceJS={circularExample}
 />
 
-[Let us know](/docs/production/contact.md) if you need better support for
-circular references.
+[Let us know](/production/contact.md) if you need better support for circular
+references.
 
 ## TypeScript types
 
 Once you've defined a schema,
-[`npx convex dev`](/docs/cli.md#run-the-convex-dev-server) will produce new
-versions of [`dataModel.d.ts`](/generated-api/data-model) and
+[`npx convex dev`](/cli.md#run-the-convex-dev-server) will produce new versions
+of [`dataModel.d.ts`](/generated-api/data-model) and
 [`server.d.ts`](/generated-api/server) with types based on your schema.
 
 ### `Doc<TableName>`
@@ -373,7 +373,7 @@ The [`query`](/generated-api/server#query) and
 a `db` with more precise types. Functions like
 [`db.insert(table, document)`](/api/interfaces/server.GenericDatabaseWriter#insert)
 now understand your schema. Additionally
-[database queries](/docs/database/reading-data/reading-data.mdx) will now return
-the correct document type (not `any`).
+[database queries](/database/reading-data/reading-data.mdx) will now return the
+correct document type (not `any`).
 
 <StackPosts query="schemas" />

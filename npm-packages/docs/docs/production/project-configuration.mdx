@@ -23,8 +23,8 @@ your changes on your local deployment. When you're ready, you can deploy either
 via a hosting/CI provider or from your local machine.
 
 For a CI environment you can follow the
-[hosting](/docs/production/hosting/hosting.mdx) docs. `npx convex deploy` run by
-the CI pipeline will use the `CONVEX_DEPLOY_KEY`, and the frontend build command
+[hosting](/production/hosting/hosting.mdx) docs. `npx convex deploy` run by the
+CI pipeline will use the `CONVEX_DEPLOY_KEY`, and the frontend build command
 will use the deployment URL variable, both configured in your CI environment.
 
 You can also deploy your backend from your local machine. `npx convex deploy`
@@ -65,13 +65,13 @@ have the following config:
 
 You can specify which packages used by Node actions should be installed on the
 server, instead of being bundled, via the `node.externalPackages` field.
-[Read more](/docs/functions/bundling.mdx#external-packages).
+[Read more](/functions/bundling.mdx#external-packages).
 
 ### Importing the generated functions API via `require()` syntax
 
 The Convex code generation can be configured to generate a CommonJS-version of
 the `_generated/api.js` file via the `generateCommonJSApi` field.
-[Read more](/docs/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).
+[Read more](/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).
 
 ### Using static code generation (beta)
 

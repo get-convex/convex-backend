@@ -23,12 +23,12 @@ like:
 The first argument is a unique identifier for the cron job.
 
 The second argument is the schedule at which the function should run, see
-[Supported schedules](/docs/scheduling/cron-jobs.mdx#supported-schedules) below.
+[Supported schedules](/scheduling/cron-jobs.mdx#supported-schedules) below.
 
 The third argument is the name of the public function or
-[internal function](/docs/functions/internal-functions.mdx), either a
-[mutation](/docs/functions/mutation-functions.mdx) or an
-[action](/docs/functions/actions.mdx).
+[internal function](/functions/internal-functions.mdx), either a
+[mutation](/functions/mutation-functions.mdx) or an
+[action](/functions/actions.mdx).
 
 ## Supported schedules
 
@@ -50,7 +50,7 @@ The third argument is the name of the public function or
 ## Viewing your cron jobs
 
 You can view all your cron jobs in the
-[Convex dashboard cron jobs view](/docs/dashboard/deployments/schedules.md#cron-jobs-ui).
+[Convex dashboard cron jobs view](/dashboard/deployments/schedules.md#cron-jobs-ui).
 You can view added, updated, and deleted cron jobs in the logs and history view.
 Results of previously executed runs of the cron jobs are also available in the
 logs view.
@@ -58,7 +58,7 @@ logs view.
 ## Error handling
 
 Mutations and actions have the same guarantees that are described in
-[Error handling](/docs/scheduling/scheduled-functions.mdx#error-handling) for
+[Error handling](/scheduling/scheduled-functions.mdx#error-handling) for
 scheduled functions.
 
 At most one run of each cron job can be executing at any moment. If the function

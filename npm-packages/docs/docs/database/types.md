@@ -9,7 +9,7 @@ All Convex documents are defined as Javascript objects. These objects can have
 field values of any of the types below.
 
 You can codify the shape of documents within your tables by
-[defining a schema](/docs/database/schemas.mdx).
+[defining a schema](/database/schemas.mdx).
 
 ## Convex values
 
@@ -19,7 +19,7 @@ You can codify the shape of documents within your tables by
 
 Every document in Convex has two automatically-generated system fields:
 
-- `_id`: The [document ID](/docs/database/document-ids.mdx) of the document.
+- `_id`: The [document ID](/database/document-ids.mdx) of the document.
 - `_creationTime`: The time this document was created, in milliseconds since the
   Unix epoch.
 
@@ -36,7 +36,7 @@ of values must be under the 1MB limit.
 Table names may contain alphanumeric characters ("a" to "z", "A" to "Z", and "0"
 to "9") and underscores ("\_"), and they cannot start with an underscore.
 
-For information on other limits, see [here](/docs/production/state/limits.mdx).
+For information on other limits, see [here](/production/state/limits.mdx).
 
 If any of these limits don't work for you,
 [let us know](https://convex.dev/community)!
@@ -65,7 +65,7 @@ used in Convex function arguments or return values, or in stored documents.
 4. There is exactly one case where `{a: undefined}` is different from `{}`: when
    passed to `ctx.db.patch`. Passing `{a: undefined}` removes the field "a" from
    the document, while passing `{}` does not change the field "a". See
-   [Updating existing documents](/docs/database/writing-data.mdx#updating-existing-documents).
+   [Updating existing documents](/database/writing-data.mdx#updating-existing-documents).
 5. Since `undefined` gets stripped from function arguments but has meaning in
    `ctx.db.patch`, there are some tricks to pass patch's argument from the
    client.

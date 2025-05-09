@@ -6,7 +6,7 @@ sidebar_position: 100
 
 The `convex-test` library provides a mock implementation of the Convex backend
 in JavaScript. It enables fast automated testing of the logic in your
-[functions](/docs/functions.mdx).
+[functions](/functions.mdx).
 
 **Example:** The library includes a
 [test suite](https://github.com/get-convex/convex-test/tree/main/convex) which
@@ -110,8 +110,8 @@ of each of your tests. The function returns an object which is by convention
 stored in the `t` variable and which provides methods for exercising your Convex
 functions.
 
-If your project uses a [schema](/docs/database/schemas.mdx) you should pass it
-to the `convexTest` function:
+If your project uses a [schema](/database/schemas.mdx) you should pass it to the
+`convexTest` function:
 
 ```ts title="convex/myFunctions.test.ts"
 import { convexTest } from "convex-test";
@@ -132,8 +132,8 @@ If you don't have a schema, call `convexTest()` with no argument.
 
 ## Calling functions with `t.query`, `t.mutation` and `t.action`
 
-Your test can call public and internal Convex [functions](/docs/functions.mdx)
-in your project:
+Your test can call public and internal Convex [functions](/functions.mdx) in
+your project:
 
 ```ts title="convex/myFunctions.test.ts"
 import { convexTest } from "convex-test";
@@ -153,11 +153,11 @@ test("functions", async () => {
 
 ## Setting up and inspecting data and storage with `t.run`
 
-Sometimes you might want to directly [write](/docs/database/writing-data.mdx) to
-the mock database or [file storage](/docs/file-storage.mdx) from your test,
-without needing a declared function in your project. You can use the `t.run`
-method which takes a handler that is given a `ctx` that allows reading from and
-writing to the mock backend:
+Sometimes you might want to directly [write](/database/writing-data.mdx) to the
+mock database or [file storage](/file-storage.mdx) from your test, without
+needing a declared function in your project. You can use the `t.run` method
+which takes a handler that is given a `ctx` that allows reading from and writing
+to the mock backend:
 
 ```ts title="convex/tasks.test.ts"
 import { convexTest } from "convex-test";
@@ -175,8 +175,8 @@ test("functions", async () => {
 
 ## Testing HTTP actions with `t.fetch`
 
-Your test can call [HTTP actions](/docs/functions/http-actions.mdx) registered
-by your router:
+Your test can call [HTTP actions](/functions/http-actions.mdx) registered by
+your router:
 
 ```ts title="convex/http.test.ts"
 import { convexTest } from "convex-test";
@@ -196,7 +196,7 @@ Mocking the global `fetch` function doesn't affect `t.fetch`, but you can use
 One advantage of using a mock implementation running purely in JavaScript is
 that you can control time in the Vitest test environment. To test
 implementations relying on
-[scheduled functions](/docs/scheduling/scheduled-functions.mdx) use
+[scheduled functions](/scheduling/scheduled-functions.mdx) use
 [Vitest's fake timers](https://vitest.dev/guide/mocking.html#timers) in
 combination with `t.finishInProgressScheduledFunctions`:
 
@@ -283,8 +283,8 @@ Check out more examples in
 
 ## Testing authentication with `t.withIdentity`
 
-To test functions which depend on the current [authenticated](/docs/auth.mdx)
-user identity you can create a version of the `t` accessor with given
+To test functions which depend on the current [authenticated](/auth.mdx) user
+identity you can create a version of the `t` accessor with given
 [user identity attributes](/api/interfaces/server.UserIdentity). If you don't
 provide them, `issuer`, `subject` and `tokenIdentifier` will be generated
 automatically:
@@ -413,7 +413,7 @@ export default defineConfig({
 ## Custom `convex/` folder name or location
 
 If your project has a
-[different name or location configured](/docs/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
+[different name or location configured](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
 for the `convex/` folder in `convex.json`, you need to call
 [`import.meta.glob`](https://vitejs.dev/guide/features#glob-import) and pass the
 result as the second argument to `convexTest`.
@@ -458,27 +458,26 @@ Some of the ways the mock differs:
   content of error messages thrown by the real backend, as they are always
   subject to change.
 - Limits. The mock doesn't enforce size and time
-  [limits](/docs/production/state/limits.mdx).
+  [limits](/production/state/limits.mdx).
 - ID format. Your code should not depend on the document or storage ID format.
 - Runtime built-ins. Most of your functions are written for the
-  [Convex default runtime](/docs/functions/runtimes.mdx), while Vitest uses a
-  mock of Vercel's Edge Runtime, which is similar but might differ from the
-  Convex runtime. You should always test new code manually to make sure it
-  doesn't use built-ins not available in the Convex runtime.
+  [Convex default runtime](/functions/runtimes.mdx), while Vitest uses a mock of
+  Vercel's Edge Runtime, which is similar but might differ from the Convex
+  runtime. You should always test new code manually to make sure it doesn't use
+  built-ins not available in the Convex runtime.
 - Some features have only simplified semantics, namely:
-  - [Text search](/docs/search.mdx) returns all documents that include a word
-    for which at least one word in the searched string is a prefix. It does not
+  - [Text search](/search.mdx) returns all documents that include a word for
+    which at least one word in the searched string is a prefix. It does not
     implement fuzzy searching and doesn't sort the results by relevance.
-  - [Vector search](/docs/search/vector-search.mdx) returns results sorted by
-    cosine similarity, but doesn't use an efficient vector index in its
-    implementation.
-  - There is no support for [cron jobs](/docs/scheduling/cron-jobs.mdx), you
-    should trigger your functions manually from the test.
+  - [Vector search](/search/vector-search.mdx) returns results sorted by cosine
+    similarity, but doesn't use an efficient vector index in its implementation.
+  - There is no support for [cron jobs](/scheduling/cron-jobs.mdx), you should
+    trigger your functions manually from the test.
 
 To test your functions running on a real Convex backend, check out
-[Testing Local Backend](/docs/testing/convex-backend.mdx).
+[Testing Local Backend](/testing/convex-backend.mdx).
 
 ## CI
 
-See [Continuous Integration](/docs/testing/ci.mdx) to run your tests on a shared
+See [Continuous Integration](/testing/ci.mdx) to run your tests on a shared
 remote machine.

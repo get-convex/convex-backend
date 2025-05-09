@@ -18,9 +18,9 @@ shows:
   deployment URL for configuration.
 - The URL that HTTP Actions for this deployment should be sent to.
 - The deployment's deploy key, used to
-  [integrate with build tools such as Netlify and Vercel](/docs/production/hosting/hosting.mdx)
+  [integrate with build tools such as Netlify and Vercel](/production/hosting/hosting.mdx)
   and
-  [syncing data with Fivetran and Airbyte](/docs/production/integrations/streaming-import-export.md).
+  [syncing data with Fivetran and Airbyte](/production/integrations/streaming-import-export.md).
 
 ![Deployment Settings Dashboard Page](/screenshots/deployment_settings.png)
 
@@ -29,7 +29,7 @@ shows:
 The
 [environment variables page](https://dashboard.convex.dev/deployment/settings/environment-variables)
 lets you add, change, remove and copy the deployment's
-[environment variables](/docs/production/environment-variables.mdx).
+[environment variables](/production/environment-variables.mdx).
 
 ![deployment settings environment variables page](/screenshots/deployment_settings_env_vars.png)
 
@@ -38,7 +38,7 @@ lets you add, change, remove and copy the deployment's
 The
 [authentication page](https://dashboard.convex.dev/deployment/settings/authentication)
 shows the values configured in your `auth.config.js` for user
-[authentication](/docs/auth.mdx) implementation.
+[authentication](/auth.mdx) implementation.
 
 ## Backup & Restore
 
@@ -53,16 +53,16 @@ backups.
 ## Integrations
 
 The integrations page allows you to configure
-[log streaming](/docs/production/integrations/integrations.mdx),
-[exception reporting](/docs/production/integrations/integrations.mdx), and
-[streaming export](/docs/production/integrations/streaming-import-export.md)
+[log streaming](/production/integrations/integrations.mdx),
+[exception reporting](/production/integrations/integrations.mdx), and
+[streaming export](/production/integrations/streaming-import-export.md)
 integrations.
 
 ## Pause Deployment
 
 On the
 [pause deployment page](https://dashboard.convex.dev/deployment/settings/pause-deployment)
-you can [pause your deployment](/docs/production/pause-deployment.mdx) with the
-pause button.
+you can [pause your deployment](/production/pause-deployment.mdx) with the pause
+button.
 
 ![deployment settings pause deployment page](/screenshots/deployment_settings_pause.png)

@@ -75,8 +75,8 @@ by default, and mutations have the same transaction guarantees.
 ## Transactions
 
 Remember that mutation functions in Convex are
-[transactions](/docs/functions/mutation-functions.mdx#transactions). Either all
-the changes in the mutation get written at once or none are written at all.
+[transactions](/functions/mutation-functions.mdx#transactions). Either all the
+changes in the mutation get written at once or none are written at all.
 
 All writes for a top-level mutation call, including writes performed by calls
 into other components' mutations, are committed at the same time. If the

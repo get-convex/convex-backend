@@ -28,7 +28,7 @@ The default runtime has many advantages including:
 - **Low overhead access to your data**. The runtime is designed to have low
   overhead access to your data via query & mutation functions, allowing you to
   access your database via a simple
-  [JavaScript interface](/docs/database/reading-data/reading-data.mdx).
+  [JavaScript interface](/database/reading-data/reading-data.mdx).
 
 <Details summary="Supported APIs">
 
@@ -139,18 +139,18 @@ Some JavaScript and TypeScript libraries use features that are not included in
 the default Convex runtime. This is why Convex actions provide an escape hatch
 to [Node.js 18](https://nodejs.org/en/about) via the `"use node"` directive at
 the top of a file that contains your action.
-[Learn more](/docs/functions/actions.mdx#choosing-the-runtime-use-node).
+[Learn more](/functions/actions.mdx#choosing-the-runtime-use-node).
 
 Use of the Node.js environment is restricted to **action functions only**. If
 you want to use a library designed for Node.js and interact with the Convex
 database, you need to call the Node.js library from an action, and use
-[`runQuery`](/docs/functions/actions.mdx#action-context) or
-[`runMutation`](/docs/functions/actions.mdx#action-context) helper to call a
-query or mutation.
+[`runQuery`](/functions/actions.mdx#action-context) or
+[`runMutation`](/functions/actions.mdx#action-context) helper to call a query or
+mutation.
 
 Every `.ts` and `.js` file in the convex directory
-[is bundled](/docs/functions/bundling.mdx) either for the default Convex
-JavaScript runtime or Node.js, along with any code it imports.
+[is bundled](/functions/bundling.mdx) either for the default Convex JavaScript
+runtime or Node.js, along with any code it imports.
 
 Files with the `"use node"` directive should not contain any Convex queries or
 mutations since they cannot be run in the Node.js runtime. Additionally, files

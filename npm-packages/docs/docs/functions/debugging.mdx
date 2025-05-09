@@ -25,7 +25,7 @@ export const mutateSomething = mutation({
 ```
 
 The following methods are available in the
-[default Convex runtime](/docs/functions/runtimes.mdx#default-convex-runtime):
+[default Convex runtime](/functions/runtimes.mdx#default-convex-runtime):
 
 - Logging values, with a specified severity level:
   - `console.log`
@@ -45,21 +45,20 @@ and all errors thrown by your functions.
 
 You can view these logs:
 
-1. When using the [`ConvexReactClient`](/docs/client/react.mdx), in your browser
+1. When using the [`ConvexReactClient`](/client/react.mdx), in your browser
    developer tools console pane. The logs are sent from your dev deployment to
    your client, and the client logs them to the browser. Production deployments
-   [**do not** send logs to the client](/docs/functions/error-handling/error-handling.mdx#differences-in-error-reporting-between-dev-and-prod).
-2. In your Convex dashboard on the
-   [Logs page](/docs/dashboard/deployments/logs.md).
-3. In your terminal with [`npx convex dev`](/docs/cli.md#tail-deployment-logs)
-   during development or [`npx convex logs`](/docs/cli.md#tail-deployment-logs),
-   which only prints logs.
+   [**do not** send logs to the client](/functions/error-handling/error-handling.mdx#differences-in-error-reporting-between-dev-and-prod).
+2. In your Convex dashboard on the [Logs page](/dashboard/deployments/logs.md).
+3. In your terminal with [`npx convex dev`](/cli.md#tail-deployment-logs) during
+   development or [`npx convex logs`](/cli.md#tail-deployment-logs), which only
+   prints logs.
 
 ### Using a debugger
 
 You can exercise your functions from tests, in which case you can add
 `debugger;` statements and step through your code. See
-[Testing](/docs/testing/convex-test.mdx#debugging-tests).
+[Testing](/testing/convex-test.mdx#debugging-tests).
 
 ## Debugging in production
 
@@ -71,7 +70,7 @@ When debugging an issue in production your options are:
 Convex backend currently only preserves a limited number of logs, and logs can
 be erased at any time when the Convex team performs internal maintenance and
 upgrades. You should therefore set up
-[log streaming and error reporting](/docs/production/integrations/integrations.mdx)
+[log streaming and error reporting](/production/integrations/integrations.mdx)
 integrations to enable your team easy access to historical logs and additional
 information logged by your client.
 
@@ -83,7 +82,6 @@ format: `[Request ID: <request_id>]`.
 
 You can copy and paste a Request ID into your Convex dashboard to view the logs
 for functions started by that request. See the
-[Dashboard logs page](/docs/dashboard/deployments/logs.md#filter-logs) for
-details.
+[Dashboard logs page](/dashboard/deployments/logs.md#filter-logs) for details.
 
 {/* TODO: Document how to filter by Request ID in Datadog/Axiom */}

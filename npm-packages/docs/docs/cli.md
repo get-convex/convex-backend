@@ -66,14 +66,14 @@ like `npx convex dev` can use a different Convex account.
 npx convex dev
 ```
 
-Watches the local filesystem. When you change a [function](/docs/functions.mdx)
-or the [schema](/docs/database/schemas.mdx), the new versions are pushed to your
-dev deployment and the [generated types](/generated-api/) in `convex/_generated`
-are updated. By default, logs from your dev deployment are displayed in the
+Watches the local filesystem. When you change a [function](/functions.mdx) or
+the [schema](/database/schemas.mdx), the new versions are pushed to your dev
+deployment and the [generated types](/generated-api/) in `convex/_generated` are
+updated. By default, logs from your dev deployment are displayed in the
 terminal.
 
 It's also possible to
-[run a Convex deployment locally](/docs/cli/local-deployments-for-dev.mdx) for
+[run a Convex deployment locally](/cli/local-deployments-for-dev.mdx) for
 development.
 
 ### Open the dashboard
@@ -140,7 +140,7 @@ npx convex import <path>.zip
 ```
 
 See description and use-cases:
-[data import](/docs/database/import-export/import.mdx).
+[data import](/database/import-export/import.mdx).
 
 ### Export data to a file
 
@@ -151,7 +151,7 @@ npx convex export --include-file-storage --path <path>
 ```
 
 See description and use-cases:
-[data export](/docs/database/import-export/export.mdx).
+[data export](/database/import-export/export.mdx).
 
 ### Display data from tables
 
@@ -165,7 +165,7 @@ Display a simple view of the
 
 The command supports `--limit` and `--order` flags to change data displayed. For
 more complex filters, use the dashboard data page or write a
-[query](/docs/database/reading-data/reading-data.mdx).
+[query](/database/reading-data/reading-data.mdx).
 
 The `npx convex data <table>` command works with
 [system tables](/database/advanced/system-tables.mdx), such as `_storage`, in
@@ -182,7 +182,7 @@ npx convex env remove <name>
 
 See and update the deployment environment variables which you can otherwise
 manage on the dashboard
-[environment variables settings page](/docs/dashboard/deployments/settings.md#environment-variables).
+[environment variables settings page](/dashboard/deployments/settings.md#environment-variables).
 
 ## Deploy
 
@@ -218,13 +218,12 @@ This command will:
 1. Regenerate the [generated code](/generated-api/) in the `convex/_generated`
    directory.
 1. Bundle your Convex functions and their dependencies.
-1. Push your functions,
-   [indexes](/docs/database/reading-data/indexes/indexes.md), and
-   [schema](/docs/database/schemas.mdx) to production.
+1. Push your functions, [indexes](/database/reading-data/indexes/indexes.md),
+   and [schema](/database/schemas.mdx) to production.
 
 Once this command succeeds the new functions will be available immediately.
 
-### Deploy Convex functions to a [preview deployment](/docs/production/hosting/preview-deployments.mdx)
+### Deploy Convex functions to a [preview deployment](/production/hosting/preview-deployments.mdx)
 
 ```sh
 npx convex deploy
@@ -258,9 +257,8 @@ Deploy Key, this command will:
 1. Regenerate the [generated code](/generated-api/) in the `convex/_generated`
    directory.
 1. Bundle your Convex functions and their dependencies.
-1. Push your functions,
-   [indexes](/docs/database/reading-data/indexes/indexes.md), and
-   [schema](/docs/database/schemas.mdx) to the deployment.
+1. Push your functions, [indexes](/database/reading-data/indexes/indexes.md),
+   and [schema](/database/schemas.mdx) to the deployment.
 1. Run a function specified by `--preview-run` (similar to the `--run` option
    for `npx convex dev`).
 
@@ -268,9 +266,9 @@ Deploy Key, this command will:
    npx convex deploy --preview-run myFunction
    ```
 
-See the [Vercel](/docs/production/hosting/vercel.mdx#preview-deployments) or
-[Netlify](/docs/production/hosting/netlify.mdx#deploy-previews) hosting guide
-for setting up frontend and backend previews together.
+See the [Vercel](/production/hosting/vercel.mdx#preview-deployments) or
+[Netlify](/production/hosting/netlify.mdx#deploy-previews) hosting guide for
+setting up frontend and backend previews together.
 
 ### Update generated code
 

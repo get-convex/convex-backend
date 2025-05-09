@@ -10,9 +10,9 @@ Log streams enable streaming of events such as function executions and
 Axiom, Datadog, or a custom webhook.
 
 The most recent logs produced by your Convex deployment can be viewed in the
-Dashboard [Logs page](/docs/dashboard/deployments/logs.md), the
-[Convex CLI](/docs/cli.md), or in the browser console, providing a quick and
-easy way to view recent logs.
+Dashboard [Logs page](/dashboard/deployments/logs.md), the
+[Convex CLI](/cli.md), or in the browser console, providing a quick and easy way
+to view recent logs.
 
 Log streaming to a third-party destination like Axiom or Datadog enables storing
 historical logs, more powerful querying and data visualization, and integrations
@@ -29,7 +29,7 @@ We currently support the following log streams, with plans to support many more:
 - Webhook to a custom URL
 
 See the instructions for
-[configuring an integration](/docs/production/integrations/integrations.mdx#configuring-an-integration).
+[configuring an integration](/production/integrations/integrations.mdx#configuring-an-integration).
 The specific information needed for each log stream is covered below.
 
 ### Axiom
@@ -71,7 +71,7 @@ schema defined below.
 <Admonition type="info">
   Log streams configured before May 23, 2024 will use the legacy format
   documented on [this
-  page](/docs/production/integrations/log-streams/legacy-event-schema.mdx). We
+  page](/production/integrations/log-streams/legacy-event-schema.mdx). We
   recommend updating your log stream to use the new format.
 </Admonition>
 
@@ -100,14 +100,14 @@ This is an event sent to confirm the log stream is working. Schema:
 
 ### `console` events
 
-Convex function logs via the [`console` API](/docs/functions/debugging.mdx).
+Convex function logs via the [`console` API](/functions/debugging.mdx).
 
 Schema:
 
 - `topic`: `"console"`
 - `timestamp`: Unix epoch timestamp in milliseconds
 - `function`: object, see
-  [function fields](/docs/production/integrations/log-streams/log-streams.mdx#function-fields)
+  [function fields](/production/integrations/log-streams/log-streams.mdx#function-fields)
 - `log_level`: string, one of `["DEBUG", "INFO", "LOG", "WARN", "ERROR"]`
 - `message`: string, the
   [`object-inspect`](https://www.npmjs.com/package/object-inspect)
@@ -115,8 +115,7 @@ Schema:
 - `is_truncated`: boolean, whether this message was truncated to fit within our
   logging limits
 - `system_code`: optional string, present for automatically added warnings when
-  functions are approaching
-  [limits](/docs/production/state/limits.mdx#functions)
+  functions are approaching [limits](/production/state/limits.mdx#functions)
 
 Example event for `console.log("Sent message!")` from a mutation:
 
@@ -143,7 +142,7 @@ Schema:
 - `topic`: `"function_execution"`
 - `timestamp`: Unix epoch timestamp in milliseconds
 - `function`: object, see
-  [function fields](/docs/production/integrations/log-streams/log-streams.mdx#function-fields)
+  [function fields](/production/integrations/log-streams/log-streams.mdx#function-fields)
 - `execution_time_ms`: number, the time in milliseconds this function took to
 - `status`: string, one of `["success", "failure"]`
 - `error_message`: string, present for functions with status `failure`,
@@ -218,8 +217,8 @@ The following fields are added under `function` for all `console` and
 - `cached`: optional boolean, for queries this denotes whether this event came
   from a cached function execution
 - `request_id`: string, the
-  [request ID](/docs/functions/debugging.mdx#finding-relevant-logs-by-request-id)
-  of the function.
+  [request ID](/functions/debugging.mdx#finding-relevant-logs-by-request-id) of
+  the function.
 
 ### `scheduled_job_lag` events
 
@@ -268,6 +267,6 @@ stream.
 
 That's it! Your logs are now configured to stream out. If there is a log
 streaming destination that you would like to see supported,
-[please let us know](/docs/production/contact.md)!
+[please let us know](/production/contact.md)!
 
 <StackPosts query="axiom" />

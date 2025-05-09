@@ -42,7 +42,7 @@ almost all uses of `.filter` should either be replaced with a `.withIndex` or
 `.withSearchIndex` condition, or written as TypeScript code.
 
 Read through the
-[indexes documentation](/docs/database/reading-data/indexes/indexes-and-query-perf.md)
+[indexes documentation](/database/reading-data/indexes/indexes-and-query-perf.md)
 for an overview of how to define indexes and how they work.
 
 ### Examples
@@ -60,7 +60,7 @@ Search for `.filter` in your Convex codebase — a regex like `\.filter\(\(?q`
 will probably find all the ones on database queries.
 
 Decide whether they should be replaced with a `.withIndex` condition — per
-[this section](/docs/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
+[this section](/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
 if you are filtering over a large (1000+) or potentially unbounded number of
 documents, you should use an index. If not using a `.withIndex` /
 `.withSearchIndex` condition, consider replacing them with a filter in code for
@@ -174,7 +174,7 @@ this since it would first sort the messages by `author`.
 
 Public functions can be called by anyone, including potentially malicious
 attackers trying to break your app.
-[Argument validators](/docs/functions/validation.mdx) (as well as return value
+[Argument validators](/functions/validation.mdx) (as well as return value
 validators) help ensure you're getting the traffic you expect.
 
 ### Example
@@ -303,14 +303,14 @@ should have very short functions that mostly just call into `convex/model`.
 Organizing your code this way makes several of the refactors mentioned in this
 list easier to do.
 
-See the [TypeScript page](/docs/understanding/best-practices/typescript.mdx) for
+See the [TypeScript page](/understanding/best-practices/typescript.mdx) for
 useful types.
 
 ### Example
 
 **❌** This example overuses `ctx.runQuery` and `ctx.runMutation`, which is
 discussed more in the
-[Avoid sequential `ctx.runMutation` / `ctx.runQuery` from actions](/docs/understanding/best-practices/best-practices.mdx#avoid-sequential-ctx-runmutation-ctx-runquery-from-actions)
+[Avoid sequential `ctx.runMutation` / `ctx.runQuery` from actions](/understanding/best-practices/best-practices.mdx#avoid-sequential-ctx-runmutation-ctx-runquery-from-actions)
 section.
 
 <TSAndJSSnippet

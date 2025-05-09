@@ -9,7 +9,7 @@ to launching your app in production.
 
 This doc assumes you are building an app with Convex and React and you already
 have a basic React app already up and running. You can follow one of our
-[quickstarts](/docs/quickstarts.mdx) to set this up.
+[quickstarts](/quickstarts.mdx) to set this up.
 
 ## Installing and running Convex
 
@@ -102,7 +102,7 @@ When you write and save this code in your editor, several things happen:
 1. Your Convex dev deployment analyzes your code and finds all Convex functions.
    In this example, it determines that `tasks.getTaskList` is a new public query
    function.
-1. If there are any changes to the [schema](/docs/database/schemas.mdx), the
+1. If there are any changes to the [schema](/database/schemas.mdx), the
    deployment will automatically enforce them.
 1. The `npx convex dev` command updates generated TypeScript code in the
    `convex/_generated` directory to provide end to end type safety for your
@@ -128,14 +128,14 @@ export function App() {
 }
 ```
 
-If you have other configuration like [crons](/docs/scheduling/cron-jobs.mdx) or
-[auth](/docs/auth.mdx) in your `convex/` folder, Convex ensures that they are
-applied and enforced on your backend.
+If you have other configuration like [crons](/scheduling/cron-jobs.mdx) or
+[auth](/auth.mdx) in your `convex/` folder, Convex ensures that they are applied
+and enforced on your backend.
 
 ## Convex dashboard
 
-The [Convex dashboard](/docs/dashboard/deployments/deployments.md) will be a
-trusty helper throughout your dev, debug and deploy workflow in Convex.
+The [Convex dashboard](/dashboard/deployments/deployments.md) will be a trusty
+helper throughout your dev, debug and deploy workflow in Convex.
 
 `npx convex dashboard` will open a link to the dashboard for your deployment.
 
@@ -145,22 +145,22 @@ Since Convex functions are TypeScript functions you can always use the standard
 `console.log` and `console.time` functions to debug your apps.
 
 Logs from your functions show up
-[in your dashboard](/docs/dashboard/deployments/logs.md).
+[in your dashboard](/dashboard/deployments/logs.md).
 
 ![Logs Dashboard Page](/screenshots/logs.png)
 
 ### Health, Data, Functions and more
 
-- [Health](/docs/dashboard/deployments/health.md) - provides invaluable
-  information on how your app is performing in production, with deep insights on
-  how your Convex queries are doing.
-- [Data](/docs/dashboard/deployments/data.md) - gives you a complete data
-  browser to spot check your data.
-- [Functions](/docs/dashboard/deployments/functions.md) - gives you stats and
-  run functions to debug them.
+- [Health](/dashboard/deployments/health.md) - provides invaluable information
+  on how your app is performing in production, with deep insights on how your
+  Convex queries are doing.
+- [Data](/dashboard/deployments/data.md) - gives you a complete data browser to
+  spot check your data.
+- [Functions](/dashboard/deployments/functions.md) - gives you stats and run
+  functions to debug them.
 
 There is a lot more to to the dashboard. Be sure to click around or
-[check out the docs](/docs/dashboard.md).
+[check out the docs](/dashboard.md).
 
 ## Deploying your app
 
@@ -194,9 +194,9 @@ an automated workflow that runs tests and deploys your backend and frontend
 together.
 
 You can see detailed deployment and frontend configuration instructions in the
-[Hosting and Deployment](/docs/production/hosting/hosting.mdx) doc. For most
-React meta-frameworks Convex
-[automatically sets the correct environment variable](/docs/production/hosting/vercel.mdx#how-it-works)
+[Hosting and Deployment](/production/hosting/hosting.mdx) doc. For most React
+meta-frameworks Convex
+[automatically sets the correct environment variable](/production/hosting/vercel.mdx#how-it-works)
 to connect to the production deployment.
 
 ## Up next
@@ -206,6 +206,5 @@ explore the docs further to learn more about the specific features you want to
 use.
 
 Whenever you're ready be sure the read the
-[Best Practices](/docs/understanding/best-practices/best-practices.mdx), and
-then the [Zen of Convex](/docs/understanding/zen.mdx) once you are ready to
-"think in Convex."
+[Best Practices](/understanding/best-practices/best-practices.mdx), and then the
+[Zen of Convex](/understanding/zen.mdx) once you are ready to "think in Convex."

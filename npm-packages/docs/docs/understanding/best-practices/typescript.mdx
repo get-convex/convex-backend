@@ -29,8 +29,8 @@ complete them all.
 The first step to improving type support in a Convex project is to writing your
 Convex functions in TypeScript by using the `.ts` extension.
 
-If you are using [argument validation](/docs/functions/validation.mdx), Convex
-will infer the types of your functions arguments automatically:
+If you are using [argument validation](/functions/validation.mdx), Convex will
+infer the types of your functions arguments automatically:
 
 <Snippet title="convex/sendMessage.ts" source={ArgValidation} />
 
@@ -42,9 +42,8 @@ Otherwise you can annotate the arguments type manually:
   highlightPatterns={["body: string"]}
 />
 
-This can be useful for
-[internal functions](/docs/functions/internal-functions.mdx) accepting
-complicated types.
+This can be useful for [internal functions](/functions/internal-functions.mdx)
+accepting complicated types.
 
 If TypeScript is installed in your project `npx convex dev` and
 `npx convex deploy` will typecheck Convex functions before sending code to the
@@ -59,15 +58,15 @@ add a schema.
 
 ## Adding a schema
 
-Once you [define a schema](/docs/database/schemas.mdx) the type signature of
-database methods will be known. You'll also be able to use types imported from
+Once you [define a schema](/database/schemas.mdx) the type signature of database
+methods will be known. You'll also be able to use types imported from
 `convex/_generated/dataModel` in both Convex functions and clients written in
 TypeScript (React, React Native, Node.js etc.).
 
 The types of documents in tables can be described using the
 [`Doc`](/generated-api/data-model#doc) type from the generated data model and
 references to documents can be described with parametrized
-[Document IDs](/docs/database/document-ids.mdx).
+[Document IDs](/database/document-ids.mdx).
 
 <Snippet title="convex/messages.ts" source={WithSchema} />
 
@@ -86,8 +85,8 @@ on your schema and declared Convex functions:
 ### Inferring types from validators
 
 Validators can be reused between
-[argument validation](/docs/functions/validation.mdx) and
-[schema validation](/docs/database/schemas.mdx). You can use the provided
+[argument validation](/functions/validation.mdx) and
+[schema validation](/database/schemas.mdx). You can use the provided
 [`Infer`](/api/modules/values#infer) type to get a TypeScript type corresponding
 to a validator:
 
@@ -112,9 +111,8 @@ by ensuring that arguments and return values match the corresponding Convex
 functions declarations. For React, install and configure TypeScript so you can
 write your React components in `.tsx` files instead of `.jsx` files.
 
-Follow our [React](/docs/quickstart/react.mdx) or
-[Next.js](/docs/quickstart/nextjs.mdx) quickstart to get started with Convex and
-TypeScript.
+Follow our [React](/quickstart/react.mdx) or [Next.js](/quickstart/nextjs.mdx)
+quickstart to get started with Convex and TypeScript.
 
 ### Type annotating client-side code
 
@@ -141,7 +139,7 @@ on the frontend), you can use the generic `FunctionReturnType` and
 
 ## Turning `string`s into valid document IDs
 
-See [Serializing IDs](/docs/database/document-ids.mdx#serializing-ids).
+See [Serializing IDs](/database/document-ids.mdx#serializing-ids).
 
 ## Required TypeScript version
 

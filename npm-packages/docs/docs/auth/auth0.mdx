@@ -24,7 +24,7 @@ If you're using Next.js see the
 ## Get started
 
 This guide assumes you already have a working React app with Convex. If not
-follow the [Convex React Quickstart](/docs/quickstart/react.mdx) first. Then:
+follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
 <StepByStep>
   <Step title="Follow the Auth0 React quickstart">
@@ -184,12 +184,11 @@ export default function Badge() {
 
 ## User information in functions
 
-See [Auth in Functions](/docs/auth/functions-auth.mdx) to learn about how to
-access information about the authenticated user in your queries, mutations and
-actions.
+See [Auth in Functions](/auth/functions-auth.mdx) to learn about how to access
+information about the authenticated user in your queries, mutations and actions.
 
-See [Storing Users in the Convex Database](/docs/auth/database-auth.mdx) to
-learn about how to store user information in the Convex database.
+See [Storing Users in the Convex Database](/auth/database-auth.mdx) to learn
+about how to store user information in the Convex database.
 
 ## Configuring dev and prod tenants
 
@@ -241,8 +240,8 @@ Now switch to the new configuration by running `npx convex deploy`.
 To configure your client you can use environment variables as well. The exact
 name of the environment variables and the way to refer to them depends on each
 client platform (Vite vs Next.js etc.), refer to our corresponding
-[Quickstart](/docs/quickstarts.mdx) or the relevant documentation for the
-platform you're using.
+[Quickstart](/quickstarts.mdx) or the relevant documentation for the platform
+you're using.
 
 Change the props to `Auth0Provider` to take in environment variables:
 
@@ -258,8 +257,8 @@ Change the props to `Auth0Provider` to take in environment variables:
 Use the `.env.local` or `.env` file to configure your client when running
 locally. The name of the environment variables file depends on each client
 platform (Vite vs Next.js etc.), refer to our corresponding
-[Quickstart](/docs/quickstarts.mdx) or the relevant documentation for the
-platform you're using:
+[Quickstart](/quickstarts.mdx) or the relevant documentation for the platform
+you're using:
 
 ```py title=".env.local"
 VITE_AUTH0_DOMAIN="your-domain.us.auth0.com"
@@ -269,7 +268,7 @@ VITE_AUTH0_CLIENT_ID="yourclientid"
 **Production configuration**
 
 Set the environment variables in your production environment depending on your
-hosting platform. See [Hosting](/docs/production/hosting/hosting.mdx).
+hosting platform. See [Hosting](/production/hosting/hosting.mdx).
 
 ## Debugging authentication
 
@@ -283,7 +282,7 @@ contains a list of configured authentication providers. You must run
 configuration to your backend.
 
 For more thorough debugging steps, see
-[Debugging Authentication](/docs/auth/debug.mdx).
+[Debugging Authentication](/auth/debug.mdx).
 
 ## Under the hood
 

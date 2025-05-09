@@ -16,10 +16,9 @@ HTTP actions take in a
 [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) following
 the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
 HTTP actions can manipulate the request and response directly, and interact with
-data in Convex indirectly by running
-[queries](/docs/functions/query-functions.mdx),
-[mutations](/docs/functions/mutation-functions.mdx), and
-[actions](/docs/functions/actions.mdx). HTTP actions might be used for receiving
+data in Convex indirectly by running [queries](/functions/query-functions.mdx),
+[mutations](/functions/mutation-functions.mdx), and
+[actions](/functions/actions.mdx). HTTP actions might be used for receiving
 webhooks from external applications or defining a public HTTP API.
 
 HTTP actions are exposed at `https://<your deployment name>.convex.site` (e.g.
@@ -88,20 +87,20 @@ curl -d '{ "author": "User 123", "body": "Hello world" }' \
 ```
 
 Like other Convex functions, you can view your HTTP actions in the
-[Functions view](/docs/dashboard/deployments/functions.md) of
+[Functions view](/dashboard/deployments/functions.md) of
 [your dashboard](https://dashboard.convex.dev/) and view logs produced by them
-in the [Logs view](/docs/dashboard/deployments/logs.md).
+in the [Logs view](/dashboard/deployments/logs.md).
 
 ## Limits
 
 HTTP actions run in the same environment as queries and mutations so also do not
 have access to Node.js-specific JavaScript APIs. HTTP actions can call
-[actions](/docs/functions/actions.mdx), which can run in Node.js.
+[actions](/functions/actions.mdx), which can run in Node.js.
 
-Like [actions](/docs/functions/actions.mdx#error-handling), HTTP actions may
-have side-effects and will not be automatically retried by Convex when errors
-occur. It is a responsibility of the caller to handle errors and retry the
-request if appropriate.
+Like [actions](/functions/actions.mdx#error-handling), HTTP actions may have
+side-effects and will not be automatically retried by Convex when errors occur.
+It is a responsibility of the caller to handle errors and retry the request if
+appropriate.
 
 Request and response size is limited to 20MB.
 
@@ -111,7 +110,7 @@ HTTP actions support request and response body types of `.text()`, `.json()`,
 Note that you don't need to define an HTTP action to call your queries,
 mutations and actions over HTTP if you control the caller, since you can use use
 the JavaScript [`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) or
-the [Python client](/docs/client/python.md) to call these functions directly.
+the [Python client](/client/python.md) to call these functions directly.
 
 ## Debugging
 
@@ -162,14 +161,14 @@ If you see "CORS error" or messages in the browser console like
 `Access to fetch at '...' from origin '...' has been blocked by CORS policy`,
 you likely need to configure CORS headers and potentially add a handler for the
 pre-flight `OPTIONS` request. See
-[this section](/docs/functions/http-actions.mdx#cors) below.
+[this section](/functions/http-actions.mdx#cors) below.
 
 ## Common patterns
 
 ### File Storage
 
 HTTP actions can be used to handle uploading and fetching stored files, see
-[File Storage with HTTP actions](/docs/file-storage.mdx#file-storage-with-http-actions).
+[File Storage with HTTP actions](/file-storage.mdx#file-storage-with-http-actions).
 
 ### CORS
 
@@ -202,8 +201,8 @@ Here's an example of handling a pre-flight `OPTIONS` request:
 
 ### Authentication
 
-You can leverage Convex's built-in [authentication](/docs/auth.mdx) integration
-and access a user identity from
+You can leverage Convex's built-in [authentication](/auth.mdx) integration and
+access a user identity from
 [`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity). To
 do this call your endpoint with an `Authorization` header including a JWT token:
 

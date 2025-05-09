@@ -6,8 +6,8 @@ sidebar_position: 30
 
 The [schedules page](https://dashboard.convex.dev/deployment/schedules) displays
 all [scheduled functions](docs/scheduling/scheduled-functions.mdx) and
-[cron jobs](/docs/scheduling/cron-jobs.mdx) in your deployment. Use the tabs at
-the top of this page to switch between scheduled functions and cron jobs.
+[cron jobs](/scheduling/cron-jobs.mdx) in your deployment. Use the tabs at the
+top of this page to switch between scheduled functions and cron jobs.
 
 ## Scheduled functions UI
 

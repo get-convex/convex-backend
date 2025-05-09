@@ -7,8 +7,7 @@ sidebar_position: 5
 description: "Configuring your project to run with Convex"
 ---
 
-When
-[connecting to your backend](/docs/client/react.mdx#connecting-to-a-backend)
+When [connecting to your backend](/client/react.mdx#connecting-to-a-backend)
 it's important to correctly configure the deployment URL.
 
 ### Create a Convex project
@@ -26,7 +25,7 @@ _development_ deployment's URL will be saved in `.env.local` or `.env` file,
 depending on the frontend framework or bundler you're using.
 
 You can find the URLs of all deployments in a project by visiting the
-[deployment settings](/docs/dashboard/deployments/settings.md) on your Convex
+[deployment settings](/dashboard/deployments/settings.md) on your Convex
 [dashboard](https://dashboard.convex.dev).
 
 ### Configure the client
@@ -91,5 +90,5 @@ NEXT_PUBLIC_LAUNCHDARKLY_SDK_CLIENT_SIDE_ID=01234567890abcdef
 ```
 
 Your backend functions can use
-[environment variables](/docs/production/environment-variables.mdx) configured
-on your dashboard. They do not source values from `.env` files.
+[environment variables](/production/environment-variables.mdx) configured on
+your dashboard. They do not source values from `.env` files.

@@ -19,8 +19,8 @@ import ScheduleFromMutation from "!!raw-loader!@site/../private-demos/snippets/c
 Actions can call third party services to do things such as processing a payment
 with [Stripe](https://stripe.com). They can be run in Convex's JavaScript
 environment or in Node.js. They can interact with the database indirectly by
-calling [queries](/docs/functions/query-functions.mdx) and
-[mutations](/docs/functions/mutation-functions.mdx).
+calling [queries](/functions/query-functions.mdx) and
+[mutations](/functions/mutation-functions.mdx).
 
 **Example:**
 [GIPHY Action](https://github.com/get-convex/convex-demos/tree/main/giphy-action)
@@ -28,7 +28,7 @@ calling [queries](/docs/functions/query-functions.mdx) and
 ## Action names
 
 Actions follow the same naming rules as queries, see
-[Query names](/docs/functions/query-functions.mdx#query-names).
+[Query names](/functions/query-functions.mdx#query-names).
 
 ## The `action` constructor
 
@@ -46,7 +46,7 @@ Unlike a query, an action can but does not have to return a value.
 ### Action arguments and responses
 
 Action arguments and responses follow the same rules as
-[mutations](/docs/functions/mutation-functions.mdx#mutation-arguments-and_responses):
+[mutations](/functions/mutation-functions.mdx#mutation-arguments-and_responses):
 
 <TSAndJSSnippet
   sourceTS={ArgsWithValidation}
@@ -81,7 +81,7 @@ do:
     title="convex/myFunctions.ts"
   />
 
-  Here `readData` is an [internal query](/docs/functions/internal-functions.mdx)
+  Here `readData` is an [internal query](/functions/internal-functions.mdx)
   because we don't want to expose it to the client directly. Actions, mutations
   and queries can be defined in the same file.
 
@@ -94,21 +94,21 @@ do:
     title="convex/myFunctions.ts"
   />
 
-  Use an [internal mutation](/docs/functions/internal-functions.mdx) when you
-  want to prevent users from calling the mutation directly.
+  Use an [internal mutation](/functions/internal-functions.mdx) when you want to
+  prevent users from calling the mutation directly.
 
   As with queries, it's often convenient to define actions and mutations in the
   same file.
 
 - To generate upload URLs for storing files use the `storage` field. Read on
-  about [File Storage](/docs/file-storage.mdx).
+  about [File Storage](/file-storage.mdx).
 - To check user authentication use the `auth` field. Auth is propagated
   automatically when calling queries and mutations from the action. Read on
-  about [Authentication](/docs/auth.mdx).
+  about [Authentication](/auth.mdx).
 - To schedule functions to run in the future, use the `scheduler` field. Read on
-  about [Scheduled Functions](/docs/scheduling/scheduled-functions.mdx).
+  about [Scheduled Functions](/scheduling/scheduled-functions.mdx).
 - To search a vector index, use the `vectorSearch` field. Read on about
-  [Vector Search](/docs/search/vector-search.mdx).
+  [Vector Search](/search/vector-search.mdx).
 
 ### Dealing with circular type inference
 
@@ -150,7 +150,7 @@ TypeScript will check that the type annotation matches what the called query or
 mutation returns, so you don't lose any type safety.
 
 In this trivial example the return type of the query was `null`. See the
-[TypeScript](/docs/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+[TypeScript](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
 page for other types which might be helpful when annotating the result.
 
 </Details>
@@ -183,35 +183,34 @@ directive.
   title="convex/myAction.ts"
 />
 
-Learn more about the two [Convex Runtimes](/docs/functions/runtimes.mdx).
+Learn more about the two [Convex Runtimes](/functions/runtimes.mdx).
 
 ## Splitting up action code via helpers
 
 <>
   {/* Fragment for Prettier */}
-  Just like with [queries](/docs/functions/query-functions.mdx#splitting-up-query-code-via-helpers)
-  and [mutations](/docs/functions/mutation-functions.mdx#splitting-up-query-code-via-helpers)
+  Just like with [queries](/functions/query-functions.mdx#splitting-up-query-code-via-helpers)
+  and [mutations](/functions/mutation-functions.mdx#splitting-up-query-code-via-helpers)
   you can define and call helper
   <LanguageSelector verbose /> functions to split up the code in your actions or
   reuse logic across multiple Convex functions.
 
 But note that the [ActionCtx](/api/interfaces/server.GenericActionCtx) only has
-the `auth` field in common with
-[QueryCtx](/docs/generated-api/server.md#queryctx) and
-[MutationCtx](/docs/generated-api/server.md#mutationctx).
+the `auth` field in common with [QueryCtx](/generated-api/server.md#queryctx)
+and [MutationCtx](/generated-api/server.md#mutationctx).
 
 </>
 
 ## Calling actions from clients
 
-To call an action from [React](/docs/client/react.mdx) use the
+To call an action from [React](/client/react.mdx) use the
 [`useAction`](/api/modules/react#useaction) hook along with the generated
 [`api`](/generated-api/api) object.
 
 <TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
 
 Unlike
-[mutations](/docs/functions/mutation-functions.mdx#calling-mutations-from-clients),
+[mutations](/functions/mutation-functions.mdx#calling-mutations-from-clients),
 actions from a single client are parallelized. Each action will be executed as
 soon as it reaches the server (even if other actions and mutations from the same
 client are running). If your app relies on actions running after other actions
@@ -220,9 +219,9 @@ function completes.
 
 **Note:** In most cases calling an action directly from a client **is an
 anti-pattern**. Instead, have the client call a
-[mutation](/docs/functions/mutation-functions.mdx) which captures the user
-intent by writing into the database and then
-[schedules](/docs/scheduling/scheduled-functions.mdx) an action:
+[mutation](/functions/mutation-functions.mdx) which captures the user intent by
+writing into the database and then
+[schedules](/scheduling/scheduled-functions.mdx) an action:
 
 <TSAndJSSnippet
   sourceTS={ScheduleFromMutation}
@@ -236,16 +235,15 @@ executing the same action twice.
 ## Limits
 
 Actions time out after 10 minutes.
-[Node.js](/docs/functions/runtimes.mdx#nodejs-runtime) and
-[Convex runtime](/docs/functions/runtimes.mdx#default-convex-runtime) have 512MB
-and 64MB memory limit respectively. Please
-[contact us](/docs/production/contact.md) if you have a use case that requires
-configuring higher limits.
+[Node.js](/functions/runtimes.mdx#nodejs-runtime) and
+[Convex runtime](/functions/runtimes.mdx#default-convex-runtime) have 512MB and
+64MB memory limit respectively. Please [contact us](/production/contact.md) if
+you have a use case that requires configuring higher limits.
 
 Actions can do up to 1000 concurrent operations, such as executing queries,
 mutations or performing fetch requests.
 
-For information on other limits, see [here](/docs/production/state/limits.mdx).
+For information on other limits, see [here](/production/state/limits.mdx).
 
 ## Error handling
 
@@ -274,10 +272,10 @@ holding all it's resources. If you pile enough of these calls on top of each
 other, your app may slow down significantly.
 
 **Fix:** The reason this api exists is to let you run code in the
-[Node.js environment](/docs/functions/runtimes.mdx). If you want to call an
-action from another action that's in the same runtime, which is the normal case,
-the best way to do this is to pull the code you want to call into a TypeScript
-[helper function](/docs/understanding/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
+[Node.js environment](/functions/runtimes.mdx). If you want to call an action
+from another action that's in the same runtime, which is the normal case, the
+best way to do this is to pull the code you want to call into a TypeScript
+[helper function](/understanding/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
 and call the helper instead.
 
 ### Avoid `await ctx.runMutation` / `await ctx.runQuery`

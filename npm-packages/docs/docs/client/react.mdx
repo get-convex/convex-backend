@@ -10,18 +10,18 @@ import SkipGood from "!!raw-loader!@site/../private-demos/snippets/src/reactSkip
 Convex React is the client library enabling your React application to interact
 with your Convex backend. It allows your frontend code to:
 
-1. Call your [queries](/docs/functions/query-functions.mdx),
-   [mutations](/docs/functions/mutation-functions.mdx) and
-   [actions](/docs/functions/actions.mdx)
-2. Upload and display files from [File Storage](/docs/file-storage.mdx)
-3. Authenticate users using [Authentication](/docs/auth.mdx)
-4. Implement full text [Search](/docs/search.mdx) over your data
+1. Call your [queries](/functions/query-functions.mdx),
+   [mutations](/functions/mutation-functions.mdx) and
+   [actions](/functions/actions.mdx)
+2. Upload and display files from [File Storage](/file-storage.mdx)
+3. Authenticate users using [Authentication](/auth.mdx)
+4. Implement full text [Search](/search.mdx) over your data
 
 The Convex React client is open source and available on
 [GitHub](https://github.com/get-convex/convex-js).
 
-Follow the [React Quickstart](/docs/quickstart/react.mdx) to get started with
-React using [Vite](https://vitejs.dev/).
+Follow the [React Quickstart](/quickstart/react.mdx) to get started with React
+using [Vite](https://vitejs.dev/).
 
 ## Installation
 
@@ -38,9 +38,8 @@ connection to your Convex backend, and is used by the React hooks described
 below to call your functions.
 
 First you need to create an instance of the client by giving it your backend
-deployment URL. See
-[Configuring Deployment URL](/docs/client/react/project-setup.md) on how to pass
-in the right value:
+deployment URL. See [Configuring Deployment URL](/client/react/project-setup.md)
+on how to pass in the right value:
 
 ```jsx
 import { ConvexProvider, ConvexReactClient } from "convex/react";
@@ -65,13 +64,13 @@ reactDOMRoot.render(
 ## Fetching data
 
 Your React app fetches data using the [`useQuery`](/api/modules/react#usequery)
-React hook by calling your [queries](/docs/functions/query-functions.mdx) via an
-[`api`](/docs/generated-api/api.md#api) object.
+React hook by calling your [queries](/functions/query-functions.mdx) via an
+[`api`](/generated-api/api.md#api) object.
 
 The `npx convex dev` command generates this api object for you in the
 `convex/_generated/api.js` module to provide better autocompletion in JavaScript
 and end-to-end type safety in
-[TypeScript](/docs/understanding/best-practices/typescript.mdx):
+[TypeScript](/understanding/best-practices/typescript.mdx):
 
 ```tsx title="src/App.tsx"
 import { useQuery } from "convex/react";
@@ -122,7 +121,7 @@ data.
 ### Paginating queries
 
 See
-[Paginating within React Components](/docs/database/pagination.mdx#paginating-within-react-components).
+[Paginating within React Components](/database/pagination.mdx#paginating-within-react-components).
 
 ### Skipping queries
 
@@ -192,12 +191,12 @@ export function App() {
 
 Your React app edits data using the
 [`useMutation`](/api/modules/react#usemutation) React hook by calling your
-[mutations](/docs/functions/mutation-functions.mdx).
+[mutations](/functions/mutation-functions.mdx).
 
 The `convex dev` command generates this api object for you in the
 `convex/_generated/api.js` module to provide better autocompletion in JavaScript
 and end-to-end type safety in
-[TypeScript](/docs/understanding/best-practices/typescript.mdx):
+[TypeScript](/understanding/best-practices/typescript.mdx):
 
 ```tsx title="src/App.tsx"
 import { useMutation } from "convex/react";
@@ -267,9 +266,8 @@ export function App() {
 }
 ```
 
-Learn more about
-[Error Handling](/docs/functions/error-handling/error-handling.mdx) in
-functions.
+Learn more about [Error Handling](/functions/error-handling/error-handling.mdx)
+in functions.
 
 ### Retries
 
@@ -291,19 +289,19 @@ configure an _optimistic update_ to execute as part of your mutation.
 Optimistic updates are temporary, local changes to your query results which are
 used to make your app more responsive.
 
-See [Optimistic Updates](/docs/client/react/optimistic-updates.mdx) on how to
+See [Optimistic Updates](/client/react/optimistic-updates.mdx) on how to
 configure them.
 
 ## Calling third-party APIs
 
 Your React app can read data, call third-party services, and write data with a
 single backend call using the [`useAction`](/api/modules/react#useaction) React
-hook by calling your [actions](/docs/functions/actions.mdx).
+hook by calling your [actions](/functions/actions.mdx).
 
 Like `useQuery` and `useMutation`, this hook is used with the `api` object
 generated for you in the `convex/_generated/api.js` module to provide better
 autocompletion in JavaScript and end-to-end type safety in
-[TypeScript](/docs/understanding/best-practices/typescript.mdx):
+[TypeScript](/understanding/best-practices/typescript.mdx):
 
 ```tsx title="src/App.tsx"
 import { useAction } from "convex/react";

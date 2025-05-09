@@ -16,7 +16,7 @@ You may drag-and-drop the column headers in each table to visually re-order the
 data.
 
 A readonly view of the data page is available in the
-[command line](/docs/cli.md#display-data-from-tables).
+[command line](/cli.md#display-data-from-tables).
 
 ```sh
 npx convex data [table]
@@ -31,10 +31,10 @@ the top of the page.
 
 All fields in a document are filterable by the operations supported in Convex
 query syntax.
-[Equality](/docs/database/reading-data/reading-data.mdx#equality-conditions) and
-[Comparison](/docs/database/reading-data/reading-data.mdx#comparisons) when
-filtering in the dashboard share the same rules as a query using the Convex
-client. You may also filter based on the type of the field.
+[Equality](/database/reading-data/reading-data.mdx#equality-conditions) and
+[Comparison](/database/reading-data/reading-data.mdx#comparisons) when filtering
+in the dashboard share the same rules as a query using the Convex client. You
+may also filter based on the type of the field.
 
 To add a filter, click the `+` next to an existing filter. If you add more than
 one condition, they will be evaluated using the `and` operation.
@@ -56,9 +56,9 @@ adding two filter conditions for `creationTime >= $time` and
 
 ## Writing custom queries
 
-You can write a [query](/docs/database/reading-data/reading-data.mdx) directly
-in the dashboard. This allows you to perform arbitrary filtering and
-transformation of the data, including sorting, joins, grouping and aggregations.
+You can write a [query](/database/reading-data/reading-data.mdx) directly in the
+dashboard. This allows you to perform arbitrary filtering and transformation of
+the data, including sorting, joins, grouping and aggregations.
 
 In the `⋮` overflow menu at the top of the data page click on the “Custom query”
 option.
@@ -70,7 +70,7 @@ option.
 />
 
 This opens the same UI used for
-[running your deployed functions](/docs/dashboard/deployments/functions.md#running-functions),
+[running your deployed functions](/dashboard/deployments/functions.md#running-functions),
 but with the “Custom test query” option selected, which lets you edit the source
 code for the query. This source code will be sent to your deployment and
 executed when you click on the “Run Custom Query“ button.
@@ -116,7 +116,7 @@ You can change the value by editing inline, and pressing enter to save.
 <Admonition type="note">
 
 You can even edit the type of your value here, as long as it satisfies your
-[schema](/docs/database/schemas.mdx) — try replacing a string with an object!
+[schema](/database/schemas.mdx) — try replacing a string with an object!
 
 </Admonition>
 
@@ -185,8 +185,8 @@ indexes.
 ## Generating a schema
 
 At the bottom-left of the page is a "Generate Schema" button which you can click
-to have Convex generate a [schema](/docs/database/schemas.mdx) of all your
-documents within this table.
+to have Convex generate a [schema](/database/schemas.mdx) of all your documents
+within this table.
 
 ![Generate Schema button](/screenshots/data_generate_schema.png)
 
@@ -195,9 +195,8 @@ documents within this table.
 The "Schema and Indexes" button can be found by clicking on the `⋮` overflow
 menu at the top of the data page.
 
-This button will open a panel showing the saved
-[schema](/docs/database/schemas.mdx) and
-[indexes](/docs/database/reading-data/indexes/indexes.md) associated with the
+This button will open a panel showing the saved [schema](/database/schemas.mdx)
+and [indexes](/database/reading-data/indexes/indexes.md) associated with the
 selected table.
 
 Indexes that have not completed backfilling will be accompanied by a loading

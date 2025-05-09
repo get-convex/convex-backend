@@ -25,7 +25,7 @@ const retrievedUser = await ctx.db.get(userId);
 ```
 
 You can access the ID of a document in the
-[`_id` field](/docs/database/types.md#system-fields):
+[`_id` field](/database/types.md#system-fields):
 
 ```ts
 const userId = retrievedUser._id;
@@ -38,8 +38,8 @@ await ctx.db.patch(userId, { name: "Steph Curry" });
 ```
 
 Convex generates an [`Id`](/generated-api/data-model#id) TypeScript type based
-on your [schema](/docs/database/schemas.mdx) that is parameterized over your
-table names:
+on your [schema](/database/schemas.mdx) that is parameterized over your table
+names:
 
 ```typescript
 import { Id } from "./_generated/dataModel";
@@ -68,7 +68,7 @@ You can follow references with `ctx.db.get`:
 const user = await ctx.db.get(book.ownerId);
 ```
 
-And [query for documents](/docs/database/reading-data/reading-data.mdx) with a
+And [query for documents](/database/reading-data/reading-data.mdx) with a
 reference:
 
 ```ts

@@ -65,7 +65,7 @@ You can download your manual and periodic backups from the dashboard via the
 download button in the menu.
 
 Alternatively, you can generate an export in the same format with the
-[command line](/docs/cli.md#export-data-to-a-file):
+[command line](/cli.md#export-data-to-a-file):
 
 ```sh
 npx convex export --path ~/Downloads
@@ -86,7 +86,7 @@ Exported ZIP files also contain data from [file storage](/file-storage) in a
 
 Downloaded ZIP files can be imported into the same deployment or a different
 deployment with the
-[CLI](/docs/database/import-export/import.mdx#import-data-from-a-snapshot-zip-file).
+[CLI](/database/import-export/import.mdx#import-data-from-a-snapshot-zip-file).
 
 ## FAQ
 
@@ -114,7 +114,7 @@ storage. In particular it lacks:
 1. Your deployment's code and configuration. Convex functions, crons.ts,
    auth.config.js, schema.ts, etc. are configured in your source code.
 2. Pending scheduled functions. You can access pending scheduled functions in
-   the [`_scheduled_functions`](/docs/database/advanced/system-tables.mdx)
-   system table.
+   the [`_scheduled_functions`](/database/advanced/system-tables.mdx) system
+   table.
 3. Environment variables. Environment variables can be copied from Settings in
    the Convex dashboard.

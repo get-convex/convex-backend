@@ -18,4 +18,4 @@ deployment, such as function deployments, changes to indexes, and changes to
 environment variables.
 
 You may also view an audit log of team-related events in the
-[team audit log](/docs/dashboard/teams.md#audit-log).
+[team audit log](/dashboard/teams.md#audit-log).

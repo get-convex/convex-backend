@@ -17,8 +17,8 @@ to a given file.
 ## Generating file URLs in queries
 
 The simplest way to serve files is to return URLs along with other data required
-by your app from [queries](/docs/functions/query-functions.mdx) and
-[mutations](/docs/functions/mutation-functions.mdx).
+by your app from [queries](/functions/query-functions.mdx) and
+[mutations](/functions/mutation-functions.mdx).
 
 A file URL can be generated from a storage ID by the
 [`storage.getUrl`](/api/interfaces/server.StorageReader#geturl) function of the
@@ -49,14 +49,13 @@ define your own file serving HTTP actions instead.
 
 ## Serving files from HTTP actions
 
-You can serve files directly from
-[HTTP actions](/docs/functions/http-actions.mdx). An HTTP action will need to
-take some parameter(s) that can be mapped to a storage ID, or a storage ID
-itself.
+You can serve files directly from [HTTP actions](/functions/http-actions.mdx).
+An HTTP action will need to take some parameter(s) that can be mapped to a
+storage ID, or a storage ID itself.
 
 This enables access control at the time the file is served, such as when an
 image is displayed on a website. But note that the HTTP actions response size is
-[currently limited](/docs/functions/http-actions.mdx#limits) to 20MB. For larger
+[currently limited](/functions/http-actions.mdx#limits) to 20MB. For larger
 files you need to use file URLs as described
 [above](#generating-file-urls-in-queries).
 

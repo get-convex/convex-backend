@@ -19,7 +19,7 @@ surprising results. [TypeScript](/understanding/best-practices/typescript) alone
 won't help because TypeScript types aren't present at runtime. We recommend
 adding argument validation for all public functions in production apps. For
 non-public functions that are not called by clients, we recommend
-[internal functions](/docs/functions/internal-functions.mdx) and optionally
+[internal functions](/functions/internal-functions.mdx) and optionally
 validation.
 
 **Example:**
@@ -39,7 +39,7 @@ return value validation, use the `returns` property in this object:
 />
 
 If you define your function with an argument validator, there is no need to
-include [TypeScript](/docs/understanding/best-practices/typescript.mdx) type
+include [TypeScript](/understanding/best-practices/typescript.mdx) type
 annotations! The type of your function will be inferred automatically.
 Similarly, if you define a return value validator, the return type of your
 function will be inferred from the validator, and TypeScript will check that it
@@ -63,8 +63,8 @@ All functions, both public and internal, can accept and return the following
 data types. Each type has a corresponding validator that can be accessed on the
 [`v`](/api/modules/values#v) object imported from `"convex/values"`.
 
-The [database](/docs/database.mdx) can store the exact same set of
-[data types](/docs/database/types.md).
+The [database](/database.mdx) can store the exact same set of
+[data types](/database/types.md).
 
 Additionally you can also express type unions, literals, `any` types, and
 optional fields.

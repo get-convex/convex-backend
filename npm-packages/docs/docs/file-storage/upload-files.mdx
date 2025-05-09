@@ -94,12 +94,12 @@ The file size is not limited, but upload POST request has a 2 minute timeout.
 ## Uploading files via an HTTP action
 
 The file upload process can be more tightly controlled by leveraging
-[HTTP action](/docs/functions/http-actions.mdx)s, performing the whole upload
-flow using a single request, but requiring correct CORS headers configuration.
+[HTTP action](/functions/http-actions.mdx)s, performing the whole upload flow
+using a single request, but requiring correct CORS headers configuration.
 
 The custom upload HTTP action can control who can upload files to your Convex
 storage. But note that the HTTP action request size is
-[currently limited](/docs/functions/http-actions.mdx#limits) to 20MB. For larger
+[currently limited](/functions/http-actions.mdx#limits) to 20MB. For larger
 files you need to use upload URLs as described
 [above](#uploading-files-via-upload-urls).
 
@@ -132,7 +132,7 @@ From the HTTP action you can call a mutation to write the storage ID to a
 document in your database.
 
 To confirm success back to your hosted website, you will need to set the right
-[CORS headers](/docs/functions/http-actions.mdx#cors):
+[CORS headers](/functions/http-actions.mdx#cors):
 
 <TSAndJSSnippet
   title="convex/http.js"

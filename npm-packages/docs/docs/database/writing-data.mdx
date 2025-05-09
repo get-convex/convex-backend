@@ -9,8 +9,8 @@ import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/
 import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
 import { ComponentCardList } from "@site/src/components/ComponentCard";
 
-[Mutations](/docs/functions/mutation-functions.mdx) can insert, update, and
-remove data from database tables.
+[Mutations](/functions/mutation-functions.mdx) can insert, update, and remove
+data from database tables.
 
 ## Inserting new documents
 
@@ -28,10 +28,9 @@ The second argument to `db.insert` is a JavaScript object with data for the new
 document.
 
 The same types of values that can be passed into and returned from
-[queries](/docs/functions/query-functions.mdx) and
-[mutations](/docs/functions/mutation-functions.mdx) can be written into the
-database. See [Data Types](/docs/database/types.md) for the full list of
-supported types.
+[queries](/functions/query-functions.mdx) and
+[mutations](/functions/mutation-functions.mdx) can be written into the database.
+See [Data Types](/database/types.md) for the full list of supported types.
 
 The `insert` method returns a globally unique ID for the newly inserted
 document.
@@ -149,4 +148,4 @@ time. It allows you to resume from failures, and validate changes with dry runs.
 ## Write performance and limits
 
 To prevent accidental writes of large amounts of records, queries and mutations
-enforce limits detailed [here](/docs/production/state/limits.mdx#transactions).
+enforce limits detailed [here](/production/state/limits.mdx#transactions).

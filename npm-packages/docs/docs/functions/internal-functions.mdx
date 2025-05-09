@@ -8,8 +8,8 @@ import Call from "!!raw-loader!@site/../private-demos/snippets/convex/internalFu
 import DefinitionWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidation.ts";
 import DefinitionWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidationJS.js";
 
-Internal functions can only be called by other [functions](/docs/functions.mdx)
-and cannot be called directly from a [Convex client](/docs/client/react.mdx).
+Internal functions can only be called by other [functions](/functions.mdx) and
+cannot be called directly from a [Convex client](/client/react.mdx).
 
 By default your Convex functions are public and accessible to clients. Public
 functions may be called by malicious users in ways that cause surprising
@@ -19,24 +19,24 @@ a client.
 
 While internal functions help mitigate risk by reducing the public surface area
 of your application, you can still validate internal invariants using
-[argument validation](/docs/functions/validation.mdx) and/or
-[authentication](/docs/auth/functions-auth.mdx).
+[argument validation](/functions/validation.mdx) and/or
+[authentication](/auth/functions-auth.mdx).
 
 ## Use cases for internal functions
 
 Leverage internal functions by:
 
-- Calling them from [actions](/docs/functions/actions.mdx#action-context) via
+- Calling them from [actions](/functions/actions.mdx#action-context) via
   `runQuery` and `runMutation`
-- Calling them from [HTTP actions](/docs/functions/http-actions.mdx) via
-  `runQuery`, `runMutation`, and `runAction`
-- [Scheduling](/docs/scheduling/scheduled-functions.mdx) them from other
-  functions to run in the future
+- Calling them from [HTTP actions](/functions/http-actions.mdx) via `runQuery`,
+  `runMutation`, and `runAction`
+- [Scheduling](/scheduling/scheduled-functions.mdx) them from other functions to
+  run in the future
 - Scheduling them to run periodically from
-  [cron jobs](/docs/scheduling/cron-jobs.mdx)
+  [cron jobs](/scheduling/cron-jobs.mdx)
 - Running them using the
-  [Dashboard](/docs/dashboard/deployments/functions.md#running-functions)
-- Running them from the [CLI](/docs/cli.md#run-convex-functions)
+  [Dashboard](/dashboard/deployments/functions.md#running-functions)
+- Running them from the [CLI](/cli.md#run-convex-functions)
 
 ## Defining internal functions
 

@@ -110,12 +110,12 @@ npx convex import --replace --table <tableNameToClear> empty_file.jsonl
   additionally import other Convex values: Int64, Bytes, etc. Types are
   preserved in the ZIP file through the `generated_schema.jsonl` file.
 - Data import of ZIP files that include [file storage](/file-storage) import the
-  files and preserve [`_storage`](/docs/database/advanced/system-tables.mdx)
+  files and preserve [`_storage`](/database/advanced/system-tables.mdx)
   documents, including their `_id`, `_creationTime`, and `contentType` fields.
 
 ## Warnings
 
-- [Streaming Export](/docs/production/integrations/streaming-import-export.md)
+- [Streaming Export](/production/integrations/streaming-import-export.md)
   (Fivetran or Airbyte) does not handle data imports or backup restorations,
   similar to table deletion and creation and some schema changes. We recommend
   resetting streaming export sync after a restore or a data import.

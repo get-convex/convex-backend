@@ -75,8 +75,8 @@ Note that when your create your React tree you should both:
 
 ## Queries
 
-A live-updating subscription to a Convex
-[query](/docs/functions/query-functions.mdx) is as simple as calling TanStack
+A live-updating subscription to a Convex [query](/functions/query-functions.mdx)
+is as simple as calling TanStack
 [`useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
 with `convexQuery`:
 
@@ -107,8 +107,8 @@ const { data, isPending, error } = useQuery({
 
 ## Mutations
 
-Your app can call Convex [mutations](/docs/functions/mutation-functions.mdx) by
-using the TanStack
+Your app can call Convex [mutations](/functions/mutation-functions.mdx) by using
+the TanStack
 [`useMutation`](https://tanstack.com/query/latest/docs/framework/react/reference/useMutation)
 hook, and setting the `mutationFn` property to the result of calling
 `useConvexMutation`:

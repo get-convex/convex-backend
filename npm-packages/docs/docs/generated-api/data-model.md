@@ -43,8 +43,7 @@ The type of a document stored in Convex.
 An identifier for a document in Convex.
 
 Convex documents are uniquely identified by their `Id`, which is accessible on
-the `_id` field. To learn more, see
-[Document IDs](/docs/database/document-ids.mdx).
+the `_id` field. To learn more, see [Document IDs](/database/document-ids.mdx).
 
 Documents can be loaded using `db.get(id)` in query and mutation functions.
 

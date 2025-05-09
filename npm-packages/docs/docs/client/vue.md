@@ -7,7 +7,7 @@ The community-maintained
 [`@convex-vue/core` npm package](https://www.npmjs.com/package/@convex-vue/core)
 provides deep integration of Convex with the Vue ecosystem.
 
-See the [Vue Quickstart](/docs/quickstart/vue.mdx) to get started or the
+See the [Vue Quickstart](/quickstart/vue.mdx) to get started or the
 [convex-vue GitHub page](https://github.com/Darialyphia/convex-vue/tree/master/packages/convex-vue)
 for more documentation.
 

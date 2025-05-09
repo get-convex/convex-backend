@@ -95,7 +95,7 @@ but it will be non-reactive. To do this, use the
 ## Server Actions and Route Handlers
 
 Next.js supports building HTTP request handling routes, similar to Convex
-[HTTP Actions](/docs/functions/http-actions.mdx). You can use Convex from a
+[HTTP Actions](/functions/http-actions.mdx). You can use Convex from a
 [Server Action](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations)
 or a
 [Route Handler](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
@@ -163,7 +163,7 @@ export async function getAuthToken() {
 
 Convex hooks used by Client Components are configured via the
 `ConvexReactClient` constructor, as shown in the
-[Next.js Quickstart](/docs/quickstart/nextjs.mdx).
+[Next.js Quickstart](/quickstart/nextjs.mdx).
 
 To use `preloadQuery`, `fetchQuery`, `fetchMutation` and `fetchAction` in Server
 Components, Server Actions and Route Handlers you must either:
@@ -180,7 +180,7 @@ Components, Server Actions and Route Handlers you must either:
 the hood. This client is stateless. This means that two calls to `preloadQuery`
 are not guaranteed to return consistent data based on the same database state.
 This is similar to more traditional databases, but is different from the
-[guaranteed consistency](/docs/client/react.mdx#consistency) provided by the
+[guaranteed consistency](/client/react.mdx#consistency) provided by the
 `ConvexReactClient`.
 
 To prevent rendering an inconsistent UI avoid using multiple `preloadQuery`

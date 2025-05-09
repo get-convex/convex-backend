@@ -87,7 +87,7 @@ If you are a Project Admin for a given project, you may:
 You may assign and remove the Project Admin role for multiple projects at the
 same time on the member settings page. To assign or remove the Project Admin
 role for multiple members at the same time, visit the
-[Project Settings](/docs/dashboard/projects.md#project-settings) page instead.
+[Project Settings](/dashboard/projects.md#project-settings) page instead.
 
 ## Billing
 
@@ -153,4 +153,4 @@ managing projects and deployments, inviting and removing team members, and more.
 ![Team audit log page](/screenshots/teams_audit_log.png)
 
 You may also view a history of deployment-related events on the
-[deployment history page](/docs/dashboard/deployments/history.md).
+[deployment history page](/dashboard/deployments/history.md).

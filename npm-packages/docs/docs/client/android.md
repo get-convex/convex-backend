@@ -8,13 +8,13 @@ Convex Android client library enables your Android application to interact with
 your Convex backend. It allows your frontend code to:
 
 1. Call
-   your [queries](/docs/functions/query-functions.mdx), [mutations](/docs/functions/mutation-functions.mdx) and [actions](/docs/functions/actions.mdx)
-2. Authenticate users using [Auth0](/docs/auth/auth0.mdx)
+   your [queries](/functions/query-functions.mdx), [mutations](/functions/mutation-functions.mdx) and [actions](/functions/actions.mdx)
+2. Authenticate users using [Auth0](/auth/auth0.mdx)
 
 The library is open source and
 [available on GitHub](https://github.com/get-convex/convex-mobile/tree/main/android).
 
-Follow the [Android Quickstart](/docs/quickstart/android.mdx) to get started.
+Follow the [Android Quickstart](/quickstart/android.mdx) to get started.
 
 ## Installation
 
@@ -131,20 +131,20 @@ Assuming a backend query that accepts a `favoriteColors` argument, the value can
 be received and used to perform logic in the query function.
 
 <Admonition type="tip">
-Use serializable [Kotlin Data classes](/docs/client/android/data-types.md#custom-data-types)
+Use serializable [Kotlin Data classes](/client/android/data-types.md#custom-data-types)
 to automatically convert Convex objects to Kotlin model classes.
 </Admonition>
 
 <Admonition type="caution">
 * There are important gotchas when
-  [sending and receiving numbers](/docs/client/android/data-types.md#numerical-types)
+  [sending and receiving numbers](/client/android/data-types.md#numerical-types)
   between Kotlin and Convex.
 * `_` is a used to signify private fields in Kotlin. If you want to use a
   `_creationTime` and `_id` Convex fields directly without warnings you'll have
   to
-  [convert the field name in Kotlin](/docs/client/android/data-types.md#field-name-conversion).
+  [convert the field name in Kotlin](/client/android/data-types.md#field-name-conversion).
 * Depending on your backend functions, you may need to deal with
-  [reserved Kotlin keywords](/docs/client/android/data-types.md#field-name-conversion).
+  [reserved Kotlin keywords](/client/android/data-types.md#field-name-conversion).
 </Admonition>
 
 ### Subscription lifetime

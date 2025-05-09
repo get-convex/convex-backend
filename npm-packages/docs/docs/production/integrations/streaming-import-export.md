@@ -34,10 +34,10 @@ Convex directly. Some use cases include:
      [Snowflake](https://www.snowflake.com/) is more appropriate.
 2. Flexible querying
    - While Convex has powerful
-     [database queries](/docs/database/reading-data/reading-data.mdx#querying-documents)
-     and built-in [full text search](/docs/search.mdx) support, there are still
-     some queries that are difficult to write within Convex. If you need very
-     dynamic sorting and filtering for something like an "advanced search" view,
+     [database queries](/database/reading-data/reading-data.mdx#querying-documents)
+     and built-in [full text search](/search.mdx) support, there are still some
+     queries that are difficult to write within Convex. If you need very dynamic
+     sorting and filtering for something like an "advanced search" view,
      databases like [ElasticSearch](https://www.elastic.co) can be helpful.
 3. Machine learning training
    - Convex isn't optimized for queries running computationally intensive
@@ -61,8 +61,8 @@ sync tooling. Some use cases include:
    its own data.
 2. Building new products faster by using Convex alongside existing databases.
 3. Developing a reactive UI-layer on top of an existing dataset.
-4. Migrating your data to Convex (if the [CLI](/docs/cli.md) tool doesn't meet
-   your needs).
+4. Migrating your data to Convex (if the [CLI](/cli.md) tool doesn't meet your
+   needs).
 
 <Admonition type="caution" title="Make imported tables read-only">
 A common use case is to "mirror" a table in the source database to Convex to

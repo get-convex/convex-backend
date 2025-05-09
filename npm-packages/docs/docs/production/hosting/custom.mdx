@@ -65,9 +65,9 @@ on any static hosting provider. This guide will use
 
 If you're using Next.js or other framework with server functionality you'll need
 to use a provider that supports it, such as
-[Netlify](/docs/production/hosting/netlify.mdx) or
-[Vercel](/docs/production/hosting/vercel.mdx). You can still host Next.js
-statically via a
+[Netlify](/production/hosting/netlify.mdx) or
+[Vercel](/production/hosting/vercel.mdx). You can still host Next.js statically
+via a
 [static export](https://nextjs.org/docs/pages/building-your-application/deploying/static-exports).
 
 ### Configure your build
@@ -154,6 +154,5 @@ npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
 
 ### Authentication
 
-You will want to configure your [authentication](/docs/auth.mdx) provider
-(Clerk, Auth0 or other) to accept your production URL, where your frontend is
-served.
+You will want to configure your [authentication](/auth.mdx) provider (Clerk,
+Auth0 or other) to accept your production URL, where your frontend is served.

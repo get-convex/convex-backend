@@ -6,8 +6,8 @@ sidebar_position: 20
 ---
 
 The [file storage page](https://dashboard.convex.dev/deployment/files) displays
-[files stored in your deployment](/docs/file-storage.mdx). The page also shows
-the files' storage IDs, size, and content type. You can upload new files and
+[files stored in your deployment](/file-storage.mdx). The page also shows the
+files' storage IDs, size, and content type. You can upload new files and
 download or delete existing files.
 
 Storage IDs might be referenced by documents in your database.

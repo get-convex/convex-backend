@@ -9,12 +9,12 @@ import simpleAuthedAppTSX from "!!raw-loader!@site/../demos/nextjs-pages-router/
 import apiTS from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
 
 This pages covers the Pages Router variant of Next.js. Alternatively see the
-[App Router](/docs/client/react/nextjs/nextjs.mdx) version of this page.
+[App Router](/client/react/nextjs/nextjs.mdx) version of this page.
 
 ## Getting started
 
 Follow the
-[Next.js Pages Router Quickstart](/docs/client/react/nextjs-pages-router/quickstart-nextjs-pages-router.mdx)
+[Next.js Pages Router Quickstart](/client/react/nextjs-pages-router/quickstart-nextjs-pages-router.mdx)
 to add Convex to a new or existing Next.js project.
 
 ## Adding client-side authentication
@@ -52,13 +52,12 @@ between all pages from `pages/_app.jsx`. Share a single
 [ConvexReactClient](/api/classes/react.ConvexReactClient) instance between pages
 to avoid needing to reconnect to Convex on client-side page navigation.
 
-Read more about authenticating users with Convex in
-[Authentication](/docs/auth.mdx).
+Read more about authenticating users with Convex in [Authentication](/auth.mdx).
 
 ## API routes
 
 Next.js supports building HTTP request handling routes, similar to Convex
-[HTTP Actions](/docs/functions/http-actions.mdx). Using Next.js routes might be
+[HTTP Actions](/functions/http-actions.mdx). Using Next.js routes might be
 helpful if you need to use a dependency not supported by the Convex default
 runtime.
 
@@ -73,8 +72,7 @@ To load and edit Convex data in your endpoints, use the
 ## Server-side rendering
 
 **Consider client-side rendering Convex data when using Next.js.** Data from
-Convex is
-[fully reactive](/docs/functions/query-functions.mdx#caching-reactivity) so
+Convex is [fully reactive](/functions/query-functions.mdx#caching-reactivity) so
 Convex needs a connection from your deployment to the browser in order to push
 updates as data changes.
 
@@ -94,5 +92,5 @@ third argument of `fetchQuery`.
 
 To preload data on server side before rendering a reactive query on the client
 side use [`preloadQuery`](/api/modules/nextjs#preloadquery). Check out the
-[App Router version of these docs](/docs/client/react/nextjs/nextjs-server-rendering.mdx)
+[App Router version of these docs](/client/react/nextjs/nextjs-server-rendering.mdx)
 for more details.

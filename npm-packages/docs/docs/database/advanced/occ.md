@@ -6,8 +6,8 @@ sidebar_position: 500
 todo: Push under mutations, or inline, or kill (move to Stack)
 ---
 
-In [Queries](/docs/functions/query-functions.mdx), we mentioned that determinism
-as important in the way optimistic concurrency control (OCC) was used within
+In [Queries](/functions/query-functions.mdx), we mentioned that determinism as
+important in the way optimistic concurrency control (OCC) was used within
 Convex. In this section, we'll dive much deeper into _why_.
 
 ## Convex Financial, Inc.

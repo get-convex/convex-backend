@@ -25,14 +25,14 @@ diagram.
 
 ## Database
 
-The [database](/docs/database.mdx) is at the core of Convex. The Convex database
-is automatically provisioned when you create your project. There is no
-connection setup or cluster management.
+The [database](/database.mdx) is at the core of Convex. The Convex database is
+automatically provisioned when you create your project. There is no connection
+setup or cluster management.
 
 <Admonition type="info">
   In Convex, your database queries are just [TypeScript
-  code](/docs/database/reading-data/reading-data.mdx) written in your [server
-  functions](/docs/functions.mdx). There is no SQL to write. There are no ORMs
+  code](/database/reading-data/reading-data.mdx) written in your [server
+  functions](/functions.mdx). There is no SQL to write. There are no ORMs
   needed.
 </Admonition>
 
@@ -47,15 +47,15 @@ other tables.
 The Convex cloud offering runs on top of Amazon RDS using MySQL as its
 persistence layer. The Open Source version uses SQLite, Postgres and MySQL. The
 database is ACID-compliant and uses
-[serializable isolation and optimistic concurrency control](/docs/database/advanced/occ.md).
+[serializable isolation and optimistic concurrency control](/database/advanced/occ.md).
 All that to say, Convex provides the strictest possible transactional
 guarantees, and you never see inconsistent data.
 
 ## Server functions
 
 When you create a new Convex project, you automatically get a `convex/` folder
-where you write your [server functions](/docs/functions.mdx). This is where all
-your backend application logic and database query code live.
+where you write your [server functions](/functions.mdx). This is where all your
+backend application logic and database query code live.
 
 Example TypeScript server functions that read (query) and write (mutation) to
 the database.
@@ -85,11 +85,11 @@ export const setTaskCompleted = mutation({
 ```
 
 You read and write to your database through query or mutation functions.
-[Query functions](/docs/functions/query-functions.mdx) are pure functions that
-can only read from the database.
-[Mutation functions](/docs/functions/mutation-functions.mdx) are transactions
-that can read or write from the database. These two database functions are
-[not allowed to take any non-deterministic](/docs/functions/runtimes.mdx#restrictions-on-queries-and-mutations)
+[Query functions](/functions/query-functions.mdx) are pure functions that can
+only read from the database.
+[Mutation functions](/functions/mutation-functions.mdx) are transactions that
+can read or write from the database. These two database functions are
+[not allowed to take any non-deterministic](/functions/runtimes.mdx#restrictions-on-queries-and-mutations)
 actions like network requests to ensure transactional guarantees.
 
 <Admonition type="info">
@@ -99,17 +99,17 @@ actions like network requests to ensure transactional guarantees.
 </Admonition>
 
 Convex also provides standard general-purpose serverless functions called
-actions. [Action functions](/docs/functions/actions.mdx) can make network
-requests. They have to call query or mutation functions to read and write to the
-database. You use actions to call LLMs or send emails.
+actions. [Action functions](/functions/actions.mdx) can make network requests.
+They have to call query or mutation functions to read and write to the database.
+You use actions to call LLMs or send emails.
 
 You can also durably schedule Convex functions via the
 [scheduler](scheduling/scheduled-functions.mdx) or
 [cron jobs](scheduling/cron-jobs.mdx). Scheduling lets you build workflows like
 emailing a new user a day later if they haven't performed an onboarding task.
 
-You call your Convex functions via [client libraries](/docs/client/react.mdx) or
-directly via [HTTP](/docs/http-api/index.md#functions-api).
+You call your Convex functions via [client libraries](/client/react.mdx) or
+directly via [HTTP](/http-api/index.md#functions-api).
 
 ## Client libraries
 
@@ -146,9 +146,9 @@ moment in time in the database.
 Convex provides client libraries for nearly all popular web and native app
 frameworks. Client libraries connect to your Convex deployment via WebSockets.
 You can then call your public Convex functions
-[through the library](/docs/client/react.mdx#fetching-data). Convex also use
-Convex with [HTTP directly](/docs/http-api/index.md#functions-api), you just
-won't get the automatic subscriptions.
+[through the library](/client/react.mdx#fetching-data). Convex also use Convex
+with [HTTP directly](/http-api/index.md#functions-api), you just won't get the
+automatic subscriptions.
 
 ## Putting it all together
 

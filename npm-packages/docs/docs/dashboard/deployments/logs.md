@@ -11,8 +11,7 @@ of all activity that occurs within your deployment.
 
 The logs page provides a short history of recent function logs, and will display
 new logs as they are generated. To store a longer history of logs, you may
-configure a
-[log stream](/docs/production/integrations/log-streams/log-streams.mdx).
+configure a [log stream](/production/integrations/log-streams/log-streams.mdx).
 
 Function activity includes:
 
@@ -26,8 +25,8 @@ Function activity includes:
   latency).
 
 In addition to function activity,
-[deployment events](/docs/dashboard/deployments/history.md) describing
-configuration changes will be present here.
+[deployment events](/dashboard/deployments/history.md) describing configuration
+changes will be present here.
 
 Clicking on log will open a view for all logs associated with the same Request
 ID as the selected log. This can be useful for debugging errors and
@@ -46,16 +45,16 @@ You can use the “Functions” drop-down list to include or exclude functions f
 the results.
 
 You can also find logs for a particular error using "Filter logs" and the
-[Convex request id](/docs/functions/error-handling/error-handling.mdx#debugging-errors).
+[Convex request id](/functions/error-handling/error-handling.mdx#debugging-errors).
 For example if you see this `Error` in your browser console:
 
 ![Browser Error](/screenshots/console_error_requestid.png)
 
 You can view the logs for that function in your dashboard by pasting that
 Request ID into the 'Search logs...' search bar on the
-[Logs](/docs/dashboard/deployments/logs.md) page of your Convex dashboard. Note
-that because this page is not a complete historical view of logs, you may not
-find logs for older requests.
+[Logs](/dashboard/deployments/logs.md) page of your Convex dashboard. Note that
+because this page is not a complete historical view of logs, you may not find
+logs for older requests.
 
 Most error reporting services and log sinks should also be searchable by Request
 ID.

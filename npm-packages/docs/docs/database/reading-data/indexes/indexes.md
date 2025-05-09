@@ -4,17 +4,17 @@ sidebar_position: 100
 ---
 
 Indexes are a data structure that allow you to speed up your
-[document queries](/docs/database/reading-data/reading-data.mdx#querying-documents)
+[document queries](/database/reading-data/reading-data.mdx#querying-documents)
 by telling Convex how to organize your documents. Indexes also allow you to
 change the order of documents in query results.
 
 For a more in-depth introduction to indexing see
-[Indexes and Query Performance](/docs/database/reading-data/indexes/indexes-and-query-perf.md).
+[Indexes and Query Performance](/database/reading-data/indexes/indexes-and-query-perf.md).
 
 ## Defining indexes
 
-Indexes are defined as part of your Convex [schema](/docs/database/schemas.mdx).
-Each index consists of:
+Indexes are defined as part of your Convex [schema](/database/schemas.mdx). Each
+index consists of:
 
 1. A name.
    - Must be unique per table.
@@ -44,21 +44,19 @@ export default defineSchema({
 
 The `by_channel` index is ordered by the `channel` field defined in the schema.
 For messages in the same channel, they are ordered by the
-[system-generated `_creationTime` field](/docs/database/types.md#system-fields)
-which is added to all indexes automatically.
+[system-generated `_creationTime` field](/database/types.md#system-fields) which
+is added to all indexes automatically.
 
 By contrast, the `by_channel_user` index orders messages in the same `channel`
 by the `user` who sent them, and only then by `_creationTime`.
 
-Indexes are created in
-[`npx convex dev`](/docs/cli.md#run-the-convex-dev-server) and
-[`npx convex deploy`](/docs/cli.md#deploy-convex-functions-to-production).
+Indexes are created in [`npx convex dev`](/cli.md#run-the-convex-dev-server) and
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
 
 You may notice that the first deploy that defines an index is a bit slower than
 normal. This is because Convex needs to _backfill_ your index. The more data in
 your table, the longer it will take Convex to organize it in index order. If
-this is problematic for your workflow,
-[contact us](/docs/production/contact.md).
+this is problematic for your workflow, [contact us](/production/contact.md).
 
 You can feel free to query an index in the same deploy that defines it. Convex
 will ensure that the index is backfilled before the new query and mutation
@@ -162,7 +160,7 @@ isn't a useful index for finding messages in all channels created 1-2 minutes
 ago. The TypeScript types within `withIndex` will guide you through this.
 
 To better understand what queries can be run over which indexes, see
-[Introduction to Indexes and Query Performance](/docs/database/reading-data/indexes/indexes-and-query-perf.md).
+[Introduction to Indexes and Query Performance](/database/reading-data/indexes/indexes-and-query-perf.md).
 
 **The performance of your query is based on the specificity of the range.**
 
@@ -266,7 +264,7 @@ following in conjunction with `withIndex`:
 1. [`.first()`](/api/interfaces/server.Query#first)
 2. [`.unique()`](/api/interfaces/server.Query#unique)
 3. [`.take(n)`](/api/interfaces/server.Query#take)
-4. [`.paginate(ops)`](/docs/database/pagination.mdx)
+4. [`.paginate(ops)`](/database/pagination.mdx)
 
 These APIs allow you to efficiently limit your query to a reasonable size
 without performing a full table scan.

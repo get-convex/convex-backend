@@ -15,14 +15,14 @@ the full list of available filtering methods
 [in the reference docs](/api/interfaces/server.FilterBuilder).
 
 If you need to filter to documents containing some keywords, use a
-[search query](/docs/search/search.mdx).
+[search query](/search/search.mdx).
 
 <Admonition type="caution" title="Use indexes instead">
   Filters effectively loop over your table looking for documents that match.
   This can be slow or cause your function to hit a
-  [limit](/docs/production/state/limits.mdx) when your table has thousands of
-  rows. For faster more database efficient queries use [indexes
-  instead](/docs/database/reading-data/indexes/indexes.md).
+  [limit](/production/state/limits.mdx) when your table has thousands of rows.
+  For faster more database efficient queries use [indexes
+  instead](/database/reading-data/indexes/indexes.md).
 </Admonition>
 
 ### Equality conditions
@@ -210,9 +210,8 @@ might need to walk over every single document in the `"tasks"` table just to
 find the first one with `isCompleted: true`.
 
 If a table has more than a few thousand documents, you should use
-[indexes](/docs/database/reading-data/indexes/indexes.md) to improve your
-document query performance. Otherwise, you may run into our enforced limits,
-detailed
-[here](/docs/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
+[indexes](/database/reading-data/indexes/indexes.md) to improve your document
+query performance. Otherwise, you may run into our enforced limits, detailed
+[here](/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
 
-For information on other limits, see [here](/docs/production/state/limits.mdx).
+For information on other limits, see [here](/production/state/limits.mdx).

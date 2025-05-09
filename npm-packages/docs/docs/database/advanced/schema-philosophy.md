@@ -16,8 +16,8 @@ what data is in your system.
 
 The good news is Convex is always typed. It's just implicitly typed! When you
 submit a document to Convex, tracks all the types of all the fields in your
-document. You can go to your [dashboard](/docs/dashboard.md) and view the
-inferred schema of any table to understand what you've ended up with.
+document. You can go to your [dashboard](/dashboard.md) and view the inferred
+schema of any table to understand what you've ended up with.
 
 "What about that field I changed from a string to a number?" Convex can handle
 this too. Convex will track those changes, in this case the field is a union
@@ -25,5 +25,5 @@ like `v.union(v.number(), v.string())`. That way even when you change your mind
 about your documents fields and types, Convex has your back.
 
 Once you are ready to formalize your schema, you can define it using our
-[schema builder](/docs/database/schemas.mdx) to enable schema validation and
-generate types based on it.
+[schema builder](/database/schemas.mdx) to enable schema validation and generate
+types based on it.

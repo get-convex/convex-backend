@@ -4,9 +4,9 @@ sidebar_position: 90
 ---
 
 Bundling is the process of gathering, optimizing and transpiling the JS/TS
-source code of [functions](/docs/functions.mdx) and their dependencies. During
+source code of [functions](/functions.mdx) and their dependencies. During
 development and when deploying, the code is transformed to a format that Convex
-[runtimes](/docs/functions/runtimes.mdx) can directly and efficiently execute.
+[runtimes](/functions/runtimes.mdx) can directly and efficiently execute.
 
 Convex currently bundles all dependencies automatically, but for the Node.js
 runtime you can disable bundling certain packages via the
@@ -86,14 +86,14 @@ Code bundled for the Convex runtime will be in the `isolate` directory while
 code bundled for node actions will be in the `node` directory.
 
 Large node dependencies can be eliminated from the bundle by marking them as
-[external packages](/docs/functions/bundling.mdx#external-packages).
+[external packages](/functions/bundling.mdx#external-packages).
 
 ### Dynamic dependencies
 
 Some libraries rely on dynamic imports (via `import`/`require` calls) to avoid
 always including their dependencies. These imports are not supported by the
-[default Convex runtime](/docs/functions/runtimes.mdx#default-convex-runtime)
-and will throw an error at runtime.
+[default Convex runtime](/functions/runtimes.mdx#default-convex-runtime) and
+will throw an error at runtime.
 
 Additionally, some libraries rely on local files, which cannot be bundled by
 esbuild. If bundling is used, irrespective of the choice of runtime, these
@@ -120,7 +120,7 @@ Consider the following examples of packages relying on dynamic dependencies:
 
 As a workaround for the bundling limitations above, Convex provides an escape
 hatch: **external packages**. This feature is currently exclusive to Convex's
-[Node.js runtime](/docs/functions/runtimes.mdx#nodejs-runtime).
+[Node.js runtime](/functions/runtimes.mdx#nodejs-runtime).
 
 External packages use
 [`esbuild`'s facility for marking a dependency as external](https://esbuild.github.io/api/#external).
@@ -143,9 +143,9 @@ pushes!
 
 ### Specifying external packages
 
-Create a [`convex.json`](/docs/production/project-configuration.mdx#convex.json)
-file in the same directory as your `package.json` if it does not exist already.
-Set the `node.externalPackages` field to `["*"]` to mark all dependencies used
+Create a [`convex.json`](/production/project-configuration.mdx#convex.json) file
+in the same directory as your `package.json` if it does not exist already. Set
+the `node.externalPackages` field to `["*"]` to mark all dependencies used
 within your Node actions as external:
 
 ```json
@@ -167,8 +167,7 @@ Alternatively, you can explicitly specify which packages to mark as external:
 ```
 
 The package identifiers should match the string used in `import`/`require` in
-your
-[Node.js action](/docs/functions/actions.mdx#choosing-the-runtime-use-node).
+your [Node.js action](/functions/actions.mdx#choosing-the-runtime-use-node).
 
 ### Troubleshooting external packages
 

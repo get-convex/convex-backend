@@ -60,10 +60,9 @@ Default exports receive the name `default`.
 export default …;
 ```
 
-The same rules apply to [mutations](/docs/functions/mutation-functions.mdx) and
-[actions](/docs/functions/actions.mdx), while
-[HTTP actions](/docs/functions/http-actions.mdx) use a different routing
-approach.
+The same rules apply to [mutations](/functions/mutation-functions.mdx) and
+[actions](/functions/actions.mdx), while
+[HTTP actions](/functions/http-actions.mdx) use a different routing approach.
 
 Client libraries in languages other than JavaScript and TypeScript use strings
 instead of API objects:
@@ -107,7 +106,7 @@ object using `v` validators:
   title="convex/myFunctions.ts"
 />
 
-See [argument validation](/docs/functions/validation.mdx) for the full list of
+See [argument validation](/functions/validation.mdx) for the full list of
 supported types and validators.
 
 The first parameter of the handler function contains the query context.
@@ -115,8 +114,8 @@ The first parameter of the handler function contains the query context.
 ### Query responses
 
 Queries can return values of any supported
-[Convex type](/docs/functions/validation.mdx) which will be automatically
-serialized and deserialized.
+[Convex type](/functions/validation.mdx) which will be automatically serialized
+and deserialized.
 
 Queries can also return `undefined`, which is not a valid Convex value. When a
 query returns `undefined` **it is translated to `null`** on the client.
@@ -124,8 +123,8 @@ query returns `undefined` **it is translated to `null`** on the client.
 ### Query context
 
 The `query` constructor enables fetching data, and other Convex features by
-passing a [QueryCtx](/docs/generated-api/server.md#queryctx) object to the
-handler function as the first parameter:
+passing a [QueryCtx](/generated-api/server.md#queryctx) object to the handler
+function as the first parameter:
 
 <TSAndJSSnippet
   sourceTS={Context}
@@ -146,12 +145,12 @@ Which part of the query context is used depends on what your query needs to do:
     title="convex/myFunctions.ts"
   />
 
-  Read more about [Reading Data](/docs/database/reading-data/reading-data.mdx).
+  Read more about [Reading Data](/database/reading-data/reading-data.mdx).
 
 - To return URLs to stored files use the `storage` field. Read more about
-  [File Storage](/docs/file-storage.mdx).
+  [File Storage](/file-storage.mdx).
 - To check user authentication use the `auth` field. Read more about
-  [Authentication](/docs/auth.mdx).
+  [Authentication](/auth.mdx).
 
 ## Splitting up query code via helpers
 
@@ -169,15 +168,14 @@ You can `export` helpers to use them across multiple files. They will not be
 callable from outside of your Convex functions.
 
 See
-[Type annotating server side helpers](/docs/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+[Type annotating server side helpers](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
 for more guidance on TypeScript types.
 
 ## Using NPM packages
 
 Queries can import NPM packages installed in `node_modules`. Not all NPM
 packages are supported, see
-[Runtimes](/docs/functions/runtimes.mdx#default-convex-runtime) for more
-details.
+[Runtimes](/functions/runtimes.mdx#default-convex-runtime) for more details.
 
 ```sh
 npm install @faker-js/faker
@@ -187,14 +185,14 @@ npm install @faker-js/faker
 
 ## Calling queries from clients
 
-To call a query from [React](/docs/client/react.mdx) use the
-[`useQuery`](/docs/client/react.mdx#loading-data) hook along with the generated
+To call a query from [React](/client/react.mdx) use the
+[`useQuery`](/client/react.mdx#loading-data) hook along with the generated
 [`api`](/generated-api/api) object.
 
 <TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/MyApp.tsx" />
 
-See the [React](/docs/client/react.mdx) client documentation for all the ways
-queries can be called.
+See the [React](/client/react.mdx) client documentation for all the ways queries
+can be called.
 
 ## Caching & reactivity & consistency
 
@@ -214,20 +212,20 @@ means that given the same arguments (including the query context) it will return
 the same response.
 
 For this reason queries cannot `fetch` from third party APIs. To call third
-party APIs, use [actions](/docs/functions/actions.mdx).
+party APIs, use [actions](/functions/actions.mdx).
 
 You might wonder whether you can use non-deterministic language functionality
 like `Math.random()` or `Date.now()`. The short answer is that Convex takes care
 of implementing these in a way that you don't have to think about the
 deterministic constraint.
 
-See [Runtimes](/docs/functions/runtimes.mdx#default-convex-runtime) for more
-details on the Convex runtime.
+See [Runtimes](/functions/runtimes.mdx#default-convex-runtime) for more details
+on the Convex runtime.
 
 ## Limits
 
 Queries have a limit to the amount of data they can read at once to guarantee
 good performance. Check out these limits
-[here](/docs/functions/error-handling/error-handling.mdx#database-limitations).
+[here](/functions/error-handling/error-handling.mdx#database-limitations).
 
-For information on other limits, see [here](/docs/production/state/limits.mdx).
+For information on other limits, see [here](/production/state/limits.mdx).

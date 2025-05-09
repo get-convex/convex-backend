@@ -10,8 +10,8 @@ import Download from "!!raw-loader!@site/../demos/pagination/src/download.ts";
 import SimpleCall from "!!raw-loader!@site/../demos/pagination/src/_simpleListing.tsx";
 import CallWithArgs from "!!raw-loader!@site/../demos/pagination/src/_listingWithArgument.tsx";
 
-Paginated queries are [queries](/docs/functions/query-functions.mdx) that return
-a list of results in incremental pages.
+Paginated queries are [queries](/functions/query-functions.mdx) that return a
+list of results in incremental pages.
 
 This can be used to build components with "Load More" buttons or "infinite
 scroll" UIs where more results are loaded as the user scrolls.
@@ -45,8 +45,8 @@ To build this in Convex, define a query function that:
    - The arguments object may include properties as well.
 2. Calls
    [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)
-   on a [database query](/docs/database/reading-data/reading-data.mdx), passing
-   in the `PaginationOptions` and returning its result.
+   on a [database query](/database/reading-data/reading-data.mdx), passing in
+   the `PaginationOptions` and returning its result.
    - The returned `page` in the
      [`PaginationResult`](/api/interfaces/server.PaginationResult) is an array
      of documents. You may
@@ -78,7 +78,7 @@ You can define paginated query functions that take arguments in addition to
 ### Transforming results
 
 You can apply arbitrary
-[transformations](/docs/database/reading-data/reading-data.mdx#more-complex-queries)
+[transformations](/database/reading-data/reading-data.mdx#more-complex-queries)
 to the `page` property of the object returned by `paginate`, which contains the
 array of documents:
 

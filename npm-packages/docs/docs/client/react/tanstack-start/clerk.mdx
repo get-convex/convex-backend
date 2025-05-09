@@ -11,9 +11,9 @@ import appRoutesRoot from "!!raw-loader!@site/../private-demos/tanstack-start-cl
 Using Clerk with Convex looks like following the
 [Clerk TanStack Quickstart](https://clerk.com/docs/quickstarts/tanstack-start)
 and adding Convex like the
-[Convex TanStack Quickstart](/docs/quickstart/tanstack-start.mdx) shows. Then to
-make Clerk identity tokens available everywhere you might make authenticated
-calls to Convex in TanStack Start, you'll want to
+[Convex TanStack Quickstart](/quickstart/tanstack-start.mdx) shows. Then to make
+Clerk identity tokens available everywhere you might make authenticated calls to
+Convex in TanStack Start, you'll want to
 
 1. Get an ID token from Clerk in addition to the `getAuth()` call with
    `const token = await auth.getToken({ template: "convex" })`.

@@ -44,8 +44,8 @@ These HTTP endpoints allow you to call Convex functions and get the result as a
 value.
 
 You can find your backend deployment URL on the dashboard
-[Settings](/docs/dashboard/deployments/settings.md) page, then the API URL will
-be `<CONVEX_URL>/api/query` etc., for example:
+[Settings](/dashboard/deployments/settings.md) page, then the API URL will be
+`<CONVEX_URL>/api/query` etc., for example:
 
 <Tabs>
 <TabItem value="shell" label="Shell">
@@ -121,8 +121,8 @@ is formatted as a string as defined
 [here](/functions/query-functions#query-names) with a `/` replacing the `:`.
 
 You can find your backend deployment URL on the dashboard
-[Settings](/docs/dashboard/deployments/settings.md) page, then the API URL will
-be `<CONVEX_URL>/api/run/{functionIdentifier}` etc., for example:
+[Settings](/dashboard/deployments/settings.md) page, then the API URL will be
+`<CONVEX_URL>/api/run/{functionIdentifier}` etc., for example:
 
 <Tabs>
 <TabItem value="shell" label="Shell">
@@ -192,12 +192,12 @@ response = requests.get(url, headers=headers, body=json)
 ## Streaming export API
 
 Convex supports streaming export. Convex provides connector implementations for
-[Fivetran and Airbyte](/docs/production/integrations/streaming-import-export.md).
+[Fivetran and Airbyte](/production/integrations/streaming-import-export.md).
 Those connectors use the following APIs.
 
 Sign up for a [Professional plan](https://www.convex.dev/pricing) for streaming
 export support. You can also read the
-[documentation on streaming export](/docs/production/integrations/streaming-import-export.md).
+[documentation on streaming export](/production/integrations/streaming-import-export.md).
 
 <BetaAdmonition feature="Streaming Export HTTP APIs" verb="are" />
 
@@ -299,8 +299,8 @@ def delta_sync(delta_cursor):
 ## Streaming import API
 
 Convex supports streaming import. Convex provides a connector implementation for
-[Airbyte](/docs/production/integrations/streaming-import-export.md). Those
-connectors use the following APIs.
+[Airbyte](/production/integrations/streaming-import-export.md). Those connectors
+use the following APIs.
 
 Streaming import support is automatically enabled for all Convex projects.
 

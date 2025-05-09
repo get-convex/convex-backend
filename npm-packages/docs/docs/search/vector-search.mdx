@@ -20,8 +20,8 @@ powered applications, recommendations for similar content and more.
 
 Vector search is consistent and fully up-to-date. You can write a vector and
 immediately read it from a vector search. Unlike
-[full text search](/docs/search.mdx), however, vector search is only available
-in [Convex actions](/docs/functions/actions.mdx).
+[full text search](/search.mdx), however, vector search is only available in
+[Convex actions](/functions/actions.mdx).
 
 **Example:**
 [Vector Search App](https://github.com/get-convex/convex-demos/tree/main/vector-search)
@@ -29,14 +29,14 @@ in [Convex actions](/docs/functions/actions.mdx).
 To use vector search you need to:
 
 1. Define a vector index.
-1. Run a vector search from within an [action](/docs/functions/actions.mdx).
+1. Run a vector search from within an [action](/functions/actions.mdx).
 
 ## Defining vector indexes
 
-Like [database indexes](/docs/database/reading-data/indexes/indexes.md), vector
+Like [database indexes](/database/reading-data/indexes/indexes.md), vector
 indexes are a data structure that is built in advance to enable efficient
 querying. Vector indexes are defined as part of your Convex
-[schema](/docs/database/schemas.mdx).
+[schema](/database/schemas.mdx).
 
 To add a vector index onto a table, use the
 [`vectorIndex`](/api/classes/server.TableDefinition#vectorindex) method on your
@@ -68,7 +68,7 @@ dot-separated path like `properties.name`.
 ## Running vector searches
 
 Unlike database queries or full text search, vector searches can only be
-performed in a [Convex action](/docs/functions/actions.mdx).
+performed in a [Convex action](/functions/actions.mdx).
 
 They generally involve three steps:
 
@@ -266,7 +266,7 @@ Vector indexes must have:
 - Up to 16 filter fields.
 
 Vector indexes count towards the
-[limit of 32 indexes per table](/docs/database/reading-data/indexes/indexes.md#limits).
+[limit of 32 indexes per table](/database/reading-data/indexes/indexes.md#limits).
 In addition you can have up to 4 vector indexes per table.
 
 Vector searches can have:
@@ -285,7 +285,7 @@ on the results. If this is important for your use case, please
 Only documents that contain a vector of the size and in the field specified by a
 vector index will be included in the index and returned by the vector search.
 
-For information on limits, see [here](/docs/production/state/limits.mdx).
+For information on limits, see [here](/production/state/limits.mdx).
 
 ## Future development
 

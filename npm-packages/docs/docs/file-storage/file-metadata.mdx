@@ -9,8 +9,8 @@ import FileMetadataDeprecated from "!!raw-loader!@site/../private-demos/snippets
 
 Every stored file is reflected as a document in the `"_storage"` system table.
 File metadata of a file can be accessed from
-[queries](/docs/functions/query-functions.mdx) and
-[mutations](/docs/functions/mutation-functions.mdx) via `db.system.get` and
+[queries](/functions/query-functions.mdx) and
+[mutations](/functions/mutation-functions.mdx) via `db.system.get` and
 `db.system.query`:
 
 <TSAndJSSnippet
@@ -39,15 +39,15 @@ The returned document has the following fields:
 - `contentType`: the `ContentType` of the file if it was provided on upload
 
 You can check the metadata manually on your
-[dashboard](/docs/dashboard.md#file-storage).
+[dashboard](/dashboard.md#file-storage).
 
 ## Accessing metadata from actions (deprecated)
 
 Alternatively, a
 [`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)
 function is available to access individual file metadata from
-[actions](/docs/functions/actions.mdx) and
-[HTTP actions](/docs/functions/http-actions.mdx):
+[actions](/functions/actions.mdx) and
+[HTTP actions](/functions/http-actions.mdx):
 
 <TSAndJSSnippet
   title="convex/images.ts"

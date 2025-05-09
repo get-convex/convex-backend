@@ -15,7 +15,7 @@ redirect you to project details.
 ## Creating a project
 
 Projects can be created from the dashboard or from the
-[CLI](/docs/cli.md#create-a-new-project). To create a project from the dashboard
+[CLI](/cli.md#create-a-new-project). To create a project from the dashboard
 click on the Create Project button.
 
 ## Project Settings
@@ -30,15 +30,15 @@ you can:
 
 - Update your project's name and slug.
 - Manage the project's Admins. See
-  [Roles and Permissions](/docs/dashboard/teams.md#roles-and-permissions) for
-  more details.
-- View the amount of [usage metrics](/docs/dashboard/teams.md#usage) your
-  project has consumed.
-- Add [custom domains](/docs/production/hosting/custom.mdx#domains) for your
+  [Roles and Permissions](/dashboard/teams.md#roles-and-permissions) for more
+  details.
+- View the amount of [usage metrics](/dashboard/teams.md#usage) your project has
+  consumed.
+- Add [custom domains](/production/hosting/custom.mdx#domains) for your
   production deployment
 - Generate deploy keys for your production and preview deployments.
 - Create and edit
-  [default environment variables](/docs/production/environment-variables.mdx#project-environment-variable-defaults).
+  [default environment variables](/production/environment-variables.mdx#project-environment-variable-defaults).
 - View instructions to regain access to your project, should you lose track of
   your `CONVEX_DEPLOYMENT` config.
 - Permanently delete the project.

@@ -10,9 +10,9 @@ The [functions page](https://dashboard.convex.dev/deployment/functions) shows
 all currently deployed Convex functions.
 
 For dev deployments, these are updated continuously by
-[`npx convex dev`](/docs/cli.md#run-the-convex-dev-server). The functions for
+[`npx convex dev`](/cli.md#run-the-convex-dev-server). The functions for
 production deployments are registered with
-[`npx convex deploy`](/docs/cli.md#deploy-convex-functions-to-production).
+[`npx convex deploy`](/cli.md#deploy-convex-functions-to-production).
 
 ## Running functions
 
@@ -33,12 +33,12 @@ Mutation and action results will be visible once you click the "Run" button.
 
 Note that these results will show the logs and value returned from the function.
 To see what changed when you ran your function, see the
-[data page](/docs/dashboard/deployments/data.md).
+[data page](/dashboard/deployments/data.md).
 
 ![Running a function](/screenshots/run_function.png)
 
 You can also
-[write a custom query function](/docs/dashboard/deployments/data.md#writing-custom-queries)
+[write a custom query function](/dashboard/deployments/data.md#writing-custom-queries)
 by choosing the “Custom test query“ option instead of one of your deployed
 functions.
 
@@ -105,7 +105,7 @@ The valid user attributes are:
 ## Metrics
 
 There are four basic charts for each function. For overall team usage metrics,
-see [team settings](/docs/dashboard/teams.md#usage).
+see [team settings](/dashboard/teams.md#usage).
 
 ### Invocations
 

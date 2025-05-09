@@ -5,9 +5,9 @@ sidebar_position: 100
 ---
 
 How do I ensure my Convex
-[database queries](/docs/database/reading-data/reading-data.mdx) are fast and
+[database queries](/database/reading-data/reading-data.mdx) are fast and
 efficient? When should I define an
-[index](/docs/database/reading-data/indexes/indexes.md)? What is an index?
+[index](/database/reading-data/indexes/indexes.md)? What is an index?
 
 This document explains how you should think about query performance in Convex by
 describing a simplified model of how queries and indexes function.
@@ -15,8 +15,8 @@ describing a simplified model of how queries and indexes function.
 If you already have a strong understanding of database queries and indexes you
 can jump straight to the reference documentation instead:
 
-- [Reading Data](/docs/database/reading-data/reading-data.mdx)
-- [Indexes](/docs/database/reading-data/indexes/indexes.md)
+- [Reading Data](/database/reading-data/reading-data.mdx)
+- [Indexes](/database/reading-data/indexes/indexes.md)
 
 ## A Library of Documents
 
@@ -333,5 +333,5 @@ Here are the main points we've covered:
 
 To learn more about queries and indexes, check out our reference documentation:
 
-- [Reading Data](/docs/database/reading-data/reading-data.mdx)
-- [Indexes](/docs/database/reading-data/indexes/indexes.md)
+- [Reading Data](/database/reading-data/reading-data.mdx)
+- [Indexes](/database/reading-data/indexes/indexes.md)

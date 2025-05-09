@@ -9,7 +9,7 @@ Full text search allows you to find Convex documents that approximately match a
 search query.
 
 Unlike normal
-[document queries](/docs/database/reading-data/reading-data.mdx#querying-documents),
+[document queries](/database/reading-data/reading-data.mdx#querying-documents),
 search queries look _within_ a string field to find the keywords. Search queries
 are useful for building features like searching for messages that contain
 certain words.
@@ -32,10 +32,10 @@ powerful, open-source, full-text search library written in Rust.
 
 ## Defining search indexes
 
-Like [database indexes](/docs/database/reading-data/indexes/indexes.md), search
+Like [database indexes](/database/reading-data/indexes/indexes.md), search
 indexes are a data structure that is built in advance to enable efficient
 querying. Search indexes are defined as part of your Convex
-[schema](/docs/database/schemas.mdx).
+[schema](/database/schemas.mdx).
 
 Every search index definition consists of:
 
@@ -85,9 +85,8 @@ const messages = await ctx.db
   .take(10);
 ```
 
-This is just a normal
-[database read](/docs/database/reading-data/reading-data.mdx) that begins by
-querying the search index!
+This is just a normal [database read](/database/reading-data/reading-data.mdx)
+that begins by querying the search index!
 
 The
 [`.withSearchIndex`](/api/interfaces/server.QueryInitializer#withsearchindex)
@@ -131,8 +130,8 @@ To filter to documents that are missing a field, use
 ### Other filtering
 
 Because search queries are normal database queries, you can also
-[filter results](/docs/database/reading-data/reading-data.mdx#filtering) using
-the [`.filter` method](/api/interfaces/server.Query#filter)!
+[filter results](/database/reading-data/reading-data.mdx#filtering) using the
+[`.filter` method](/api/interfaces/server.Query#filter)!
 
 Here's a query for "messages containing 'hi' sent in the last 10 minutes":
 
@@ -161,14 +160,13 @@ efficiently cut down on the number of results to consider.
 ### Retrieving results and paginating
 
 Just like ordinary database queries, you can
-[retrieve the results](/docs/database/reading-data/reading-data.mdx#retrieving-results)
+[retrieve the results](/database/reading-data/reading-data.mdx#retrieving-results)
 using [`.collect()`](/api/interfaces/server.Query#collect),
 [`.take(n)`](/api/interfaces/server.Query#take),
 [`.first()`](/api/interfaces/server.Query#first), and
 [`.unique()`](/api/interfaces/server.Query#unique).
 
-Additionally, search results can be [paginated](/docs/database/pagination.mdx)
-using
+Additionally, search results can be [paginated](/database/pagination.mdx) using
 [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate).
 
 Note that `collect()` will throw an exception if it attempts to collect more
@@ -230,7 +228,7 @@ Search indexes must have:
 - Up to 16 filter fields.
 
 Search indexes count against the
-[limit of 32 indexes per table](/docs/database/reading-data/indexes/indexes.md#limits).
+[limit of 32 indexes per table](/database/reading-data/indexes/indexes.md#limits).
 
 Search queries can have:
 
@@ -242,4 +240,4 @@ Additionally, search queries can scan up to 1024 results from the search index.
 The source of truth for these limits is our
 [source code](https://github.com/get-convex/convex-backend/blob/main/crates/search/src/constants.rs).
 
-For information on other limits, see [here](/docs/production/state/limits.mdx).
+For information on other limits, see [here](/production/state/limits.mdx).

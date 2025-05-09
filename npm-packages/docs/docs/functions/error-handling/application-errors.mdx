@@ -33,8 +33,8 @@ You might prefer to throw errors for the following reasons:
 - You can use the exception bubbling mechanism to throw from a deeply nested
   function call, instead of manually propagating error results up the call
   stack. This will work for `runQuery`, `runMutation` and `runAction` calls in
-  [actions](/docs/functions/actions.mdx) too.
-- In [mutations](/docs/functions/mutation-functions.mdx), throwing an error will
+  [actions](/functions/actions.mdx) too.
+- In [mutations](/functions/mutation-functions.mdx), throwing an error will
   prevent the mutation transaction from committing
 - On the client, it might be simpler to handle all kinds of errors, both
   expected and unexpected, uniformly
@@ -53,9 +53,9 @@ information from the backend to the client:
 
 ### Application error `data` payload
 
-You can pass the same [data types](/docs/database/types.md) supported by
-function arguments, return types and the database, to the `ConvexError`
-constructor. This data will be stored on the `data` property of the error:
+You can pass the same [data types](/database/types.md) supported by function
+arguments, return types and the database, to the `ConvexError` constructor. This
+data will be stored on the `data` property of the error:
 
 ```ts
 // error.data === "My fancy error message"

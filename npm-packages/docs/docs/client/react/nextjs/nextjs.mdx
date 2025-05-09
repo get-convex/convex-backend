@@ -17,22 +17,22 @@ with Convex, Next.js provides:
 and more!
 
 This page covers the App Router variant of Next.js. Alternatively see the
-[Pages Router](/docs/client/react/nextjs-pages-router/nextjs-pages-router.mdx)
+[Pages Router](/client/react/nextjs-pages-router/nextjs-pages-router.mdx)
 version of this page.
 
 ## Getting started
 
-Follow the [Next.js Quickstart](/docs/quickstart/nextjs.mdx) to add Convex to a
-new or existing Next.js project.
+Follow the [Next.js Quickstart](/quickstart/nextjs.mdx) to add Convex to a new
+or existing Next.js project.
 
 ## Adding authentication
 
 ### Client-side only
 
 The simplest way to add user authentication to your Next.js app is to follow our
-React-based authentication guides for [Clerk](/docs/auth/clerk.mdx) or
-[Auth0](/docs/auth/auth0.mdx), inside your `app/ConvexClientProvider.tsx` file.
-For example this is what the file would look like for Auth0:
+React-based authentication guides for [Clerk](/auth/clerk.mdx) or
+[Auth0](/auth/auth0.mdx), inside your `app/ConvexClientProvider.tsx` file. For
+example this is what the file would look like for Auth0:
 
 <TSAndJSSnippet
   title="app/ConvexClientProvider.tsx"
@@ -99,12 +99,12 @@ Next.js automatically renders both Client and Server Components on the server
 during the initial page load.
 
 To keep your UI
-[automatically reactive](/docs/functions/query-functions.mdx#caching-reactivity)
-to changes in your Convex database it needs to use Client Components. The
+[automatically reactive](/functions/query-functions.mdx#caching-reactivity) to
+changes in your Convex database it needs to use Client Components. The
 `ConvexReactClient` will maintain a connection to your deployment and will get
 updates as data changes and that must happen on the client.
 
 See the dedicated
-[Server Rendering](/docs/client/react/nextjs/nextjs-server-rendering.mdx) page
-for more details about preloading data for Client Components, fetching data and
+[Server Rendering](/client/react/nextjs/nextjs-server-rendering.mdx) page for
+more details about preloading data for Client Components, fetching data and
 authentication in Server Components, and implementing Route Handlers.
