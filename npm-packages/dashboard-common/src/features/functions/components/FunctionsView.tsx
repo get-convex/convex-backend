@@ -48,7 +48,7 @@ function Functions() {
             className="size-8 min-w-8 text-content-primary"
             aria-hidden
           />
-          Select a function in the expandable panel to the left to view it's
+          Select a function in the expandable panel to the left to view its
           statistics, code, and logs.
         </Sheet>
       </div>
