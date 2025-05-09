@@ -381,6 +381,9 @@ extern "C" fn near_heap_limit_callback(
     let heap_ctx = unsafe { &mut *(data as *mut HeapContext) };
     heap_ctx.handle.terminate(TerminationReason::OutOfMemory);
 
-    // Double heap limit to avoid a hard OOM.
-    current_heap_limit * 2
+    // Raise the heap limit a lot to avoid a hard OOM.
+    // This is unfortunate but there is some C++ code in V8 that will abort the
+    // process if it fails to allocate. We're about to terminate the isolate
+    // anyway so any allocation will be very short-lived.
+    current_heap_limit * 4
 }
