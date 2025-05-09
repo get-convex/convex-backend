@@ -2,6 +2,7 @@ set fallback := true
 set shell := ["bash", "-uc"]
 set windows-shell := ["sh", "-uc"]
 
+#hi
 # `just --list` (or just `just`) will print all the recipes in
 # the current Justfile. `just RECIPE` will run the macro/job.
 #
