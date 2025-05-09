@@ -96,7 +96,10 @@ const { mutate } = useMutation({
 });
 ```
 
-# Authentication (example TODO)
+# Authentication
+
+**Note:** The example app includes a basic Convex Auth implementation for
+reference.
 
 TanStack Query isn't opionated about auth; an auth code might be a an element of
 a query key like any other. With Convex it's not necessary to add an additional
