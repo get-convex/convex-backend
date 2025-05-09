@@ -84,7 +84,10 @@ use sync_types::{
     CanonicalizedModulePath,
     Timestamp,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{
+    mpsc,
+    oneshot,
+};
 use udf::{
     validation::{
         ValidatedHttpPath,
@@ -124,6 +127,7 @@ pub struct RunRequestArgs {
     pub action_callbacks: Arc<dyn ActionCallbacks>,
     pub fetch_client: Arc<dyn FetchClient>,
     pub log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
+    pub function_started_sender: Option<oneshot::Sender<()>>,
     pub udf_type: UdfType,
     pub identity: Identity,
     pub ts: RepeatableTimestamp,
@@ -323,6 +327,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             action_callbacks,
             fetch_client,
             log_line_sender,
+            function_started_sender,
             udf_type,
             identity,
             ts,
@@ -408,6 +413,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         environment_data,
                         0,
                         instance_name,
+                        function_started_sender,
                     )
                     .await?;
                 Ok((
@@ -432,6 +438,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         context,
                         environment_data,
                         instance_name,
+                        function_started_sender,
                     )
                     .await?;
                 Ok((
@@ -464,6 +471,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         context,
                         environment_data,
                         instance_name,
+                        function_started_sender,
                     )
                     .await?;
                 Ok((
@@ -613,6 +621,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerC
                 environment_data,
                 reactor_depth,
                 client_id,
+                None,
             )
             .await
     }

@@ -20,6 +20,7 @@ use model::{
         user_error::FunctionNotFoundError,
     },
 };
+use tokio::sync::oneshot;
 use udf::{
     helpers::serialize_udf_args,
     FunctionOutcome,
@@ -369,6 +370,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
+        function_started: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         // Initialize the UDF's RNG from some high-quality entropy. As with
         // `unix_timestamp` below, the UDF is only deterministic modulo this
@@ -383,6 +385,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let client_id = Arc::new(client_id);
         let path = self.path.clone();
         let (handle, state) = isolate.start_request(client_id, self).await?;
+        if let Some(tx) = function_started {
+            // At this point we have acquired a permit and aren't going to
+            // reject the function for capacity reasons.
+            _ = tx.send(());
+        }
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);

@@ -67,6 +67,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 queue_timer,
                 reactor_depth,
                 udf_callback,
+                function_started_sender,
             } => {
                 drop(queue_timer);
                 // TODO: Add metrics with funrun tagging
@@ -83,7 +84,13 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     client_id.clone(),
                 );
                 let r = environment
-                    .run(client_id, isolate, isolate_clean, response.closed().boxed())
+                    .run(
+                        client_id,
+                        isolate,
+                        isolate_clean,
+                        response.closed().boxed(),
+                        function_started_sender,
+                    )
                     .await;
                 let status = match &r {
                     Ok((_tx, outcome)) => {
@@ -107,6 +114,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 action_callbacks,
                 fetch_client,
                 log_line_sender,
+                function_started_sender,
             } => {
                 drop(queue_timer);
                 let timer = service_request_timer(&UdfType::Action);
@@ -134,6 +142,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         isolate_clean,
                         request.params.clone(),
                         response.closed().boxed(),
+                        function_started_sender,
                     )
                     .await;
 
@@ -178,6 +187,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 fetch_client,
                 log_line_sender,
                 http_response_streamer,
+                function_started_sender,
             } => {
                 drop(queue_timer);
                 let timer = service_request_timer(&UdfType::HttpAction);
@@ -205,6 +215,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         request.http_module_path,
                         request.routed_path,
                         request.http_request,
+                        function_started_sender,
                     )
                     .await;
                 let status = match &r {

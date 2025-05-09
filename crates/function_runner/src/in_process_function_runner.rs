@@ -248,6 +248,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             action_callbacks,
             fetch_client: self.fetch_client.clone(),
             log_line_sender,
+            function_started_sender: None,
             udf_type,
             identity,
             ts,

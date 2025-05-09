@@ -605,6 +605,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     self.environment_data.clone(),
                     0,
                     DEV_INSTANCE_NAME.to_string(),
+                    None,
                 )
                 .await?;
             let FunctionOutcome::Mutation(outcome) = outcome else {
@@ -754,6 +755,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     self.environment_data.clone(),
                     0,
                     DEV_INSTANCE_NAME.to_string(),
+                    None,
                 )
                 .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
@@ -820,6 +822,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     self.environment_data.clone(),
                     0,
                     DEV_INSTANCE_NAME.to_string(),
+                    None,
                 )
                 .await?;
             match outcome {
@@ -1010,6 +1013,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 ExecutionContext::new_for_test(),
                 self.environment_data.clone(),
                 DEV_INSTANCE_NAME.to_string(),
+                None,
             )
             .await?;
         let mut log_lines = vec![];
@@ -1147,6 +1151,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 ExecutionContext::new_for_test(),
                 self.environment_data.clone(),
                 DEV_INSTANCE_NAME.to_string(),
+                None,
             )
             .await?;
         let mut log_lines = vec![];
@@ -1483,6 +1488,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         queue_timer: queue_timer(),
         udf_callback: Box::new(BogusUdfCallback),
         reactor_depth: 0,
+        function_started_sender: None,
     };
     Ok(Request {
         client_id: client_id.to_string(),

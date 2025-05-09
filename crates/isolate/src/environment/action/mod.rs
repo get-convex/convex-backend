@@ -82,7 +82,10 @@ use sync_types::{
     CanonicalizedUdfPath,
     ModulePath,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{
+    mpsc,
+    oneshot,
+};
 use udf::{
     helpers::serialize_udf_args,
     validation::ValidatedHttpPath,
@@ -314,6 +317,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         http_module_path: ValidatedHttpPath,
         routed_path: RoutedHttpPath,
         request: HttpActionRequest,
+        function_started: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<HttpActionOutcome> {
         let start_unix_timestamp = self.rt.unix_timestamp();
 
@@ -329,6 +333,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
         let (handle, state) = isolate.start_request(client_id.into(), self).await?;
+        if let Some(tx) = function_started {
+            _ = tx.send(());
+        }
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -647,6 +654,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_clean: &mut bool,
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
+        function_started: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<ActionOutcome> {
         let start_unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
@@ -656,13 +664,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // generic async closure to `Isolate` is currently difficult.
 
         let (handle, state) = isolate.start_request(client_id.into(), self).await?;
+        if let Some(tx) = function_started {
+            _ = tx.send(());
+        }
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
 
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
-
         let mut result =
             Self::run_action_inner(&mut isolate_context, request_params.clone(), cancellation)
                 .await;

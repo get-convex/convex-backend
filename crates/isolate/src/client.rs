@@ -377,6 +377,7 @@ pub enum RequestType<RT: Runtime> {
         queue_timer: Timer<VMHistogram>,
         reactor_depth: usize,
         udf_callback: Box<dyn UdfCallback<RT>>,
+        function_started_sender: Option<oneshot::Sender<()>>,
     },
     Action {
         request: ActionRequest<RT>,
@@ -386,6 +387,7 @@ pub enum RequestType<RT: Runtime> {
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
+        function_started_sender: Option<oneshot::Sender<()>>,
     },
     HttpAction {
         request: HttpActionRequest<RT>,
@@ -396,6 +398,7 @@ pub enum RequestType<RT: Runtime> {
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         http_response_streamer: HttpActionResponseStreamer,
+        function_started_sender: Option<oneshot::Sender<()>>,
     },
     Analyze {
         udf_config: UdfConfig,
@@ -670,6 +673,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         environment_data: EnvironmentData<RT>,
         reactor_depth: usize,
         instance_name: String,
+        function_started_sender: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let (tx, rx) = oneshot::channel();
         let request = RequestType::Udf {
@@ -685,6 +689,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             queue_timer: queue_timer(),
             reactor_depth,
             udf_callback: Box::new(self.clone()),
+            function_started_sender,
         };
         self.send_request(Request::new(
             instance_name,
@@ -707,6 +712,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         context: ExecutionContext,
         environment_data: EnvironmentData<RT>,
         instance_name: String,
+        function_started_sender: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<ActionOutcome> {
         let (tx, rx) = oneshot::channel();
         let request = RequestType::Action {
@@ -722,6 +728,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             fetch_client,
             log_line_sender,
             environment_data,
+            function_started_sender,
         };
         self.send_request(Request::new(
             instance_name,
@@ -757,6 +764,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         context: ExecutionContext,
         environment_data: EnvironmentData<RT>,
         instance_name: String,
+        function_started_sender: Option<oneshot::Sender<()>>,
     ) -> anyhow::Result<HttpActionOutcome> {
         let (tx, rx) = oneshot::channel();
         let request = RequestType::HttpAction {
@@ -775,6 +783,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             fetch_client,
             log_line_sender,
             http_response_streamer,
+            function_started_sender,
         };
         self.send_request(Request::new(
             instance_name,
@@ -1051,6 +1060,7 @@ impl<RT: Runtime> UdfCallback<RT> for IsolateClient<RT> {
             environment_data,
             reactor_depth,
             client_id,
+            None, /* function_started_sender */
         )
         .await
     }
