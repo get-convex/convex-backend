@@ -108,7 +108,7 @@ class TextDecoder {
 }
 
 function atob(encoded: string): string {
-  const { decoded, error } = performOp("atob", encoded);
+  const { decoded, error } = performOp("atob", String(encoded));
   if (error) {
     throw new DOMException(
       `Failed to execute 'atob': ${error}`,
@@ -119,7 +119,7 @@ function atob(encoded: string): string {
 }
 
 function btoa(text: string): string {
-  const { encoded, error } = performOp("btoa", text);
+  const { encoded, error } = performOp("btoa", String(text));
   if (error) {
     throw new DOMException(
       `Failed to execute 'btoa': ${error}`,
