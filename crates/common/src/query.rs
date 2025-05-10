@@ -1018,6 +1018,14 @@ pub enum QueryOperator {
     Limit(usize),
 }
 
+/// The maximum number of `QueryOperator`s allowed on a single query.
+/// This is only enforced for queries deserialized from JSON as we assume other
+/// queries come from the system.
+///
+/// N.B.: this value is replicated in `query_impl.ts` in the `convex` npm
+/// package.
+pub const MAX_QUERY_OPERATORS: usize = 256;
+
 /// A query, represented as a source and a chain of operators to apply as a lazy
 /// iteration.
 #[derive(Clone, Debug, PartialEq)]

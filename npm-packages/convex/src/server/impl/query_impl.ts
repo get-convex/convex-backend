@@ -19,6 +19,8 @@ import {
 import { validateArg, validateArgIsNonNegativeInteger } from "./validate.js";
 import { version } from "../../index.js";
 
+const MAX_QUERY_OPERATORS = 256;
+
 type QueryOperator = { filter: JSONValue } | { limit: number };
 type Source =
   | { type: "FullTableScan"; tableName: string; order: "asc" | "desc" | null }
@@ -223,6 +225,11 @@ export class QueryImpl implements Query<GenericTableInfo> {
   ): any {
     validateArg(predicate, 1, "filter", "predicate");
     const query = this.takeQuery();
+    if (query.operators.length >= MAX_QUERY_OPERATORS) {
+      throw new Error(
+        `Can't construct query with more than ${MAX_QUERY_OPERATORS} operators`,
+      );
+    }
     query.operators.push({
       filter: serializeExpression(predicate(filterBuilderImpl)),
     });

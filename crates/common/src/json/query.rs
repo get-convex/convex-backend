@@ -21,6 +21,7 @@ use crate::{
         QuerySource,
         Search,
         SearchFilterExpression,
+        MAX_QUERY_OPERATORS,
     },
     types::{
         IndexName,
@@ -298,6 +299,11 @@ impl TryFrom<JsonValue> for Query {
 
     fn try_from(value: JsonValue) -> Result<Self> {
         let json_query: JsonQuery = serde_json::from_value(value)?;
+        anyhow::ensure!(
+            json_query.operators.len() <= MAX_QUERY_OPERATORS,
+            "Query has too many operators: {}",
+            json_query.operators.len()
+        );
         Ok(Query {
             source: json_query.source.try_into()?,
             operators: json_query
