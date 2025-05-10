@@ -32,16 +32,21 @@ pub fn op_atob<'b, P: OpProvider<'b>>(
     encoded: String,
 ) -> anyhow::Result<JsonValue> {
     let mut encoded = encoded;
+    // https://infra.spec.whatwg.org/#forgiving-base64
     encoded.retain(|c| !c.is_ascii_whitespace());
-    let bytes = match base64::decode(encoded) {
+    // Per forgiving-base64 we need to allow trailing bits.
+    // This is a bit *too* forgiving since this version of base64 allows
+    // improper padding like in "39=", whereas the specification says that
+    // should be an error.
+    let bytes = match base64::decode_config(
+        encoded,
+        base64::STANDARD_NO_PAD.decode_allow_trailing_bits(true),
+    ) {
         Ok(bytes) => bytes,
         Err(err) => return Ok(json!({ "error": err.to_string() })),
     };
 
-    let decoded: String = bytes
-        .into_iter()
-        .map(|c| std::char::from_u32(c as u32).expect("all u8s are valid characters"))
-        .collect();
+    let decoded: String = bytes.into_iter().map(char::from).collect();
     Ok(json!({ "decoded": decoded }))
 }
 

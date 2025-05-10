@@ -17,6 +17,10 @@ function atobSuccess() {
   assert.strictEqual(decoded, "hello world");
   const latin1 = String.fromCharCode(151);
   assert.strictEqual(atob("lw=="), latin1);
+  // allow non-canonical encodings (proper encoding of "C" should be "Qw==")
+  assert.strictEqual(atob("Qx=="), "C");
+  // allow improper padding (even though the spec says this should error)
+  assert.strictEqual(atob("Qx="), "C");
 }
 
 function atobWithAsciiWhitespace() {
