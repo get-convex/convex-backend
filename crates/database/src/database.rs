@@ -287,7 +287,7 @@ struct ListSnapshotTableIteratorCacheEntry {
     snapshot: Timestamp,
     tablet_id: TabletId,
     by_id: IndexId,
-    resolved_cursor: Option<ResolvedDocumentId>,
+    cursor: Option<ResolvedDocumentId>,
 }
 
 #[derive(Clone)]
@@ -1719,7 +1719,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         snapshot: Option<Timestamp>,
-        cursor: Option<(Option<TabletId>, DeveloperDocumentId)>,
+        cursor: Option<ResolvedDocumentId>,
         table_filter: StreamingExportTableFilter,
         rows_read_limit: usize,
         rows_returned_limit: usize,
@@ -1752,16 +1752,6 @@ impl<RT: Runtime> Database<RT> {
         let table_mapping = self.snapshot_table_mapping(snapshot).await?;
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
         let component_paths = self.snapshot_component_paths(snapshot).await?;
-        let resolved_cursor = cursor
-            .map(|(tablet, developer_id)| match tablet {
-                Some(tablet_id) => Ok(ResolvedDocumentId::new(tablet_id, developer_id)),
-                None => developer_id.to_resolved(
-                    table_mapping
-                        .namespace(TableNamespace::by_component_TODO())
-                        .number_to_tablet(),
-                ),
-            })
-            .transpose()?;
         let tablet_ids: BTreeSet<_> = table_mapping
             .iter()
             .map(|(tablet_id, ..)| tablet_id)
@@ -1771,7 +1761,7 @@ impl<RT: Runtime> Database<RT> {
                     *tablet_id,
                     &table_mapping,
                     &component_paths,
-                ) && resolved_cursor
+                ) && cursor
                     .as_ref()
                     .map(|c| *tablet_id >= c.tablet_id)
                     .unwrap_or(true)
@@ -1798,7 +1788,7 @@ impl<RT: Runtime> Database<RT> {
                 snapshot: *snapshot,
                 tablet_id,
                 by_id,
-                resolved_cursor,
+                cursor,
             };
             if let Some((cache_key, _ds)) = &*cached
                 && *cache_key == expected_cache_key
@@ -1808,7 +1798,7 @@ impl<RT: Runtime> Database<RT> {
             } else {
                 let table_iterator = self.table_iterator(snapshot, 100);
                 table_iterator
-                    .stream_documents_in_table(tablet_id, by_id, resolved_cursor)
+                    .stream_documents_in_table(tablet_id, by_id, cursor)
                     .boxed()
             }
         };
@@ -1854,7 +1844,7 @@ impl<RT: Runtime> Database<RT> {
                 snapshot: *snapshot,
                 tablet_id,
                 by_id,
-                resolved_cursor: Some(new_cursor),
+                cursor: Some(new_cursor),
             };
             *self.list_snapshot_table_iterator_cache.lock() =
                 Some((new_cache_key, document_stream));

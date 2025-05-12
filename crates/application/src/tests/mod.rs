@@ -17,6 +17,7 @@ mod scheduled_jobs;
 mod schema;
 mod source_package;
 mod storage;
+mod streaming_export;
 
 const NODE_SOURCE: &str = r#"
 var nodeFunction = () => {};

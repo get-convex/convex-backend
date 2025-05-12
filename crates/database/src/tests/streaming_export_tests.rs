@@ -327,7 +327,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
                         .list_snapshot(
                             Identity::system(),
                             snapshot,
-                            cursor.map(|c| (Some(c.tablet_id), c.developer_id)),
+                            cursor,
                             StreamingExportTableFilter {
                                 table_name: table_filter.clone(),
                                 ..Default::default()

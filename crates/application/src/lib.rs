@@ -357,7 +357,6 @@ use value::{
     Namespace,
     ResolvedDocumentId,
     TableNamespace,
-    TabletId,
 };
 use vector::{
     PublicVectorSearchQueryResult,
@@ -925,7 +924,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         snapshot: Option<Timestamp>,
-        cursor: Option<(Option<TabletId>, DeveloperDocumentId)>,
+        cursor: Option<ResolvedDocumentId>,
         table_filter: Option<TableName>,
         component_filter: Option<ComponentPath>,
     ) -> anyhow::Result<SnapshotPage> {
