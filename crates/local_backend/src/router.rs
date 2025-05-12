@@ -110,8 +110,10 @@ use crate::{
         schema_state,
     },
     snapshot_export::{
+        cancel_export,
         get_zip_export,
         request_zip_export,
+        set_export_expiration,
     },
     snapshot_import::{
         cancel_import,
@@ -202,7 +204,9 @@ pub fn router(st: LocalAppState) -> Router {
 
     let snapshot_export_routes = Router::new()
         .route("/request/zip", post(request_zip_export))
-        .route("/zip/{id}", get(get_zip_export));
+        .route("/zip/{id}", get(get_zip_export))
+        .route("/set_expiration/{snapshot_id}", post(set_export_expiration))
+        .route("/cancel/{snapshot_id}", post(cancel_export));
 
     let api_routes = Router::new()
         .merge(cli_routes)

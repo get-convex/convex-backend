@@ -18,18 +18,23 @@ use common::{
     components::ComponentId,
     http::{
         extract::{
+            Json,
             Path,
             Query,
         },
         HttpResponseError,
     },
+    types::SetExportExpirationRequest,
 };
 use either::Either;
 use errors::ErrorMetadata;
 use http::StatusCode;
-use model::exports::types::{
-    ExportFormat,
-    ExportRequestor,
+use model::exports::{
+    types::{
+        ExportFormat,
+        ExportRequestor,
+    },
+    ExportsModel,
 };
 use serde::Deserialize;
 use storage::StorageGetStream;
@@ -117,4 +122,57 @@ pub async fn get_zip_export(
         ),
         Body::from_stream(stream),
     ))
+}
+
+#[derive(Deserialize)]
+pub struct SetExportExpirationPathArgs {
+    snapshot_id: String,
+}
+
+#[debug_handler]
+#[fastrace::trace]
+pub async fn set_export_expiration(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
+    Json(SetExportExpirationRequest { expiration_ts_ns }): Json<SetExportExpirationRequest>,
+) -> Result<StatusCode, HttpResponseError> {
+    if !(identity.is_system() || identity.is_admin()) {
+        Err(anyhow::anyhow!(ErrorMetadata::forbidden(
+            "SetExportExpirationForbidden",
+            "Must have system or admin identity to set export expiration"
+        )))?;
+    }
+    let snapshot_id: DeveloperDocumentId = snapshot_id
+        .parse::<DeveloperDocumentId>()
+        .map_err(|e| anyhow::anyhow!(e))?;
+    let mut tx = st.application.begin(identity).await?;
+    ExportsModel::new(&mut tx)
+        .set_expiration(snapshot_id, expiration_ts_ns)
+        .await?;
+    st.application.commit(tx, "set_export_expiration").await?;
+    Ok(StatusCode::OK)
+}
+
+#[debug_handler]
+#[fastrace::trace]
+pub async fn cancel_export(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
+) -> Result<StatusCode, HttpResponseError> {
+    // This route is accessed directly from the admin dashboard
+    if !(identity.is_system() || identity.is_admin()) {
+        Err(anyhow::anyhow!(ErrorMetadata::forbidden(
+            "CancelExportForbidden",
+            "Must have system or admin identity to cancel cloud export"
+        )))?;
+    }
+    let snapshot_id: DeveloperDocumentId = snapshot_id
+        .parse::<DeveloperDocumentId>()
+        .map_err(|e| anyhow::anyhow!(e))?;
+    let mut tx = st.application.begin(identity).await?;
+    ExportsModel::new(&mut tx).cancel(snapshot_id).await?;
+    st.application.commit(tx, "cancel_export").await?;
+    Ok(StatusCode::OK)
 }
