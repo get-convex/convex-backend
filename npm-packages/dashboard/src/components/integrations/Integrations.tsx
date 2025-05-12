@@ -81,12 +81,8 @@ export function Integrations({
     logStreamingEntitlementGranted &&
     streamingExportEntitlementGranted ? null : (
       <Callout variant="upsell">
-        <Button
-          variant="unstyled"
-          href={`/${team.slug}/settings/billing`}
-          className="flex w-fit flex-col items-center gap-2"
-        >
-          <p className="text-balance text-center">
+        <div className="flex w-fit flex-col gap-2">
+          <p className="max-w-prose">
             Log Stream, Exception Reporting, and Streaming Export integrations
             are available on paid plans.
           </p>
@@ -97,7 +93,7 @@ export function Integrations({
           >
             Upgrade Now
           </Button>
-        </Button>
+        </div>
       </Callout>
     );
 

@@ -51,7 +51,7 @@ export function ReferralsInner({
             <p className="font-semibold">
               Thank you for subscribing to Convex!
             </p>
-            <p>
+            <p className="max-w-prose">
               As a paid plan subscriber, you won’t get additional resources for
               referring friends or being referred by someone, but your friends
               can still get free Convex resources by using your referral link.
