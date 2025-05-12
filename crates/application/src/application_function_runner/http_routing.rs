@@ -174,16 +174,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         )
                     })?),
                 };
-                self.function_log.log_http_action(
-                    outcome,
-                    result_for_logging,
-                    log_lines,
-                    start.elapsed(),
-                    caller,
-                    usage_tracker,
-                    context,
-                    response_sha256,
-                );
+                self.function_log
+                    .log_http_action(
+                        outcome,
+                        result_for_logging,
+                        log_lines,
+                        start.elapsed(),
+                        caller,
+                        usage_tracker,
+                        context,
+                        response_sha256,
+                    )
+                    .await;
                 Ok(result)
             },
             Err(e) if e.is_deterministic_user_error() || e.is_client_disconnect() => {
@@ -221,16 +223,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         );
                         send_log_line(new_log_line.clone());
                         log_lines.push(new_log_line);
-                        self.function_log.log_http_action(
-                            outcome.clone(),
-                            Ok(r),
-                            log_lines,
-                            start.elapsed(),
-                            caller,
-                            usage_tracker,
-                            context,
-                            response_sha256,
-                        );
+                        self.function_log
+                            .log_http_action(
+                                outcome.clone(),
+                                Ok(r),
+                                log_lines,
+                                start.elapsed(),
+                                caller,
+                                usage_tracker,
+                                context,
+                                response_sha256,
+                            )
+                            .await;
                         Ok(HttpActionResult::Streamed)
                     },
                     None => {
@@ -244,31 +248,35 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             None,
                             None,
                         );
-                        self.function_log.log_http_action(
-                            outcome.clone(),
-                            Err(js_err),
-                            log_lines,
-                            start.elapsed(),
-                            caller,
-                            usage_tracker,
-                            context,
-                            response_sha256,
-                        );
+                        self.function_log
+                            .log_http_action(
+                                outcome.clone(),
+                                Err(js_err),
+                                log_lines,
+                                start.elapsed(),
+                                caller,
+                                usage_tracker,
+                                context,
+                                response_sha256,
+                            )
+                            .await;
                         Ok(result)
                     },
                 }
             },
             Err(e) => {
-                self.function_log.log_http_action_system_error(
-                    &e,
-                    request_head,
-                    identity.into(),
-                    start,
-                    caller,
-                    log_lines,
-                    context,
-                    response_sha256,
-                );
+                self.function_log
+                    .log_http_action_system_error(
+                        &e,
+                        request_head,
+                        identity.into(),
+                        start,
+                        caller,
+                        log_lines,
+                        context,
+                        response_sha256,
+                    )
+                    .await;
                 Err(e)
             },
         }

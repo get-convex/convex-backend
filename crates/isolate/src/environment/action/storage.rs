@@ -92,7 +92,9 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 content_type,
                 sha256,
             )
-            .track_storage_ingress_size(component_path, "store".to_string(), size as u64);
+            .await
+            .track_storage_ingress_size(component_path, "store".to_string(), size as u64)
+            .await;
 
         Ok(storage_doc_id)
     }

@@ -451,15 +451,17 @@ impl<RT: Runtime> CacheManager<RT> {
                 cache_result.outcome.journal.end_cursor.is_some(),
                 database_bandwidth_bytes,
             );
-            self.udf_execution.log_query(
-                &cache_result.outcome,
-                table_stats,
-                is_cache_hit,
-                start.elapsed(),
-                caller,
-                usage_tracker,
-                context.clone(),
-            );
+            self.udf_execution
+                .log_query(
+                    &cache_result.outcome,
+                    table_stats,
+                    is_cache_hit,
+                    start.elapsed(),
+                    caller,
+                    usage_tracker,
+                    context.clone(),
+                )
+                .await;
 
             let result = QueryReturn {
                 result: cache_result.outcome.result.clone(),

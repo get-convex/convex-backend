@@ -427,17 +427,19 @@ impl<RT: Runtime> CronJobContext<RT> {
         let (mut tx, mut outcome) = match mutation_result {
             Ok(r) => r,
             Err(e) => {
-                self.function_log.log_mutation_system_error(
-                    &e,
-                    path,
-                    job.cron_spec.udf_args.clone(),
-                    identity,
-                    start,
-                    caller,
-                    context,
-                    None,
-                    mutation_retry_count,
-                )?;
+                self.function_log
+                    .log_mutation_system_error(
+                        &e,
+                        path,
+                        job.cron_spec.udf_args.clone(),
+                        identity,
+                        start,
+                        caller,
+                        context,
+                        None,
+                        mutation_retry_count,
+                    )
+                    .await?;
                 return Err(e);
             },
         };
@@ -511,16 +513,18 @@ impl<RT: Runtime> CronJobContext<RT> {
                 .await?;
         }
 
-        self.function_log.log_mutation(
-            outcome,
-            stats,
-            execution_time,
-            caller,
-            usage_tracker,
-            context,
-            None,
-            mutation_retry_count,
-        );
+        self.function_log
+            .log_mutation(
+                outcome,
+                stats,
+                execution_time,
+                caller,
+                usage_tracker,
+                context,
+                None,
+                mutation_retry_count,
+            )
+            .await;
 
         Ok(())
     }
@@ -608,7 +612,9 @@ impl<RT: Runtime> CronJobContext<RT> {
                     report_error(&mut err).await;
                     self.rt.wait(delay).await;
                 }
-                self.function_log.log_action(completion, usage_tracker);
+                self.function_log
+                    .log_action(completion, usage_tracker)
+                    .await;
             },
             CronJobState::InProgress {
                 ref request_id,
@@ -656,16 +662,18 @@ impl<RT: Runtime> CronJobContext<RT> {
                     udf_path: job.cron_spec.udf_path,
                 };
                 let mut err = err.into();
-                self.function_log.log_action_system_error(
-                    &err,
-                    path,
-                    job.cron_spec.udf_args.clone(),
-                    identity,
-                    self.rt.monotonic_now(),
-                    caller,
-                    vec![].into(),
-                    context,
-                )?;
+                self.function_log
+                    .log_action_system_error(
+                        &err,
+                        path,
+                        job.cron_spec.udf_args.clone(),
+                        identity,
+                        self.rt.monotonic_now(),
+                        caller,
+                        vec![].into(),
+                        context,
+                    )
+                    .await?;
                 report_error(&mut err).await;
             },
         }
@@ -766,24 +774,26 @@ impl<RT: Runtime> CronJobContext<RT> {
                 // but they get logged similarly, since they shouldn't count towards usage and
                 // should appear as errors
                 UdfType::Mutation => {
-                    self.function_log.log_mutation_system_error(
-                        &anyhow::anyhow!(
-                            "Skipping {num_skipped} run(s) of {name} because multiple scheduled \
-                             runs are in the past"
-                        ),
-                        CanonicalizedComponentFunctionPath {
-                            component: component_path,
-                            udf_path: job.cron_spec.udf_path.clone(),
-                        },
-                        job.cron_spec.udf_args.clone(),
-                        identity,
-                        self.rt.monotonic_now(),
-                        FunctionCaller::Cron,
-                        context,
-                        None,
-                        mutation_retry_count
-                            .context("Mutations should have mutation_retry_count set")?,
-                    )?;
+                    self.function_log
+                        .log_mutation_system_error(
+                            &anyhow::anyhow!(
+                                "Skipping {num_skipped} run(s) of {name} because multiple \
+                                 scheduled runs are in the past"
+                            ),
+                            CanonicalizedComponentFunctionPath {
+                                component: component_path,
+                                udf_path: job.cron_spec.udf_path.clone(),
+                            },
+                            job.cron_spec.udf_args.clone(),
+                            identity,
+                            self.rt.monotonic_now(),
+                            FunctionCaller::Cron,
+                            context,
+                            None,
+                            mutation_retry_count
+                                .context("Mutations should have mutation_retry_count set")?,
+                        )
+                        .await?;
                 },
                 UdfType::Action => {
                     anyhow::ensure!(
@@ -794,19 +804,21 @@ impl<RT: Runtime> CronJobContext<RT> {
                         "Skipping {num_skipped} run(s) of {name} because multiple scheduled runs \
                          are in the past"
                     );
-                    self.function_log.log_action_system_error(
-                        &err,
-                        CanonicalizedComponentFunctionPath {
-                            component: component_path,
-                            udf_path: job.cron_spec.udf_path.clone(),
-                        },
-                        job.cron_spec.udf_args.clone(),
-                        identity,
-                        self.rt.monotonic_now(),
-                        FunctionCaller::Cron,
-                        vec![].into(),
-                        context,
-                    )?;
+                    self.function_log
+                        .log_action_system_error(
+                            &err,
+                            CanonicalizedComponentFunctionPath {
+                                component: component_path,
+                                udf_path: job.cron_spec.udf_path.clone(),
+                            },
+                            job.cron_spec.udf_args.clone(),
+                            identity,
+                            self.rt.monotonic_now(),
+                            FunctionCaller::Cron,
+                            vec![].into(),
+                            context,
+                        )
+                        .await?;
                     report_error(&mut err).await;
                 },
                 UdfType::Query | UdfType::HttpAction => {

@@ -45,15 +45,11 @@ impl TestUsageEventLogger {
 
 #[async_trait]
 impl UsageEventLogger for TestUsageEventLogger {
-    fn record(&self, events: Vec<UsageEvent>) {
+    async fn record_async(&self, events: Vec<UsageEvent>) {
         let mut state = self.state.lock();
         for event in events {
             state.record_event(event);
         }
-    }
-
-    async fn record_async(&self, events: Vec<UsageEvent>) {
-        self.record(events)
     }
 
     async fn shutdown(&self) -> anyhow::Result<()> {
@@ -217,13 +213,9 @@ impl BasicTestUsageEventLogger {
 
 #[async_trait]
 impl UsageEventLogger for BasicTestUsageEventLogger {
-    fn record(&self, events: Vec<UsageEvent>) {
+    async fn record_async(&self, events: Vec<UsageEvent>) {
         let mut state = self.state.lock();
         state.extend(events);
-    }
-
-    async fn record_async(&self, events: Vec<UsageEvent>) {
-        self.record(events)
     }
 
     async fn shutdown(&self) -> anyhow::Result<()> {

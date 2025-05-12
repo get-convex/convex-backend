@@ -3245,6 +3245,7 @@ dependencies = [
  "errors",
  "events",
  "futures",
+ "futures-async-stream",
  "headers",
  "keybroker",
  "maplit",
@@ -9739,6 +9740,7 @@ name = "usage_tracking"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "cmd_util",
  "common",
  "events",

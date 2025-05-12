@@ -698,15 +698,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let result = outcome.result.clone();
         let log_lines = outcome.log_lines.clone();
-        self.function_log.log_query(
-            &outcome,
-            stats,
-            false,
-            start.elapsed(),
-            caller,
-            tx.usage_tracker,
-            context,
-        );
+        self.function_log
+            .log_query(
+                &outcome,
+                stats,
+                false,
+                start.elapsed(),
+                caller,
+                tx.usage_tracker,
+                context,
+            )
+            .await;
 
         Ok((result, log_lines))
     }
@@ -811,17 +813,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let (mut tx, mut outcome) = match result {
                 Ok(r) => r,
                 Err(e) => {
-                    self.function_log.log_mutation_system_error(
-                        &e,
-                        path.debug_into_component_path(),
-                        arguments,
-                        identity,
-                        start,
-                        caller,
-                        context.clone(),
-                        mutation_queue_length,
-                        mutation_retry_count,
-                    )?;
+                    self.function_log
+                        .log_mutation_system_error(
+                            &e,
+                            path.debug_into_component_path(),
+                            arguments,
+                            identity,
+                            start,
+                            caller,
+                            context.clone(),
+                            mutation_queue_length,
+                            mutation_retry_count,
+                        )
+                        .await?;
                     return Err(e);
                 },
             };
@@ -840,16 +844,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 // developer error.
                 Err(ref error) => {
                     drop(tx);
-                    self.function_log.log_mutation(
-                        outcome.clone(),
-                        stats,
-                        execution_time,
-                        caller,
-                        usage_tracker,
-                        context.clone(),
-                        mutation_queue_length,
-                        mutation_retry_count,
-                    );
+                    self.function_log
+                        .log_mutation(
+                            outcome.clone(),
+                            stats,
+                            execution_time,
+                            caller,
+                            usage_tracker,
+                            context.clone(),
+                            mutation_queue_length,
+                            mutation_retry_count,
+                        )
+                        .await;
                     return Ok(Err(MutationError {
                         error: error.to_owned(),
                         log_lines,
@@ -890,22 +896,24 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             self.runtime.wait(sleep).await;
                             let (table_name, document_id, write_source) =
                                 e.occ_info().unwrap_or((None, None, None));
-                            self.function_log.log_mutation_occ_error(
-                                outcome,
-                                stats,
-                                execution_time,
-                                caller.clone(),
-                                usage_tracker,
-                                context.clone(),
-                                OccInfo {
-                                    table_name,
-                                    document_id,
-                                    write_source,
-                                    retry_count: mutation_retry_count as u64,
-                                },
-                                mutation_queue_length,
-                                mutation_retry_count,
-                            );
+                            self.function_log
+                                .log_mutation_occ_error(
+                                    outcome,
+                                    stats,
+                                    execution_time,
+                                    caller.clone(),
+                                    usage_tracker,
+                                    context.clone(),
+                                    OccInfo {
+                                        table_name,
+                                        document_id,
+                                        write_source,
+                                        retry_count: mutation_retry_count as u64,
+                                    },
+                                    mutation_queue_length,
+                                    mutation_retry_count,
+                                )
+                                .await;
                             continue;
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
@@ -913,34 +921,38 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         if e.is_occ() {
                             let (table_name, document_id, write_source) =
                                 e.occ_info().unwrap_or((None, None, None));
-                            self.function_log.log_mutation_occ_error(
-                                outcome,
-                                stats,
-                                execution_time,
-                                caller,
-                                usage_tracker,
-                                context.clone(),
-                                OccInfo {
-                                    table_name,
-                                    document_id,
-                                    write_source,
-                                    retry_count: mutation_retry_count as u64,
-                                },
-                                mutation_queue_length,
-                                mutation_retry_count,
-                            );
+                            self.function_log
+                                .log_mutation_occ_error(
+                                    outcome,
+                                    stats,
+                                    execution_time,
+                                    caller,
+                                    usage_tracker,
+                                    context.clone(),
+                                    OccInfo {
+                                        table_name,
+                                        document_id,
+                                        write_source,
+                                        retry_count: mutation_retry_count as u64,
+                                    },
+                                    mutation_queue_length,
+                                    mutation_retry_count,
+                                )
+                                .await;
                         } else {
-                            self.function_log.log_mutation_system_error(
-                                &e,
-                                path.debug_into_component_path(),
-                                arguments,
-                                identity,
-                                start,
-                                caller,
-                                context,
-                                mutation_queue_length,
-                                mutation_retry_count,
-                            )?;
+                            self.function_log
+                                .log_mutation_system_error(
+                                    &e,
+                                    path.debug_into_component_path(),
+                                    arguments,
+                                    identity,
+                                    start,
+                                    caller,
+                                    context,
+                                    mutation_queue_length,
+                                    mutation_retry_count,
+                                )
+                                .await?;
                         }
                         log_occ_retries(backoff.failures() as usize);
                         return Err(e);
@@ -948,16 +960,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 },
             };
 
-            self.function_log.log_mutation(
-                outcome.clone(),
-                stats,
-                execution_time,
-                caller,
-                usage_tracker,
-                context.clone(),
-                mutation_queue_length,
-                mutation_retry_count,
-            );
+            self.function_log
+                .log_mutation(
+                    outcome.clone(),
+                    stats,
+                    execution_time,
+                    caller,
+                    usage_tracker,
+                    context.clone(),
+                    mutation_queue_length,
+                    mutation_retry_count,
+                )
+                .await;
             log_occ_retries(backoff.failures() as usize);
             return Ok(result);
         }
@@ -1109,22 +1123,26 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let completion = match completion_result {
             Ok(c) => c,
             Err(e) => {
-                self.function_log.log_action_system_error(
-                    &e,
-                    path.debug_into_component_path(),
-                    arguments,
-                    identity.into(),
-                    start,
-                    caller,
-                    vec![].into(),
-                    context,
-                )?;
+                self.function_log
+                    .log_action_system_error(
+                        &e,
+                        path.debug_into_component_path(),
+                        arguments,
+                        identity.into(),
+                        start,
+                        caller,
+                        vec![].into(),
+                        context,
+                    )
+                    .await?;
                 anyhow::bail!(e)
             },
         };
         let log_lines = completion.log_lines().clone();
         let result = completion.outcome.result.clone();
-        self.function_log.log_action(completion, usage_tracking);
+        self.function_log
+            .log_action(completion, usage_tracking)
+            .await;
 
         let value = match result {
             Ok(value) => value,

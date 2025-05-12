@@ -359,11 +359,13 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         .context("error getting export object attributes from S3")?;
 
         // Charge file bandwidth for the download of the snapshot from imports storage
-        usage.track_storage_egress_size(
-            ComponentPath::root(),
-            snapshot_import.requestor.usage_tag().to_string(),
-            object_attributes.size,
-        );
+        usage
+            .track_storage_egress_size(
+                ComponentPath::root(),
+                snapshot_import.requestor.usage_tag().to_string(),
+                object_attributes.size,
+            )
+            .await;
 
         let pause_client = self.runtime.pause_client();
         pause_client.wait("before_finalize_import").await;
@@ -921,14 +923,16 @@ async fn finalize_import<RT: Runtime>(
         ImportRequestor::CloudRestore { .. } => CallType::CloudRestore,
     };
     // Charge database bandwidth accumulated during the import
-    usage_tracking.track_call(
-        UdfIdentifier::SystemJob(tag),
-        ExecutionId::new(),
-        RequestId::new(),
-        call_type,
-        true,
-        usage.gather_user_stats(),
-    );
+    usage_tracking
+        .track_call(
+            UdfIdentifier::SystemJob(tag),
+            ExecutionId::new(),
+            RequestId::new(),
+            call_type,
+            true,
+            usage.gather_user_stats(),
+        )
+        .await;
 
     Ok((ts, documents_deleted))
 }

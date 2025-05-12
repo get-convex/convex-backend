@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    io,
     ops::Bound,
     sync::Arc,
 };
@@ -35,6 +36,7 @@ use futures::{
     Stream,
     StreamExt,
 };
+use futures_async_stream::stream;
 use headers::{
     ContentLength,
     ContentRange,
@@ -296,13 +298,15 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let stream = storage_get_stream.stream;
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
-        let call_tracker = usage_tracker.track_storage_call(
-            component_path.clone(),
-            "get range",
-            storage_id,
-            content_type.clone(),
-            sha256,
-        );
+        let call_tracker = usage_tracker
+            .track_storage_call(
+                component_path.clone(),
+                "get range",
+                storage_id,
+                content_type.clone(),
+                sha256,
+            )
+            .await;
 
         Ok(FileRangeStream {
             content_length,
@@ -312,48 +316,49 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         })
     }
 
-    fn track_stream_usage(
+    #[stream(boxed, item = io::Result<Bytes>)]
+    async fn track_stream_usage(
         component_path: ComponentPath,
-        stream: BoxStream<'static, futures::io::Result<bytes::Bytes>>,
+        stream: BoxStream<'static, futures::io::Result<Bytes>>,
         get_file_type: GetFileType,
         storage_call_tracker: Box<dyn StorageCallTracker>,
-    ) -> BoxStream<'static, futures::io::Result<bytes::Bytes>> {
-        Box::pin(
-            stream
-                .flat_map(|bytes| {
-                    // The input chunk size here depends on the Storage implementation. Our upstream
-                    // provider seems to send chunks between 1kb and 16kb. Our
-                    // file storage will send entire files (80+MB).
-                    // The chunk size here determines the maximum amount we will round up a
-                    // customer if they read a single byte. The larger our chunk size, the more we
-                    // round for that byte. So we set a maximum chunk size to limit the maximum
-                    // amount we round up if the upstream provider sends us a large chunk.
-                    stream::iter(if let Ok(bytes) = bytes {
-                        if bytes.len() <= MAX_CHUNK_SIZE {
-                            vec![Ok(bytes)]
-                        } else {
-                            bytes
-                                .chunks(MAX_CHUNK_SIZE)
-                                .map(|chunk| Ok(Bytes::copy_from_slice(chunk)))
-                                .collect::<Vec<_>>()
-                        }
-                    } else {
-                        vec![bytes]
-                    })
-                })
-                .map(move |bytes: futures::io::Result<bytes::Bytes>| {
-                    if let Ok(ref bytes) = bytes {
-                        let bytes_size = bytes.len() as u64;
-                        log_get_file_chunk_size(bytes_size, get_file_type);
-                        storage_call_tracker.track_storage_egress_size(
-                            component_path.clone(),
-                            "get_range".to_string(),
-                            bytes_size,
-                        );
-                    }
+    ) {
+        let stream = stream.flat_map(|bytes| {
+            // The input chunk size here depends on the Storage implementation. Our upstream
+            // provider seems to send chunks between 1kb and 16kb. Our
+            // file storage will send entire files (80+MB).
+            // The chunk size here determines the maximum amount we will round up a
+            // customer if they read a single byte. The larger our chunk size, the more we
+            // round for that byte. So we set a maximum chunk size to limit the maximum
+            // amount we round up if the upstream provider sends us a large chunk.
+            stream::iter(if let Ok(bytes) = bytes {
+                if bytes.len() <= MAX_CHUNK_SIZE {
+                    vec![Ok(bytes)]
+                } else {
                     bytes
-                }),
-        )
+                        .chunks(MAX_CHUNK_SIZE)
+                        .map(|chunk| Ok(Bytes::copy_from_slice(chunk)))
+                        .collect::<Vec<_>>()
+                }
+            } else {
+                vec![bytes]
+            })
+        });
+        let mut stream = std::pin::pin!(stream);
+        while let Some(bytes) = stream.next().await {
+            if let Ok(ref bytes) = bytes {
+                let bytes_size = bytes.len() as u64;
+                log_get_file_chunk_size(bytes_size, get_file_type);
+                storage_call_tracker
+                    .track_storage_egress_size(
+                        component_path.clone(),
+                        "get_range".to_string(),
+                        bytes_size,
+                    )
+                    .await;
+            }
+            yield bytes;
+        }
     }
 
     async fn _delete(
@@ -494,7 +499,9 @@ impl<RT: Runtime> FileStorage<RT> {
                 content_type,
                 sha256,
             )
-            .track_storage_ingress_size(component_path, "store".to_string(), size as u64);
+            .await
+            .track_storage_ingress_size(component_path, "store".to_string(), size as u64)
+            .await;
         Ok(virtual_id)
     }
 }

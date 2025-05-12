@@ -15,6 +15,7 @@ common = { path = "../common" }
 database = { path = "../database" }
 errors = { path = "../errors" }
 futures = { workspace = true }
+futures-async-stream = { workspace = true }
 headers = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }

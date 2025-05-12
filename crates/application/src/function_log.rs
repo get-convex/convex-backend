@@ -546,7 +546,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
     }
 
-    pub fn log_query(
+    pub async fn log_query(
         &self,
         outcome: &UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
@@ -565,9 +565,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracking),
             context,
         )
+        .await
     }
 
-    pub fn log_query_system_error(
+    pub async fn log_query_system_error(
         &self,
         e: &anyhow::Error,
         path: CanonicalizedComponentFunctionPath,
@@ -596,12 +597,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::SystemError,
             context,
-        );
+        )
+        .await;
         Ok(())
     }
 
     #[fastrace::trace]
-    fn _log_query(
+    async fn _log_query(
         &self,
         outcome: &UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
@@ -615,18 +617,20 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                self.usage_tracking.track_call(
-                    UdfIdentifier::Function(outcome.path.clone()),
-                    context.execution_id.clone(),
-                    context.request_id.clone(),
-                    if was_cached {
-                        CallType::CachedQuery
-                    } else {
-                        CallType::UncachedQuery
-                    },
-                    outcome.result.is_ok(),
-                    usage_stats,
-                );
+                self.usage_tracking
+                    .track_call(
+                        UdfIdentifier::Function(outcome.path.clone()),
+                        context.execution_id.clone(),
+                        context.request_id.clone(),
+                        if was_cached {
+                            CallType::CachedQuery
+                        } else {
+                            CallType::UncachedQuery
+                        },
+                        outcome.result.is_ok(),
+                        usage_stats,
+                    )
+                    .await;
                 aggregated
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
@@ -664,7 +668,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution(execution, true);
     }
 
-    pub fn log_mutation(
+    pub async fn log_mutation(
         &self,
         outcome: ValidatedUdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
@@ -686,9 +690,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             mutation_queue_length,
             mutation_retry_count,
         )
+        .await
     }
 
-    pub fn log_mutation_system_error(
+    pub async fn log_mutation_system_error(
         &self,
         e: &anyhow::Error,
         path: CanonicalizedComponentFunctionPath,
@@ -721,11 +726,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             None,
             mutation_queue_length,
             mutation_retry_count,
-        );
+        )
+        .await;
         Ok(())
     }
 
-    pub fn log_mutation_occ_error(
+    pub async fn log_mutation_occ_error(
         &self,
         outcome: ValidatedUdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
@@ -747,10 +753,11 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             Some(occ_info),
             mutation_queue_length,
             mutation_retry_count,
-        );
+        )
+        .await;
     }
 
-    fn _log_mutation(
+    async fn _log_mutation(
         &self,
         outcome: ValidatedUdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
@@ -766,16 +773,18 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                self.usage_tracking.track_call(
-                    UdfIdentifier::Function(outcome.path.clone()),
-                    context.execution_id.clone(),
-                    context.request_id.clone(),
-                    CallType::Mutation {
-                        occ_info: occ_info.clone(),
-                    },
-                    outcome.result.is_ok(),
-                    usage_stats,
-                );
+                self.usage_tracking
+                    .track_call(
+                        UdfIdentifier::Function(outcome.path.clone()),
+                        context.execution_id.clone(),
+                        context.request_id.clone(),
+                        CallType::Mutation {
+                            occ_info: occ_info.clone(),
+                        },
+                        outcome.result.is_ok(),
+                        usage_stats,
+                    )
+                    .await;
                 aggregated
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
@@ -813,11 +822,11 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution(execution, true);
     }
 
-    pub fn log_action(&self, completion: ActionCompletion, usage: FunctionUsageTracker) {
-        self._log_action(completion, TrackUsage::Track(usage))
+    pub async fn log_action(&self, completion: ActionCompletion, usage: FunctionUsageTracker) {
+        self._log_action(completion, TrackUsage::Track(usage)).await
     }
 
-    pub fn log_action_system_error(
+    pub async fn log_action_system_error(
         &self,
         e: &anyhow::Error,
         path: CanonicalizedComponentFunctionPath,
@@ -846,29 +855,31 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             log_lines,
         };
-        self._log_action(completion, TrackUsage::SystemError);
+        self._log_action(completion, TrackUsage::SystemError).await;
         Ok(())
     }
 
-    fn _log_action(&self, completion: ActionCompletion, usage: TrackUsage) {
+    async fn _log_action(&self, completion: ActionCompletion, usage: TrackUsage) {
         let outcome = completion.outcome;
         let log_lines = completion.log_lines;
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                self.usage_tracking.track_call(
-                    UdfIdentifier::Function(outcome.path.clone()),
-                    completion.context.execution_id.clone(),
-                    completion.context.request_id.clone(),
-                    CallType::Action {
-                        env: completion.environment,
-                        duration: completion.execution_time,
-                        memory_in_mb: completion.memory_in_mb,
-                    },
-                    outcome.result.is_ok(),
-                    usage_stats,
-                );
+                self.usage_tracking
+                    .track_call(
+                        UdfIdentifier::Function(outcome.path.clone()),
+                        completion.context.execution_id.clone(),
+                        completion.context.request_id.clone(),
+                        CallType::Action {
+                            env: completion.environment,
+                            duration: completion.execution_time,
+                            memory_in_mb: completion.memory_in_mb,
+                        },
+                        outcome.result.is_ok(),
+                        usage_stats,
+                    )
+                    .await;
                 aggregated
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
@@ -931,7 +942,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
     }
 
-    pub fn log_http_action(
+    pub async fn log_http_action(
         &self,
         outcome: HttpActionOutcome,
         result: Result<HttpActionStatusCode, JsError>,
@@ -952,9 +963,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             response_sha256,
         )
+        .await
     }
 
-    pub fn log_http_action_system_error(
+    pub async fn log_http_action_system_error(
         &self,
         error: &anyhow::Error,
         http_request: HttpActionRequestHead,
@@ -985,9 +997,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             response_sha256,
         )
+        .await
     }
 
-    fn _log_http_action(
+    async fn _log_http_action(
         &self,
         outcome: HttpActionOutcome,
         result: Result<HttpActionStatusCode, JsError>,
@@ -1002,18 +1015,20 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                self.usage_tracking.track_call(
-                    UdfIdentifier::Http(outcome.route.clone()),
-                    context.execution_id.clone(),
-                    context.request_id.clone(),
-                    CallType::HttpAction {
-                        duration: execution_time,
-                        memory_in_mb: outcome.memory_in_mb(),
-                        response_sha256,
-                    },
-                    result.clone().is_ok_and(|code| code.0.as_u16() < 400),
-                    usage_stats,
-                );
+                self.usage_tracking
+                    .track_call(
+                        UdfIdentifier::Http(outcome.route.clone()),
+                        context.execution_id.clone(),
+                        context.request_id.clone(),
+                        CallType::HttpAction {
+                            duration: execution_time,
+                            memory_in_mb: outcome.memory_in_mb(),
+                            response_sha256,
+                        },
+                        result.clone().is_ok_and(|code| code.0.as_u16() < 400),
+                        usage_stats,
+                    )
+                    .await;
                 aggregated
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),

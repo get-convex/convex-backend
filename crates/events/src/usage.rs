@@ -194,13 +194,6 @@ pub struct TableVectorStorage {
 /// Fire off usage events into the ether.
 #[async_trait]
 pub trait UsageEventLogger: Send + Sync + std::fmt::Debug {
-    /// A close to zero cost log method that dumps events into a buffer
-    ///
-    /// Implementations may choose to drop records on the floor if buffers are
-    /// unexpectedly full. If you can accept the penalty for waiting for the
-    /// buffer to empty out, use record_async instead.
-    fn record(&self, events: Vec<UsageEvent>);
-
     /// Dump events into a buffer, waiting for the buffer to empty if it's full.
     async fn record_async(&self, events: Vec<UsageEvent>);
 
@@ -213,8 +206,6 @@ pub struct NoOpUsageEventLogger;
 
 #[async_trait]
 impl UsageEventLogger for NoOpUsageEventLogger {
-    fn record(&self, _events: Vec<UsageEvent>) {}
-
     async fn record_async(&self, _events: Vec<UsageEvent>) {}
 
     async fn shutdown(&self) -> anyhow::Result<()> {

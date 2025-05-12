@@ -140,18 +140,22 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
                 .as_ref()
                 .map(|ct| ct.parse())
                 .transpose()?;
-            usage.track_storage_call(
-                component_path.clone(),
-                requestor.usage_tag(),
-                file_storage_entry.storage_id.clone(),
-                content_type,
-                file_storage_entry.sha256.clone(),
-            );
-            usage.track_storage_egress_size(
-                component_path.clone(),
-                requestor.usage_tag().to_string(),
-                file_stream.content_length as u64,
-            );
+            usage
+                .track_storage_call(
+                    component_path.clone(),
+                    requestor.usage_tag(),
+                    file_storage_entry.storage_id.clone(),
+                    content_type,
+                    file_storage_entry.sha256.clone(),
+                )
+                .await;
+            usage
+                .track_storage_egress_size(
+                    component_path.clone(),
+                    requestor.usage_tag().to_string(),
+                    file_stream.content_length as u64,
+                )
+                .await;
 
             if (file_stream.content_length as usize) < max_prefetch_bytes {
                 let permit = inflight_bytes_semaphore

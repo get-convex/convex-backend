@@ -215,18 +215,22 @@ pub async fn import_storage_table<RT: Runtime>(
             .as_ref()
             .map(|ct| ct.parse())
             .transpose()?;
-        usage.track_storage_call(
-            component_path.clone(),
-            requestor.usage_tag(),
-            entry.storage_id,
-            content_type,
-            entry.sha256,
-        );
-        usage.track_storage_ingress_size(
-            component_path.clone(),
-            requestor.usage_tag().to_string(),
-            file_size,
-        );
+        usage
+            .track_storage_call(
+                component_path.clone(),
+                requestor.usage_tag(),
+                entry.storage_id,
+                content_type,
+                entry.sha256,
+            )
+            .await;
+        usage
+            .track_storage_ingress_size(
+                component_path.clone(),
+                requestor.usage_tag().to_string(),
+                file_size,
+            )
+            .await;
         num_files += 1;
         if let Some(import_id) = import_id {
             best_effort_update_progress_message(

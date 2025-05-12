@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::Context;
+use async_trait::async_trait;
 use common::{
     components::ComponentPath,
     execution_context::ExecutionId,
@@ -57,7 +58,7 @@ impl UsageCounter {
 
     // Used for tracking storage ingress outside of a user function (e.g. snapshot
     // import/export).
-    pub fn track_independent_storage_ingress_size(
+    pub async fn track_independent_storage_ingress_size(
         &self,
         component_path: ComponentPath,
         tag: String,
@@ -66,12 +67,14 @@ impl UsageCounter {
         let independent_tracker =
             IndependentStorageCallTracker::new(ExecutionId::new(), self.usage_logger.clone());
 
-        independent_tracker.track_storage_ingress_size(component_path, tag, ingress_size);
+        independent_tracker
+            .track_storage_ingress_size(component_path, tag, ingress_size)
+            .await;
     }
 
     // Used for tracking storage egress outside of a user function (e.g. snapshot
     // import/export).
-    pub fn track_independent_storage_egress_size(
+    pub async fn track_independent_storage_egress_size(
         &self,
         component_path: ComponentPath,
         tag: String,
@@ -80,7 +83,9 @@ impl UsageCounter {
         let independent_tracker =
             IndependentStorageCallTracker::new(ExecutionId::new(), self.usage_logger.clone());
 
-        independent_tracker.track_storage_egress_size(component_path, tag, egress_size);
+        independent_tracker
+            .track_storage_egress_size(component_path, tag, egress_size)
+            .await;
     }
 }
 
@@ -212,7 +217,7 @@ impl CallType {
 }
 
 impl UsageCounter {
-    pub fn track_call(
+    pub async fn track_call(
         &self,
         udf_path: UdfIdentifier,
         execution_id: ExecutionId,
@@ -263,7 +268,7 @@ impl UsageCounter {
             success,
             &mut usage_metrics,
         );
-        self.usage_logger.record(usage_metrics);
+        self.usage_logger.record_async(usage_metrics).await;
     }
 
     // TODO: The existence of this function is a hack due to shortcuts we have
@@ -271,7 +276,7 @@ impl UsageCounter {
     // callbacks. We should only be using track_call() and never calling this
     // this directly. Otherwise, we will have the usage reflected in the usage
     // stats for billing but not in the UDF execution log counters.
-    pub fn track_function_usage(
+    pub async fn track_function_usage(
         &self,
         udf_path: UdfIdentifier,
         execution_id: ExecutionId,
@@ -287,7 +292,7 @@ impl UsageCounter {
             true,
             &mut usage_metrics,
         );
-        self.usage_logger.record(usage_metrics);
+        self.usage_logger.record_async(usage_metrics).await;
     }
 
     pub fn _track_function_usage(
@@ -436,8 +441,9 @@ impl UsageCounter {
 // We can track storage attributed by UDF or not. This is why unlike database
 // and vector search egress/ingress those methods are both on
 // FunctionUsageTracker and UsageCounters directly.
+#[async_trait]
 pub trait StorageUsageTracker: Send + Sync {
-    fn track_storage_call(
+    async fn track_storage_call(
         &self,
         component_path: ComponentPath,
         storage_api: &'static str,
@@ -447,14 +453,15 @@ pub trait StorageUsageTracker: Send + Sync {
     ) -> Box<dyn StorageCallTracker>;
 }
 
+#[async_trait]
 pub trait StorageCallTracker: Send + Sync {
-    fn track_storage_ingress_size(
+    async fn track_storage_ingress_size(
         &self,
         component_path: ComponentPath,
         tag: String,
         ingress_size: u64,
     );
-    fn track_storage_egress_size(
+    async fn track_storage_egress_size(
         &self,
         component_path: ComponentPath,
         tag: String,
@@ -476,42 +483,48 @@ impl IndependentStorageCallTracker {
     }
 }
 
+#[async_trait]
 impl StorageCallTracker for IndependentStorageCallTracker {
-    fn track_storage_ingress_size(
+    async fn track_storage_ingress_size(
         &self,
         component_path: ComponentPath,
         tag: String,
         ingress_size: u64,
     ) {
         metrics::storage::log_storage_ingress_size(ingress_size);
-        self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
-            id: self.execution_id.to_string(),
-            component_path: component_path.serialize(),
-            tag,
-            ingress: ingress_size,
-            egress: 0,
-        }]);
+        self.usage_logger
+            .record_async(vec![UsageEvent::StorageBandwidth {
+                id: self.execution_id.to_string(),
+                component_path: component_path.serialize(),
+                tag,
+                ingress: ingress_size,
+                egress: 0,
+            }])
+            .await;
     }
 
-    fn track_storage_egress_size(
+    async fn track_storage_egress_size(
         &self,
         component_path: ComponentPath,
         tag: String,
         egress_size: u64,
     ) {
         metrics::storage::log_storage_egress_size(egress_size);
-        self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
-            id: self.execution_id.to_string(),
-            component_path: component_path.serialize(),
-            tag,
-            ingress: 0,
-            egress: egress_size,
-        }]);
+        self.usage_logger
+            .record_async(vec![UsageEvent::StorageBandwidth {
+                id: self.execution_id.to_string(),
+                component_path: component_path.serialize(),
+                tag,
+                ingress: 0,
+                egress: egress_size,
+            }])
+            .await;
     }
 }
 
+#[async_trait]
 impl StorageUsageTracker for UsageCounter {
-    fn track_storage_call(
+    async fn track_storage_call(
         &self,
         component_path: ComponentPath,
         storage_api: &'static str,
@@ -521,16 +534,18 @@ impl StorageUsageTracker for UsageCounter {
     ) -> Box<dyn StorageCallTracker> {
         let execution_id = ExecutionId::new();
         metrics::storage::log_storage_call();
-        self.usage_logger.record(vec![UsageEvent::StorageCall {
-            id: execution_id.to_string(),
-            component_path: component_path.serialize(),
-            // Ideally we would track the Id<_storage> instead of the StorageUuid
-            // but it's a bit annoying for now, so just going with this.
-            storage_id: storage_id.to_string(),
-            call: storage_api.to_string(),
-            content_type: content_type.map(|c| c.to_string()),
-            sha256: sha256.as_hex(),
-        }]);
+        self.usage_logger
+            .record_async(vec![UsageEvent::StorageCall {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                // Ideally we would track the Id<_storage> instead of the StorageUuid
+                // but it's a bit annoying for now, so just going with this.
+                storage_id: storage_id.to_string(),
+                call: storage_api.to_string(),
+                content_type: content_type.map(|c| c.to_string()),
+                sha256: sha256.as_hex(),
+            }])
+            .await;
 
         Box::new(IndependentStorageCallTracker::new(
             execution_id,
@@ -714,8 +729,9 @@ impl FunctionUsageTracker {
 // tag through FunctionUsageStats. For now we're just interested in the
 // breakdown of file bandwidth from functions vs external sources like snapshot
 // export/cloud backups.
+#[async_trait]
 impl StorageCallTracker for FunctionUsageTracker {
-    fn track_storage_ingress_size(
+    async fn track_storage_ingress_size(
         &self,
         component_path: ComponentPath,
         _tag: String,
@@ -728,7 +744,7 @@ impl StorageCallTracker for FunctionUsageTracker {
             .mutate_entry_or_default(component_path, |count| *count += ingress_size);
     }
 
-    fn track_storage_egress_size(
+    async fn track_storage_egress_size(
         &self,
         component_path: ComponentPath,
         _tag: String,
@@ -742,8 +758,9 @@ impl StorageCallTracker for FunctionUsageTracker {
     }
 }
 
+#[async_trait]
 impl StorageUsageTracker for FunctionUsageTracker {
-    fn track_storage_call(
+    async fn track_storage_call(
         &self,
         component_path: ComponentPath,
         storage_api: &'static str,

@@ -434,13 +434,16 @@ pub async fn vector_search(
             component,
             udf_path: udf_path.clone().strip(),
         };
-        st.application.usage_counter().track_function_usage(
-            UdfIdentifier::Function(path.canonicalize()),
-            // TODO(CX-6045) - have the action send the ExecutionId as a request header
-            context.execution_id,
-            context.request_id,
-            usage.gather_user_stats(),
-        );
+        st.application
+            .usage_counter()
+            .track_function_usage(
+                UdfIdentifier::Function(path.canonicalize()),
+                // TODO(CX-6045) - have the action send the ExecutionId as a request header
+                context.execution_id,
+                context.request_id,
+                usage.gather_user_stats(),
+            )
+            .await;
     }
 
     let results: Vec<_> = results.into_iter().map(JsonValue::from).collect();

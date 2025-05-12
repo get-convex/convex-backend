@@ -317,20 +317,20 @@ impl<RT: Runtime> ExportWorker<RT> {
             ExportRequestor::CloudBackup => CallType::CloudBackup,
         };
         // Charge file bandwidth for the upload of the snapshot to exports storage
-        usage.track_storage_ingress_size(
-            ComponentPath::root(),
-            tag.clone(),
-            object_attributes.size,
-        );
+        usage
+            .track_storage_ingress_size(ComponentPath::root(), tag.clone(), object_attributes.size)
+            .await;
         // Charge database bandwidth accumulated during the export
-        self.usage_tracking.track_call(
-            UdfIdentifier::SystemJob(tag),
-            ExecutionId::new(),
-            RequestId::new(),
-            call_type,
-            true,
-            usage.gather_user_stats(),
-        );
+        self.usage_tracking
+            .track_call(
+                UdfIdentifier::SystemJob(tag),
+                ExecutionId::new(),
+                RequestId::new(),
+                call_type,
+                true,
+                usage.gather_user_stats(),
+            )
+            .await;
         Ok(())
     }
 }
