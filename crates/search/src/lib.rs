@@ -48,7 +48,10 @@ use common::{
         InternalSearchFilterExpression,
         SearchVersion,
     },
-    runtime::block_in_place,
+    runtime::{
+        block_in_place,
+        JoinSet,
+    },
     types::{
         IndexName,
         Timestamp,
@@ -99,7 +102,6 @@ use tantivy::{
     Term,
 };
 pub use tantivy_query::SearchQueryResult;
-use tokio::task::JoinSet;
 use value::{
     values_to_bytes,
     ConvexValue,
@@ -467,7 +469,7 @@ impl TantivySearchIndexSchema {
             let search_storage = search_storage.clone();
             let segment = segment.clone();
             let token_queries = token_queries.clone();
-            token_query_futures.spawn(async move {
+            token_query_futures.spawn("query_tokens", async move {
                 searcher
                     .query_tokens(
                         search_storage,
@@ -534,7 +536,7 @@ impl TantivySearchIndexSchema {
             let search_storage = search_storage.clone();
             let segment = segment.clone();
             let terms = terms.clone();
-            bm25_futures.spawn(async move {
+            bm25_futures.spawn("query_bm25_stats", async move {
                 searcher
                     .query_bm25_stats(search_storage, segment, terms)
                     .await
@@ -614,7 +616,7 @@ impl TantivySearchIndexSchema {
             let search_storage = search_storage.clone();
             let segment = segment.clone();
             let query = query.clone();
-            posting_list_futures.spawn(async move {
+            posting_list_futures.spawn("query_posting_lists", async move {
                 searcher
                     .query_posting_lists(search_storage, segment, query)
                     .await

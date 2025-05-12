@@ -14,6 +14,7 @@ use common::{
         ResolvedHostname,
     },
     runtime::{
+        JoinSet,
         Runtime,
         SpawnHandle,
     },
@@ -46,7 +47,6 @@ use tokio::{
         mpsc,
         oneshot,
     },
-    task::JoinSet,
     time::Instant,
 };
 
@@ -201,7 +201,7 @@ impl ServerThread {
                                 outgoing,
                                 Box::new(|_session_id| ()),
                             );
-                            join_set.spawn(async move { w.go().await });
+                            join_set.spawn("sync_worker", async move { w.go().await });
                         },
                         ServerRequest::Mutation { udf_path, args, result } => {
                             let res = api.execute_public_mutation(

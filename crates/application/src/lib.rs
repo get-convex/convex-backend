@@ -93,6 +93,7 @@ use common::{
     query_journal::QueryJournal,
     runtime::{
         shutdown_and_join,
+        JoinSet,
         Runtime,
         SpawnHandle,
         UnixTimestamp,
@@ -324,12 +325,9 @@ use table_summary_worker::{
     TableSummaryClient,
     TableSummaryWorker,
 };
-use tokio::{
-    sync::{
-        oneshot,
-        Semaphore,
-    },
-    task::JoinSet,
+use tokio::sync::{
+    oneshot,
+    Semaphore,
 };
 use udf::{
     environment::{
@@ -2054,7 +2052,7 @@ impl<RT: Runtime> Application<RT> {
                 drop(permit);
                 anyhow::Ok((definition_path, component_pkg))
             };
-            component_pkg_futures.spawn(component_pkg_future);
+            component_pkg_futures.spawn("upload_package", component_pkg_future);
         }
         // `JoinSet::join_all` was added in tokio 1.40.0.
         let component_pkg_future = async {

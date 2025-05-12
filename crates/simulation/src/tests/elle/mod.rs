@@ -13,7 +13,10 @@ use std::{
 use common::{
     assert_obj,
     knobs::RUNTIME_STACK_SIZE,
-    runtime::Runtime,
+    runtime::{
+        JoinSet,
+        Runtime,
+    },
     value,
 };
 use config::ElleConfig;
@@ -26,7 +29,6 @@ use rand::{
 };
 use rand_distr::Geometric;
 use runtime::testing::TestDriver;
-use tokio::task::JoinSet;
 use verifier::ElleVerifier;
 
 use crate::test_helpers::{
@@ -114,7 +116,7 @@ impl ElleSimulationTest {
         };
         let start = ElleModelEvent::StartRead { tx_id, client_id };
         self.event_log.push(start);
-        self.join_set.spawn(future);
+        self.join_set.spawn("elle_read", future);
     }
 
     fn start_client_write(&mut self, tx_id: TxId, client_id: ClientId, register_id: RegisterId) {
@@ -144,7 +146,7 @@ impl ElleSimulationTest {
             write_id,
         };
         self.event_log.push(start);
-        self.join_set.spawn(future);
+        self.join_set.spawn("elle_client_write", future);
     }
 
     fn start_server_write(&mut self, tx_id: TxId, register_id: RegisterId) {
@@ -172,7 +174,7 @@ impl ElleSimulationTest {
             write_id,
         };
         self.event_log.push(start);
-        self.join_set.spawn(future);
+        self.join_set.spawn("elle_server_write", future);
     }
 
     async fn run(mut self) -> anyhow::Result<Vec<ElleModelEvent>> {

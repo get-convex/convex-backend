@@ -65,12 +65,15 @@ use tokio_util::task::AbortOnDropHandle;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
 
+pub use self::join_set::JoinSet;
 use crate::{
     errors::recapture_stacktrace,
     is_canceled::IsCanceled,
     pause::PauseClient,
     types::Timestamp,
 };
+
+mod join_set;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
