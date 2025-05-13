@@ -184,6 +184,7 @@ impl<C: ShapeConfig> StructuralShape<C> {
             ("float64", ShapeEnum::Float64),
             ("-inf", ShapeEnum::NegativeInf),
             ("inf", ShapeEnum::PositiveInf),
+            ("-0", ShapeEnum::NegativeZero),
             ("NaN", ShapeEnum::NaN),
             ("normalfloat64", ShapeEnum::NormalFloat64),
             ("boolean", ShapeEnum::Boolean),

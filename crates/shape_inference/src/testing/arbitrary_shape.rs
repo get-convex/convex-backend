@@ -143,6 +143,8 @@ pub fn nonempty_shape_strategy<C: ShapeConfig>() -> impl Strategy<Value = Counte
             .prop_map(|num_values| CountedShape::new(ShapeEnum::NegativeInf, num_values)),
         (1..MAX_NUM_VALUES)
             .prop_map(|num_values| CountedShape::new(ShapeEnum::PositiveInf, num_values)),
+        (1..MAX_NUM_VALUES)
+            .prop_map(|num_values| CountedShape::new(ShapeEnum::NegativeZero, num_values)),
         (1..MAX_NUM_VALUES).prop_map(|num_values| CountedShape::new(ShapeEnum::NaN, num_values)),
         (1..MAX_NUM_VALUES)
             .prop_map(|num_values| CountedShape::new(ShapeEnum::Boolean, num_values)),
