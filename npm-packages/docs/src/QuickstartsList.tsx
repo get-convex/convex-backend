@@ -6,6 +6,7 @@ declare module "*.svg" {
 import ExpoLogo from "@site/static/img/expo-logo.svg";
 import NextJSLogo from "@site/static/img/nextjs-logo.svg";
 import HtmlLogo from "@site/static/img/html-logo.svg";
+import JsLogo from "@site/static/img/js-logo.svg";
 import NodeLogo from "@site/static/img/node-logo.svg";
 import BunLogo from "@site/static/img/bun-logo.svg";
 import PythonLogo from "@site/static/img/python-logo.svg";
@@ -77,7 +78,7 @@ export function CardLink({
   );
 }
 
-// Add this new component before QuickstartsList
+// Add this new component before Quick*List
 export function LargeCardList(props: { items: LargeCardItem[] }) {
   return (
     <div className="large-cards">
@@ -93,7 +94,7 @@ export function LargeCardList(props: { items: LargeCardItem[] }) {
 
 // End DocsCardList.tsx variant for Quickstarts page
 
-export function QuickstartsList() {
+export function QuickFrameworksList() {
   return (
     <DocCardList
       items={[
@@ -160,6 +161,22 @@ export function QuickstartsList() {
           href: "/quickstart/script-tag",
           docId: "quickstart/script-tag",
           label: "Script tag",
+        },
+      ]}
+    />
+  );
+}
+
+export function QuickLanguagesList() {
+  return (
+    <DocCardList
+      items={[
+        {
+          icon: <JsLogo height={40} />,
+          invertIcon: true,
+          href: "/client/javascript",
+          docId: "client/javascript",
+          label: "JavaScript",
         },
         {
           icon: <PythonLogo height={40} />,
