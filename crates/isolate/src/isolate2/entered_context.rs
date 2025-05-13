@@ -63,7 +63,7 @@ use crate::{
 pub struct EnteredContext<'enter, 'scope: 'enter> {
     scope: &'enter mut v8::HandleScope<'scope>,
     heap_context: &'enter HeapContext,
-    context: v8::Local<'scope, v8::Context>,
+    _context: v8::Local<'scope, v8::Context>,
 }
 
 impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
@@ -75,19 +75,19 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         Self {
             scope,
             heap_context,
-            context,
+            _context: context,
         }
     }
 
     pub fn context_state_mut(&mut self) -> anyhow::Result<&mut ContextState> {
-        self.context
-            .get_slot_mut::<ContextState>(self.scope)
+        self.scope
+            .get_slot_mut::<ContextState>()
             .ok_or_else(|| anyhow::anyhow!("ContextState not found in context"))
     }
 
     pub fn context_state(&mut self) -> anyhow::Result<&ContextState> {
-        self.context
-            .get_slot::<ContextState>(self.scope)
+        self.scope
+            .get_slot::<ContextState>()
             .ok_or_else(|| anyhow::anyhow!("ContextState not found in context"))
     }
 
@@ -195,10 +195,10 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             .ok_or_else(|| anyhow!("Failed to create source string"))?;
 
         let origin = helpers::module_origin(self.scope, name_str);
-        let v8_source = v8::script_compiler::Source::new(source_str, Some(&origin));
+        let mut v8_source = v8::script_compiler::Source::new(source_str, Some(&origin));
 
         let module = self
-            .execute_user_code(|s| v8::script_compiler::compile_module(s, v8_source))?
+            .execute_user_code(|s| v8::script_compiler::compile_module(s, &mut v8_source))?
             .ok_or_else(|| anyhow!("Unexpected module compilation error"))?;
 
         anyhow::ensure!(module.get_status() == v8::ModuleStatus::Uninstantiated);

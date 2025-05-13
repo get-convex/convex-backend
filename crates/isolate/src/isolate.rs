@@ -243,8 +243,7 @@ impl<RT: Runtime> Isolate<RT> {
 
     // Heap stats for an isolate that has no associated state or environment.
     pub fn heap_stats(&mut self) -> IsolateHeapStats {
-        let mut stats = v8::HeapStatistics::default();
-        self.v8_isolate.get_heap_statistics(&mut stats);
+        let stats = self.v8_isolate.get_heap_statistics();
         IsolateHeapStats::new(stats, 0, 0)
     }
 
@@ -260,8 +259,7 @@ impl<RT: Runtime> Isolate<RT> {
             return Err(not_clean);
         }
         // The heap should have enough memory available.
-        let mut stats = v8::HeapStatistics::default();
-        self.v8_isolate.get_heap_statistics(&mut stats);
+        let stats = self.v8_isolate.get_heap_statistics();
         log_heap_statistics(&stats);
         if stats.total_available_size() < *ISOLATE_MAX_USER_HEAP_SIZE {
             self.handle.terminate(TerminationReason::OutOfMemory);

@@ -540,7 +540,7 @@ pub fn initialize_v8() {
         let _s = static_span!("initialize_v8");
 
         // `deno_core_icudata` internally loads this with proper 16-byte alignment.
-        assert!(v8::icu::set_common_data_73(deno_core_icudata::ICU_DATA).is_ok());
+        assert!(v8::icu::set_common_data_74(deno_core_icudata::ICU_DATA).is_ok());
 
         // Calls into `v8::platform::v8__Platform__NewUnprotectedDefaultPlatform`
         // Can configure with...

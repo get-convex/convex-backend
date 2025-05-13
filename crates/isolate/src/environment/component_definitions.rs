@@ -200,7 +200,7 @@ impl AppDefinitionEvaluator {
 
         let (handle, state) = isolate.start_request(client_id.into(), env).await?;
         let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope);
+        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;
@@ -340,7 +340,7 @@ impl ComponentInitializerEvaluator {
         };
         let (handle, state) = isolate.start_request(client_id.into(), env).await?;
         let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope);
+        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;

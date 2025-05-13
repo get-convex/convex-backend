@@ -54,15 +54,16 @@ pub fn module_origin<'a>(
     let source_map_url = strings::empty.create(s).unwrap();
     v8::ScriptOrigin::new(
         s,
-        resource_name.into(),  // resource_name
-        0,                     // resource_line_offset
-        0,                     // resource_column_offset
-        false,                 // resource_is_shared_cross_origin
-        0,                     // script_id
-        source_map_url.into(), // source_map_url
-        true,                  // resource_is_opaque
-        false,                 // is_wasm
-        true,                  // is_module
+        resource_name.into(),        // resource_name
+        0,                           // resource_line_offset
+        0,                           // resource_column_offset
+        false,                       // resource_is_shared_cross_origin
+        0,                           // script_id
+        Some(source_map_url.into()), // source_map_url
+        true,                        // resource_is_opaque
+        false,                       // is_wasm
+        true,                        // is_module
+        None,                        // host_defined_options
     )
 }
 
@@ -83,10 +84,9 @@ pub fn throw_type_error(scope: &mut v8::HandleScope, message: impl AsRef<str>) {
 pub fn to_rust_string(scope: &mut v8::Isolate, s: &v8::String) -> anyhow::Result<String> {
     let n = s.utf8_length(scope);
     let mut buf = vec![0; n];
-    // Don't set `REPLACE_INVALID_UTF8` since we want unpaired surrogates to fail
+    // Don't set `kReplaceInvalidUtf8` since we want unpaired surrogates to fail
     // the UTF8 check below.
-    let opts = v8::WriteOptions::NO_NULL_TERMINATION;
-    let num_written = s.write_utf8(scope, &mut buf, None, opts);
+    let num_written = s.write_utf8_v2(scope, &mut buf, v8::WriteFlags::empty(), None);
     anyhow::ensure!(n == num_written);
     let s = String::from_utf8(buf)?;
     Ok(s)

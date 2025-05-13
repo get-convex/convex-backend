@@ -35,13 +35,16 @@ pub struct Context {
 impl Context {
     pub fn new(session: &mut Session, environment: Box<dyn Environment>) -> anyhow::Result<Self> {
         let context = {
-            let context = v8::Context::new(&mut session.handle_scope);
+            let context =
+                v8::Context::new(&mut session.handle_scope, v8::ContextOptions::default());
 
             let mut handle_scope = v8::HandleScope::new(&mut session.handle_scope);
             let mut scope = v8::ContextScope::new(&mut handle_scope, context);
 
             let state = ContextState::new(environment);
-            context.set_slot(&mut scope, state);
+            // TODO: this uses isolate-global slots, ideally it should use context-keyed
+            // slots
+            scope.set_slot(state);
 
             let convex_value = v8::Object::new(&mut scope);
 

@@ -19,10 +19,7 @@ use common::{
     types::UdfType,
 };
 use deno_core::{
-    v8::{
-        self,
-        HeapStatistics,
-    },
+    v8,
     ModuleResolutionError,
     ModuleSpecifier,
 };
@@ -139,7 +136,7 @@ impl PendingDynamicImports {
 /// struct that represents executing code within a [`RequestScope`].
 pub struct ExecutionScope<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
     v8_scope: &'a mut v8::HandleScope<'b>,
-    v8_context: v8::Local<'b, v8::Context>,
+    _v8_context: v8::Local<'b, v8::Context>,
     _pd: PhantomData<(RT, E)>,
 }
 
@@ -164,7 +161,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         let v8_context = v8_scope.get_current_context();
         Self {
             v8_scope,
-            v8_context,
+            _v8_context: v8_context,
             _pd: PhantomData,
         }
     }
@@ -176,16 +173,16 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     pub fn state(&mut self) -> anyhow::Result<&RequestState<RT, E>> {
-        self.v8_context
-            .get_slot(self.v8_scope)
+        self.v8_scope
+            .get_slot()
             .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
     // TODO: Delete this method and use with_state_mut everywhere instead in
     // order to make it impossible to hold state across await points.
     pub fn state_mut(&mut self) -> anyhow::Result<&mut RequestState<RT, E>> {
-        self.v8_context
-            .get_slot_mut(self.v8_scope)
+        self.v8_scope
+            .get_slot_mut()
             .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
@@ -198,8 +195,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     pub fn record_heap_stats(&mut self) -> anyhow::Result<()> {
-        let mut stats = HeapStatistics::default();
-        self.get_heap_statistics(&mut stats);
+        let stats = self.get_heap_statistics();
         self.with_state_mut(|state| {
             let blobs_heap_size = state.blob_parts.heap_size();
             let streams_heap_size = state.streams.heap_size() + state.stream_listeners.heap_size();
@@ -212,35 +208,33 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     pub fn module_map(&mut self) -> &ModuleMap {
-        self.v8_context
-            .get_slot(self.v8_scope)
-            .expect("ModuleMap disappeared?")
+        self.v8_scope.get_slot().expect("ModuleMap disappeared?")
     }
 
     pub fn module_map_mut(&mut self) -> &mut ModuleMap {
-        self.v8_context
-            .get_slot_mut(self.v8_scope)
+        self.v8_scope
+            .get_slot_mut()
             .expect("ModuleMap disappeared?")
     }
 
     #[allow(unused)]
     pub fn pending_unhandled_promise_rejections(&mut self) -> &PendingUnhandledPromiseRejections {
-        self.v8_context
-            .get_slot_mut(self.v8_scope)
+        self.v8_scope
+            .get_slot_mut()
             .expect("No PendingUnhandledPromiseRejections found")
     }
 
     pub fn pending_unhandled_promise_rejections_mut(
         &mut self,
     ) -> &mut PendingUnhandledPromiseRejections {
-        self.v8_context
-            .get_slot_mut(self.v8_scope)
+        self.v8_scope
+            .get_slot_mut()
             .expect("No PendingUnhandledPromiseRejections found")
     }
 
     pub fn pending_dynamic_imports_mut(&mut self) -> &mut PendingDynamicImports {
-        self.v8_context
-            .get_slot_mut(self.v8_scope)
+        self.v8_scope
+            .get_slot_mut()
             .expect("No PendingDynamicImports found")
     }
 
@@ -334,10 +328,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 .ok_or_else(|| anyhow!("Failed to create source string"))?;
 
             let origin = helpers::module_origin(self, name_str);
-            let v8_source = v8::script_compiler::Source::new(source_str, Some(&origin));
+            let mut v8_source = v8::script_compiler::Source::new(source_str, Some(&origin));
 
             let module = self
-                .with_try_catch(|s| v8::script_compiler::compile_module(s, v8_source))??
+                .with_try_catch(|s| v8::script_compiler::compile_module(s, &mut v8_source))??
                 .ok_or_else(|| anyhow!("Unexpected module compilation error"))?;
 
             assert_eq!(module.get_status(), v8::ModuleStatus::Uninstantiated);

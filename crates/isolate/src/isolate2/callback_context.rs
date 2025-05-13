@@ -36,18 +36,21 @@ use crate::{
 
 pub struct CallbackContext<'callback, 'scope: 'callback> {
     pub scope: &'callback mut v8::HandleScope<'scope>,
-    context: v8::Local<'scope, v8::Context>,
+    _context: v8::Local<'scope, v8::Context>,
 }
 
 impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     fn new(scope: &'callback mut v8::HandleScope<'scope>) -> Self {
         let context = scope.get_current_context();
-        Self { scope, context }
+        Self {
+            scope,
+            _context: context,
+        }
     }
 
     pub fn context_state(&mut self) -> anyhow::Result<&mut ContextState> {
-        self.context
-            .get_slot_mut::<ContextState>(self.scope)
+        self.scope
+            .get_slot_mut::<ContextState>()
             .ok_or_else(|| anyhow::anyhow!("ContextState not found in context"))
     }
 

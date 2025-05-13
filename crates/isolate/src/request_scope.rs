@@ -271,10 +271,12 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         let context = scope.get_current_context();
         let global = context.global(scope);
 
-        assert!(context.set_slot(scope, state));
-        assert!(context.set_slot(scope, ModuleMap::new()));
-        assert!(context.set_slot(scope, PendingUnhandledPromiseRejections::new()));
-        assert!(context.set_slot(scope, PendingDynamicImports::new(allow_dynamic_imports)));
+        // TODO: this uses isolate-global slots, ideally it should use context-keyed
+        // slots
+        assert!(scope.set_slot(state));
+        assert!(scope.set_slot(ModuleMap::new()));
+        assert!(scope.set_slot(PendingUnhandledPromiseRejections::new()));
+        assert!(scope.set_slot(PendingDynamicImports::new(allow_dynamic_imports)));
 
         let syscall_template = v8::FunctionTemplate::new(scope, Self::syscall);
         let syscall_value = syscall_template
@@ -452,25 +454,21 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) fn take_state(&mut self) -> Option<RequestState<RT, E>> {
-        let context = self.scope.get_current_context();
-        context.remove_slot(self.scope)
+        self.scope.remove_slot()
     }
 
     pub(crate) fn take_module_map(&mut self) -> Option<ModuleMap> {
-        let context = self.scope.get_current_context();
-        context.remove_slot(self.scope)
+        self.scope.remove_slot()
     }
 
     pub(crate) fn take_pending_unhandled_promise_rejections(
         &mut self,
     ) -> Option<PendingUnhandledPromiseRejections> {
-        let context = self.scope.get_current_context();
-        context.remove_slot(self.scope)
+        self.scope.remove_slot()
     }
 
     pub fn take_pending_dynamic_imports(&mut self) -> Option<PendingDynamicImports> {
-        let context = self.scope.get_current_context();
-        context.remove_slot(self.scope)
+        self.scope.remove_slot()
     }
 
     pub fn take_environment(mut self) -> (E, FunctionExecutionTime) {
@@ -483,8 +481,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
 
     #[allow(unused)]
     pub fn print_heap_statistics(&mut self) {
-        let mut stats = v8::HeapStatistics::default();
-        self.scope.get_heap_statistics(&mut stats);
+        let stats = self.scope.get_heap_statistics();
 
         println!("Heap statistics:");
         println!("  total_heap_size: {}", stats.total_heap_size());

@@ -391,7 +391,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             _ = tx.send(());
         }
         let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope);
+        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
 
         let mut isolate_context =

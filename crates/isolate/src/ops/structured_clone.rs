@@ -31,7 +31,7 @@ struct SerializeDeserialize {
 impl v8::ValueSerializerImpl for SerializeDeserialize {
     #[allow(unused_variables)]
     fn throw_data_clone_error<'s>(
-        &mut self,
+        &self,
         scope: &mut v8::HandleScope<'s>,
         message: v8::Local<'s, v8::String>,
     ) {
@@ -40,7 +40,7 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
     }
 
     fn get_shared_array_buffer_id<'s>(
-        &mut self,
+        &self,
         _scope: &mut v8::HandleScope<'s>,
         _shared_array_buffer: v8::Local<'s, v8::SharedArrayBuffer>,
     ) -> Option<u32> {
@@ -48,19 +48,19 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
     }
 
     fn get_wasm_module_transfer_id(
-        &mut self,
+        &self,
         _scope: &mut v8::HandleScope<'_>,
         _module: v8::Local<v8::WasmModuleObject>,
     ) -> Option<u32> {
         None
     }
 
-    fn has_custom_host_object(&mut self, _isolate: &mut v8::Isolate) -> bool {
+    fn has_custom_host_object(&self, _isolate: &mut v8::Isolate) -> bool {
         true
     }
 
     fn is_host_object<'s>(
-        &mut self,
+        &self,
         scope: &mut v8::HandleScope<'s>,
         object: v8::Local<'s, v8::Object>,
     ) -> Option<bool> {
@@ -73,10 +73,10 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
     }
 
     fn write_host_object<'s>(
-        &mut self,
+        &self,
         scope: &mut v8::HandleScope<'s>,
         _object: v8::Local<'s, v8::Object>,
-        _value_serializer: &mut dyn v8::ValueSerializerHelper,
+        _value_serializer: &dyn v8::ValueSerializerHelper,
     ) -> Option<bool> {
         let message = v8::String::new(scope, "Unsupported object type").unwrap();
         self.throw_data_clone_error(scope, message);
@@ -86,7 +86,7 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
 
 impl v8::ValueDeserializerImpl for SerializeDeserialize {
     fn get_shared_array_buffer_from_id<'s>(
-        &mut self,
+        &self,
         _scope: &mut v8::HandleScope<'s>,
         _transfer_id: u32,
     ) -> Option<v8::Local<'s, v8::SharedArrayBuffer>> {
@@ -94,7 +94,7 @@ impl v8::ValueDeserializerImpl for SerializeDeserialize {
     }
 
     fn get_wasm_module_from_id<'s>(
-        &mut self,
+        &self,
         _scope: &mut v8::HandleScope<'s>,
         _clone_id: u32,
     ) -> Option<v8::Local<'s, v8::WasmModuleObject>> {
@@ -102,9 +102,9 @@ impl v8::ValueDeserializerImpl for SerializeDeserialize {
     }
 
     fn read_host_object<'s>(
-        &mut self,
+        &self,
         scope: &mut v8::HandleScope<'s>,
-        _value_deserializer: &mut dyn v8::ValueDeserializerHelper,
+        _value_deserializer: &dyn v8::ValueDeserializerHelper,
     ) -> Option<v8::Local<'s, v8::Object>> {
         let message: v8::Local<v8::String> =
             v8::String::new(scope, "Failed to deserialize host object").unwrap();
@@ -123,7 +123,7 @@ pub fn op_serialize(
     let host_object_brand = Some(v8::Global::new(scope, symbol));
 
     let serialize_deserialize = Box::new(SerializeDeserialize { host_object_brand });
-    let mut value_serializer = v8::ValueSerializer::new(scope, serialize_deserialize);
+    let value_serializer = v8::ValueSerializer::new(scope, serialize_deserialize);
     value_serializer.write_header();
 
     let scope = &mut v8::TryCatch::new(scope);
@@ -148,7 +148,7 @@ pub fn op_deserialize<'a>(
     let serialize_deserialize = Box::new(SerializeDeserialize {
         host_object_brand: None,
     });
-    let mut value_deserializer = v8::ValueDeserializer::new(scope, serialize_deserialize, &data);
+    let value_deserializer = v8::ValueDeserializer::new(scope, serialize_deserialize, &data);
     let parsed_header = value_deserializer
         .read_header(scope.get_current_context())
         .unwrap_or_default();
