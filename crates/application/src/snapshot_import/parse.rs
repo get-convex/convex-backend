@@ -512,8 +512,11 @@ async fn parse_generated_schema<T: ShapeConfig, R: tokio::io::AsyncBufRead + Unp
             anyhow::anyhow!("first line of generated_schema must be a string"),
         )
     })?)
-    .with_context(|| {
-        ErrorMetadata::bad_request("InvalidGeneratedSchema", format!("cannot parse {filename}"))
+    .map_err(|e| {
+        ErrorMetadata::bad_request(
+            "InvalidGeneratedSchema",
+            format!("cannot parse {filename}: {e:#}"),
+        )
     })?;
     line.clear();
     lineno += 1;
