@@ -109,10 +109,11 @@ export function Logs({
     () => ({
       logTypes: levels,
       functions,
+      selectedNents,
       selectedFunctions,
       filter,
     }),
-    [filter, functions, levels, selectedFunctions],
+    [filter, functions, levels, selectedFunctions, selectedNents],
   );
   const previousFilters = usePrevious(filters);
 

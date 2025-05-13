@@ -308,6 +308,7 @@ function RequestIdLogs({
     logTypes: selectedLevels,
     functions,
     selectedFunctions,
+    selectedNents: "all" as MultiSelectValue,
     filter,
   };
 

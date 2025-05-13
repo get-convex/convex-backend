@@ -3,6 +3,7 @@ import {
   functionIdentifierValue,
 } from "@common/lib/functions/generateFileTree";
 import { UdfLog } from "@common/lib/useLogs";
+import { NENT_APP_PLACEHOLDER } from "@common/lib/useNents";
 import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 
 export const ALL_LEVELS = ["DEBUG", "INFO", "WARN", "ERROR", "FAILURE"];
@@ -61,14 +62,31 @@ function filterEntryForFunction(
   entry: UdfLog,
   functions: string[],
   selectedFunctions: string[] | "all",
+  selectedNents: string[] | "all",
 ): boolean {
-  // If "all" is selected, return true for all entries
-  if (selectedFunctions === "all") {
-    return true;
-  }
-
   const entryFunction =
     (entry.kind === "log" ? entry.output.subfunction : undefined) ?? entry.call;
+  // If "all" is selected, return true for all entries
+  if (selectedFunctions === "all") {
+    if (selectedNents === "all") {
+      return true;
+    }
+    return selectedNents.includes(
+      functionIdentifierFromValue(entryFunction).componentPath ||
+        NENT_APP_PLACEHOLDER,
+    );
+  }
+
+  if (
+    selectedNents !== "all" &&
+    !selectedNents.includes(
+      functionIdentifierFromValue(entryFunction).componentPath ||
+        NENT_APP_PLACEHOLDER,
+    )
+  ) {
+    return false;
+  }
+
   return (
     selectedFunctions.includes(entryFunction) ||
     (!functions.includes(entryFunction) &&
@@ -81,11 +99,13 @@ export function filterLogs(
     logTypes,
     functions,
     selectedFunctions,
+    selectedNents,
     filter,
   }: {
     logTypes: MultiSelectValue;
     functions: string[];
     selectedFunctions: MultiSelectValue;
+    selectedNents: MultiSelectValue;
     filter: string;
   },
   logs?: UdfLog[],
@@ -116,6 +136,7 @@ export function filterLogs(
         entry,
         functionsWithoutId,
         selectedFunctionsWithoutId,
+        selectedNents,
       ) &&
       filterEntryForStatuses(entry, statuses) &&
       filterEntryForLogLevels(entry, levels) &&

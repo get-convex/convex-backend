@@ -164,10 +164,8 @@ export const selectNentOption =
 
 export const functionsForSelectedNents = (
   nents: MultiSelectValue,
-  functions: string[] | MultiSelectValue,
+  functions: string[],
 ): string[] | "all" => {
-  if (functions === "all") return functions;
-
   const nentArray = nents === "all" ? [] : nents;
   const functionArray = Array.isArray(functions) ? functions : [];
 
