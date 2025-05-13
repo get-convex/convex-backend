@@ -39,7 +39,7 @@ use crate::{
         ConvexApi,
         Source,
     },
-    log,
+    log::log,
     sync::{
         sync,
         State,

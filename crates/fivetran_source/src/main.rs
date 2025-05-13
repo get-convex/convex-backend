@@ -4,6 +4,7 @@
 mod connector;
 mod convert;
 mod convex_api;
+mod log;
 mod sync;
 
 #[cfg(test)]
@@ -21,7 +22,6 @@ use convex_fivetran_common::{
     config::AllowAllHosts,
     fivetran_sdk::source_connector_server::SourceConnectorServer,
 };
-use serde::Serialize;
 use tonic::{
     codec::CompressionEncoding,
     transport::Server,
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         allow_all_hosts: AllowAllHosts(args.allow_all_hosts),
     };
 
-    log(&format!("Starting the connector on {}", addr));
+    log::log(&format!("Starting the connector on {}", addr));
     Server::builder()
         .add_service(
             SourceConnectorServer::new(connector)
@@ -61,23 +61,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "kebab-case")]
-struct LogLine<'a> {
-    level: &'a str,
-    message: &'a str,
-    message_origin: &'a str,
-}
-pub fn log(message: &str) {
-    let result = serde_json::to_string(&LogLine {
-        level: "INFO",
-        message,
-        message_origin: "sdk_connector",
-    });
-    match result {
-        Ok(msg) => println!("{msg}"),
-        Err(e) => println!("Unable to serialize to json: {message}: {e}"),
-    }
 }

@@ -31,7 +31,7 @@ use crate::{
         ListSnapshotCursor,
         Source,
     },
-    log,
+    log::log,
 };
 
 /// The value currently used for the `version` field of [`State`].
