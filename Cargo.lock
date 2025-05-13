@@ -5408,6 +5408,7 @@ dependencies = [
 name = "metrics"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "derive_more",
  "parking_lot",
@@ -6820,8 +6821,8 @@ dependencies = [
 
 [[package]]
 name = "prometheus"
-version = "0.13.3"
-source = "git+https://github.com/get-convex/rust-prometheus?rev=061619b6e44ca7f3b94d97346152cab319895929#061619b6e44ca7f3b94d97346152cab319895929"
+version = "0.14.0"
+source = "git+https://github.com/get-convex/rust-prometheus?rev=8794d2bbf2a5a9adc501067ee4440dde6b5e6e25#8794d2bbf2a5a9adc501067ee4440dde6b5e6e25"
 dependencies = [
  "cfg-if",
  "fnv",
@@ -6829,7 +6830,7 @@ dependencies = [
  "memchr",
  "parking_lot",
  "protobuf",
- "thiserror 1.0.59",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -6940,9 +6941,23 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
-version = "2.28.0"
+version = "3.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
+checksum = "d65a1d4ddae7d8b5de68153b48f6aa3bba8cb002b243dbdbc55a5afbc98f99f4"
+dependencies = [
+ "once_cell",
+ "protobuf-support",
+ "thiserror 1.0.59",
+]
+
+[[package]]
+name = "protobuf-support"
+version = "3.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e36c2f31e0a47f9280fb347ef5e461ffcd2c52dd520d8e216b52f93b0b0d7d6"
+dependencies = [
+ "thiserror 1.0.59",
+]
 
 [[package]]
 name = "qdrant_common"
@@ -9202,9 +9217,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-metrics-collector"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32a78b1d1a001e75e5f29669ac7b9288f44ad1af7afcbd6ea77add41214db716"
+checksum = "f360c6fa7fd188e65904979ea07f1f44c57f0759ab18ecca88551c26acdf4cd6"
 dependencies = [
  "lazy_static",
  "parking_lot",

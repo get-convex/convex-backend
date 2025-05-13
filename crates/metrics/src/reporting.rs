@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use prometheus::{
     core::Collector,
     Gauge,
@@ -23,9 +25,12 @@ pub fn log_counter_with_labels(
     increment: u64,
     labels: Labels<'_>,
 ) {
-    match prometheus_counter
-        .get_metric_with(&labels.iter().map(MetricLabel::split_key_value).collect())
-    {
+    match prometheus_counter.get_metric_with(
+        &labels
+            .iter()
+            .map(MetricLabel::split_key_value)
+            .collect::<HashMap<_, _, ahash::RandomState>>(),
+    ) {
         Ok(metric) => metric.inc_by(increment),
         Err(e) => {
             log_invalid_metric(get_desc(prometheus_counter), e);
@@ -38,9 +43,12 @@ pub fn log_gauge(prometheus_gauge: &Gauge, value: f64) {
 }
 
 pub fn log_gauge_with_labels(prometheus_gauge: &GaugeVec, value: f64, labels: Labels<'_>) {
-    match prometheus_gauge
-        .get_metric_with(&labels.iter().map(MetricLabel::split_key_value).collect())
-    {
+    match prometheus_gauge.get_metric_with(
+        &labels
+            .iter()
+            .map(MetricLabel::split_key_value)
+            .collect::<HashMap<_, _, ahash::RandomState>>(),
+    ) {
         Ok(metric) => metric.set(value),
         Err(e) => {
             log_invalid_metric(get_desc(prometheus_gauge), e);
@@ -57,9 +65,12 @@ pub fn log_distribution_with_labels(
     value: f64,
     labels: Labels<'_>,
 ) {
-    match prometheus_histogram
-        .get_metric_with(&labels.iter().map(MetricLabel::split_key_value).collect())
-    {
+    match prometheus_histogram.get_metric_with(
+        &labels
+            .iter()
+            .map(MetricLabel::split_key_value)
+            .collect::<HashMap<_, _, ahash::RandomState>>(),
+    ) {
         Ok(metric) => metric.observe(value),
         Err(e) => {
             log_invalid_metric(get_desc(prometheus_histogram), e);

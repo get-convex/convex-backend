@@ -9,6 +9,7 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 doctest = false
 
 [dependencies]
+ahash = { workspace = true }
 anyhow = { workspace = true }
 derive_more = { workspace = true }
 parking_lot = { workspace = true }

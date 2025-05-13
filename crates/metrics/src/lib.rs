@@ -60,7 +60,7 @@ fn initialize_server_version() -> String {
         .unwrap_or_else(|| "unknown".to_owned());
     INIT_VERSION_GAUGE.call_once(|| {
         CONVEX_BINARY_VERSIONS_TOTAL
-            .with_label_values(&[&SERVICE_NAME, &version_str])
+            .with_label_values(&[&*SERVICE_NAME, &version_str])
             .set(1.0);
     });
     version_str
