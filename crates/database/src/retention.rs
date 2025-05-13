@@ -33,6 +33,7 @@ use common::{
         ResolvedDocument,
     },
     errors::{
+        lease_lost_error,
         report_error,
         LeaseLostError,
     },
@@ -459,9 +460,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             // timestamp.
             // We want to signal that the instance should shut down if that's the case.
             if let Some(LeaseLostError) = e.downcast_ref() {
-                lease_lost_shutdown.signal(
-                    anyhow::Error::new(LeaseLostError).context("Failed to advance timestamp"),
-                );
+                lease_lost_shutdown
+                    .signal(lease_lost_error().context("Failed to advance timestamp"));
             }
             return Err(e);
         }
