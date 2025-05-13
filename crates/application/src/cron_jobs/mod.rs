@@ -44,7 +44,10 @@ use database::{
     Database,
     Transaction,
 };
-use errors::ErrorMetadataAnyhowExt;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use fastrace::future::FutureExt as _;
 use futures::{
     future::Either,
@@ -763,10 +766,10 @@ impl<RT: Runtime> CronJobContext<RT> {
             next_ts = compute_next_ts(&job.cron_spec, Some(next_ts), now)?;
         }
         if num_skipped > 0 {
-            let name = &job.name;
+            let job_id = job.id.developer_id;
             tracing::info!(
-                "Skipping {num_skipped} run(s) of {name} because multiple scheduled runs are in \
-                 the past"
+                "Skipping {num_skipped} run(s) of job {job_id} because multiple scheduled runs \
+                 are in the past"
             );
             match udf_type {
                 // These aren't system errors in the sense that they represent an issue with Convex
@@ -776,10 +779,13 @@ impl<RT: Runtime> CronJobContext<RT> {
                 UdfType::Mutation => {
                     self.function_log
                         .log_mutation_system_error(
-                            &anyhow::anyhow!(
-                                "Skipping {num_skipped} run(s) of {name} because multiple \
-                                 scheduled runs are in the past"
-                            ),
+                            &anyhow::anyhow!(ErrorMetadata::bad_request(
+                                "SkippingPastScheduledRuns",
+                                format!(
+                                    "Skipping {num_skipped} run(s) of job {job_id} because \
+                                     multiple scheduled runs are in the past"
+                                )
+                            )),
                             CanonicalizedComponentFunctionPath {
                                 component: component_path,
                                 udf_path: job.cron_spec.udf_path.clone(),
@@ -800,10 +806,13 @@ impl<RT: Runtime> CronJobContext<RT> {
                         mutation_retry_count.is_none(),
                         "Actions should not have mutation_retry_count set"
                     );
-                    let mut err = anyhow::anyhow!(
-                        "Skipping {num_skipped} run(s) of {name} because multiple scheduled runs \
-                         are in the past"
-                    );
+                    let mut err = anyhow::anyhow!(ErrorMetadata::bad_request(
+                        "SkippingPastScheduledRuns",
+                        format!(
+                            "Skipping {num_skipped} run(s) of job {job_id} because multiple \
+                             scheduled runs are in the past"
+                        )
+                    ));
                     self.function_log
                         .log_action_system_error(
                             &err,
