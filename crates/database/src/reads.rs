@@ -305,9 +305,9 @@ impl TransactionReadSet {
         intervals: impl IntoIterator<Item = Interval>,
     ) -> (usize, usize) {
         self.read_set.indexed.mutate_entry_or_insert_with(
-            index_name,
+            index_name.clone(),
             || IndexReads {
-                fields,
+                fields: fields.clone(),
                 intervals: IntervalSet::new(),
                 stack_traces: (*READ_SET_CAPTURE_BACKTRACES).then_some(vec![]),
             },
@@ -315,8 +315,14 @@ impl TransactionReadSet {
                 let IndexReads {
                     intervals: range_set,
                     stack_traces,
-                    ..
+                    fields: existing_fields,
                 } = reads;
+
+                assert_eq!(
+                    *existing_fields, fields,
+                    "trying to change index fields for index {:?}!",
+                    index_name
+                );
 
                 let range_num_intervals_before = range_set.len();
                 for interval in intervals {
