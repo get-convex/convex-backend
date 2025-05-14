@@ -15,18 +15,15 @@ Learn how to query data from Convex in a Svelte app.
 
 <StepByStep>
   <Step title="Create a SvelteKit app">
-    Create a SvelteKit app using the `npx create svelte@latest` command.
+    Create a SvelteKit app using the `npx sv create` command.
 
-    Other sets of options will work with the library as long as Svelte 5 is used but for this quickstart guide:
-
-    - For "Which Svelte app template," choose **"Skeleton project."**
-    - For "Add type checking with TypeScript," choose **"Yes, using TypeScript syntax."**
-    - For "Select additional options," enable **"Try the Svelte 5 preview."**
+    - For "Which template would you like?" choose **"SvelteKit minimal".**
+    - For "Add type checking with TypeScript," choose **"Yes, using TypeScript syntax".**
 
     <br></br>
 
     ```sh
-    npm create svelte@latest my-app
+    npx sv create my-app
     ```
 
   </Step>
@@ -35,7 +32,7 @@ Learn how to query data from Convex in a Svelte app.
     To get started, install the `convex` and `convex-svelte` packages.
 
     ```sh
-    cd my-app && npm install convex convex-svelte
+    cd my-app && npm install -D convex convex-svelte
     ```
 
   </Step>
@@ -121,7 +118,7 @@ Learn how to query data from Convex in a Svelte app.
 
     <Snippet
       source={page}
-      title="src/routes/page.tsx"
+      title="src/routes/+page.svelte"
       jsExtension="js"
     />
 
