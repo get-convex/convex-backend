@@ -87,6 +87,7 @@ use futures::{
 use indexing::index_registry::IndexRegistry;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
+use rand::Rng;
 use tokio::sync::{
     mpsc::{
         self,
@@ -299,7 +300,10 @@ impl<RT: Runtime> Committer<RT> {
                             let span = committer_span.as_ref().map(|root| Span::enter_with_parent("publish_max_repeatable_ts", root)).unwrap_or_else(Span::noop);
                             span.set_local_parent();
                             self.publish_max_repeatable_ts(new_max_repeatable)?;
-                            next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY);
+                            let base_period = *MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY;
+                            next_bump_wait = Some(
+                                self.runtime.rng().random_range(base_period..base_period * 2),
+                            );
                             let _ = result.send(new_max_repeatable);
                             drop(timer);
                         },

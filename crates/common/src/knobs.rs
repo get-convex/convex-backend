@@ -340,10 +340,11 @@ pub static TRANSACTION_WARN_READ_SET_INTERVALS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_WARN_READ_SET_INTERVALS", 3072));
 
 /// Write max_repeatable_ts if there have been no commits for this duration.
+/// The actual period is jittered between 1x and 2x this value.
 pub static MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
         "MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY",
-        100 * 60,
+        60 * 60,
     ))
 });
 
