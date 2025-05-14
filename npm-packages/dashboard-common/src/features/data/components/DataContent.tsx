@@ -352,6 +352,14 @@ export function DataContent({
                     </Button>
                   </div>
                 )
+              ) : isLoading ||
+                (numRowsInTable !== undefined && numRowsInTable > 0) ? (
+                <UnexpectedLoadingState
+                  status={status}
+                  numRowsInTable={numRowsInTable}
+                  numRowsRead={numRowsRead}
+                  isLoading={isLoading}
+                />
               ) : (
                 <EmptyDataContent
                   openAddDocuments={() =>
@@ -402,4 +410,23 @@ export function DataContentSkeleton() {
       <TableSkeleton />
     </div>
   );
+}
+
+function UnexpectedLoadingState({
+  status,
+  numRowsInTable,
+  numRowsRead,
+  isLoading,
+}: {
+  status: string;
+  numRowsInTable: number | undefined;
+  numRowsRead: number;
+  isLoading: boolean;
+}) {
+  const { captureMessage } = useContext(DeploymentInfoContext);
+  captureMessage(
+    `Encountered unexpected state in data page: status: ${status}, numRowsInTable: ${numRowsInTable}, numRowsRead: ${numRowsRead}, isLoading: ${isLoading}`,
+  );
+
+  return null;
 }

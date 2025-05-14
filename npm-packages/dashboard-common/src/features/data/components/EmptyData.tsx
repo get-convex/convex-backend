@@ -107,7 +107,7 @@ export function EmptyDataContent({
                   <Button
                     size="xs"
                     variant="neutral"
-                    className="w-fit rounded-l-none border border-border-transparent text-xs"
+                    className="w-fit border border-border-transparent text-xs"
                     icon={<MixerHorizontalIcon className="size-3.5" />}
                   >
                     <div className="flex items-center gap-2">
