@@ -52,7 +52,6 @@ import {
 import { cn } from "@ui/cn";
 import { useTableIndexes } from "@common/features/data/lib/api";
 import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
-import { toast } from "@common/lib/utils";
 import { useMount } from "react-use";
 
 export function DataContent({
@@ -427,22 +426,11 @@ function UnexpectedLoadingState({
 }) {
   const { captureMessage } = useContext(DeploymentInfoContext);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      toast(
-        "error",
-        "Encountered an unexpected state while loading data, please try refreshing the page if the issue persists.",
-        "unexpected-loading-state",
-      );
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [status, numRowsInTable, numRowsRead, isLoading, captureMessage]);
-
   useMount(() => {
-    captureMessage(
-      `Encountered unexpected state in data page: status: ${status}, numRowsInTable: ${numRowsInTable}, numRowsRead: ${numRowsRead}, isLoading: ${isLoading}`,
-    );
+    !isLoading &&
+      captureMessage(
+        `Encountered unexpected state in data page: status: ${status}, numRowsInTable: ${numRowsInTable}, numRowsRead: ${numRowsRead}, isLoading: ${isLoading}`,
+      );
   });
 
   return null;
