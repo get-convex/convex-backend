@@ -54,20 +54,27 @@ export default withAuthenticatedPage(() => {
             {team && nonDemoProjects && (
               <div className="w-full">
                 {entitlements &&
-                  nonDemoProjects.length >= entitlements.maxProjects && (
-                    <Callout className="mb-4" variant="upsell">
-                      <div className="flex gap-1">
-                        You've reached the project limit for this team.
-                        <Link
-                          href={`/${team?.slug}/settings/billing`}
-                          className="items-center text-content-link"
-                        >
-                          Upgrade
-                        </Link>
-                        to create more projects.
-                      </div>
-                    </Callout>
-                  )}
+                nonDemoProjects.length >= entitlements.maxProjects &&
+                subscription ? (
+                  <Callout className="mb-4" variant="upsell">
+                    You've reached a soft limit on the number of projects you
+                    can create for this team. Please contact support to increase
+                    this limit.
+                  </Callout>
+                ) : (
+                  <Callout className="mb-4" variant="upsell">
+                    <div className="flex gap-1">
+                      You've reached the project limit for this team.
+                      <Link
+                        href={`/${team?.slug}/settings/billing`}
+                        className="items-center text-content-link"
+                      >
+                        Upgrade
+                      </Link>
+                      to create more projects.
+                    </div>
+                  </Callout>
+                )}
 
                 {isReferralsBannerVisible && (
                   <ReferralsBanner
