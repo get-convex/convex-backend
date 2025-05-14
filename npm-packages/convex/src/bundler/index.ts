@@ -156,8 +156,10 @@ async function doEsbuild(
       // We don't print any error because esbuild already printed
       // all the relevant information.
       printedMessage: recommendUseNode
-        ? `It looks like you are using Node APIs from a file without the "use node" directive.\n` +
-          `See https://docs.convex.dev/functions/runtimes#nodejs-runtime`
+        ? `\nIt looks like you are using Node APIs from a file without the "use node" directive.\n` +
+          `Split out actions using Node.js APIs like this into a new file only containing actions that uses "use node" ` +
+          `so these actions will run in a Node.js environment.\n` +
+          `For more information see https://docs.convex.dev/functions/runtimes#nodejs-runtime\n`
         : null,
     });
   }
