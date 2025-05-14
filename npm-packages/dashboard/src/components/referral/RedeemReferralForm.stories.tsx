@@ -48,6 +48,7 @@ const meta = {
     teamEligibility: { eligible: true },
     onShowTeamSelector: () => {},
     isTeamSelectorShown: false,
+    isChef: false,
   },
 } satisfies Meta<typeof RedeemReferralForm>;
 

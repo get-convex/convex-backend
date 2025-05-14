@@ -6,6 +6,7 @@ const meta = {
   args: {
     title: "Someone thinks you’d like Convex!",
     code: "CONVEX123",
+    isChef: false,
   },
 } satisfies Meta<typeof RedeemReferralLanding>;
 

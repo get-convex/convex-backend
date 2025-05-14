@@ -11,7 +11,9 @@ describe("RedeemReferralLanding", () => {
   // button to ensure there is no regression on the click behavior.
   it("has a link that becomes disabled when clicked", async () => {
     const code = "TEST123";
-    render(<RedeemReferralLanding title="Test Title" code={code} />);
+    render(
+      <RedeemReferralLanding title="Test Title" code={code} isChef={false} />,
+    );
 
     const link = screen.getByRole("link", { name: "Sign up with GitHub" });
     expect(link).toHaveAttribute(

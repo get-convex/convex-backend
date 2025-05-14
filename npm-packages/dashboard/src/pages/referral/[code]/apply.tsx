@@ -5,16 +5,24 @@ import { LoginLayout } from "layouts/LoginLayout";
 import { useTeamOrbSubscription } from "api/billing";
 import { RedeemReferralForm } from "components/referral/RedeemReferralForm";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useState } from "react";
 import { Team } from "generatedApi";
 import { useApplyReferralCode, useReferralCode } from "api/referrals";
 import { useProfile } from "api/profile";
 import { logEvent } from "convex-analytics";
 
+/**
+ *  This page powers two routes via Next.js rewrites in next.config.js:
+ *  - /referral/THOMAS898/apply
+ *  - /try-chef/THOMAS898/apply
+ * */
+
 export { getServerSideProps } from "lib/ssr";
 
 function RedeemReferralCodePage() {
+  const isChef = usePathname().includes("try-chef");
+
   const { code } = useParams<{ code: string }>();
 
   const { selectedTeamSlug: defaultTeamSlug, teams } = useTeams();
@@ -50,9 +58,14 @@ function RedeemReferralCodePage() {
 
             logEvent("redeemed referral code");
 
-            void router.push(`/t/${selectedTeam.slug}`);
+            if (isChef) {
+              window.location.href = "https://chef.convex.dev";
+            } else {
+              void router.push(`/t/${selectedTeam.slug}`);
+            }
           }}
           teamEligibility={teamEligibility}
+          isChef={isChef}
         />
       </LoginLayout>
     </div>

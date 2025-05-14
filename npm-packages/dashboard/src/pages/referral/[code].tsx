@@ -2,16 +2,23 @@ import { GetServerSideProps } from "next";
 import { auth0 } from "server/auth0";
 import { Flourish } from "layouts/LoginLayout";
 import Head from "next/head";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import Background from "components/login/images/background.svg";
 import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding";
+
+/**
+ *  This page powers two routes via Next.js rewrites in next.config.js:
+ *  - /referral/THOMAS898
+ *  - /try-chef/THOMAS898
+ * */
 
 export const getServerSideProps: GetServerSideProps = async ({
   req,
   res,
   query,
 }) => {
+  const isChef = req.url?.includes("try-chef");
   try {
     // Check if user is authenticated without forcing login
     const session = await auth0().getSession(req, res);
@@ -20,7 +27,9 @@ export const getServerSideProps: GetServerSideProps = async ({
     if (session?.user) {
       return {
         redirect: {
-          destination: `/referral/${query.code}/apply`,
+          destination: isChef
+            ? `/try-chef/${query.code}/apply`
+            : `/referral/${query.code}/apply`,
           permanent: false,
         },
       };
@@ -35,12 +44,17 @@ export const getServerSideProps: GetServerSideProps = async ({
   }
 };
 
-const title = "Someone thinks you’d like Convex!";
-const description = "Get Convex resources for free with this referral code.";
-const ogImage = `https://www.convex.dev/api/og?title=${encodeURIComponent(title)}`;
-
 export default function ReferralLandingPage() {
   const { code } = useParams<{ code: string }>();
+  const isChef = usePathname().includes("try-chef");
+
+  const title = isChef
+    ? "Someone thinks you'd like Chef!"
+    : "Someone thinks you’d like Convex!";
+  const description = isChef
+    ? "Get additional Chef tokens and Convex resources for free with this referral code."
+    : "Get Convex resources for free with this referral code.";
+  const ogImage = `https://www.convex.dev/api/og?title=${encodeURIComponent(title)}`;
 
   return (
     <div className="flex h-screen w-full flex-col items-center bg-background-brand">
@@ -56,7 +70,7 @@ export default function ReferralLandingPage() {
         <meta property="og:site_name" content="Convex" />
         <meta
           property="og:url"
-          content={`https://dashboard.convex.dev/referral/${code}`}
+          content={`https://dashboard.convex.dev/${isChef ? "try-chef" : "referral"}/${code}`}
         />
         <meta property="og:image" content={ogImage} />
 
@@ -76,7 +90,7 @@ export default function ReferralLandingPage() {
         <Background className="stroke-[#D7D7D7] dark:hidden" />
       </div>
 
-      <RedeemReferralLanding title={title} code={code} />
+      <RedeemReferralLanding title={title} code={code} isChef={isChef} />
     </div>
   );
 }

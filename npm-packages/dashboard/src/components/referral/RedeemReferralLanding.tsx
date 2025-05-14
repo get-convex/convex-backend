@@ -8,9 +8,11 @@ import { useState } from "react";
 export function RedeemReferralLanding({
   title,
   code,
+  isChef,
 }: {
   title: string;
   code: string;
+  isChef: boolean;
 }) {
   return (
     <div className="relative mt-10 max-w-lg">
@@ -18,14 +20,16 @@ export function RedeemReferralLanding({
         <DisplayH1>{title}</DisplayH1>
 
         <DisplayP>
-          Convex is the open-source reactive database for app developers.
+          {isChef
+            ? "Chef is an app builder powered by Convex, the open-source reactive database for app developers."
+            : "Convex is the open-source reactive database for app developers."}
         </DisplayP>
 
         <DisplayP>
           Accept this referral to double your free account quota.
         </DisplayP>
 
-        <LogInButton code={code} />
+        <LogInButton code={code} isChef={isChef} />
       </Sheet>
     </div>
   );
@@ -53,7 +57,7 @@ function DisplayP({ children }: React.PropsWithChildren) {
   );
 }
 
-function LogInButton({ code }: { code: string }) {
+function LogInButton({ code, isChef }: { code: string; isChef: boolean }) {
   const [clicked, setClicked] = useState(false);
 
   return (
@@ -65,9 +69,11 @@ function LogInButton({ code }: { code: string }) {
         !clicked && "hover:shadow-[rgba(111,0,255,0.5)]",
         clicked && "opacity-80 cursor-progress",
       )}
-      href={`/api/auth/login?returnTo=${encodeURIComponent(`/referral/${code}/apply`)}`}
+      href={`/api/auth/login?returnTo=${encodeURIComponent(isChef ? `/try-chef/${code}/apply` : `/referral/${code}/apply`)}`}
       onClick={() => {
-        logEvent("clicked “Sign up with GitHub” through referral landing");
+        logEvent(
+          `clicked “Sign up with GitHub” through ${isChef ? "Chef " : ""}referral landing`,
+        );
         setClicked(true);
       }}
       aria-disabled={clicked}

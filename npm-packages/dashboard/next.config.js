@@ -56,6 +56,18 @@ const nextConfig = {
   swcMinify: true,
   transpilePackages: [],
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: "/try-chef/:code",
+        destination: "/referral/:code",
+      },
+      {
+        source: "/try-chef/:code/apply",
+        destination: "/referral/:code/apply",
+      },
+    ];
+  },
   async headers() {
     return [
       {

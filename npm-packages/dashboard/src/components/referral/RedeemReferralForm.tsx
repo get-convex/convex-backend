@@ -23,6 +23,7 @@ export function RedeemReferralForm({
   isTeamSelectorShown,
   onShowTeamSelector,
   teamEligibility,
+  isChef,
 }: {
   referralCode:
     | {
@@ -44,6 +45,7 @@ export function RedeemReferralForm({
     | undefined
     | { eligible: true }
     | { eligible: false; reason: TeamEligibilityError };
+  isChef: boolean;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,6 +61,7 @@ export function RedeemReferralForm({
           <CodeError
             title="Invalid referral code"
             description="Oh no, the code you used is invalid."
+            isChef={isChef}
           />
         ) : referralCode.exhausted ? (
           <CodeError
@@ -70,6 +73,7 @@ export function RedeemReferralForm({
                 longer valid.
               </>
             }
+            isChef={isChef}
           />
         ) : (
           <>
@@ -155,7 +159,9 @@ export function RedeemReferralForm({
                     disabled={!selectedTeam || !teamEligibility?.eligible}
                     loading={isSubmitting || teamEligibility === undefined}
                   >
-                    Get my free resources
+                    {isChef
+                      ? "Get my free Chef tokens and Convex resources"
+                      : "Get my free resources"}
                   </Button>
                 </div>
               </form>
@@ -185,9 +191,11 @@ function teamEligibilityErrorMessage(error: TeamEligibilityError) {
 function CodeError({
   title,
   description,
+  isChef,
 }: {
   title: string;
   description: React.ReactNode;
+  isChef: boolean;
 }) {
   return (
     <>
@@ -207,7 +215,11 @@ function CodeError({
       </p>
 
       <div>
-        <Button href="/">Start Building</Button>
+        {isChef ? (
+          <Button href="https://chef.convex.dev">Start Building</Button>
+        ) : (
+          <Button href="/">Start Building</Button>
+        )}
       </div>
     </>
   );
