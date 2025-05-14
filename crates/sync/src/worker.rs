@@ -503,10 +503,7 @@ impl<RT: Runtime> SyncWorker<RT> {
 
                 let mutation_queue_size =
                     self.mutation_sender.max_capacity() - self.mutation_sender.capacity();
-                root.add_event(
-                    Event::new("mutation_queue_size")
-                        .with_property(|| ("mutation_queue_size", mutation_queue_size.to_string())),
-                );
+                root.add_property(|| ("mutation_queue_size", mutation_queue_size.to_string()));
 
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
