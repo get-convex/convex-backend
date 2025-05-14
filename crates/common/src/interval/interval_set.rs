@@ -14,14 +14,15 @@ use value::heap_size::{
     WithHeapSize,
 };
 
-#[cfg(any(test, feature = "testing"))]
-use super::BinaryKey;
 use super::{
     bounds::{
         End,
+        EndRef,
         StartIncluded,
     },
+    BinaryKey,
     Interval,
+    IntervalRef,
 };
 
 /// A set of `Interval`s. Intersecting and adjacent intervals are merged.
@@ -231,16 +232,16 @@ impl IntervalSet {
         };
     }
 
-    fn interval_preceding(&self, k: &[u8]) -> Option<Interval> {
+    fn interval_preceding(&self, k: &[u8]) -> Option<IntervalRef> {
         match self {
-            Self::All => Some(Interval::all()),
+            Self::All => Some(IntervalRef::all()),
             Self::Intervals(intervals) => {
                 let (start, end) = intervals
                     .range::<[u8], _>((Bound::Unbounded, Bound::Included(k)))
                     .next_back()?;
-                Some(Interval {
-                    start: start.clone(),
-                    end: end.clone(),
+                Some(IntervalRef {
+                    start: start.as_ref(),
+                    end: end.as_ref(),
                 })
             },
         }
@@ -256,7 +257,7 @@ impl IntervalSet {
         interval.contains(k)
     }
 
-    pub fn contains_interval(&self, target: &Interval) -> bool {
+    pub fn contains_interval(&self, target: IntervalRef<'_>) -> bool {
         self.split_interval_components(target)
             .all(|(in_set, _)| in_set)
     }
@@ -275,12 +276,15 @@ impl IntervalSet {
     /// Computes the set-difference target - self.
     pub fn subtract_from_interval(&self, target: &Interval) -> Self {
         let mut difference: WithHeapSize<BTreeMap<_, _>> = WithHeapSize::default();
-        for (in_set, interval) in self.split_interval_components(target) {
+        for (in_set, interval) in self.split_interval_components(target.as_ref()) {
             // split_interval_components alternate between `in_set` and `!in_set`, and
             // returns intervals that are adjacent and nonempty. Therefore the intervals
             // with !in_set are not intersecting or adjacent.
             if !in_set {
-                difference.insert(interval.start, interval.end);
+                difference.insert(
+                    StartIncluded(BinaryKey::from(interval.start.to_owned())),
+                    interval.end.to_owned(),
+                );
             }
         }
         Self::Intervals(difference)
@@ -291,37 +295,35 @@ impl IntervalSet {
     /// self, and the union of intervals is target.
     pub fn split_interval_components<'a>(
         &'a self,
-        target: &'a Interval,
-    ) -> impl Iterator<Item = (bool, Interval)> + 'a {
+        target: IntervalRef<'a>,
+    ) -> impl Iterator<Item = (bool, IntervalRef<'a>)> + 'a {
         match self {
-            Self::All => Either::Right(iter::once((true, target.clone()))),
+            Self::All => Either::Right(iter::once((true, target))),
             Self::Intervals(intervals) => {
                 Either::Left(iter::from_coroutine(
                     #[coroutine]
-                    || {
+                    move || {
                         if target.is_empty() {
                             return;
                         }
-                        let StartIncluded(target_start) = target.start.clone();
-                        let interval_before = self.interval_preceding(&target_start);
+                        let target_start = target.start;
+                        let interval_before = self.interval_preceding(target_start);
                         let mut component_start = match interval_before {
                             None => target_start,
                             Some(interval_before) => {
                                 if target.end <= interval_before.end {
-                                    yield (true, target.clone());
+                                    yield (true, target);
                                     return;
                                 }
-                                let interval_before_end = match &interval_before.end {
-                                    End::Unbounded => unreachable!(),
-                                    End::Excluded(interval_before_end) => {
-                                        interval_before_end.clone()
-                                    },
+                                let interval_before_end = match interval_before.end {
+                                    EndRef::Unbounded => unreachable!(),
+                                    EndRef::Excluded(interval_before_end) => interval_before_end,
                                 };
                                 if interval_before_end > target_start {
                                     yield (
                                         true,
-                                        Interval {
-                                            start: target.start.clone(),
+                                        IntervalRef {
+                                            start: target.start,
                                             end: interval_before.end,
                                         },
                                     );
@@ -333,49 +335,45 @@ impl IntervalSet {
                         };
                         // `intersecting` is all intervals in `self` that intersect with `target`,
                         // excluding `interval_before`.
-                        let intersecting = intervals.range::<[u8], _>((
-                            Bound::Excluded(&*component_start),
-                            match &target.end {
-                                End::Excluded(target_end) => Bound::Excluded(&**target_end),
-                                End::Unbounded => Bound::Unbounded,
-                            },
-                        ));
+                        let intersecting = intervals.range(IntervalRef {
+                            start: component_start,
+                            end: target.end,
+                        });
                         for (interval_start, interval_end) in intersecting {
-                            let StartIncluded(interval_start_bytes) = interval_start;
                             yield (
                                 false,
-                                Interval {
-                                    start: StartIncluded(component_start),
-                                    end: End::Excluded(interval_start_bytes.clone()),
+                                IntervalRef {
+                                    start: component_start,
+                                    end: EndRef::Excluded(interval_start.as_ref()),
                                 },
                             );
-                            if &target.end <= interval_end {
+                            if target.end <= interval_end.as_ref() {
                                 yield (
                                     true,
-                                    Interval {
-                                        start: interval_start.clone(),
-                                        end: target.end.clone(),
+                                    IntervalRef {
+                                        start: interval_start.as_ref(),
+                                        end: target.end,
                                     },
                                 );
                                 return;
                             }
                             yield (
                                 true,
-                                Interval {
-                                    start: interval_start.clone(),
-                                    end: interval_end.clone(),
+                                IntervalRef {
+                                    start: interval_start.as_ref(),
+                                    end: interval_end.as_ref(),
                                 },
                             );
                             component_start = match interval_end {
                                 End::Unbounded => unreachable!(),
-                                End::Excluded(interval_end) => interval_end.clone(),
+                                End::Excluded(interval_end) => interval_end.as_ref(),
                             };
                         }
                         yield (
                             false,
-                            Interval {
-                                start: StartIncluded(component_start),
-                                end: target.end.clone(),
+                            IntervalRef {
+                                start: component_start,
+                                end: target.end,
                             },
                         );
                     },
@@ -437,7 +435,10 @@ mod tests {
         },
         IntervalSet,
     };
-    use crate::interval::StartIncluded;
+    use crate::interval::{
+        bounds::EndRef,
+        StartIncluded,
+    };
 
     impl IntervalSet {
         fn intervals(&self) -> WithHeapSize<BTreeMap<StartIncluded, End>> {
@@ -613,17 +614,20 @@ mod tests {
             end: End::Unbounded,
         });
 
-        assert!(!r.contains_interval(&int_interval(0, 3)));
-        assert!(r.contains_interval(&int_interval(1, 2)));
-        assert!(!r.contains_interval(&int_interval(1, 3)));
-        assert!(!r.contains_interval(&int_interval(3, 7)));
-        assert!(r.contains_interval(&int_interval(6, 7)));
-        assert!(!r.contains_interval(&int_interval(6, 13)));
-        assert!(r.contains_interval(&int_interval(16, 17)));
-        assert!(r.contains_interval(&Interval {
-            start: int_start(16),
-            end: End::Unbounded,
-        }));
+        assert!(!r.contains_interval(int_interval(0, 3).as_ref()));
+        assert!(r.contains_interval(int_interval(1, 2).as_ref()));
+        assert!(!r.contains_interval(int_interval(1, 3).as_ref()));
+        assert!(!r.contains_interval(int_interval(3, 7).as_ref()));
+        assert!(r.contains_interval(int_interval(6, 7).as_ref()));
+        assert!(!r.contains_interval(int_interval(6, 13).as_ref()));
+        assert!(r.contains_interval(int_interval(16, 17).as_ref()));
+        assert!(r.contains_interval(
+            Interval {
+                start: int_start(16),
+                end: End::Unbounded,
+            }
+            .as_ref()
+        ));
     }
 
     #[test]
@@ -718,7 +722,7 @@ mod tests {
 
         // The IntervalSet contains all of its component intervals.
         for interval in intervals.iter() {
-            assert!(r.contains_interval(interval));
+            assert!(r.contains_interval(interval.as_ref()));
         }
     }
 
@@ -743,8 +747,10 @@ mod tests {
         let all_set = IntervalSet::All;
         let target = int_interval(1, 3);
         assert_eq!(
-            set.split_interval_components(&target).collect_vec(),
-            all_set.split_interval_components(&target).collect_vec()
+            set.split_interval_components(target.as_ref()).collect_vec(),
+            all_set
+                .split_interval_components(target.as_ref())
+                .collect_vec()
         );
     }
 
@@ -790,7 +796,7 @@ mod tests {
                 r.add(range);
             }
             // I ⊆ R ⇒ p ∈ I ⇒ p ∈ R
-            if r.contains_interval(&interval) {
+            if r.contains_interval(interval.as_ref()) {
                 for point in &points {
                     if interval.contains(point) {
                         assert!(r.contains(point));
@@ -815,19 +821,19 @@ mod tests {
             for range in ranges {
                 r.add(range);
             }
-            let components = r.split_interval_components(&interval).collect_vec();
+            let components = r.split_interval_components(interval.as_ref()).collect_vec();
             // Components alternate in_set between true and false.
             // And components are adjacent.
             for ((in_set1, interval1), (in_set2, interval2)) in components.iter().tuples() {
                 assert!(in_set1 != in_set2);
-                must_let!(let End::Excluded(interval1_end) = &interval1.end);
-                must_let!(let StartIncluded(interval2_start) = &interval2.start);
+                must_let!(let EndRef::Excluded(interval1_end) = &interval1.end);
+                must_let!(let interval2_start = &interval2.start);
                 assert_eq!(interval1_end, interval2_start);
             }
             let mut union_components = IntervalSet::new();
             for (in_set, interval) in components {
-                assert_eq!(r.contains_interval(&interval), in_set);
-                union_components.add(interval);
+                assert_eq!(r.contains_interval(interval), in_set);
+                union_components.add(interval.to_owned());
             }
             if interval.is_empty() {
                 assert!(union_components.is_empty());

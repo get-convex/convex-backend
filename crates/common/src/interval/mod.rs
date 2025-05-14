@@ -26,6 +26,7 @@ use std::ops::{
 pub use self::{
     bounds::{
         End,
+        EndRef,
         StartIncluded,
     },
     interval_set::IntervalSet,
@@ -69,11 +70,16 @@ impl Interval {
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        match (&self.start, &self.end) {
-            (_, End::Unbounded) => false,
-            (StartIncluded(ref s), End::Excluded(ref t)) => s >= t,
+    pub const fn as_ref(&self) -> IntervalRef<'_> {
+        let Self { start, end } = self;
+        IntervalRef {
+            start: start.0.as_slice(),
+            end: end.as_ref(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
     }
 
     pub fn is_superset(&self, other: &Self) -> bool {
@@ -81,14 +87,7 @@ impl Interval {
     }
 
     pub fn contains(&self, point: &[u8]) -> bool {
-        let after_start = match self.start {
-            StartIncluded(ref s) => &s[..] <= point,
-        };
-        let before_end = match self.end {
-            End::Excluded(ref t) => point < &t[..],
-            End::Unbounded => true,
-        };
-        after_start && before_end
+        self.as_ref().contains(point)
     }
 
     pub fn contains_cursor(&self, cursor: &CursorPosition) -> bool {
@@ -166,6 +165,55 @@ impl RangeBounds<[u8]> for &Interval {
         match self.end {
             End::Excluded(ref s) => Bound::Excluded(&s[..]),
             End::Unbounded => Bound::Unbounded,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct IntervalRef<'a> {
+    pub start: &'a [u8],
+    pub end: EndRef<'a>,
+}
+
+impl IntervalRef<'_> {
+    pub fn all() -> Self {
+        static ALL: Interval = Interval::all();
+        ALL.as_ref()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match (self.start, self.end) {
+            (_, EndRef::Unbounded) => false,
+            (s, EndRef::Excluded(t)) => s >= t,
+        }
+    }
+
+    pub fn contains(&self, point: &[u8]) -> bool {
+        let after_start = self.start <= point;
+        let before_end = match self.end {
+            EndRef::Excluded(t) => point < t,
+            EndRef::Unbounded => true,
+        };
+        after_start && before_end
+    }
+
+    pub fn to_owned(&self) -> Interval {
+        Interval {
+            start: StartIncluded(self.start.to_vec().into()),
+            end: self.end.to_owned(),
+        }
+    }
+}
+
+impl RangeBounds<[u8]> for IntervalRef<'_> {
+    fn start_bound(&self) -> Bound<&[u8]> {
+        Bound::Included(self.start)
+    }
+
+    fn end_bound(&self) -> Bound<&[u8]> {
+        match self.end {
+            EndRef::Excluded(s) => Bound::Excluded(s),
+            EndRef::Unbounded => Bound::Unbounded,
         }
     }
 }

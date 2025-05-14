@@ -16,6 +16,12 @@ impl Borrow<[u8]> for StartIncluded {
     }
 }
 
+impl AsRef<[u8]> for StartIncluded {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl HeapSize for StartIncluded {
     fn heap_size(&self) -> usize {
         match self {
@@ -53,6 +59,13 @@ impl End {
             (End::Excluded(ref s), StartIncluded(ref t)) => s[..].eq(&t[..]),
         }
     }
+
+    pub const fn as_ref(&self) -> EndRef<'_> {
+        match self {
+            End::Excluded(binary_key) => EndRef::Excluded(binary_key.as_slice()),
+            End::Unbounded => EndRef::Unbounded,
+        }
+    }
 }
 
 impl HeapSize for End {
@@ -60,6 +73,21 @@ impl HeapSize for End {
         match self {
             End::Excluded(k) => k.heap_size(),
             End::Unbounded => 0,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EndRef<'a> {
+    Excluded(&'a [u8]),
+    Unbounded,
+}
+
+impl EndRef<'_> {
+    pub fn to_owned(&self) -> End {
+        match *self {
+            EndRef::Excluded(bytes) => End::Excluded(BinaryKey::from(bytes.to_owned())),
+            EndRef::Unbounded => End::Unbounded,
         }
     }
 }

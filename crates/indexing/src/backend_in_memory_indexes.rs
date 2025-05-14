@@ -24,9 +24,10 @@ use common::{
     },
     instrument,
     interval::{
-        End,
+        EndRef,
         Interval,
         IntervalSet,
+        StartIncluded,
     },
     persistence::PersistenceSnapshot,
     query::{
@@ -721,7 +722,7 @@ impl DatabaseIndexSnapshotCache {
                     interval.clone(),
                 )]
             },
-            Some(interval_set) => interval_set.split_interval_components(interval),
+            Some(interval_set) => interval_set.split_interval_components(interval.as_ref()),
         };
         let mut results = vec![];
         let mut cache_hit_count = 0;
@@ -733,7 +734,7 @@ impl DatabaseIndexSnapshotCache {
             // until we hit `MAX_CACHED_RANGES_PER_INTERVAL`.
             if cache_hit_count >= MAX_CACHED_RANGES_PER_INTERVAL {
                 results.push(DatabaseIndexSnapshotCacheResult::CacheMiss(Interval {
-                    start: component_interval.start,
+                    start: StartIncluded(component_interval.start.to_vec().into()),
                     end: interval.end.clone(),
                 }));
                 break;
@@ -742,12 +743,15 @@ impl DatabaseIndexSnapshotCache {
                 cache_hit_count += 1;
                 let range = self
                     .documents
-                    .range((index_id, IndexKeyBytes(component_interval.start.0.into()))..)
+                    .range(
+                        // TODO: `to_vec()` is not necessary
+                        (index_id, IndexKeyBytes(component_interval.start.to_vec()))..,
+                    )
                     .take_while(|&((index, key), _)| {
                         *index == index_id
                             && match &component_interval.end {
-                                End::Excluded(end) => key[..] < end[..],
-                                End::Unbounded => true,
+                                EndRef::Excluded(end) => key[..] < end[..],
+                                EndRef::Unbounded => true,
                             }
                     });
                 results.extend(range.map(|((_, index_key), (ts, doc))| {
@@ -755,7 +759,7 @@ impl DatabaseIndexSnapshotCache {
                 }));
             } else {
                 results.push(DatabaseIndexSnapshotCacheResult::CacheMiss(
-                    component_interval,
+                    component_interval.to_owned(),
                 ));
             }
         }

@@ -3,6 +3,7 @@
 #![feature(binary_heap_drain_sorted)]
 #![feature(const_for)]
 #![feature(const_type_name)]
+#![feature(const_vec_string_slice)]
 #![feature(coroutines)]
 #![feature(iter_intersperse)]
 #![feature(let_chains)]

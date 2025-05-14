@@ -62,6 +62,10 @@ impl BinaryKey {
         Self { key: Vec::new() }
     }
 
+    pub const fn as_slice(&self) -> &[u8] {
+        self.key.as_slice()
+    }
+
     /// For any key `k`, `increment(k)` is the minimum key such that for
     /// all keys `s` where `k.is_prefix(s)`, we have `s < increment(k)`.
     pub fn increment(&self) -> Option<Self> {
