@@ -226,7 +226,11 @@ impl SchemaRegistry {
         };
         let fields = IndexedFields::try_from(vec![SCHEMA_STATE_FIELD.clone()])?;
         let interval = index_range.compile(fields.clone())?;
-        reads.record_indexed_derived(TabletIndexName::by_id(schema_tablet), fields, interval);
+        reads.record_indexed_derived(
+            TabletIndexName::new(schema_tablet, SCHEMAS_STATE_INDEX.descriptor().clone())?,
+            fields,
+            interval,
+        );
 
         let namespaced_registry = self.namespaced.get(&namespace);
         let Some(namespaced_registry) = namespaced_registry else {

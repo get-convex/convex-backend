@@ -13,13 +13,16 @@ use ::usage_tracking::FunctionUsageTracker;
 use cmd_util::env::env_config;
 use common::{
     assert_obj,
-    bootstrap_model::index::{
-        database_index::{
-            DeveloperDatabaseIndexConfig,
-            IndexedFields,
+    bootstrap_model::{
+        index::{
+            database_index::{
+                DeveloperDatabaseIndexConfig,
+                IndexedFields,
+            },
+            IndexConfig,
+            IndexMetadata,
         },
-        IndexConfig,
-        IndexMetadata,
+        schema::SchemaState,
     },
     db_schema,
     document::{
@@ -2443,5 +2446,74 @@ async fn test_subtransaction_failure_rolls_back_table_creation(
     db.commit(tx).await?;
     let mut tx = db.begin(Identity::system()).await?;
     assert!(!TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));
+    Ok(())
+}
+
+// regression test for ENG-8184
+#[convex_macro::test_runtime]
+async fn test_schema_registry_takes_read_dependency(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = DbFixtures::new(&rt).await?.db;
+    let nonexistent_schema_id = {
+        // create an ID for a schema document that doesn't exist
+        let mut tx = db.begin_system().await?;
+        SchemaModel::new(&mut tx, TableNamespace::Global)
+            .submit_pending(db_schema!())
+            .await?
+            .0
+    };
+
+    // Create a transaction that does a by-id lookup on schemas & also observes the
+    // lack of a pending schema
+    let mut read_pending_tx = db.begin_system().await?;
+    assert!(read_pending_tx.get(nonexistent_schema_id).await?.is_none());
+    assert!(
+        SchemaModel::new(&mut read_pending_tx, TableNamespace::Global)
+            .get_by_state(SchemaState::Pending)
+            .await?
+            .is_none()
+    );
+    let read_pending_token = read_pending_tx.into_token()?;
+
+    // Now create a pending schema
+    let schema_id;
+    {
+        let mut tx = db.begin_system().await?;
+        schema_id = SchemaModel::new(&mut tx, TableNamespace::Global)
+            .submit_pending(db_schema!())
+            .await?
+            .0;
+        db.commit(tx).await?;
+    }
+
+    // The earlier read should be invalidated.
+    assert_eq!(
+        db.refresh_token(read_pending_token, *db.now_ts_for_reads())
+            .await?,
+        None
+    );
+
+    // Now test the converse: create a transaction that observes the presence of
+    // the pending schema.
+    let mut read_pending_again_tx = db.begin_system().await?;
+    assert!(
+        SchemaModel::new(&mut read_pending_again_tx, TableNamespace::Global)
+            .get_by_state(SchemaState::Pending)
+            .await?
+            .is_some()
+    );
+    let read_pending_again_token = read_pending_again_tx.into_token()?;
+    {
+        let mut tx = db.begin_system().await?;
+        SchemaModel::new(&mut tx, TableNamespace::Global)
+            .mark_validated(schema_id)
+            .await?;
+        db.commit(tx).await?;
+    }
+    // The read should again be invalidated as the schema is no longer pending.
+    assert_eq!(
+        db.refresh_token(read_pending_again_token, *db.now_ts_for_reads())
+            .await?,
+        None
+    );
     Ok(())
 }
