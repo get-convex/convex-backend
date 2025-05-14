@@ -93,7 +93,9 @@ export function ClearTableConfirmation({
           toast("info", "Table partially cleared.");
         }
       }}
-      validationText={isProd ? tableName : undefined}
+      validationText={
+        isProd ? `Delete all production documents in ${tableName}` : undefined
+      }
       confirmText="Confirm"
       variant="danger"
       dialogTitle="Clear table"

@@ -160,7 +160,9 @@ export function useToolPopup({
         <ConfirmationDialog
           onClose={closePopup}
           onConfirm={deleteTable}
-          validationText={isProd ? tableName : undefined}
+          validationText={
+            isProd ? `Delete production table ${tableName}` : undefined
+          }
           confirmText="Delete"
           dialogTitle="Delete table"
           dialogBody={`Are you sure you want to permanently delete the table ${tableName}?`}

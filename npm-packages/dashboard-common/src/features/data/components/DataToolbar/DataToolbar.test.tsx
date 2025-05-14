@@ -354,7 +354,7 @@ describe("DataToolbar", () => {
 
     // Input the confirmation.
     const inputBox = await screen.findByRole("textbox");
-    await user.type(inputBox, "messages");
+    await user.type(inputBox, "Delete all production documents in messages");
 
     await user.click(confirmClearButton);
 
@@ -380,7 +380,7 @@ describe("DataToolbar", () => {
     expect(confirmClearButton).toBeDisabled();
     // Input the confirmation.
     const inputBox = await screen.findByRole("textbox");
-    await user.type(inputBox, "messages");
+    await user.type(inputBox, "Delete all production documents in messages");
     await user.click(confirmClearButton);
     expect(clearTable).toHaveBeenCalledTimes(1);
   });
@@ -506,7 +506,7 @@ describe("DataToolbar", () => {
 
     // Input the confirmation.
     const inputBox = await screen.findByRole("textbox");
-    await user.type(inputBox, "messages");
+    await user.type(inputBox, "Delete production table messages");
 
     await user.click(confirmDeleteButton);
 
