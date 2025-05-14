@@ -108,11 +108,12 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         let mut to_build = vec![];
         let mut tx = self.database.begin(Identity::system()).await?;
 
-        // Skip compaction on empty tables.
-        for index_doc in IndexModel::new(&mut tx)
+        let non_empty_search_indexes = IndexModel::new(&mut tx)
             .get_all_non_empty_search_indexes()
-            .await?
-        {
+            .await?;
+
+        // Skip compaction on empty tables.
+        for index_doc in non_empty_search_indexes {
             let (index_id, index_metadata) = index_doc.into_id_and_value();
             let Some(config) = T::get_config(index_metadata.config) else {
                 continue;
@@ -147,11 +148,19 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                     &config.developer_config,
                     &self.config,
                 )?,
-                _ => continue,
+                _ => {
+                    tracing::info!(
+                        "Skipping {:?} index for compaction: {name:?} because it is not \
+                         backfilling",
+                        Self::search_type()
+                    );
+                    continue;
+                },
             };
             if let Some((mut segments_to_compact, compaction_reason)) = maybe_segments_to_compact {
                 tracing::info!(
-                    "Queueing {:?} index for compaction: {name:?}",
+                    "Queueing {:?} index for compaction: {name:?} for reason: \
+                     {compaction_reason:?}",
                     Self::search_type()
                 );
                 // Choose segments to compact at random.

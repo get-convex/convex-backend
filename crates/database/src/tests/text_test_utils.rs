@@ -17,6 +17,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    pause::PauseController,
     persistence::PersistenceReader,
     query::{
         Query,
@@ -35,6 +36,7 @@ use common::{
     },
     version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
 };
+use futures::try_join;
 use maplit::btreeset;
 use must_let::must_let;
 use search::{
@@ -79,6 +81,7 @@ use crate::{
     Transaction,
 };
 
+#[derive(Clone)]
 pub struct TextFixtures {
     pub rt: TestRuntime,
     pub storage: Arc<dyn Storage>,
@@ -344,6 +347,29 @@ impl TextFixtures {
             values.push(value);
         }
         Ok(values)
+    }
+
+    pub async fn run_compaction_during_flush(
+        &self,
+        pause: PauseController,
+        label: &'static str,
+    ) -> anyhow::Result<()> {
+        let mut flusher = self.new_search_flusher();
+        let hold_guard = pause.hold(label);
+        let flush = flusher.step();
+        let compactor = self.new_compactor();
+        let compact_during_flush = async move {
+            if let Some(pause_guard) = hold_guard.wait_for_blocked().await {
+                let (metrics, _) = compactor.step().await?;
+                for (_index_name, num_segments_compacted) in metrics {
+                    assert!(num_segments_compacted > 0);
+                }
+                pause_guard.unpause();
+            };
+            Ok::<(), anyhow::Error>(())
+        };
+        try_join!(flush, compact_during_flush)?;
+        Ok(())
     }
 }
 

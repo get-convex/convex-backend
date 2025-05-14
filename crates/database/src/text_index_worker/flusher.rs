@@ -192,6 +192,7 @@ mod tests {
             IndexConfig,
             IndexMetadata,
         },
+        pause::PauseController,
         runtime::testing::TestRuntime,
         types::{
             IndexName,
@@ -207,6 +208,10 @@ mod tests {
     };
 
     use crate::{
+        index_workers::{
+            search_compactor::CompactionConfig,
+            search_flusher::FLUSH_RUNNING_LABEL,
+        },
         tests::text_test_utils::{
             add_document,
             IndexData,
@@ -988,6 +993,58 @@ mod tests {
 
         let results = fixtures.search(index_name, "really_new_text").await?;
         assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn concurrent_compaction_and_flush_new_segment_propagates_deletes(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let config = CompactionConfig::default();
+        let min_compaction_segments = config.min_compaction_segments;
+        let config = CompactionConfig {
+            // Treat everything as a large segment
+            small_segment_threshold_bytes: 0,
+            ..config
+        };
+        let fixtures = TextFixtures::new_with_config(rt.clone(), config).await?;
+        let index_data = fixtures.enabled_text_index().await?;
+
+        let IndexData { index_name, .. } = index_data;
+
+        // Create enough segments to trigger compaction.
+        let mut deleted_doc_ids = vec![];
+        for _ in 0..min_compaction_segments {
+            deleted_doc_ids.push(fixtures.add_document("test").await?);
+            fixtures.backfill().await?;
+        }
+
+        // Queue up deletes for all existing segments, and one new document that will
+        // cause the flusher to write a new segment.
+        for doc_id in &deleted_doc_ids {
+            fixtures.replace_document(*doc_id, "updated").await?;
+        }
+        let _non_deleted_id = fixtures.add_document("test").await?;
+
+        // Run the compactor / flusher concurrently in a way where the compactor
+        // wins the race.
+        fixtures
+            .run_compaction_during_flush(pause, FLUSH_RUNNING_LABEL)
+            .await?;
+
+        // Verify we propagate the new deletes to the compacted segment and retain our
+        // new segment.
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(2, segments.len());
+
+        let (compacted_segment, new_segment): (Vec<_>, Vec<_>) = segments
+            .into_iter()
+            .partition(|segment| segment.num_deleted_documents > 0);
+        assert_eq!(compacted_segment.len(), 1);
+        assert_eq!(new_segment.len(), 1);
+        // TODO Verify segment contents
 
         Ok(())
     }

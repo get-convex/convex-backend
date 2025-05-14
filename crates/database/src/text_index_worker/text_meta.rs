@@ -106,6 +106,7 @@ impl SegmentType<TextSearchIndex> for FragmentedTextSegment {
         Ok(self.size_bytes_total)
     }
 }
+
 #[derive(Clone)]
 pub struct BuildTextIndexArgs {
     pub search_storage: Arc<dyn Storage>,
