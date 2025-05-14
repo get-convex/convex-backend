@@ -10,7 +10,6 @@ use anyhow::Context as _;
 use common::{
     knobs::{
         FUNRUN_INITIAL_PERMIT_TIMEOUT,
-        ISOLATE_MAX_HEAP_EXTRA_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
     },
     runtime::Runtime,
@@ -68,9 +67,6 @@ pub struct Isolate<RT: Runtime> {
 
     created: tokio::time::Instant,
 }
-
-/// Set a 64KB initial heap size
-const INITIAL_HEAP_SIZE: usize = 1 << 16;
 
 #[derive(thiserror::Error, Debug)]
 pub enum IsolateNotClean {
@@ -157,12 +153,7 @@ impl IsolateHeapStats {
 impl<RT: Runtime> Isolate<RT> {
     pub fn new(rt: RT, max_user_timeout: Option<Duration>, limiter: ConcurrencyLimiter) -> Self {
         let _timer = create_isolate_timer();
-        let create_params = v8::CreateParams::default().heap_limits(
-            INITIAL_HEAP_SIZE,
-            *ISOLATE_MAX_USER_HEAP_SIZE + *ISOLATE_MAX_HEAP_EXTRA_SIZE,
-        );
-
-        let mut v8_isolate = v8::Isolate::new(create_params);
+        let mut v8_isolate = crate::udf_runtime::create_isolate_with_udf_runtime();
 
         // Tells V8 to capture current stack trace when uncaught exception occurs and
         // report it to the message listeners. The option is off by default.

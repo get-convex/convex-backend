@@ -189,24 +189,6 @@ pub fn context_build_timer() -> StatusTimer {
 }
 
 register_convex_histogram!(
-    UDF_ISOLATE_LOAD_SETUP_MODULE_SECONDS,
-    "Time it takes to load our initialization code for our JS environment",
-    &["status"]
-);
-pub fn load_setup_module_timer() -> StatusTimer {
-    StatusTimer::new(&UDF_ISOLATE_LOAD_SETUP_MODULE_SECONDS)
-}
-
-register_convex_histogram!(
-    UDF_ISOLATE_RUN_SETUP_MODULE_SECONDS,
-    "Time it takes to run our initialization code for our JS environment",
-    &["status"]
-);
-pub fn run_setup_module_timer() -> StatusTimer {
-    StatusTimer::new(&UDF_ISOLATE_RUN_SETUP_MODULE_SECONDS)
-}
-
-register_convex_histogram!(
     UDF_ISOLATE_LOAD_USER_MODULES_SECONDS,
     "Time to load all user modules for a request",
     &["udf_type", "is_dynamic", "status"],

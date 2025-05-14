@@ -6,7 +6,10 @@ use std::{
     marker::PhantomData,
 };
 
-use anyhow::anyhow;
+use anyhow::{
+    anyhow,
+    Context as _,
+};
 use common::{
     runtime::{
         Runtime,
@@ -17,7 +20,6 @@ use common::{
 use deno_core::{
     serde_v8,
     v8,
-    ModuleSpecifier,
 };
 use encoding_rs::Decoder;
 use errors::{
@@ -44,17 +46,12 @@ use crate::{
         self,
         pump_message_loop,
     },
-    isolate::{
-        Isolate,
-        SETUP_URL,
-    },
+    isolate::Isolate,
     metrics::{
         context_build_timer,
-        load_setup_module_timer,
         log_promise_handler_added_after_reject,
         log_promise_rejected_after_resolved,
         log_promise_resolved_after_resolved,
-        run_setup_module_timer,
     },
     module_map::ModuleMap,
     ops::{
@@ -253,12 +250,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         }
 
         Self::setup_context(scope, state, allow_dynamic_imports)?;
-        let mut isolate_context = Self {
+        let isolate_context = Self {
             scope,
             handle,
             _pd: PhantomData,
         };
-        isolate_context.run_setup_module().await?;
         timer.finish();
         Ok(isolate_context)
     }
@@ -298,7 +294,12 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
             .get_function(scope)
             .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
 
-        let convex_value = v8::Object::new(scope);
+        let convex_key = strings::Convex.create(scope)?;
+        let convex_value: v8::Local<v8::Object> = global
+            .get(scope, convex_key.into())
+            .context("Missing global.Convex")?
+            .try_into()
+            .context("Wrong type of global.Convex")?;
 
         let syscall_key = strings::syscall.create(scope)?;
         convex_value.set(scope, syscall_key.into(), syscall_value.into());
@@ -311,9 +312,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
 
         let async_op_key = strings::asyncOp.create(scope)?;
         convex_value.set(scope, async_op_key.into(), async_op_value.into());
-
-        let convex_key = strings::Convex.create(scope)?;
-        global.set(scope, convex_key.into(), convex_value.into());
 
         Ok(())
     }
@@ -410,33 +408,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         };
         let exception = v8::Exception::error(scope, message_v8);
         scope.throw_exception(exception);
-    }
-
-    pub(crate) async fn run_setup_module(&mut self) -> anyhow::Result<()> {
-        let timer = load_setup_module_timer();
-        let mut scope = ExecutionScope::<RT, E>::new(self.scope);
-        let setup_url = ModuleSpecifier::parse(SETUP_URL).unwrap();
-        let module = scope.eval_module(&setup_url).await?;
-        timer.finish();
-
-        let namespace = module
-            .get_module_namespace()
-            .to_object(&mut scope)
-            .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
-
-        let function_str = strings::setup.create(&mut scope)?;
-        let function: v8::Local<v8::Function> = namespace
-            .get(&mut scope, function_str.into())
-            .ok_or_else(|| anyhow!("Couldn't find setup in setup module"))?
-            .try_into()?;
-
-        let global = scope.get_current_context().global(&mut scope);
-        let timer = run_setup_module_timer();
-        scope
-            .with_try_catch(|s| function.call(s, global.into(), &[global.into()]))??
-            .ok_or_else(|| anyhow!("Successful setup() returned None"))?;
-        timer.finish();
-        Ok(())
     }
 
     pub fn scope(&mut self) -> v8::HandleScope {

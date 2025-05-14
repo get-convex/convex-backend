@@ -31,7 +31,6 @@ use super::{
     session::HeapContext,
 };
 use crate::{
-    bundled_js::system_udf_file,
     deserialize_udf_result,
     environment::helpers::{
         module_loader::module_specifier_from_path,
@@ -44,7 +43,6 @@ use crate::{
         source_map_from_slice,
         to_rust_string,
     },
-    isolate::SETUP_URL,
     isolate2::{
         callback_context::CallbackContext,
         context_state::ContextFailure,
@@ -89,35 +87,6 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         self.scope
             .get_slot::<ContextState>()
             .ok_or_else(|| anyhow::anyhow!("ContextState not found in context"))
-    }
-
-    pub fn run_setup_module(&mut self) -> anyhow::Result<()> {
-        let setup_url = ModuleSpecifier::parse(SETUP_URL)?;
-        let (source, source_map) =
-            system_udf_file("setup.js").ok_or_else(|| anyhow!("Setup module not found"))?;
-        let unresolved_imports =
-            self.register_module(&setup_url, source, source_map.map(|s| s.to_string()))?;
-        anyhow::ensure!(
-            unresolved_imports.is_empty(),
-            "Unexpected import specifiers for setup module"
-        );
-        let module = self.evaluate_module(&setup_url)?;
-        let namespace = module
-            .get_module_namespace()
-            .to_object(self.scope)
-            .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
-        let function_str = strings::setup.create(self.scope)?;
-        let function: v8::Local<v8::Function> = namespace
-            .get(self.scope, function_str.into())
-            .ok_or_else(|| anyhow!("Couldn't find setup in setup module"))?
-            .try_into()?;
-
-        let global = self.scope.get_current_context().global(self.scope);
-
-        self.execute_user_code(|scope| function.call(scope, global.into(), &[global.into()]))?
-            .ok_or_else(|| anyhow!("Successful setup() returned None"))?;
-
-        Ok(())
     }
 
     // NB: This can be called from the top-level (i.e. entering from the context

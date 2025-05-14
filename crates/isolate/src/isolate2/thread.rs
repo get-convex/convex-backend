@@ -1,15 +1,6 @@
-use common::knobs::{
-    ISOLATE_MAX_HEAP_EXTRA_SIZE,
-    ISOLATE_MAX_USER_HEAP_SIZE,
-};
-use deno_core::v8::{
-    self,
-};
+use deno_core::v8;
 
 use crate::strings;
-
-/// Set a 64KB initial heap size
-const INITIAL_HEAP_SIZE: usize = 1 << 16;
 
 pub struct Thread {
     pub isolate: v8::OwnedIsolate,
@@ -17,11 +8,7 @@ pub struct Thread {
 
 impl Thread {
     pub fn new() -> Self {
-        let create_params = v8::CreateParams::default().heap_limits(
-            INITIAL_HEAP_SIZE,
-            *ISOLATE_MAX_USER_HEAP_SIZE + *ISOLATE_MAX_HEAP_EXTRA_SIZE,
-        );
-        let mut isolate = v8::Isolate::new(create_params);
+        let mut isolate = crate::udf_runtime::create_isolate_with_udf_runtime();
 
         // Tells V8 to capture current stack trace when uncaught exception occurs and
         // report it to the message listeners. The option is off by default.

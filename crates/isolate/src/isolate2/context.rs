@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use anyhow::anyhow;
+use anyhow::{
+    anyhow,
+    Context as _,
+};
 use common::types::UdfType;
 use deno_core::v8::{
     self,
@@ -46,7 +49,13 @@ impl Context {
             // slots
             scope.set_slot(state);
 
-            let convex_value = v8::Object::new(&mut scope);
+            let global = context.global(&mut scope);
+            let convex_key = strings::Convex.create(&mut scope)?;
+            let convex_value: v8::Local<v8::Object> = global
+                .get(&mut scope, convex_key.into())
+                .context("Missing global.Convex")?
+                .try_into()
+                .context("Wrong type of global.Convex")?;
 
             let syscall_template = v8::FunctionTemplate::new(&mut scope, CallbackContext::syscall);
             let syscall_value = syscall_template
@@ -82,21 +91,14 @@ impl Context {
             let async_op_key = strings::asyncOp.create(&mut scope)?;
             convex_value.set(&mut scope, async_op_key.into(), async_op_value.into());
 
-            let convex_key = strings::Convex.create(&mut scope)?;
-
-            let global = context.global(&mut scope);
-            global.set(&mut scope, convex_key.into(), convex_value.into());
-
             v8::Global::new(&mut scope, context)
         };
 
-        let mut ctx = Self {
+        Ok(Self {
             context,
             next_function_id: 0,
             pending_functions: BTreeMap::new(),
-        };
-        ctx.enter(session, |mut ctx| ctx.run_setup_module())?;
-        Ok(ctx)
+        })
     }
 
     pub fn enter<R>(&mut self, session: &mut Session, f: impl FnOnce(EnteredContext) -> R) -> R {
