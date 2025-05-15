@@ -28,16 +28,16 @@ export type FilterCommon = {
 export type FilterByIndex = {
   type: "indexEq";
   enabled: boolean;
-  value?: Value;
+  value?: JSONValue | Value;
 };
 
 export type FilterByIndexRange = {
   type: "indexRange";
   enabled: boolean;
   lowerOp?: "gte" | "gt";
-  lowerValue?: Value;
+  lowerValue?: JSONValue | Value;
   upperOp?: "lte" | "lt";
-  upperValue?: Value;
+  upperValue?: JSONValue | Value;
 };
 
 export type FilterByBuiltin = {
@@ -300,7 +300,9 @@ export function applyIndexFilters(
     if (filter.type === "indexEq") {
       builder = builder.eq(
         selectedIndex.fields[i],
-        filter.value === UNDEFINED_PLACEHOLDER ? undefined : filter.value,
+        filter.value === UNDEFINED_PLACEHOLDER
+          ? undefined
+          : jsonToConvexOrValue(filter.value),
       );
     } else {
       if (i !== enabledClauses.length - 1) {
@@ -311,7 +313,7 @@ export function applyIndexFilters(
           selectedIndex.fields[i],
           filter.lowerValue === UNDEFINED_PLACEHOLDER
             ? undefined
-            : filter.lowerValue,
+            : jsonToConvexOrValue(filter.lowerValue),
         );
       }
       if (filter.upperOp) {
@@ -319,7 +321,7 @@ export function applyIndexFilters(
           selectedIndex.fields[i],
           filter.upperValue === UNDEFINED_PLACEHOLDER
             ? undefined
-            : filter.upperValue,
+            : jsonToConvexOrValue(filter.upperValue),
         );
       }
     }
@@ -454,4 +456,31 @@ export function findIndexByName(
   indexes: Index[],
 ): Index | undefined {
   return indexes.find((i) => i.indexDescriptor === indexName);
+}
+
+// If the value is not a valid JSON value, return the value as is.
+function jsonToConvexOrValue(
+  value: JSONValue | Value | undefined,
+): Value | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (isBigIntOrArrayBufferInValue(value)) {
+    return value;
+  }
+  try {
+    return jsonToConvex(value);
+  } catch (e) {
+    return value;
+  }
+}
+
+// If the value has a bigint or array buffer in it, it's definitely not a JSONValue
+function isBigIntOrArrayBufferInValue(
+  value: JSONValue | Value,
+): value is Value {
+  if (Array.isArray(value)) {
+    return value.some(isBigIntOrArrayBufferInValue);
+  }
+  return typeof value === "bigint" || value instanceof ArrayBuffer;
 }
