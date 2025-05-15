@@ -48,6 +48,10 @@ export class CryptoKey {
     return this[_algorithm];
   }
 
+  get [Symbol.toStringTag]() {
+    return "CryptoKey";
+  }
+
   inspect() {
     return `${this.constructor.name} ${inspect({
       type: this.type,
