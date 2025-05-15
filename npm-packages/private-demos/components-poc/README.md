@@ -3,7 +3,7 @@
 Run a local backend with components enabled:
 
 ```bash
-just run-backend
+just run-local-backend
 ```
 
 Run `convex dev` against the local backend (be sure to `just rush build` if

@@ -26,7 +26,7 @@ test against a local backend.
 
 To use a local backend:
 
-1. Run `just run-backend`
+1. Run `just run-local-backend`
 2. In a separate terminal window, run `just convex dev`
 
 To use a local big-brain (runs both backend and big brain locally):

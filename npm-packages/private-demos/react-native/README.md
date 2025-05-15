@@ -68,7 +68,7 @@ Note important steps:
 In one terminal from the monorepo root:
 
 ```
-just run-backend
+just run-local-backend
 ```
 
 In a separate terminal within the react-native directory:
