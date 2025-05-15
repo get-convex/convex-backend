@@ -78,6 +78,10 @@ class DOMException {
     error.stack;
     (this as any).__frameData = (error as any).__frameData ?? [];
   }
+
+  get [Symbol.toStringTag]() {
+    return "DOMException";
+  }
 }
 
 const entries = Object.entries({

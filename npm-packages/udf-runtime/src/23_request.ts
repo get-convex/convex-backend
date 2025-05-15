@@ -267,6 +267,10 @@ export class Request {
     return clonedRequest;
   }
 
+  get [Symbol.toStringTag]() {
+    return "Request";
+  }
+
   inspect() {
     const properties = {
       bodyUsed: this._bodyUsed,

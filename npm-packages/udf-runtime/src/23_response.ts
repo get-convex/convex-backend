@@ -262,6 +262,10 @@ export class Response {
     return this[_responseType];
   }
 
+  get [Symbol.toStringTag]() {
+    return "Response";
+  }
+
   inspect() {
     const properties = {
       bodyUsed: this._bodyUsed,

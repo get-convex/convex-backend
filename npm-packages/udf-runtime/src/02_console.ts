@@ -64,6 +64,10 @@ const consoleImpl = {
     performOp("console/timeEnd", labelStr);
   },
   // TODO: Implement the rest of the Console API.
+
+  get [Symbol.toStringTag]() {
+    return "console";
+  },
 };
 export function setupConsole(global) {
   // Delete v8's console since it doesn't go anywhere. We'll eventually want to mirror our console

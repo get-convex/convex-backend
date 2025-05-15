@@ -171,8 +171,11 @@ class FinalizationRegistry {
       throw new TypeError("unregisterToken must be an object");
     }
   }
+
+  get [Symbol.toStringTag]() {
+    return "FinalizationRegistry";
+  }
 }
-FinalizationRegistry.prototype[Symbol.toStringTag] = "FinalizationRegistry";
 
 // Implementation of https://tc39.es/ecma262/multipage/managing-memory.html#sec-weak-ref-objects
 // that is just a strong reference under the hood.
@@ -189,8 +192,11 @@ class WeakRef {
   deref() {
     return this.#target;
   }
+
+  get [Symbol.toStringTag]() {
+    return "WeakRef";
+  }
 }
-WeakRef.prototype[Symbol.toStringTag] = "WeakRef";
 
 // https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-canbeheldweakly
 function CanBeHeldWeakly(v: any) {

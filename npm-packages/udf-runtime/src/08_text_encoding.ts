@@ -21,8 +21,8 @@ class TextEncoder {
     dest.set(bytes, 0);
     return { read, written };
   }
-  toString() {
-    return "[object TextEncoder]";
+  get [Symbol.toStringTag]() {
+    return "TextEncoder";
   }
 }
 
@@ -102,8 +102,8 @@ class TextDecoder {
       }
     }
   }
-  toString() {
-    return "[object TextDecoder]";
+  get [Symbol.toStringTag]() {
+    return "TextDecoder";
   }
 }
 
@@ -204,6 +204,10 @@ class TextDecoderStream {
     return this.#transform.writable;
   }
 
+  get [Symbol.toStringTag]() {
+    return "TextDecoderStream";
+  }
+
   inspect() {
     const properties = {
       encoding: this.encoding,
@@ -275,6 +279,10 @@ class TextEncoderStream {
   /** @returns {WritableStream<string>} */
   get writable() {
     return this.#transform.writable;
+  }
+
+  get [Symbol.toStringTag]() {
+    return "TextEncoderStream";
   }
 
   inspect() {

@@ -109,6 +109,10 @@ export class FormData {
   [Symbol.iterator](): IterableIterator<[string, FormDataEntryValue]> {
     return this.entries();
   }
+
+  get [Symbol.toStringTag]() {
+    return "FormData";
+  }
 }
 
 export type MimeType = {

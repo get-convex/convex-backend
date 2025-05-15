@@ -109,12 +109,12 @@ class Headers {
     this.append(normalizedName, value);
   }
 
-  toString() {
-    return "[object Headers]";
-  }
-
   values(): IterableIterator<string> {
     return this._headersList.map(([, value]) => value)[Symbol.iterator]();
+  }
+
+  get [Symbol.toStringTag]() {
+    return "Headers";
   }
 
   inspect() {

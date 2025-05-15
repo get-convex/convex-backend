@@ -255,6 +255,10 @@ class Event {
   get timeStamp() {
     return this[_attributes].timeStamp;
   }
+
+  get [Symbol.toStringTag]() {
+    return "Event";
+  }
 }
 
 const eventTargetData = Symbol();
@@ -854,11 +858,17 @@ class EventTarget {
   getParent(_event) {
     return null;
   }
-}
-EventTarget.prototype[Symbol.toStringTag] = "EventTarget";
 
-class Window extends EventTarget {}
-Window.prototype[Symbol.toStringTag] = "Window";
+  get [Symbol.toStringTag]() {
+    return "EventTarget";
+  }
+}
+
+class Window extends EventTarget {
+  get [Symbol.toStringTag]() {
+    return "Window";
+  }
+}
 
 export function setupEvent(global) {
   setEventTargetData(global);

@@ -348,6 +348,10 @@ class URL {
     (this._searchParams as any)._searchParamPairs = searchPairs;
   }
 
+  get [Symbol.toStringTag]() {
+    return "URL";
+  }
+
   inspect() {
     const object = {
       href: this.href,

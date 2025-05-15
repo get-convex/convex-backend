@@ -335,6 +335,10 @@ export class Blob {
     return blob;
   }
 
+  get [Symbol.toStringTag]() {
+    return "Blob";
+  }
+
   inspect() {
     return `Blob { size: ${this.size}, type: "${this.type}" }`;
   }
@@ -360,6 +364,10 @@ export class File extends Blob {
 
   get lastModified() {
     return this._lastModified;
+  }
+
+  get [Symbol.toStringTag]() {
+    return "File";
   }
 }
 
