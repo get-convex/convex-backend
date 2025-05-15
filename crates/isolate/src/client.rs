@@ -5,6 +5,7 @@ use std::{
         HashMap,
         VecDeque,
     },
+    env,
     sync::{
         Arc,
         Once,
@@ -569,7 +570,7 @@ pub fn initialize_v8() {
 
         // Set V8 command line flags.
         // https://github.com/v8/v8/blob/master/src/flags/flag-definitions.h
-        let argv = vec![
+        let mut argv = vec![
             "".to_owned(), // first arg is ignored
             "--harmony-import-assertions".to_owned(),
             // See https://github.com/denoland/deno/issues/2544
@@ -581,6 +582,15 @@ pub fn initialize_v8() {
             // default is 1MiB. Note that the flag is in KiB (https://github.com/v8/v8/blob/master/src/flags/flag-definitions.h#L1594).
             "--stack-size=2048".to_string(),
         ];
+        if let Ok(flags) = env::var("ISOLATE_V8_FLAGS") {
+            argv.extend(
+                flags
+                    .split(" ")
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_owned()),
+            );
+            tracing::info!("Final V8 flags: {:?}", flags);
+        }
         // v8 returns the args that were misunderstood
         let misunderstood = V8::set_flags_from_command_line(argv);
         assert_eq!(misunderstood, vec![""]);
