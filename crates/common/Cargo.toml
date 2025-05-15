@@ -81,6 +81,7 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }
+tonic-middleware = { workspace = true }
 tower = { workspace = true }
 tower-cookies = { workspace = true }
 tower-http = { workspace = true }

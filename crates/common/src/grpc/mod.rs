@@ -1,21 +1,16 @@
 use std::{
+    self,
     convert::Infallible,
     net::SocketAddr,
     sync::Arc,
-    task::{
-        Context,
-        Poll,
-    },
 };
 
 use fnv::FnvHashMap;
 use futures::Future;
-use http::Request;
 use pb::error_metadata::ErrorMetadataStatusExt;
 use pb_extras::ReflectionService;
 use sentry::integrations::tower as sentry_tower;
 use tokio::net::TcpSocket;
-use tokio_metrics::Instrumented;
 use tonic::{
     server::NamedService,
     service::Routes,
@@ -29,15 +24,12 @@ use tonic_health::{
     },
     ServingStatus,
 };
-use tower::{
-    Service,
-    ServiceBuilder,
-};
+use tonic_middleware::MiddlewareLayer;
+use tower::ServiceBuilder;
 
-use crate::{
-    knobs::HTTP_SERVER_TCP_BACKLOG,
-    runtime::TaskManager,
-};
+use crate::knobs::HTTP_SERVER_TCP_BACKLOG;
+
+mod middleware;
 
 // maps the full route `/service.Service/Method` to just `Method`
 type KnownMethods = FnvHashMap<String, &'static str>;
@@ -91,8 +83,10 @@ impl ConvexGrpcService {
     {
         let known_methods = Arc::new(self.known_methods);
         let convex_layers = ServiceBuilder::new()
-            .layer(crate::fastrace_helpers::layer::TraceparentReceivingLayer)
-            .layer_fn(move |s| TokioInstrumentationService::new(known_methods.clone(), s))
+            .layer(MiddlewareLayer::new(middleware::LoggingMiddleware::new(
+                known_methods.clone(),
+            )))
+            .layer_fn(|s| middleware::TokioInstrumentationService::new(known_methods.clone(), s))
             .layer(sentry_tower::NewSentryLayer::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::with_transaction());
 
@@ -128,42 +122,5 @@ pub fn handle_response<T>(response: Result<Response<T>, Status>) -> anyhow::Resu
     match response {
         Ok(response) => Ok(response.into_inner()),
         Err(status) => Err(status.into_anyhow()),
-    }
-}
-
-#[derive(Clone)]
-struct TokioInstrumentationService<S> {
-    known_methods: Arc<KnownMethods>,
-    inner: S,
-}
-
-impl<S> TokioInstrumentationService<S> {
-    fn new(known_methods: Arc<KnownMethods>, inner: S) -> Self {
-        Self {
-            known_methods,
-            inner,
-        }
-    }
-}
-
-impl<S, T> Service<Request<T>> for TokioInstrumentationService<S>
-where
-    S: Service<Request<T>>,
-{
-    type Error = S::Error;
-    type Future = Instrumented<S::Future>;
-    type Response = S::Response;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, req: Request<T>) -> Self::Future {
-        let name = self
-            .known_methods
-            .get(req.uri().path())
-            .copied()
-            .unwrap_or("grpc_handler");
-        TaskManager::instrument(name, self.inner.call(req))
     }
 }

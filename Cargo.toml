@@ -166,6 +166,7 @@ tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util" ] }
 tonic = { package = "tonic", version = "0.13", features = [ "gzip", "tls-aws-lc", "tls-native-roots" ] }
 tonic-build = "0.13"
 tonic-health = "0.13"
+tonic-middleware = "0.3"
 tower = { version = "0.5.2", features = [ "limit", "timeout", "util" ] }
 tower-cookies = "0.11"
 tower-http = { version = "0.6", features = [ "trace", "cors", "decompression-br", "limit" ] }
