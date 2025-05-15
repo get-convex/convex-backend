@@ -23,8 +23,12 @@ import { promptYesNo } from "./utils/prompts.js";
 
 // Backend has minimum chunk size of 5MiB except for the last chunk,
 // so we use 5MiB as highWaterMark which makes fs.ReadStream[asyncIterator]
-// output 5MiB chunks before the last one.
-const CHUNK_SIZE = 5 * 1024 * 1024;
+// output 5MiB chunks before the last one. This value can be overridden by
+// setting `CONVEX_IMPORT_CHUNK_SIZE` (bytes) in the environment.
+const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
+const ENV_CHUNK_SIZE = process.env.CONVEX_IMPORT_CHUNK_SIZE
+  ? parseInt(process.env.CONVEX_IMPORT_CHUNK_SIZE, 10)
+  : undefined;
 
 export async function importIntoDeployment(
   ctx: Context,
@@ -420,10 +424,17 @@ export async function uploadForImport(
     adminKey,
   });
 
-  const data = ctx.fs.createReadStream(filePath, {
-    highWaterMark: CHUNK_SIZE,
-  });
   const fileStats = ctx.fs.stat(filePath);
+  // The backend rejects uploads of 10k or more parts. We use 9999 instead of
+  // 10000 so rounding errors can't push us over the limit.
+  const minChunkSize = Math.ceil(fileStats.size / 9999);
+  let chunkSize = ENV_CHUNK_SIZE ?? DEFAULT_CHUNK_SIZE;
+  if (chunkSize < minChunkSize) {
+    chunkSize = minChunkSize;
+  }
+  const data = ctx.fs.createReadStream(filePath, {
+    highWaterMark: chunkSize,
+  });
 
   showSpinner(ctx, `Importing ${filePath} (${formatSize(fileStats.size)})`);
   let importId: string;
