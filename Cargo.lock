@@ -2066,7 +2066,7 @@ dependencies = [
 
 [[package]]
 name = "convex_fivetran_source"
-version = "0.0.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",

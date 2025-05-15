@@ -1,7 +1,7 @@
 [package]
 name = "convex_fivetran_source"
 description = "Fivetran source connector for Convex (convex.dev)"
-version = "0.0.1"
+version = "0.6.0"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 resolver = "2"
