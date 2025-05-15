@@ -211,7 +211,8 @@ async function maybeDownloadExternalPackage(
 
 async function createFreshDir(dir: string) {
   await fs.promises.rm(dir, { recursive: true, force: true });
-  await fs.promises.mkdir(dir, { recursive: true, mode: 0o744 });
+  // fs.promises.mkdir sometimes fails with ENOENT (the real error might be ENOSPC, but we're not sure)
+  fs.mkdirSync(dir, { recursive: true, mode: 0o744 });
 }
 
 async function streamToBuffer(
