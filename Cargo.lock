@@ -952,6 +952,7 @@ dependencies = [
  "bytes",
  "common",
  "convex_macro",
+ "errors",
  "fastrace",
  "futures",
  "http 1.3.1",

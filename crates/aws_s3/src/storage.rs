@@ -39,6 +39,7 @@ use common::{
         ObjectKey,
     },
 };
+use errors::ErrorMetadata;
 use futures::{
     future::{
         self,
@@ -287,6 +288,8 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             upload_id,
         } = token.try_into()?;
         let s3_key = S3Key(self.key_prefix.clone() + &object_key);
+        PartNumber::try_from(part_number + 1)
+            .map_err(|e| ErrorMetadata::bad_request("Invalid part number", e.to_string()))?;
         let mut s3_upload = S3Upload::new_client_driven(
             self.client.clone(),
             self.bucket.clone(),
@@ -295,7 +298,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             s3_key,
             self.runtime.clone(),
             vec![],
-            part_number,
+            part_number.try_into()?,
         )?;
         s3_upload.write(part).await?;
         let object_part = s3_upload
@@ -333,7 +336,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             s3_key,
             self.runtime.clone(),
             uploaded_parts,
-            next_part_number,
+            next_part_number.try_into()?,
         )?);
         s3_upload.complete().await
     }
@@ -538,7 +541,7 @@ impl<RT: Runtime> S3Upload<RT> {
         s3_key: S3Key,
         runtime: RT,
         uploaded_parts: Vec<ObjectPart>,
-        next_part_number: u16,
+        next_part_number: PartNumber,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             client,
@@ -547,7 +550,7 @@ impl<RT: Runtime> S3Upload<RT> {
             key,
             s3_key,
             uploaded_parts,
-            next_part_number: next_part_number.try_into()?,
+            next_part_number,
             needs_abort_on_drop: false,
             runtime,
         })
