@@ -231,11 +231,18 @@ where
             issuer,
             algorithm,
         } => {
-            let application_json = http::HeaderValue::from_static("application/json");
+            const APPLICATION_JSON: http::HeaderValue =
+                http::HeaderValue::from_static("application/json");
+            const JWKS_CONTENT_TYPES: [http::HeaderValue; 2] = [
+                APPLICATION_JSON,
+                // https://www.iana.org/assignments/media-types/application/jwk-set+json
+                // used by WorkOS
+                http::HeaderValue::from_static("application/jwk-set+json"),
+            ];
             let request = http::Request::builder()
                 .uri(jwks_uri)
                 .method(http::Method::GET)
-                .header(http::header::ACCEPT, application_json.clone())
+                .header(http::header::ACCEPT, APPLICATION_JSON)
                 .body(vec![])?;
             let response = http_client(request).await.map_err(|e| {
                 ErrorMetadata::unauthenticated(
@@ -249,7 +256,11 @@ where
                     "Could not fetch JWKS"
                 ));
             }
-            if response.headers().get(http::header::CONTENT_TYPE) != Some(&application_json) {
+            if !response
+                .headers()
+                .get(http::header::CONTENT_TYPE)
+                .is_some_and(|ty| JWKS_CONTENT_TYPES.contains(ty))
+            {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
                     "Invalid Content-Type when fetching JWKS"
