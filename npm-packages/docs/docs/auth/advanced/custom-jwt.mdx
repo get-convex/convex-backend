@@ -42,6 +42,11 @@ export default {
   [RFC 7518](https://datatracker.ietf.org/doc/html/rfc7518#section-3.1) for more
   details.
 
+The `issuer` property must exactly match the `iss` field of the JWT used, and if
+specified the `applicationID` property must exactly match the `aud` field. If
+your JWT doesn't match, use a tool like [jwt.io](https://jwt.io/) to view an JWT
+and confirm these fields match exactly.
+
 ## Client-side integration
 
 See the instructions for

@@ -29,12 +29,31 @@ Add these to your `convex/auth.config.js` file:
 export default {
   providers: [
     {
-      domain: "your.issuer.url.com",
+      domain: "https://your.issuer.url.com",
       applicationID: "your-application-id",
     },
   ],
 };
 ```
+
+The `applicationID` property must exactly match the `aud` field of your JWT and
+the `domain` property must exactly match the `iss` field of the JWT. Use a tool
+like [jwt.io](https://jwt.io/) to view an JWT and confirm these fields match
+exactly.
+
+If multiple providers are provided, the first one fulfilling the above criteria
+will be used.
+
+If you're not able to obtain tokens with an `aud` field, you'll need to instead
+configure a [Custom JWT](/auth/advanced/custom-jwt.mdx). If you're not sure if
+your token is an OIDC ID token, check
+[the spec](https://openid.net/specs/openid-connect-core-1_0-final.html#rfc.section.2)
+for a list of all required fields.
+
+OIDC requires the routes `${domain}/.well-known/jwks.json` and
+`${domain}/.well-known/openid-configuration`. `domain` may include a path like
+`https://your.issuer.url.com/api/auth`. This isn't common for third party auth
+providers but may be useful if you're implementing OIDC on your own server.
 
 ## Client-side integration
 
