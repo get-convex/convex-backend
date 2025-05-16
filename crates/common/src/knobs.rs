@@ -396,19 +396,6 @@ pub static DOCUMENT_RETENTION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("DOCUMENT_RETENTION_DELAY", 60 * 60 * 24 * 90))
 });
 
-/// The time backend should wait before it acquires the lease. This wait allows
-/// for the backend to be added to service discovery, before it renders the
-/// previous backends unusable.
-///
-/// Wait > 5 seconds before acquiring the backend lease, so we are added to
-/// traefik before we make the old backend unusable.
-pub static BACKEND_STARTUP_DELAY: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config(
-        "BACKEND_STARTUP_DELAY_SECS",
-        prod_override(0, 6),
-    ))
-});
-
 /// When to start rejecting new additions to the search memory index.
 pub static TEXT_INDEX_SIZE_HARD_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEX_SIZE_HARD_LIMIT", 100 * (1 << 20))); // 100 MiB
