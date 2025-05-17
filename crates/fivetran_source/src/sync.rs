@@ -171,7 +171,7 @@ async fn initial_sync(
     let snapshot = loop {
         let snapshot = checkpoint.as_ref().map(|c| c.0);
         let cursor = checkpoint.as_ref().map(|c| c.1.clone());
-        let res = source.list_snapshot(snapshot, cursor.clone(), None).await?;
+        let res = source.list_snapshot(snapshot, cursor.clone()).await?;
 
         for value in res.values {
             if let Some(ref mut tables_seen) = tables_seen {
@@ -236,7 +236,7 @@ async fn delta_sync(
     let mut cursor = cursor;
     let mut has_more = true;
     while has_more {
-        let response = source.document_deltas(cursor, None).await?;
+        let response = source.document_deltas(cursor).await?;
 
         for value in response.values {
             if let Some(ref mut tables_seen) = tables_seen {

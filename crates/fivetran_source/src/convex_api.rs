@@ -51,14 +51,12 @@ pub trait Source: Display + Send {
         &self,
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
-        table_name: Option<String>,
     ) -> anyhow::Result<ListSnapshotResponse>;
 
     /// See https://docs.convex.dev/http-api/#get-apidocument_deltas
     async fn document_deltas(
         &self,
         cursor: DocumentDeltasCursor,
-        table_name: Option<String>,
     ) -> anyhow::Result<DocumentDeltasResponse>;
 
     /// Get a list of columns for each table on the Convex backend.
@@ -170,14 +168,13 @@ impl Source for ConvexApi {
         &self,
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
-        table_name: Option<String>,
     ) -> anyhow::Result<ListSnapshotResponse> {
         self.post(
             "list_snapshot",
             ListSnapshotArgs {
                 snapshot,
                 cursor: cursor.map(|c| c.into()),
-                table_name,
+                table_name: None,
                 component: None,
                 format: Some("convex_encoded_json".to_string()),
             },
@@ -188,13 +185,12 @@ impl Source for ConvexApi {
     async fn document_deltas(
         &self,
         cursor: DocumentDeltasCursor,
-        table_name: Option<String>,
     ) -> anyhow::Result<DocumentDeltasResponse> {
         self.post(
             "document_deltas",
             DocumentDeltasArgs {
                 cursor: Some(cursor.into()),
-                table_name,
+                table_name: None,
                 component: None,
                 format: Some("convex_encoded_json".to_string()),
             },

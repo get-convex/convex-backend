@@ -182,12 +182,7 @@ impl Source for FakeSource {
         &self,
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
-        table_name: Option<String>,
     ) -> anyhow::Result<ListSnapshotResponse> {
-        if table_name.is_some() {
-            panic!("Query by table is not supported by the fake");
-        }
-
         if snapshot.is_some() && snapshot != Some(self.changelog.len() as i64) {
             panic!("Unexpected snapshot value");
         }
@@ -222,12 +217,7 @@ impl Source for FakeSource {
     async fn document_deltas(
         &self,
         cursor: DocumentDeltasCursor,
-        table_name: Option<String>,
     ) -> anyhow::Result<DocumentDeltasResponse> {
-        if table_name.is_some() {
-            panic!("Per-table log not supported in fake");
-        }
-
         let results_per_page = 5;
         let values: Vec<DocumentDeltasValue> = self
             .changelog
@@ -550,21 +540,17 @@ impl Source for UnreliableSource {
         &self,
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
-        table_name: Option<String>,
     ) -> anyhow::Result<ListSnapshotResponse> {
         self.maybe_fail()?;
-        self.source
-            .list_snapshot(snapshot, cursor, table_name)
-            .await
+        self.source.list_snapshot(snapshot, cursor).await
     }
 
     async fn document_deltas(
         &self,
         cursor: DocumentDeltasCursor,
-        table_name: Option<String>,
     ) -> anyhow::Result<DocumentDeltasResponse> {
         self.maybe_fail()?;
-        self.source.document_deltas(cursor, table_name).await
+        self.source.document_deltas(cursor).await
     }
 
     async fn get_tables_and_columns(&self) -> anyhow::Result<BTreeMap<TableName, Vec<FieldName>>> {
