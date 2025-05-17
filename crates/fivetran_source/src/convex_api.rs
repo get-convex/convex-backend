@@ -7,10 +7,6 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use convex_fivetran_common::config::Config;
-use convex_fivetran_source::api_types::{
-    DocumentDeltasArgs,
-    ListSnapshotArgs,
-};
 use derive_more::{
     Display,
     From,
@@ -20,6 +16,7 @@ use headers::{
     HeaderName,
     HeaderValue,
 };
+use maplit::btreemap;
 use serde::{
     de::DeserializeOwned,
     Deserialize,
@@ -69,15 +66,27 @@ pub struct ConvexApi {
 }
 
 impl ConvexApi {
-    /// Performs a GET HTTP request to a given endpoint of the Convex API.
-    async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> anyhow::Result<T> {
-        let url = self
+    /// Performs a GET HTTP request to a given endpoint of the Convex API using
+    /// the given query parameters.
+    async fn get<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        parameters: BTreeMap<&str, Option<String>>,
+    ) -> anyhow::Result<T> {
+        let non_null_parameters: BTreeMap<&str, String> = parameters
+            .into_iter()
+            .filter_map(|(key, value)| value.map(|value| (key, value)))
+            .collect();
+
+        let mut url = self
             .config
             .deploy_url
             .join("api/")
             .unwrap()
             .join(endpoint)
             .unwrap();
+
+        url.query_pairs_mut().extend_pairs(non_null_parameters);
 
         match reqwest::Client::new()
             .get(url)
@@ -109,59 +118,13 @@ impl ConvexApi {
             Err(e) => anyhow::bail!(e.to_string()),
         }
     }
-
-    /// Performs a POST HTTP request to a given endpoint of the Convex API using
-    /// the given parameters as a JSON body.
-    async fn post<P: Serialize, T: DeserializeOwned>(
-        &self,
-        endpoint: &str,
-        parameters: P,
-    ) -> anyhow::Result<T> {
-        let url = self
-            .config
-            .deploy_url
-            .join("api/")
-            .unwrap()
-            .join(endpoint)
-            .unwrap();
-
-        match reqwest::Client::new()
-            .post(url)
-            .header(CONVEX_CLIENT_HEADER, &*CONVEX_CLIENT_HEADER_VALUE)
-            .header(
-                reqwest::header::AUTHORIZATION,
-                format!("Convex {}", self.config.deploy_key),
-            )
-            .json(&parameters)
-            .send()
-            .await
-        {
-            Ok(resp) if resp.status().is_success() => Ok(resp
-                .json::<T>()
-                .await
-                .context("Failed to deserialize query result")?),
-            Ok(resp) => {
-                if let Ok(text) = resp.text().await {
-                    anyhow::bail!(
-                        "Call to {endpoint} on {} returned an unsuccessful response: {text}",
-                        self.config.deploy_url
-                    )
-                } else {
-                    anyhow::bail!(
-                        "Call to {endpoint} on {} returned no response",
-                        self.config.deploy_url
-                    )
-                }
-            },
-            Err(e) => anyhow::bail!(e.to_string()),
-        }
-    }
 }
 
 #[async_trait]
 impl Source for ConvexApi {
     async fn test_streaming_export_connection(&self) -> anyhow::Result<()> {
-        self.get("test_streaming_export_connection").await
+        self.get("test_streaming_export_connection", btreemap! {})
+            .await
     }
 
     async fn list_snapshot(
@@ -169,14 +132,12 @@ impl Source for ConvexApi {
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
     ) -> anyhow::Result<ListSnapshotResponse> {
-        self.post(
+        self.get(
             "list_snapshot",
-            ListSnapshotArgs {
-                snapshot,
-                cursor: cursor.map(|c| c.into()),
-                table_name: None,
-                component: None,
-                format: Some("convex_encoded_json".to_string()),
+            btreemap! {
+                "snapshot" => snapshot.map(|n| n.to_string()),
+                "cursor" => cursor.map(|n| n.to_string()),
+                "format" => Some("convex_encoded_json".to_string()),
             },
         )
         .await
@@ -186,13 +147,11 @@ impl Source for ConvexApi {
         &self,
         cursor: DocumentDeltasCursor,
     ) -> anyhow::Result<DocumentDeltasResponse> {
-        self.post(
+        self.get(
             "document_deltas",
-            DocumentDeltasArgs {
-                cursor: Some(cursor.into()),
-                table_name: None,
-                component: None,
-                format: Some("convex_encoded_json".to_string()),
+            btreemap! {
+                "cursor" => Some(cursor.to_string()),
+                "format" => Some("convex_encoded_json".to_string()),
             },
         )
         .await
@@ -200,7 +159,7 @@ impl Source for ConvexApi {
 
     async fn get_tables_and_columns(&self) -> anyhow::Result<BTreeMap<TableName, Vec<FieldName>>> {
         let tables_to_columns: BTreeMap<TableName, Vec<String>> =
-            self.get("get_tables_and_columns").await?;
+            self.get("get_tables_and_columns", btreemap! {}).await?;
 
         tables_to_columns
             .into_iter()
