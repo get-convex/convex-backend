@@ -8,6 +8,9 @@ const warmupPromise = populatePrebuildPackages();
 
 declare const awslambda: any;
 
+const CALLBACK_WAIT_FOR_EMPTY_EVENT_LOOP =
+  process.env.CALLBACK_WAITS_FOR_EMPTY_EVENT_LOOP === "true";
+
 // eslint-disable-next-line  @typescript-eslint/no-unused-vars
 export const handler = awslambda.streamifyResponse(
   async (event: any, responseStream: Writable, context: Context) => {
@@ -27,7 +30,7 @@ export const handler = awslambda.streamifyResponse(
     //
     // The downside is loss of isolation between invocations:
     // timers may fire the next time the runtime is used.
-    context.callbackWaitsForEmptyEventLoop = false;
+    context.callbackWaitsForEmptyEventLoop = CALLBACK_WAIT_FOR_EMPTY_EVENT_LOOP;
 
     setDebugLogging(true);
     await warmupPromise;
