@@ -22,7 +22,11 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::Value as JsonValue;
+
+use crate::api_types::{
+    DocumentDeltasResponse,
+    ListSnapshotResponse,
+};
 
 #[allow(clippy::declare_interior_mutable_const)]
 const CONVEX_CLIENT_HEADER: HeaderName = HeaderName::from_static("convex-client");
@@ -206,53 +210,6 @@ impl From<&str> for TableName {
 
 #[derive(Display)]
 pub struct FieldName(pub String);
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListSnapshotResponse {
-    /// Documents, in (id, ts) order.
-    pub values: Vec<SnapshotValue>,
-    /// Timestamp snapshot. Pass this in as `snapshot` to subsequent API calls.
-    pub snapshot: i64,
-    /// Exclusive timestamp for passing in as `cursor` to subsequent API calls.
-    pub cursor: Option<String>,
-    /// Continue calling the API while has_more is true.
-    /// When this becomes false, the `ListSnapshotResponse.snapshot` can be used
-    /// as `DocumentDeltasArgs.cursor` to get deltas after the snapshot.
-    pub has_more: bool,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DocumentDeltasResponse {
-    /// Document deltas, in timestamp order.
-    pub values: Vec<SnapshotValue>,
-    /// Exclusive timestamp for passing in as `cursor` to subsequent API calls.
-    pub cursor: i64,
-    /// Continue calling the API while has_more is true.
-    pub has_more: bool,
-}
-
-/// A value returned by the list snapshot and document deltas API.
-/// This corresponds to a Convex document with some special fields added.
-#[derive(Deserialize, Debug, Clone)]
-pub struct SnapshotValue {
-    /// The name of the table this document is from.
-    #[serde(rename = "_table")]
-    pub table: String,
-
-    /// In the document deltas API, this indicates whether the document was
-    /// deleted. Will always be `false` in the list snapshot API.
-    #[serde(rename = "_deleted", default)]
-    pub deleted: bool,
-
-    /// The fields of the document. Will be empty if `deleted == true`.
-    /// This can contain some special system fields that are not part of the
-    /// original document. All fields prefixed by `_` and that are not `_id` or
-    /// `_creationTime` must be ignored.
-    #[serde(flatten)]
-    pub fields: BTreeMap<String, JsonValue>,
-}
 
 #[cfg(test)]
 mod tests {

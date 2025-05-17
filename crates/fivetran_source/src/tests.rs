@@ -29,13 +29,16 @@ use uuid::Uuid;
 use value_type::Inner as FivetranValue;
 
 use crate::{
+    api_types::{
+        DocumentDeltasResponse,
+        DocumentDeltasValue,
+        ListSnapshotResponse,
+        ListSnapshotValue,
+    },
     convex_api::{
         DocumentDeltasCursor,
-        DocumentDeltasResponse,
         FieldName,
         ListSnapshotCursor,
-        ListSnapshotResponse,
-        SnapshotValue,
         Source,
         TableName,
     },
@@ -52,7 +55,7 @@ type JsonDocument = BTreeMap<String, JsonValue>;
 #[derive(Debug, Clone)]
 struct FakeSource {
     tables: BTreeMap<String, Vec<JsonDocument>>,
-    changelog: Vec<SnapshotValue>,
+    changelog: Vec<DocumentDeltasValue>,
 }
 
 impl Default for FakeSource {
@@ -97,9 +100,11 @@ impl FakeSource {
             .or_default()
             .push(value.clone().into_iter().collect());
 
-        self.changelog.push(SnapshotValue {
+        self.changelog.push(DocumentDeltasValue {
+            component: "".to_string(), // TODO(nicolas) Add component support
             table: table_name.to_string(),
             deleted: false,
+            ts: 0, // unused by the Fivetran connector
             fields: value,
         });
     }
@@ -115,9 +120,11 @@ impl FakeSource {
             element.insert(key.clone(), value.clone());
         }
 
-        self.changelog.push(SnapshotValue {
+        self.changelog.push(DocumentDeltasValue {
+            component: "".to_string(), // TODO(nicolas) Add component support
             table: table_name.to_string(),
             deleted: false,
+            ts: 0, // unused by the Fivetran connector
             fields: element.clone(),
         });
     }
@@ -133,9 +140,11 @@ impl FakeSource {
             .unwrap()
             .to_string();
         table.remove(index);
-        self.changelog.push(SnapshotValue {
+        self.changelog.push(DocumentDeltasValue {
+            component: "".to_string(), // TODO(nicolas) Add component support
             table: table_name.to_string(),
             deleted: true,
+            ts: 0, // unused by the Fivetran connector
             fields: btreemap! { "_id".to_string() => json!(id) },
         })
     }
@@ -185,15 +194,16 @@ impl Source for FakeSource {
 
         let cursor: usize = cursor.map(|c| c.0.parse().unwrap()).unwrap_or(0);
         let values_per_call = 10;
-        let values: Vec<SnapshotValue> = self
+        let values: Vec<ListSnapshotValue> = self
             .tables
             .iter()
             .flat_map(|(table, docs)| {
                 docs.iter()
-                    .map(|fields| SnapshotValue {
+                    .map(|fields| ListSnapshotValue {
+                        component: "".to_string(), // TODO(nicolas) Add component support
                         table: table.to_string(),
-                        deleted: false,
                         fields: fields.clone(),
+                        ts: 0, // unused by the Fivetran connector
                     })
                     .collect::<Vec<_>>()
             })
@@ -219,7 +229,7 @@ impl Source for FakeSource {
         }
 
         let results_per_page = 5;
-        let values: Vec<SnapshotValue> = self
+        let values: Vec<DocumentDeltasValue> = self
             .changelog
             .iter()
             .skip(i64::from(cursor) as usize)

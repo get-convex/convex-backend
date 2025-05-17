@@ -1,6 +1,7 @@
 #![feature(coroutines)]
 #![feature(iterator_try_collect)]
 
+mod api_types;
 mod connector;
 mod convert;
 mod convex_api;
