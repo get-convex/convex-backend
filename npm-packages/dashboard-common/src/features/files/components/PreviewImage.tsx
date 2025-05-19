@@ -16,6 +16,7 @@ export function PreviewImage({ url }: { url: string }) {
         // Start with fill set to true, then set the width and height to the natural width and height of the image.
         fill={!width || !height}
         objectFit="contain"
+        unoptimized
         width={width}
         height={height}
         onLoadingComplete={({ naturalWidth, naturalHeight }) => {
