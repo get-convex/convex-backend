@@ -1,6 +1,6 @@
 const CONVEX_URL = "http://localhost:8000";
 
-// These JSDoc type annotations help VSCode find types.
+// These JSDoc type annotations help VS Code find types.
 /** @type {import("convex/browser")["ConvexClient"]} */
 const ConvexClient = convex.ConvexClient;
 const client = new ConvexClient(CONVEX_URL);
