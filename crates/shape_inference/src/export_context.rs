@@ -1067,7 +1067,7 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
         exported_value: JsonValue,
     ) -> anyhow::Result<ConvexValue> {
         let Some(exported_object) = exported_value.as_object() else {
-            anyhow::bail!("expected object received {exported_value:?}");
+            anyhow::bail!("expected object received {:.1000?}", exported_value);
         };
         let export_context = if let Some(schema) = schema
             && let Some(JsonValue::String(id_str)) = exported_object.get("_id")
