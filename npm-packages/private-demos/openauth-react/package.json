@@ -1,0 +1,27 @@
+{
+  "name": "openauth-react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "tsc --noEmit --project tsconfig.app.json",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openauthjs/openauth": "0.4.3",
+    "convex": "workspace:*",
+    "react": "^19",
+    "react-dom": "^19",
+    "valibot": "~1.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "globals": "~15.15.0",
+    "typescript": "~5.6.2",
+    "vite": "^5.4.12"
+  }
+}

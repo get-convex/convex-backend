@@ -633,6 +633,10 @@
       "projectFolder": "private-demos/tutorial"
     },
     {
+      "packageName": "openauth-react",
+      "projectFolder": "private-demos/openauth-react"
+    },
+    {
       "packageName": "local-store",
       "projectFolder": "local-store"
     }

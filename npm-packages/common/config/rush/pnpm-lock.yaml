@@ -3836,6 +3836,43 @@ importers:
         specifier: ^5.4.12
         version: 5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0)
 
+  ../../private-demos/openauth-react:
+    dependencies:
+      '@openauthjs/openauth':
+        specifier: 0.4.3
+        version: 0.4.3(arctic@2.3.4)(hono@4.7.2)
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+      react:
+        specifier: ^19
+        version: 19.0.0
+      react-dom:
+        specifier: ^19
+        version: 19.0.0(react@19.0.0)
+      valibot:
+        specifier: ~1.1.0
+        version: 1.1.0(typescript@5.6.3)
+    devDependencies:
+      '@types/react':
+        specifier: ^18
+        version: 18.3.18
+      '@types/react-dom':
+        specifier: ^18
+        version: 18.3.5(@types/react@18.3.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.2.1
+        version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
+      globals:
+        specifier: ~15.15.0
+        version: 15.15.0
+      typescript:
+        specifier: ~5.6.2
+        version: 5.6.3
+      vite:
+        specifier: ^5.4.12
+        version: 5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0)
+
   ../../private-demos/pagination-adversarial:
     dependencies:
       convex:
@@ -3944,7 +3981,7 @@ importers:
         version: 1.95.1(@tanstack/react-query@5.62.16(react@18.3.1))(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/start':
         specifier: ^1.92.11
-        version: 1.95.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(webpack@5.98.0)(yaml@2.7.0)
+        version: 1.95.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(webpack@5.98.0)(yaml@2.7.0)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -3956,7 +3993,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       vinxi:
         specifier: 0.5.3
-        version: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
+        version: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
     devDependencies:
       '@types/react':
         specifier: ^18.0.0
@@ -3987,7 +4024,7 @@ importers:
     dependencies:
       '@clerk/tanstack-start':
         specifier: 0.11.5
-        version: 0.11.5(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0))(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+        version: 0.11.5(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(aws4fetch@1.0.20)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0))(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
       '@convex-dev/react-query':
         specifier: workspace:*
         version: link:../../@convex-dev/react-query
@@ -4005,7 +4042,7 @@ importers:
         version: 1.95.4(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/start':
         specifier: ^1.92.11
-        version: 1.95.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)
+        version: 1.95.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -4023,7 +4060,7 @@ importers:
         version: 2.6.0
       vinxi:
         specifier: 0.5.3
-        version: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+        version: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
     devDependencies:
       '@types/node':
         specifier: ^22.5.4
@@ -8361,6 +8398,12 @@ packages:
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
 
+  '@openauthjs/openauth@0.4.3':
+    resolution: {integrity: sha512-RlnjqvHzqcbFVymEwhlUEuac4utA5h4nhSK/i2szZuQmxTIqbGUxZ+nM+avM+VV4Ing+/ZaNLKILoXS3yrkOOw==}
+    peerDependencies:
+      arctic: ^2.2.2
+      hono: ^4.0.0
+
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
@@ -8374,8 +8417,14 @@ packages:
   '@oslojs/crypto@1.0.1':
     resolution: {integrity: sha512-7n08G8nWjAr/Yu3vu9zzrd0L9XnrJfpMioQcvCMxBIiF5orECHe5/3J0jmXRVvgfqMm/+4oxlQ+Sq39COYLcNQ==}
 
+  '@oslojs/encoding@0.4.1':
+    resolution: {integrity: sha512-hkjo6MuIK/kQR5CrGNdAPZhS01ZCXuWDRJ187zh6qqF2+yMHZpD9fAYpX8q2bOO6Ryhl3XpCT6kUX76N8hhm4Q==}
+
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
+
+  '@oslojs/jwt@0.2.0':
+    resolution: {integrity: sha512-bLE7BtHrURedCn4Mco3ma9L4Y1GR2SMBuIvjWr7rmQ4/W/4Jy70TIAgZ+0nIlk0xHz1vNP8x8DCns45Sb2XRbg==}
 
   '@panva/hkdf@1.2.1':
     resolution: {integrity: sha512-6oclG6Y3PiDFcoyk8srjLfVKyMfVCKJ27JwNPViuXziFpmdz+MZnZN/aKY0JGXgYuO/VghU0jcOAZgWXZ1Dmrw==}
@@ -9859,6 +9908,9 @@ packages:
 
   '@stablelib/base64@1.0.1':
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
+
+  '@standard-schema/spec@1.0.0-beta.3':
+    resolution: {integrity: sha512-0ifF3BjA1E8SY9C+nUew8RefNOIq0cDlYALPty4rhUm8Rrl6tCM8hBT4bhGhx7I7iXD0uAgt50lgo8dD73ACMw==}
 
   '@storybook/addon-actions@7.6.20':
     resolution: {integrity: sha512-c/GkEQ2U9BC/Ew/IMdh+zvsh4N6y6n7Zsn2GIhJgcu9YEAa5aF2a9/pNgEGBMOABH959XE8DAOMERw/5qiLR8g==}
@@ -11917,6 +11969,9 @@ packages:
   archy@1.0.0:
     resolution: {integrity: sha512-Xg+9RwCg/0p32teKdGMPTPnVXKD0w3DfHnFTficozsAgsvq2XenPJq/MYpzzQ/v8zrOyJn6Ds39VA4JIDwFfqw==}
 
+  arctic@2.3.4:
+    resolution: {integrity: sha512-+p30BOWsctZp+CVYCt7oAean/hWGW42sH5LAcRQX56ttEkFJWbzXBhmSpibbzwSJkRrotmsA+oAoJoVsU0f5xA==}
+
   are-we-there-yet@2.0.0:
     resolution: {integrity: sha512-Ci/qENmwHnsYo9xKIcUJN5LeDKdJ6R1Z1j9V/J5wyq8nh/mYPEpIKJbBZXtZjG04HiK7zV/p6Vs9952MrMeUIw==}
     engines: {node: '>=10'}
@@ -12113,6 +12168,9 @@ packages:
 
   aws4@1.13.2:
     resolution: {integrity: sha512-lHe62zvbTB5eEABUVi/AwVh0ZKY9rMMDhmm+eeyuuUQbQ3+J+fONVQOZyj+DdrvD4BY33uYniyRJ4UJIaSKAfw==}
+
+  aws4fetch@1.0.20:
+    resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
 
   axe-core@4.10.2:
     resolution: {integrity: sha512-RE3mdQ7P3FRSe7eqCWoeQ/Z9QXrtniSjp1wUjt5nRC3WIpz5rSCve6o3fsZ2aCpJtrZjSZgjwXAoTO5k4tEI0w==}
@@ -16437,6 +16495,9 @@ packages:
 
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
+  jose@5.9.6:
+    resolution: {integrity: sha512-AMlnetc9+CV9asI19zHmrgS/WYsWUwCn2R7RzlbJWD7F9eWYUTGyBmU9o6PxngtLGOiDGPRu+Uc4fhKzbpteZQ==}
 
   js-base64@3.7.7:
     resolution: {integrity: sha512-7rCnleh0z2CkXhH67J8K1Ytz0b2Y+yxTPL+/KOJoa20hfnVQ/3/T6W/KflYI4bRHRagNeXeU2bkNGI3v1oS/lw==}
@@ -21543,6 +21604,14 @@ packages:
     resolution: {integrity: sha512-kiGUalWN+rgBJ/1OHZsBtU4rXZOfj/7rKQxULKlIzwzQSvMJUUNgPwJEEh7gU6xEVxC0ahoOBvN2YI8GH6FNgA==}
     engines: {node: '>=10.12.0'}
 
+  valibot@1.1.0:
+    resolution: {integrity: sha512-Nk8lX30Qhu+9txPYTwM0cFlWLdPFsFr6LblzqIySfbZph9+BFsAHsNvHOymEviUepeIW6KFHzpX8TKhbptBXXw==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
@@ -21649,46 +21718,6 @@ packages:
       sugarss:
         optional: true
       terser:
-        optional: true
-
-  vite@6.0.7:
-    resolution: {integrity: sha512-RDt8r/7qx9940f8FcOIAH9PTViRrghKaK2K1jY3RaAURrEUbm9Du1mJ72G+jlhtG3WwodnfzY8ORQZbBavZEAQ==}
-    engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
-    hasBin: true
-    peerDependencies:
-      '@types/node': ^18.0.0 || ^20.0.0 || >=22.0.0
-      jiti: '>=1.21.0'
-      less: '*'
-      lightningcss: ^1.21.0
-      sass: '*'
-      sass-embedded: '*'
-      stylus: '*'
-      sugarss: '*'
-      terser: ^5.16.0
-      tsx: ^4.8.1
-      yaml: ^2.4.2
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-      jiti:
-        optional: true
-      less:
-        optional: true
-      lightningcss:
-        optional: true
-      sass:
-        optional: true
-      sass-embedded:
-        optional: true
-      stylus:
-        optional: true
-      sugarss:
-        optional: true
-      terser:
-        optional: true
-      tsx:
-        optional: true
-      yaml:
         optional: true
 
   vite@6.1.4:
@@ -25020,18 +25049,18 @@ snapshots:
       react-dom: 19.0.0(react@19.0.0)
     optional: true
 
-  '@clerk/tanstack-start@0.11.5(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0))(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
+  '@clerk/tanstack-start@0.11.5(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(aws4fetch@1.0.20)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0))(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
     dependencies:
       '@clerk/backend': 1.30.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/clerk-react': 5.30.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/shared': 3.7.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/types': 4.55.1
       '@tanstack/react-router': 1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/react-start': 1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)
+      '@tanstack/react-start': 1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(aws4fetch@1.0.20)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
-      vinxi: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -28035,6 +28064,14 @@ snapshots:
 
   '@open-draft/until@2.1.0': {}
 
+  '@openauthjs/openauth@0.4.3(arctic@2.3.4)(hono@4.7.2)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0-beta.3
+      arctic: 2.3.4
+      aws4fetch: 1.0.20
+      hono: 4.7.2
+      jose: 5.9.6
+
   '@opentelemetry/api@1.9.0': {}
 
   '@oslojs/asn1@1.0.0':
@@ -28048,7 +28085,13 @@ snapshots:
       '@oslojs/asn1': 1.0.0
       '@oslojs/binary': 1.0.0
 
+  '@oslojs/encoding@0.4.1': {}
+
   '@oslojs/encoding@1.1.0': {}
+
+  '@oslojs/jwt@0.2.0':
+    dependencies:
+      '@oslojs/encoding': 0.4.1
 
   '@panva/hkdf@1.2.1': {}
 
@@ -29594,6 +29637,8 @@ snapshots:
 
   '@stablelib/base64@1.0.1': {}
 
+  '@standard-schema/spec@1.0.0-beta.3': {}
+
   '@storybook/addon-actions@7.6.20':
     dependencies:
       '@storybook/core-events': 7.6.20
@@ -30791,7 +30836,7 @@ snapshots:
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
 
-  '@tanstack/react-start-client@1.117.0(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
+  '@tanstack/react-start-client@1.117.0(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
     dependencies:
       '@tanstack/react-router': 1.117.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/router-core': 1.117.0
@@ -30802,7 +30847,7 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
-      vinxi: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -30845,7 +30890,7 @@ snapshots:
       - xml2js
       - yaml
 
-  '@tanstack/react-start-config@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)':
+  '@tanstack/react-start-config@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(aws4fetch@1.0.20)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)':
     dependencies:
       '@tanstack/react-start-plugin': 1.115.0(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       '@tanstack/router-core': 1.117.0
@@ -30855,11 +30900,11 @@ snapshots:
       '@tanstack/start-server-functions-handler': 1.117.0
       '@vitejs/plugin-react': 4.3.4(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))
       import-meta-resolve: 4.1.0
-      nitropack: 2.10.4(encoding@0.1.13)(typescript@5.7.2)
+      nitropack: 2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.7.2)
       ofetch: 1.4.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      vinxi: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
       vite: 6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       zod: 3.24.3
     transitivePeerDependencies:
@@ -30936,11 +30981,11 @@ snapshots:
       - tsx
       - yaml
 
-  '@tanstack/react-start-router-manifest@1.117.0(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
+  '@tanstack/react-start-router-manifest@1.117.0(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
     dependencies:
       '@tanstack/router-core': 1.117.0
       tiny-invariant: 1.3.3
-      vinxi: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -30998,13 +31043,13 @@ snapshots:
       tiny-warning: 1.0.3
       unctx: 2.4.1
 
-  '@tanstack/react-start@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)':
+  '@tanstack/react-start@1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(aws4fetch@1.0.20)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)':
     dependencies:
-      '@tanstack/react-start-client': 1.117.0(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
-      '@tanstack/react-start-config': 1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)
-      '@tanstack/react-start-router-manifest': 1.117.0(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      '@tanstack/react-start-client': 1.117.0(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      '@tanstack/react-start-config': 1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.10.5)(aws4fetch@1.0.20)(babel-plugin-macros@3.1.0)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)
+      '@tanstack/react-start-router-manifest': 1.117.0(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
       '@tanstack/react-start-server': 1.117.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/start-api-routes': 1.117.0(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      '@tanstack/start-api-routes': 1.117.0(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
       '@tanstack/start-server-functions-client': 1.117.0(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       '@tanstack/start-server-functions-handler': 1.117.0
       '@tanstack/start-server-functions-server': 1.115.0(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
@@ -31226,11 +31271,11 @@ snapshots:
       - tsx
       - yaml
 
-  '@tanstack/start-api-routes@1.117.0(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
+  '@tanstack/start-api-routes@1.117.0(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)':
     dependencies:
       '@tanstack/router-core': 1.117.0
       '@tanstack/start-server-core': 1.117.0
-      vinxi: 0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -31384,7 +31429,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@tanstack/start@1.95.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(webpack@5.98.0)(yaml@2.7.0)':
+  '@tanstack/start@1.95.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(webpack@5.98.0)(yaml@2.7.0)':
     dependencies:
       '@tanstack/react-cross-context': 1.87.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router': 1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -31393,8 +31438,8 @@ snapshots:
       '@tanstack/start-vite-plugin': 1.91.1
       '@vinxi/react': 0.2.5
       '@vinxi/react-server-dom': 0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))
-      '@vinxi/server-components': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
-      '@vinxi/server-functions': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
+      '@vinxi/server-components': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
+      '@vinxi/server-functions': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
       '@vitejs/plugin-react': 4.3.4(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))
       import-meta-resolve: 4.1.0
       isbot: 5.1.20
@@ -31402,7 +31447,7 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tiny-invariant: 1.3.3
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
       zod: 3.24.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -31449,7 +31494,7 @@ snapshots:
       - xml2js
       - yaml
 
-  '@tanstack/start@1.95.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)':
+  '@tanstack/start@1.95.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))(yaml@2.7.0)':
     dependencies:
       '@tanstack/react-cross-context': 1.87.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router': 1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -31458,8 +31503,8 @@ snapshots:
       '@tanstack/start-vite-plugin': 1.91.1
       '@vinxi/react': 0.2.5
       '@vinxi/react-server-dom': 0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))
-      '@vinxi/server-components': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
-      '@vinxi/server-functions': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
+      '@vinxi/server-components': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
+      '@vinxi/server-functions': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
       '@vitejs/plugin-react': 4.3.4(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))
       import-meta-resolve: 4.1.0
       isbot: 5.1.20
@@ -31467,7 +31512,7 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tiny-invariant: 1.3.3
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
       zod: 3.24.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -33052,7 +33097,7 @@ snapshots:
       untun: 0.1.3
       uqr: 0.1.2
 
-  '@vinxi/plugin-directives@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))':
+  '@vinxi/plugin-directives@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))':
     dependencies:
       '@babel/parser': 7.26.3
       acorn: 8.14.0
@@ -33063,9 +33108,9 @@ snapshots:
       magicast: 0.2.11
       recast: 0.23.9
       tslib: 2.8.1
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
 
-  '@vinxi/plugin-directives@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))':
+  '@vinxi/plugin-directives@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))':
     dependencies:
       '@babel/parser': 7.26.3
       acorn: 8.14.0
@@ -33076,7 +33121,7 @@ snapshots:
       magicast: 0.2.11
       recast: 0.23.9
       tslib: 2.8.1
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
 
   '@vinxi/react-server-dom@0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0))':
     dependencies:
@@ -33087,49 +33132,49 @@ snapshots:
 
   '@vinxi/react@0.2.5': {}
 
-  '@vinxi/server-components@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))':
+  '@vinxi/server-components@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))':
     dependencies:
-      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
+      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
       acorn: 8.14.0
       acorn-loose: 8.4.0
       acorn-typescript: 1.4.13(acorn@8.14.0)
       astring: 1.9.0
       magicast: 0.2.11
       recast: 0.23.9
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
 
-  '@vinxi/server-components@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))':
+  '@vinxi/server-components@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))':
     dependencies:
-      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
+      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
       acorn: 8.14.0
       acorn-loose: 8.4.0
       acorn-typescript: 1.4.13(acorn@8.14.0)
       astring: 1.9.0
       magicast: 0.2.11
       recast: 0.23.9
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
 
-  '@vinxi/server-functions@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))':
+  '@vinxi/server-functions@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))':
     dependencies:
-      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
+      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0))
       acorn: 8.14.0
       acorn-loose: 8.4.0
       acorn-typescript: 1.4.13(acorn@8.14.0)
       astring: 1.9.0
       magicast: 0.2.11
       recast: 0.23.9
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0)
 
-  '@vinxi/server-functions@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))':
+  '@vinxi/server-functions@0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))':
     dependencies:
-      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
+      '@vinxi/plugin-directives': 0.5.0(vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0))
       acorn: 8.14.0
       acorn-loose: 8.4.0
       acorn-typescript: 1.4.13(acorn@8.14.0)
       astring: 1.9.0
       magicast: 0.2.11
       recast: 0.23.9
-      vinxi: 0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
+      vinxi: 0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0)
 
   '@vitejs/plugin-react@4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))':
     dependencies:
@@ -33659,6 +33704,12 @@ snapshots:
 
   archy@1.0.0: {}
 
+  arctic@2.3.4:
+    dependencies:
+      '@oslojs/crypto': 1.0.1
+      '@oslojs/encoding': 1.1.0
+      '@oslojs/jwt': 0.2.0
+
   are-we-there-yet@2.0.0:
     dependencies:
       delegates: 1.0.0
@@ -33888,6 +33939,8 @@ snapshots:
   aws-sign2@0.7.0: {}
 
   aws4@1.13.2: {}
+
+  aws4fetch@1.0.20: {}
 
   axe-core@4.10.2: {}
 
@@ -40090,6 +40143,8 @@ snapshots:
 
   jose@5.10.0: {}
 
+  jose@5.9.6: {}
+
   js-base64@3.7.7: {}
 
   js-cookie@2.2.1: {}
@@ -41679,7 +41734,7 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  nitropack@2.10.4(encoding@0.1.13)(typescript@5.0.4):
+  nitropack@2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.0.4):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.3.4
       '@netlify/functions': 2.8.2
@@ -41746,7 +41801,7 @@ snapshots:
       unctx: 2.4.1
       unenv: 1.10.0
       unimport: 3.14.5(rollup@4.30.1)
-      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
+      unstorage: 1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2)
       untyped: 1.5.2
       unwasm: 0.3.9
     transitivePeerDependencies:
@@ -41776,7 +41831,7 @@ snapshots:
       - typescript
       - uploadthing
 
-  nitropack@2.10.4(encoding@0.1.13)(typescript@5.7.2):
+  nitropack@2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.7.2):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.3.4
       '@netlify/functions': 2.8.2
@@ -41843,7 +41898,7 @@ snapshots:
       unctx: 2.4.1
       unenv: 1.10.0
       unimport: 3.14.5(rollup@4.30.1)
-      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
+      unstorage: 1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2)
       untyped: 1.5.2
       unwasm: 0.3.9
     transitivePeerDependencies:
@@ -46401,7 +46456,7 @@ snapshots:
       acorn: 8.14.0
       webpack-virtual-modules: 0.6.2
 
-  unstorage@1.14.4(db0@0.2.1)(ioredis@5.4.2):
+  unstorage@1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2):
     dependencies:
       anymatch: 3.1.3
       chokidar: 3.6.0
@@ -46412,6 +46467,7 @@ snapshots:
       ofetch: 1.4.1
       ufo: 1.5.4
     optionalDependencies:
+      aws4fetch: 1.0.20
       db0: 0.2.1
       ioredis: 5.4.2
 
@@ -46578,6 +46634,10 @@ snapshots:
       '@types/istanbul-lib-coverage': 2.0.6
       convert-source-map: 2.0.0
 
+  valibot@1.1.0(typescript@5.6.3):
+    optionalDependencies:
+      typescript: 5.6.3
+
   validate-npm-package-license@3.0.4:
     dependencies:
       spdx-correct: 3.2.0
@@ -46725,7 +46785,7 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0):
+  vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0):
     dependencies:
       '@babel/core': 7.26.0
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.0)
@@ -46747,7 +46807,7 @@ snapshots:
       hookable: 5.5.3
       http-proxy: 1.18.1
       micromatch: 4.0.8
-      nitropack: 2.10.4(encoding@0.1.13)(typescript@5.0.4)
+      nitropack: 2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.0.4)
       node-fetch-native: 1.6.4
       path-to-regexp: 6.3.0
       pathe: 1.1.2
@@ -46758,8 +46818,8 @@ snapshots:
       ufo: 1.5.4
       unctx: 2.4.1
       unenv: 1.10.0
-      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
-      vite: 6.0.7(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
+      unstorage: 1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2)
+      vite: 6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       zod: 3.24.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -46803,7 +46863,7 @@ snapshots:
       - xml2js
       - yaml
 
-  vinxi@0.5.1(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0):
+  vinxi@0.5.1(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0):
     dependencies:
       '@babel/core': 7.26.0
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.0)
@@ -46825,7 +46885,7 @@ snapshots:
       hookable: 5.5.3
       http-proxy: 1.18.1
       micromatch: 4.0.8
-      nitropack: 2.10.4(encoding@0.1.13)(typescript@5.7.2)
+      nitropack: 2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.7.2)
       node-fetch-native: 1.6.4
       path-to-regexp: 6.3.0
       pathe: 1.1.2
@@ -46836,8 +46896,8 @@ snapshots:
       ufo: 1.5.4
       unctx: 2.4.1
       unenv: 1.10.0
-      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
-      vite: 6.0.7(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
+      unstorage: 1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2)
+      vite: 6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       zod: 3.24.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -46881,7 +46941,7 @@ snapshots:
       - xml2js
       - yaml
 
-  vinxi@0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0):
+  vinxi@0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.0.4)(yaml@2.7.0):
     dependencies:
       '@babel/core': 7.26.0
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.0)
@@ -46903,7 +46963,7 @@ snapshots:
       hookable: 5.5.3
       http-proxy: 1.18.1
       micromatch: 4.0.8
-      nitropack: 2.10.4(encoding@0.1.13)(typescript@5.0.4)
+      nitropack: 2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.0.4)
       node-fetch-native: 1.6.4
       path-to-regexp: 6.3.0
       pathe: 1.1.2
@@ -46914,8 +46974,8 @@ snapshots:
       ufo: 1.5.4
       unctx: 2.4.1
       unenv: 1.10.0
-      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
-      vite: 6.0.7(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
+      unstorage: 1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2)
+      vite: 6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       zod: 3.24.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -46959,7 +47019,7 @@ snapshots:
       - xml2js
       - yaml
 
-  vinxi@0.5.3(@types/node@22.10.5)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0):
+  vinxi@0.5.3(@types/node@22.10.5)(aws4fetch@1.0.20)(db0@0.2.1)(encoding@0.1.13)(ioredis@5.4.2)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(typescript@5.7.2)(yaml@2.7.0):
     dependencies:
       '@babel/core': 7.26.0
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.0)
@@ -46981,7 +47041,7 @@ snapshots:
       hookable: 5.5.3
       http-proxy: 1.18.1
       micromatch: 4.0.8
-      nitropack: 2.10.4(encoding@0.1.13)(typescript@5.7.2)
+      nitropack: 2.10.4(aws4fetch@1.0.20)(encoding@0.1.13)(typescript@5.7.2)
       node-fetch-native: 1.6.4
       path-to-regexp: 6.3.0
       pathe: 1.1.2
@@ -46992,8 +47052,8 @@ snapshots:
       ufo: 1.5.4
       unctx: 2.4.1
       unenv: 1.10.0
-      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
-      vite: 6.0.7(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
+      unstorage: 1.14.4(aws4fetch@1.0.20)(db0@0.2.1)(ioredis@5.4.2)
+      vite: 6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       zod: 3.24.1
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -47087,20 +47147,6 @@ snapshots:
       fsevents: 2.3.3
       less: 4.2.1
       terser: 5.37.0
-
-  vite@6.0.7(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0):
-    dependencies:
-      esbuild: 0.24.2
-      postcss: 8.4.49
-      rollup: 4.30.1
-    optionalDependencies:
-      '@types/node': 22.10.5
-      fsevents: 2.3.3
-      jiti: 2.4.2
-      less: 4.2.1
-      terser: 5.37.0
-      tsx: 4.19.2
-      yaml: 2.7.0
 
   vite@6.1.4(@types/node@22.10.5)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0):
     dependencies:
