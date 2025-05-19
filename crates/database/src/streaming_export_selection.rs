@@ -91,6 +91,9 @@ use common::{
     },
     pii::PII,
 };
+use convex_fivetran_source::api_types::selection as serialized;
+#[cfg(test)]
+use proptest::prelude::*;
 #[cfg(test)]
 use proptest_derive::Arbitrary;
 use value::{
@@ -104,6 +107,11 @@ use value::{
 pub struct StreamingExportSelection {
     /// For each listed component, defines what to do with it in the
     /// streaming export.
+    #[cfg_attr(
+        test,
+        proptest(strategy = "prop::collection::btree_map(any::<ComponentPath>(), \
+                             any::<StreamingExportComponentSelection>(), 0..3)")
+    )]
     pub components: BTreeMap<ComponentPath, StreamingExportComponentSelection>,
 
     /// Whether to include components that are not listed in `components`.
@@ -187,6 +195,11 @@ impl StreamingExportSelection {
 pub enum StreamingExportComponentSelection {
     Excluded,
     Included {
+        #[cfg_attr(
+            test,
+            proptest(strategy = "prop::collection::btree_map(any::<TableName>(), \
+                                 any::<StreamingExportTableSelection>(), 0..3)")
+        )]
         tables: BTreeMap<TableName, StreamingExportTableSelection>,
         other_tables: StreamingExportInclusionDefault,
     },
@@ -235,6 +248,11 @@ pub enum StreamingExportTableSelection {
 /// columns.
 #[cfg_attr(test, derive(Clone, Eq, PartialEq, Debug, Arbitrary))]
 pub struct StreamingExportColumnSelection {
+    #[cfg_attr(
+        test,
+        proptest(strategy = "prop::collection::btree_map(any::<FieldName>(), \
+                             any::<StreamingExportColumnInclusion>(), 0..3)")
+    )]
     columns: BTreeMap<FieldName, StreamingExportColumnInclusion>,
     other_columns: StreamingExportInclusionDefault,
 }
@@ -443,6 +461,87 @@ mod tests_is_table_included {
     }
 }
 
+impl TryFrom<serialized::Selection> for StreamingExportSelection {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        serialized::Selection {
+            components,
+            other_components,
+        }: serialized::Selection,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            components: components
+                .into_iter()
+                .map(|(k, v)| -> anyhow::Result<_> { Ok((k.parse()?, v.try_into()?)) })
+                .try_collect()?,
+            other_components: other_components.into(),
+        })
+    }
+}
+
+impl From<serialized::ColumnInclusion> for StreamingExportColumnInclusion {
+    fn from(value: serialized::ColumnInclusion) -> Self {
+        match value {
+            serialized::ColumnInclusion::Excluded => Self::Excluded,
+            serialized::ColumnInclusion::Included => Self::Included,
+        }
+    }
+}
+
+impl TryFrom<serialized::ComponentSelection> for StreamingExportComponentSelection {
+    type Error = anyhow::Error;
+
+    fn try_from(value: serialized::ComponentSelection) -> Result<Self, Self::Error> {
+        Ok(match value {
+            serialized::ComponentSelection::Excluded => Self::Excluded,
+            serialized::ComponentSelection::Included {
+                tables,
+                other_tables,
+            } => Self::Included {
+                tables: tables
+                    .into_iter()
+                    .map(|(k, v)| -> anyhow::Result<_> { Ok((k.parse()?, v.try_into()?)) })
+                    .try_collect()?,
+                other_tables: other_tables.into(),
+            },
+        })
+    }
+}
+
+impl TryFrom<serialized::TableSelection> for StreamingExportTableSelection {
+    type Error = anyhow::Error;
+
+    fn try_from(value: serialized::TableSelection) -> Result<Self, Self::Error> {
+        Ok(match value {
+            serialized::TableSelection::Excluded => Self::Excluded,
+            serialized::TableSelection::Included {
+                columns,
+                other_columns,
+            } => {
+                let column_selection = StreamingExportColumnSelection {
+                    columns: columns
+                        .into_iter()
+                        .map(|(k, v)| -> anyhow::Result<_> { Ok((k.parse()?, v.into())) })
+                        .try_collect()?,
+                    other_columns: other_columns.into(),
+                };
+
+                Self::Included(column_selection)
+            },
+        })
+    }
+}
+
+impl From<serialized::InclusionDefault> for StreamingExportInclusionDefault {
+    fn from(value: serialized::InclusionDefault) -> Self {
+        match value {
+            serialized::InclusionDefault::Excluded => Self::Excluded,
+            serialized::InclusionDefault::Included => Self::Included,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests_column_filtering {
     use common::document::CreationTime;
@@ -599,5 +698,97 @@ mod tests_column_filtering {
         );
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests_serialization {
+    use cmd_util::env::env_config;
+    use proptest::prelude::*;
+
+    use super::*;
+
+    impl From<StreamingExportSelection> for serialized::Selection {
+        fn from(
+            StreamingExportSelection {
+                components,
+                other_components,
+            }: StreamingExportSelection,
+        ) -> Self {
+            Self {
+                components: components
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.into()))
+                    .collect(),
+                other_components: other_components.into(),
+            }
+        }
+    }
+
+    impl From<StreamingExportColumnInclusion> for serialized::ColumnInclusion {
+        fn from(value: StreamingExportColumnInclusion) -> Self {
+            match value {
+                StreamingExportColumnInclusion::Excluded => Self::Excluded,
+                StreamingExportColumnInclusion::Included => Self::Included,
+            }
+        }
+    }
+
+    impl From<StreamingExportComponentSelection> for serialized::ComponentSelection {
+        fn from(value: StreamingExportComponentSelection) -> Self {
+            match value {
+                StreamingExportComponentSelection::Excluded => Self::Excluded,
+                StreamingExportComponentSelection::Included {
+                    tables,
+                    other_tables,
+                } => Self::Included {
+                    tables: tables
+                        .into_iter()
+                        .map(|(k, v)| (k.to_string(), v.into()))
+                        .collect(),
+                    other_tables: other_tables.into(),
+                },
+            }
+        }
+    }
+
+    impl From<StreamingExportTableSelection> for serialized::TableSelection {
+        fn from(value: StreamingExportTableSelection) -> Self {
+            match value {
+                StreamingExportTableSelection::Excluded => Self::Excluded,
+                StreamingExportTableSelection::Included(StreamingExportColumnSelection {
+                    columns,
+                    other_columns,
+                }) => Self::Included {
+                    columns: columns
+                        .into_iter()
+                        .map(|(k, v)| (k.to_string(), v.into()))
+                        .collect(),
+                    other_columns: other_columns.into(),
+                },
+            }
+        }
+    }
+
+    impl From<StreamingExportInclusionDefault> for serialized::InclusionDefault {
+        fn from(value: StreamingExportInclusionDefault) -> Self {
+            match value {
+                StreamingExportInclusionDefault::Excluded => Self::Excluded,
+                StreamingExportInclusionDefault::Included => Self::Included,
+            }
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 64 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),
+            failure_persistence: None, ..ProptestConfig::default()
+        })]
+        #[test]
+        fn test_streaming_export_selection_roundtrip(value in any::<StreamingExportSelection>()) {
+            let serialized: serialized::Selection = value.clone().into();
+            let deserialized: StreamingExportSelection = serialized.try_into().expect("Can't roundtrip");
+            prop_assert_eq!(value, deserialized);
+        }
     }
 }

@@ -16,6 +16,7 @@ async-trait = { workspace = true }
 async_lru = { path = "../async_lru" }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
+convex_fivetran_source = { path = "../fivetran_source" }
 convex_macro = { path = "../convex_macro" }
 derive_more = { workspace = true }
 errors = { path = "../errors" }

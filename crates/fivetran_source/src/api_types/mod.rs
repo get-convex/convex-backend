@@ -1,6 +1,8 @@
 // API types for the HTTP APIs used by the Fivetran and Airbyte source
 // connectors
 
+pub mod selection;
+
 use std::collections::BTreeMap;
 
 use serde::{

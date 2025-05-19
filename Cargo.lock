@@ -2585,6 +2585,7 @@ dependencies = [
  "async_lru",
  "cmd_util",
  "common",
+ "convex_fivetran_source",
  "convex_macro",
  "convex_sync_types",
  "criterion",
