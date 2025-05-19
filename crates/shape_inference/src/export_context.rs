@@ -13,6 +13,7 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    io::Cursor,
     iter,
 };
 
@@ -1067,7 +1068,15 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
         exported_value: JsonValue,
     ) -> anyhow::Result<ConvexValue> {
         let Some(exported_object) = exported_value.as_object() else {
-            anyhow::bail!("expected object received {:.1000?}", exported_value);
+            let mut buf = [0u8; 100];
+            let mut writer = Cursor::new(&mut buf[..]);
+            let truncated = serde_json::to_writer(&mut writer, &exported_value).is_err();
+            let len = writer.position() as usize;
+            anyhow::bail!(
+                "expected object, received {}{}",
+                String::from_utf8_lossy(&buf[..len]),
+                if truncated { "..." } else { "" }
+            );
         };
         let export_context = if let Some(schema) = schema
             && let Some(JsonValue::String(id_str)) = exported_object.get("_id")
