@@ -589,7 +589,7 @@ pub fn initialize_v8() {
                     .filter(|s| !s.is_empty())
                     .map(|s| s.to_owned()),
             );
-            tracing::info!("Final V8 flags: {:?}", flags);
+            tracing::info!("Final V8 flags: {:?}", argv);
         }
         // v8 returns the args that were misunderstood
         let misunderstood = V8::set_flags_from_command_line(argv);
