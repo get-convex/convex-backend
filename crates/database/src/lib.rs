@@ -29,6 +29,7 @@ mod retention;
 mod search_index_bootstrap;
 mod snapshot_manager;
 mod stack_traces;
+pub mod streaming_export_selection;
 pub mod subscription;
 mod table_registry;
 pub mod table_summary;

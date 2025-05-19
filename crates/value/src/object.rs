@@ -167,14 +167,17 @@ impl ConvexObject {
         self_fields.try_into()
     }
 
-    pub fn filter_system_fields(self) -> Self {
-        let filtered_fields: BTreeMap<_, _> = self
-            .fields
-            .into_iter()
-            .filter(|(k, _)| !k.is_system())
-            .collect();
+    /// Returns a new object with only the fields that match the filter.
+    pub fn filter_fields(self, filter: impl Fn(&FieldName) -> bool) -> Self {
+        let filtered_fields: BTreeMap<_, _> =
+            self.fields.into_iter().filter(|(k, _)| filter(k)).collect();
         Self::try_from(filtered_fields)
             .expect("Filtering an object should always produce a smaller, thus valid object")
+    }
+
+    /// Returns a new object with the system fields removed.
+    pub fn filter_system_fields(self) -> Self {
+        self.filter_fields(|k| !k.is_system())
     }
 }
 
