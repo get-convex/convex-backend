@@ -203,7 +203,7 @@ importers:
         version: 5.7.2
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   ../../@convex-dev/react-query:
     dependencies:
@@ -270,7 +270,7 @@ importers:
         version: 5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0)
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   ../../component-tests:
     dependencies:
@@ -504,7 +504,7 @@ importers:
         version: 8.5.13
       '@vitest/eslint-plugin':
         specifier: ~1.1.15
-        version: 1.1.24(@typescript-eslint/utils@8.19.1(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4))(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0))
+        version: 1.1.24(@typescript-eslint/utils@8.19.1(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4))(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0))
       adm-zip:
         specifier: ^0.5.10
         version: 0.5.16
@@ -572,8 +572,8 @@ importers:
         specifier: ~1.2.6
         version: 1.2.6
       jsdom:
-        specifier: ~26.0.0
-        version: 26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+        specifier: ~26.1.0
+        version: 26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       json5:
         specifier: ~2.2.3
         version: 2.2.3
@@ -636,7 +636,7 @@ importers:
         version: 5.0.10
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
       wait-for-expect:
         specifier: ~3.0.2
         version: 3.0.2
@@ -2972,7 +2972,7 @@ importers:
         version: 5.0.4
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   ../../js-integration-tests:
     dependencies:
@@ -3060,7 +3060,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -3173,7 +3173,7 @@ importers:
         version: 7.5.0
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -3200,7 +3200,7 @@ importers:
         version: 5.6.3
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   ../../private-demos/actions:
     dependencies:
@@ -3570,7 +3570,7 @@ importers:
         version: 18.3.1(react@18.3.1)
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -4365,7 +4365,7 @@ importers:
         version: 10.3.2
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   ../../retention-tester:
     dependencies:
@@ -4543,7 +4543,7 @@ importers:
         version: link:../local-store
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -4623,7 +4623,7 @@ importers:
         version: 5.0.4
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   ../../udf-runtime:
     dependencies:
@@ -13826,6 +13826,9 @@ packages:
   decimal.js@10.4.3:
     resolution: {integrity: sha512-VBBaLc1MgL5XpzgIP7ny5Z6Nx3UrRkIViUkPUdtl9aya5amy3De1gsUUSB1g3+3sExYNjCAsAznmukyxCb1GRA==}
 
+  decimal.js@10.5.0:
+    resolution: {integrity: sha512-8vDa8Qxvr/+d94hSh5P3IJwI5t8/c0KsMp+g8bNw9cY2icONa5aPfvKeieW1WlG0WQYwwhJ7mjui2xtiePQSXw==}
+
   decode-named-character-reference@1.0.2:
     resolution: {integrity: sha512-O8x12RzrUF8xyVcY0KJowWsmaJxQbmy0/EtnNtHRpsOcT7dFk5W598coHqBVpmWo1oQQfsCqfCmkZN5DJrZVdg==}
 
@@ -16773,8 +16776,8 @@ packages:
       canvas:
         optional: true
 
-  jsdom@26.0.0:
-    resolution: {integrity: sha512-BZYDGVAIriBWTpIxYzrXjv3E/4u8+/pSG5bQdIYCbNCGOvsPkDQfTVLAIXAf9ETdCpduCVTkDe2NNZ8NIwUVzw==}
+  jsdom@26.1.0:
+    resolution: {integrity: sha512-Cvc9WUhxSMEo4McES3P7oK3QaXldCfNWp7pl2NNeiIFlCoLr3kfq9kb1fxftiwk1FLV7CvpvDfonxtzUDeSOPg==}
     engines: {node: '>=18'}
     peerDependencies:
       canvas: ^3.0.0
@@ -21125,6 +21128,10 @@ packages:
     resolution: {integrity: sha512-FRKsF7cz96xIIeMZ82ehjC3xW2E+O2+v11udrDYewUbszngYhsGa8z6YUMMzO9QJZzzyd0nGGXnML/TReX6W8Q==}
     engines: {node: '>=16'}
 
+  tough-cookie@5.1.2:
+    resolution: {integrity: sha512-FVDYdxtnj0G6Qm/DhNPSb8Ju59ULcup3tuJxkFb5K8Bv2pUXILbf0xZWU8PX8Ov19OXljbUyveOFwRMwkXzO+A==}
+    engines: {node: '>=16'}
+
   tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
 
@@ -21132,8 +21139,8 @@ packages:
     resolution: {integrity: sha512-l7FvfAHlcmulp8kr+flpQZmVwtu7nfRV7NZujtN0OqES8EL4O4e0qqzL0DC5gAvx/ZC/9lk6rhcUwYvkBnBnYA==}
     engines: {node: '>=12'}
 
-  tr46@5.0.0:
-    resolution: {integrity: sha512-tk2G5R2KRwBd+ZN0zaEXpmzdKyOYksXwywulIX95MBODjSzMIuQnQ3m8JxgbhnL1LeVo7lqQKsYa1O3Htl7K5g==}
+  tr46@5.1.1:
+    resolution: {integrity: sha512-hdF5ZgjTqgAntKkklYw0R03MG2x/bSzTtkxmIRw/sTNV8YXsCJ1tfLAX23lhxhHJlEf3CRCOCGGWw3vI3GaSPw==}
     engines: {node: '>=18'}
 
   tree-kill@1.2.2:
@@ -22179,8 +22186,8 @@ packages:
     resolution: {integrity: sha512-RKT8HExMpoYx4igMiVMY83lN6UeITKJlBQ+vR/8ZJ8OCdSiN3RwCq+9gH0+Xzj0+5IrM6i4j/6LuvzbZIQgEcQ==}
     engines: {node: '>=12'}
 
-  whatwg-url@14.1.0:
-    resolution: {integrity: sha512-jlf/foYIKywAt3x/XWKZ/3rz8OSJPiWktjmk891alJUEjiVxKX9LEO92qH3hv4aJ0mN3MWPvGMCy8jQi95xK4w==}
+  whatwg-url@14.2.0:
+    resolution: {integrity: sha512-De72GdQZzNTUBBChsXueQUnPKDkg/5A5zp7pFDuQAj5UFoENpiACU0wlCvzpAGnTkj++ihpKwKyYewn/XNUbKw==}
     engines: {node: '>=18'}
 
   whatwg-url@5.0.0:
@@ -33991,13 +33998,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/eslint-plugin@1.1.24(@typescript-eslint/utils@8.19.1(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4))(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0))':
+  '@vitest/eslint-plugin@1.1.24(@typescript-eslint/utils@8.19.1(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4))(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4)(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0))':
     dependencies:
       '@typescript-eslint/utils': 8.19.1(eslint@9.24.0(jiti@2.4.2))(typescript@5.0.4)
       eslint: 9.24.0(jiti@2.4.2)
     optionalDependencies:
       typescript: 5.0.4
-      vitest: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
+      vitest: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
 
   '@vitest/expect@2.1.9':
     dependencies:
@@ -36438,7 +36445,7 @@ snapshots:
   data-urls@5.0.0:
     dependencies:
       whatwg-mimetype: 4.0.0
-      whatwg-url: 14.1.0
+      whatwg-url: 14.2.0
 
   data-view-buffer@1.0.2:
     dependencies:
@@ -36514,6 +36521,8 @@ snapshots:
   decimal.js-light@2.5.1: {}
 
   decimal.js@10.4.3: {}
+
+  decimal.js@10.5.0: {}
 
   decode-named-character-reference@1.0.2:
     dependencies:
@@ -41005,12 +41014,11 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10):
+  jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10):
     dependencies:
       cssstyle: 4.3.1
       data-urls: 5.0.0
-      decimal.js: 10.4.3
-      form-data: 4.0.1
+      decimal.js: 10.5.0
       html-encoding-sniffer: 4.0.0
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.6
@@ -41020,12 +41028,12 @@ snapshots:
       rrweb-cssom: 0.8.0
       saxes: 6.0.0
       symbol-tree: 3.2.4
-      tough-cookie: 5.0.0
+      tough-cookie: 5.1.2
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 7.0.0
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
-      whatwg-url: 14.1.0
+      whatwg-url: 14.2.0
       ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
@@ -46605,13 +46613,17 @@ snapshots:
     dependencies:
       tldts: 6.1.71
 
+  tough-cookie@5.1.2:
+    dependencies:
+      tldts: 6.1.71
+
   tr46@0.0.3: {}
 
   tr46@3.0.0:
     dependencies:
       punycode: 2.3.1
 
-  tr46@5.0.0:
+  tr46@5.1.1:
     dependencies:
       punycode: 2.3.1
 
@@ -47891,7 +47903,7 @@ snapshots:
       tsx: 4.19.2
       yaml: 2.7.0
 
-  vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0):
+  vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(happy-dom@17.4.4)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
@@ -47917,7 +47929,7 @@ snapshots:
       '@edge-runtime/vm': 3.2.0
       '@types/node': 18.19.70
       happy-dom: 17.4.4
-      jsdom: 26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      jsdom: 26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - less
       - lightningcss
@@ -48359,9 +48371,9 @@ snapshots:
       tr46: 3.0.0
       webidl-conversions: 7.0.0
 
-  whatwg-url@14.1.0:
+  whatwg-url@14.2.0:
     dependencies:
-      tr46: 5.0.0
+      tr46: 5.1.1
       webidl-conversions: 7.0.0
 
   whatwg-url@5.0.0:
