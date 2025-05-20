@@ -14,7 +14,7 @@
     "react-dom": "^18.0.0",
     "react": "^18.0.0",
     "prism-react-renderer": "~2.4.1",
-    "vitest": "^1.6.1"
+    "vitest": "^2.1.9"
   },
   "devDependencies": {
     "typescript": "~5.0.3",

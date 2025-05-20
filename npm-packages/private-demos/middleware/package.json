@@ -15,7 +15,7 @@
     "prettier": "3.5.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "vitest": "^1.6.1",
+    "vitest": "^2.1.9",
     "zod": "^3.24.0"
   },
   "devDependencies": {
