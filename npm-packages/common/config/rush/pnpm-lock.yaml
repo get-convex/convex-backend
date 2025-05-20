@@ -16,6 +16,7 @@ overrides:
   prismjs@1.29.0: ^1.30.0
   semver@7.3.5: ^7.5.2
   trim@<0.0.3: ^0.0.3
+  undici@6.21.0: ^6.21.1
 
 pnpmfileChecksum: sha256-XTeZQwJtKk4dimqf7175GhJCXrnq3Yh7+kwb86Bwcdo=
 
@@ -21383,8 +21384,8 @@ packages:
     resolution: {integrity: sha512-72RFADWFqKmUb2hmmvNODKL3p9hcB6Gt2DOQMis1SEBaV6a4MH8soBvzg+95CYhCKPFedut2JY9bMfrDl9D23g==}
     engines: {node: '>=14.0'}
 
-  undici@6.21.0:
-    resolution: {integrity: sha512-BUgJXc752Kou3oOIuU1i+yZZypyZRqNPW0vqoMPl8VaoalSfeR0D8/t4iAS3yirs79SSMTxTag+ZC86uswv+Cw==}
+  undici@6.21.3:
+    resolution: {integrity: sha512-gBLkYIlEnSp8pFbT64yFgGE6UIB9tAkhukC23PmMDCe5Nd+cRqKxSjw5y54MK2AZMgZfJWMaNE4nYUHgi1XEOw==}
     engines: {node: '>=18.17'}
 
   undici@7.5.0:
@@ -35309,7 +35310,7 @@ snapshots:
       parse5: 7.2.1
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 6.21.0
+      undici: 6.21.3
       whatwg-mimetype: 4.0.0
 
   cheerio@1.0.0-rc.12:
@@ -46857,7 +46858,7 @@ snapshots:
     dependencies:
       '@fastify/busboy': 2.1.1
 
-  undici@6.21.0: {}
+  undici@6.21.3: {}
 
   undici@7.5.0: {}
 
