@@ -411,21 +411,13 @@ impl<C: ShapeConfig> CountedShape<C> {
                 ShapeEnum::Map(MapShape::new(key_shape, value_shape))
             },
             (value, ShapeEnum::Union(ref union_shape)) => {
-                let mut builder = UnionBuilder::new();
-                let mut found_subtype = false;
-                for existing_shape in union_shape.iter() {
-                    if !found_subtype {
-                        if let Some(new_shape) = existing_shape._remove(value) {
-                            found_subtype = true;
-                            builder = builder.push(new_shape);
-                            continue;
-                        }
-                    }
-                    builder = builder.push(existing_shape.clone());
-                }
-                if !found_subtype {
-                    return None;
-                }
+                let (existing_shape, removed) = union_shape
+                    .iter()
+                    .filter_map(|shape| shape._remove(value).map(|removed| (shape, removed)))
+                    .next()?;
+                let mut builder = union_shape.clone().into_builder();
+                assert!(builder.remove(existing_shape));
+                builder = builder.push(removed);
                 return Some(builder.build());
             },
             (_, ShapeEnum::Unknown) => ShapeEnum::Unknown,
@@ -497,21 +489,15 @@ impl<C: ShapeConfig> CountedShape<C> {
                 ShapeEnum::Record(RecordShape::new(field_shape, value_shape))
             },
             ShapeEnum::Union(ref union_shape) => {
-                let mut builder = UnionBuilder::new();
-                let mut found_subtype = false;
-                for existing_shape in union_shape.iter() {
-                    if !found_subtype {
-                        if let Some(new_shape) = existing_shape._remove_object(object) {
-                            found_subtype = true;
-                            builder = builder.push(new_shape);
-                            continue;
-                        }
-                    }
-                    builder = builder.push(existing_shape.clone());
-                }
-                if !found_subtype {
-                    return None;
-                }
+                let (existing_shape, removed) = union_shape
+                    .iter()
+                    .filter_map(|shape| {
+                        shape._remove_object(object).map(|removed| (shape, removed))
+                    })
+                    .next()?;
+                let mut builder = union_shape.clone().into_builder();
+                assert!(builder.remove(existing_shape));
+                builder = builder.push(removed);
                 return Some(builder.build());
             },
             ShapeEnum::Unknown => ShapeEnum::Unknown,

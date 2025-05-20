@@ -217,6 +217,15 @@ impl<C: ShapeConfig> UnionBuilder<C> {
         self.variants.pop_first().unwrap_or_else(Shape::empty)
     }
 
+    /// Removes the given variant. Returns true if it was removed, false if it
+    /// wasn't one of the variants.
+    pub fn remove(&mut self, variant: &CountedShape<C>) -> bool {
+        // If `self.variants` already satisfies the union invariants, then any
+        // subset also satisfies the invariants; we don't need to do any
+        // merging.
+        self.variants.remove(variant)
+    }
+
     /// Build the union shape, checking union invariants again.
     pub fn build(mut self) -> CountedShape<C> {
         if self.variants.is_empty() {
