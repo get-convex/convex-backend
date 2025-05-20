@@ -1034,7 +1034,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.25(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 0.9.13(next@14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1145,7 +1145,7 @@ importers:
         version: 0.40.0
       next:
         specifier: ^14
-        version: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.2.25(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1263,7 +1263,7 @@ importers:
         version: 4.17.14
       '@types/next':
         specifier: ~9.0.0
-        version: 9.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 9.0.0(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -1344,7 +1344,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.25(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 0.9.13(next@14.2.25(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -3164,8 +3164,8 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
       undici:
-        specifier: 7.3.0
-        version: 7.3.0
+        specifier: 7.5.0
+        version: 7.5.0
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(@vitest/browser@2.1.8)(happy-dom@17.4.4)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
@@ -21291,8 +21291,8 @@ packages:
     resolution: {integrity: sha512-BUgJXc752Kou3oOIuU1i+yZZypyZRqNPW0vqoMPl8VaoalSfeR0D8/t4iAS3yirs79SSMTxTag+ZC86uswv+Cw==}
     engines: {node: '>=18.17'}
 
-  undici@7.3.0:
-    resolution: {integrity: sha512-Qy96NND4Dou5jKoSJ2gm8ax8AJM/Ey9o9mz7KN1bb9GP+G0l20Zw8afxTnY2f4b7hmhn/z8aC2kfArVQlAhFBw==}
+  undici@7.5.0:
+    resolution: {integrity: sha512-NFQG741e8mJ0fLQk90xKxFdaSM7z4+IQpAgsFI36bCDY9Z2+aXXZjVy2uUksMouWfMI9+w5ejOq5zYYTBCQJDQ==}
     engines: {node: '>=20.18.1'}
 
   unenv@1.10.0:
@@ -23190,7 +23190,7 @@ snapshots:
       '@babel/helpers': 7.27.0
       '@babel/parser': 7.27.0
       '@babel/template': 7.27.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@babel/types': 7.27.0
       convert-source-map: 2.0.0
       debug: 4.4.0(supports-color@10.0.0)
@@ -23199,6 +23199,27 @@ snapshots:
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
+
+  '@babel/core@7.26.10(supports-color@10.0.0)':
+    dependencies:
+      '@ampproject/remapping': 2.3.0
+      '@babel/code-frame': 7.26.2
+      '@babel/generator': 7.27.0
+      '@babel/helper-compilation-targets': 7.27.0
+      '@babel/helper-module-transforms': 7.26.0(@babel/core@7.26.10(supports-color@10.0.0))(supports-color@10.0.0)
+      '@babel/helpers': 7.27.0
+      '@babel/parser': 7.27.0
+      '@babel/template': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
+      '@babel/types': 7.27.0
+      convert-source-map: 2.0.0
+      debug: 4.4.0(supports-color@10.0.0)
+      gensync: 1.0.0-beta.2
+      json5: 2.2.3
+      semver: 6.3.1
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
 
   '@babel/eslint-parser@7.25.9(@babel/core@7.26.0)(eslint@8.57.1)':
     dependencies:
@@ -23337,6 +23358,16 @@ snapshots:
       '@babel/traverse': 7.26.4(supports-color@10.0.0)
     transitivePeerDependencies:
       - supports-color
+
+  '@babel/helper-module-transforms@7.26.0(@babel/core@7.26.10(supports-color@10.0.0))(supports-color@10.0.0)':
+    dependencies:
+      '@babel/core': 7.26.10(supports-color@10.0.0)
+      '@babel/helper-module-imports': 7.25.9(supports-color@10.0.0)
+      '@babel/helper-validator-identifier': 7.25.9
+      '@babel/traverse': 7.26.4(supports-color@10.0.0)
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
 
   '@babel/helper-module-transforms@7.26.0(@babel/core@7.26.10)':
     dependencies:
@@ -24887,7 +24918,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@babel/traverse@7.27.0':
+  '@babel/traverse@7.27.0(supports-color@10.0.0)':
     dependencies:
       '@babel/code-frame': 7.26.2
       '@babel/generator': 7.27.0
@@ -25632,7 +25663,7 @@ snapshots:
       '@babel/preset-typescript': 7.26.0(@babel/core@7.26.10)
       '@babel/runtime': 7.26.0
       '@babel/runtime-corejs3': 7.26.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@docusaurus/logger': 3.7.0
       '@docusaurus/utils': 3.7.0(@swc/core@1.10.4(@swc/helpers@0.5.15))(acorn@8.8.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       babel-plugin-dynamic-import-node: 2.3.3
@@ -30754,7 +30785,7 @@ snapshots:
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.10)
       '@babel/plugin-syntax-typescript': 7.25.9(@babel/core@7.26.10)
       '@babel/template': 7.27.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@babel/types': 7.27.0
       '@tanstack/router-utils': 1.115.0
       babel-dead-code-elimination: 1.0.10
@@ -30961,7 +30992,7 @@ snapshots:
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.10)
       '@babel/plugin-syntax-typescript': 7.25.9(@babel/core@7.26.10)
       '@babel/template': 7.27.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@babel/types': 7.27.0
       '@tanstack/router-utils': 1.115.0
       babel-dead-code-elimination: 1.0.10
@@ -31163,7 +31194,7 @@ snapshots:
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.10)
       '@babel/plugin-syntax-typescript': 7.25.9(@babel/core@7.26.10)
       '@babel/template': 7.27.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@babel/types': 7.27.0
       '@tanstack/router-core': 1.117.0
       '@tanstack/router-generator': 1.117.0(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
@@ -31250,7 +31281,7 @@ snapshots:
       '@babel/plugin-syntax-jsx': 7.25.9(@babel/core@7.26.10)
       '@babel/plugin-syntax-typescript': 7.25.9(@babel/core@7.26.10)
       '@babel/template': 7.27.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@babel/types': 7.27.0
       '@tanstack/directive-functions-plugin': 1.115.0(@types/node@22.10.5)(babel-plugin-macros@3.1.0)(jiti@2.4.2)(less@4.2.1)(terser@5.37.0)(tsx@4.19.2)(yaml@2.7.0)
       babel-dead-code-elimination: 1.0.10
@@ -31887,9 +31918,9 @@ snapshots:
 
   '@types/ms@0.7.34': {}
 
-  '@types/next@9.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@types/next@9.0.0(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      next: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.25(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - '@babel/core'
       - '@opentelemetry/api'
@@ -33964,7 +33995,7 @@ snapshots:
     dependencies:
       '@babel/core': 7.26.10
       '@babel/parser': 7.27.0
-      '@babel/traverse': 7.27.0
+      '@babel/traverse': 7.27.0(supports-color@10.0.0)
       '@babel/types': 7.27.0
     transitivePeerDependencies:
       - supports-color
@@ -41670,9 +41701,14 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next-router-mock@0.9.13(next@14.2.25(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+  next-router-mock@0.9.13(next@14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
     dependencies:
       next: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react: 18.3.1
+
+  next-router-mock@0.9.13(next@14.2.25(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+    dependencies:
+      next: 14.2.25(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
 
   next-themes@0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
@@ -41691,6 +41727,33 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       styled-jsx: 5.1.1(@babel/core@7.26.0)(babel-plugin-macros@3.1.0)(react@18.3.1)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 14.2.25
+      '@next/swc-darwin-x64': 14.2.25
+      '@next/swc-linux-arm64-gnu': 14.2.25
+      '@next/swc-linux-arm64-musl': 14.2.25
+      '@next/swc-linux-x64-gnu': 14.2.25
+      '@next/swc-linux-x64-musl': 14.2.25
+      '@next/swc-win32-arm64-msvc': 14.2.25
+      '@next/swc-win32-ia32-msvc': 14.2.25
+      '@next/swc-win32-x64-msvc': 14.2.25
+      '@opentelemetry/api': 1.9.0
+      '@playwright/test': 1.49.1
+    transitivePeerDependencies:
+      - '@babel/core'
+      - babel-plugin-macros
+
+  next@14.2.25(@babel/core@7.26.10(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      '@next/env': 14.2.25
+      '@swc/helpers': 0.5.5
+      busboy: 1.6.0
+      caniuse-lite: 1.0.30001690
+      graceful-fs: 4.2.11
+      postcss: 8.4.31
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      styled-jsx: 5.1.1(@babel/core@7.26.10(supports-color@10.0.0))(react@18.3.1)
     optionalDependencies:
       '@next/swc-darwin-arm64': 14.2.25
       '@next/swc-darwin-x64': 14.2.25
@@ -45368,6 +45431,13 @@ snapshots:
       '@babel/core': 7.26.0
       babel-plugin-macros: 3.1.0
 
+  styled-jsx@5.1.1(@babel/core@7.26.10(supports-color@10.0.0))(react@18.3.1):
+    dependencies:
+      client-only: 0.0.1
+      react: 18.3.1
+    optionalDependencies:
+      '@babel/core': 7.26.10(supports-color@10.0.0)
+
   styled-jsx@5.1.6(react@19.0.0):
     dependencies:
       client-only: 0.0.1
@@ -46325,7 +46395,7 @@ snapshots:
 
   undici@6.21.0: {}
 
-  undici@7.3.0: {}
+  undici@7.5.0: {}
 
   unenv@1.10.0:
     dependencies:
