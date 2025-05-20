@@ -48,7 +48,7 @@ export const deploy = new Command("deploy")
   .addOption(
     new Option(
       "--preview-create <name>",
-      "The name to associate with this deployment if deploying to a newly created preview deployment. Defaults to the current Git branch name in Vercel, Netlify and Github CI. This is ignored if deploying to a production deployment.",
+      "The name to associate with this deployment if deploying to a newly created preview deployment. Defaults to the current Git branch name in Vercel, Netlify and GitHub CI. This is ignored if deploying to a production deployment.",
     ).conflicts("preview-name"),
   )
   .addOption(

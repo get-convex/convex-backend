@@ -12142,7 +12142,7 @@ a real [local Convex backend](https://docs.convex.dev/testing/convex-backend).
 
 It's a good idea to test your app continuously in a controlled environment. No
 matter which way automated method you use, it's easy to run them with
-[Github Actions](https://docs.convex.dev/testing/ci).
+[GitHub Actions](https://docs.convex.dev/testing/ci).
 
 ## Manual tests [​](https://docs.convex.dev/testing\\#manual-tests \"Direct link to Manual tests\")
 
@@ -25398,7 +25398,7 @@ To add Convex Auth to an existing project, follow the full
 Convex Auth enables you to implement the following authentication methods:
 
 1. Magic Links & OTPs - send a link or code via email
-2. OAuth - sign in with Github / Google / Apple etc.
+2. OAuth - sign in with GitHub / Google / Apple etc.
 3. Passwords - including password reset flow and optional email verification
 
 The library doesn't come with UI components, but you can copy code from the docs

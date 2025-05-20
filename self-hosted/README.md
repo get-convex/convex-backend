@@ -99,7 +99,7 @@ hosting options for production workloads.
 You can either [build from source](../README.md) or use the precompiled
 binaries. You can download the latest precompiled binary release from
 [Releases](https://github.com/get-convex/convex-backend/releases). If your
-platform is not supported, leave us a github issue. In the meantime, you can
+platform is not supported, leave us a GitHub issue. In the meantime, you can
 build from source.
 
 _Note: On MacOS you might need to hold the `option` key and double click the
