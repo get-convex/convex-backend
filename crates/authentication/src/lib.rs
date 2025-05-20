@@ -231,14 +231,15 @@ where
             issuer,
             algorithm,
         } => {
-            const APPLICATION_JSON: http::HeaderValue =
-                http::HeaderValue::from_static("application/json");
-            const JWKS_CONTENT_TYPES: [http::HeaderValue; 2] = [
-                APPLICATION_JSON,
+            const JWKS_MEDIA_TYPES: [&str; 2] = [
+                "application/json",
                 // https://www.iana.org/assignments/media-types/application/jwk-set+json
                 // used by WorkOS
-                http::HeaderValue::from_static("application/jwk-set+json"),
+                "application/jwk-set+json",
             ];
+
+            const APPLICATION_JSON: http::HeaderValue =
+                http::HeaderValue::from_static("application/json");
             let request = http::Request::builder()
                 .uri(jwks_uri)
                 .method(http::Method::GET)
@@ -259,7 +260,20 @@ where
             if !response
                 .headers()
                 .get(http::header::CONTENT_TYPE)
-                .is_some_and(|ty| JWKS_CONTENT_TYPES.contains(ty))
+                .is_some_and(|ty| {
+                    ty.to_str()
+                        .ok()
+                        .and_then(|s| s.parse::<mime::Mime>().ok())
+                        .is_some_and(|mime| {
+                            JWKS_MEDIA_TYPES
+                                .iter()
+                                .any(|&allowed| mime.essence_str().eq_ignore_ascii_case(allowed))
+                                && (mime.get_param("charset").is_none()
+                                    || mime
+                                        .get_param("charset")
+                                        .is_some_and(|val| val.as_str() == "utf-8"))
+                        })
+                })
             {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
@@ -287,7 +301,12 @@ where
                     "Missing issuer in JWT payload"
                 ));
             };
-            if token_issuer != issuer.as_str() {
+            let token_issuer_with_https = if token_issuer.starts_with("https://") {
+                token_issuer.to_string()
+            } else {
+                format!("https://{}", token_issuer)
+            };
+            if token_issuer_with_https != issuer.as_str() {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
                     format!("Invalid issuer: {} != {}", token_issuer, issuer)

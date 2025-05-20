@@ -503,6 +503,7 @@ dependencies = [
  "http 1.3.1",
  "keybroker",
  "metrics",
+ "mime",
  "oauth2",
  "openidconnect",
  "serde",

@@ -20,6 +20,7 @@ futures = { workspace = true }
 http = { workspace = true }
 keybroker = { path = "../keybroker" }
 metrics = { path = "../metrics" }
+mime = { workspace = true }
 oauth2 = { workspace = true }
 openidconnect = { workspace = true }
 serde = { workspace = true }
