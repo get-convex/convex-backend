@@ -89,6 +89,8 @@
    * PNPM documentation: https://pnpm.io/package_json#pnpmoverrides
    */
   "globalOverrides": {
+    "http-proxy-middleware@2.0.8": "^2.0.9",
+    "http-proxy-middleware@2.0.9": "^2.0.9",
     "http-proxy@1.11.1": "^1.18.1",
     "path-to-regexp@^0.1.10": "^0.1.12",
     "path-to-regexp@^3": "^3.3.0",
