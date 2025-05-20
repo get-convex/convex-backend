@@ -146,7 +146,7 @@ const topTenMostLikedMessages = recentMessages
 For document queries that return larger numbers of documents, you'll want to use
 an [index](/database/reading-data/indexes/indexes.md) to improve the
 performance. Document queries that use indexes will be
-[ordered based on the columns in the index](/database/reading-data/indexes/indexes.md#indexes-and-query-order)
+[ordered based on the columns in the index](/database/reading-data/indexes/indexes.md#sorting-with-indexes)
 and can avoid slow table scans.
 
 ```ts
@@ -158,9 +158,7 @@ const messages = await ctx.db
   .take(20);
 ```
 
-See
-[Limit expressions with indexes](/database/reading-data/indexes/indexes.md#limit-expressions-with-indexes)
-for details.
+See [Limits](/database/reading-data/indexes/indexes.md#limits) for details.
 
 ### Ordering of different types of values
 

@@ -186,7 +186,7 @@ npm install @faker-js/faker
 ## Calling queries from clients
 
 To call a query from [React](/client/react.mdx) use the
-[`useQuery`](/client/react.mdx#loading-data) hook along with the generated
+[`useQuery`](/client/react.mdx#fetching-data) hook along with the generated
 [`api`](/generated-api/api) object.
 
 <TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/MyApp.tsx" />
@@ -225,7 +225,7 @@ on the Convex runtime.
 ## Limits
 
 Queries have a limit to the amount of data they can read at once to guarantee
-good performance. Check out these limits
-[here](/functions/error-handling/error-handling.mdx#database-limitations).
+good performance. Check out these limits in
+[Read/write limit errors](/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
 
-For information on other limits, see [here](/production/state/limits.mdx).
+For information on other limits, see [Limits](/production/state/limits.mdx).

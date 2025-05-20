@@ -210,7 +210,7 @@ named _Foundation_. Lastly, this query ends with
 at most one result.
 
 This query demonstrates the difference between filtering using
-[`withIndex`](/api/interfaces/server.QueryInitializer#withIndex) and
+[`withIndex`](/api/interfaces/server.QueryInitializer#withindex) and
 [`filter`](/api/interfaces/server.Query#filter). `withIndex` only allows you to
 restrict your query based on the index. You can only do operations that the
 index can do efficiently like finding all documents with a given author.

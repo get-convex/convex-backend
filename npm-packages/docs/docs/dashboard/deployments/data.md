@@ -30,10 +30,9 @@ the top of the page.
 ![Data filters](/screenshots/data_filters.png)
 
 All fields in a document are filterable by the operations supported in Convex
-query syntax.
-[Equality](/database/reading-data/reading-data.mdx#equality-conditions) and
-[Comparison](/database/reading-data/reading-data.mdx#comparisons) when filtering
-in the dashboard share the same rules as a query using the Convex client. You
+query syntax. [Equality](/database/reading-data/filters.mdx#equality-conditions)
+and [comparisons](/database/reading-data/filters.mdx#comparisons) share the same
+rules when filtering in the dashboard as a query using the Convex client. You
 may also filter based on the type of the field.
 
 To add a filter, click the `+` next to an existing filter. If you add more than

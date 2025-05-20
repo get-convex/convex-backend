@@ -76,9 +76,10 @@ of your app in separate error boundaries.
 
 Unlike other frameworks, there is no concept of "retrying" if your query
 function hits an error. Because Convex functions are
-[deterministic](/functions/query-functions.mdx#caching-reactivity), if the query
-function hits an error, retrying will always produce the same error. There is no
-point in running the query function with the same arguments again.
+[deterministic](/functions/query-functions.mdx#caching--reactivity--consistency),
+if the query function hits an error, retrying will always produce the same
+error. There is no point in running the query function with the same arguments
+again.
 
 </Admonition>
 

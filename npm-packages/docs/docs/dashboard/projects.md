@@ -34,7 +34,7 @@ you can:
   details.
 - View the amount of [usage metrics](/dashboard/teams.md#usage) your project has
   consumed.
-- Add [custom domains](/production/hosting/custom.mdx#domains) for your
+- Add [custom domains](/production/hosting/custom.mdx#custom-domains) for your
   production deployment
 - Generate deploy keys for your production and preview deployments.
 - Create and edit

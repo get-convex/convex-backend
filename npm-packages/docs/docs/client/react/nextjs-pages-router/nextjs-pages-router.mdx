@@ -65,23 +65,24 @@ To build an [API route](https://nextjs.org/docs/api-routes/introduction) add a
 file to the `pages/api` directory.
 
 To load and edit Convex data in your endpoints, use the
-[`fetchQuery`](/api/modules/nextjs#fetchQuery) function from `convex/nextjs`:
+[`fetchQuery`](/api/modules/nextjs#fetchquery) function from `convex/nextjs`:
 
 <Snippet title="pages/api/clicks.js" source={apiTS} />
 
 ## Server-side rendering
 
 **Consider client-side rendering Convex data when using Next.js.** Data from
-Convex is [fully reactive](/functions/query-functions.mdx#caching-reactivity) so
-Convex needs a connection from your deployment to the browser in order to push
-updates as data changes.
+Convex is
+[fully reactive](/functions/query-functions.mdx#caching--reactivity--consistency)
+so Convex needs a connection from your deployment to the browser in order to
+push updates as data changes.
 
 You can of course load data from Convex in
 [`getStaticProps`](https://nextjs.org/docs/basic-features/data-fetching/get-static-props)
 or
 [`getServerSideProps`](https://nextjs.org/docs/basic-features/data-fetching/get-server-side-props),
 but it will be non-reactive. To do this, use the
-[`fetchQuery`](/api/modules/nextjs#fetchQuery) function to call query functions
+[`fetchQuery`](/api/modules/nextjs#fetchquery) function to call query functions
 just like you would in [API routes](#api-routes).
 
 To make authenticated requests to Convex during server-side rendering, you need

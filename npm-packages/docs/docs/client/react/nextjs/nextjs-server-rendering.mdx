@@ -77,14 +77,14 @@ so any Server Components using it will not be eligible for
 payload that should be passed through to `usePreloadedQuery`. If you want to use
 the return value of the query, perhaps to decide whether to even render the
 Client Component, you can pass the `Preloaded` payload to the
-[`preloadedQueryResult`](/api/modules/nextjs#preloadedQueryResult) function.
+[`preloadedQueryResult`](/api/modules/nextjs#preloadedqueryresult) function.
 
 ## Using Convex to render Server Components
 
 If you need Convex data on the server, you can load data from Convex in your
 [Server Components](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching),
 but it will be non-reactive. To do this, use the
-[`fetchQuery`](/api/modules/nextjs#fetchQuery) function from `convex/nextjs`:
+[`fetchQuery`](/api/modules/nextjs#fetchquery) function from `convex/nextjs`:
 
 <TSAndJSSnippet
   title="app/StaticTasks.tsx"
@@ -124,7 +124,7 @@ Here's an example Route Handler calling a Convex mutation:
 
 To make authenticated requests to Convex during server rendering, pass a JWT
 token to [`preloadQuery`](/api/modules/nextjs#preloadquery) or
-[`fetchQuery`](/api/modules/nextjs#fetchQuery) in the third options argument:
+[`fetchQuery`](/api/modules/nextjs#fetchquery) in the third options argument:
 
 <TSAndJSSnippet
   title="app/TasksWrapper.tsx"
@@ -176,7 +176,7 @@ Components, Server Actions and Route Handlers you must either:
 ## Consistency
 
 [`preloadQuery`](/api/modules/nextjs#preloadquery) and
-[`fetchQuery`](/api/modules/nextjs#fetchQuery) use the `ConvexHTTPClient` under
+[`fetchQuery`](/api/modules/nextjs#fetchquery) use the `ConvexHTTPClient` under
 the hood. This client is stateless. This means that two calls to `preloadQuery`
 are not guaranteed to return consistent data based on the same database state.
 This is similar to more traditional databases, but is different from the
