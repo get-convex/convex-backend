@@ -266,7 +266,7 @@ dangling promises might result in errors in subsequent action invocations.
 ### `await ctx.runAction` should only be used for crossing JS runtimes
 
 **Why?** `await ctx.runAction` incurs to overhead of another Convex server
-function. It counts as an extra function call, it allocates it's own system
+function. It counts as an extra function call, it allocates its own system
 resources, and while you're awaiting this call the parent action call is frozen
 holding all it's resources. If you pile enough of these calls on top of each
 other, your app may slow down significantly.

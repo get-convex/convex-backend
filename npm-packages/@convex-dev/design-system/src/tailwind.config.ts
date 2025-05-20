@@ -147,7 +147,7 @@ export const themeColors: ThemeColors = {
     },
   },
   border: {
-    // Transparent border color already has it's own alpha.
+    // Transparent border color already has its own alpha.
     transparent: `rgba(var(--border-transparent))`,
     selected: `rgba(var(--border-selected), <alpha-value>)`,
   },

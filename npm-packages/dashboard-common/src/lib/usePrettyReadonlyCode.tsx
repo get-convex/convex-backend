@@ -9,7 +9,7 @@ import {
 const MAX_CODE_SIZE_KB = 10;
 
 // A hook for prettifying code in a performant way, using a web worker.
-// Each instance of usePrettyReadonlyCode will hold onto and maintain it's own web worker.
+// Each instance of usePrettyReadonlyCode will hold onto and maintain its own web worker.
 export function usePrettyReadonlyCode(
   value: Value,
   path: string,
