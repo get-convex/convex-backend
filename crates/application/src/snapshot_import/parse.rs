@@ -303,8 +303,9 @@ pub async fn parse_objects<'a, Fut>(
                                 let mut entry_reader =
                                     zip_reader.by_index(i).await.map_err(map_zip_error)?.read();
                                 tracing::info!(
-                                    "importing zip file containing storage file {}",
-                                    storage_id.encode()
+                                    "importing zip file containing storage file {} [{i}/{}]",
+                                    storage_id.encode(),
+                                    filenames.len()
                                 );
                                 while let buf =
                                     entry_reader.fill_buf().await.map_err(map_zip_io_error)?

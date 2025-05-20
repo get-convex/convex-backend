@@ -1,5 +1,6 @@
 use common::{
     components::ComponentPath,
+    errors::report_error,
     runtime::Runtime,
     types::TableName,
 };
@@ -20,7 +21,7 @@ pub async fn best_effort_update_progress_message<RT: Runtime>(
 ) {
     // Ignore errors because it's not worth blocking or retrying if we can't
     // send a nice progress message on the first try.
-    let _result: anyhow::Result<()> = try {
+    let result: anyhow::Result<()> = try {
         let mut tx = database.begin(identity.clone()).await?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         import_model
@@ -36,6 +37,12 @@ pub async fn best_effort_update_progress_message<RT: Runtime>(
             .commit_with_write_source(tx, "snapshot_update_progress_msg")
             .await?;
     };
+    if let Err(err) = result {
+        report_error(&mut err.context(format!(
+            "Failed to update progress message for import {import_id}"
+        )))
+        .await;
+    }
 }
 
 pub async fn add_checkpoint_message<RT: Runtime>(
