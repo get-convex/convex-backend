@@ -3,6 +3,7 @@ use std::{
     collections::BTreeSet,
     ops::Bound,
     sync::Arc,
+    time::Duration,
 };
 
 use ::metrics::{
@@ -11,6 +12,7 @@ use ::metrics::{
 };
 use anyhow::Context as _;
 use common::{
+    backoff::Backoff,
     bootstrap_model::tables::{
         TableMetadata,
         TableState,
@@ -26,7 +28,10 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    errors::recapture_stacktrace,
+    errors::{
+        recapture_stacktrace,
+        report_error,
+    },
     fastrace_helpers::{
         initialize_root_from_parent,
         EncodedSpan,
@@ -591,20 +596,41 @@ impl<RT: Runtime> Committer<RT> {
             .next_max_repeatable_ts()
             .expect("new_max_repeatable should exist");
         let persistence = self.persistence.clone();
-        let outer_span = Span::enter_with_parent("outer_bump_max_repeatable_ts", root_span);
+        let span = Span::enter_with_parent("bump_max_repeatable_ts", root_span);
+        let runtime = self.runtime.clone();
         self.persistence_writes.push_back(
             async move {
-                let span = Span::enter_with_parent("inner_bump_max_repeatable_ts", &outer_span);
                 // The MaxRepeatableTimestamp persistence global ensures all future
                 // commits on future leaders will be after new_max_repeatable, and followers
                 // can know this timestamp is repeatable.
-                persistence
-                    .write_persistence_global(
-                        PersistenceGlobalKey::MaxRepeatableTimestamp,
-                        new_max_repeatable.into(),
-                    )
-                    .in_span(span)
-                    .await?;
+
+                // If we fail to bump the timestamp, we'll backoff and retry
+                // which will block the committer from making forward progress until we
+                // succceed.  We don't want to kill the committer and reload the
+                // instance if we can avoid it, as that would exacerbate any
+                // load-related issues.
+                let mut backoff = Backoff::new(Duration::from_secs(1), Duration::from_secs(60));
+                loop {
+                    match persistence
+                        .write_persistence_global(
+                            PersistenceGlobalKey::MaxRepeatableTimestamp,
+                            new_max_repeatable.into(),
+                        )
+                        .await
+                    {
+                        Ok(()) => break,
+                        Err(mut e) => {
+                            let delay = backoff.fail(&mut runtime.rng());
+                            report_error(&mut e).await;
+                            tracing::error!(
+                                "Failed to bump max repeatable timestamp, retrying after {:.2}s",
+                                delay.as_secs_f32()
+                            );
+                            runtime.wait(delay).await;
+                            continue;
+                        },
+                    }
+                }
                 Ok(PersistenceWrite::MaxRepeatableTimestamp {
                     new_max_repeatable,
                     timer,
@@ -612,6 +638,7 @@ impl<RT: Runtime> Committer<RT> {
                     commit_id,
                 })
             }
+            .in_span(span)
             .boxed(),
         );
     }
