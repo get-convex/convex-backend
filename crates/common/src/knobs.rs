@@ -1183,11 +1183,6 @@ pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new
     )
 });
 
-/// If true, the backend will check the rate limiter service for capacity under
-/// the "backend_startup" domain keyed by db cluster name.
-pub static STARTUP_RATE_LIMIT_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("STARTUP_RATE_LIMIT_ENABLED", false));
-
 /// Size of the cache for access token authentication
 pub static AUTH_CACHE_SIZE: LazyLock<usize> = LazyLock::new(|| env_config("AUTH_CACHE_SIZE", 1000));
 
@@ -1256,7 +1251,7 @@ pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
 /// may be unable to serve requests for already-loaded instances in a timely
 /// manner, or that we may exhaust CPU on the physical host
 pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 32));
+    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 16));
 
 /// The max number of storage files that can be fetched concurrently during
 /// export. Concurrency is also limited by `EXPORT_MAX_INFLIGHT_PREFETCH_BYTES`.
