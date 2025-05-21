@@ -618,7 +618,10 @@ impl<RT: Runtime> Committer<RT> {
                         )
                         .await
                     {
-                        Ok(()) => break,
+                        Ok(()) => {
+                            backoff.reset();
+                            break;
+                        },
                         Err(mut e) => {
                             let delay = backoff.fail(&mut runtime.rng());
                             report_error(&mut e).await;
