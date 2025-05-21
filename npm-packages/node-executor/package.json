@@ -40,7 +40,7 @@
     "twilio": "^5.0.0",
     "typescript": "~5.0.3",
     "undici": "7.5.0",
-    "vitest": "^2.1.9",
+    "vitest": "^3.1.4",
     "zod": "^3.24.0",
     "@commander-js/extra-typings": "^11.1.0"
   }

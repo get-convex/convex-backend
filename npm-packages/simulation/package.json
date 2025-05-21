@@ -11,7 +11,7 @@
     "convex": "workspace:*",
     "local-store": "workspace:*",
     "esbuild": "0.25.2",
-    "vitest": "^2.1.9"
+    "vitest": "^3.1.4"
   },
   "devDependencies": {
     "@types/node": "^18.17.0"

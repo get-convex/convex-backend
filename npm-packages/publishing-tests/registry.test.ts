@@ -93,7 +93,7 @@ afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true });
 });
 
-test("publishing convex", async () => {
+test("publishing convex", { timeout: 2 * 60 * 1000 }, async () => {
   login("foo", "bar", port.toString());
 
   // This should be a `just rush publish --pack --include-all --publish`
