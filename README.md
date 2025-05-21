@@ -60,10 +60,10 @@ See [BUILD.md](./BUILD.md).
 - Convex is battle tested most thoroughly on Linux and Mac. On Windows, it has
   less experience. If you run into issues, please message us on
   [Discord](https://convex.dev/community) in the `#self-hosted` channel.
-- Convex self-hosted builds contain a beacon to help Convex improve the improve
-  the product. The information is minimal and anonymous and helpful to Convex,
-  but if you really want to disable it, you can set the `--disable-beacon` flag
-  on the backend binary. The beacon's messages print in the log and only include
+- Convex self-hosted builds contain a beacon to help Convex improve the product.
+  The information is minimal and anonymous and helpful to Convex, but if you
+  really want to disable it, you can set the `--disable-beacon` flag on the
+  backend binary. The beacon's messages print in the log and only include
   - A random identifier for your deployment (not used elsewhere)
   - Migration version of your database
   - Git rev of the backend
