@@ -53,7 +53,7 @@
     "react-dom": "^18.0.0",
     "tshy": "^3.0.0",
     "typescript": "~5.0.3",
-    "vite": "^5.4.12",
+    "vite": "^5.4.19",
     "vitest": "^3.1.4"
   },
   "exports": {
