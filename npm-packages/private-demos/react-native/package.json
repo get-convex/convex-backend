@@ -18,9 +18,9 @@
     "react-native-get-random-values": "^1.8.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0",
-    "@babel/preset-env": "^7.20.0",
-    "@babel/runtime": "^7.20.0",
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.1",
+    "@babel/runtime": "^7.27.1",
     "@react-native/babel-preset": "0.78.2",
     "@react-native/eslint-config": "0.78.2",
     "@react-native/metro-config": "0.78.2",

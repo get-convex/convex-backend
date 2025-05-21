@@ -14,7 +14,7 @@
     "prettier": "3.5.3"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.14.7",
+    "@babel/preset-env": "^7.27.1",
     "@jest/types": "^29.6.0",
     "@testing-library/react": "~16.2.0",
     "@types/jest": "^27.0.0",

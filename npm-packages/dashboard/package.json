@@ -63,7 +63,7 @@
     "react-hotkeys-hook": "~4.4.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.5",
+    "@babel/core": "^7.27.1",
     "@jest/types": "^29.6.0",
     "@storybook/addon-essentials": "^7.6.16",
     "@storybook/addon-interactions": "^7.6.16",
