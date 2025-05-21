@@ -268,10 +268,7 @@ where
                             JWKS_MEDIA_TYPES
                                 .iter()
                                 .any(|&allowed| mime.essence_str().eq_ignore_ascii_case(allowed))
-                                && (mime.get_param("charset").is_none()
-                                    || mime
-                                        .get_param("charset")
-                                        .is_some_and(|val| val.as_str() == "utf-8"))
+                                && mime.get_param("charset").is_none_or(|val| val == "utf-8")
                         })
                 })
             {
