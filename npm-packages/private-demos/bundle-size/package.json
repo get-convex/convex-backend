@@ -21,7 +21,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "~5.0.3",
     "ts-loader": "9.3.1",
-    "vite": "^5.4.19",
+    "vite": "^6.3.5",
     "esbuild": "0.25.2",
     "webpack-cli": "4.10.0",
     "webpack": "5.98.0"
