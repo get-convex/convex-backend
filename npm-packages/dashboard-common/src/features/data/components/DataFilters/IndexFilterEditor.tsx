@@ -1,4 +1,4 @@
-import { JSONValue, ValidatorJSON, Value } from "convex/values";
+import { ValidatorJSON, Value, convexToJson } from "convex/values";
 import React, { useCallback, useState } from "react";
 import {
   FilterByIndex,
@@ -103,7 +103,7 @@ export function IndexFilterEditor({
         const regularFilter: FilterByIndex = {
           type: "indexEq",
           enabled: filter.enabled,
-          value: newValue,
+          value: convexToJson(newValue),
         };
         onChange(regularFilter, idx);
       }
@@ -167,7 +167,13 @@ export function IndexFilterEditor({
       if (filter.type !== "indexEq") {
         throw new Error("Called handleValueChange for non-equals filter");
       }
-      onChange({ ...filter, value }, idx);
+      onChange(
+        {
+          ...filter,
+          value: value === undefined ? undefined : convexToJson(value),
+        },
+        idx,
+      );
     },
     [filter, idx, onChange],
   );
@@ -238,23 +244,23 @@ export function IndexFilterEditor({
   const handleLowerValueChange = useCallback(
     (value?: Value) => {
       if ("lowerValue" in filter) {
-        // Convert Value to JSONValue to ensure compatibility
-        const jsonValue: JSONValue | undefined =
-          value === undefined
-            ? null
-            : typeof value === "bigint"
-              ? Number(value)
-              : (value as JSONValue);
-        onChange({ ...filter, lowerValue: jsonValue }, idx);
+        onChange(
+          {
+            ...filter,
+            lowerValue: value === undefined ? undefined : convexToJson(value),
+          },
+          idx,
+        );
 
         // Check if lowerValue is greater than upperValue
         if (
           filter.type === "indexRange" &&
-          jsonValue !== null &&
+          value !== null &&
+          value !== undefined &&
           filter.upperValue !== null &&
           filter.upperValue !== undefined &&
-          typeof jsonValue === typeof filter.upperValue &&
-          jsonValue > filter.upperValue
+          typeof value === typeof filter.upperValue &&
+          value > filter.upperValue
         ) {
           onError(idx, [RANGE_ERROR_MESSAGE]);
         }
@@ -266,23 +272,23 @@ export function IndexFilterEditor({
   const handleUpperValueChange = useCallback(
     (value?: Value) => {
       if ("upperValue" in filter) {
-        // Convert Value to JSONValue to ensure compatibility
-        const jsonValue: JSONValue | undefined =
-          value === undefined
-            ? null
-            : typeof value === "bigint"
-              ? Number(value)
-              : (value as JSONValue);
-        onChange({ ...filter, upperValue: jsonValue }, idx);
+        onChange(
+          {
+            ...filter,
+            upperValue: value === undefined ? undefined : convexToJson(value),
+          },
+          idx,
+        );
 
         // Check if upperValue is less than lowerValue
         if (
           filter.type === "indexRange" &&
-          jsonValue !== null &&
+          value !== null &&
+          value !== undefined &&
           filter.lowerValue !== null &&
           filter.lowerValue !== undefined &&
-          typeof jsonValue === typeof filter.lowerValue &&
-          jsonValue < filter.lowerValue
+          typeof value === typeof filter.lowerValue &&
+          value < filter.lowerValue
         ) {
           onError(idx, [RANGE_ERROR_MESSAGE]);
         }
