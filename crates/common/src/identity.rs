@@ -18,7 +18,10 @@ use sync_types::{
 };
 use value::heap_size::HeapSize;
 
-use crate::types::MemberId;
+use crate::types::{
+    MemberId,
+    TeamId,
+};
 
 /// An "inert" version of [`keybroker::broker::Identity`] that doesn't bestow
 /// any powers by virtue of ownership. This is used when persisting execution
@@ -33,16 +36,17 @@ pub enum InertIdentity {
     /// Unknown.
     Unknown,
     User(UserIdentifier),
-    ActingUser(MemberId, UserIdentifier),
+    MemberActingUser(MemberId, UserIdentifier),
+    TeamActingUser(TeamId, UserIdentifier),
 }
 
 pub const IDENTITY_LABEL: &str = "identity";
 impl InertIdentity {
     pub fn user_identifier(&self) -> Option<&UserIdentifier> {
         match self {
-            InertIdentity::User(identifier) | InertIdentity::ActingUser(_, identifier) => {
-                Some(identifier)
-            },
+            InertIdentity::User(identifier)
+            | InertIdentity::MemberActingUser(_, identifier)
+            | InertIdentity::TeamActingUser(_, identifier) => Some(identifier),
             _ => None,
         }
     }
@@ -53,7 +57,8 @@ impl InertIdentity {
             InertIdentity::InstanceAdmin(_) => "instance_admin",
             InertIdentity::Unknown => "unknown",
             InertIdentity::User(_) => "user",
-            InertIdentity::ActingUser(..) => "acting_user",
+            InertIdentity::MemberActingUser(..) => "member_acting_user",
+            InertIdentity::TeamActingUser(..) => "team_acting_user",
         };
         StaticMetricLabel::new(IDENTITY_LABEL, type_str)
     }
@@ -66,7 +71,8 @@ impl HeapSize for InertIdentity {
             InertIdentity::System => 0,
             InertIdentity::Unknown => 0,
             InertIdentity::User(u) => u.0.heap_size(),
-            InertIdentity::ActingUser(_m, u) => u.0.heap_size(),
+            InertIdentity::MemberActingUser(_m, u) => u.0.heap_size(),
+            InertIdentity::TeamActingUser(_t, u) => u.0.heap_size(),
         }
     }
 }
@@ -84,7 +90,8 @@ pub enum IdentityCacheKey {
     /// Unknown.
     Unknown(Option<String>),
     User(UserIdentityAttributes),
-    ActingUser(MemberId, UserIdentityAttributes),
+    MemberActingUser(MemberId, UserIdentityAttributes),
+    TeamActingUser(TeamId, UserIdentityAttributes),
 }
 
 impl HeapSize for IdentityCacheKey {
@@ -94,7 +101,8 @@ impl HeapSize for IdentityCacheKey {
             IdentityCacheKey::System => 0,
             IdentityCacheKey::Unknown(s) => s.heap_size(),
             IdentityCacheKey::User(u) => u.heap_size(),
-            IdentityCacheKey::ActingUser(_m, u) => u.heap_size(),
+            IdentityCacheKey::MemberActingUser(_m, u) => u.heap_size(),
+            IdentityCacheKey::TeamActingUser(_t, u) => u.heap_size(),
         }
     }
 }
@@ -117,7 +125,9 @@ impl Arbitrary for InertIdentity {
             "AdminIdentity".prop_map(InertIdentity::InstanceAdmin),
             (any::<UserIdentifier>()).prop_map(InertIdentity::User),
             (any::<MemberId>(), any::<UserIdentifier>())
-                .prop_map(|(a, b)| InertIdentity::ActingUser(a, b)),
+                .prop_map(|(a, b)| InertIdentity::MemberActingUser(a, b)),
+            (any::<TeamId>(), any::<UserIdentifier>())
+                .prop_map(|(a, b)| InertIdentity::TeamActingUser(a, b)),
         ]
     }
 }
@@ -136,19 +146,29 @@ impl FromStr for InertIdentity {
         match (parts.next(), parts.next()) {
             (Some("admin"), Some(s)) => Ok(InertIdentity::InstanceAdmin(s.to_string())),
             (Some("user"), Some(s)) => Ok(InertIdentity::User(UserIdentifier(s.to_string()))),
-            (Some("impersonated_user"), Some(admin_id_and_user_id)) => {
+            (Some("impersonated_user"), Some(admin_id_and_user_id))
+            | (Some("member_acting_as_user"), Some(admin_id_and_user_id)) => {
                 let mut parts = admin_id_and_user_id.splitn(2, ':');
-                if let (Some(admin_id), Some(user_id)) = (parts.next(), parts.next()) {
-                    Ok(InertIdentity::ActingUser(
-                        MemberId(admin_id.parse()?),
-                        UserIdentifier(user_id.to_string()),
-                    ))
-                } else {
-                    anyhow::bail!("Missing instance in identity string {}", s);
-                }
+                let (Some(admin_id), Some(user_id)) = (parts.next(), parts.next()) else {
+                    anyhow::bail!("Missing instance in identity string {s}");
+                };
+                Ok(InertIdentity::MemberActingUser(
+                    MemberId(admin_id.parse()?),
+                    UserIdentifier(user_id.to_string()),
+                ))
             },
-            (_, Some(_)) => anyhow::bail!("Unrecognized identity type {}", s),
-            _ => anyhow::bail!("Missing instance in identity string {}", s),
+            (Some("team_acting_as_user"), Some(team_id_and_user_id)) => {
+                let mut parts = team_id_and_user_id.splitn(2, ':');
+                let (Some(team_id), Some(user_id)) = (parts.next(), parts.next()) else {
+                    anyhow::bail!("Missing instance in identity string {s}");
+                };
+                Ok(InertIdentity::TeamActingUser(
+                    TeamId(team_id.parse()?),
+                    UserIdentifier(user_id.to_string()),
+                ))
+            },
+            (_, Some(_)) => anyhow::bail!("Unrecognized identity type {s}"),
+            _ => anyhow::bail!("Missing instance in identity string {s}"),
         }
     }
 }
@@ -160,8 +180,11 @@ impl Display for InertIdentity {
             InertIdentity::System => write!(f, "system"),
             InertIdentity::Unknown => write!(f, "unknown"),
             InertIdentity::User(id) => write!(f, "user:{}", id.deref()),
-            InertIdentity::ActingUser(admin_id, id) => {
-                write!(f, "impersonated_user:{}:{}", admin_id, id.deref())
+            InertIdentity::MemberActingUser(member_id, id) => {
+                write!(f, "member_acting_as_user:{}:{}", member_id, id.deref())
+            },
+            InertIdentity::TeamActingUser(team_id, id) => {
+                write!(f, "team_acting_as_user:{}:{}", team_id, id.deref())
             },
         }
     }
@@ -171,7 +194,10 @@ impl Display for InertIdentity {
 mod tests {
     use std::str::FromStr;
 
+    use proptest::prelude::*;
+
     use super::InertIdentity;
+
     fn assert_identity_string_roundtrips(left: String) {
         let right = InertIdentity::from_str(&left).unwrap().to_string();
         assert_eq!(left, right);
@@ -185,5 +211,18 @@ mod tests {
         assert_identity_string_roundtrips("unknown".to_string());
         assert_identity_string_roundtrips("admin:AdminIdentifier".to_string());
         assert_identity_string_roundtrips("user:UserIdentifier".to_string());
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
+
+        #[test]
+        fn test_inert_identity_string_roundtrips(identity in any::<InertIdentity>()) {
+            let s = identity.to_string();
+            let parsed = InertIdentity::from_str(&s).unwrap();
+            prop_assert_eq!(identity, parsed);
+        }
     }
 }

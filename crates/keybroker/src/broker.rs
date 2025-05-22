@@ -1,4 +1,3 @@
-use core::panic;
 use std::{
     collections::{
         BTreeMap,
@@ -248,10 +247,10 @@ impl From<Identity> for InertIdentity {
             Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
             Identity::ActingUser(identity, user) => match identity.principal {
                 AdminIdentityPrincipal::Member(member_id) => {
-                    InertIdentity::ActingUser(member_id, user.token_identifier)
+                    InertIdentity::MemberActingUser(member_id, user.token_identifier)
                 },
-                AdminIdentityPrincipal::Team(_) => {
-                    panic!("Impresonating user for team access token is not supported")
+                AdminIdentityPrincipal::Team(team_id) => {
+                    InertIdentity::TeamActingUser(team_id, user.token_identifier)
                 },
             },
         }
@@ -293,10 +292,10 @@ impl Identity {
             Identity::User(user) => IdentityCacheKey::User(user.attributes),
             Identity::ActingUser(identity, user) => match identity.principal {
                 AdminIdentityPrincipal::Member(member_id) => {
-                    IdentityCacheKey::ActingUser(member_id, user)
+                    IdentityCacheKey::MemberActingUser(member_id, user)
                 },
-                AdminIdentityPrincipal::Team(_) => {
-                    panic!("Impresonating user for team access token is not supported")
+                AdminIdentityPrincipal::Team(team_id) => {
+                    IdentityCacheKey::TeamActingUser(team_id, user)
                 },
             },
         }
