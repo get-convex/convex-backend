@@ -956,7 +956,7 @@ pub static FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM: LazyLock<usize> =
 /// The maximum number of retries a Funrun client will perform. The client only
 /// retries overloaded errors.
 pub static FUNRUN_CLIENT_MAX_RETRIES: LazyLock<usize> =
-    LazyLock::new(|| env_config("FUNRUN_CLIENT_MAX_RETRIES", 1));
+    LazyLock::new(|| env_config("FUNRUN_CLIENT_MAX_RETRIES", 4));
 
 /// Value between 1 and 100 representing the percent of a the shared scheduler's
 /// worker pool that a single client can use.
