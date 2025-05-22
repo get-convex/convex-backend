@@ -52,6 +52,7 @@ use common::{
     value::Size,
 };
 use errors::ErrorMetadata;
+use fastrace::local::LocalSpan;
 use futures::{
     stream,
     StreamExt as _,
@@ -586,6 +587,7 @@ impl DatabaseIndexSnapshot {
     )> {
         let mut results = vec![];
         let mut cache_miss_results = vec![];
+        let mut traced = false;
         for cache_result in cache_results {
             match cache_result {
                 DatabaseIndexSnapshotCacheResult::Document(index_key, ts, document) => {
@@ -595,6 +597,12 @@ impl DatabaseIndexSnapshot {
                 },
                 DatabaseIndexSnapshotCacheResult::CacheMiss(interval) => {
                     log_transaction_cache_query(false);
+                    if !traced {
+                        LocalSpan::add_property(|| {
+                            ("index", range_request.printable_index_name.to_string())
+                        });
+                        traced = true;
+                    }
                     // Query persistence.
                     let mut stream = persistence.index_scan(
                         index_id,
