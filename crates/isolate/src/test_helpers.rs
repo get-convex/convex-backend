@@ -1263,23 +1263,6 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
 }
 
 #[async_trait]
-impl<RT: Runtime, P: Persistence> UdfCallback<RT> for UdfTest<RT, P> {
-    async fn execute_udf(
-        &self,
-        _client_id: String,
-        _udf_type: UdfType,
-        _path_and_args: ValidatedPathAndArgs,
-        _environment_data: EnvironmentData<RT>,
-        _transaction: Transaction<RT>,
-        _journal: QueryJournal,
-        _context: ExecutionContext,
-        _reactor_depth: usize,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        anyhow::bail!("Component calls not implemented in tests yet")
-    }
-}
-
-#[async_trait]
 impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_query(
         &self,

@@ -56,7 +56,6 @@ use isolate::{
     client::EnvironmentData,
     ActionCallbacks,
     IsolateClient,
-    UdfCallback,
 };
 use keybroker::{
     Identity,
@@ -593,35 +592,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 environment_variables,
                 explanation,
                 instance_name,
-            )
-            .await
-    }
-}
-
-#[async_trait]
-impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerCore<RT, S> {
-    async fn execute_udf(
-        &self,
-        client_id: String,
-        udf_type: UdfType,
-        path_and_args: ValidatedPathAndArgs,
-        environment_data: EnvironmentData<RT>,
-        transaction: Transaction<RT>,
-        journal: QueryJournal,
-        context: ExecutionContext,
-        reactor_depth: usize,
-    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        self.isolate_client
-            .execute_udf(
-                udf_type,
-                path_and_args,
-                transaction,
-                journal,
-                context,
-                environment_data,
-                reactor_depth,
-                client_id,
-                None,
             )
             .await
     }
