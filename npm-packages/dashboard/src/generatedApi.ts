@@ -3421,7 +3421,8 @@ export interface operations {
             header?: never;
             path: {
                 team_id: components["schemas"]["TeamId"];
-                deployment_id: components["schemas"]["DeploymentId"];
+                /** @description Can be a deployment's id (integer) or name (string) */
+                deployment_id: string;
             };
             cookie?: never;
         };

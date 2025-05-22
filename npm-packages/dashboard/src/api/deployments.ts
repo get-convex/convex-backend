@@ -74,12 +74,15 @@ export function useProvisionDeployment(projectId: number) {
   });
 }
 
-export function useDeploymentById(teamId: number, deploymentId?: number) {
+export function useDeploymentById(
+  teamId: number,
+  deploymentId?: number | string,
+) {
   const { data: deployment } = useBBQuery({
     path: "/teams/{team_id}/deployments/{deployment_id}",
     pathParams: {
       team_id: teamId,
-      deployment_id: deploymentId || 0,
+      deployment_id: deploymentId?.toString() || "",
     },
   });
 

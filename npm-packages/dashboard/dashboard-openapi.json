@@ -1424,10 +1424,10 @@
           {
             "name": "deployment_id",
             "in": "path",
-            "description": "",
+            "description": "Can be a deployment's id (integer) or name (string)",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/DeploymentId"
+              "type": "string"
             }
           }
         ],
