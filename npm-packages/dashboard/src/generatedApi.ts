@@ -407,6 +407,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/link_identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Link a secondary identity to a user's account */
+        post: operations["link_identity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/list_identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all identities for a user */
+        get: operations["list_identities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/member_data": {
         parameters: {
             query?: never;
@@ -1351,6 +1385,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/unlink_identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Unlink a secondary identity from a user's account */
+        post: operations["unlink_identity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update_profile_name": {
         parameters: {
             query?: never;
@@ -1443,6 +1494,12 @@ export interface components {
         AuditLogResponse: {
             cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
+        };
+        AuthIdentity: {
+            connection: string;
+            profileData: components["schemas"]["ProfileData"];
+            provider: string;
+            userId: string;
         };
         AuthorizeAppArgs: {
             /** @description Authentication token is expected to be the access token from auth0 */
@@ -1679,6 +1736,9 @@ export interface components {
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
         };
+        LinkIdentityRequest: {
+            secondaryUserJwt: string;
+        };
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
         };
@@ -1752,6 +1812,11 @@ export interface components {
             plans: components["schemas"]["PlanResponse"][];
         };
         PreviewDeploymentIdentifier: string;
+        ProfileData: {
+            email?: string | null;
+            name?: string | null;
+            username?: string | null;
+        };
         ProfileEmailArgs: {
             email: string;
         };
@@ -1921,6 +1986,10 @@ export interface components {
         UnlinkDiscordAccountRequest: {
             discordId: components["schemas"]["DiscordId"];
         };
+        UnlinkIdentityRequest: {
+            provider: string;
+            userId: string;
+        };
         UpdateBillingAddressArgs: {
             billingAddress: components["schemas"]["Address"];
         };
@@ -1999,6 +2068,7 @@ export type AuditLogAction = components['schemas']['AuditLogAction'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
 export type AuditLogResponse = components['schemas']['AuditLogResponse'];
+export type AuthIdentity = components['schemas']['AuthIdentity'];
 export type AuthorizeAppArgs = components['schemas']['AuthorizeAppArgs'];
 export type AuthorizeAppMode = components['schemas']['AuthorizeAppMode'];
 export type AuthorizeArgs = components['schemas']['AuthorizeArgs'];
@@ -2039,6 +2109,7 @@ export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
+export type LinkIdentityRequest = components['schemas']['LinkIdentityRequest'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
@@ -2055,6 +2126,7 @@ export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig']
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
+export type ProfileData = components['schemas']['ProfileData'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
 export type ProjectId = components['schemas']['ProjectId'];
@@ -2089,6 +2161,7 @@ export type TeamSlug = components['schemas']['TeamSlug'];
 export type TeamUsageStateResponse = components['schemas']['TeamUsageStateResponse'];
 export type TransferProjectArgs = components['schemas']['TransferProjectArgs'];
 export type UnlinkDiscordAccountRequest = components['schemas']['UnlinkDiscordAccountRequest'];
+export type UnlinkIdentityRequest = components['schemas']['UnlinkIdentityRequest'];
 export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddressArgs'];
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
 export type UpdateEnvironmentVariable = components['schemas']['UpdateEnvironmentVariable'];
@@ -2629,6 +2702,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Team"];
+                };
+            };
+        };
+    };
+    link_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkIdentityRequest"];
+            };
+        };
+        responses: never;
+    };
+    list_identities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthIdentity"][];
                 };
             };
         };
@@ -3997,6 +4103,20 @@ export interface operations {
                 };
             };
         };
+    };
+    unlink_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlinkIdentityRequest"];
+            };
+        };
+        responses: never;
     };
     update_profile_name: {
         parameters: {
