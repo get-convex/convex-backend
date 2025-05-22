@@ -40,6 +40,7 @@ use vector::{
 use super::task_executor::TaskExecutor;
 use crate::{
     environment::helpers::{
+        remove_rejected_before_execution,
         with_argument_error,
         ArgName,
     },
@@ -152,7 +153,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 args.into_arg_vec(),
                 self.context.clone(),
             )
-            .await?
+            .await
+            .map_err(remove_rejected_before_execution)?
             .result?;
         Ok(value)
     }
@@ -201,7 +203,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 args.into_arg_vec(),
                 self.context.clone(),
             )
-            .await?
+            .await
+            .map_err(remove_rejected_before_execution)?
             .result?;
         Ok(value)
     }
@@ -250,7 +253,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 args.into_arg_vec(),
                 self.context.clone(),
             )
-            .await?
+            .await
+            .map_err(remove_rejected_before_execution)?
             .result?;
         Ok(value)
     }

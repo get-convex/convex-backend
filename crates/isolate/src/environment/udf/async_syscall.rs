@@ -105,6 +105,7 @@ use crate::{
         action::parse_name_or_reference,
         helpers::{
             parse_version,
+            remove_rejected_before_execution,
             with_argument_error,
             ArgName,
         },
@@ -550,7 +551,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 self.context.clone(),
                 new_reactor_depth,
             )
-            .await?;
+            .await
+            .map_err(remove_rejected_before_execution)?;
         match (udf_type, &outcome) {
             (UdfType::Mutation, FunctionOutcome::Mutation(UdfOutcome { result: Err(_), .. })) => {
                 tx.rollback_subtransaction(tokens)?

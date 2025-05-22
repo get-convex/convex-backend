@@ -8,7 +8,10 @@ use deno_core::{
     serde_v8,
     v8,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorCode,
+    ErrorMetadata,
+};
 use serde_json::Value as JsonValue;
 
 pub use self::{
@@ -57,4 +60,17 @@ pub fn json_to_v8<'a>(
 ) -> anyhow::Result<v8::Local<'a, v8::Value>> {
     let value_v8 = serde_v8::to_v8(scope, json)?;
     Ok(value_v8)
+}
+
+/// Convert `RejectedBeforeExecution` error codes into `Overloaded`.
+/// This is useful when calling nested UDFs as the code would otherwise leak out
+/// of the _parent_ UDF, causing its caller to mistakenly believe the parent
+/// call to be retriable.
+pub fn remove_rejected_before_execution(mut e: anyhow::Error) -> anyhow::Error {
+    if let Some(em) = e.downcast_mut::<ErrorMetadata>()
+        && em.code == ErrorCode::RejectedBeforeExecution
+    {
+        em.code = ErrorCode::Overloaded;
+    }
+    e
 }
