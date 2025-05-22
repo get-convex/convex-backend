@@ -301,6 +301,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     fn system_timeout(&self) -> std::time::Duration {
         *DATABASE_UDF_SYSTEM_TIMEOUT
     }
+
+    fn is_nested_function(&self) -> bool {
+        self.reactor_depth > 0
+    }
 }
 
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {

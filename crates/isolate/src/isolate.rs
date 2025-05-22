@@ -286,7 +286,9 @@ impl<RT: Runtime> Isolate<RT> {
         let permit = tokio::select! {
             biased;
             permit = self.limiter.acquire(client_id) => permit,
-            () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT) => {
+            // Do not apply a timeout for subfunctions that can't be retried
+            () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
+                    if !environment.is_nested_function() => {
                 anyhow::bail!(ErrorMetadata::rejected_before_execution(
                     "InitialPermitTimeoutError",
                     "Couldn't acquire a permit on this funrun",
