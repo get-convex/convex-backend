@@ -60,6 +60,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     }
 
     #[async_recursion]
+    #[fastrace::trace]
     pub async fn resolve(
         &mut self,
         component_id: ComponentId,
@@ -211,6 +212,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         Ok(None)
     }
 
+    #[fastrace::trace]
     pub async fn resolve_public_export_path(
         &mut self,
         path: ExportPath,

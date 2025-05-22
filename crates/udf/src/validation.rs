@@ -89,6 +89,7 @@ pub const SUSPENDED_ERROR_MESSAGE: &str = "Cannot run functions while this deplo
 /// Fails with an error if the backend is not running. We have to return a
 /// result of a result of () and a JSError because we use them to
 /// differentiate between system and user errors.
+#[fastrace::trace]
 pub async fn fail_while_not_running<RT: Runtime>(
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Result<(), JsError>> {
@@ -210,6 +211,7 @@ fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String>
     ))
 }
 
+#[fastrace::trace]
 async fn udf_version<RT: Runtime>(
     path: &ResolvedComponentFunctionPath,
     tx: &mut Transaction<RT>,

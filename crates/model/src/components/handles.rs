@@ -102,6 +102,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         Self { tx }
     }
 
+    #[fastrace::trace]
     pub async fn lookup(
         &mut self,
         handle: FunctionHandle,
