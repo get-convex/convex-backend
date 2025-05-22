@@ -612,6 +612,44 @@
         }
       }
     },
+    "/link_identity": {
+      "post": {
+        "description": "Link a secondary identity to a user's account",
+        "operationId": "link_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {}
+      }
+    },
+    "/list_identities": {
+      "get": {
+        "description": "List all identities for a user",
+        "operationId": "list_identities",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuthIdentity"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/member_data": {
       "get": {
         "operationId": "get_member_data",
@@ -2349,6 +2387,23 @@
         }
       }
     },
+    "/unlink_identity": {
+      "post": {
+        "description": "Unlink a secondary identity from a user's account",
+        "operationId": "unlink_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {}
+      }
+    },
     "/update_profile_name": {
       "put": {
         "operationId": "update_profile_name",
@@ -2652,6 +2707,29 @@
             "items": {
               "$ref": "#/components/schemas/AuditLogEventResponse"
             }
+          }
+        }
+      },
+      "AuthIdentity": {
+        "type": "object",
+        "required": [
+          "connection",
+          "userId",
+          "provider",
+          "profileData"
+        ],
+        "properties": {
+          "connection": {
+            "type": "string"
+          },
+          "profileData": {
+            "$ref": "#/components/schemas/ProfileData"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
           }
         }
       },
@@ -3600,6 +3678,17 @@
           }
         }
       },
+      "LinkIdentityRequest": {
+        "type": "object",
+        "required": [
+          "secondaryUserJwt"
+        ],
+        "properties": {
+          "secondaryUserJwt": {
+            "type": "string"
+          }
+        }
+      },
       "ListEnvVariableResponse": {
         "type": "object",
         "required": [
@@ -3898,6 +3987,29 @@
       },
       "PreviewDeploymentIdentifier": {
         "type": "string"
+      },
+      "ProfileData": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "ProfileEmailArgs": {
         "type": "object",
@@ -4457,6 +4569,21 @@
           }
         },
         "additionalProperties": false
+      },
+      "UnlinkIdentityRequest": {
+        "type": "object",
+        "required": [
+          "provider",
+          "userId"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        }
       },
       "UpdateBillingAddressArgs": {
         "type": "object",
