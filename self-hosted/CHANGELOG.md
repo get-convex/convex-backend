@@ -10,7 +10,7 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
-## 2025-05-23
+## 2025-05-23 `478d197d54ee6e873f06cf9e9deae1eb4aa35bb5`
 
 - Tons and tons of backend improvements.
 - MCP + Self-hosting works (requires npm package convex >= 1.24.1)
