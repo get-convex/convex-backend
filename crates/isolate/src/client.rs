@@ -91,13 +91,11 @@ use fastrace::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
-    select,
     select_biased,
     stream::{
         FuturesUnordered,
         StreamExt,
     },
-    FutureExt,
 };
 use keybroker::{
     Identity,
@@ -131,6 +129,7 @@ use tokio::sync::{
     mpsc,
     oneshot,
 };
+use tokio_stream::wrappers::ReceiverStream;
 use udf::{
     validation::{
         ValidatedHttpPath,
@@ -159,6 +158,7 @@ use crate::{
     isolate_worker::FunctionRunnerIsolateWorker,
     metrics::{
         self,
+        create_context_timer,
         log_aggregated_heap_stats,
         log_pool_max,
         log_pool_running_count,
@@ -1370,7 +1370,7 @@ impl SharedIsolateHeapStats {
 pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
     async fn service_requests<T>(
         self,
-        mut reqs: mpsc::Receiver<(Request<RT>, oneshot::Sender<T>, T)>,
+        reqs: mpsc::Receiver<(Request<RT>, oneshot::Sender<T>, T)>,
         heap_stats: SharedIsolateHeapStats,
     ) {
         let IsolateConfig {
@@ -1378,72 +1378,78 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
             limiter,
             ..
         } = self.config();
-        let mut isolate = Isolate::new(self.rt(), *max_user_timeout, limiter.clone());
-        heap_stats.store(isolate.heap_stats());
-        let mut last_client_id: Option<String> = None;
-        loop {
-            select! {
-                _ = if last_client_id.is_some() {
-                        self.rt().wait(*ISOLATE_IDLE_TIMEOUT).boxed_local().fuse()
-                    }
-                    else {
-                        // If the isolate isn't "tainted", no need to wait for the idle timeout.
-                        futures::future::pending().boxed_local().fuse()
-                    } => {
-                    drop(isolate);
-                    isolate = Isolate::new(self.rt().clone(), *max_user_timeout, limiter.clone());
-                    tracing::debug!("Restarting isolate for {last_client_id:?} due to idle timeout");
-                    last_client_id = None;
-                    metrics::log_recreate_isolate("idle_timeout");
-                    continue;
-                },
-                req = reqs.recv().fuse() => {
-                    let Some((req, done, done_token)) = req else {
-                        return;
-                    };
-                    let root = initialize_root_from_parent(func_path!(),req.parent_trace.clone());
-                    // If we receive a request from a different client (i.e. a different backend),
-                    // recreate the isolate. We don't allow an isolate to be reused
-                    // across clients for security isolation.
-                    if last_client_id.get_or_insert_with(|| {
-                        req.client_id.clone()
-                    }) != &req.client_id {
-                        let pause_client = self.rt().pause_client();
-                        pause_client.wait(PAUSE_RECREATE_CLIENT).await;
-                        tracing::debug!("Restarting isolate due to client change, previous: {:?}, new: {:?}", last_client_id, req.client_id);
-                        metrics::log_recreate_isolate("client_id_changed");
-                        drop(isolate);
-                        isolate = Isolate::new(
-                            self.rt().clone(),
-                            *max_user_timeout,
-                            limiter.clone(),
-                        );
-                        last_client_id = Some(req.client_id.clone());
-                    } else if last_client_id.is_some() {
-                        tracing::debug!("Reusing isolate for client {}", req.client_id);
-                    }
-                    // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
-                    let mut isolate_clean = false;
-                    let debug_str = self
-                        .handle_request(&mut isolate, &mut isolate_clean, req, heap_stats.clone())
-                        .in_span(root)
-                        .await;
+        let mut reqs = std::pin::pin!(ReceiverStream::new(reqs).peekable());
+        let mut ready: Option<(oneshot::Sender<_>, _)> = None;
+        'recreate_isolate: loop {
+            let mut last_client_id: Option<String> = None;
+            let mut isolate = Isolate::new(self.rt(), *max_user_timeout, limiter.clone());
+            heap_stats.store(isolate.heap_stats());
+            loop {
+                let v8_context = {
+                    let _create_context_timer = create_context_timer();
+                    let mut scope = isolate.handle_scope();
+                    let context = v8::Context::new(&mut scope, v8::ContextOptions::default());
+                    v8::Global::new(&mut scope, context)
+                };
+                if let Some((done, done_token)) = ready.take() {
+                    // Inform the scheduler that this thread is ready to accept a new request.
                     let _ = done.send(done_token);
-                    if !isolate_clean || should_recreate_isolate(&mut isolate, debug_str) {
-                        // Clean up current isolate before creating another.
-                        // If we just overwrite `isolate`, the `Isolate::new` runs before
-                        // dropping the old isolate. And v8 stores the current isolate in a
-                        // thread local, so the drop handler sets the current isolate to null.
-                        // Therefore without this drop(isolate), we get segfaults.
-                        drop(isolate);
-                        isolate = Isolate::new(
-                            self.rt().clone(),
-                            *max_user_timeout,
-                            limiter.clone(),
+                }
+                tokio::select! {
+                    // If the isolate isn't "tainted", no need to wait for the idle timeout.
+                    _ = self.rt().wait(*ISOLATE_IDLE_TIMEOUT), if last_client_id.is_some() => {
+                        tracing::debug!("Restarting isolate for {last_client_id:?} due to idle timeout");
+                        metrics::log_recreate_isolate("idle_timeout");
+                        continue 'recreate_isolate;
+                    },
+                    // First peek the request to decide if we need to make a new isolate.
+                    req = reqs.as_mut().peek() => {
+                        let Some((req, ..)) = req else {
+                            return;
+                        };
+                        let reused = last_client_id.is_some();
+                        // If we receive a request from a different client (i.e. a different backend),
+                        // recreate the isolate. We don't allow an isolate to be reused
+                        // across clients for security isolation.
+                        if last_client_id.get_or_insert_with(|| {
+                            req.client_id.clone()
+                        }) != &req.client_id {
+                            let pause_client = self.rt().pause_client();
+                            pause_client.wait(PAUSE_RECREATE_CLIENT).await;
+                            tracing::debug!("Restarting isolate due to client change, previous: {:?}, new: {:?}", last_client_id, req.client_id);
+                            metrics::log_recreate_isolate("client_id_changed");
+                            continue 'recreate_isolate;
+                        } else if reused {
+                            tracing::debug!("Reusing isolate for client {}", req.client_id);
+                        }
+                        // Ok, we're ready to accept the request for real.
+                        let Some((req, done, done_token)) = reqs.next().await else { return };
+                        // Note that we won't reply to `done` until the next
+                        // `v8_context` is created. This improves latency in the
+                        // common case since requests will be routed to a thread
+                        // that has a context ready to go.
+                        ready = Some((done, done_token));
+                        let root = initialize_root_from_parent(
+                            func_path!(),
+                            req.parent_trace.clone(),
                         );
-                        last_client_id = None;
+                        // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
+                        let mut isolate_clean = false;
+                        let debug_str = self
+                            .handle_request(
+                                &mut isolate,
+                                v8_context,
+                                &mut isolate_clean,
+                                req,
+                                heap_stats.clone(),
+                            )
+                            .in_span(root)
+                            .await;
+                        if !isolate_clean || should_recreate_isolate(&mut isolate, debug_str) {
+                            continue 'recreate_isolate;
+                        }
+                        heap_stats.store(isolate.heap_stats());
                     }
-                    heap_stats.store(isolate.heap_stats());
                 }
             }
         }
@@ -1452,6 +1458,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,
+        v8_context: v8::Global<v8::Context>,
         isolate_clean: &mut bool,
         req: Request<RT>,
         heap_stats: SharedIsolateHeapStats,

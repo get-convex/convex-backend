@@ -192,6 +192,7 @@ impl AuthConfigEnvironment {
     pub async fn evaluate_auth_config<RT: Runtime>(
         client_id: String,
         isolate: &mut Isolate<RT>,
+        v8_context: v8::Global<v8::Context>,
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
@@ -204,7 +205,7 @@ impl AuthConfigEnvironment {
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate.start_request(client_id, environment).await?;
         let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
+        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;

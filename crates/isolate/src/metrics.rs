@@ -536,6 +536,11 @@ pub fn create_isolate_timer() -> Timer<prometheus::VMHistogram> {
     Timer::new(&CREATE_ISOLATE_SECONDS)
 }
 
+register_convex_histogram!(CREATE_CONTEXT_SECONDS, "Time to create a new V8 context");
+pub fn create_context_timer() -> Timer<prometheus::VMHistogram> {
+    Timer::new(&CREATE_CONTEXT_SECONDS)
+}
+
 register_convex_histogram!(
     CONCURRENCY_PERMIT_ACQUIRE_SECONDS,
     "Time to acquire a concurrency permit. High latency indicate that isolate threads are \

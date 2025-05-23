@@ -313,6 +313,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         mut self,
         client_id: String,
         isolate: &mut Isolate<RT>,
+        v8_context: v8::Global<v8::Context>,
         isolate_clean: &mut bool,
         http_module_path: ValidatedHttpPath,
         routed_path: RoutedHttpPath,
@@ -337,7 +338,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             _ = tx.send(());
         }
         let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
+        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
 
         let mut isolate_context =
@@ -651,6 +652,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         mut self,
         client_id: String,
         isolate: &mut Isolate<RT>,
+        v8_context: v8::Global<v8::Context>,
         isolate_clean: &mut bool,
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
@@ -668,7 +670,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             _ = tx.send(());
         }
         let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
+        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
 
         let mut isolate_context =
