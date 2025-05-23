@@ -10,10 +10,17 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
-## Upcoming
+## 2025-05-23
 
+- Tons and tons of backend improvements.
+- MCP + Self-hosting works (requires npm package convex >= 1.24.1)
 - Speed up pushing to node actions with
   [external packages](https://docs.convex.dev/functions/bundling#external-packages).
+- Support setting `CONVEX_CLOUD_ORIGIN`, `CONVEX_SITE_ORIGIN`, and
+  `NEXT_PUBLIC_DEPLOYMENT_URL` in .env next to docker compose file. (Thx
+  @natac13)
+- Add support for CA file for postgres (thx @tahvane1)
+- Docs improvements. Incl DevContainer guide (thx @iamfj).
 
 ## 2025-03-10 `5143fec81f146ca67495c12c6b7a15c5802c37e2`
 

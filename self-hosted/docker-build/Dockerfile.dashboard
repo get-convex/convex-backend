@@ -8,7 +8,7 @@ WORKDIR /app/npm-packages/dashboard-self-hosted
 RUN rush install
 ENV NODE_ENV=production
 RUN rush build -t dashboard-self-hosted
-RUN rush-pnpm deploy --filter=dashboard-self-hosted --prod /tmp/deploy
+RUN rush-pnpm deploy --legacy --filter=dashboard-self-hosted --prod /tmp/deploy
 
 FROM node:18-alpine
 RUN addgroup --system --gid 1001 nodejs
