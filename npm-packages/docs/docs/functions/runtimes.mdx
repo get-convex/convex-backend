@@ -30,7 +30,7 @@ The default runtime has many advantages including:
   access your database via a simple
   [JavaScript interface](/database/reading-data/reading-data.mdx).
 
-<Details summary="Supported APIs">
+### Supported APIs
 
 The default runtime supports most npm libraries that work in the browser,
 [Deno](https://deno.com/), and
@@ -39,7 +39,7 @@ library isn't supported, you can use an action with the
 [Node.js runtime](#nodejs-runtime), or reach out in
 [Discord](https://convex.dev/community). We are improving support all the time.
 
-### Network APIs
+#### Network APIs
 
 - [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
 - [Event](https://developer.mozilla.org/en-US/docs/Web/API/Event)
@@ -52,14 +52,14 @@ library isn't supported, you can use an action with the
 - [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)
 - [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)
 
-### Encoding APIs
+#### Encoding APIs
 
 - [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)
 - [TextEncoder](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder)
 - [atob](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/atob)
 - [btoa](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/btoa)
 
-### Web Stream APIs
+#### Web Stream APIs
 
 - [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)
 - [ReadableStreamBYOBReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader)
@@ -68,13 +68,11 @@ library isn't supported, you can use an action with the
 - [WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
 - [WritableStreamDefaultWriter](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultWriter)
 
-### Web Crypto APIs
+#### Web Crypto APIs
 
 - [crypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
 - [CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
 - [SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
-
-</Details>
 
 ### Restrictions on queries and mutations
 
