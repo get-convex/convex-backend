@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/get-convex/convex-backend:5143fec81f146ca67495c12c6b7a15c5802c37e2
+    image: ghcr.io/get-convex/convex-backend:478d197d54ee6e873f06cf9e9deae1eb4aa35bb5
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
@@ -40,7 +40,7 @@ services:
       start_period: 10s
 
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:5143fec81f146ca67495c12c6b7a15c5802c37e2
+    image: ghcr.io/get-convex/convex-dashboard:478d197d54ee6e873f06cf9e9deae1eb4aa35bb5
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
