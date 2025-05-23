@@ -1170,6 +1170,12 @@
         }
       }
     },
+    "/set_jwt_cookie": {
+      "post": {
+        "operationId": "set_jwt_cookie",
+        "responses": {}
+      }
+    },
     "/teams": {
       "get": {
         "operationId": "get_teams_for_member",
@@ -3681,11 +3687,11 @@
       "LinkIdentityRequest": {
         "type": "object",
         "required": [
-          "secondaryUserJwt"
+          "fromProfile"
         ],
         "properties": {
-          "secondaryUserJwt": {
-            "type": "string"
+          "fromProfile": {
+            "type": "boolean"
           }
         }
       },

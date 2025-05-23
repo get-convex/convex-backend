@@ -761,6 +761,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/set_jwt_cookie": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set_jwt_cookie"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams": {
         parameters: {
             query?: never;
@@ -1737,7 +1753,7 @@ export interface components {
             invoices: components["schemas"]["InvoiceResponse"][];
         };
         LinkIdentityRequest: {
-            secondaryUserJwt: string;
+            fromProfile: boolean;
         };
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
@@ -3202,6 +3218,16 @@ export interface operations {
                 content?: never;
             };
         };
+    };
+    set_jwt_cookie: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: never;
     };
     get_teams_for_member: {
         parameters: {
