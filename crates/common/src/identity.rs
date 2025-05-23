@@ -90,8 +90,6 @@ pub enum IdentityCacheKey {
     /// Unknown.
     Unknown(Option<String>),
     User(UserIdentityAttributes),
-    MemberActingUser(MemberId, UserIdentityAttributes),
-    TeamActingUser(TeamId, UserIdentityAttributes),
 }
 
 impl HeapSize for IdentityCacheKey {
@@ -101,8 +99,6 @@ impl HeapSize for IdentityCacheKey {
             IdentityCacheKey::System => 0,
             IdentityCacheKey::Unknown(s) => s.heap_size(),
             IdentityCacheKey::User(u) => u.heap_size(),
-            IdentityCacheKey::MemberActingUser(_m, u) => u.heap_size(),
-            IdentityCacheKey::TeamActingUser(_t, u) => u.heap_size(),
         }
     }
 }
@@ -124,10 +120,6 @@ impl Arbitrary for InertIdentity {
             // conflicting with string serialization delimiters.
             "AdminIdentity".prop_map(InertIdentity::InstanceAdmin),
             (any::<UserIdentifier>()).prop_map(InertIdentity::User),
-            (any::<MemberId>(), any::<UserIdentifier>())
-                .prop_map(|(a, b)| InertIdentity::MemberActingUser(a, b)),
-            (any::<TeamId>(), any::<UserIdentifier>())
-                .prop_map(|(a, b)| InertIdentity::TeamActingUser(a, b)),
         ]
     }
 }

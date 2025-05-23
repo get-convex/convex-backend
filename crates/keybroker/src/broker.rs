@@ -290,14 +290,9 @@ impl Identity {
                 IdentityCacheKey::Unknown(error_message.map(|e| e.to_string()))
             },
             Identity::User(user) => IdentityCacheKey::User(user.attributes),
-            Identity::ActingUser(identity, user) => match identity.principal {
-                AdminIdentityPrincipal::Member(member_id) => {
-                    IdentityCacheKey::MemberActingUser(member_id, user)
-                },
-                AdminIdentityPrincipal::Team(team_id) => {
-                    IdentityCacheKey::TeamActingUser(team_id, user)
-                },
-            },
+            // Identity of the impersonator not relevant for caching. Only the one being
+            // impersonated.
+            Identity::ActingUser(_identity, user) => IdentityCacheKey::User(user),
         }
     }
 
