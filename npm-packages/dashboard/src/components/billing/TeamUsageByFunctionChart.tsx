@@ -1,4 +1,8 @@
-import { ChevronDownIcon, DesktopIcon } from "@radix-ui/react-icons";
+import {
+  ChevronDownIcon,
+  DesktopIcon,
+  DownloadIcon,
+} from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
@@ -31,6 +35,7 @@ type DeploymentTypeRow = {
   values: number[];
   deploymentType: DeploymentType | null;
   isSystem: boolean;
+  isCloudBackups: boolean;
   href: string | null;
 };
 
@@ -167,9 +172,14 @@ function ChartRow({
   const path = row.function;
   const { componentPath } = row;
   const isSystemFunction = row.isSystem;
+  const { isCloudBackups } = row;
   const { module, functionName } = useMemo(() => {
     const separator = ".js:";
     const separatorPosition = path.indexOf(separator);
+
+    if (isCloudBackups) {
+      return { module: "Cloud Backup Generation", functionName: "default" };
+    }
 
     if (isSystemFunction) {
       return { module: "Convex Dashboard", functionName: "default" };
@@ -184,7 +194,7 @@ function ChartRow({
       module: path.substring(0, separatorPosition),
       functionName: path.substring(separatorPosition + separator.length),
     };
-  }, [path, isSystemFunction]);
+  }, [path, isSystemFunction, isCloudBackups]);
 
   const { values } = row;
   const nonZeroValues = values
@@ -212,7 +222,12 @@ function ChartRow({
 
         <div className="absolute left-0 top-0 flex h-full w-full items-center text-sm">
           <div className="truncate px-4">
-            {isSystemFunction ? (
+            {isCloudBackups ? (
+              <span className="flex items-center gap-1.5">
+                <DownloadIcon />
+                Cloud Backup Generation
+              </span>
+            ) : isSystemFunction ? (
               <span className="flex items-center gap-1.5">
                 <DesktopIcon />
                 Dashboard
@@ -397,6 +412,7 @@ function useOrderedAndGroupedRows(
         let key;
         let deployment = null;
         const isSystem = row.function.startsWith("_system");
+        const isCloudBackups = row.function === "_system_job/cloud_backup";
         const name = isSystem ? "" : row.function;
         if (project) {
           deployment = deployments.find(
@@ -429,6 +445,7 @@ function useOrderedAndGroupedRows(
             values,
             deploymentType,
             isSystem,
+            isCloudBackups,
 
             // We don’t link to development environments because they might belong to
             // someone else in the team. This might be improved later.
