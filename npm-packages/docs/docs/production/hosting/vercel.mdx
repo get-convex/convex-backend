@@ -30,7 +30,7 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
   </Step>
   <Step title="Override the Build command">
     Override the "Build command" to be
-    `npx convex deploy --cmd 'npm run build'`.
+    `npx convex deploy && npm run build`.
 
     If your project lives in a subdirectory of your repository you'll
     also need to change _Root Directory_ above accordingly.
@@ -75,7 +75,7 @@ functions and publish your site changes.
 ### How it works
 
 In Vercel, we overrode the _Build Command_ to be
-`npx convex deploy --cmd 'npm run build'`.
+`npx convex deploy && npm run build`.
 
 `npx convex deploy` will read `CONVEX_DEPLOY_KEY` from the environment and use
 it to set the `CONVEX_URL` (or similarly named) environment variable to point to
@@ -95,7 +95,7 @@ You can use `--cmd-url-env-var-name` to customize the variable name used by your
 frontend code if the `deploy` command cannot infer it, like
 
 ```sh
-npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL && npm run build
 ```
 
 ### Authentication
@@ -148,7 +148,7 @@ This assumes you have already followed the steps in
   when deploying to production.
 
 ```sh title="Vercel > Settings > Build & Development settings > Build Command"
-npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+npx convex deploy && npm run build --preview-run 'functionName'
 ```
 
 </Step>
