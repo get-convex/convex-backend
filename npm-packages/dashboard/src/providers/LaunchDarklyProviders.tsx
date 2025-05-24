@@ -115,3 +115,39 @@ export const LaunchDarklyConsumer = withLDConsumer({ clientOnly: true })(
     return children;
   },
 );
+
+// Anonymous LaunchDarkly provider that always uses an anonymous user context
+export function AnonymousLaunchDarklyProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const clientSideID = process.env.NEXT_PUBLIC_LAUNCHDARKLY_SDK_CLIENT_SIDE_ID;
+  if (!clientSideID) {
+    throw new Error("LaunchDarkly Client Side ID not set");
+  }
+
+  // Always use a stable anonymous user context
+  const anonymousContext = { key: "anon", anonymous: true, kind: "user" };
+
+  const { value: LDProvider }: any = useAsync<
+    () => ReturnType<typeof asyncWithLDProvider>
+  >(
+    async () =>
+      LDProvider ||
+      asyncWithLDProvider({
+        clientSideID,
+        flags: flagDefaultsKebabCase,
+        context: anonymousContext,
+      }),
+    [],
+  );
+
+  return LDProvider ? (
+    <LDProvider>{children}</LDProvider>
+  ) : (
+    <div className="flex h-screen w-full items-center justify-center">
+      <LoadingLogo />
+    </div>
+  );
+}

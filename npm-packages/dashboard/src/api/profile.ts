@@ -83,3 +83,38 @@ export function useDeleteAccount() {
     toastOnError: false,
   });
 }
+
+export function useListIdentities() {
+  const { data: identities } = useBBQuery({
+    path: "/list_identities",
+    pathParams: undefined,
+  });
+  return identities;
+}
+
+export function useSetLinkIdentityCookie() {
+  return useBBMutation({
+    path: "/set_jwt_cookie",
+    pathParams: undefined,
+    includeCredentials: true,
+  });
+}
+
+export function useLinkIdentity() {
+  return useBBMutation({
+    path: "/link_identity",
+    pathParams: undefined,
+    mutateKey: "/list_identities",
+    includeCredentials: true,
+  });
+}
+
+export function useUnlinkIdentity() {
+  return useBBMutation({
+    path: "/unlink_identity",
+    pathParams: undefined,
+    mutateKey: "/list_identities",
+    successToast: "Identity removed.",
+    redirectTo: "/api/auth/logout",
+  });
+}

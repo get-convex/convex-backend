@@ -22,6 +22,11 @@ const allowedImageDomains = [
     hostname: "**.convex.cloud",
     pathname: "/api/storage/**",
   },
+  {
+    protocol: "https",
+    hostname: "lh3.googleusercontent.com",
+    pathname: "**",
+  },
 ];
 
 const securityHeaders = [
@@ -118,7 +123,12 @@ const nextConfig = {
     domains:
       process.env.VERCEL_ENV === "production"
         ? undefined
-        : ["127.0.0.1", "s.gravatar.com", "avatars.githubusercontent.com"],
+        : [
+            "127.0.0.1",
+            "s.gravatar.com",
+            "avatars.githubusercontent.com",
+            "lh3.googleusercontent.com",
+          ],
     remotePatterns: allowedImageDomains,
   },
   experimental: {

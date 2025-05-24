@@ -133,6 +133,7 @@ export function useBBMutation<
   toastOnError = true,
   googleAnalyticsEvent,
   redirectTo,
+  includeCredentials = false,
   method = "post" as Method,
   ...rest
 }: {
@@ -145,6 +146,7 @@ export function useBBMutation<
   toastOnError?: boolean;
   redirectTo?: string;
   googleAnalyticsEvent?: string;
+  includeCredentials?: boolean;
 } & (
   | {
       mutateKey: M;
@@ -194,6 +196,7 @@ export function useBBMutation<
           params: { path: pathParams },
           body: body[0],
           headers,
+          credentials: includeCredentials ? "include" : "omit",
         });
 
       if (!response.ok && error) {
@@ -227,6 +230,7 @@ export function useBBMutation<
       authHeader,
       googleAnalyticsEvent,
       googleAnalyticsId,
+      includeCredentials,
       method,
       mutate,
       path,

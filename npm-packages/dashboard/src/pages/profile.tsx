@@ -17,17 +17,19 @@ import {
   useUpdateProfileName,
 } from "api/profile";
 import { useState } from "react";
-import { UserProfile } from "@auth0/nextjs-auth0/client";
 import { Emails } from "components/profile/Emails";
 import { DiscordAccounts } from "components/profile/DiscordAccounts";
 import { MemberResponse } from "generatedApi";
 import { LoadingTransition } from "@ui/Loading";
 import { useTheme } from "next-themes";
+import { ConnectedIdentities } from "components/profile/ConnectedIdentities";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export { getServerSideProps } from "lib/ssr";
 
 function Profile() {
   const { user } = useAuth0();
+  const { multipleUserIdentities } = useLaunchDarkly();
   const profile = useProfile();
   const emails = useProfileEmails();
 
@@ -63,10 +65,24 @@ function Profile() {
           <div className="mx-auto flex min-w-[22rem] max-w-prose flex-col justify-center gap-4 p-4">
             <Sheet className="flex w-full flex-col gap-4">
               <h3>Profile information</h3>
-              <ProfileForm profile={profile} user={user} />
+              <ProfileForm profile={profile} />
+
+              {!multipleUserIdentities && (
+                <Tooltip tip="Changing your connected GitHub account is not currently supported. Contact support@convex.dev for help.">
+                  <TextInput
+                    id="github"
+                    label="GitHub Account"
+                    onChange={() => {}}
+                    value={user?.nickname || ""}
+                    disabled
+                  />
+                </Tooltip>
+              )}
             </Sheet>
 
             <Emails emails={emails} />
+
+            {multipleUserIdentities && <ConnectedIdentities />}
 
             <ToggleDarkMode />
             <DiscordAccounts />
@@ -109,13 +125,7 @@ function Profile() {
   );
 }
 
-function ProfileForm({
-  profile,
-  user,
-}: {
-  profile: MemberResponse;
-  user: UserProfile;
-}) {
+function ProfileForm({ profile }: { profile: MemberResponse }) {
   const [name, setName] = useState(profile.name);
   const [isLoading, setIsLoading] = useState(false);
   const updateProfileName = useUpdateProfileName();
@@ -160,16 +170,6 @@ function ProfileForm({
           </Button>
         </div>
       </form>
-
-      <Tooltip tip="Changing your connected GitHub account is not currently supported. Contact support@convex.dev for help.">
-        <TextInput
-          id="github"
-          label="GitHub Account"
-          onChange={() => {}}
-          value={user?.nickname || ""}
-          disabled
-        />
-      </Tooltip>
     </div>
   );
 }

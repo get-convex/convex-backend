@@ -15,6 +15,7 @@ const flagDefaults: {
   referralsPage: boolean;
   commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
+  multipleUserIdentities: boolean;
 } = {
   oauthProviderConfiguration: {},
   spendingLimits: false,
@@ -22,6 +23,7 @@ const flagDefaults: {
   referralsPage: false,
   commandPalette: false,
   commandPaletteDeleteProjects: false,
+  multipleUserIdentities: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

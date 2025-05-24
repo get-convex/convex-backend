@@ -28,6 +28,7 @@ import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider
 import { PostHogProvider } from "providers/PostHogProvider";
 import { SentryUserProvider } from "providers/SentryUserProvider";
 import {
+  AnonymousLaunchDarklyProvider,
   LaunchDarklyConsumer,
   MaybeLaunchDarklyProvider,
 } from "providers/LaunchDarklyProviders";
@@ -72,6 +73,29 @@ export default function App({ Component, pageProps }: AppProps) {
   useRouterProgress();
 
   useDashboardVersion();
+
+  // The link identity page is special because we want do want to load its access token via ssr
+  // but we don't want to call any big brain routes because they will fail.
+  if (router.pathname === "/link_identity") {
+    return (
+      <>
+        <Head>
+          <title>Convex Dashboard</title>
+          <meta name="description" content="Manage your Convex apps" />
+        </Head>
+        <UIProvider Link={Link}>
+          <AnonymousLaunchDarklyProvider>
+            <ThemeProvider attribute="class" disableTransitionOnChange>
+              <ThemeConsumer />
+              <UserProvider user={pageProps.user}>
+                <Component {...pageProps} />
+              </UserProvider>
+            </ThemeProvider>
+          </AnonymousLaunchDarklyProvider>
+        </UIProvider>
+      </>
+    );
+  }
 
   return (
     <>

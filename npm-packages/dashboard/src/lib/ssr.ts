@@ -13,6 +13,25 @@ const getProps: GetServerSideProps<{
     ? getGoogleAnalyticsClientId(req.headers.cookie)
     : "";
 
+  // Early return for /link_identity route: don't fetch member data
+  if (resolvedUrl.startsWith("/link_identity")) {
+    let token: GetAccessTokenResult | undefined;
+    try {
+      token = await auth0().getAccessToken(req, res);
+    } catch (error) {
+      console.error("Couldn't fetch auth token", error);
+      res.writeHead(307, { Location: `/api/auth/login?returnTo=${req.url}` });
+      res.end();
+      return { props: {} };
+    }
+    if (!token) {
+      return { props: {} };
+    }
+    return {
+      props: { accessToken: token.accessToken },
+    };
+  }
+
   const isFirstServerCall = req?.url?.indexOf("/_next/data/") === -1;
   const shouldRedirectToDeploymentPage = resolvedUrl.startsWith("/d/");
   const shouldRedirectToProjectPage = resolvedUrl.startsWith("/p/");
@@ -64,6 +83,17 @@ const getProps: GetServerSideProps<{
     if (!resp.ok) {
       try {
         const error: { message: string; code: string } = await resp.json();
+        if (
+          error.code === "InvalidIdentity" &&
+          !resolvedUrl.startsWith("/link_identity")
+        ) {
+          const hint = error.message.split("(hint:")[1]?.split(")")[0];
+          res.writeHead(307, {
+            Location: `/link_identity?returnTo=${req.url}&hint=${hint}`,
+          });
+          res.end();
+          return { props: {} };
+        }
         if (resp.status === 400) {
           return {
             props: {

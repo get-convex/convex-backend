@@ -15,9 +15,13 @@ export default auth0().handleAuth({
       req.query.returnTo && !req.query.returnTo.toString().startsWith("/api")
         ? req.query.returnTo.toString()
         : "";
-    const connection = req.query.useEmail
-      ? "Username-Password-Authentication"
-      : "github";
+    const connection = req.query.noConnection
+      ? undefined
+      : typeof req.query.connection === "string"
+        ? req.query.connection
+        : req.query.useEmail
+          ? "Username-Password-Authentication"
+          : "github";
 
     return {
       returnTo,

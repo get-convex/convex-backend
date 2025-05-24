@@ -34,6 +34,7 @@ function withSWRFallback(Page: NextPage) {
     useEffect(() => {
       !globalInitialData && setInitialData(initialData);
     }, [initialData, setInitialData, globalInitialData]);
+    const { pathname } = useRouter();
 
     if (error) {
       const message =
@@ -75,9 +76,9 @@ function withSWRFallback(Page: NextPage) {
       return (
         <div className="h-full grow">
           <div className="flex h-full flex-col items-center justify-center">
-            <div className="flex w-fit flex-col gap-4">
+            <div className="mx-8 flex w-fit flex-col gap-4">
               <Callout variant="error">
-                <div className="flex flex-col gap-2">
+                <div className="flex max-w-prose flex-col gap-2">
                   {message} {extra}
                 </div>
               </Callout>
@@ -93,11 +94,16 @@ function withSWRFallback(Page: NextPage) {
         </div>
       );
     }
-
     return globalAccessToken ? (
-      <OptinRedirect>
+      // When we're on the link_identity page, we don't want to render the OptinsRedirect
+      // because it will make a request to big brain with an invalid access token.
+      pathname === "/link_identity" ? (
         <Page />
-      </OptinRedirect>
+      ) : (
+        <OptinRedirect>
+          <Page />
+        </OptinRedirect>
+      )
     ) : null;
   };
 }

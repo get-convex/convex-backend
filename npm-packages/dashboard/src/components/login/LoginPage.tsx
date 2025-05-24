@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Spinner } from "@ui/Spinner";
 import { buttonClasses } from "@ui/Button";
 
-import GithubLogo from "./logos/github-logo.svg";
+import GithubLogo from "logos/github-logo.svg";
 
 export function LoginPage({ returnTo }: { returnTo?: string }) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);

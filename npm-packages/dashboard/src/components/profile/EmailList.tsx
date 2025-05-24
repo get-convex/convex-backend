@@ -27,7 +27,7 @@ export function EmailList({ emails }: { emails: MemberEmailResponse[] }) {
       <Button
         icon={<PlusIcon />}
         variant="neutral"
-        className="mt-2 w-fit"
+        className="w-fit"
         onClick={() => setShowAddModal(true)}
       >
         Add email

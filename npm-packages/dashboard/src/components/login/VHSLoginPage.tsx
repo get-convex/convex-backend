@@ -3,9 +3,9 @@ import classNames from "classnames";
 import { useState } from "react";
 import Logo from "images/convex-light.svg";
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
+import GithubLogo from "logos/github-logo.svg";
 import loginBackground from "../../../public/vhs-bg.png";
 import loading from "../../../public/vhs-loading.gif";
-import GithubLogo from "./logos/github-logo.svg";
 
 export function VHSLoginPage({ returnTo }: { returnTo?: string }) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
