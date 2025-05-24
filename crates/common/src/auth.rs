@@ -64,18 +64,19 @@ impl AuthInfo {
         // Some JWTs (from https://www.dynamic.xyz at least) don't include https:// in
         // the `iss` field of the JWT. Since we automatically add this for the
         // auth.config.ts `issuer` property let's add it to the JWT `iss` field as well.
-        let issuer_with_https = if issuer.starts_with("https://") {
-            issuer.to_string()
-        } else {
-            format!("https://{}", issuer)
-        };
+        let issuer_with_protocol =
+            if issuer.starts_with("https://") || issuer.starts_with("http://") {
+                issuer.to_string()
+            } else {
+                format!("https://{}", issuer)
+            };
 
         // Some authentication providers (Auth0, lookin' at you) tell developers that
         // their identity domain doesn't have a trailing slash, but the OIDC tokens do
         // have one in the `issuer` field. This is consistent with what the OIDC
         // Discovery response will contain, but the value entered in the instance config
         // may or may not have the slash.
-        domain.trim_end_matches('/') == issuer_with_https.trim_end_matches('/')
+        domain.trim_end_matches('/') == issuer_with_protocol.trim_end_matches('/')
     }
 }
 

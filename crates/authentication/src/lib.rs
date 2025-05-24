@@ -298,12 +298,14 @@ where
                     "Missing issuer in JWT payload"
                 ));
             };
-            let token_issuer_with_https = if token_issuer.starts_with("https://") {
-                token_issuer.to_string()
-            } else {
-                format!("https://{}", token_issuer)
-            };
-            if token_issuer_with_https != issuer.as_str() {
+            let token_issuer_with_protocol =
+                if token_issuer.starts_with("https://") || token_issuer.starts_with("http://") {
+                    token_issuer.to_string()
+                } else {
+                    format!("https://{}", token_issuer)
+                };
+
+            if token_issuer_with_protocol != issuer.as_str() {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
                     format!("Invalid issuer: {} != {}", token_issuer, issuer)
