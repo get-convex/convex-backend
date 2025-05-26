@@ -6,7 +6,7 @@ menuPosition: 0
 hidden: true
 ---
 
-# Convex Setup Guide {% typeBadge connector="convex_destination" /%} {% availabilityBadge connector="convex_destination" /%}
+# Convex Setup Guide {% badge text="Partner-Built" /%} {% availabilityBadge connector="convex_destination" /%}
 
 Follow our setup guide to connect Fivetran to Convex as a destination. 
 

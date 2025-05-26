@@ -6,11 +6,11 @@ menuPosition: 55
 hidden: true
 ---
 
-# Convex {% typeBadge connector="convex_destination" /%} {% availabilityBadge connector="convex_destination" /%}
+# Convex {% badge text="Partner-Built" /%} {% availabilityBadge connector="convex_destination" /%}
 
 [Convex](https://convex.dev) is a full-stack TypeScript development platform with product-centric APIs. It can replace your database and server functions.
 
-> NOTE: Fivetran supports Convex as both a partner-built [database connector](/docs/databases/convex) and a destination.
+> NOTE: Fivetran supports Convex as both a partner-built [database connector](/docs/databases/convex) and a partner-built destination.
 
 > NOTE: This destination is [partner-built](/docs/partner-built-program). For any questions related to the Convex destination and its documentation, refer to Convex's support team. For SLA details, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state).
 
