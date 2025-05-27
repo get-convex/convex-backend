@@ -310,11 +310,18 @@ export class TableDefinition<
    * @internal
    */
   export() {
+    const documentType = this.validator.json;
+    if (typeof documentType !== "object") {
+      throw new Error(
+        "Invalid validator: please make sure that the parameter of `defineTable` is valid (see https://docs.convex.dev/database/schemas)",
+      );
+    }
+
     return {
       indexes: this.indexes,
       searchIndexes: this.searchIndexes,
       vectorIndexes: this.vectorIndexes,
-      documentType: this.validator.json,
+      documentType,
     };
   }
 }

@@ -749,3 +749,13 @@ describe("defineSchema/defineTable expose table validators", () => {
     expect(schema.tables.table.validator).not.toHaveProperty("_creationTime");
   });
 });
+
+test("defineTable fails if it can’t export the validator", () => {
+  const table = defineTable(
+    // @ts-expect-error
+    { ...v.object({}) }, // This will clone `isConvexValidator` but not the `json` getter used by `export`
+  );
+  expect(() => table.export()).toThrow(
+    "Invalid validator: please make sure that the parameter of `defineTable` is valid (see https://docs.convex.dev/database/schemas)",
+  );
+});
