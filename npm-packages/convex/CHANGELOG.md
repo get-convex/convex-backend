@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.24.2
+
+- Fix bug with new Custom JWT auth support in projects that use Convex backend
+  components.
+
+- Support larger data imports from the command line by choosing larger chunk
+  size when necessary.
+
+- Calling setAuth on a disabled ConvexClient is now an no-op.
+
+- Add `npx convex dash` alias for dashboard command.
+
+- Limit the number of nested query operators to 256.
+
 ## 1.24.1
 
 - Accept `true` and `false` as values for logger in all clients, making
