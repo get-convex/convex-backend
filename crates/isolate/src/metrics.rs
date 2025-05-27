@@ -627,17 +627,19 @@ pub fn log_isolate_out_of_memory() {
 }
 
 pub fn record_component_function_path(component_function_path: &ResolvedComponentFunctionPath) {
-    let mut labels = vec![(
-        Cow::Borrowed("udf_path"),
-        Cow::Owned(component_function_path.udf_path.to_string()),
-    )];
-    if let Some(component_path) = &component_function_path.component_path {
-        labels.push((
-            Cow::Borrowed("component"),
-            Cow::Owned(component_path.to_string()),
-        ));
-    }
-    LocalSpan::add_event(Event::new("component_function_path").with_properties(|| labels));
+    LocalSpan::add_event(Event::new("component_function_path").with_properties(|| {
+        let mut labels = vec![(
+            Cow::Borrowed("udf_path"),
+            Cow::Owned(component_function_path.udf_path.to_string()),
+        )];
+        if let Some(component_path) = &component_function_path.component_path {
+            labels.push((
+                Cow::Borrowed("component"),
+                Cow::Owned(component_path.to_string()),
+            ));
+        }
+        labels
+    }));
 }
 
 register_convex_counter!(

@@ -13,7 +13,10 @@ use std::{
     time::Duration,
 };
 
-use ::metrics::Timer;
+use ::metrics::{
+    IntoLabel,
+    Timer,
+};
 use async_trait::async_trait;
 use common::{
     auth::AuthConfig,
@@ -1417,7 +1420,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                             return;
                         };
                         let reused = last_client_id.is_some();
-                        // If we receive a request from a different client (i.e. a different backend),
+                        // If we receive a request from a different client (i.e. a different instance),
                         // recreate the isolate. We don't allow an isolate to be reused
                         // across clients for security isolation.
                         if last_client_id.get_or_insert_with(|| {
@@ -1442,6 +1445,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                             func_path!(),
                             req.parent_trace.clone(),
                         );
+                        root.add_property(|| ("reused_isolate", reused.as_label()));
                         // Require the layer below to opt into isolate reuse by setting `isolate_clean`.
                         let mut isolate_clean = false;
                         let debug_str = self
