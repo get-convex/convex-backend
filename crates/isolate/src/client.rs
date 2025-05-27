@@ -1382,6 +1382,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
         let mut ready: Option<(oneshot::Sender<_>, _)> = None;
         'recreate_isolate: loop {
             let mut last_client_id: Option<String> = None;
+            let mut last_request: Option<String> = None;
             let mut isolate = Isolate::new(self.rt(), *max_user_timeout, limiter.clone());
             heap_stats.store(isolate.heap_stats());
             loop {
@@ -1391,6 +1392,14 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     let context = v8::Context::new(&mut scope, v8::ContextOptions::default());
                     v8::Global::new(&mut scope, context)
                 };
+                // Check again whether the isolate has enough free heap memory
+                // before starting the next request
+                if let Some(debug_str) = &last_request
+                    && should_recreate_isolate(&mut isolate, debug_str)
+                {
+                    continue 'recreate_isolate;
+                }
+                heap_stats.store(isolate.heap_stats());
                 if let Some((done, done_token)) = ready.take() {
                     // Inform the scheduler that this thread is ready to accept a new request.
                     let _ = done.send(done_token);
@@ -1445,10 +1454,10 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                             )
                             .in_span(root)
                             .await;
-                        if !isolate_clean || should_recreate_isolate(&mut isolate, debug_str) {
+                        if !isolate_clean || should_recreate_isolate(&mut isolate, &debug_str) {
                             continue 'recreate_isolate;
                         }
-                        heap_stats.store(isolate.heap_stats());
+                        last_request = Some(debug_str);
                     }
                 }
             }
@@ -1470,7 +1479,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
 
 pub(crate) fn should_recreate_isolate<RT: Runtime>(
     isolate: &mut Isolate<RT>,
-    last_executed: String,
+    last_executed: &str,
 ) -> bool {
     if !*REUSE_ISOLATES {
         metrics::log_recreate_isolate("env_disabled");
