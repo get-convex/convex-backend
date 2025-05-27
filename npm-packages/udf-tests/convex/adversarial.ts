@@ -347,7 +347,7 @@ export const useNotImplementedBuiltin = query(async () => {
   try {
     const url = new URL("https://baz.qat:8000/qux/quux?foo=bar&baz=12#qat");
     // This should throw an uncatchable "Not implemented" error
-    url.password;
+    url.password = "foo";
   } catch (e) {
     return "Caught an error!";
   }

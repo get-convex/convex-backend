@@ -58,6 +58,17 @@ export interface RequestInit {
 
 const _contentLength = Symbol("[[contentLength]]");
 
+const validateURL = (s: string | URL) => {
+  const url = new URL(s);
+  const protocol = url.protocol;
+  if (protocol !== "http:" && protocol !== "https:") {
+    throw new TypeError(
+      `Unsupported URL scheme -- http and https are supported (scheme was ${protocol.slice(0, protocol.length - 1)})`,
+    );
+  }
+  return url.href;
+};
+
 export class Request {
   private readonly _headers: Headers;
   private readonly _url: string;
@@ -76,7 +87,7 @@ export class Request {
     this._signal = new AbortSignal();
     if (input instanceof Request) {
       // Copy initial values from the request. Options can still override them.
-      this._url = new URL(input.url).href;
+      this._url = validateURL(input.url);
       this._method = input.method;
       this._headers = new Headers(input.headers);
       this._signal = input.signal;
@@ -85,7 +96,7 @@ export class Request {
       // * If this object has a Request.mode of navigate, the mode value is converted to same-origin.
     } else if (input instanceof URL || typeof input === "string") {
       const href = input instanceof URL ? input.href : input;
-      this._url = new URL(href).href;
+      this._url = validateURL(href);
       // Use default values.
       this._method = "GET";
       this._headers = new Headers([]);

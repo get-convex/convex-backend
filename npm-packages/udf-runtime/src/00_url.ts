@@ -165,9 +165,10 @@ type UrlInfo = {
   hostname: string;
   pathname: string;
   port: string;
-  protocol: string;
   search: string;
   href: string;
+  username: string;
+  password: string;
 };
 
 type URLInfoResult =
@@ -259,11 +260,20 @@ class URL {
   }
 
   get origin() {
-    return `${this.protocol}//${this.host}`;
+    switch (this._urlInfo.scheme) {
+      case "ftp":
+      case "http":
+      case "https":
+      case "ws":
+      case "wss":
+        return `${this._urlInfo.scheme}://${this.host}`;
+      default:
+        return "null";
+    }
   }
 
   get password() {
-    return throwNotImplementedMethodError("get password", "URL");
+    return this._urlInfo.password;
   }
 
   set password(_password: string) {
@@ -293,7 +303,7 @@ class URL {
   }
 
   get protocol() {
-    return this._urlInfo.protocol.toString() + ":";
+    return this._urlInfo.scheme.toString() + ":";
   }
 
   set protocol(_protocol: string) {
@@ -323,7 +333,7 @@ class URL {
   }
 
   get username() {
-    return throwNotImplementedMethodError("get username", "URL");
+    return this._urlInfo.username;
   }
 
   set username(_username: string) {
@@ -357,6 +367,8 @@ class URL {
       href: this.href,
       origin: this.origin,
       protocol: this.protocol,
+      username: this.username,
+      password: this.password,
       host: this.host,
       hostname: this.hostname,
       port: this.port,

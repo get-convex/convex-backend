@@ -241,35 +241,26 @@ struct UrlInfo {
     href: String,
     pathname: String,
     port: String,
-    protocol: String,
     search: String,
+    username: String,
+    password: String,
 }
 
 impl TryFrom<Url> for UrlInfo {
     type Error = anyhow::Error;
 
     fn try_from(value: Url) -> Result<Self, Self::Error> {
-        if value.username() != "" || value.password().is_some() {
-            anyhow::bail!("Unsupported URL with username and password")
-        }
-
-        if value.scheme() != "http" && value.scheme() != "https" {
-            anyhow::bail!(
-                "Unsupported URL scheme -- http and https are supported (scheme was {})",
-                value.scheme()
-            )
-        }
-
         let url_info = UrlInfo {
-            scheme: value[Position::BeforeScheme..Position::AfterScheme].to_string(),
+            scheme: value.scheme().to_string(),
             hash: value[Position::BeforeFragment..Position::AfterFragment].to_string(),
             host: value[Position::BeforeHost..Position::BeforePath].to_string(),
             hostname: value[Position::BeforeHost..Position::AfterHost].to_string(),
             href: value.to_string(),
             pathname: value[Position::BeforePath..Position::AfterPath].to_string(),
             port: value[Position::BeforePort..Position::AfterPort].to_string(),
-            protocol: value[..Position::AfterScheme].to_string(),
             search: value[Position::BeforeQuery..Position::AfterQuery].to_string(),
+            username: value.username().to_owned(),
+            password: value.password().unwrap_or_default().to_owned(),
         };
         Ok(url_info)
     }

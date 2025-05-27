@@ -22,33 +22,6 @@ async fn test_url(rt: TestRuntime) -> anyhow::Result<()> {
         assert_eq!(String::from(r), "success".to_string());
 
         assert_contains(
-            &t.query_js_error("js_builtins/url:passwordNotImplemented", assert_obj!())
-                .await?,
-            "Not implemented: get password",
-        );
-
-        assert_contains(
-            &t.query_js_error("js_builtins/url:usernameNotImplemented", assert_obj!())
-                .await?,
-            "Not implemented: get username",
-        );
-
-        assert_contains(
-            &t.query_js_error(
-                "js_builtins/url:unsupportUrlUsernameAndPassword",
-                assert_obj!(),
-            )
-            .await?,
-            "Unsupported URL with username and password",
-        );
-
-        assert_contains(
-            &t.query_js_error("js_builtins/url:unsupportedUrlProtocol", assert_obj!())
-                .await?,
-            "Unsupported URL scheme",
-        );
-
-        assert_contains(
             &t.query_js_error("js_builtins/url:setHostUnimplemented", assert_obj!())
                 .await?,
             "Not implemented: set host",
