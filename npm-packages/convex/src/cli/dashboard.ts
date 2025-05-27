@@ -23,6 +23,7 @@ export const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   : "https://dashboard.convex.dev";
 
 export const dashboard = new Command("dashboard")
+  .alias("dash")
   .description("Open the dashboard in the browser")
   .allowExcessArguments(false)
   .option(
