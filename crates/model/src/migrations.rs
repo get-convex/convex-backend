@@ -5,30 +5,17 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Context;
 use common::{
     self,
     backoff::Backoff,
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
     errors::report_error,
     persistence::Persistence,
     runtime::Runtime,
-    try_chunks::TryChunksExt,
 };
 use database::{
-    defaults::system_index,
     Database,
-    IndexModel,
-    SystemMetadataModel,
     TableModel,
     Transaction,
-};
-use futures::{
-    StreamExt,
-    TryStreamExt,
 };
 use keybroker::Identity;
 use migrations_model::migr_119;
@@ -39,22 +26,11 @@ use value::{
 };
 
 use crate::{
-    canonical_urls::CANONICAL_URLS_TABLE,
     database_globals::{
         types::DatabaseVersion,
         DatabaseGlobalsModel,
     },
-    deployment_audit_log::{
-        types::DeploymentAuditLogEvent,
-        DeploymentAuditLogModel,
-    },
-    exports::{
-        types::ExportFormat,
-        ExportsModel,
-        EXPORTS_TABLE,
-    },
     metrics::log_migration_worker_failed,
-    snapshot_imports::SnapshotImportModel,
 };
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(60);
@@ -185,202 +161,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
 
     async fn perform_migration(&self, to_version: DatabaseVersion) -> anyhow::Result<()> {
         let completion_criterion = match to_version {
-            1..=104 => panic!("Transition too old!"),
-            105 => {
-                // Delete all exports in non-zip formats (CleanJsonl and InternalJson)
-                let mut tx = self.db.begin_system().await?;
-                let mut exports_model = ExportsModel::new(&mut tx);
-                let exports = exports_model.list().await?;
-                for export in exports {
-                    if !matches!(export.format(), ExportFormat::Zip { .. }) {
-                        SystemMetadataModel::new_global(&mut tx)
-                            .delete(export.id())
-                            .await?;
-                    }
-                }
-
-                let exports_by_state_index = system_index(&EXPORTS_TABLE, "by_state");
-                IndexModel::new(&mut tx)
-                    .drop_system_index(TableNamespace::Global, exports_by_state_index)
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            106 => {
-                // Ugh - try 105 again but actually commit the transaction
-                // Delete all exports in non-zip formats (CleanJsonl and InternalJson)
-                let mut tx = self.db.begin_system().await?;
-                let mut exports_model = ExportsModel::new(&mut tx);
-                let exports = exports_model.list().await?;
-                for export in exports {
-                    let mut system_model = SystemMetadataModel::new_global(&mut tx);
-                    if !matches!(export.format(), ExportFormat::Zip { .. }) {
-                        system_model.delete(export.id()).await?;
-                    } else {
-                        // rewrite out things in the zip format to convert from
-                        // raw string -> object
-                        system_model
-                            .replace(export.id(), export.into_value().try_into()?)
-                            .await?;
-                    }
-                }
-
-                let exports_by_state_index = system_index(&EXPORTS_TABLE, "by_state");
-                IndexModel::new(&mut tx)
-                    .drop_system_index(TableNamespace::Global, exports_by_state_index)
-                    .await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_106")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            107 => {
-                let mut tx = self.db.begin_system().await?;
-                let mut exports_model = ExportsModel::new(&mut tx);
-                let exports = exports_model.list().await?;
-                for export in exports {
-                    let mut system_model = SystemMetadataModel::new_global(&mut tx);
-                    // rewrite out things to add new requestor column
-                    system_model
-                        .replace(export.id(), export.into_value().try_into()?)
-                        .await?;
-                }
-                self.db
-                    .commit_with_write_source(tx, "migration_107")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            108 => {
-                // Drop the exports_by_requestor index to prepare to recreate it
-                // with different fields.
-                let mut tx = self.db.begin_system().await?;
-                let exports_by_requestor = system_index(&EXPORTS_TABLE, "by_requestor");
-                IndexModel::new(&mut tx)
-                    .drop_system_index(TableNamespace::Global, exports_by_requestor)
-                    .await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_108")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            109 => {
-                // Drop the exports_by_requestor index AGAIN
-                let mut tx = self.db.begin_system().await?;
-                let exports_by_requestor = system_index(&EXPORTS_TABLE, "by_requestor");
-                IndexModel::new(&mut tx)
-                    .drop_system_index(TableNamespace::Global, exports_by_requestor)
-                    .await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_109")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            110 => {
-                // Empty migration corresponding to _exports.by_requestor
-                // creation
-                MigrationCompletionCriterion::LogLine(
-                    "Finished backfill of system index _exports.by_requestor".into(),
-                )
-            },
-            111 => {
-                let virtual_tables_table: TableName = "_virtual_tables"
-                    .parse()
-                    .expect("Invalid built-in virtual_tables table");
-                let mut tx = self.db.begin_system().await?;
-                TableModel::new(&mut tx)
-                    .delete_active_table(TableNamespace::Global, virtual_tables_table)
-                    .await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_111")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            112 => {
-                // Read in / write out exports table to process new expiration_ts
-                // column.
-                let mut tx = self.db.begin_system().await?;
-                let mut exports_model = ExportsModel::new(&mut tx);
-                let exports = exports_model.list().await?;
-                for export in exports {
-                    let mut system_model = SystemMetadataModel::new_global(&mut tx);
-                    system_model
-                        .replace(export.id(), export.into_value().try_into()?)
-                        .await?;
-                }
-                self.db
-                    .commit_with_write_source(tx, "migration_112")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            113 => {
-                // Read in / write out imports table to process new requestor column.
-                let mut tx = self.db.begin_system().await?;
-                let mut imports_model = SnapshotImportModel::new(&mut tx);
-                let imports = imports_model.list().await?;
-                for import in imports {
-                    let mut system_model = SystemMetadataModel::new_global(&mut tx);
-                    system_model
-                        .replace(import.id(), import.into_value().try_into()?)
-                        .await?;
-                }
-                self.db
-                    .commit_with_write_source(tx, "migration_113")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            114 => {
-                // Read in / write out deployment audit logs table to process new requestor, and
-                // table_names_deleted columns.
-                let mut tx = self.db.begin_system().await?;
-                let mut audit_log_model = DeploymentAuditLogModel::new(&mut tx);
-                let mut chunked_stream = audit_log_model.list().try_chunks2(50);
-                while let Some(entries) = chunked_stream.next().await {
-                    let entries = entries?;
-                    let mut tx_inner = self.db.begin_system().await?;
-                    let mut system_model = SystemMetadataModel::new_global(&mut tx_inner);
-                    for entry in entries {
-                        system_model
-                            .replace(entry.id(), entry.into_value().try_into()?)
-                            .await?;
-                    }
-                    self.db
-                        .commit_with_write_source(tx_inner, "migration_114")
-                        .await?;
-                }
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            115 => {
-                // Read in / write out deployment audit logs table to process new
-                // component-awareness in the table_names and table_names_deleted columns.
-                let mut tx = self.db.begin_system().await?;
-                let mut audit_log_model = DeploymentAuditLogModel::new(&mut tx);
-                let all_entries: Vec<_> = audit_log_model
-                    .list()
-                    .map_ok(|entry| entry.id())
-                    .try_collect()
-                    .await?;
-                drop(tx);
-                for chunk in all_entries.chunks(20) {
-                    let mut tx_inner = self.db.begin_system().await?;
-                    let mut system_model = SystemMetadataModel::new_global(&mut tx_inner);
-                    for id in chunk {
-                        let entry: ParsedDocument<DeploymentAuditLogEvent> = system_model
-                            .get(*id)
-                            .await?
-                            .context("Id missing?")?
-                            .parse()?;
-                        system_model
-                            .replace(entry.id(), entry.clone().into_value().try_into()?)
-                            .await?;
-                    }
-                    self.db
-                        .commit_with_write_source(tx_inner, "migration_115")
-                        .await?;
-                }
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            116 => MigrationCompletionCriterion::LogLine(
-                format!("Created system table: {}", *CANONICAL_URLS_TABLE).into(),
-            ),
+            1..=116 => panic!("Transition too old!"),
             117 => {
                 let backend_serving_record_table: TableName = "_backend_serving_record"
                     .parse()
