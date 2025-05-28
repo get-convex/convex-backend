@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.24.3
+
+- Add `.url` property to ConvexReactClient.
+
+- Earlier errors when invalid objects are passed to `defineTable()`.
+
 ## 1.24.2
 
 - Fix bug with new Custom JWT auth support in projects that use Convex backend
