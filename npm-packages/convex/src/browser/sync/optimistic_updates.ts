@@ -31,7 +31,7 @@ export interface OptimisticLocalStore {
   ): undefined | FunctionReturnType<Query>;
 
   /**
-   * Retrieve the results are arguments of all queries with a given name.
+   * Retrieve the results and arguments of all queries with a given name.
    *
    * This is useful for complex optimistic updates that need to inspect and
    * update many query results (for example updating a paginated list).
