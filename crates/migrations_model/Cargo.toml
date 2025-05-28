@@ -1,0 +1,46 @@
+[package]
+name = "migrations_model"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+cmd_util = { path = "../cmd_util" }
+common = { path = "../common" }
+database = { path = "../database" }
+derive_more = { workspace = true }
+futures-async-stream = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+saffron = { workspace = true }
+serde = { workspace = true }
+serde_bytes = { workspace = true }
+serde_json = { workspace = true }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+thiserror = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+database = { path = "../database", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
+    "testing",
+] }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "database/testing",
+    "proptest",
+    "proptest-derive",
+    "value/testing",
+]
+
+[lints]
+workspace = true

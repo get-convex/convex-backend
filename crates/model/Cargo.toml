@@ -30,6 +30,7 @@ humansize = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+migrations_model = { path = "../migrations_model" }
 openidconnect = { workspace = true }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
@@ -60,6 +61,7 @@ database = { path = "../database", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
 keybroker = { path = "../keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
+migrations_model = { path = "../migrations_model", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 proptest-http = { workspace = true }
@@ -79,6 +81,7 @@ testing = [
     "errors/testing",
     "keybroker/testing",
     "metrics/testing",
+    "migrations_model/testing",
     "proptest",
     "proptest-derive",
     "proptest-http",

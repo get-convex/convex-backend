@@ -5488,6 +5488,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "migrations_model"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "cmd_util",
+ "common",
+ "convex_sync_types",
+ "database",
+ "derive_more",
+ "futures-async-stream",
+ "proptest",
+ "proptest-derive",
+ "saffron",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "thiserror 2.0.11",
+ "value",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5578,6 +5600,7 @@ dependencies = [
  "keybroker",
  "maplit",
  "metrics",
+ "migrations_model",
  "openidconnect",
  "pb",
  "proptest",

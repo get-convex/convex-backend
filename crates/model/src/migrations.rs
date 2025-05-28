@@ -31,6 +31,7 @@ use futures::{
     TryStreamExt,
 };
 use keybroker::Identity;
+use migrations_model::migr_119;
 use storage::Storage;
 use value::{
     TableName,
@@ -39,12 +40,6 @@ use value::{
 
 use crate::{
     canonical_urls::CANONICAL_URLS_TABLE,
-    cron_jobs::{
-        types::CronNextRun,
-        CronModel,
-        CRON_JOBS_TABLE,
-        CRON_NEXT_RUN_TABLE,
-    },
     database_globals::{
         types::DatabaseVersion,
         DatabaseGlobalsModel,
@@ -403,48 +398,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
             118 => MigrationCompletionCriterion::MigrationComplete(to_version),
             119 => {
                 let mut tx = self.db.begin_system().await?;
-                let namespaces: Vec<_> = tx
-                    .table_mapping()
-                    .iter()
-                    .filter_map(|(_, namespace, _, table_name)| {
-                        if table_name == &*CRON_JOBS_TABLE {
-                            Some(namespace)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                for namespace in namespaces {
-                    let crons = CronModel::new(&mut tx, namespace.into()).list().await?;
-                    for cron in crons.values() {
-                        let next_run = CronNextRun {
-                            cron_job_id: cron.id.developer_id,
-                            state: cron.state.clone(),
-                            prev_ts: cron.prev_ts,
-                            next_ts: cron.next_ts,
-                        };
-                        if let Some((existing_next_run_id, existing_next_run)) =
-                            CronModel::new(&mut tx, namespace.into())
-                                .next_run(cron.id.developer_id)
-                                .await?
-                                .map(|next_run| (next_run.into_id_and_value()))
-                        {
-                            // If there's an existing next run, update if it's
-                            // different.
-                            if existing_next_run != next_run {
-                                SystemMetadataModel::new(&mut tx, namespace)
-                                    .replace(existing_next_run_id, next_run.try_into()?)
-                                    .await?;
-                            }
-                        } else {
-                            // If there's no existing next run, create a new one.
-                            SystemMetadataModel::new(&mut tx, namespace)
-                                .insert(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
-                                .await?;
-                        }
-                    }
-                }
+                migr_119::run_migration(&mut tx).await?;
                 self.db
                     .commit_with_write_source(tx, "migration_119")
                     .await?;
