@@ -17,15 +17,17 @@ futures-async-stream = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }
 metrics = { path = "../../crates/metrics" }
-native-tls = { workspace = true }
-postgres-native-tls = { workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
+rustls-pki-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
+tokio-postgres-rustls = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

@@ -97,7 +97,6 @@ mime2ext = "0.1.52"
 fastrace = { version = "0.7", features = [ "enable" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
 mysql_async = { version = "0.36.0", default-features = false, features = [ "default-rustls" ] }
-native-tls = "^0.2.10"
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "f21c7999356bd374a683d13378bd2a6c0ebdbf11", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
@@ -109,7 +108,6 @@ pin-project = "1"
 p384 = "0.13"
 portpicker = "0.1"
 const-oid = "0.9.6"
-postgres-native-tls = "^0.5"
 pretty_assertions = "1"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
 proptest = "1"
@@ -133,6 +131,9 @@ reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-t
 reqwest-middleware = "0.4.1"
 rsa = "0.9.6"
 rusqlite = { version = "0.32", features = [ "bundled" ] }
+rustls = { version = "0.23", default-features = false }
+rustls-pki-types = { version = "1" }
+rustls-native-certs = { version = "0.8" }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 schemars = { version = "0.8" }
 semver = { version = "1", features = [ "serde" ] }
@@ -159,7 +160,8 @@ tld = "2.36.0"
 tokio = { version = "1", features = [ "full" ] }
 tokio-metrics = { version = "0.4.0" }
 tokio-metrics-collector = { version = "0.3.1" }
-tokio-postgres = { version = "0.7.10", features = [ "with-serde_json-1" ] }
+tokio-postgres = { version = "0.7.13", features = [ "with-serde_json-1" ] }
+tokio-postgres-rustls = { version = "0.13" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.26.2", features = [ "native-tls-vendored" ] }
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util" ] }

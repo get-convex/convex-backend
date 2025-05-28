@@ -113,11 +113,14 @@ use itertools::{
     iproduct,
     Itertools,
 };
-use native_tls::{
-    Certificate,
-    TlsConnector,
+use rustls::{
+    ClientConfig,
+    RootCertStore,
 };
-use postgres_native_tls::MakeTlsConnector;
+use rustls_pki_types::{
+    pem::PemObject,
+    CertificateDer,
+};
 use serde::Deserialize as _;
 use serde_json::Value as JsonValue;
 use tokio_postgres::{
@@ -129,6 +132,7 @@ use tokio_postgres::{
     },
     Row,
 };
+use tokio_postgres_rustls::MakeRustlsConnect;
 
 use crate::metrics::QueryIndexStats;
 
@@ -203,18 +207,32 @@ impl PostgresPersistence {
 
     fn create_pool(url: &str) -> anyhow::Result<ConvexPgPool> {
         let pg_config = tokio_postgres::Config::from_str(url)?;
-        let mut builder = TlsConnector::builder();
-        if let Ok(ca_file_path) = env::var("PG_CA_FILE")
+        let mut roots = RootCertStore::empty();
+        let native_certs = rustls_native_certs::load_native_certs();
+        anyhow::ensure!(
+            native_certs.errors.is_empty(),
+            "failed to load native certs: {:?}",
+            native_certs.errors
+        );
+        for cert in native_certs.certs {
+            roots.add(cert)?;
+        }
+        if let Some(ca_file_path) = env::var_os("PG_CA_FILE")
             && !ca_file_path.is_empty()
         {
-            let ca_file_content = fs::read(Path::new(&ca_file_path))
-                .with_context(|| format!("Failed to read CA file: {}", ca_file_path))?;
-            let ca_cert = Certificate::from_pem(&ca_file_content)
-                .with_context(|| format!("Failed to parse CA file as PEM: {}", ca_file_path))?;
-            builder.add_root_certificate(ca_cert);
+            let ca_file_path = Path::new(&ca_file_path);
+            let ca_file_content = fs::read(ca_file_path)
+                .with_context(|| format!("Failed to read CA file: {}", ca_file_path.display()))?;
+            for ca_cert in CertificateDer::pem_slice_iter(&ca_file_content) {
+                roots.add(ca_cert.with_context(|| {
+                    format!("Failed to parse CA file as PEM: {}", ca_file_path.display())
+                })?)?;
+            }
         }
-        let connector = builder.build()?;
-        let connector = MakeTlsConnector::new(connector);
+        let config = ClientConfig::builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        let connector = MakeRustlsConnect::new(config);
 
         let manager = Manager::new(pg_config, connector);
         let pool_config = deadpool_postgres::PoolConfig::default();
