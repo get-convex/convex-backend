@@ -1,12 +1,11 @@
 use std::path::PathBuf;
 
+use migrations_model::DatabaseVersion;
 use serde::{
     Deserialize,
     Serialize,
 };
 use value::codegen_convex_serialization;
-
-pub type DatabaseVersion = i64;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]

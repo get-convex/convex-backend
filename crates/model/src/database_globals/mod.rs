@@ -17,6 +17,7 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
+use migrations_model::DatabaseVersion;
 use value::{
     TableName,
     TableNamespace,
@@ -24,7 +25,6 @@ use value::{
 
 use self::types::{
     DatabaseGlobals,
-    DatabaseVersion,
     StorageTagInitializer,
     StorageType,
 };

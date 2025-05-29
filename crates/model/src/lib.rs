@@ -111,7 +111,6 @@ use database::{
     TABLES_INDEX,
 };
 use database_globals::{
-    types::DatabaseVersion,
     DatabaseGlobalsModel,
     DatabaseGlobalsTable,
     DATABASE_GLOBALS_TABLE,
@@ -137,7 +136,10 @@ use maplit::{
     btreemap,
     btreeset,
 };
-use migrations::DATABASE_VERSION;
+use migrations_model::{
+    DatabaseVersion,
+    DATABASE_VERSION,
+};
 use modules::{
     ModulesTable,
     MODULES_TABLE,
@@ -660,11 +662,11 @@ mod test_default_table_numbers {
             DbFixturesArgs,
         },
     };
+    use migrations_model::DATABASE_VERSION;
     use runtime::testing::TestRuntime;
 
     use crate::{
         app_system_tables,
-        migrations::DATABASE_VERSION,
         test_helpers::DbFixturesWithModel,
         virtual_system_mapping,
         DEFAULT_TABLE_NUMBERS,

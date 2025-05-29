@@ -1,6 +1,4 @@
 use std::{
-    borrow::Cow,
-    fmt,
     sync::Arc,
     time::Duration,
 };
@@ -14,52 +12,22 @@ use common::{
 };
 use database::{
     Database,
-    TableModel,
     Transaction,
 };
 use keybroker::Identity;
-use migrations_model::migr_119;
-use storage::Storage;
-use value::{
-    TableName,
-    TableNamespace,
+use migrations_model::{
+    MigrationExecutor,
+    DATABASE_VERSION,
 };
+use storage::Storage;
 
 use crate::{
-    database_globals::{
-        types::DatabaseVersion,
-        DatabaseGlobalsModel,
-    },
+    database_globals::DatabaseGlobalsModel,
     metrics::log_migration_worker_failed,
 };
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(60);
 const MAX_BACKOFF: Duration = Duration::from_secs(3600);
-
-pub enum MigrationCompletionCriterion {
-    /// Committing the migration in migrations.rs is sufficient.
-    MigrationComplete(DatabaseVersion),
-    /// Some other log line printed out, e.g. by a background worker creating
-    /// a new index or a backfill.
-    LogLine(Cow<'static, str>),
-}
-
-impl fmt::Display for MigrationCompletionCriterion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MigrationCompletionCriterion::MigrationComplete(version) => {
-                write!(f, "Wait for log line 'Migrated {version}'")
-            },
-            MigrationCompletionCriterion::LogLine(line) => write!(f, "Wait for log line '{line}'"),
-        }
-    }
-}
-
-// The version for the format of the database. We support all previous
-// migrations unless explicitly dropping support.
-// Add a user name next to the version when you make a change to highlight merge
-// conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 119; // nipunn
 
 pub struct MigrationWorker<RT: Runtime> {
     rt: RT,
@@ -102,6 +70,10 @@ impl<RT: Runtime> MigrationWorker<RT> {
     }
 
     async fn attempt_migrations(&self) -> anyhow::Result<()> {
+        let executor = MigrationExecutor {
+            db: self.db.clone(),
+        };
+
         loop {
             let mut tx: Transaction<_> = self.db.begin(Identity::system()).await?;
 
@@ -117,7 +89,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
             match persisted_version {
                 1..DATABASE_VERSION => {
                     tracing::info!("Migrating to {}", persisted_version + 1);
-                    self.perform_migration(persisted_version + 1).await?;
+                    executor.perform_migration(persisted_version + 1).await?;
 
                     // Update database globals in a new transaction.
                     let mut tx: Transaction<_> = self.db.begin(Identity::system()).await?;
@@ -156,44 +128,6 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 },
             };
         }
-        Ok(())
-    }
-
-    async fn perform_migration(&self, to_version: DatabaseVersion) -> anyhow::Result<()> {
-        let completion_criterion = match to_version {
-            1..=116 => panic!("Transition too old!"),
-            117 => {
-                let backend_serving_record_table: TableName = "_backend_serving_record"
-                    .parse()
-                    .expect("Invalid built-in backend_serving_record table");
-                let mut tx = self.db.begin_system().await?;
-                TableModel::new(&mut tx)
-                    .delete_active_table(TableNamespace::Global, backend_serving_record_table)
-                    .await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_117")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            // Empty migration for 118 - represents creation of CronNextRun table
-            118 => MigrationCompletionCriterion::MigrationComplete(to_version),
-            119 => {
-                let mut tx = self.db.begin_system().await?;
-                migr_119::run_migration(&mut tx).await?;
-                self.db
-                    .commit_with_write_source(tx, "migration_119")
-                    .await?;
-                MigrationCompletionCriterion::MigrationComplete(to_version)
-            },
-            // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
-            _ => anyhow::bail!("Version did not define a migration! {}", to_version),
-        };
-        tracing::warn!(
-            "Executing Migration {}/{}. {}",
-            to_version,
-            DATABASE_VERSION,
-            completion_criterion
-        );
         Ok(())
     }
 }
