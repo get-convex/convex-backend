@@ -1,44 +1,50 @@
 ---
 name: Convex
-title: Convex source connector for Fivetran
-description: Documentation and setup guide for the Convex source connector for Fivetran
+title: Convex connector for Fivetran
+description: Documentation and setup guide for the Convex connector for Fivetran
 ---
 
-# Convex {% typeBadge connector="convex" /%} {% availabilityBadge connector="convex" /%}
+# Convex {% badge text="Partner-Built" /%} {% availabilityBadge connector="convex" /%}
 
-[Convex](https://convex.dev) is an all-in-one backend platform with thoughtful, product-centric APIs.
+[Convex](https://convex.dev) is a full-stack TypeScript development platform. Replace your database, server functions, and glue code.
 
-Note that Convex can also be set up as a [destination](/docs/destinations/convex_destination)
+> NOTE: This connector is [partner-built](/docs/partner-built-program). For any questions related to Convex connector and its documentation, refer to Convex's support team. For details on SLA, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state). 
+
+----
+
+## Features
+
+{% featureTable connector="convex" /%}
 
 ---
 
 ## Setup guide
 
-Follow our [step-by-step Convex setup guide](/docs/databases/convex/setup-guide) to connect your Convex database with Fivetran.
+Follow the [step-by-step Convex setup guide](/docs/connectors/databases/convex/setup-guide) to connect your Convex database with Fivetran.
 
 ---
 
 ## Sync overview
 
-Once Fivetran is connected to your Convex deployment, the connector fetches an initial consistent snapshot of all data from your Convex database. Once the initial sync is complete, the connector uses CDC to efficiently incrementally sync updates at a newer consistent view of your Convex deployment. You can configure the frequency of these updates.
+Once Fivetran is connected to your Convex deployment, the connection fetches an initial consistent snapshot of all data from your Convex database. Once the initial sync is complete, the connection uses Change data capture (CDC) to efficiently incrementally sync updates at a newer consistent view of your Convex deployment. You can configure the frequency of these updates.
 
 ---
 
 ## Configuration
 
-You will need your deployment URL and deploy key in order to configure the Convex Connector for Fivetran. You can find both on your project's [Production Deployment Settings page](https://docs.convex.dev/dashboard/deployments/deployment-settings).
+To configure a Convex connection, you need your deployment URL and deploy key. You can find both on your project's [Production Deployment Settings page](https://docs.convex.dev/dashboard/deployments/deployment-settings).
 
 ---
 
 ## Schema information
 
-Fivetran tries to replicate the database and columns from your configured Convex deployment to your destination according to Fivetran's [standard database update strategies](/docs/databases#transformationandmappingoverview).
+Fivetran tries to replicate the database and columns from your configured Convex deployment to your destination according to Fivetran's [standard database update strategies](/docs/connectors/databases#transformationandmappingoverview).
 
 ### Type transformations and mapping
 
-As the connector extracts your data, it matches [Convex data types](https://docs.convex.dev/database/types) to types that Fivetran supports.
+As the connection extracts your data, it matches [Convex data types](https://docs.convex.dev/database/types) to types that Fivetran supports.
 
-The following table illustrates how the connector transforms your Convex data types into Fivetran-supported types:
+The following table illustrates how the connection transforms your Convex data types into Fivetran-supported types:
 
 | Convex Type | Fivetran Type | Fivetran Supported |
 | ----------- | ------------- | ------------------ |
@@ -58,7 +64,7 @@ The following table illustrates how the connector transforms your Convex data ty
 
 ### Nested data
 
-Convex documents are represented as JSON [by using conversions](https://docs.convex.dev/database/types). If the first-level field is a simple data type, the connector will map it to its own type. If it's a complex nested data type such as an array or JSON data, it maps to a JSON type without unpacking. The connector does not automatically unpack nested JSON objects to separate tables in the destination. Any nested JSON objects are preserved as is in the destination so that you can use JSON processing functions.
+Convex documents are represented as JSON [by using conversions](https://docs.convex.dev/database/types). If the first-level field is a simple data type, the connection will map it to its own type. If it's a complex nested data type such as an array or JSON data, it maps to a JSON type without unpacking. The connection does not automatically unpack nested JSON objects to separate tables in the destination. Any nested JSON objects are preserved as is in the destination so that you can use JSON processing functions.
 
 For example, the following Convex document:
 
@@ -75,7 +81,7 @@ For example, the following Convex document:
 }
 ```
 
-is converted to the following table when the connector loads it into your destination:
+is converted to the following table when the connection loads it into your destination:
 
 | \_id | street   | city     | country | phone          | zip code | people                   | car                                               |
 | ---- | -------- | -------- | ------- | -------------- | -------- | ------------------------ | ------------------------------------------------- |
@@ -88,4 +94,4 @@ Fivetran adds the following column to every table in your destination:
 - `_fivetran_synced` (UTC TIMESTAMP) indicates the time when Fivetran last successfully synced the row. It is added to every table.
 - `_fivetran_deleted` (BOOLEAN) indicates if the column was deleted in the source.
 
-Fivetran adds these columns to give you insight into the state of your data and the progress of your data syncs.
+Fivetran adds these columns to give you insight into the state of your data and the progress of your data syncs. For more information about these columns, see [our System Columns and Tables documentation](/docs/core-concepts/system-columns-and-tables).
