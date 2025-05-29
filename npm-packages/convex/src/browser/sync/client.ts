@@ -781,7 +781,15 @@ export class BaseConvexClient {
       const optimisticUpdate = options.optimisticUpdate;
       if (optimisticUpdate !== undefined) {
         const wrappedUpdate = (localQueryStore: OptimisticLocalStore) => {
-          optimisticUpdate(localQueryStore, mutationArgs);
+          const result: unknown = optimisticUpdate(
+            localQueryStore,
+            mutationArgs,
+          );
+          if (result instanceof Promise) {
+            this.logger.warn(
+              "Optimistic update handler returned a Promise. Optimistic updates should be synchronous.",
+            );
+          }
         };
 
         const changedQueryTokens =
