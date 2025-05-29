@@ -47,7 +47,36 @@ specified the `applicationID` property must exactly match the `aud` field. If
 your JWT doesn't match, use a tool like [jwt.io](https://jwt.io/) to view an JWT
 and confirm these fields match exactly.
 
+When adding a custom JWT provider it is your responsibility to ensure the fields
+uniquely identify a user; for example, if the `iss` field and `issuer` property
+do not uniquely identify your app, it's very important to use the
+`applicationID` field as well to require the `aud` field to match as well.
+
+### Custom claims
+
+In addition to `subject`, `issuer`, and `tokenIdentifier`, subfields of the
+nested fields of the JWT will be accessible in the auth data returned from
+`const authInfo = await ctx.auth.getUserIdentity()` like
+`authInfo["properties.id"]` and `authInfo["properties.favoriteColor"]` for a JWT
+structured like this:
+
+```json
+{
+  "properties": {
+    "id": "123",
+    "favColor": "asdf"
+  },
+  "iss": "http://localhost:3000",
+  "sub": "user:8fa2be73c2229e85",
+  "exp": 1750968478
+}
+```
+
 ## Client-side integration
 
+Your user's browser needs a way to obtain an initial JWT and to request updated
+JWTs, ideally before the previous one expires.
+
 See the instructions for
-[Custom OIDC Providers](/auth/advanced/custom-auth#client-side-integration).
+[Custom OIDC Providers](/auth/advanced/custom-auth#client-side-integration) for
+how to do this.

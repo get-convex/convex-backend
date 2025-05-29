@@ -53,6 +53,12 @@ If you're using Clerk, the fields returned by `getUserIdentity` are determined
 by your JWT template's _Claims_ config. If you've set custom claims, they will
 be returned by `getUserIdentity` as well.
 
+### Custom JWT Auth
+
+If you're using [Custom JWT auth](/auth/advanced/custom-jwt.mdx) instead of
+OpenID standard fields you'll find each nested field available at
+dot-containing-string field names like `identity["properties.email"]`.
+
 ## HTTP Actions
 
 You can also access the user identity from an HTTP action
