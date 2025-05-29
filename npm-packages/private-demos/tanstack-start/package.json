@@ -19,13 +19,13 @@
   "dependencies": {
     "@convex-dev/react-query": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
-    "@tanstack/react-router": "^1.92.11",
-    "@tanstack/react-router-with-query": "^1.92.11",
-    "@tanstack/start": "^1.92.11",
+    "@tanstack/react-router": "^1.120.11",
+    "@tanstack/react-router-with-query": "^1.120.11",
+    "@tanstack/start": "^1.120.11",
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "vinxi": "0.5.3"
+    "vinxi": "^0.5.6"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",

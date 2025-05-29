@@ -15,19 +15,19 @@
     "format": "prettier --write '**/*' --ignore-unknown"
   },
   "dependencies": {
-    "@clerk/tanstack-start": "0.11.5",
+    "@clerk/tanstack-start": "^0.11.5",
     "@convex-dev/react-query": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
-    "@tanstack/react-router": "^1.92.11",
-    "@tanstack/router-devtools": "^1.92.11",
-    "@tanstack/react-router-with-query": "^1.92.11",
-    "@tanstack/start": "^1.92.11",
+    "@tanstack/react-router": "^1.120.11",
+    "@tanstack/router-devtools": "^1.120.11",
+    "@tanstack/react-router-with-query": "^1.120.11",
+    "@tanstack/start": "^1.120.11",
     "convex": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "redaxios": "^0.5.1",
     "tailwind-merge": "^2.5.5",
-    "vinxi": "0.5.3"
+    "vinxi": "^0.5.6"
   },
   "devDependencies": {
     "@types/node": "^22.5.4",
