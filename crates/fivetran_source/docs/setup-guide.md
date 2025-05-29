@@ -37,8 +37,7 @@ To connect your Convex deployment to Fivetran, you need the following:
 1. In your [connection setup form](/docs/using-fivetran/fivetran-dashboard/connectors#addanewconnection), enter a **Destination schema prefix**. This prefix applies to each replicated schema and cannot be changed once your connection is created.
 2. Enter the **Deployment URL** you found.
 3. Enter your **Deploy Key** you found.
-4. Copy the [Fivetran's IP addresses (or CIDR)](/docs/using-fivetran/ips) that you _must_ safelist in your firewall.
-5. Click **Save & Test**. Fivetran tests and validates our connection to your Convex deployment. Upon successful completion of the setup tests, you can sync your data using Fivetran.
+4. Click **Save & Test**. Fivetran tests and validates our connection to your Convex deployment. Upon successful completion of the setup tests, you can sync your data using Fivetran.
 
 ### Setup tests
 
