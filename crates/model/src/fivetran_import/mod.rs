@@ -158,17 +158,20 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
                     && *index.name.descriptor() == *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR
                     && index.is_database_index()
             })
-            .ok_or(ErrorMetadata::bad_request(
-                "MissingFivetranPrimaryKeyIndex",
-                format!(
-                    "The `{}` index on the `{table_name}` table is missing. Please edit your \
-                     `schema.ts` file and add the following index to the `{table_name}` table: \
-                     .index(\"{}\", [/* …attributes in the primary key… */]) (or \
-                     .index(\"sync_index\", [\"fivetran.deleted\", /* …attributes in the primary \
-                     key… */]).",
-                    *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR, *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
-                ),
-            ))?;
+            .ok_or_else(|| {
+                ErrorMetadata::bad_request(
+                    "MissingFivetranPrimaryKeyIndex",
+                    format!(
+                        "The `{}` index on the `{table_name}` table is missing. Please edit your \
+                         `schema.ts` file and add the following index to the `{table_name}` \
+                         table: .index(\"{}\", [/* …attributes in the primary key… */]) (or \
+                         .index(\"sync_index\", [\"fivetran.deleted\", /* …attributes in the \
+                         primary key… */]).",
+                        *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+                        *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+                    ),
+                )
+            })?;
 
         let IndexConfig::Database {
             developer_config: DeveloperDatabaseIndexConfig { fields },
@@ -230,13 +233,15 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
                 *index.name.table() == *table_name
                     && *index.name.descriptor() == *FIVETRAN_SYNCED_INDEX_DESCRIPTOR
             })
-            .ok_or(ErrorMetadata::bad_request(
-                "MissingFivetranSyncedIndex",
-                format!(
-                    "The Fivetran synchronization index on the `{table_name}` table is missing. \
-                     Something went wrong with the Fivetran sync.",
-                ),
-            ))?;
+            .ok_or_else(|| {
+                ErrorMetadata::bad_request(
+                    "MissingFivetranSyncedIndex",
+                    format!(
+                        "The Fivetran synchronization index on the `{table_name}` table is \
+                         missing. Something went wrong with the Fivetran sync.",
+                    ),
+                )
+            })?;
 
         if !index.is_database_index() {
             anyhow::bail!("Unexpected index type");

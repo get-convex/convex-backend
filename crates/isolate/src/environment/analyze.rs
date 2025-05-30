@@ -664,7 +664,7 @@ fn udf_analyze<RT: Runtime>(
             let resource_name_val = handler
                 .get_script_origin()
                 .resource_name()
-                .ok_or(anyhow!("resource_name was None"))?;
+                .context("resource_name was None")?;
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
             let resource_url = module_specifier_from_str(&resource_name)?;
             let canon_path = path_from_module_specifier(&resource_url)?;
@@ -913,7 +913,7 @@ fn http_analyze<RT: Runtime>(
             let resource_name_val = handler
                 .get_script_origin()
                 .resource_name()
-                .ok_or(anyhow!("resource_name was None"))?;
+                .context("resource_name was None")?;
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
             let resource_url = module_specifier_from_str(&resource_name)?;
             let canon_path = path_from_module_specifier(&resource_url)?;

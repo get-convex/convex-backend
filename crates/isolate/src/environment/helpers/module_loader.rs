@@ -104,5 +104,5 @@ pub fn path_from_module_specifier(
                 .parse::<CanonicalizedModulePath>()
         })
         .transpose()?
-        .ok_or(anyhow!("module specifier did not start with {}", prefix))
+        .ok_or_else(|| anyhow!("module specifier did not start with {}", prefix))
 }

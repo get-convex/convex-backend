@@ -229,7 +229,7 @@ impl SchemaEnvironment {
         let default_str = strings::default.create(&mut scope)?;
         let schema_val: v8::Local<v8::Value> = namespace
             .get(&mut scope, default_str.into())
-            .ok_or(missing_schema_export_error())?;
+            .ok_or_else(missing_schema_export_error)?;
         if schema_val.is_null_or_undefined() {
             anyhow::bail!(missing_schema_export_error());
         }

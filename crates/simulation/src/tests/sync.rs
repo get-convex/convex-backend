@@ -59,7 +59,7 @@ fn assert_objects_match(expected: &ConvexObject, actual: &ConvexObject) -> anyho
     for (key, value) in expected.iter() {
         let actual_value = actual
             .get(key)
-            .ok_or(anyhow::anyhow!("Key not found: {}", key))?;
+            .ok_or_else(|| anyhow::anyhow!("Key not found: {}", key))?;
         _assert_results_match(value, actual_value)?;
     }
     Ok(())

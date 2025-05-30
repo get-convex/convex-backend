@@ -274,7 +274,7 @@ pub async fn public_function_post_with_path(
     if path_parts.len() < 2 {
         return Err(bad_request_error().into());
     }
-    let function_name = path_parts.pop().ok_or(bad_request_error())?;
+    let function_name = path_parts.pop().ok_or_else(bad_request_error)?;
     let udf_path_str = format!("{}:{}", path_parts.join("/"), function_name);
     let udf_path = parse_udf_path(&udf_path_str)?;
     let udf_result = st
