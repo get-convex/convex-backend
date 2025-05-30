@@ -2,6 +2,7 @@ import { validateDeploymentUrl } from "../common/index.js";
 import {
   BaseConvexClient,
   BaseConvexClientOptions,
+  MutationOptions,
   QueryToken,
   UserIdentityAttributes,
 } from "./index.js";
@@ -337,9 +338,10 @@ export class ConvexClient {
   async mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     args: FunctionArgs<Mutation>,
+    options?: MutationOptions,
   ): Promise<Awaited<FunctionReturnType<Mutation>>> {
     if (this.disabled) throw new Error("ConvexClient is disabled");
-    return await this.client.mutation(getFunctionName(mutation), args);
+    return await this.client.mutation(getFunctionName(mutation), args, options);
   }
 
   /**
