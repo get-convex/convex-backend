@@ -4861,6 +4861,7 @@ name = "keybroker"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aws-lc-rs",
  "base64 0.13.1",
  "biscuit",
  "byteorder",

@@ -4,6 +4,7 @@
 
 mod broker;
 mod encryptor;
+mod legacy_encryptor;
 mod metrics;
 mod secret;
 #[cfg(any(test, feature = "testing"))]
@@ -27,7 +28,7 @@ pub use self::{
         SystemKey,
         UserIdentity,
     },
-    encryptor::Encryptor,
+    legacy_encryptor::LegacyEncryptor,
     secret::{
         InstanceSecret,
         Secret,

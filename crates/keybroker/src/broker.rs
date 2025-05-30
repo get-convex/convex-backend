@@ -97,7 +97,12 @@ use sync_types::{
 #[cfg(any(test, feature = "testing"))]
 use crate::testing::TestUserIdentity;
 use crate::{
-    encryptor::Encryptor,
+    encryptor::{
+        DeterministicEncryptor,
+        Purpose,
+        RandomEncryptor,
+    },
+    legacy_encryptor::LegacyEncryptor,
     metrics::{
         log_actions_token_expired,
         log_store_file_auth_expired,
@@ -117,7 +122,12 @@ const MAX_TS_DELAY: Duration = Duration::from_secs(15);
 #[derive(Clone)]
 pub struct KeyBroker {
     instance_name: String,
-    encryptor: Encryptor,
+    encryptor: LegacyEncryptor,
+    admin_key_encryptor: RandomEncryptor,
+    action_callback_encryptor: RandomEncryptor,
+    cursor_encryptor: DeterministicEncryptor,
+    journal_encryptor: RandomEncryptor,
+    store_file_encryptor: RandomEncryptor,
 }
 
 // This enum encodes a successful authentication decision, and its nontrivial
@@ -768,11 +778,42 @@ pub fn cursor_parse_error() -> ErrorMetadata {
     ErrorMetadata::bad_request("InvalidCursor", "Failed to parse cursor")
 }
 
+// TODO: get rid of this after a push cycle and always use the derived encryptor
+macro_rules! encrypt_proto {
+    ($self:ident.$derived_encryptor:ident.encrypt_proto($version:expr, &$proto:expr $(,)?)) => {
+        if *common::knobs::USE_LEGACY_ENCRYPTOR {
+            $self.encryptor.encode_proto($version, $proto)
+        } else {
+            $self.$derived_encryptor.encrypt_proto($version, &$proto)
+        }
+    };
+}
+
 impl KeyBroker {
     pub fn new(instance_name: &str, instance_secret: InstanceSecret) -> anyhow::Result<Self> {
         Ok(Self {
             instance_name: instance_name.to_owned(),
-            encryptor: Encryptor::new(instance_secret)?,
+            encryptor: LegacyEncryptor::new(instance_secret)?,
+            admin_key_encryptor: RandomEncryptor::derive_from_secret(
+                &instance_secret,
+                Purpose::ADMIN_KEY,
+            )?,
+            action_callback_encryptor: RandomEncryptor::derive_from_secret(
+                &instance_secret,
+                Purpose::ACTION_CALLBACK_TOKEN,
+            )?,
+            cursor_encryptor: DeterministicEncryptor::derive_from_secret(
+                &instance_secret,
+                Purpose::CURSOR,
+            )?,
+            journal_encryptor: RandomEncryptor::derive_from_secret(
+                &instance_secret,
+                Purpose::QUERY_JOURNAL,
+            )?,
+            store_file_encryptor: RandomEncryptor::derive_from_secret(
+                &instance_secret,
+                Purpose::STORE_FILE_AUTHORIZATION,
+            )?,
         })
     }
 
@@ -815,15 +856,17 @@ impl KeyBroker {
             anyhow::bail!("Could not issue authorization. Issued TS too far in past.");
         }
         let component_str = component.serialize_to_string();
-        Ok(StoreFileAuthorization(self.encryptor.encode_proto(
-            STORE_FILE_AUTHZ_VERSION,
-            StorageTokenProto {
-                instance_name: self.instance_name.clone(),
-                issued_s: issued.as_secs(),
-                authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
-                component_id: component_str,
-            },
-        )))
+        Ok(StoreFileAuthorization(encrypt_proto!(self
+            .store_file_encryptor
+            .encrypt_proto(
+                STORE_FILE_AUTHZ_VERSION,
+                &StorageTokenProto {
+                    instance_name: self.instance_name.clone(),
+                    issued_s: issued.as_secs(),
+                    authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
+                    component_id: component_str,
+                },
+            ))))
     }
 
     /// Private helper method to generate an admin key.
@@ -847,7 +890,9 @@ impl KeyBroker {
         };
         format_admin_key(
             &self.instance_name,
-            &self.encryptor.encode_proto(ADMIN_KEY_VERSION, proto),
+            &encrypt_proto!(self
+                .admin_key_encryptor
+                .encrypt_proto(ADMIN_KEY_VERSION, &proto)),
         )
     }
 
@@ -855,7 +900,11 @@ impl KeyBroker {
         let encrypted_part = split_admin_key(key).map(|(_, key)| key).unwrap_or(key);
         let admin_key: Result<AdminKeyProto, _> = self
             .encryptor
-            .decode_proto(ADMIN_KEY_VERSION, encrypted_part);
+            .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
+            .or_else(|_| {
+                self.admin_key_encryptor
+                    .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
+            });
         admin_key.is_ok()
     }
 
@@ -871,6 +920,10 @@ impl KeyBroker {
         } = self
             .encryptor
             .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
+            .or_else(|_| {
+                self.admin_key_encryptor
+                    .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
+            })
             .with_context(|| format!("Couldn't decode the AdminKeyProto {}", key))?;
         let instance_name = instance_name
             .or(instance_name_from_encrypted_part.as_deref())
@@ -909,6 +962,10 @@ impl KeyBroker {
         } = self
             .encryptor
             .decode_proto(STORE_FILE_AUTHZ_VERSION, store_file_authorization)
+            .or_else(|_| {
+                self.store_file_encryptor
+                    .decrypt_proto(STORE_FILE_AUTHZ_VERSION, store_file_authorization)
+            })
             .context(ErrorMetadata::unauthenticated(
                 "StorageTokenInvalid",
                 "Couldn't decode the StoreFileAuthorization token",
@@ -991,7 +1048,7 @@ impl KeyBroker {
     ) -> SerializedCursor {
         let proto = self.cursor_to_proto(cursor);
         let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
-        self.encryptor.encode_proto(cursor_version, proto)
+        encrypt_proto!(self.cursor_encryptor.encrypt_proto(cursor_version, &proto))
     }
 
     /// Attempts to decrypt and deserialize the EncryptedCursor. May fail if the
@@ -1005,6 +1062,7 @@ impl KeyBroker {
         let proto: InstanceCursorProto = self
             .encryptor
             .decode_proto(cursor_version, &cursor)
+            .or_else(|_| self.cursor_encryptor.decrypt_proto(cursor_version, &cursor))
             .with_context(cursor_parse_error)?;
         self.proto_to_cursor(proto)
     }
@@ -1020,7 +1078,9 @@ impl KeyBroker {
             None => return None,
         };
         let proto = InstanceQueryJournalProto { end_cursor: cursor };
-        Some(self.encryptor.encode_proto(query_journal_version, proto))
+        Some(encrypt_proto!(self
+            .journal_encryptor
+            .encrypt_proto(query_journal_version, &proto)))
     }
 
     pub fn decrypt_query_journal(
@@ -1035,6 +1095,10 @@ impl KeyBroker {
                 let proto: InstanceQueryJournalProto = self
                     .encryptor
                     .decode_proto(query_journal_version, &journal)
+                    .or_else(|_| {
+                        self.journal_encryptor
+                            .decrypt_proto(query_journal_version, &journal)
+                    })
                     .with_context(cursor_parse_error)?;
                 let end_cursor = match proto.end_cursor {
                     Some(cursor) => Some(self.proto_to_cursor(cursor)?),
@@ -1056,7 +1120,9 @@ impl KeyBroker {
             component_id: component_id.serialize_to_string(),
         };
 
-        self.encryptor.encode_proto(ACTION_KEY_VERSION, proto)
+        encrypt_proto!(self
+            .action_callback_encryptor
+            .encrypt_proto(ACTION_KEY_VERSION, &proto))
     }
 
     // Checks the action token and returns its issue time.
@@ -1071,6 +1137,10 @@ impl KeyBroker {
         } = self
             .encryptor
             .decode_proto(ACTION_KEY_VERSION, token)
+            .or_else(|_| {
+                self.action_callback_encryptor
+                    .decrypt_proto(ACTION_KEY_VERSION, token)
+            })
             .with_context(|| format!("Couldn't decode ActionCallbackTokenProto {token}"))?;
 
         anyhow::ensure!(issued_s != 0, "ActionCallbackTokenProto missing issued_s");
