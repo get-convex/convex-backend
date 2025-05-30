@@ -1,5 +1,5 @@
 import React from "react";
-import CopyButton from "@theme-original/CodeBlock/CopyButton";
+import CopyButton from "./CopyButton";
 
 export function CodeWithCopyButton({ text }: { text: string }) {
   return (
