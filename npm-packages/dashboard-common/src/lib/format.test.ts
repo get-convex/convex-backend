@@ -463,6 +463,20 @@ describe("displaySchemaFromShapes", () => {
     const schemaJson = { tables: [], schemaValidation: false };
     expect(displaySchema(schemaJson)).toMatchSnapshot();
   });
+  test("null document type", () => {
+    const schemaJson = {
+      tables: [
+        {
+          tableName: "table",
+          indexes: [],
+          searchIndexes: [],
+          documentType: null,
+        },
+      ],
+      schemaValidation: true,
+    };
+    expect(displaySchema(schemaJson)).toMatchSnapshot();
+  });
 });
 
 describe("prettier", () => {

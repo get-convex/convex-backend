@@ -22,7 +22,7 @@ interface Schema {
 }
 export interface Table {
   tableName: string;
-  documentType: Validator;
+  documentType: Validator | null;
 }
 type Validator =
   | { type: "null" }
@@ -85,7 +85,7 @@ export function useSingleTableSchemaStatus(
   const isDefined =
     active?.tables.find((table) => table.tableName === tableName) !== undefined;
   const referencedByTable = active?.tables.find((table) =>
-    validatorReferencesTable(table.documentType, tableName),
+    validatorReferencesTable(table.documentType ?? { type: "any" }, tableName),
   )?.tableName;
   const isValidationRunning = schemas.inProgress !== undefined;
   return {

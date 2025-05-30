@@ -534,7 +534,9 @@ pub struct TableDefinition {
     pub indexes: BTreeMap<IndexDescriptor, IndexSchema>,
     pub search_indexes: BTreeMap<IndexDescriptor, SearchIndexSchema>,
     pub vector_indexes: BTreeMap<IndexDescriptor, VectorIndexSchema>,
-    pub document_type: Option<DocumentSchema>,
+    pub document_type: Option<DocumentSchema>, /* FIXME: `Option` could be removed here, since
+                                                * `None` is handled the same way as
+                                                * `Some(DocumentSchema::Any)`. */
 }
 
 impl TableDefinition {

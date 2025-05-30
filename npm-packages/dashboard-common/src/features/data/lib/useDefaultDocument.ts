@@ -25,7 +25,8 @@ export const useDefaultDocument = (tableName: string): GenericDocument => {
     ? parseAndFilterToSingleTable(tableName, activeSchema)?.tables[0]
     : undefined;
   const defaultValueForSchema =
-    tableDef && defaultValueForValidator(tableDef.documentType);
+    tableDef &&
+    defaultValueForValidator(tableDef.documentType ?? { type: "any" });
   const shapeFields = useMemo(
     () =>
       shape?.type === "Object"

@@ -10,7 +10,7 @@ type TableDefinition = {
   indexes: Index[];
   searchIndexes: SearchIndex[];
   vectorIndexes?: VectorIndex[];
-  documentType: ValidatorJSON;
+  documentType: ValidatorJSON | null;
 };
 
 export type SchemaJson = {
@@ -287,7 +287,9 @@ function displayVectorIndexes(vectorIndexes: VectorIndex[]): string {
 }
 
 function displayTableDefinition(tableDefinition: TableDefinition): string {
-  const documentType = displayDocumentType(tableDefinition.documentType);
+  const documentType = displayDocumentType(
+    tableDefinition.documentType ?? { type: "any" },
+  );
   return `${tableDefinition.tableName}: defineTable(${documentType}
   )${displayIndexes(tableDefinition.indexes)}${displaySearchIndexes(
     tableDefinition.searchIndexes,

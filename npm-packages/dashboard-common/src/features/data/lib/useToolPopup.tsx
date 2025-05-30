@@ -85,7 +85,7 @@ export function useToolPopup({
           onClose={closePopup}
           onSave={(documents) => addDocuments(popup.tableName, documents)}
           defaultDocument={defaultDocument}
-          validator={validator}
+          validator={validator ?? undefined}
           shouldSurfaceValidatorErrors={shouldSurfaceSchemaValidatorErrors}
         />
       );
@@ -103,7 +103,7 @@ export function useToolPopup({
           tableName={popup.tableName}
           onClose={closePopup}
           editingDocument={popup.document}
-          validator={validator}
+          validator={validator ?? undefined}
           shouldSurfaceValidatorErrors={shouldSurfaceSchemaValidatorErrors}
         />
       );
@@ -125,7 +125,7 @@ export function useToolPopup({
           onSave={(fields) =>
             patchFields(popup.tableName, popup.rowIds, fields)
           }
-          validator={validator}
+          validator={validator ?? undefined}
           shouldSurfaceValidatorErrors={shouldSurfaceSchemaValidatorErrors}
         />
       );

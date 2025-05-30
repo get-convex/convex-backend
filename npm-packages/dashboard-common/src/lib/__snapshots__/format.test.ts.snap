@@ -122,6 +122,15 @@ export default defineSchema({
 
 exports[`displaySchemaFromShapes no schema on all tables 1`] = `undefined`;
 
+exports[`displaySchemaFromShapes null document type 1`] = `
+"import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  table: defineTable(v.any()),
+});"
+`;
+
 exports[`displaySchemaFromShapes object shape 1`] = `
 "import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";

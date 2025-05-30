@@ -16,7 +16,9 @@ export function useTableFields(
   return useMemo(() => {
     const allFields = new Set<string>();
     if (tableSchema !== null) {
-      const result = topLevelFieldsForValidator(tableSchema.documentType);
+      const result = topLevelFieldsForValidator(
+        tableSchema.documentType ?? { type: "any" },
+      );
       // If schema is enforced and the list of fields is complete, use these.
       if (result.areFieldsComplete) {
         return sortColumns(result.fields);

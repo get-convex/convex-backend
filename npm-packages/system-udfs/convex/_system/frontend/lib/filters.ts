@@ -405,7 +405,7 @@ type TableDefinition = {
   indexes: Index[];
   searchIndexes: SearchIndex[];
   vectorIndexes?: VectorIndex[];
-  documentType: ValidatorJSON;
+  documentType: ValidatorJSON | null;
 };
 
 export type SchemaJson = {
