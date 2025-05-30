@@ -1,6 +1,10 @@
 use std::time::Duration;
 
 use common::{
+    bootstrap_model::index::{
+        database_index::IndexedFields,
+        IndexMetadata,
+    },
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
@@ -31,22 +35,30 @@ use crate::{
     Application,
 };
 
-async fn run_query(
+fn udf_path(path: &str) -> PublicFunctionPath {
+    PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
+        component: ComponentPath::test_user(),
+        udf_path: path.parse().unwrap(),
+    })
+}
+
+async fn run_query_with_journal(
     application: &Application<TestRuntime>,
     path: &str,
     arg: JsonValue,
     identity: Identity,
+    journal: Option<Option<String>>,
     expect_cached: bool,
-) -> anyhow::Result<ConvexValue> {
+) -> anyhow::Result<(ConvexValue, Option<String>)> {
+    let ts = application.now_ts_for_reads();
     let result = application
-        .read_only_udf(
+        .read_only_udf_at_ts(
             RequestId::new(),
-            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
-                component: ComponentPath::test_user(),
-                udf_path: path.parse()?,
-            }),
+            udf_path(path),
             vec![arg],
             identity,
+            *ts,
+            journal,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },
@@ -55,7 +67,21 @@ async fn run_query(
     let (function_log, _) = application.function_log().stream(0.0).await;
     let last_log_entry = function_log.last().unwrap();
     assert_eq!(last_log_entry.cached_result, expect_cached);
-    Ok(result.result?.unpack())
+    Ok((result.result?.unpack(), result.journal))
+}
+
+async fn run_query(
+    application: &Application<TestRuntime>,
+    path: &str,
+    arg: JsonValue,
+    identity: Identity,
+    expect_cached: bool,
+) -> anyhow::Result<ConvexValue> {
+    Ok(
+        run_query_with_journal(application, path, arg, identity, None, expect_cached)
+            .await?
+            .0,
+    )
 }
 
 async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result<ConvexValue> {
@@ -570,6 +596,135 @@ async fn test_query_cache_conditional_auth_check_race(
     second_pause_guard.unpause();
     let result2 = second_query.await?;
     assert_eq!(result2, val!("No user"));
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_cache_paginated_query(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+    application
+        .add_index(IndexMetadata::new_enabled(
+            "test.by_hello".parse()?,
+            IndexedFields::try_from(vec!["hello".parse()?])?,
+        ))
+        .await?;
+
+    for i in 1..=5 {
+        assert!(application
+            .mutation_udf(
+                RequestId::new(),
+                udf_path("query:insert"),
+                vec![json!({"number": i * 10})],
+                Identity::system(),
+                None,
+                FunctionCaller::Test,
+                None
+            )
+            .await?
+            .is_ok());
+    }
+
+    let (page1_1, journal1_1) = run_query_with_journal(
+        &application,
+        "query:paginateIndex",
+        json!({ "paginationOpts": { "numItems": 2, "cursor": null } }),
+        Identity::system(),
+        None,
+        false,
+    )
+    .await?;
+    assert!(journal1_1.is_some());
+    assert_eq!(page1_1["page"][0]["hello"], ConvexValue::Float64(10.0));
+    assert_eq!(page1_1["page"][1]["hello"], ConvexValue::Float64(20.0));
+
+    // Rerunning the query as-is should yield a cache hit
+    let (page1_2, journal1_2) = run_query_with_journal(
+        &application,
+        "query:paginateIndex",
+        json!({ "paginationOpts": { "numItems": 2, "cursor": null } }),
+        Identity::system(),
+        None,
+        true, /* expect_cached */
+    )
+    .await?;
+    assert_eq!(page1_1, page1_2);
+    // TODO: consider making journal encoding deterministic,
+    // since these journals should be the same.
+    assert_ne!(journal1_1, journal1_2);
+
+    // Rerunning the query, but passing in the journal from the first run,
+    // should _also_ result in a cache hit
+    let (page1_3, journal1_3) = run_query_with_journal(
+        &application,
+        "query:paginateIndex",
+        json!({ "paginationOpts": { "numItems": 2, "cursor": null } }),
+        Identity::system(),
+        Some(journal1_1.clone()),
+        true, /* expect_cached */
+    )
+    .await?;
+    assert_eq!(page1_1, page1_3);
+    // TODO: consider making journal encoding deterministic,
+    // since these journals should be the same.
+    assert_ne!(journal1_1, journal1_3);
+
+    // Load a second page.
+    let (page2_1, journal2_1) = run_query_with_journal(
+        &application,
+        "query:paginateIndex",
+        json!({ "paginationOpts": { "numItems": 2, "cursor": page1_1["continueCursor"].to_internal_json() } }),
+        Identity::system(),
+        None,
+        false,
+    )
+    .await?;
+    assert!(journal2_1.is_some());
+    assert_eq!(page2_1["page"][0]["hello"], ConvexValue::Float64(30.0));
+    assert_eq!(page2_1["page"][1]["hello"], ConvexValue::Float64(40.0));
+
+    // Insert an item into the first page.
+    assert!(application
+        .mutation_udf(
+            RequestId::new(),
+            udf_path("query:insert"),
+            vec![json!({"number": 15})],
+            Identity::system(),
+            None,
+            FunctionCaller::Test,
+            None
+        )
+        .await?
+        .is_ok());
+
+    // Re-query the first page.
+    let (page1_4, journal1_4) = run_query_with_journal(
+        &application,
+        "query:paginateIndex",
+        json!({ "paginationOpts": { "numItems": 2, "cursor": null } }),
+        Identity::system(),
+        Some(journal1_1.clone()),
+        false,
+    )
+    .await?;
+    assert!(journal1_4.is_some());
+    assert_eq!(page1_4["page"][0]["hello"], ConvexValue::Float64(10.0));
+    assert_eq!(page1_4["page"][1]["hello"], ConvexValue::Float64(15.0)); // new!
+    assert_eq!(page1_4["page"][2]["hello"], ConvexValue::Float64(20.0));
+
+    // The second page should still be cached.
+    let (page2_2, journal2_2) = run_query_with_journal(
+        &application,
+        "query:paginateIndex",
+        json!({ "paginationOpts": { "numItems": 2, "cursor": page1_1["continueCursor"].to_internal_json() } }),
+        Identity::system(),
+        None,
+        true /* expect_cached */,
+    )
+    .await?;
+    assert!(journal2_2.is_some());
+    assert_eq!(page2_1, page2_2);
 
     Ok(())
 }

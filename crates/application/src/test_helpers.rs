@@ -18,7 +18,10 @@ use authentication::{
 };
 use cmd_util::env::config_test;
 use common::{
-    bootstrap_model::index::database_index::IndexedFields,
+    bootstrap_model::index::{
+        database_index::IndexedFields,
+        IndexMetadata,
+    },
     components::ComponentId,
     db_schema,
     http::fetch::StaticFetchClient,
@@ -38,6 +41,7 @@ use common::{
 };
 use database::{
     Database,
+    IndexModel,
     SchemaModel,
     Transaction,
 };
@@ -165,6 +169,11 @@ pub trait ApplicationTestExt<RT: Runtime> {
     fn snapshot_imports_storage(&self) -> Arc<dyn Storage>;
     fn exports_storage(&self) -> Arc<dyn Storage>;
     async fn export_and_wait(&self) -> anyhow::Result<FullyQualifiedObjectKey>;
+
+    async fn add_index(
+        &self,
+        index: IndexMetadata<TableName>,
+    ) -> anyhow::Result<ResolvedDocumentId>;
 }
 
 #[async_trait]
@@ -376,6 +385,18 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             break zip_object_key;
         };
         Ok(self.cloud_export_key(export_object_key))
+    }
+
+    async fn add_index(
+        &self,
+        index: IndexMetadata<TableName>,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let mut tx = self.begin(Identity::system()).await?;
+        let index_id = IndexModel::new(&mut tx)
+            .add_application_index(TableNamespace::test_user(), index)
+            .await?;
+        self.commit_test(tx).await?;
+        Ok(index_id)
     }
 }
 

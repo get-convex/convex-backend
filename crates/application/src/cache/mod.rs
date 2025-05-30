@@ -1,6 +1,7 @@
 use std::{
     cmp,
     collections::BTreeMap,
+    iter,
     mem,
     sync::{
         atomic::{
@@ -75,6 +76,10 @@ use metrics::{
     GoReason,
 };
 use parking_lot::Mutex;
+use smallvec::{
+    smallvec,
+    SmallVec,
+};
 use udf::{
     validation::ValidatedPathAndArgs,
     FunctionOutcome,
@@ -183,19 +188,43 @@ impl RequestedCacheKey {
         }
     }
 
-    fn cache_key_after_execution(&self, outcome: &UdfOutcome) -> StoredCacheKey {
+    fn cache_keys_after_execution(&self, outcome: &UdfOutcome) -> SmallVec<[StoredCacheKey; 2]> {
         let identity = if outcome.observed_identity {
             Some(self.identity.clone())
         } else {
             None
         };
-        StoredCacheKey {
+        let key = StoredCacheKey {
             instance: self.instance,
             path: self.path.clone(),
             args: self.args.clone(),
             identity,
-            journal: outcome.journal.clone(),
+            journal: self.journal.clone(),
             allowed_visibility: self.allowed_visibility,
+        };
+        if self.journal != outcome.journal {
+            // Record the result under *both* the original journal and the new
+            // journal, as we expect re-executing the query with
+            // `outcome.journal` to return the same result.
+            //
+            // This would typically happen if `self.journal` is empty (e.g. a
+            // fresh caller starting a new paginated query), in which case
+            // `outcome.journal` would contain a newly created journal. We want
+            // to be able to cache requests from both the _same_ caller (who
+            // will make their next request using `outcome.journal`) and from
+            // new callers (who will use an empty journal).
+            //
+            // The journal could also change if the query starts paginating over
+            // a different range of the table or a different table entirely.
+            smallvec![
+                StoredCacheKey {
+                    journal: outcome.journal.clone(),
+                    ..key.clone()
+                },
+                key
+            ]
+        } else {
+            smallvec![key]
         }
     }
 }
@@ -431,10 +460,10 @@ impl<RT: Runtime> CacheManager<RT> {
             // bump the cache result's token. This method will discard the new value if the
             // UDF failed or if a newer (i.e. higher `original_ts`) value is in the cache.
             if cache_result.outcome.result.is_ok() {
-                let actual_stored_key =
-                    requested_key.cache_key_after_execution(&cache_result.outcome);
                 // We do not cache JSErrors
-                waiting_entry_guard.complete(actual_stored_key, cache_result.clone());
+                let actual_stored_keys =
+                    requested_key.cache_keys_after_execution(&cache_result.outcome);
+                waiting_entry_guard.complete(actual_stored_keys, cache_result.clone());
             } else {
                 drop(waiting_entry_guard);
             }
@@ -606,7 +635,9 @@ impl<RT: Runtime> CacheManager<RT> {
                     token,
                 };
                 if result.outcome.result.is_ok()
-                    && *key == requested_key.cache_key_after_execution(&result.outcome)
+                    && requested_key
+                        .cache_keys_after_execution(&result.outcome)
+                        .contains(key)
                 {
                     let _: Result<_, _> = sender.try_broadcast(result.clone());
                 } else {
@@ -696,10 +727,10 @@ impl<'a> WaitingEntryGuard<'a> {
     }
 
     // Marks the waiting entry as removed, so we don't have to remove it on Drop
-    fn complete(&mut self, actual_stored_key: StoredCacheKey, result: CacheResult) {
+    fn complete(&mut self, actual_stored_keys: SmallVec<[StoredCacheKey; 2]>, result: CacheResult) {
         if let Some(entry_id) = self.entry_id.take() {
             self.cache.remove_waiting(self.key, entry_id);
-            self.cache.put_ready(actual_stored_key, result);
+            self.cache.put_ready(actual_stored_keys, result);
         }
     }
 }
@@ -842,8 +873,11 @@ impl QueryCache {
         self.inner.lock().remove_ready(key, original_ts)
     }
 
-    fn put_ready(&self, key: StoredCacheKey, result: CacheResult) {
-        self.inner.lock().put_ready(key, result)
+    fn put_ready(&self, keys: SmallVec<[StoredCacheKey; 2]>, result: CacheResult) {
+        let mut inner = self.inner.lock();
+        for (result, key) in iter::repeat_n(result, keys.len()).zip(keys) {
+            inner.put_ready(key, result);
+        }
     }
 }
 
@@ -1014,6 +1048,7 @@ mod tests {
         strategy::ValueTree,
         test_runner::TestRunner,
     };
+    use smallvec::smallvec;
     use sync_types::{
         CanonicalizedModulePath,
         CanonicalizedUdfPath,
@@ -1111,7 +1146,7 @@ mod tests {
         let cache_key = make_cache_key();
         let cloned_key = cache_key.clone();
         assert_ne!(cache_key.size(), cloned_key.size());
-        cache.put_ready(cloned_key, make_cache_result());
+        cache.put_ready(smallvec![cloned_key], make_cache_result());
         assert!(cache.inner.lock().size > 0);
         cache.remove_ready(&cache_key, Timestamp::MIN);
         assert_eq!(cache.inner.lock().size, 0);

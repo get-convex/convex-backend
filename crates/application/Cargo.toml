@@ -63,6 +63,7 @@ serde_json = { workspace = true }
 shape_inference = { path = "../shape_inference" }
 short_future = { workspace = true }
 slugify = "0.1.0"
+smallvec = { workspace = true }
 sourcemap = { workspace = true }
 storage = { path = "../storage" }
 strum = { workspace = true }

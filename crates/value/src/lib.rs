@@ -481,6 +481,38 @@ impl Hash for ConvexValue {
     }
 }
 
+#[cfg(feature = "testing")]
+impl std::ops::Index<&str> for ConvexValue {
+    type Output = ConvexValue;
+
+    #[track_caller]
+    fn index(&self, field: &str) -> &Self::Output {
+        let ConvexValue::Object(o) = self else {
+            panic!("indexing {field} into non-object: {self}")
+        };
+        let Some(v) = o.get(field) else {
+            panic!("field {field} missing in object: {self}")
+        };
+        v
+    }
+}
+
+#[cfg(feature = "testing")]
+impl std::ops::Index<usize> for ConvexValue {
+    type Output = ConvexValue;
+
+    #[track_caller]
+    fn index(&self, index: usize) -> &Self::Output {
+        let ConvexValue::Array(a) = self else {
+            panic!("indexing {index} into non-array: {self}")
+        };
+        let Some(v) = a.get(index) else {
+            panic!("index {index} out of bounds in array: {self}")
+        };
+        v
+    }
+}
+
 #[cfg(test)]
 mod hash_tests {
     use std::hash::{
