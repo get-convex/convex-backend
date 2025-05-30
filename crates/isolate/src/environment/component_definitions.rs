@@ -62,9 +62,12 @@ use super::{
 };
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
-    environment::helpers::syscall_error::{
-        syscall_description_for_error,
-        syscall_name_for_error,
+    environment::{
+        helpers::syscall_error::{
+            syscall_description_for_error,
+            syscall_name_for_error,
+        },
+        ModuleCodeCacheResult,
     },
     helpers,
     isolate::{
@@ -508,9 +511,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         if path == &self.expected_filename {
-            return Ok(Some(self.source.clone()));
+            return Ok(Some((self.source.clone(), ModuleCodeCacheResult::noop())));
         }
         if let Some(remainder) = path.strip_prefix("_componentDeps/") {
             let r: anyhow::Result<_> = try {
@@ -542,7 +545,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                 ),
                 source_map: None,
             };
-            return Ok(Some(synthetic_module));
+            return Ok(Some((synthetic_module, ModuleCodeCacheResult::noop())));
         }
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoImportModuleDuringDefinitionEvaluation",

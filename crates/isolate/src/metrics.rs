@@ -214,10 +214,12 @@ pub fn lookup_source_timer(is_system: bool) -> StatusTimer {
 register_convex_histogram!(
     UDF_ISOLATE_COMPILE_MODULE_SECONDS,
     "Time to compile a single module's source",
-    &["status"],
+    &["status", "cached"],
 );
-pub fn compile_module_timer() -> StatusTimer {
-    StatusTimer::new(&UDF_ISOLATE_COMPILE_MODULE_SECONDS)
+pub fn compile_module_timer(cached: bool) -> StatusTimer {
+    let mut timer = StatusTimer::new(&UDF_ISOLATE_COMPILE_MODULE_SECONDS);
+    timer.add_label(MetricLabel::new("cached", cached.as_label()));
+    timer
 }
 
 register_convex_histogram!(
@@ -539,6 +541,15 @@ pub fn create_isolate_timer() -> Timer<prometheus::VMHistogram> {
 register_convex_histogram!(CREATE_CONTEXT_SECONDS, "Time to create a new V8 context");
 pub fn create_context_timer() -> Timer<prometheus::VMHistogram> {
     Timer::new(&CREATE_CONTEXT_SECONDS)
+}
+
+register_convex_histogram!(
+    CREATE_CODE_CACHE_SECONDS,
+    "Time to create a code cache for a module",
+    &STATUS_LABEL
+);
+pub fn create_code_cache_timer() -> StatusTimer {
+    StatusTimer::new(&CREATE_CODE_CACHE_SECONDS)
 }
 
 register_convex_histogram!(

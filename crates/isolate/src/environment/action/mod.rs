@@ -132,6 +132,7 @@ use super::{
         approaching_limit_warning,
         SystemWarning,
     },
+    ModuleCodeCacheResult,
 };
 use crate::{
     client::{
@@ -1382,7 +1383,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         let user_module_path: ModulePath = path.parse()?;
         let result = self.phase.get_module(&user_module_path, timeout, permit)?;
         Ok(result)

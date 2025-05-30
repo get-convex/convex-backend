@@ -25,6 +25,7 @@ isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }
 metrics = { path = "../metrics" }
 model = { path = "../model" }
+moka = { workspace = true }
 parking_lot = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }

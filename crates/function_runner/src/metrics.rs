@@ -6,7 +6,9 @@ use metrics::{
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
+    log_gauge,
     register_convex_counter,
+    register_convex_gauge,
     register_convex_histogram,
     MetricLabel,
     StaticMetricLabel,
@@ -98,4 +100,12 @@ pub fn record_module_sizes(source_size: usize, source_map_size: Option<usize>) {
             ),
         ]
     }));
+}
+
+register_convex_gauge!(
+    CODE_CACHE_SIZE_BYTES_TOTAL,
+    "Size in bytes of the function runner V8 code cache",
+);
+pub fn record_code_cache_size(size: u64) {
+    log_gauge(&CODE_CACHE_SIZE_BYTES_TOTAL, size as f64);
 }

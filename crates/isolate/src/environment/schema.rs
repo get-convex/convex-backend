@@ -42,6 +42,7 @@ use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::NamespacedTableMapping;
 
+use super::ModuleCodeCacheResult;
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
     environment::{
@@ -115,17 +116,20 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         if path != "schema.js" {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoImportModuleInSchema",
                 format!("Can't import {path} while evaluating schema")
             ))
         }
-        Ok(Some(FullModuleSource {
-            source: self.schema_bundle.clone(),
-            source_map: self.source_map.clone(),
-        }))
+        Ok(Some((
+            FullModuleSource {
+                source: self.schema_bundle.clone(),
+                source_map: self.source_map.clone(),
+            },
+            ModuleCodeCacheResult::noop(),
+        )))
     }
 
     fn syscall(&mut self, name: &str, _args: JsonValue) -> anyhow::Result<JsonValue> {

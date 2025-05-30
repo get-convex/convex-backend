@@ -106,6 +106,7 @@ use value::identifier::Identifier;
 use super::in_memory_indexes::InMemoryIndexCache;
 use crate::{
     module_cache::{
+        CodeCache,
         FunctionRunnerModuleLoader,
         ModuleCache,
     },
@@ -187,6 +188,7 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     storage: S,
     index_cache: InMemoryIndexCache<RT>,
     module_cache: ModuleCache<RT>,
+    code_cache: CodeCache,
     isolate_client: IsolateClient<RT>,
 }
 
@@ -197,6 +199,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S>
             storage: self.storage.clone(),
             index_cache: self.index_cache.clone(),
             module_cache: self.module_cache.clone(),
+            code_cache: self.code_cache.clone(),
             isolate_client: self.isolate_client.clone(),
         }
     }
@@ -241,12 +244,14 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         )?;
         let index_cache = InMemoryIndexCache::new(rt.clone());
         let module_cache = ModuleCache::new(rt.clone());
+        let code_cache = CodeCache::new();
 
         Ok(Self {
             rt,
             storage,
             index_cache,
             module_cache,
+            code_cache,
             isolate_client,
         })
     }
@@ -391,6 +396,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             module_loader: Arc::new(FunctionRunnerModuleLoader {
                 instance_name: instance_name.clone(),
                 cache: self.module_cache.clone(),
+                code_cache: self.code_cache.clone(),
                 modules_storage,
             }),
         };

@@ -3538,6 +3538,7 @@ dependencies = [
  "keybroker",
  "metrics",
  "model",
+ "moka",
  "parking_lot",
  "prometheus",
  "proptest",

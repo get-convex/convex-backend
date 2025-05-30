@@ -935,6 +935,10 @@ pub static FUNRUN_MODULE_CACHE_SIZE: LazyLock<u64> =
 pub static FUNRUN_MODULE_MAX_CONCURRENCY: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_MODULE_MAX_CONCURRENCY", 100));
 
+/// The maximum size of the module code cache in Funrun in bytes.
+pub static FUNRUN_CODE_CACHE_SIZE: LazyLock<u64> =
+    LazyLock::new(|| env_config("FUNRUN_MODULE_CACHE_SIZE", 500_000_000));
+
 /// The maximum number of fetch clients Funrun would create.
 pub static FUNRUN_FETCH_CLIENT_CACHE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_FETCH_CLIENT_CACHE_SIZE", 100));

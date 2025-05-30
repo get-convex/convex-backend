@@ -29,7 +29,6 @@ use errors::ErrorMetadata;
 use model::{
     canonical_urls::CanonicalUrlsModel,
     components::ComponentsModel,
-    config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
             EnvVarName,
@@ -69,7 +68,9 @@ use crate::{
             permit::with_release_permit,
             Phase,
         },
+        ModuleCodeCacheResult,
     },
+    module_cache::ModuleCache,
     timeout::Timeout,
 };
 
@@ -90,13 +91,14 @@ pub struct ActionPhase<RT: Runtime> {
 enum ActionPreloaded<RT: Runtime> {
     Created {
         tx: Transaction<RT>,
-        module_loader: Arc<dyn ModuleLoader<RT>>,
+        module_loader: Arc<dyn ModuleCache<RT>>,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
     },
     Preloading,
     Ready {
+        module_loader: Arc<dyn ModuleCache<RT>>,
         modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<FullModuleSource>)>,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
@@ -110,7 +112,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         rt: RT,
         component: ComponentId,
         tx: Transaction<RT>,
-        module_loader: Arc<dyn ModuleLoader<RT>>,
+        module_loader: Arc<dyn ModuleCache<RT>>,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
@@ -239,6 +241,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         };
 
         self.preloaded = ActionPreloaded::Ready {
+            module_loader,
             modules,
             env_vars,
             component_arguments,
@@ -258,24 +261,32 @@ impl<RT: Runtime> ActionPhase<RT> {
         module_path: &ModulePath,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
-        let ActionPreloaded::Ready { ref modules, .. } = self.preloaded else {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+        let ActionPreloaded::Ready {
+            ref module_loader,
+            ref modules,
+            ..
+        } = self.preloaded
+        else {
             anyhow::bail!("Phase not initialized");
         };
         let module = modules
             .get(&module_path.clone().canonicalize())
             .map(|(module, source)| (module, (**source).clone()));
 
-        if let Some((module, _)) = module.as_ref() {
-            anyhow::ensure!(
-                module.environment == ModuleEnvironment::Isolate,
-                "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
-                module_path,
-                module.environment
-            );
+        let Some((module, source)) = module else {
+            return Ok(None);
         };
 
-        Ok(module.map(|(_, source)| source))
+        anyhow::ensure!(
+            module.environment == ModuleEnvironment::Isolate,
+            "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
+            module_path,
+            module.environment
+        );
+
+        let code_cache_result = module_loader.clone().code_cache_result(module.clone());
+        Ok(Some((source, code_cache_result)))
     }
 
     pub fn begin_execution(&mut self) -> anyhow::Result<()> {

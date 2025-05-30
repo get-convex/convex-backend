@@ -85,6 +85,7 @@ use value::{
     NamespacedTableMapping,
 };
 
+use super::ModuleCodeCacheResult;
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
     environment::{
@@ -177,10 +178,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         let p = ModulePath::from_str(path)?.canonicalize();
         let result = self.modules.get(&p).cloned();
-        Ok(result)
+        Ok(result.map(|m| (m, ModuleCodeCacheResult::noop())))
     }
 
     fn syscall(&mut self, name: &str, _args: JsonValue) -> anyhow::Result<JsonValue> {

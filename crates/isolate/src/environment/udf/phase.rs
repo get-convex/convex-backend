@@ -23,7 +23,6 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
-    config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
             EnvVarName,
@@ -50,10 +49,14 @@ use value::{
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
-    environment::helpers::{
-        permit::with_release_permit,
-        Phase,
+    environment::{
+        helpers::{
+            permit::with_release_permit,
+            Phase,
+        },
+        ModuleCodeCacheResult,
     },
+    module_cache::ModuleCache,
     timeout::Timeout,
 };
 
@@ -76,7 +79,7 @@ pub struct UdfPhase<RT: Runtime> {
     tx: Option<Transaction<RT>>,
 
     pub rt: RT,
-    module_loader: Arc<dyn ModuleLoader<RT>>,
+    module_loader: Arc<dyn ModuleCache<RT>>,
     preloaded: UdfPreloaded,
     component: ComponentId,
 }
@@ -102,7 +105,7 @@ impl<RT: Runtime> UdfPhase<RT> {
     pub fn new(
         tx: Transaction<RT>,
         rt: RT,
-        module_loader: Arc<dyn ModuleLoader<RT>>,
+        module_loader: Arc<dyn ModuleCache<RT>>,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component: ComponentId,
     ) -> Self {
@@ -230,7 +233,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         module_path: &ModulePath,
         timeout: &mut Timeout<RT>,
         permit_slot: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         if self.phase != Phase::Importing {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDynamicImport",
@@ -277,11 +280,11 @@ impl<RT: Runtime> UdfPhase<RT> {
         let module_source = with_release_permit(
             timeout,
             permit_slot,
-            module_loader.get_module_with_metadata(module_metadata, source_package),
+            module_loader.get_module_with_metadata(module_metadata.clone(), source_package),
         )
         .await?;
-
-        Ok(Some((*module_source).clone()))
+        let code_cache_result = module_loader.code_cache_result(module_metadata.into_value());
+        Ok(Some(((*module_source).clone(), code_cache_result)))
     }
 
     pub fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
@@ -464,7 +467,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         }
     }
 
-    pub fn module_loader(&self) -> &Arc<dyn ModuleLoader<RT>> {
+    pub fn module_loader(&self) -> &Arc<dyn ModuleCache<RT>> {
         &self.module_loader
     }
 }

@@ -27,6 +27,7 @@ use isolate::{
         crypto_rng::CryptoRng,
         AsyncOpRequest,
         IsolateEnvironment,
+        ModuleCodeCacheResult,
     },
     ConcurrencyPermit,
     Timeout,
@@ -77,14 +78,17 @@ impl IsolateEnvironment<TestRuntime> for TestEnvironment {
         path: &str,
         _timeout: &mut Timeout<TestRuntime>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         if path != "test.js" {
             return Ok(None);
         }
-        Ok(Some(FullModuleSource {
-            source: TEST_SOURCE.to_string(),
-            source_map: Some(TEST_SOURCE_MAP_STR.to_string()),
-        }))
+        Ok(Some((
+            FullModuleSource {
+                source: TEST_SOURCE.to_string(),
+                source_map: Some(TEST_SOURCE_MAP_STR.to_string()),
+            },
+            ModuleCodeCacheResult::noop(),
+        )))
     }
 
     fn syscall(&mut self, _name: &str, _args: JsonValue) -> anyhow::Result<JsonValue> {

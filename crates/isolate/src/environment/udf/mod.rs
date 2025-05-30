@@ -118,6 +118,7 @@ use super::{
         approaching_limit_warning,
         SystemWarning,
     },
+    ModuleCodeCacheResult,
 };
 use crate::{
     client::{
@@ -249,7 +250,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>> {
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
         let user_module_path = path.parse()?;
         let result = self
             .phase

@@ -5,6 +5,7 @@ use std::{
         Deref,
         DerefMut,
     },
+    sync::Arc,
 };
 
 use anyhow::{
@@ -36,7 +37,10 @@ use value::heap_size::HeapSize;
 
 use crate::{
     bundled_js::system_udf_file,
-    environment::IsolateEnvironment,
+    environment::{
+        IsolateEnvironment,
+        ModuleCodeCacheResult,
+    },
     helpers::{
         self,
         to_rust_string,
@@ -317,33 +321,81 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             }
         }
         let (id, import_specifiers) = {
-            let FullModuleSource { source, source_map } = self.lookup_source(name).await?;
+            let (FullModuleSource { source, source_map }, code_cache) =
+                self.lookup_source(name).await?;
 
             // Step 1: Compile the module and discover its imports.
-            let timer = metrics::compile_module_timer();
+            let timer = metrics::compile_module_timer(matches!(
+                &code_cache,
+                ModuleCodeCacheResult::Cached(..)
+            ));
 
-            let name_str = v8::String::new(self, name.as_str())
+            // Create a nested scope so that objects can be GC'd
+            let mut scope = v8::HandleScope::new(&mut **self);
+            let mut scope = ExecutionScope::<RT, E>::new(&mut scope);
+
+            let name_str = v8::String::new(&mut scope, name.as_str())
                 .ok_or_else(|| anyhow!("Failed to create name string"))?;
-            let source_str = v8::String::new(self, &source)
+            let source_str = v8::String::new(&mut scope, &source)
                 .ok_or_else(|| anyhow!("Failed to create source string"))?;
 
-            let origin = helpers::module_origin(self, name_str);
-            let mut v8_source = v8::script_compiler::Source::new(source_str, Some(&origin));
+            let origin = helpers::module_origin(&mut scope, name_str);
+            let (mut v8_source, options) = match &code_cache {
+                ModuleCodeCacheResult::Cached(data) => (
+                    v8::script_compiler::Source::new_with_cached_data(
+                        source_str,
+                        Some(&origin),
+                        v8::CachedData::new(data),
+                    ),
+                    v8::script_compiler::CompileOptions::ConsumeCodeCache,
+                ),
+                ModuleCodeCacheResult::Uncached(_) => (
+                    v8::script_compiler::Source::new(source_str, Some(&origin)),
+                    v8::script_compiler::CompileOptions::NoCompileOptions,
+                ),
+            };
 
-            let module = self
-                .with_try_catch(|s| v8::script_compiler::compile_module(s, &mut v8_source))??
+            let module = scope
+                .with_try_catch(|s| {
+                    v8::script_compiler::compile_module2(
+                        s,
+                        &mut v8_source,
+                        options,
+                        v8::script_compiler::NoCacheReason::NoReason,
+                    )
+                })??
                 .ok_or_else(|| anyhow!("Unexpected module compilation error"))?;
+
+            match code_cache {
+                ModuleCodeCacheResult::Cached(data) => {
+                    // N.B.: this is not reflected in rusty-v8's lifetimes,
+                    // but the pointer behind the `v8::CachedData` passed to
+                    // `v8::Source` must stay alive through the call to
+                    // `compile_module2`.
+                    // At this point however it's already been deserialized and
+                    // is safe to drop.
+                    let _: Arc<[u8]> = data;
+                },
+                ModuleCodeCacheResult::Uncached(callback) => {
+                    let timer = metrics::create_code_cache_timer();
+                    let module_script = module.get_unbound_module_script(&mut scope);
+                    if let Some(cached_data) = module_script.create_code_cache() {
+                        callback(cached_data[..].into());
+                        timer.finish();
+                    }
+                },
+            }
 
             assert_eq!(module.get_status(), v8::ModuleStatus::Uninstantiated);
             let mut import_specifiers = vec![];
             let module_requests = module.get_module_requests();
             for i in 0..module_requests.length() {
                 let module_request: v8::Local<v8::ModuleRequest> = module_requests
-                    .get(self, i)
+                    .get(&mut scope, i)
                     .ok_or_else(|| anyhow!("Module request {} out of bounds", i))?
                     .try_into()?;
                 let import_specifier =
-                    helpers::to_rust_string(self, &module_request.get_specifier())?;
+                    helpers::to_rust_string(&mut scope, &module_request.get_specifier())?;
                 let module_specifier = deno_core::resolve_import(&import_specifier, name.as_str())?;
                 let offset = module_request.get_source_offset();
                 let location = module.source_offset_to_location(offset);
@@ -353,8 +405,8 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
             // Step 2: Register the module with the module map.
             let id = {
-                let module_v8 = v8::Global::<v8::Module>::new(self, module);
-                let module_map = self.module_map_mut();
+                let module_v8 = v8::Global::<v8::Module>::new(&mut scope, module);
+                let module_map = scope.module_map_mut();
                 module_map.register(name, module_v8, source_map)
             };
             (id, import_specifiers)
@@ -375,7 +427,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     async fn lookup_source(
         &mut self,
         module_specifier: &ModuleSpecifier,
-    ) -> anyhow::Result<FullModuleSource> {
+    ) -> anyhow::Result<(FullModuleSource, ModuleCodeCacheResult)> {
         let _s = static_span!();
         if module_specifier.scheme() != CONVEX_SCHEME {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -422,7 +474,8 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 source_map: source_map.as_ref().map(|s| s.to_string()),
             };
             timer.finish();
-            return Ok(result);
+            // TODO: should we code-cache system UDFs?
+            return Ok((result, ModuleCodeCacheResult::noop()));
         }
 
         let state = self.state_mut()?;

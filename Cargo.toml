@@ -95,6 +95,7 @@ maplit = "1"
 mime = "0.3"
 mime2ext = "0.1.52"
 fastrace = { version = "0.7", features = [ "enable" ] }
+moka = { version = "0.12", features = [ "future", "sync" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
 mysql_async = { version = "0.36.0", default-features = false, features = [ "default-rustls" ] }
 num_cpus = "1.16.0"

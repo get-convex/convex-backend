@@ -105,10 +105,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
-    config::{
-        module_loader::ModuleLoader,
-        types::ModuleConfig,
-    },
+    config::types::ModuleConfig,
     environment_variables::types::{
         EnvVarName,
         EnvVarValue,
@@ -168,6 +165,7 @@ use crate::{
         log_worker_stolen,
         queue_timer,
     },
+    module_cache::ModuleCache,
 };
 
 // We gather prometheus stats every 30 seconds, so we should make sure we log
@@ -354,7 +352,7 @@ pub struct EnvironmentData<RT: Runtime> {
     pub key_broker: KeyBroker,
     pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub file_storage: TransactionalFileStorage<RT>,
-    pub module_loader: Arc<dyn ModuleLoader<RT>>,
+    pub module_loader: Arc<dyn ModuleCache<RT>>,
 }
 
 pub struct Request<RT: Runtime> {

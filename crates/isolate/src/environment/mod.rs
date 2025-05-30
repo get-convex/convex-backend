@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use model::{
     environment_variables::types::{
@@ -64,7 +67,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<FullModuleSource>>;
+    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>>;
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue>;
     fn start_async_syscall(
@@ -103,4 +106,17 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 #[error("UncatchableDeveloperError")]
 pub struct UncatchableDeveloperError {
     pub js_error: JsError,
+}
+
+pub enum ModuleCodeCacheResult {
+    Cached(Arc<[u8]>),
+    /// The module isn't cached; it can be populated by calling the callback
+    /// with the generated CachedData.
+    Uncached(Box<dyn FnOnce(Arc<[u8]>)>),
+}
+
+impl ModuleCodeCacheResult {
+    pub fn noop() -> Self {
+        ModuleCodeCacheResult::Uncached(Box::new(|_| ()))
+    }
 }
