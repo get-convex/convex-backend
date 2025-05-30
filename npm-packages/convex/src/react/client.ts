@@ -68,11 +68,8 @@ export interface ReactMutation<Mutation extends FunctionReference<"mutation">> {
    *
    * @public
    */
-  withOptimisticUpdate<T extends OptimisticUpdate<FunctionArgs<Mutation>>>(
-    optimisticUpdate: T &
-      (ReturnType<T> extends Promise<any>
-        ? "Optimistic update handlers must be synchronous"
-        : {}),
+  withOptimisticUpdate(
+    optimisticUpdate: OptimisticUpdate<FunctionArgs<Mutation>>,
   ): ReactMutation<Mutation>;
 }
 
