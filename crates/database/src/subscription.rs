@@ -24,6 +24,7 @@ use common::{
         PackedDocument,
     },
     errors::report_error,
+    knobs::SUBSCRIPTIONS_WORKER_QUEUE_SIZE,
     runtime::{
         block_in_place,
         Runtime,
@@ -73,9 +74,6 @@ struct SubscriptionKey {
     id: SubscriberId,
     seq: Sequence,
 }
-
-// Provide large enough limit so we never hit this in practice.
-const SUBSCRIPTIONS_BUFFER: usize = 10000;
 
 #[derive(Clone)]
 pub struct SubscriptionsClient {
@@ -133,7 +131,7 @@ impl SubscriptionsWorker {
         runtime: RT,
         persistence_version: PersistenceVersion,
     ) -> SubscriptionsClient {
-        let (tx, rx) = mpsc::channel(SUBSCRIPTIONS_BUFFER);
+        let (tx, rx) = mpsc::channel(*SUBSCRIPTIONS_WORKER_QUEUE_SIZE);
 
         let log_reader = log.reader();
         let mut manager = SubscriptionManager::new(log, persistence_version);
