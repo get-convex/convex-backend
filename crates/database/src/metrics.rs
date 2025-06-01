@@ -321,7 +321,7 @@ pub fn subscriptions_worker_full_error() -> ErrorMetadata {
     log_counter(&SUBSCRIPTIONS_WORKER_FULL_TOTAL, 1);
     ErrorMetadata::overloaded(
         "SubscriptionsWorkerFullError",
-        "Too many concurrent commits, backoff and try again",
+        "Too many concurrent subscription messages, backoff and try again",
     )
 }
 
