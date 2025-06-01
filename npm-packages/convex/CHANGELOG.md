@@ -1,12 +1,14 @@
 # Changelog
 
-## 1.24.4
+## 1.24.6
+
+- Fix another bug with new Custom JWT auth support in projects that use Convex
+  backend components.
+
+## 1.24.5
 
 - `ConvexClient.mutation()` now accepts a third `options` argument that can
   contain an optimistic update.
-
-- Log a warning when optimistic update handlers return a promise since they
-  should be sync.
 
 ## 1.24.3
 
