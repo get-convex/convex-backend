@@ -253,7 +253,11 @@ export class WebSocketManager {
         }
         this.logger.log(msg);
       }
-      this.scheduleReconnect();
+      if (event.reason?.includes("SubscriptionsWorkerFullError")) {
+        this.scheduleReconnect("SubscriptionsWorkerFullError");
+      } else {
+        this.scheduleReconnect("unknown");
+      }
       return;
     };
   }
@@ -320,9 +324,11 @@ export class WebSocketManager {
     }, this.serverInactivityThreshold);
   }
 
-  private scheduleReconnect() {
+  private scheduleReconnect(
+    reason: "client" | "unknown" | "SubscriptionsWorkerFullError",
+  ) {
     this.socket = { state: "disconnected" };
-    const backoff = this.nextBackoff();
+    const backoff = this.nextBackoff(reason);
     this.logger.log(`Attempting reconnect in ${backoff}ms`);
     setTimeout(() => this.connect(), backoff);
   }
@@ -345,7 +351,7 @@ export class WebSocketManager {
         this.lastCloseReason = closeReason;
         // Close the old socket asynchronously, we'll open a new socket in reconnect.
         void this.close();
-        this.scheduleReconnect();
+        this.scheduleReconnect("client");
         return;
       }
       default: {
@@ -543,8 +549,12 @@ export class WebSocketManager {
     this.logger.logVerbose(message);
   }
 
-  private nextBackoff(): number {
-    const baseBackoff = this.initialBackoff * Math.pow(2, this.retries);
+  private nextBackoff(
+    reason: "client" | "unknown" | "SubscriptionsWorkerFullError",
+  ): number {
+    const initialBackoff =
+      reason === "SubscriptionsWorkerFullError" ? 3000 : this.initialBackoff;
+    const baseBackoff = initialBackoff * Math.pow(2, this.retries);
     this.retries += 1;
     const actualBackoff = Math.min(baseBackoff, this.maxBackoff);
     const jitter = actualBackoff * (Math.random() - 0.5);
