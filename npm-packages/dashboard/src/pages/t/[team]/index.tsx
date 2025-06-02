@@ -38,7 +38,12 @@ export default withAuthenticatedPage(() => {
   const [prefersReferralsBannerHidden, setPrefersReferralsBannerHidden] =
     useGlobalLocalStorage("prefersReferralsBannerHidden", false);
   const isReferralsBannerVisible =
-    isFreePlan && team && referralState && !prefersReferralsBannerHidden;
+    projects &&
+    projects.length > 0 &&
+    isFreePlan &&
+    team &&
+    referralState &&
+    !prefersReferralsBannerHidden;
 
   return (
     <>

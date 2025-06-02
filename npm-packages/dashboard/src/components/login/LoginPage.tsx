@@ -1,39 +1,56 @@
-import classNames from "classnames";
 import { useState } from "react";
-import { Spinner } from "@ui/Spinner";
-import { buttonClasses } from "@ui/Button";
+import { Button } from "@ui/Button";
 
 import GithubLogo from "logos/github-logo.svg";
+import GoogleLogo from "logos/google.svg";
+import { Sheet } from "@ui/Sheet";
+import { UIProvider } from "@ui/UIContext";
+import { LoadingLogo } from "@ui/Loading";
 
 export function LoginPage({ returnTo }: { returnTo?: string }) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   return (
     <div className="flex flex-col items-center">
-      <a
-        onClick={() => setIsLoggingIn(true)}
-        href={`/api/auth/login${returnTo ? `?returnTo=${returnTo}` : ""}`}
-        className={classNames(
-          "mb-4",
-          buttonClasses({
-            variant: "primary",
-            size: "md",
-            // We're getting the disabled styles for the button, but not actually disabled the anchor
-            // Because this isLoggingIn bool is just a heuristic, we don't want to actually disable the button
-            // in case the user wants to click again.
-            disabled: isLoggingIn,
-          }),
-        )}
-      >
+      <Sheet className="flex flex-col items-center">
+        <h2 className="mb-4">Welcome to Convex</h2>
+        <p className="mb-6">Log in to your account to continue.</p>
         {isLoggingIn ? (
-          <>
-            <Spinner className="h-6 w-6" /> Logging in...
-          </>
+          <LoadingLogo />
         ) : (
-          <>
-            <GithubLogo className="fill-white" /> Log in with GitHub
-          </>
+          <UIProvider>
+            <div className="flex w-full flex-col items-center gap-4">
+              <Button
+                onClickOfAnchorLink={() => {
+                  setIsLoggingIn(true);
+                }}
+                href={`/api/auth/login?connection=github${returnTo ? `&returnTo=${returnTo}` : ""}`}
+                icon={<GithubLogo className="mr-2 dark:fill-white" />}
+                variant="neutral"
+                size="md"
+                className="w-fit"
+              >
+                Continue with GitHub
+              </Button>
+              <Button
+                onClickOfAnchorLink={() => {
+                  setIsLoggingIn(true);
+                }}
+                href={`/api/auth/login?connection=google-oauth2${returnTo ? `&returnTo=${returnTo}` : ""}`}
+                variant="neutral"
+                icon={<GoogleLogo className="mr-2" />}
+                className="w-fit"
+                size="md"
+              >
+                Continue with Google
+              </Button>
+            </div>
+          </UIProvider>
         )}
-      </a>
+        <p className="mt-6 max-w-prose text-pretty text-xs text-content-secondary">
+          Don't have an account? Clicking one of the buttons above will create
+          one for you.
+        </p>
+      </Sheet>
     </div>
   );
 }
