@@ -91,6 +91,9 @@ function useLinkIdentityStateMachine() {
         !setCookieInProgress.current
       ) {
         try {
+          setLinkIdentityState({
+            returnTo: (router.query.returnTo as string) ?? "/profile",
+          });
           setCookieInProgress.current = true;
           await setLinkIdentityCookie();
         } catch {
@@ -108,6 +111,7 @@ function useLinkIdentityStateMachine() {
     setLinkIdentityState,
     status,
     setCookieInProgress,
+    router.query.returnTo,
   ]);
 
   const linkIdentity = useLinkIdentity();
