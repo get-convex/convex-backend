@@ -1,20 +1,27 @@
 use std::{
     collections::BTreeMap,
+    future::Future,
     hash::{
         Hash,
         Hasher,
     },
+    pin::Pin,
     str::FromStr,
     sync::LazyLock,
+    task::{
+        Context,
+        Poll,
+    },
 };
 
-use anyhow::Context;
+use anyhow::Context as _;
 use fastrace::{
     collector::SpanContext,
     Span,
 };
 use fnv::FnvHasher;
 use parking_lot::Mutex;
+use pin_project::pin_project;
 use rand::Rng;
 use regex::Regex;
 use serde::Deserialize;
@@ -261,6 +268,56 @@ pub fn initialize_root_from_parent(span_name: &str, encoded_parent: EncodedSpan)
         }
     }
     Span::noop()
+}
+
+pub trait FutureExt: Sized {
+    /// Create a fastrace span for this future starting on its first
+    /// `Poll::Pending`. This avoids noise for futures that usually complete
+    /// immediately.
+    ///
+    /// The future won't have a local span for its first poll, so if it itself
+    /// uses fastrace it will probably create an unexpected span stack.
+    fn trace_if_pending(self, name: &'static str) -> TraceIfPending<Self>;
+}
+impl<T: Future> FutureExt for T {
+    fn trace_if_pending(self, name: &'static str) -> TraceIfPending<Self> {
+        TraceIfPending {
+            future: self,
+            state: TraceIfPendingState::NotTracing(name),
+        }
+    }
+}
+
+enum TraceIfPendingState {
+    NotTracing(&'static str),
+    Tracing(Span),
+    Done,
+}
+
+#[pin_project]
+pub struct TraceIfPending<T> {
+    #[pin]
+    future: T,
+    state: TraceIfPendingState,
+}
+
+impl<T: Future> Future for TraceIfPending<T> {
+    type Output = T::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let _guard;
+        if let TraceIfPendingState::Tracing(ref span) = this.state {
+            _guard = span.set_local_parent();
+        }
+        let result = this.future.poll(cx);
+        if result.is_ready() {
+            *this.state = TraceIfPendingState::Done;
+        } else if let TraceIfPendingState::NotTracing(name) = *this.state {
+            *this.state = TraceIfPendingState::Tracing(Span::enter_with_local_parent(name));
+        }
+        result
+    }
 }
 
 #[cfg(test)]

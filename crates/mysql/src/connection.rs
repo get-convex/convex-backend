@@ -5,6 +5,7 @@ use std::{
 
 use ::metrics::StaticMetricLabel;
 use common::{
+    fastrace_helpers::FutureExt as _,
     knobs::{
         MYSQL_INACTIVE_CONNECTION_LIFETIME,
         MYSQL_MAX_CONNECTIONS,
@@ -25,11 +26,12 @@ use dynfmt::{
     Position,
 };
 use errors::ErrorMetadata;
+use fastrace::func_path;
 use futures::{
     pin_mut,
     select_biased,
     Future,
-    FutureExt,
+    FutureExt as _,
     Stream,
     StreamExt,
     TryStreamExt,
@@ -484,14 +486,15 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
         })
     }
 
-    #[fastrace::trace]
     pub(crate) async fn acquire<'a>(
         &self,
         name: &'static str,
         db_name: &'a str,
     ) -> anyhow::Result<MySqlConnection<'a>> {
         let pool_get_timer = get_connection_timer(&self.cluster_name);
-        let conn = with_timeout(self.pool.get_conn()).await;
+        let conn = with_timeout(self.pool.get_conn())
+            .trace_if_pending(func_path!()) // only trace if slow
+            .await;
         pool_get_timer.finish(conn.is_ok());
         Ok(MySqlConnection {
             conn: conn?,
