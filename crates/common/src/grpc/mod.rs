@@ -86,6 +86,7 @@ impl ConvexGrpcService {
             .layer(MiddlewareLayer::new(middleware::LoggingMiddleware::new(
                 known_methods.clone(),
             )))
+            .layer(crate::fastrace_helpers::layer::TraceparentReceivingLayer)
             .layer_fn(|s| middleware::TokioInstrumentationService::new(known_methods.clone(), s))
             .layer(sentry_tower::NewSentryLayer::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::with_transaction());
