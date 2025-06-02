@@ -4,6 +4,7 @@ import { Button } from "@ui/Button";
 import GithubLogo from "logos/github-logo.svg";
 import GoogleLogo from "logos/google.svg";
 import React from "react";
+import { UIProvider } from "@ui/UIContext";
 
 export function LinkIdentitySuccessPrompt() {
   return (
@@ -14,26 +15,28 @@ export function LinkIdentitySuccessPrompt() {
           <p className="mb-6 max-w-prose text-pretty">
             Your accounts have been linked. Please log in again to continue:
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              href="/api/auth/login?connection=github&returnTo=/profile"
-              icon={<GithubLogo className="mr-2 dark:fill-white" />}
-              size="md"
-              variant="neutral"
-              className="w-fit"
-            >
-              Continue with GitHub
-            </Button>
-            <Button
-              href="/api/auth/login?connection=google-oauth2&returnTo=/profile"
-              icon={<GoogleLogo className="mr-2 dark:fill-white" />}
-              size="md"
-              variant="neutral"
-              className="w-fit"
-            >
-              Continue with Google
-            </Button>
-          </div>
+          <UIProvider>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                href="/api/auth/login?connection=github&returnTo=/profile"
+                icon={<GithubLogo className="mr-2 dark:fill-white" />}
+                size="md"
+                variant="neutral"
+                className="w-fit"
+              >
+                Continue with GitHub
+              </Button>
+              <Button
+                href="/api/auth/login?connection=google-oauth2&returnTo=/profile"
+                icon={<GoogleLogo className="mr-2 dark:fill-white" />}
+                size="md"
+                variant="neutral"
+                className="w-fit"
+              >
+                Continue with Google
+              </Button>
+            </div>
+          </UIProvider>
           <p className="mt-6 text-pretty text-xs text-content-secondary">
             Having trouble logging in? Contact us at{" "}
             <a

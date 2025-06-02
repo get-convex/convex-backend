@@ -105,6 +105,7 @@ function Profile() {
                       document.cookie = "";
                       window.localStorage.clear();
                       await deleteAccount();
+                      window.location.href = "/api/auth/logout";
                     } catch (e: any) {
                       setDeleteAccountError(e.message);
                       throw e;

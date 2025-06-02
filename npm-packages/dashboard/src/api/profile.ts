@@ -79,7 +79,6 @@ export function useDeleteAccount() {
     path: "/delete_account",
     pathParams: undefined,
     successToast: "Account deleted.",
-    redirectTo: "/api/auth/logout",
     toastOnError: false,
   });
 }
@@ -115,6 +114,5 @@ export function useUnlinkIdentity() {
     pathParams: undefined,
     mutateKey: "/list_identities",
     successToast: "Identity removed.",
-    redirectTo: "/api/auth/logout",
   });
 }

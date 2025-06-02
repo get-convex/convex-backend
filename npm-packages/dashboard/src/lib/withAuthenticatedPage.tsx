@@ -11,6 +11,7 @@ import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";
 import { LoadingLogo } from "@ui/Loading";
 import Link from "next/link";
+import { UIProvider } from "@ui/UIContext";
 
 interface UserProps {
   // eslint-disable-next-line react/no-unused-prop-types
@@ -82,13 +83,15 @@ function withSWRFallback(Page: NextPage) {
                   {message} {extra}
                 </div>
               </Callout>
-              <Button
-                href="/api/auth/logout"
-                variant="neutral"
-                className="ml-auto w-fit"
-              >
-                Log out
-              </Button>
+              <UIProvider>
+                <Button
+                  href="/api/auth/logout"
+                  variant="neutral"
+                  className="ml-auto w-fit"
+                >
+                  Log out
+                </Button>
+              </UIProvider>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import React from "react";
 import { UserProfile } from "@auth0/nextjs-auth0/client";
+import { UIProvider } from "@ui/UIContext";
 
 export function LinkIdentityNoMultipleIdentities({
   user,
@@ -29,13 +30,15 @@ export function LinkIdentityNoMultipleIdentities({
             </a>{" "}
             to get help accessing your account.
           </p>
-          <Button
-            href="/api/auth/logout"
-            className="mt-4 w-fit"
-            variant="neutral"
-          >
-            Log Out
-          </Button>
+          <UIProvider>
+            <Button
+              href="/api/auth/logout"
+              className="mt-4 w-fit"
+              variant="neutral"
+            >
+              Log Out
+            </Button>
+          </UIProvider>
         </Sheet>
       </LoginLayout>
     </div>

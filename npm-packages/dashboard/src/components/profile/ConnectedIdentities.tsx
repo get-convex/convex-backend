@@ -135,6 +135,7 @@ export function ConnectedIdentities() {
                               provider: identity.provider,
                             });
                             setUnlinkingId(null);
+                            window.location.href = "/api/auth/logout";
                           } catch (e: any) {
                             setError(e.message);
                             throw e;

@@ -5,16 +5,15 @@ import { Snippet } from "@common/elements/Snippet";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
-import { useRouter } from "next/router";
 import { useAccessToken } from "hooks/useServerSideData";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
+import { UIProvider } from "@ui/UIContext";
 
 export { getServerSideProps } from "lib/ssr";
 
 // TODO -- gtag & etc on this page.
 function Auth() {
   const { isAuthenticated } = useAuth0();
-  const router = useRouter();
 
   const [accessToken] = useAccessToken();
 
@@ -24,15 +23,15 @@ function Auth() {
         {/* emit the account_created event */}
         <GoogleAnalytics />
         <DisplayAccessToken accessToken={accessToken} />
-        <Button
-          variant="neutral"
-          onClick={() => {
-            void router.push("/api/auth/logout");
-          }}
-          className={classNames("mt-4 ml-auto")}
-        >
-          Log Out
-        </Button>
+        <UIProvider>
+          <Button
+            variant="neutral"
+            href="/api/auth/logout"
+            className={classNames("mt-4 ml-auto")}
+          >
+            Log Out
+          </Button>
+        </UIProvider>
       </LoginLayout>
     );
   }

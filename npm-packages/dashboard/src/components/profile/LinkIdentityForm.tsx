@@ -11,6 +11,7 @@ import {
   LinkIdentityState,
   providerToDisplayName,
 } from "components/profile/ConnectedIdentities";
+import { UIProvider } from "@ui/UIContext";
 
 export function LinkIdentityForm({
   resume,
@@ -69,7 +70,7 @@ export function LinkIdentityForm({
                   variant="neutral"
                   onClick={() => {
                     setLinkIdentityState({});
-                    void router.push("/api/auth/logout");
+                    window.location.href = "/api/auth/logout";
                   }}
                   className="w-fit"
                 >
@@ -98,41 +99,43 @@ export function LinkIdentityForm({
                   ? `Log in with ${providerToDisplayName[providerHint]} to continue:`
                   : "Select the authentication method of your existing Convex authentication method to continue:"}
               </p>
-              <div className="flex flex-wrap gap-3">
-                {(!providerHint || providerHint === "github") && (
-                  <Button
-                    href="/api/auth/login?connection=github&returnTo=/link_identity?resume=true"
-                    icon={<GithubLogo className="mr-2 dark:fill-white" />}
-                    size="md"
-                    variant="neutral"
-                    className="w-fit"
-                    disabled={
-                      provider === "github" || status === "waitingForCookie"
-                    }
-                    tip={
-                      provider === "github"
-                        ? "You cannot link multiple GitHub accounts to Convex. Please contact support to merge your accounts."
-                        : undefined
-                    }
-                    loading={status === "waitingForCookie"}
-                  >
-                    Continue with GitHub
-                  </Button>
-                )}
-                {(!providerHint || providerHint === "google-oauth2") && (
-                  <Button
-                    href="/api/auth/login?connection=google-oauth2&returnTo=/link_identity?resume=true"
-                    icon={<GoogleLogo className="mr-2 dark:fill-white" />}
-                    size="md"
-                    variant="neutral"
-                    className="w-fit"
-                    loading={status === "waitingForCookie"}
-                    disabled={status === "waitingForCookie"}
-                  >
-                    Continue with Google
-                  </Button>
-                )}
-              </div>
+              <UIProvider>
+                <div className="flex flex-wrap gap-3">
+                  {(!providerHint || providerHint === "github") && (
+                    <Button
+                      href="/api/auth/login?connection=github&returnTo=/link_identity?resume=true"
+                      icon={<GithubLogo className="mr-2 dark:fill-white" />}
+                      size="md"
+                      variant="neutral"
+                      className="w-fit"
+                      disabled={
+                        provider === "github" || status === "waitingForCookie"
+                      }
+                      tip={
+                        provider === "github"
+                          ? "You cannot link multiple GitHub accounts to Convex. Please contact support to merge your accounts."
+                          : undefined
+                      }
+                      loading={status === "waitingForCookie"}
+                    >
+                      Continue with GitHub
+                    </Button>
+                  )}
+                  {(!providerHint || providerHint === "google-oauth2") && (
+                    <Button
+                      href="/api/auth/login?connection=google-oauth2&returnTo=/link_identity?resume=true"
+                      icon={<GoogleLogo className="mr-2 dark:fill-white" />}
+                      size="md"
+                      variant="neutral"
+                      className="w-fit"
+                      loading={status === "waitingForCookie"}
+                      disabled={status === "waitingForCookie"}
+                    >
+                      Continue with Google
+                    </Button>
+                  )}
+                </div>
+              </UIProvider>
             </>
           )}
           <p className="mt-6 text-pretty text-xs text-content-secondary">
