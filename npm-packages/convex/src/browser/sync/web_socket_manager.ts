@@ -93,6 +93,42 @@ export type OnMessageResponse = {
   hasSyncedPastLastReconnect: boolean;
 };
 
+const serverDisconnectErrors = {
+  // A known error, e.g. during a restart or push
+  InternalServerError: { timeout: 100 },
+  // ErrorMetadata::overloaded() messages that we realy should back off
+  SubscriptionsWorkerFullError: { timeout: 3000 },
+  TooManyConcurrentRequests: { timeout: 3000 },
+  CommitterFullError: { timeout: 3000 },
+  AwsTooManyRequestsException: { timeout: 3000 },
+  ExecuteFullError: { timeout: 3000 },
+  SystemTimeoutError: { timeout: 3000 },
+  ExpiredInQueue: { timeout: 3000 },
+  // More ErrorMetadata::overloaded() that typically indicate a deploy just happened
+  VectorIndexesUnavailable: { timeout: 1000 },
+  SearchIndexesUnavailable: { timeout: 1000 },
+  // More ErrorMeatadata::overloaded()
+  VectorIndexTooLarge: { timeout: 3000 },
+  SearchIndexTooLarge: { timeout: 3000 },
+  TooManyWritesInTimePeriod: { timeout: 3000 },
+} as const satisfies Record<string, { timeout: number }>;
+
+type ServerDisconnectError = keyof typeof serverDisconnectErrors | "Unknown";
+
+function classifyDisconnectError(s?: string): ServerDisconnectError {
+  if (s === undefined) return "Unknown";
+  // startsWith so more info could be at the end (although currently there isn't)
+
+  for (const prefix of Object.keys(
+    serverDisconnectErrors,
+  ) as ServerDisconnectError[]) {
+    if (s.startsWith(prefix)) {
+      return prefix;
+    }
+  }
+  return "Unknown";
+}
+
 /**
  * A wrapper around a websocket that handles errors, reconnection, and message
  * parsing.
@@ -102,10 +138,14 @@ export class WebSocketManager {
 
   private connectionCount: number;
   private _hasEverConnected: boolean = false;
-  private lastCloseReason: string | null;
+  private lastCloseReason:
+    | "InitialConnect"
+    | "OnCloseInvoked"
+    | (string & {}) // a full serverErrorReason (not just the prefix) or a new one
+    | null;
 
   /** Upon HTTPS/WSS failure, the first jittered backoff duration, in ms. */
-  private readonly initialBackoff: number;
+  private readonly defaultInitialBackoff: number;
 
   /** We backoff exponentially, but we need to cap that--this is the jittered max. */
   private readonly maxBackoff: number;
@@ -143,7 +183,8 @@ export class WebSocketManager {
     this.connectionCount = 0;
     this.lastCloseReason = "InitialConnect";
 
-    this.initialBackoff = 100;
+    // backoff for unknown errors
+    this.defaultInitialBackoff = 100;
     this.maxBackoff = 16000;
     this.retries = 0;
 
@@ -253,11 +294,8 @@ export class WebSocketManager {
         }
         this.logger.log(msg);
       }
-      if (event.reason?.includes("SubscriptionsWorkerFullError")) {
-        this.scheduleReconnect("SubscriptionsWorkerFullError");
-      } else {
-        this.scheduleReconnect("unknown");
-      }
+      const reason = classifyDisconnectError(event.reason);
+      this.scheduleReconnect(reason);
       return;
     };
   }
@@ -324,9 +362,7 @@ export class WebSocketManager {
     }, this.serverInactivityThreshold);
   }
 
-  private scheduleReconnect(
-    reason: "client" | "unknown" | "SubscriptionsWorkerFullError",
-  ) {
+  private scheduleReconnect(reason: "client" | ServerDisconnectError) {
     this.socket = { state: "disconnected" };
     const backoff = this.nextBackoff(reason);
     this.logger.log(`Attempting reconnect in ${backoff}ms`);
@@ -549,11 +585,14 @@ export class WebSocketManager {
     this.logger.logVerbose(message);
   }
 
-  private nextBackoff(
-    reason: "client" | "unknown" | "SubscriptionsWorkerFullError",
-  ): number {
-    const initialBackoff =
-      reason === "SubscriptionsWorkerFullError" ? 3000 : this.initialBackoff;
+  private nextBackoff(reason: "client" | ServerDisconnectError): number {
+    const initialBackoff: number =
+      reason === "client"
+        ? this.defaultInitialBackoff
+        : reason === "Unknown"
+          ? this.defaultInitialBackoff
+          : serverDisconnectErrors[reason].timeout;
+
     const baseBackoff = initialBackoff * Math.pow(2, this.retries);
     this.retries += 1;
     const actualBackoff = Math.min(baseBackoff, this.maxBackoff);
