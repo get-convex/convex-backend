@@ -105,3 +105,21 @@ data to keep using it.
   environments.
 
 - Logs get cleared out every time a `npx convex dev` command is restarted.
+
+- <a id="safari"></a> **Using the dashboard with Safari**: Safari [blocks
+  requests to localhost](https://bugs.webkit.org/show_bug.cgi?id=171934), which
+  prevents the dashboard from working with local deployments. We recommend using
+  another browser if you’re using local deployments.
+
+- <a id="brave"></a> **Using the dashboard with Brave**: Brave [blocks requests
+  to localhost by
+  default](https://brave.com/privacy-updates/27-localhost-permission/), which
+  prevents the dashboard from working with local deployments. You can use the
+  following workaround:
+  - Go to `brave://flags/`
+  - Enable the `#brave-localhost-access-permission` flag
+  - Go back to the Convex dashboard
+  - Click on **View Site Information** 
+    (<img src="/screenshots/brave-site-information.png" alt="View Site Information icon" width={24} style={{ verticalAlign: "middle" }} />)
+    in the URL bar, then on **Site settings**
+  - Change the setting for **Localhost access** to **Allow**
