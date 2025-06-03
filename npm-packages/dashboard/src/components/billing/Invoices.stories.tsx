@@ -16,6 +16,7 @@ function generateInvoices(num: number): InvoiceResponse[] {
   return Array.from({ length: num }, (_, i) => ({
     id: `${i}`,
     invoiceNumber: `INV-${i}`,
+    amountDue: `${Math.random() * 1000}`,
     total: `${Math.random() * 1000}`,
     invoiceDate: new Date().getTime(),
     status: ["synced", "paid", "issued", "draft"][

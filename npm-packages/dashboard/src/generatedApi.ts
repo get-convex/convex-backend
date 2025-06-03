@@ -1739,6 +1739,7 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         InvoiceResponse: {
+            amountDue: string;
             currency: string;
             hasFailedPayment: boolean;
             hostedInvoiceUrl?: string | null;

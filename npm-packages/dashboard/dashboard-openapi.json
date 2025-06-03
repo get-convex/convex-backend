@@ -3635,11 +3635,15 @@
           "invoiceDate",
           "invoiceNumber",
           "currency",
+          "amountDue",
           "total",
           "status",
           "hasFailedPayment"
         ],
         "properties": {
+          "amountDue": {
+            "type": "string"
+          },
           "currency": {
             "type": "string"
           },
