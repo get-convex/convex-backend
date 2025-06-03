@@ -71,16 +71,12 @@ impl Timestamp {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub fn must(value: i32) -> Self {
         if value < Self::MIN.0 as i32 || value as u64 > Self::MAX.0 {
             panic!("timestamp {value} out of bounds");
         }
         Self(value as u64)
-    }
-
-    pub fn export_lossy_as_f64(self) -> f64 {
-        // This cast is safe and lossless up to the year 2248.
-        self.0 as f64
     }
 }
 
