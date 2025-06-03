@@ -588,7 +588,7 @@ export class WebSocketManager {
   private nextBackoff(reason: "client" | ServerDisconnectError): number {
     const initialBackoff: number =
       reason === "client"
-        ? this.defaultInitialBackoff
+        ? 100 // There's no evidence of a server problem, retry quickly
         : reason === "Unknown"
           ? this.defaultInitialBackoff
           : serverDisconnectErrors[reason].timeout;
