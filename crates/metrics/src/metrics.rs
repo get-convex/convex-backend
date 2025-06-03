@@ -19,7 +19,6 @@
 //! 2. All metrics names and labels are constants/string literals in the metrics
 //!    module.
 use std::{
-    borrow::Cow,
     collections::HashSet,
     env,
     ops::Deref,
@@ -94,12 +93,12 @@ pub static CONVEX_METRICS_REGISTRY: LazyLock<Registry> = LazyLock::new(|| {
 });
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct MetricName(Cow<'static, str>);
+pub struct MetricName(&'static str);
 
 impl MetricName {
     pub const fn new(name: &'static str) -> Self {
         validate_metric_name(name);
-        Self(Cow::Borrowed(name))
+        Self(name)
     }
 }
 
@@ -107,7 +106,7 @@ impl Deref for MetricName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.0[..]
+        self.0
     }
 }
 
