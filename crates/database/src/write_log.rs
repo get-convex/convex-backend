@@ -56,7 +56,9 @@ pub struct PackedDocumentUpdate {
 
 impl HeapSize for PackedDocumentUpdate {
     fn heap_size(&self) -> usize {
-        self.old_document.heap_size() + self.new_document.heap_size() + mem::size_of::<bool>()
+        mem::size_of::<ResolvedDocumentId>()
+            + self.old_document.heap_size()
+            + self.new_document.heap_size()
     }
 }
 
