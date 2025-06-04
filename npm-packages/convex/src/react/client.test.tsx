@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { test, expect, describe } from "vitest";
+import { test, expect, describe, vi } from "vitest";
 import ws from "ws";
 
 import { ConvexReactClient, createMutation, useQuery } from "./client.js";
@@ -111,6 +111,22 @@ describe("useQuery", () => {
       },
     );
     expect(result.current).toStrictEqual(undefined);
+  });
+
+  test("Optimistic update handlers can’t be async", () => {
+    const client = testConvexReactClient();
+    const mutation = createMutation(
+      anyApi.myMutation.default,
+      client,
+      // @ts-expect-error
+    ).withOptimisticUpdate(async () => {});
+
+    // Calling the mutation should warn in the console
+    const consoleWarnSpy = vi.spyOn(console, "warn");
+    void mutation();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "Optimistic update handler returned a Promise. Optimistic updates should be synchronous.",
+    );
   });
 });
 
