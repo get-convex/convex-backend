@@ -21,6 +21,7 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
+    knobs::DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
     pause::PauseController,
     persistence::Persistence,
     query::{
@@ -117,6 +118,7 @@ use crate::{
     ResolvedQuery,
     TableModel,
     TestFacingModel,
+    Transaction,
     UserFacingModel,
 };
 
@@ -133,6 +135,7 @@ struct Scenario {
 
     table_name: TableName,
     namespace: TableNamespace,
+    index_id: ResolvedDocumentId,
 
     // Store a simple mapping of a test string to an array of test
     // strings (the search field) and a filter field
@@ -172,7 +175,7 @@ impl Scenario {
             "searchField".parse()?,
             btreeset! {"filterField".parse()?},
         );
-        IndexModel::new(&mut tx)
+        let index_id = IndexModel::new(&mut tx)
             .add_application_index(namespace, index)
             .await?;
         database.commit(tx).await?;
@@ -187,6 +190,7 @@ impl Scenario {
 
             table_name,
             namespace,
+            index_id,
             model: BTreeMap::new(),
         };
         self_.backfill().await?;
@@ -275,11 +279,11 @@ impl Scenario {
         Ok(())
     }
 
-    async fn _query_with_scores<S: Into<String>>(
+    async fn query_in_tx<S: Into<String>>(
         &self,
+        tx: &mut Transaction<TestRuntime>,
         query_string: S,
         filter: Option<String>,
-        ts: Option<Timestamp>,
         version: SearchVersion,
     ) -> anyhow::Result<Vec<(ResolvedDocumentId, f64)>> {
         let mut filters = vec![SearchFilterExpression::Search(
@@ -302,17 +306,9 @@ impl Scenario {
             operators: vec![QueryOperator::Limit(MAX_CANDIDATE_REVISIONS)],
         };
 
-        let mut tx = if let Some(ts) = ts {
-            self.database
-                .begin_with_ts(Identity::system(), ts, FunctionUsageTracker::new())
-                .await?
-        } else {
-            self.database.begin(Identity::system()).await?
-        };
-
         let mut query_stream = match version {
             SearchVersion::V1 => ResolvedQuery::new_bounded(
-                &mut tx,
+                tx,
                 self.namespace,
                 query,
                 PaginationOptions::ManualPagination {
@@ -324,7 +320,7 @@ impl Scenario {
                 TableFilter::ExcludePrivateSystemTables,
             )?,
             SearchVersion::V2 => ResolvedQuery::new_bounded(
-                &mut tx,
+                tx,
                 self.namespace,
                 query,
                 PaginationOptions::ManualPagination {
@@ -337,8 +333,8 @@ impl Scenario {
             )?,
         };
         let mut returned = Vec::new();
-        while let Some(value) = query_stream.next(&mut tx, None).await? {
-            must_let!(let Some(cursor) =  query_stream.cursor());
+        while let Some(value) = query_stream.next(tx, None).await? {
+            must_let!(let Some(cursor) = query_stream.cursor());
             must_let!(let CursorPosition::After(index_key) = cursor.position);
             let reader = &mut &index_key[..];
             let index_key_values = bytes_to_values(reader)?;
@@ -348,6 +344,22 @@ impl Scenario {
             returned.push((value.id(), -negative_score))
         }
         Ok(returned)
+    }
+
+    async fn _query_with_scores<S: Into<String>>(
+        &self,
+        query_string: S,
+        filter: Option<String>,
+        ts: Option<Timestamp>,
+        version: SearchVersion,
+    ) -> anyhow::Result<Vec<(ResolvedDocumentId, f64)>> {
+        let ts = ts.unwrap_or_else(|| *self.database.now_ts_for_reads());
+        let mut tx = self
+            .database
+            .begin_with_ts(Identity::system(), ts, FunctionUsageTracker::new())
+            .await?;
+        self.query_in_tx(&mut tx, query_string, filter, version)
+            .await
     }
 
     async fn query_with_scores(
@@ -1406,4 +1418,46 @@ proptest! {
     ) {
         do_search_for_fraction(test_case, num_splits);
     }
+}
+
+#[convex_macro::test_runtime]
+async fn test_flushing_does_not_invalidate_subscriptions(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario.insert("existing text", "a").await?;
+    scenario.backfill().await?;
+
+    let mut tx = scenario.database.begin_system().await?;
+    let results = scenario
+        .query_in_tx(&mut tx, "existing", None, SearchVersion::V2)
+        .await?;
+    assert_eq!(results.len(), 1);
+    let token = tx.into_token()?;
+
+    // Force a checkpoint by advancing time
+    scenario
+        .rt
+        .advance_time(*DATABASE_WORKERS_MAX_CHECKPOINT_AGE * 2)
+        .await;
+    scenario.insert("new text", "b").await?;
+    scenario.backfill().await?;
+
+    // Our old subscription token should not be invalidated
+    let ts = *scenario.database.now_ts_for_reads();
+    assert!(scenario
+        .database
+        .refresh_token(token.clone(), ts)
+        .await?
+        .is_some());
+
+    // TODO(ENG-9324): deleting the index *should* invalidate the transaction, but
+    // it currently does not.
+    let mut tx = scenario.database.begin_system().await?;
+    IndexModel::new(&mut tx)
+        .drop_index(scenario.index_id)
+        .await?;
+    scenario.database.commit(tx).await?;
+    let ts = *scenario.database.now_ts_for_reads();
+    // this *should* return None, but for now it doesn't.
+    assert!(scenario.database.refresh_token(token, ts).await?.is_some());
+    Ok(())
 }
