@@ -88,12 +88,12 @@ export function ConnectedIdentities() {
                     key={identity.userId}
                     className="flex flex-wrap items-center justify-between gap-4 border-b py-2 last:border-b-0"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ProviderLogo
                         provider={identity.provider}
                         userId={identity.userId}
                       />
-                      <span className="text-sm">
+                      <span className="min-w-0 flex-1 text-sm">
                         <IdentityDisplayName
                           user={user}
                           isPrimary={isPrimary}
@@ -222,11 +222,15 @@ export function IdentityDisplayName({
     main = profileData.email ?? undefined;
   } else if (provider === "github") {
     main = profileData.username ?? undefined;
+  } else if (provider === "vercel") {
+    const [account, u] = userId.split(":user:");
+    const accountId = account.split(":")[1];
+    main = `account:${accountId.slice(0, 8)} user:${u.slice(0, 8)}`;
   } else {
-    main = provider === "oidc" ? userId.split("|")[1] : userId;
+    main = userId;
   }
 
-  return <>{main}</>;
+  return <p className="max-w-full truncate">{main}</p>;
 }
 
 function ProviderLogo({
@@ -257,7 +261,6 @@ function ProviderLogo({
           </div>
         );
       case "vercel":
-      case "Vercel-test":
         return (
           <div className="flex size-[1.75rem] min-w-[1.75rem] items-center justify-center">
             <VercelLogo className="size-6 dark:fill-white" />

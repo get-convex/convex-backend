@@ -84,13 +84,9 @@ export function LinkIdentityForm({
               <p className="mb-3 max-w-prose text-pretty">
                 To use your{" "}
                 <span className="font-semibold">
-                  {providerDisplayName} account (
-                  {provider === "google-oauth2"
-                    ? user?.email
-                    : provider === "github"
-                      ? user?.nickname
-                      : user?.sub?.split("|"[1])}
-                  )
+                  {providerDisplayName} account{" "}
+                  {(provider === "google-oauth2" || provider === "github") &&
+                    `(${provider === "google-oauth2" ? user?.email : user?.nickname})`}
                 </span>{" "}
                 with Convex, you must link it to your existing Convex account.
               </p>

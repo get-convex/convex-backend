@@ -27,6 +27,11 @@ const allowedImageDomains = [
     hostname: "lh3.googleusercontent.com",
     pathname: "**",
   },
+  {
+    protocol: "https",
+    hostname: "cdn.auth0.com",
+    pathname: "**",
+  },
 ];
 
 const securityHeaders = [
@@ -128,6 +133,7 @@ const nextConfig = {
             "s.gravatar.com",
             "avatars.githubusercontent.com",
             "lh3.googleusercontent.com",
+            "cdn.auth0.com",
           ],
     remotePatterns: allowedImageDomains,
   },
