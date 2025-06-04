@@ -51,6 +51,7 @@ use search::{
     },
 };
 use serde::Deserialize;
+use tokio::runtime::Runtime;
 use value::{
     assert_obj,
     DeveloperDocumentId,
@@ -221,6 +222,8 @@ fn create_subscriptions(
 }
 
 fn bench_query(c: &mut Criterion) {
+    let rt = Runtime::new().expect("Failed to create Tokio runtime");
+
     let mut id_generator = TestIdGenerator::new();
     let table_name = id_generator.generate_table_name();
     let table_id = id_generator.user_table_id(&table_name);
@@ -229,13 +232,15 @@ fn bench_query(c: &mut Criterion) {
 
     for (prefix, max_distance) in prefix_and_max_distances() {
         for (dataset, (data, terms_by_frequency)) in &datasets {
-            let subscription_manager = create_subscriptions(
-                table_id.tablet_id,
-                terms_by_frequency,
-                prefix,
-                max_distance,
-                TOTAL_SUBSCRIPTIONS,
-            );
+            let subscription_manager = rt.block_on(async {
+                create_subscriptions(
+                    table_id.tablet_id,
+                    terms_by_frequency,
+                    prefix,
+                    max_distance,
+                    TOTAL_SUBSCRIPTIONS,
+                )
+            });
 
             let mut group = c.benchmark_group("subscriptions");
 
@@ -252,7 +257,7 @@ fn bench_query(c: &mut Criterion) {
                 )),
                 data,
                 |b, documents| {
-                    b.iter(|| {
+                    b.to_async(&rt).iter(|| async {
                         for doc in documents {
                             let mut to_notify = BTreeSet::new();
                             subscription_manager.overlapping_for_testing(
