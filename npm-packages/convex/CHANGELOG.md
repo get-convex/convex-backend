@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.24.8
+
+- Restore short retry timer for WebSocket reconnects initiated by an error on
+  the client. This behavior was inadvertently changed in 1.24.7.
+
+## 1.24.7
+
+- Increase WebSocket client timeouts in general and especially for abnormal
+  server errors. See
+  [this incident postmortem](https://news.convex.dev/how-convex-took-down-t3-chat-june-1-2025-postmortem/)
+  for more context.
+
 ## 1.24.6
 
 - Fix another bug with new Custom JWT auth support in projects that use Convex
