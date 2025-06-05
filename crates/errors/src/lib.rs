@@ -47,6 +47,7 @@ pub struct ErrorMetadata {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorCode {
     BadRequest,
+    Conflict,
     Unauthenticated,
     AuthUpdateFailed,
     Forbidden,
@@ -93,6 +94,23 @@ impl ErrorMetadata {
     ) -> Self {
         Self {
             code: ErrorCode::BadRequest,
+            short_msg: short_msg.into(),
+            msg: msg.into(),
+            source: None,
+        }
+    }
+
+    /// Conflict. Maps to 409 in HTTP.
+    ///
+    /// The short_msg should be a CapitalCamelCased describing the error (eg
+    /// DuplicateInstallation). The msg should be a descriptive message targeted
+    /// toward the developer.
+    pub fn conflict(
+        short_msg: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            code: ErrorCode::Conflict,
             short_msg: short_msg.into(),
             msg: msg.into(),
             source: None,
@@ -440,6 +458,7 @@ impl ErrorMetadata {
     pub fn is_deterministic_user_error(&self) -> bool {
         match self.code {
             ErrorCode::BadRequest
+            | ErrorCode::Conflict
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::AuthUpdateFailed
@@ -473,6 +492,7 @@ impl ErrorMetadata {
         match self.code {
             ErrorCode::ClientDisconnect => None,
             ErrorCode::BadRequest
+            | ErrorCode::Conflict
             | ErrorCode::NotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Forbidden
@@ -505,6 +525,7 @@ impl ErrorMetadata {
     fn metric_server_error_label_value(&self) -> Option<&'static str> {
         match self.code {
             ErrorCode::BadRequest
+            | ErrorCode::Conflict
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::AuthUpdateFailed
@@ -529,6 +550,7 @@ impl ErrorMetadata {
     pub fn custom_metric(&self) -> Option<&'static IntCounter> {
         match self.code {
             ErrorCode::BadRequest => Some(&crate::metrics::BAD_REQUEST_ERROR_TOTAL),
+            ErrorCode::Conflict => None,
             ErrorCode::ClientDisconnect => Some(&crate::metrics::CLIENT_DISCONNECT_ERROR_TOTAL),
             ErrorCode::RateLimited => Some(&crate::metrics::RATE_LIMITED_ERROR_TOTAL),
             ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
@@ -561,9 +583,10 @@ impl ErrorMetadata {
             ErrorCode::OperationalInternalServerError => Some(CloseCode::Error),
             // These ones are client errors - so no close code - the client
             // will handle and close the connection instead.
-            ErrorCode::BadRequest | ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
-                None
-            },
+            ErrorCode::BadRequest
+            | ErrorCode::Unauthenticated
+            | ErrorCode::AuthUpdateFailed
+            | ErrorCode::Conflict => None,
         }?;
         // According to the WebSocket protocol specification (RFC 6455), the reason
         // string (if present) is limited to 123 bytes. This is because the
@@ -582,6 +605,7 @@ impl ErrorCode {
     fn http_status_code(&self) -> StatusCode {
         match self {
             ErrorCode::BadRequest | ErrorCode::PaginationLimit => StatusCode::BAD_REQUEST,
+            ErrorCode::Conflict => StatusCode::CONFLICT,
             // HTTP has the unfortunate naming of 401 as unauthorized when it's
             // really about authentication.
             // https://stackoverflow.com/questions/3297048/403-forbidden-vs-401-unauthorized-http-responses
@@ -602,6 +626,7 @@ impl ErrorCode {
     pub fn grpc_status_code(&self) -> tonic::Code {
         match self {
             ErrorCode::BadRequest => tonic::Code::InvalidArgument,
+            ErrorCode::Conflict => tonic::Code::AlreadyExists,
             ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
                 tonic::Code::Unauthenticated
             },
@@ -940,6 +965,7 @@ mod proptest {
         fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
             any::<ErrorCode>().prop_map(|ec| match ec {
                 ErrorCode::BadRequest => ErrorMetadata::bad_request("bad", "request"),
+                ErrorCode::Conflict => ErrorMetadata::conflict("conflict", "conflict"),
                 ErrorCode::NotFound => ErrorMetadata::not_found("not", "found"),
                 ErrorCode::PaginationLimit => {
                     ErrorMetadata::pagination_limit("pagination", "limit")

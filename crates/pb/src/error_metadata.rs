@@ -18,6 +18,7 @@ impl From<ErrorCode> for ErrorCodeProto {
     fn from(code: ErrorCode) -> Self {
         match code {
             ErrorCode::BadRequest => ErrorCodeProto::BadRequest,
+            ErrorCode::Conflict => ErrorCodeProto::Conflict,
             ErrorCode::Unauthenticated => ErrorCodeProto::Unauthenticated,
             ErrorCode::AuthUpdateFailed => ErrorCodeProto::AuthUpdateFailed,
             ErrorCode::Forbidden => ErrorCodeProto::Forbidden,
@@ -41,6 +42,7 @@ impl ErrorCodeProto {
     fn into_rust_type(self, occ_info: OccInfoProto) -> ErrorCode {
         match self {
             ErrorCodeProto::BadRequest => ErrorCode::BadRequest,
+            ErrorCodeProto::Conflict => ErrorCode::Conflict,
             ErrorCodeProto::Unauthenticated => ErrorCode::Unauthenticated,
             ErrorCodeProto::AuthUpdateFailed => ErrorCode::AuthUpdateFailed,
             ErrorCodeProto::Forbidden => ErrorCode::Forbidden,

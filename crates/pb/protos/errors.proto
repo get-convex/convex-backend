@@ -17,6 +17,7 @@ enum ErrorCode {
   RATE_LIMITED = 11;
   MISDIRECTED_REQUEST = 12;
   AUTH_UPDATE_FAILED = 13;
+  CONFLICT = 14;
 }
 
 message OccInfo {
