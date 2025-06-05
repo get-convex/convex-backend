@@ -12,7 +12,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         IndexRange,
@@ -29,7 +28,6 @@ use common::{
     virtual_system_mapping::VirtualSystemDocMapper,
 };
 use database::{
-    defaults::system_index,
     query::{
         resolved_query_batch_next,
         TableFilter,
@@ -93,25 +91,22 @@ static FILE_STORAGE_VIRTUAL_INDEX_BY_CREATION_TIME: LazyLock<IndexName> =
 
 static FILE_STORAGE_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "storageId".parse().expect("invalid storageId field"));
-pub static FILE_STORAGE_ID_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&FILE_STORAGE_TABLE, "by_storage_id"));
+pub static FILE_STORAGE_ID_INDEX: LazyLock<SystemIndex<FileStorageTable>> =
+    LazyLock::new(|| SystemIndex::new("by_storage_id", [&FILE_STORAGE_ID_FIELD]).unwrap());
 
 pub struct FileStorageTable;
 impl SystemTable for FileStorageTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = FileStorageEntry;
+
+    fn table_name() -> &'static TableName {
         &FILE_STORAGE_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: FILE_STORAGE_ID_INDEX.clone(),
-            fields: vec![FILE_STORAGE_ID_FIELD.clone()].try_into().unwrap(),
-        }]
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![FILE_STORAGE_ID_INDEX.clone()]
     }
 
-    fn virtual_table(
-        &self,
-    ) -> Option<(
+    fn virtual_table() -> Option<(
         &'static TableName,
         BTreeMap<IndexName, IndexName>,
         Arc<dyn VirtualSystemDocMapper>,
@@ -126,10 +121,6 @@ impl SystemTable for FileStorageTable {
             },
             Arc::new(FileStorageDocMapper),
         ))
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<FileStorageEntry>::parse(document).map(|_| ())
     }
 }
 
@@ -264,7 +255,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
     ) -> anyhow::Result<ResolvedQuery<RT>> {
         let index_query = match storage_id {
             FileStorageId::LegacyStorageId(storage_id) => Query::index_range(IndexRange {
-                index_name: FILE_STORAGE_ID_INDEX.clone(),
+                index_name: FILE_STORAGE_ID_INDEX.name(),
                 range: vec![IndexRangeExpression::Eq(
                     FILE_STORAGE_ID_FIELD.clone(),
                     ConvexValue::try_from(storage_id)?.into(),

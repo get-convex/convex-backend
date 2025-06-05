@@ -282,10 +282,10 @@ impl<T: IndexTableIdentifier> GenericIndexName<T> {
         self.is_by_id() || self.is_creation_time()
     }
 
-    pub fn map_table<U: IndexTableIdentifier>(
+    pub fn map_table<U: IndexTableIdentifier, E>(
         self,
-        f: &impl Fn(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<GenericIndexName<U>> {
+        f: &impl Fn(T) -> Result<U, E>,
+    ) -> Result<GenericIndexName<U>, E> {
         Ok(GenericIndexName {
             table: f(self.table)?,
             descriptor: self.descriptor,

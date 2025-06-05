@@ -24,7 +24,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     interval::Interval,
     query::{
@@ -34,7 +33,6 @@ use common::{
     runtime::Runtime,
     types::{
         GenericIndexName,
-        IndexName,
         TableName,
         TabletIndexName,
     },
@@ -51,9 +49,8 @@ use value::{
 };
 
 use crate::{
-    defaults::{
-        bootstrap_system_tables,
-        system_index,
+    defaults::bootstrap_system_tables,
+    system_tables::{
         SystemIndex,
         SystemTable,
     },
@@ -77,27 +74,22 @@ pub const NUM_RESERVED_SYSTEM_TABLE_NUMBERS: u32 = 10000;
 /// tables, but instances created after will have all tables >512.
 pub const NUM_RESERVED_LEGACY_TABLE_NUMBERS: u32 = 512;
 
-pub static TABLES_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&TABLES_TABLE, "by_name"));
+pub static TABLES_BY_NAME_INDEX: LazyLock<SystemIndex<TablesTable>> =
+    LazyLock::new(|| SystemIndex::new("by_name", [&NAME_FIELD_PATH]).unwrap());
 
 pub static NAME_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("Invalid built-in field"));
 
 pub struct TablesTable;
 impl SystemTable for TablesTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = TableMetadata;
+
+    fn table_name() -> &'static TableName {
         &TABLES_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: TABLES_INDEX.clone(),
-            fields: vec![NAME_FIELD_PATH.clone()].try_into().unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<TableMetadata>::parse(document).map(|_| ())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![TABLES_BY_NAME_INDEX.clone()]
     }
 }
 

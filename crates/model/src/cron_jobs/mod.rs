@@ -18,10 +18,8 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::IndexName,
 };
 use database::{
-    defaults::system_index,
     ResolvedQuery,
     SystemMetadataModel,
     Transaction,
@@ -68,10 +66,12 @@ pub static CRON_JOBS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("_cron_jobs is not a valid system table name")
 });
 
-pub static DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&CRON_JOBS_TABLE, "by_next_ts"));
-pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&CRON_JOBS_TABLE, "by_name"));
+// Used to find next jobs to execute for crons.
+pub static DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS: LazyLock<SystemIndex<CronJobsTable>> =
+    LazyLock::new(|| SystemIndex::new("by_next_ts", [&CRON_JOBS_NEXT_TS_FIELD]).unwrap());
+// Used to find cron job by name
+pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<SystemIndex<CronJobsTable>> =
+    LazyLock::new(|| SystemIndex::new("by_name", [&CRON_JOBS_NAME_FIELD]).unwrap());
 static CRON_JOBS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
 static CRON_JOBS_NEXT_TS_FIELD: LazyLock<FieldPath> =
@@ -83,8 +83,14 @@ pub static CRON_JOB_LOGS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("_cron_job_logs is not a valid system table name")
 });
 
-pub static CRON_JOB_LOGS_INDEX_BY_NAME_TS: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&CRON_JOB_LOGS_TABLE, "by_name_and_ts"));
+pub static CRON_JOB_LOGS_INDEX_BY_NAME_TS: LazyLock<SystemIndex<CronJobLogsTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new(
+            "by_name_and_ts",
+            [&CRON_JOB_LOGS_NAME_FIELD, &CRON_JOB_LOGS_TS_FIELD],
+        )
+        .unwrap()
+    });
 pub static CRON_JOB_LOGS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
 static CRON_JOB_LOGS_TS_FIELD: LazyLock<FieldPath> =
@@ -96,10 +102,12 @@ pub static CRON_NEXT_RUN_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("_cron_next_run is not a valid system table name")
 });
 
-pub static CRON_NEXT_RUN_INDEX_BY_NEXT_TS: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&CRON_NEXT_RUN_TABLE, "by_next_ts"));
-pub static CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&CRON_NEXT_RUN_TABLE, "by_cron_job_id"));
+pub static CRON_NEXT_RUN_INDEX_BY_NEXT_TS: LazyLock<SystemIndex<CronNextRunTable>> =
+    LazyLock::new(|| SystemIndex::new("by_next_ts", [&CRON_NEXT_RUN_NEXT_TS_FIELD]).unwrap());
+pub static CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID: LazyLock<SystemIndex<CronNextRunTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new("by_cron_job_id", [&CRON_NEXT_RUN_CRON_JOB_ID_FIELD]).unwrap()
+    });
 static CRON_NEXT_RUN_NEXT_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "nextTs".parse().expect("invalid nextTs field"));
 static CRON_NEXT_RUN_CRON_JOB_ID_FIELD: LazyLock<FieldPath> =
@@ -107,78 +115,46 @@ static CRON_NEXT_RUN_CRON_JOB_ID_FIELD: LazyLock<FieldPath> =
 
 pub struct CronJobsTable;
 impl SystemTable for CronJobsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = CronJobMetadata;
+
+    fn table_name() -> &'static TableName {
         &CRON_JOBS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![
-            // Used to find next jobs to execute for crons.
-            SystemIndex {
-                name: DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
-                fields: vec![CRON_JOBS_NEXT_TS_FIELD.clone()].try_into().unwrap(),
-            },
-            // Used to find cron job by name
-            SystemIndex {
-                name: CRON_JOBS_INDEX_BY_NAME.clone(),
-                fields: vec![CRON_JOBS_NAME_FIELD.clone()].try_into().unwrap(),
-            },
+            DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+            CRON_JOBS_INDEX_BY_NAME.clone(),
         ]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<CronJobMetadata>::parse(document).map(|_| ())
     }
 }
 
 pub struct CronJobLogsTable;
 impl SystemTable for CronJobLogsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = CronJobLog;
+
+    fn table_name() -> &'static TableName {
         &CRON_JOB_LOGS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
-            fields: vec![
-                CRON_JOB_LOGS_NAME_FIELD.clone(),
-                CRON_JOB_LOGS_TS_FIELD.clone(),
-            ]
-            .try_into()
-            .unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<CronJobLog>::parse(document).map(|_| ())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone()]
     }
 }
 
 pub struct CronNextRunTable;
 impl SystemTable for CronNextRunTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = CronNextRun;
+
+    fn table_name() -> &'static TableName {
         &CRON_NEXT_RUN_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![
-            SystemIndex {
-                name: CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
-                fields: vec![CRON_NEXT_RUN_NEXT_TS_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
-            SystemIndex {
-                name: CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
-                fields: vec![CRON_NEXT_RUN_CRON_JOB_ID_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
+            CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
+            CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
         ]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<CronNextRun>::parse(document).map(|_| ())
     }
 }
 
@@ -274,7 +250,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         cron_job_id: DeveloperDocumentId,
     ) -> anyhow::Result<Option<ParsedDocument<CronNextRun>>> {
         let query = Query::index_range(IndexRange {
-            index_name: CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
+            index_name: CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.name(),
             range: vec![IndexRangeExpression::Eq(
                 CRON_NEXT_RUN_CRON_JOB_ID_FIELD.clone(),
                 ConvexValue::from(cron_job_id).into(),
@@ -434,7 +410,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         limit: usize,
     ) -> anyhow::Result<()> {
         let index_query = Query::index_range(IndexRange {
-            index_name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
+            index_name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.name(),
             range: vec![IndexRangeExpression::Eq(
                 CRON_JOB_LOGS_NAME_FIELD.clone(),
                 ConvexValue::try_from(name.to_string())?.into(),
@@ -468,7 +444,7 @@ pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT
         .map(|(_, namespace, ..)| namespace)
         .collect();
     let index_query = Query::index_range(IndexRange {
-        index_name: CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
+        index_name: CRON_NEXT_RUN_INDEX_BY_NEXT_TS.name(),
         range: vec![],
         order: Order::Asc,
     });

@@ -4,7 +4,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         IndexRange,
@@ -13,13 +12,9 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::{
-        IndexName,
-        WriteTimestamp,
-    },
+    types::WriteTimestamp,
 };
 use database::{
-    defaults::system_index,
     unauthorized_error,
     ResolvedQuery,
     SystemMetadataModel,
@@ -61,26 +56,25 @@ static SESSION_ID_FIELD: LazyLock<FieldPath> =
 static REQUEST_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "requestId".parse().expect("Invalid built-in field"));
 
-pub static SESSION_REQUESTS_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&SESSION_REQUESTS_TABLE, "by_session_id_and_request_id"));
+pub static SESSION_REQUESTS_INDEX: LazyLock<SystemIndex<SessionRequestsTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new(
+            "by_session_id_and_request_id",
+            [&SESSION_ID_FIELD, &REQUEST_ID_FIELD],
+        )
+        .unwrap()
+    });
 
 pub struct SessionRequestsTable;
 impl SystemTable for SessionRequestsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = SessionRequestRecord;
+
+    fn table_name() -> &'static TableName {
         &SESSION_REQUESTS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: SESSION_REQUESTS_INDEX.clone(),
-            fields: vec![SESSION_ID_FIELD.clone(), REQUEST_ID_FIELD.clone()]
-                .try_into()
-                .unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<SessionRequestRecord>::parse(document).map(|_| ())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![SESSION_REQUESTS_INDEX.clone()]
     }
 }
 
@@ -109,7 +103,7 @@ impl<'a, RT: Runtime> SessionRequestModel<'a, RT> {
         // important we scan over the session request index and include it
         // in our read set so we can ensure the request happens exactly once.
         let index_range_query = IndexRange {
-            index_name: SESSION_REQUESTS_INDEX.clone(),
+            index_name: SESSION_REQUESTS_INDEX.name(),
             range: vec![
                 IndexRangeExpression::Eq(
                     SESSION_ID_FIELD.clone(),

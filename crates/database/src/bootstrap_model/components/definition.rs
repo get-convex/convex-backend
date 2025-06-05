@@ -1,15 +1,9 @@
 use std::sync::LazyLock;
 
-use common::{
-    bootstrap_model::components::definition::ComponentDefinitionMetadata,
-    document::{
-        ParseDocument,
-        ResolvedDocument,
-    },
-};
+use common::bootstrap_model::components::definition::ComponentDefinitionMetadata;
 use value::TableName;
 
-use crate::defaults::{
+use crate::system_tables::{
     SystemIndex,
     SystemTable,
 };
@@ -23,16 +17,13 @@ pub static COMPONENT_DEFINITIONS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 pub struct ComponentDefinitionsTable;
 
 impl SystemTable for ComponentDefinitionsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = ComponentDefinitionMetadata;
+
+    fn table_name() -> &'static TableName {
         &COMPONENT_DEFINITIONS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         Vec::new()
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<ComponentDefinitionMetadata>::parse(document)?;
-        Ok(())
     }
 }

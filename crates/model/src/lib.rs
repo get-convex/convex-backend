@@ -84,12 +84,13 @@ use cron_jobs::{
     CRON_NEXT_RUN_TABLE,
     DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS,
 };
-pub use database::defaults::{
+pub use database::system_tables::{
     SystemIndex,
     SystemTable,
 };
 use database::{
     defaults::bootstrap_system_tables,
+    system_tables::ErasedSystemTable,
     BootstrapComponentsModel,
     ComponentDefinitionsTable,
     ComponentsTable,
@@ -108,7 +109,7 @@ use database::{
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_STATE_INDEX,
     SCHEMAS_TABLE,
-    TABLES_INDEX,
+    TABLES_BY_NAME_INDEX,
 };
 use database_globals::{
     DatabaseGlobalsModel,
@@ -273,7 +274,7 @@ impl From<DefaultTableNumber> for TableNumber {
     }
 }
 
-impl From<DefaultTableNumber> for &'static dyn SystemTable {
+impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
     fn from(value: DefaultTableNumber) -> Self {
         match value {
             DefaultTableNumber::Tables => &TablesTable,
@@ -312,7 +313,7 @@ pub static DEFAULT_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNumber>> =
     LazyLock::new(|| {
         let mut default_table_numbers = BTreeMap::new();
         for default_table_number in DefaultTableNumber::iter() {
-            let system_table: &'static dyn SystemTable = default_table_number.into();
+            let system_table: &'static dyn ErasedSystemTable = default_table_number.into();
             default_table_numbers.insert(
                 system_table.table_name().clone(),
                 default_table_number.into(),
@@ -331,25 +332,25 @@ pub static DEFAULT_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNumber>> =
 /// New indexes should add creation time as a final tiebreak field.
 static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = LazyLock::new(|| {
     btreeset! {
-        BY_COMPONENT_PATH_INDEX.clone(),
-        CRON_JOBS_INDEX_BY_NAME.clone(),
-        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
-        CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
-        CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
-        CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
-        ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone(),
-        EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
-        FILE_STORAGE_ID_INDEX.clone(),
-        MODULE_INDEX_BY_DELETED.clone(),
-        MODULE_INDEX_BY_PATH.clone(),
-        SCHEDULED_JOBS_INDEX.clone(),
-        SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
-        SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
-        SESSION_REQUESTS_INDEX.clone(),
-        TABLES_INDEX.clone(),
-        SCHEMAS_STATE_INDEX.clone(),
-        INDEX_DOC_ID_INDEX.clone(),
-        COMPONENTS_BY_PARENT_INDEX.clone(),
+        BY_COMPONENT_PATH_INDEX.name(),
+        CRON_JOBS_INDEX_BY_NAME.name(),
+        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.name(),
+        CRON_JOB_LOGS_INDEX_BY_NAME_TS.name(),
+        CRON_NEXT_RUN_INDEX_BY_NEXT_TS.name(),
+        CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.name(),
+        ENVIRONMENT_VARIABLES_INDEX_BY_NAME.name(),
+        EXPORTS_BY_STATE_AND_TS_INDEX.name(),
+        FILE_STORAGE_ID_INDEX.name(),
+        MODULE_INDEX_BY_DELETED.name(),
+        MODULE_INDEX_BY_PATH.name(),
+        SCHEDULED_JOBS_INDEX.name(),
+        SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name(),
+        SCHEDULED_JOBS_INDEX_BY_UDF_PATH.name(),
+        SESSION_REQUESTS_INDEX.name(),
+        TABLES_BY_NAME_INDEX.name(),
+        SCHEMAS_STATE_INDEX.name(),
+        INDEX_DOC_ID_INDEX.name(),
+        COMPONENTS_BY_PARENT_INDEX.name(),
     }
 });
 
@@ -418,7 +419,7 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
 
 pub async fn initialize_application_system_table<RT: Runtime>(
     tx: &mut Transaction<RT>,
-    table: &dyn SystemTable,
+    table: &dyn ErasedSystemTable,
     namespace: TableNamespace,
     default_table_numbers: &BTreeMap<TableName, TableNumber>,
 ) -> anyhow::Result<bool> {
@@ -517,8 +518,8 @@ pub async fn initialize_application_system_table<RT: Runtime>(
     Ok(is_new)
 }
 
-pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
-    let mut system_tables: Vec<&'static dyn SystemTable> = vec![
+pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
+    let mut system_tables: Vec<&'static dyn ErasedSystemTable> = vec![
         &DatabaseGlobalsTable,
         &DeploymentAuditLogsTable,
         &EnvironmentVariablesTable,
@@ -541,7 +542,7 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
 
 /// NOTE: Does not include _schemas because that's not an app system table,
 /// but it is created for each component.
-pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
+pub fn component_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     vec![
         &FileStorageTable,
         &ScheduledJobsTable,
@@ -624,26 +625,26 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
 
 pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = LazyLock::new(|| {
     btreemap! {
-        MODULE_INDEX_BY_PATH.clone() => 44,
-        SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone() => 74,
-        SCHEDULED_JOBS_INDEX.clone() => 45,
-        SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone() => 44,
-        SESSION_REQUESTS_INDEX.clone() => 44,
-        FILE_STORAGE_ID_INDEX.clone() => 44,
-        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone() => 47,
-        CRON_JOBS_INDEX_BY_NAME.clone() => 49,
-        CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone() => 51,
-        CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone() => 118,
-        CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone() => 118,
-        EXPORTS_BY_STATE_AND_TS_INDEX.clone() => 88,
-        TABLES_INDEX.clone() => 44,
-        SCHEMAS_STATE_INDEX.clone() => 44,
-        MODULE_INDEX_BY_DELETED.clone() => 90,
-        ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone() => 91,
-        INDEX_DOC_ID_INDEX.clone() => 92,
-        COMPONENTS_BY_PARENT_INDEX.clone() => 100,
-        BY_COMPONENT_PATH_INDEX.clone() => 102,
-        EXPORTS_BY_REQUESTOR.clone() => 110,
+        MODULE_INDEX_BY_PATH.name() => 44,
+        SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name() => 74,
+        SCHEDULED_JOBS_INDEX.name() => 45,
+        SCHEDULED_JOBS_INDEX_BY_UDF_PATH.name() => 44,
+        SESSION_REQUESTS_INDEX.name() => 44,
+        FILE_STORAGE_ID_INDEX.name() => 44,
+        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.name() => 47,
+        CRON_JOBS_INDEX_BY_NAME.name() => 49,
+        CRON_JOB_LOGS_INDEX_BY_NAME_TS.name() => 51,
+        CRON_NEXT_RUN_INDEX_BY_NEXT_TS.name() => 118,
+        CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.name() => 118,
+        EXPORTS_BY_STATE_AND_TS_INDEX.name() => 88,
+        TABLES_BY_NAME_INDEX.name() => 44,
+        SCHEMAS_STATE_INDEX.name() => 44,
+        MODULE_INDEX_BY_DELETED.name() => 90,
+        ENVIRONMENT_VARIABLES_INDEX_BY_NAME.name() => 91,
+        INDEX_DOC_ID_INDEX.name() => 92,
+        COMPONENTS_BY_PARENT_INDEX.name() => 100,
+        BY_COMPONENT_PATH_INDEX.name() => 102,
+        EXPORTS_BY_REQUESTOR.name() => 110,
     }
 });
 

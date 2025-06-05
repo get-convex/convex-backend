@@ -6,7 +6,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     runtime::Runtime,
 };
@@ -41,16 +40,14 @@ pub static SOURCE_PACKAGES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct SourcePackagesTable;
 impl SystemTable for SourcePackagesTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = SourcePackage;
+
+    fn table_name() -> &'static TableName {
         &SOURCE_PACKAGES_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<SourcePackage>::parse(document).map(|_| ())
     }
 }
 

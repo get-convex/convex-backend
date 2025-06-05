@@ -31,6 +31,7 @@ mod snapshot_manager;
 mod stack_traces;
 pub mod streaming_export_selection;
 pub mod subscription;
+pub mod system_tables;
 mod table_registry;
 pub mod table_summary;
 mod table_usage;
@@ -134,7 +135,7 @@ pub use self::{
             TablesTable,
             NUM_RESERVED_LEGACY_TABLE_NUMBERS,
             NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
-            TABLES_INDEX,
+            TABLES_BY_NAME_INDEX,
         },
         user_facing::UserFacingModel,
     },

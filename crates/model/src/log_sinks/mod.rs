@@ -4,7 +4,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Order,
@@ -48,16 +47,14 @@ pub static LOG_SINKS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct LogSinksTable;
 impl SystemTable for LogSinksTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = LogSinksRow;
+
+    fn table_name() -> &'static TableName {
         &LOG_SINKS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<LogSinksRow>::parse(document).map(|_| ())
     }
 }
 

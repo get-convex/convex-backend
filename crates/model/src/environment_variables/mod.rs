@@ -12,7 +12,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     interval::Interval,
     query::{
@@ -25,11 +24,9 @@ use common::{
     types::{
         env_var_name_forbidden,
         env_var_name_not_unique,
-        IndexName,
     },
 };
 use database::{
-    defaults::system_index,
     PreloadedIndexRange,
     ResolvedQuery,
     SystemMetadataModel,
@@ -64,26 +61,21 @@ pub static ENVIRONMENT_VARIABLES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("Invalid built-in environment variables table")
 });
 
-pub static ENVIRONMENT_VARIABLES_INDEX_BY_NAME: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&ENVIRONMENT_VARIABLES_TABLE, "by_name"));
+pub static ENVIRONMENT_VARIABLES_INDEX_BY_NAME: LazyLock<SystemIndex<EnvironmentVariablesTable>> =
+    LazyLock::new(|| SystemIndex::new("by_name", [&NAME_FIELD]).unwrap());
 static NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
 
 pub struct EnvironmentVariablesTable;
 impl SystemTable for EnvironmentVariablesTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = PersistedEnvironmentVariable;
+
+    fn table_name() -> &'static TableName {
         &ENVIRONMENT_VARIABLES_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone(),
-            fields: vec![NAME_FIELD.clone()].try_into().unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<PersistedEnvironmentVariable>::parse(document).map(|_| ())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone()]
     }
 }
 
@@ -122,7 +114,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
             .tx
             .preload_index_range(
                 TableNamespace::Global,
-                &ENVIRONMENT_VARIABLES_INDEX_BY_NAME,
+                &ENVIRONMENT_VARIABLES_INDEX_BY_NAME.name(),
                 &Interval::all(),
             )
             .await?;
@@ -279,7 +271,7 @@ fn value_query_from_env_var(env_var: &EnvVarName) -> anyhow::Result<Query> {
         ConvexValue::try_from(String::from(env_var.clone()))?.into(),
     )];
     Ok(Query::index_range(IndexRange {
-        index_name: ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone(),
+        index_name: ENVIRONMENT_VARIABLES_INDEX_BY_NAME.name(),
         range,
         order: Order::Asc,
     }))

@@ -17,7 +17,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         IndexRange,
@@ -36,7 +35,6 @@ use common::{
     },
 };
 use database::{
-    defaults::system_index,
     unauthorized_error,
     BootstrapComponentsModel,
     ResolvedQuery,
@@ -98,37 +96,27 @@ static PATH_FIELD: LazyLock<FieldPath> =
 static DELETED_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "deleted".parse().expect("Invalid built-in field"));
 
-pub static MODULE_INDEX_BY_PATH: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&MODULES_TABLE, "by_path"));
-pub static MODULE_INDEX_BY_DELETED: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&MODULES_TABLE, "by_deleted"));
+pub static MODULE_INDEX_BY_PATH: LazyLock<SystemIndex<ModulesTable>> =
+    LazyLock::new(|| SystemIndex::new("by_path", [&PATH_FIELD]).unwrap());
+pub static MODULE_INDEX_BY_DELETED: LazyLock<SystemIndex<ModulesTable>> =
+    LazyLock::new(|| SystemIndex::new("by_deleted", [&DELETED_FIELD, &PATH_FIELD]).unwrap());
 
 pub static HTTP_MODULE_PATH: LazyLock<CanonicalizedModulePath> =
     LazyLock::new(|| "http.js".parse().unwrap());
 
 pub struct ModulesTable;
 impl SystemTable for ModulesTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = ModuleMetadata;
+
+    fn table_name() -> &'static TableName {
         &MODULES_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![
-            SystemIndex {
-                name: MODULE_INDEX_BY_PATH.clone(),
-                fields: vec![PATH_FIELD.clone()].try_into().unwrap(),
-            },
-            SystemIndex {
-                name: MODULE_INDEX_BY_DELETED.clone(),
-                fields: vec![DELETED_FIELD.clone(), PATH_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
+            MODULE_INDEX_BY_PATH.clone(),
+            MODULE_INDEX_BY_DELETED.clone(),
         ]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<ModuleMetadata>::parse(document).map(|_| ())
     }
 }
 
@@ -406,7 +394,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let namespace = path.component.into();
         let module_path = ConvexValue::try_from(path.module_path.as_str())?;
         let index_range = IndexRange {
-            index_name: MODULE_INDEX_BY_PATH.clone(),
+            index_name: MODULE_INDEX_BY_PATH.name(),
             range: vec![IndexRangeExpression::Eq(
                 PATH_FIELD.clone(),
                 module_path.into(),

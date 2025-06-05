@@ -28,14 +28,12 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Order,
         Query,
     },
     runtime::Runtime,
-    types::IndexName,
 };
 use errors::ErrorMetadata;
 use value::{
@@ -49,12 +47,11 @@ use value::{
 };
 
 use crate::{
-    defaults::{
-        system_index,
+    metrics,
+    system_tables::{
         SystemIndex,
         SystemTable,
     },
-    metrics,
     ResolvedQuery,
     Transaction,
     COMPONENT_DEFINITIONS_TABLE,
@@ -66,30 +63,22 @@ pub static COMPONENTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("Invalid built-in _components table")
 });
 
-pub static COMPONENTS_BY_PARENT_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&COMPONENTS_TABLE, "by_parent_and_name"));
+pub static COMPONENTS_BY_PARENT_INDEX: LazyLock<SystemIndex<ComponentsTable>> =
+    LazyLock::new(|| SystemIndex::new("by_parent_and_name", [&PARENT_FIELD, &NAME_FIELD]).unwrap());
 pub static PARENT_FIELD: LazyLock<FieldPath> = LazyLock::new(|| "parent".parse().unwrap());
 pub static NAME_FIELD: LazyLock<FieldPath> = LazyLock::new(|| "name".parse().unwrap());
 
 pub struct ComponentsTable;
 
 impl SystemTable for ComponentsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = ComponentMetadata;
+
+    fn table_name() -> &'static TableName {
         &COMPONENTS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: COMPONENTS_BY_PARENT_INDEX.clone(),
-            fields: vec![PARENT_FIELD.clone(), NAME_FIELD.clone()]
-                .try_into()
-                .unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<ComponentMetadata>::parse(document)?;
-        Ok(())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![COMPONENTS_BY_PARENT_INDEX.clone()]
     }
 }
 

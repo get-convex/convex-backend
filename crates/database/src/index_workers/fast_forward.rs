@@ -267,8 +267,8 @@ pub async fn load_metadata_fast_forward_ts(
     index: ResolvedDocumentId,
 ) -> anyhow::Result<Option<Timestamp>> {
     let metadata_table_id = table_mapping.id(&INDEX_WORKER_METADATA_TABLE)?;
-    let metadata_index_id = (*INDEX_DOC_ID_INDEX)
-        .clone()
+    let metadata_index_id = INDEX_DOC_ID_INDEX
+        .name()
         .map_table(&table_mapping.name_to_tablet())?;
     let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
 

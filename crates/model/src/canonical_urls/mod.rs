@@ -7,7 +7,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     http::RequestDestination,
     query::{
@@ -18,6 +17,7 @@ use common::{
     types::TableName,
 };
 use database::{
+    system_tables::SystemIndex,
     ResolvedQuery,
     SystemMetadataModel,
     Transaction,
@@ -38,16 +38,14 @@ pub static CANONICAL_URLS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 pub struct CanonicalUrlsTable;
 
 impl SystemTable for CanonicalUrlsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = CanonicalUrl;
+
+    fn table_name() -> &'static TableName {
         &CANONICAL_URLS_TABLE
     }
 
-    fn indexes(&self) -> Vec<crate::SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<CanonicalUrl>::parse(document).map(|_| ())
     }
 }
 

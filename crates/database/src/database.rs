@@ -164,7 +164,6 @@ use crate::{
     },
     defaults::{
         bootstrap_system_tables,
-        SystemIndex,
         DEFAULT_BOOTSTRAP_TABLE_NUMBERS,
     },
     metrics::{
@@ -187,6 +186,7 @@ use crate::{
         SubscriptionsClient,
         SubscriptionsWorker,
     },
+    system_tables::ErasedSystemIndex,
     table_registry::TableRegistry,
     table_summary::{
         self,
@@ -1196,7 +1196,7 @@ impl<RT: Runtime> Database<RT> {
         }
 
         // Create system indexes.
-        for SystemIndex { name, fields } in bootstrap_system_tables()
+        for ErasedSystemIndex { name, fields } in bootstrap_system_tables()
             .into_iter()
             .flat_map(|t| t.indexes())
         {

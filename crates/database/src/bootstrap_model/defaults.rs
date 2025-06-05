@@ -2,33 +2,22 @@
 
 use std::{
     collections::BTreeMap,
-    ops::Deref,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+    sync::LazyLock,
 };
 
 use common::{
     bootstrap_model::{
-        index::{
-            database_index::IndexedFields,
-            INDEX_TABLE,
-        },
+        index::INDEX_TABLE,
         tables::TABLES_TABLE,
     },
-    document::ResolvedDocument,
     types::{
-        IndexDescriptor,
         IndexId,
-        IndexName,
         TableName,
     },
     value::{
         TableMapping,
         TabletIdAndTableNumber,
     },
-    virtual_system_mapping::VirtualSystemDocMapper,
 };
 use maplit::btreemap;
 use value::{
@@ -50,6 +39,7 @@ use crate::{
         schema::SchemasTable,
         table::TablesTable,
     },
+    system_tables::ErasedSystemTable,
     ComponentDefinitionsTable,
     ComponentsTable,
     INDEX_WORKER_METADATA_TABLE,
@@ -57,41 +47,7 @@ use crate::{
     SCHEMAS_TABLE,
 };
 
-pub fn system_index(table: &impl Deref<Target = TableName>, name: &'static str) -> IndexName {
-    IndexName::new(
-        table.deref().clone(),
-        IndexDescriptor::new(name).expect("Invalid system index descriptor"),
-    )
-    .expect("Invalid system index")
-}
-
-pub trait SystemTable: Send + Sync {
-    /// Table name for this system table. Must begin with `_`
-    fn table_name(&self) -> &'static TableName;
-    /// List of indexes for the system table
-    fn indexes(&self) -> Vec<SystemIndex>;
-    fn virtual_table(
-        &self,
-    ) -> Option<(
-        &'static TableName,
-        BTreeMap<IndexName, IndexName>,
-        Arc<dyn VirtualSystemDocMapper>,
-    )> {
-        None
-    }
-
-    /// Check that a document is valid for this system table.
-    /// We can't return the parsed document struct because its type might not
-    /// be accessible from db-verifier.
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()>;
-}
-
-pub struct SystemIndex {
-    pub name: IndexName,
-    pub fields: IndexedFields,
-}
-
-pub fn bootstrap_system_tables() -> Vec<&'static dyn SystemTable> {
+pub fn bootstrap_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     vec![
         &TablesTable,
         &IndexTable,

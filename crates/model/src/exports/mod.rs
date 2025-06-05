@@ -9,7 +9,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
         CREATION_TIME_FIELD_PATH,
     },
     maybe_val,
@@ -21,13 +20,9 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::{
-        IndexName,
-        ObjectKey,
-    },
+    types::ObjectKey,
 };
 use database::{
-    defaults::system_index,
     ResolvedQuery,
     SystemMetadataModel,
     Transaction,
@@ -57,11 +52,18 @@ pub mod types;
 pub static EXPORTS_TABLE: LazyLock<TableName> =
     LazyLock::new(|| "_exports".parse().expect("Invalid built-in exports table"));
 
-pub static EXPORTS_BY_STATE_AND_TS_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&EXPORTS_TABLE, "by_state_and_ts"));
+pub static EXPORTS_BY_STATE_AND_TS_INDEX: LazyLock<SystemIndex<ExportsTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new("by_state_and_ts", [&EXPORTS_STATE_FIELD, &EXPORTS_TS_FIELD]).unwrap()
+    });
 
-pub static EXPORTS_BY_REQUESTOR: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&EXPORTS_TABLE, "by_requestor"));
+pub static EXPORTS_BY_REQUESTOR: LazyLock<SystemIndex<ExportsTable>> = LazyLock::new(|| {
+    SystemIndex::new(
+        "by_requestor",
+        [&EXPORTS_REQUESTOR_FIELD, &CREATION_TIME_FIELD_PATH],
+    )
+    .unwrap()
+});
 
 pub static EXPORTS_STATE_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "state".parse().expect("Invalid built-in field"));
@@ -79,32 +81,17 @@ const DEFAULT_EXPORT_RETENTION: u64 = Duration::from_days(14).as_nanos() as u64;
 
 pub struct ExportsTable;
 impl SystemTable for ExportsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = Export;
+
+    fn table_name() -> &'static TableName {
         &EXPORTS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![
-            SystemIndex {
-                name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
-                fields: vec![EXPORTS_STATE_FIELD.clone(), EXPORTS_TS_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
-            SystemIndex {
-                name: EXPORTS_BY_REQUESTOR.clone(),
-                fields: vec![
-                    EXPORTS_REQUESTOR_FIELD.clone(),
-                    CREATION_TIME_FIELD_PATH.clone(),
-                ]
-                .try_into()
-                .unwrap(),
-            },
+            EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
+            EXPORTS_BY_REQUESTOR.clone(),
         ]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<Export>::parse(document).map(|_| ())
     }
 }
 
@@ -158,7 +145,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<Export>>> {
         let index_range = IndexRange {
-            index_name: EXPORTS_BY_REQUESTOR.clone(),
+            index_name: EXPORTS_BY_REQUESTOR.name(),
             range: vec![IndexRangeExpression::Eq(
                 EXPORTS_REQUESTOR_FIELD.clone(),
                 ConvexValue::try_from(ExportRequestor::CloudBackup.to_string())?.into(),
@@ -197,7 +184,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         export_state: &str,
     ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
         let index_range = IndexRange {
-            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
+            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.name(),
             range: vec![IndexRangeExpression::Eq(
                 EXPORTS_STATE_FIELD.clone(),
                 maybe_val!(export_state),
@@ -218,7 +205,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         snapshot_ts: Timestamp,
     ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
         let index_range = IndexRange {
-            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
+            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.name(),
             range: vec![
                 IndexRangeExpression::Eq(EXPORTS_STATE_FIELD.clone(), maybe_val!("completed")),
                 IndexRangeExpression::Eq(

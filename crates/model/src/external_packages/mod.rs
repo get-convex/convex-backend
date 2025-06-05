@@ -8,7 +8,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         IndexRange,
@@ -53,16 +52,14 @@ pub static EXTERNAL_PACKAGES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct ExternalPackagesTable;
 impl SystemTable for ExternalPackagesTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = ExternalDepsPackage;
+
+    fn table_name() -> &'static TableName {
         &EXTERNAL_PACKAGES_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<ExternalDepsPackage>::parse(document).map(|_| ())
     }
 }
 

@@ -28,11 +28,7 @@ use common::{
         TabletIndexMetadata,
         INDEX_TABLE,
     },
-    document::{
-        ParseDocument,
-        ParsedDocument,
-        ResolvedDocument,
-    },
+    document::ParsedDocument,
     query::{
         IndexRange,
         Order,
@@ -71,12 +67,12 @@ use value::{
 };
 
 use crate::{
-    defaults::{
+    query::TableFilter,
+    reads::TransactionReadSet,
+    system_tables::{
         SystemIndex,
         SystemTable,
     },
-    query::TableFilter,
-    reads::TransactionReadSet,
     table_summary::table_summary_bootstrapping_error,
     transaction_index::TransactionIndex,
     unauthorized_error,
@@ -88,16 +84,14 @@ use crate::{
 
 pub struct IndexTable;
 impl SystemTable for IndexTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = TabletIndexMetadata;
+
+    fn table_name() -> &'static TableName {
         &INDEX_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<TabletIndexMetadata>::parse(document).map(|_| ())
     }
 }
 

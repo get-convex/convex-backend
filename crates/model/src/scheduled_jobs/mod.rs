@@ -11,7 +11,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     execution_context::ExecutionContext,
     knobs::{
@@ -37,7 +36,6 @@ use common::{
     virtual_system_mapping::VirtualSystemDocMapper,
 };
 use database::{
-    defaults::system_index,
     unauthorized_error,
     ResolvedQuery,
     SystemMetadataModel,
@@ -95,12 +93,22 @@ static SCHEDULED_JOBS_VIRTUAL_INDEX_BY_ID: LazyLock<IndexName> =
 static SCHEDULED_JOBS_VIRTUAL_INDEX_BY_CREATION_TIME: LazyLock<IndexName> =
     LazyLock::new(|| GenericIndexName::by_creation_time(SCHEDULED_JOBS_VIRTUAL_TABLE.clone()));
 
-pub static SCHEDULED_JOBS_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&SCHEDULED_JOBS_TABLE, "by_next_ts"));
-pub static SCHEDULED_JOBS_INDEX_BY_UDF_PATH: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&SCHEDULED_JOBS_TABLE, "by_udf_path_and_next_event_ts"));
-pub static SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&SCHEDULED_JOBS_TABLE, "by_completed_ts"));
+/// By next ts. Used to efficiently find next jobs to execute next.
+pub static SCHEDULED_JOBS_INDEX: LazyLock<SystemIndex<ScheduledJobsTable>> =
+    LazyLock::new(|| SystemIndex::new("by_next_ts", [&NEXT_TS_FIELD]).unwrap());
+/// By udf path and next ts. Used by the dashboard to group scheduled jobs by
+/// udf function.
+pub static SCHEDULED_JOBS_INDEX_BY_UDF_PATH: LazyLock<SystemIndex<ScheduledJobsTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new(
+            "by_udf_path_and_next_event_ts",
+            [&UDF_PATH_FIELD, &NEXT_TS_FIELD],
+        )
+        .unwrap()
+    });
+/// By completed ts. Used to efficiently find jobs to garbage collect.
+pub static SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS: LazyLock<SystemIndex<ScheduledJobsTable>> =
+    LazyLock::new(|| SystemIndex::new("by_completed_ts", [&COMPLETED_TS_FIELD]).unwrap());
 pub static NEXT_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "nextTs".parse().expect("invalid nextTs field"));
 pub static COMPLETED_TS_FIELD: LazyLock<FieldPath> =
@@ -112,36 +120,21 @@ static COMPONENT_PATH_FIELD: LazyLock<FieldPath> =
 
 pub struct ScheduledJobsTable;
 impl SystemTable for ScheduledJobsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = ScheduledJob;
+
+    fn table_name() -> &'static TableName {
         &SCHEDULED_JOBS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![
-            // By completed ts. Used to efficiently find jobs to garbage collect.
-            SystemIndex {
-                name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
-                fields: vec![COMPLETED_TS_FIELD.clone()].try_into().unwrap(),
-            },
-            // By next ts. Used to efficiently find next jobs to execute next.
-            SystemIndex {
-                name: SCHEDULED_JOBS_INDEX.clone(),
-                fields: vec![NEXT_TS_FIELD.clone()].try_into().unwrap(),
-            },
-            // By udf path and next ts. Used by the dashboard to group scheduled jobs by udf
-            // function.
-            SystemIndex {
-                name: SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
-                fields: vec![UDF_PATH_FIELD.clone(), NEXT_TS_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
+            SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
+            SCHEDULED_JOBS_INDEX.clone(),
+            SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
         ]
     }
 
-    fn virtual_table(
-        &self,
-    ) -> Option<(
+    fn virtual_table() -> Option<(
         &'static TableName,
         BTreeMap<IndexName, IndexName>,
         Arc<dyn VirtualSystemDocMapper>,
@@ -156,10 +149,6 @@ impl SystemTable for ScheduledJobsTable {
             },
             Arc::new(ScheduledJobsDocMapper),
         ))
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<ScheduledJob>::parse(document).map(|_| ())
     }
 }
 
@@ -416,7 +405,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                     ),
                 ];
                 Query::index_range(IndexRange {
-                    index_name: SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
+                    index_name: SCHEDULED_JOBS_INDEX_BY_UDF_PATH.name(),
                     range,
                     order: Order::Asc,
                 })
@@ -434,7 +423,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                     ),
                 ];
                 Query::index_range(IndexRange {
-                    index_name: SCHEDULED_JOBS_INDEX.clone(),
+                    index_name: SCHEDULED_JOBS_INDEX.name(),
                     range,
                     order: Order::Asc,
                 })

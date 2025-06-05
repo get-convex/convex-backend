@@ -15,7 +15,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         IndexRange,
@@ -24,11 +23,9 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::IndexName,
 };
 use database::{
-    defaults::{
-        system_index,
+    system_tables::{
         SystemIndex,
         SystemTable,
     },
@@ -58,8 +55,10 @@ pub static FUNCTION_HANDLES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("_function_handles is not a valid built-in table name")
 });
 
-pub static BY_COMPONENT_PATH_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&FUNCTION_HANDLES_TABLE, "by_component_path"));
+pub static BY_COMPONENT_PATH_INDEX: LazyLock<SystemIndex<FunctionHandlesTable>> =
+    LazyLock::new(|| {
+        SystemIndex::new("by_component_path", [&COMPONENT_FIELD, &PATH_FIELD]).unwrap()
+    });
 
 pub static COMPONENT_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "component".parse().expect("invalid component field"));
@@ -70,22 +69,14 @@ pub static PATH_FIELD: LazyLock<FieldPath> =
 pub struct FunctionHandlesTable;
 
 impl SystemTable for FunctionHandlesTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = FunctionHandleMetadata;
+
+    fn table_name() -> &'static TableName {
         &FUNCTION_HANDLES_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: BY_COMPONENT_PATH_INDEX.clone(),
-            fields: vec![COMPONENT_FIELD.clone(), PATH_FIELD.clone()]
-                .try_into()
-                .unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<FunctionHandleMetadata>::parse(document)?;
-        Ok(())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![BY_COMPONENT_PATH_INDEX.clone()]
     }
 }
 
@@ -149,7 +140,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             None => ConvexValue::Null,
         };
         let index_range = IndexRange {
-            index_name: BY_COMPONENT_PATH_INDEX.clone(),
+            index_name: BY_COMPONENT_PATH_INDEX.name(),
             range: vec![
                 IndexRangeExpression::Eq(COMPONENT_FIELD.clone(), serialized_component.into()),
                 IndexRangeExpression::Eq(
@@ -183,7 +174,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             None => ConvexValue::Null,
         };
         let index_query = Query::index_range(IndexRange {
-            index_name: BY_COMPONENT_PATH_INDEX.clone(),
+            index_name: BY_COMPONENT_PATH_INDEX.name(),
             range: vec![IndexRangeExpression::Eq(
                 COMPONENT_FIELD.clone(),
                 serialized_component.into(),

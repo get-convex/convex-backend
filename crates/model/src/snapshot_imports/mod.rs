@@ -6,7 +6,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     maybe_val,
     query::{
@@ -57,16 +56,14 @@ pub static SNAPSHOT_IMPORTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct SnapshotImportsTable;
 impl SystemTable for SnapshotImportsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = SnapshotImport;
+
+    fn table_name() -> &'static TableName {
         &SNAPSHOT_IMPORTS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<SnapshotImport>::parse(document).map(|_| ())
     }
 }
 
@@ -87,7 +84,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(TableNamespace::Global)
-            .tablet_matches_name(id.tablet_id, SnapshotImportsTable.table_name()));
+            .tablet_matches_name(id.tablet_id, SnapshotImportsTable::table_name()));
         match self.tx.get(id).await? {
             None => Ok(None),
             Some(doc) => Ok(Some(doc.parse()?)),
@@ -125,7 +122,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         };
         let id = SystemMetadataModel::new_global(self.tx)
             .insert(
-                SnapshotImportsTable.table_name(),
+                SnapshotImportsTable::table_name(),
                 snapshot_import.try_into()?,
             )
             .await?;

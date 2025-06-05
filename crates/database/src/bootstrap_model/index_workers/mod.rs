@@ -9,7 +9,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         IndexRange,
@@ -18,10 +17,7 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::{
-        IndexId,
-        IndexName,
-    },
+    types::IndexId,
 };
 use sync_types::Timestamp;
 use value::{
@@ -35,8 +31,7 @@ use value::{
 };
 
 use crate::{
-    defaults::{
-        system_index,
+    system_tables::{
         SystemIndex,
         SystemTable,
     },
@@ -102,7 +97,7 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
             ConvexValue::String(id.to_string().try_into()?).into(),
         )];
         let query = Query::index_range(IndexRange {
-            index_name: INDEX_DOC_ID_INDEX.clone(),
+            index_name: INDEX_DOC_ID_INDEX.name(),
             range,
             order: Order::Asc,
         });
@@ -149,24 +144,19 @@ pub static INDEX_WORKER_METADATA_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 static INDEX_DOC_ID_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "index_id".parse().expect("Invalid built-in field"));
 
-pub static INDEX_DOC_ID_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&INDEX_WORKER_METADATA_TABLE, "by_index_doc_id"));
+pub static INDEX_DOC_ID_INDEX: LazyLock<SystemIndex<IndexWorkerMetadataTable>> =
+    LazyLock::new(|| SystemIndex::new("by_index_doc_id", [&INDEX_DOC_ID_FIELD]).unwrap());
 
 pub struct IndexWorkerMetadataTable;
 impl SystemTable for IndexWorkerMetadataTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = IndexWorkerMetadataRecord;
+
+    fn table_name() -> &'static TableName {
         &INDEX_WORKER_METADATA_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: INDEX_DOC_ID_INDEX.clone(),
-            fields: vec![INDEX_DOC_ID_FIELD.clone()].try_into().unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<IndexWorkerMetadataRecord>::parse(document).map(|_| ())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![INDEX_DOC_ID_INDEX.clone()]
     }
 }
 

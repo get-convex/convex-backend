@@ -91,7 +91,7 @@ fn cron_log_query<RT: Runtime>(
         tx,
         component.into(),
         Query::index_range(IndexRange {
-            index_name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
+            index_name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.name(),
             range: vec![IndexRangeExpression::Eq(
                 CRON_JOB_LOGS_NAME_FIELD.clone(),
                 common::types::MaybeValue(Some(test_cron_identifier().to_string().try_into()?)),

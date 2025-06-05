@@ -217,7 +217,7 @@ impl SchemaRegistry {
         // directly.
         let state_value = val!(state.clone());
         let index_range = IndexRange {
-            index_name: SCHEMAS_STATE_INDEX.clone(),
+            index_name: SCHEMAS_STATE_INDEX.name(),
             range: vec![IndexRangeExpression::Eq(
                 SCHEMA_STATE_FIELD.clone(),
                 state_value.into(),

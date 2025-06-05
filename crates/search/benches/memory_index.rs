@@ -1,3 +1,4 @@
+#![feature(never_type)]
 #![feature(try_blocks)]
 
 use std::{
@@ -90,7 +91,7 @@ impl Dataset {
             table_number: TableNumber::try_from(123).expect("Could not create table number"),
         };
         let index_name: IndexName = "messages.by_body".parse()?;
-        let index_name = index_name.map_table(&|_| Ok(table_id.tablet_id))?;
+        let Ok(index_name) = index_name.map_table(&|_| Ok::<_, !>(table_id.tablet_id));
         let config = DeveloperTextIndexConfig {
             search_field: "body".parse()?,
             filter_fields: BTreeSet::new(),

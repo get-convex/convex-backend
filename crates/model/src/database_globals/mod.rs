@@ -4,7 +4,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Order,
@@ -40,16 +39,14 @@ pub static DATABASE_GLOBALS_TABLE: LazyLock<TableName> =
 
 pub struct DatabaseGlobalsTable;
 impl SystemTable for DatabaseGlobalsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = DatabaseGlobals;
+
+    fn table_name() -> &'static TableName {
         &DATABASE_GLOBALS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<DatabaseGlobals>::parse(document).map(|_| ())
     }
 }
 

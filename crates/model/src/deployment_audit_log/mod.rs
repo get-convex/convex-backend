@@ -4,7 +4,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     obj,
     query::{
@@ -49,16 +48,14 @@ pub static ACTION_FIELD: LazyLock<FieldPath> =
 
 pub struct DeploymentAuditLogsTable;
 impl SystemTable for DeploymentAuditLogsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = DeploymentAuditLogEvent;
+
+    fn table_name() -> &'static TableName {
         &DEPLOYMENT_AUDIT_LOG_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<DeploymentAuditLogEvent>::parse(document).map(|_| ())
     }
 }
 

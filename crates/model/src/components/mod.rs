@@ -387,7 +387,7 @@ mod tests {
         },
     };
     use database::{
-        defaults::SystemTable,
+        system_tables::SystemTable,
         test_helpers::DbFixtures,
         IndexModel,
         SystemMetadataModel,
@@ -422,18 +422,19 @@ mod tests {
         let component_id = ComponentId::Child(id.into());
 
         let namespace = component_id.into();
-        let table = ModulesTable;
         let is_new = tx
             .create_system_table(
                 namespace,
-                table.table_name(),
-                DEFAULT_TABLE_NUMBERS.get(table.table_name()).cloned(),
+                ModulesTable::table_name(),
+                DEFAULT_TABLE_NUMBERS
+                    .get(ModulesTable::table_name())
+                    .cloned(),
             )
             .await?;
         assert!(is_new);
 
-        for index in table.indexes() {
-            let index_metadata = IndexMetadata::new_enabled(index.name, index.fields);
+        for index in ModulesTable::indexes() {
+            let index_metadata = IndexMetadata::new_enabled(index.name(), index.fields);
             IndexModel::new(&mut tx)
                 .add_system_index(namespace, index_metadata)
                 .await?;

@@ -359,7 +359,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             .map(|(_, namespace, ..)| namespace)
             .collect();
         let index_query = Query::index_range(IndexRange {
-            index_name: SCHEDULED_JOBS_INDEX.clone(),
+            index_name: SCHEDULED_JOBS_INDEX.name(),
             range: vec![IndexRangeExpression::Gt(
                 NEXT_TS_FIELD.clone(),
                 value::ConvexValue::Null,
@@ -942,7 +942,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
             for namespace in namespaces {
                 let now = self.rt.generate_timestamp()?;
                 let index_query = Query::index_range(IndexRange {
-                    index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
+                    index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name(),
                     range: vec![IndexRangeExpression::Gt(
                         COMPLETED_TS_FIELD.clone(),
                         value::ConvexValue::Null,

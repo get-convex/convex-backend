@@ -4,7 +4,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Order,
@@ -42,16 +41,14 @@ pub static BACKEND_STATE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct BackendStateTable;
 impl SystemTable for BackendStateTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = PersistedBackendState;
+
+    fn table_name() -> &'static TableName {
         &BACKEND_STATE_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<PersistedBackendState>::parse(document).map(|_| ())
     }
 }
 

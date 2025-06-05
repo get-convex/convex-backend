@@ -31,7 +31,6 @@ use common::{
         DatabaseSchema,
         SchemaValidationError,
     },
-    types::IndexName,
 };
 use errors::ErrorMetadata;
 use value::{
@@ -44,12 +43,11 @@ use value::{
 
 use self::types::SchemaDiff;
 use crate::{
-    defaults::{
-        system_index,
+    patch_value,
+    system_tables::{
         SystemIndex,
         SystemTable,
     },
-    patch_value,
     ResolvedQuery,
     SystemMetadataModel,
     TableModel,
@@ -59,8 +57,8 @@ use crate::{
 pub static SCHEMAS_TABLE: LazyLock<TableName> =
     LazyLock::new(|| "_schemas".parse().expect("Invalid built-in schemas table"));
 
-pub static SCHEMAS_STATE_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&SCHEMAS_TABLE, "by_state"));
+pub static SCHEMAS_STATE_INDEX: LazyLock<SystemIndex<SchemasTable>> =
+    LazyLock::new(|| SystemIndex::new("by_state", [&SCHEMA_STATE_FIELD]).unwrap());
 
 pub static SCHEMA_STATE_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "state".parse().expect("invalid state field"));
@@ -69,19 +67,14 @@ const MAX_TIME_TO_KEEP_FAILED_AND_OVERWRITTEN_SCHEMAS: Duration = Duration::from
 
 pub struct SchemasTable;
 impl SystemTable for SchemasTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = SchemaMetadata;
+
+    fn table_name() -> &'static TableName {
         &SCHEMAS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: SCHEMAS_STATE_INDEX.clone(),
-            fields: vec![SCHEMA_STATE_FIELD.clone()].try_into().unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<SchemaMetadata>::parse(document).map(|_| ())
+    fn indexes() -> Vec<SystemIndex<Self>> {
+        vec![SCHEMAS_STATE_INDEX.clone()]
     }
 }
 

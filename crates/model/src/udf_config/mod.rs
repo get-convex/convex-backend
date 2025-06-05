@@ -4,7 +4,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Order,
@@ -40,16 +39,14 @@ pub static UDF_CONFIG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct UdfConfigTable;
 impl SystemTable for UdfConfigTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = UdfConfig;
+
+    fn table_name() -> &'static TableName {
         &UDF_CONFIG_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<UdfConfig>::parse(document).map(|_| ())
     }
 }
 

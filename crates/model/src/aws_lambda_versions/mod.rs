@@ -5,7 +5,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Expression,
@@ -43,16 +42,14 @@ pub static AWS_LAMBDA_VERSIONS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub struct AwsLambdaVersionsTable;
 impl SystemTable for AwsLambdaVersionsTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = AwsLambdaVersion;
+
+    fn table_name() -> &'static TableName {
         &AWS_LAMBDA_VERSIONS_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<AwsLambdaVersion>::parse(document).map(|_| ())
     }
 }
 

@@ -8,7 +8,6 @@ use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-        ResolvedDocument,
     },
     query::{
         Order,
@@ -41,16 +40,14 @@ pub static AUTH_TABLE: LazyLock<TableName> =
 
 pub struct AuthTable;
 impl SystemTable for AuthTable {
-    fn table_name(&self) -> &'static TableName {
+    type Metadata = AuthInfoPersisted;
+
+    fn table_name() -> &'static TableName {
         &AUTH_TABLE
     }
 
-    fn indexes(&self) -> Vec<SystemIndex> {
+    fn indexes() -> Vec<SystemIndex<Self>> {
         vec![]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<AuthInfoPersisted>::parse(document).map(|_| ())
     }
 }
 
