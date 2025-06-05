@@ -109,6 +109,7 @@ pin-project = "1"
 p384 = "0.13"
 portpicker = "0.1"
 const-oid = "0.9.6"
+postgres-protocol = { version = "0.6" }
 pretty_assertions = "1"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
 proptest = "1"

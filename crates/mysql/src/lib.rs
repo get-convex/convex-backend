@@ -148,13 +148,14 @@ pub enum ConnectError {
     Other(#[from] anyhow::Error),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MySqlOptions {
     pub allow_read_only: bool,
     pub version: PersistenceVersion,
     pub use_prepared_statements: bool,
 }
 
+#[derive(Debug)]
 pub struct MySqlReaderOptions {
     pub db_should_be_leader: bool,
     pub version: PersistenceVersion,

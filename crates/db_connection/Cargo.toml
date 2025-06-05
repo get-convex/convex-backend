@@ -1,0 +1,33 @@
+[package]
+name = "db_connection"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[features]
+default = []
+testing = [
+    "clusters/testing",
+    "common/testing",
+    "mysql/testing",
+    "postgres/testing",
+]
+
+[dependencies]
+anyhow = { workspace = true }
+clusters = { path = "../clusters" }
+common = { path = "../common" }
+mysql = { path = "../mysql" }
+postgres = { path = "../postgres" }
+sqlite = { path = "../sqlite" }
+tracing = { workspace = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+clusters = { path = "../clusters", features = ["testing"] }
+common = { path = "../common", features = ["testing"] }
+mysql = { path = "../mysql", features = ["testing"] }
+postgres = { path = "../postgres", features = ["testing"] }

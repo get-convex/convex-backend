@@ -11,6 +11,7 @@ use common::{
     shutdown::ShutdownSignal,
     version::SERVER_VERSION_STR,
 };
+use db_connection::connect_persistence;
 use futures::{
     future::{
         self,
@@ -21,7 +22,6 @@ use futures::{
 use local_backend::{
     config::LocalConfig,
     make_app,
-    persistence::connect_persistence,
     proxy::dev_site_proxy,
     router::router,
     HttpActionRouteMapper,
@@ -106,7 +106,8 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
     let persistence = connect_persistence(
         config.db,
         &config.db_spec,
-        config.do_not_require_ssl,
+        !config.do_not_require_ssl,
+        false, /* allow_read_only */
         &config.name(),
         runtime.clone(),
         preempt_signal.clone(),

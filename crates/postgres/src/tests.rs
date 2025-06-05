@@ -49,6 +49,7 @@ run_persistence_test_suite!(
         PostgresOptions {
             allow_read_only: false,
             version: PersistenceVersion::V5,
+            schema: None,
         }
     )
     .await?,
@@ -57,16 +58,44 @@ run_persistence_test_suite!(
         PostgresOptions {
             allow_read_only: true,
             version: PersistenceVersion::V5,
+            schema: None,
         }
     )
     .await?
 );
+
+mod with_non_default_schema {
+    use super::*;
+    run_persistence_test_suite!(
+        db,
+        crate::itest::new_db_opts().await?,
+        PostgresPersistence::new(
+            &db,
+            PostgresOptions {
+                allow_read_only: false,
+                version: PersistenceVersion::V5,
+                schema: Some("foobar".to_owned()),
+            }
+        )
+        .await?,
+        PostgresPersistence::new(
+            &db,
+            PostgresOptions {
+                allow_read_only: true,
+                version: PersistenceVersion::V5,
+                schema: Some("foobar".to_owned()),
+            }
+        )
+        .await?
+    );
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_loading_locally() -> anyhow::Result<()> {
     let options = PostgresOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
+        schema: None,
     };
     let persistence =
         PostgresPersistence::new(&crate::itest::new_db_opts().await?, options).await?; // need coverage on false too.
@@ -104,6 +133,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
     let options = PostgresOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
+        schema: None,
     };
     let persistence =
         PostgresPersistence::new(&crate::itest::new_db_opts().await?, options).await?;
@@ -156,6 +186,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     let options = PostgresOptions {
         allow_read_only: false,
         version: PersistenceVersion::default(),
+        schema: None,
     };
     let p1 = Arc::new(PostgresPersistence::new(&url, options).await?);
 
@@ -185,6 +216,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     let options = PostgresOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
+        schema: None,
     };
     let p2 = PostgresPersistence::new(&url, options).await?;
 

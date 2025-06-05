@@ -17,6 +17,7 @@ futures-async-stream = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }
 metrics = { path = "../../crates/metrics" }
+postgres-protocol = { workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true }
 rustls = { workspace = true }

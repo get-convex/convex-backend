@@ -23,6 +23,7 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use metrics::Timer;
+use postgres_protocol::escape::escape_identifier;
 use prometheus::VMHistogramVec;
 use tokio::time::sleep;
 use tokio_postgres::{
@@ -33,7 +34,6 @@ use tokio_postgres::{
     Row,
     RowStream,
     Statement,
-    ToStatement,
 };
 
 use crate::metrics::{
@@ -73,29 +73,57 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct SchemaName {
+    escaped: String,
+}
+
+impl SchemaName {
+    pub(crate) const EMPTY: SchemaName = SchemaName {
+        escaped: String::new(),
+    };
+
+    pub fn new(s: &str) -> anyhow::Result<Self> {
+        anyhow::ensure!(!s.starts_with("pg_"));
+        anyhow::ensure!(!s.contains('\0'));
+        Ok(Self {
+            escaped: escape_identifier(s),
+        })
+    }
+}
+
 pub(crate) struct PostgresConnection {
     conn: deadpool_postgres::Object,
+    schema: SchemaName,
     labels: Vec<StaticMetricLabel>,
     _tracker: ConnectionTracker,
     _timer: Timer<VMHistogramVec>,
 }
 
 impl PostgresConnection {
-    pub async fn batch_execute(&self, query: &str) -> anyhow::Result<()> {
-        log_execute(self.labels.clone());
-        Ok(self.conn.batch_execute(query).await?)
+    fn substitute_db_name(&self, query: &'static str) -> String {
+        query.replace("@db_name", &self.schema.escaped)
     }
 
-    pub async fn query_opt<T>(
+    pub async fn batch_execute(&self, query: &'static str) -> anyhow::Result<()> {
+        log_execute(self.labels.clone());
+        Ok(self
+            .conn
+            .batch_execute(&self.substitute_db_name(query))
+            .await?)
+    }
+
+    pub async fn query_opt(
         &self,
-        statement: &T,
+        statement: &'static str,
         params: &[&(dyn ToSql + Sync)],
-    ) -> anyhow::Result<Option<Row>>
-    where
-        T: ?Sized + ToStatement,
-    {
+    ) -> anyhow::Result<Option<Row>> {
         log_query(self.labels.clone());
-        let row = with_timeout(self.conn.query_opt(statement, params)).await?;
+        let row = with_timeout(
+            self.conn
+                .query_opt(&self.substitute_db_name(statement), params),
+        )
+        .await?;
         if let Some(row) = &row {
             log_query_result(row, self.labels.clone());
         }
@@ -103,16 +131,15 @@ impl PostgresConnection {
     }
 
     pub async fn prepare_cached(&self, query: &'static str) -> anyhow::Result<Statement> {
-        with_timeout(self.conn.prepare_cached(query)).await
+        with_timeout(self.conn.prepare_cached(&self.substitute_db_name(query))).await
     }
 
-    pub async fn query_raw<T, P, I>(
+    pub async fn query_raw<P, I>(
         &self,
-        statement: &T,
+        statement: &Statement,
         params: I,
     ) -> anyhow::Result<impl Stream<Item = anyhow::Result<Row>>>
     where
-        T: ?Sized + ToStatement,
         P: BorrowToSql,
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
@@ -136,14 +163,11 @@ impl PostgresConnection {
         }
     }
 
-    pub async fn execute<T>(
+    pub async fn execute(
         &self,
-        statement: &T,
+        statement: &Statement,
         params: &[&(dyn ToSql + Sync)],
-    ) -> anyhow::Result<u64>
-    where
-        T: ?Sized + ToStatement,
-    {
+    ) -> anyhow::Result<u64> {
         log_execute(self.labels.clone());
         with_timeout(self.conn.execute(statement, params)).await
     }
@@ -151,44 +175,49 @@ impl PostgresConnection {
     pub async fn transaction(&mut self) -> anyhow::Result<PostgresTransaction> {
         log_transaction(self.labels.clone());
         let inner = with_timeout(self.conn.transaction()).await?;
-        Ok(PostgresTransaction { inner })
+        Ok(PostgresTransaction {
+            inner,
+            schema: &self.schema,
+        })
     }
 }
 
 pub struct PostgresTransaction<'a> {
     inner: Transaction<'a>,
+    schema: &'a SchemaName,
 }
 
 impl PostgresTransaction<'_> {
-    pub async fn prepare_cached(&self, query: &'static str) -> anyhow::Result<Statement> {
-        with_timeout(self.inner.prepare_cached(query)).await
+    fn substitute_db_name(&self, query: &'static str) -> String {
+        query.replace("@db_name", &self.schema.escaped)
     }
 
-    pub async fn query<T>(
+    pub async fn prepare_cached(&self, query: &'static str) -> anyhow::Result<Statement> {
+        with_timeout(self.inner.prepare_cached(&self.substitute_db_name(query))).await
+    }
+
+    pub async fn query(
         &self,
-        statement: &T,
+        statement: &Statement,
         params: &[&(dyn ToSql + Sync)],
-    ) -> anyhow::Result<Vec<Row>>
-    where
-        T: ?Sized + ToStatement,
-    {
+    ) -> anyhow::Result<Vec<Row>> {
         with_timeout(self.inner.query(statement, params)).await
     }
 
-    pub async fn execute<T>(
+    pub async fn execute_str(
         &self,
-        statement: &T,
+        statement: &'static str,
         params: &[&(dyn ToSql + Sync)],
-    ) -> anyhow::Result<u64>
-    where
-        T: ?Sized + ToStatement,
-    {
-        with_timeout(self.inner.execute(statement, params)).await
+    ) -> anyhow::Result<u64> {
+        with_timeout(
+            self.inner
+                .execute(&self.substitute_db_name(statement), params),
+        )
+        .await
     }
 
-    pub async fn execute_raw<P, I, T>(&self, statement: &T, params: I) -> anyhow::Result<u64>
+    pub async fn execute_raw<P, I>(&self, statement: &Statement, params: I) -> anyhow::Result<u64>
     where
-        T: ?Sized + ToStatement,
         P: BorrowToSql,
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
@@ -218,12 +247,14 @@ impl ConvexPgPool {
     pub(crate) async fn get_connection(
         &self,
         name: &'static str,
+        schema: &SchemaName,
     ) -> anyhow::Result<PostgresConnection> {
         let pool_get_timer = get_connection_timer();
         let conn = with_timeout(self.inner.get()).await;
         pool_get_timer.finish(conn.is_ok());
         Ok(PostgresConnection {
             conn: conn?,
+            schema: schema.clone(),
             labels: vec![StaticMetricLabel::new("name", name)],
             _tracker: ConnectionTracker::new(&self.stats),
             _timer: connection_lifetime_timer(name),
@@ -232,5 +263,9 @@ impl ConvexPgPool {
 
     pub(crate) fn status(&self) -> Status {
         self.inner.status()
+    }
+
+    pub fn shutdown(&self) {
+        self.inner.close();
     }
 }

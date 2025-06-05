@@ -84,7 +84,6 @@ pub mod http_actions;
 pub mod logs;
 pub mod node_action_callbacks;
 pub mod parse;
-pub mod persistence;
 pub mod proxy;
 pub mod public_api;
 pub mod router;

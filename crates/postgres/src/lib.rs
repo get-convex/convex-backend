@@ -87,11 +87,6 @@ use common::{
         TabletId,
     },
 };
-use connection::{
-    ConvexPgPool,
-    PostgresConnection,
-    PostgresTransaction,
-};
 use deadpool_postgres::{
     Manager,
     Pool,
@@ -134,7 +129,15 @@ use tokio_postgres::{
 };
 use tokio_postgres_rustls::MakeRustlsConnect;
 
-use crate::metrics::QueryIndexStats;
+pub use crate::connection::ConvexPgPool;
+use crate::{
+    connection::{
+        PostgresConnection,
+        PostgresTransaction,
+        SchemaName,
+    },
+    metrics::QueryIndexStats,
+};
 
 pub struct PostgresPersistence {
     newly_created: AtomicBool,
@@ -143,6 +146,7 @@ pub struct PostgresPersistence {
     // Used by the reader.
     read_pool: Arc<ConvexPgPool>,
     version: PersistenceVersion,
+    schema: SchemaName,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -153,51 +157,90 @@ pub enum ConnectError {
     Other(#[from] anyhow::Error),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct PostgresOptions {
     pub allow_read_only: bool,
     pub version: PersistenceVersion,
+    /// If `None` uses the default schema (usually `public`)
+    pub schema: Option<String>,
 }
 
 pub struct PostgresReaderOptions {
     pub db_should_be_leader: bool,
     pub version: PersistenceVersion,
+    /// If `None` uses the default schema (usually `public`)
+    pub schema: Option<String>,
+}
+
+async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
+    let client = pool
+        .get_connection(
+            "get_current_schema",
+            // This is invalid but we don't use `@db_name`
+            &SchemaName::EMPTY,
+        )
+        .await?;
+    let row = client
+        .query_opt("SELECT current_schema()", &[])
+        .await?
+        .context("current_schema() returned nothing?")?;
+    row.try_get::<_, Option<String>>(0)?
+        .context("PostgresOptions::schema not provided and database has no current_schema()?")
 }
 
 impl PostgresPersistence {
     pub async fn new(url: &str, options: PostgresOptions) -> Result<Self, ConnectError> {
         let pool = Self::create_pool(url)?;
+        Self::with_pool(pool, options).await
+    }
+
+    pub async fn with_pool(
+        pool: ConvexPgPool,
+        options: PostgresOptions,
+    ) -> Result<Self, ConnectError> {
+        let schema = SchemaName::new(&match options.schema {
+            Some(s) => s,
+            None => get_current_schema(&pool).await?,
+        })?;
         let newly_created = {
-            let client = pool.get_connection("init_sql").await?;
+            let client = pool.get_connection("init_sql", &schema).await?;
             client
                 .batch_execute(INIT_SQL)
                 .await
                 .map_err(Into::<anyhow::Error>::into)?;
+            if !options.allow_read_only && Self::is_read_only(&client).await? {
+                return Err(ConnectError::ReadOnly);
+            }
             Self::check_newly_created(&client).await?
         };
-        let client = pool.get_connection("read_only").await?;
-        if !options.allow_read_only && Self::is_read_only(&client).await? {
-            return Err(ConnectError::ReadOnly);
-        }
         tracing::info!(
             "Postgres connection pool max size {}",
             pool.status().max_size
         );
 
-        let lease = Lease::acquire(pool.clone()).await?;
+        let lease = Lease::acquire(pool.clone(), &schema).await?;
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
             read_pool: Arc::new(pool),
             version: options.version,
+            schema,
         })
     }
 
-    pub fn new_reader(url: &str, options: PostgresReaderOptions) -> anyhow::Result<PostgresReader> {
+    pub async fn new_reader(
+        pool: ConvexPgPool,
+        options: PostgresReaderOptions,
+    ) -> anyhow::Result<PostgresReader> {
+        let schema = match options.schema {
+            Some(s) => s,
+            None => get_current_schema(&pool).await?,
+        };
         Ok(PostgresReader {
-            read_pool: Arc::new(Self::create_pool(url)?),
+            read_pool: Arc::new(pool),
             db_should_be_leader: options.db_should_be_leader,
             version: options.version,
+            schema: SchemaName::new(&schema)?,
         })
     }
 
@@ -205,7 +248,7 @@ impl PostgresPersistence {
         Ok(client.query_opt(CHECK_IS_READ_ONLY, &[]).await?.is_some())
     }
 
-    fn create_pool(url: &str) -> anyhow::Result<ConvexPgPool> {
+    pub fn create_pool(url: &str) -> anyhow::Result<ConvexPgPool> {
         let pg_config = tokio_postgres::Config::from_str(url)?;
         let mut roots = RootCertStore::empty();
         let native_certs = rustls_native_certs::load_native_certs();
@@ -256,6 +299,7 @@ impl Persistence for PostgresPersistence {
             read_pool: self.read_pool.clone(),
             db_should_be_leader: true,
             version: self.version,
+            schema: self.schema.clone(),
         })
     }
 
@@ -302,9 +346,10 @@ impl Persistence for PostgresPersistence {
                             },
                         )?;
 
-                    // Since the documents and indexes already in memory, blast it into the Postgres
-                    // connection as fast as we can with unbounded query pipelining. If we
-                    // hadn't fully "hydrated" the inputs to this part of the system already, we
+                    // Since the documents and indexes already in memory, blast it into the
+                    // Postgres connection as fast as we can with
+                    // unbounded query pipelining. If we hadn't fully
+                    // "hydrated" the inputs to this part of the system already, we
                     // could use a bounded pipeline here to allow backpressure from Postgres
                     // (or any intermediate component like TCP, tokio, etc.) to flow up to
                     // our inputs. But in this case, we just want to get `documents` done as
@@ -313,8 +358,9 @@ impl Persistence for PostgresPersistence {
                         // Use a `FuturesUnordered` to fork off concurrent work.
                         let mut futures = FuturesUnordered::new();
 
-                        // First, process all of the full document chunks, forking off insertions to
-                        // our `FuturesUnordered` set as we encounter them.
+                        // First, process all of the full document chunks, forking off
+                        // insertions to our `FuturesUnordered` set
+                        // as we encounter them.
                         let mut document_chunks = documents.chunks_exact(CHUNK_SIZE);
                         for chunk in &mut document_chunks {
                             let mut params = Vec::with_capacity(chunk.len() * NUM_DOCUMENT_PARAMS);
@@ -335,7 +381,8 @@ impl Persistence for PostgresPersistence {
                             futures.push(Either::Left(Either::Left(future)));
                         }
 
-                        // After we've inserted all the full document chunks, drain the remainder.
+                        // After we've inserted all the full document chunks, drain the
+                        // remainder.
                         for update in document_chunks.remainder() {
                             let params = document_params(
                                 update.ts,
@@ -401,7 +448,7 @@ impl Persistence for PostgresPersistence {
                     } else {
                         UNSET_READ_ONLY
                     };
-                    tx.execute(statement, &[]).await?;
+                    tx.execute_str(statement, &[]).await?;
                     Ok(())
                 }
                 .boxed()
@@ -436,7 +483,10 @@ impl Persistence for PostgresPersistence {
         cursor: Option<IndexEntry>,
         chunk_size: usize,
     ) -> anyhow::Result<Vec<IndexEntry>> {
-        let client = self.read_pool.get_connection("load_index_chunk").await?;
+        let client = self
+            .read_pool
+            .get_connection("load_index_chunk", &self.schema)
+            .await?;
         let stmt = client.prepare_cached(LOAD_INDEXES_PAGE).await?;
         let cursor_params = PostgresReader::_index_cursor_params(cursor.as_ref())?;
         let limit = chunk_size as i64;
@@ -523,6 +573,7 @@ pub struct PostgresReader {
     /// a follower.
     db_should_be_leader: bool,
     version: PersistenceVersion,
+    schema: SchemaName,
 }
 
 impl PostgresReader {
@@ -594,7 +645,10 @@ impl PostgresReader {
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
         let timer = metrics::load_documents_timer();
-        let client = self.read_pool.get_connection("load_documents").await?;
+        let client = self
+            .read_pool
+            .get_connection("load_documents", &self.schema)
+            .await?;
         let mut num_returned = 0;
         let mut last_ts = match order {
             Order::Asc => Timestamp::MIN,
@@ -730,7 +784,10 @@ impl PostgresReader {
         let _timer = metrics::query_index_timer();
         let (mut lower, mut upper) = to_sql_bounds(interval.clone());
 
-        let client = self.read_pool.get_connection("index_scan").await?;
+        let client = self
+            .read_pool
+            .get_connection("index_scan", &self.schema)
+            .await?;
         let mut stats = QueryIndexStats::new();
 
         // We use the size_hint to determine the batch size. This means in the
@@ -951,7 +1008,10 @@ impl PersistenceReader for PostgresReader {
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let timer = metrics::prev_revisions_timer();
 
-        let client = self.read_pool.get_connection("previous_revisions").await?;
+        let client = self
+            .read_pool
+            .get_connection("previous_revisions", &self.schema)
+            .await?;
         let (prev_rev_chunk, prev_rev) = try_join!(
             client.prepare_cached(PREV_REV_CHUNK),
             client.prepare_cached(PREV_REV)
@@ -1026,7 +1086,7 @@ impl PersistenceReader for PostgresReader {
 
         let client = self
             .read_pool
-            .get_connection("previous_revisions_of_documents")
+            .get_connection("previous_revisions_of_documents", &self.schema)
             .await?;
         let (exact_rev_chunk, exact_rev) = try_join!(
             client.prepare_cached(EXACT_REV_CHUNK),
@@ -1119,7 +1179,7 @@ impl PersistenceReader for PostgresReader {
     ) -> anyhow::Result<Option<JsonValue>> {
         let client = self
             .read_pool
-            .get_connection("get_persistence_global")
+            .get_connection("get_persistence_global", &self.schema)
             .await?;
         let stmt = client.prepare_cached(GET_PERSISTENCE_GLOBAL).await?;
         let params = vec![Param::PersistenceGlobalKey(key)];
@@ -1160,14 +1220,15 @@ impl PersistenceReader for PostgresReader {
 struct Lease {
     pool: ConvexPgPool,
     lease_ts: i64,
+    schema: SchemaName,
 }
 
 impl Lease {
     /// Acquire a lease. Blocks as long as there is another lease holder.
     /// Returns any transient errors encountered.
-    async fn acquire(pool: ConvexPgPool) -> anyhow::Result<Self> {
+    async fn acquire(pool: ConvexPgPool, schema: &SchemaName) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer();
-        let client = pool.get_connection("lease_acquire").await?;
+        let client = pool.get_connection("lease_acquire", schema).await?;
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("before 1970")
@@ -1183,7 +1244,11 @@ impl Lease {
         tracing::info!("lease acquired with ts {}", ts);
 
         timer.finish();
-        Ok(Self { pool, lease_ts: ts })
+        Ok(Self {
+            pool,
+            lease_ts: ts,
+            schema: schema.clone(),
+        })
     }
 
     /// Execute the transaction function f atomically ensuring that the lease is
@@ -1200,7 +1265,7 @@ impl Lease {
             &'b PostgresTransaction,
         ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'b>>,
     {
-        let mut client = self.pool.get_connection("transact").await?;
+        let mut client = self.pool.get_connection("transact", &self.schema).await?;
         let tx = client.transaction().await?;
 
         let timer = metrics::lease_precond_timer();
@@ -1332,7 +1397,8 @@ impl ToSql for Param {
 // needs to not only be idempotent but not to affect any already-resident data.
 // IF NOT EXISTS and ON CONFLICT are helpful.
 const INIT_SQL: &str = r#"
-        CREATE TABLE IF NOT EXISTS documents (
+        CREATE SCHEMA IF NOT EXISTS @db_name;
+        CREATE TABLE IF NOT EXISTS @db_name.documents (
             id BYTEA NOT NULL,
             ts BIGINT NOT NULL,
 
@@ -1345,14 +1411,14 @@ const INIT_SQL: &str = r#"
 
             PRIMARY KEY (ts, table_id, id)
         );
-        CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON documents (
+        CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON @db_name.documents (
             table_id, id, ts
         );
-        CREATE INDEX IF NOT EXISTS documents_by_table_ts_and_id ON documents (
+        CREATE INDEX IF NOT EXISTS documents_by_table_ts_and_id ON @db_name.documents (
             table_id, ts, id
         );
 
-        CREATE TABLE IF NOT EXISTS indexes (
+        CREATE TABLE IF NOT EXISTS @db_name.indexes (
             /* ids should be serialized as bytes but we keep it compatible with documents */
             index_id BYTEA NOT NULL,
             ts BIGINT NOT NULL,
@@ -1380,19 +1446,19 @@ const INIT_SQL: &str = r#"
 
             PRIMARY KEY (index_id, key_prefix, key_sha256, ts)
         );
-        CREATE TABLE IF NOT EXISTS leases (
+        CREATE TABLE IF NOT EXISTS @db_name.leases (
             id BIGINT NOT NULL,
             ts BIGINT NOT NULL,
 
             PRIMARY KEY (id)
         );
-        INSERT INTO leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;
-        CREATE TABLE IF NOT EXISTS read_only (
+        INSERT INTO @db_name.leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;
+        CREATE TABLE IF NOT EXISTS @db_name.read_only (
             id BIGINT NOT NULL,
 
             PRIMARY KEY (id)
         );
-        CREATE TABLE IF NOT EXISTS persistence_globals (
+        CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
             key TEXT NOT NULL,
             json_value BYTEA NOT NULL,
             PRIMARY KEY (key)
@@ -1410,7 +1476,7 @@ const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM documents
+    FROM @db_name.documents
     WHERE ts >= $1
     AND ts < $2
     AND (ts, table_id, id) > ($3, $4, $5)
@@ -1429,7 +1495,7 @@ const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM documents
+    FROM @db_name.documents
     WHERE ts >= $1
     AND ts < $2
     AND (ts, table_id, id) < ($3, $4, $5)
@@ -1437,19 +1503,19 @@ SELECT id, ts, table_id, json_value, deleted, prev_ts
     LIMIT $6
 "#;
 
-const INSERT_DOCUMENT: &str = r#"INSERT INTO documents
+const INSERT_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
     (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES ($1, $2, $3, $4, $5, $6)
 "#;
 
-const INSERT_OVERWRITE_DOCUMENT: &str = r#"INSERT INTO documents
+const INSERT_OVERWRITE_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
     (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (id, ts, table_id) DO UPDATE
     SET deleted = excluded.deleted, json_value = excluded.json_value
 "#;
 
-const INSERT_DOCUMENT_CHUNK: &str = r#"INSERT INTO documents
+const INSERT_DOCUMENT_CHUNK: &str = r#"INSERT INTO @db_name.documents
     (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES
         ($1, $2, $3, $4, $5, $6),
@@ -1462,7 +1528,7 @@ const INSERT_DOCUMENT_CHUNK: &str = r#"INSERT INTO documents
         ($43, $44, $45, $46, $47, $48)
 "#;
 
-const INSERT_OVERWRITE_DOCUMENT_CHUNK: &str = r#"INSERT INTO documents
+const INSERT_OVERWRITE_DOCUMENT_CHUNK: &str = r#"INSERT INTO @db_name.documents
     (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES
         ($1, $2, $3, $4, $5, $6),
@@ -1489,13 +1555,13 @@ const LOAD_INDEXES_PAGE: &str = r#"
 */
 SELECT
     index_id, key_prefix, key_sha256, key_suffix, ts, deleted
-    FROM indexes
+    FROM @db_name.indexes
     WHERE (index_id, key_prefix, key_sha256, ts) > ($1, $2, $3, $4)
     ORDER BY index_id ASC, key_prefix ASC, key_sha256 ASC, ts ASC
     LIMIT $5
 "#;
 
-const INSERT_INDEX: &str = r#"INSERT INTO indexes
+const INSERT_INDEX: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 "#;
@@ -1504,7 +1570,7 @@ const INSERT_INDEX: &str = r#"INSERT INTO indexes
 // part of the primary key, nor `key_suffix` as `key_sha256` is derived from the
 // prefix and suffix.
 // Only the fields that could have actually changed need to be updated.
-const INSERT_OVERWRITE_INDEX: &str = r#"INSERT INTO indexes
+const INSERT_OVERWRITE_INDEX: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (index_id, ts, key_prefix, key_sha256) DO UPDATE
@@ -1516,7 +1582,7 @@ const DELETE_INDEX: &str = r#"
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-DELETE FROM indexes WHERE
+DELETE FROM @db_name.indexes WHERE
     (index_id = $1 AND key_prefix = $2 AND key_sha256 = $3 AND ts <= $4)
 "#;
 
@@ -1525,11 +1591,11 @@ const DELETE_DOCUMENT: &str = r#"
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-DELETE FROM documents WHERE
+DELETE FROM @db_name.documents WHERE
     (table_id = $1 AND id = $2 AND ts <= $3)
 "#;
 
-const INSERT_INDEX_CHUNK: &str = r#"INSERT INTO indexes
+const INSERT_INDEX_CHUNK: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
     VALUES
         ($1, $2, $3, $4, $5, $6, $7, $8),
@@ -1542,7 +1608,7 @@ const INSERT_INDEX_CHUNK: &str = r#"INSERT INTO indexes
         ($57, $58, $59, $60, $61, $62, $63, $64)
 "#;
 
-const INSERT_OVERWRITE_INDEX_CHUNK: &str = r#"INSERT INTO indexes
+const INSERT_OVERWRITE_INDEX_CHUNK: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
     VALUES
         ($1, $2, $3, $4, $5, $6, $7, $8),
@@ -1562,7 +1628,7 @@ const DELETE_INDEX_CHUNK: &str = r#"
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-DELETE FROM indexes WHERE
+DELETE FROM @db_name.indexes WHERE
     (index_id = $1 AND key_prefix = $2 AND key_sha256 = $3 AND ts <= $4) OR
     (index_id = $5 AND key_prefix = $6 AND key_sha256 = $7 AND ts <= $8) OR
     (index_id = $9 AND key_prefix = $10 AND key_sha256 = $11 AND ts <= $12) OR
@@ -1578,7 +1644,7 @@ const DELETE_DOCUMENT_CHUNK: &str = r#"
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-DELETE FROM documents WHERE
+DELETE FROM @db_name.documents WHERE
     (table_id = $1 AND id = $2 AND ts <= $3) OR
     (table_id = $5 AND id = $6 AND ts <= $7) OR
     (table_id = $9 AND id = $10 AND ts <= $11) OR
@@ -1589,14 +1655,15 @@ DELETE FROM documents WHERE
     (table_id = $29 AND id = $30 AND ts <= $31)
 "#;
 
-const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO persistence_globals
+const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO @db_name.persistence_globals
     (key, json_value)
     VALUES ($1, $2)
     ON CONFLICT (key) DO UPDATE
     SET json_value = excluded.json_value
 "#;
 
-const GET_PERSISTENCE_GLOBAL: &str = "SELECT json_value FROM persistence_globals WHERE key = $1";
+const GET_PERSISTENCE_GLOBAL: &str =
+    "SELECT json_value FROM @db_name.persistence_globals WHERE key = $1";
 
 const CHUNK_SIZE: usize = 8;
 const NUM_DOCUMENT_PARAMS: usize = 6;
@@ -1606,20 +1673,20 @@ static PIPELINE_QUERIES: LazyLock<usize> = LazyLock::new(|| env_config("PIPELINE
 
 // Gross: after initialization, the first thing database does is insert metadata
 // documents.
-const CHECK_NEWLY_CREATED: &str = "SELECT 1 FROM documents LIMIT 1";
+const CHECK_NEWLY_CREATED: &str = "SELECT 1 FROM @db_name.documents LIMIT 1";
 
 // This table has no rows (not read_only) or 1 row (read_only), so if this query
 // returns any results, the persistence is read_only.
-const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM read_only LIMIT 1";
-const SET_READ_ONLY: &str = "INSERT INTO read_only (id) VALUES (1)";
-const UNSET_READ_ONLY: &str = "DELETE FROM read_only WHERE id = 1";
+const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM @db_name.read_only LIMIT 1";
+const SET_READ_ONLY: &str = "INSERT INTO @db_name.read_only (id) VALUES (1)";
+const UNSET_READ_ONLY: &str = "DELETE FROM @db_name.read_only WHERE id = 1";
 
 // If this query returns a result, the lease is still valid and will remain so
 // until the end of the transaction.
-const LEASE_PRECOND: &str = "SELECT 1 FROM leases WHERE id=1 AND ts=$1 FOR SHARE";
+const LEASE_PRECOND: &str = "SELECT 1 FROM @db_name.leases WHERE id=1 AND ts=$1 FOR SHARE";
 
 // Acquire the lease unless acquire by someone with a higher timestamp.
-const LEASE_ACQUIRE: &str = "UPDATE leases SET ts=$1 WHERE id=1 AND ts<$1";
+const LEASE_ACQUIRE: &str = "UPDATE @db_name.leases SET ts=$1 WHERE id=1 AND ts<$1";
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
 enum BoundType {
@@ -1714,14 +1781,14 @@ WITH RECURSIVE A AS (
         SELECT A1.index_id, A1.key_prefix, A1.key_sha256, A1.key_suffix, A2.ts, A2.deleted, A2.document_id, A3.table_id, A3.json_value, A3.prev_ts
         FROM (
             SELECT index_id, key_prefix, key_sha256, key_suffix
-            FROM indexes
+            FROM @db_name.indexes
             WHERE {where_clause}
             ORDER BY key_prefix {order_str}, key_sha256 {order_str}
             LIMIT 1
         ) A1,
         LATERAL (
             SELECT ts, deleted, table_id, document_id
-            FROM indexes
+            FROM @db_name.indexes
             WHERE index_id = A1.index_id
                 AND key_prefix = A1.key_prefix
                 AND key_sha256 = A1.key_sha256
@@ -1729,7 +1796,7 @@ WITH RECURSIVE A AS (
             ORDER BY ts DESC
             LIMIT 1
         ) A2
-        LEFT JOIN documents A3
+        LEFT JOIN @db_name.documents A3
         ON A2.ts = A3.ts
         AND A2.table_id = A3.table_id
         AND A2.document_id = A3.id
@@ -1739,7 +1806,7 @@ WITH RECURSIVE A AS (
         SELECT B1.index_id, B1.key_prefix, B1.key_sha256, B1.key_suffix, B2.ts, B2.deleted, B2.document_id, B3.table_id, B3.json_value, B3.prev_ts
         FROM (
             SELECT index_id, key_prefix, key_sha256, key_suffix
-            FROM indexes
+            FROM @db_name.indexes
             WHERE {where_clause}
             AND (key_prefix, key_sha256) {next_key_comparator} (A.key_prefix, A.key_sha256)
             ORDER BY key_prefix {order_str}, key_sha256 {order_str}
@@ -1747,7 +1814,7 @@ WITH RECURSIVE A AS (
         ) B1,
         LATERAL (
             SELECT ts, deleted, table_id, document_id
-            FROM indexes
+            FROM @db_name.indexes
             WHERE index_id = B1.index_id
                 AND key_prefix = B1.key_prefix
                 AND key_sha256 = B1.key_sha256
@@ -1755,7 +1822,7 @@ WITH RECURSIVE A AS (
             ORDER BY ts DESC
             LIMIT 1
         ) B2
-        LEFT JOIN documents B3
+        LEFT JOIN @db_name.documents B3
         ON B2.ts = B3.ts
         AND B2.table_id = B3.table_id
         AND B2.document_id = B3.id
@@ -1783,14 +1850,14 @@ const PREV_REV_CHUNK: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 WITH
-    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts FROM documents WHERE table_id = $1 AND id = $2 and ts < $3 ORDER BY ts DESC LIMIT 1),
-    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $6::BIGINT as query_ts FROM documents WHERE table_id = $4 AND id = $5 and ts < $6 ORDER BY ts DESC LIMIT 1),
-    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $9::BIGINT as query_ts FROM documents WHERE table_id = $7 AND id = $8 and ts < $9 ORDER BY ts DESC LIMIT 1),
-    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM documents WHERE table_id = $10 AND id = $11 and ts < $12 ORDER BY ts DESC LIMIT 1),
-    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $15::BIGINT as query_ts FROM documents WHERE table_id = $13 AND id = $14 and ts < $15 ORDER BY ts DESC LIMIT 1),
-    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $18::BIGINT as query_ts FROM documents WHERE table_id = $16 AND id = $17 and ts < $18 ORDER BY ts DESC LIMIT 1),
-    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $21::BIGINT as query_ts FROM documents WHERE table_id = $19 AND id = $20 and ts < $21 ORDER BY ts DESC LIMIT 1),
-    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM documents WHERE table_id = $22 AND id = $23 and ts < $24 ORDER BY ts DESC LIMIT 1)
+    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $1 AND id = $2 and ts < $3 ORDER BY ts DESC LIMIT 1),
+    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $6::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $4 AND id = $5 and ts < $6 ORDER BY ts DESC LIMIT 1),
+    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $9::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $7 AND id = $8 and ts < $9 ORDER BY ts DESC LIMIT 1),
+    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $10 AND id = $11 and ts < $12 ORDER BY ts DESC LIMIT 1),
+    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $15::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $13 AND id = $14 and ts < $15 ORDER BY ts DESC LIMIT 1),
+    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $18::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $16 AND id = $17 and ts < $18 ORDER BY ts DESC LIMIT 1),
+    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $21::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $19 AND id = $20 and ts < $21 ORDER BY ts DESC LIMIT 1),
+    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $22 AND id = $23 and ts < $24 ORDER BY ts DESC LIMIT 1)
 SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q1
 UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q2
 UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q3
@@ -1812,7 +1879,7 @@ const PREV_REV: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts
-FROM documents
+FROM @db_name.documents
 WHERE
     table_id = $1 AND
     id = $2 AND
@@ -1832,14 +1899,14 @@ const EXACT_REV_CHUNK: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 WITH
-    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts FROM documents WHERE table_id = $1 AND id = $2 and ts = $3),
-    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $8::BIGINT as query_ts FROM documents WHERE table_id = $5 AND id = $6 and ts = $7),
-    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM documents WHERE table_id = $9 AND id = $10 and ts = $11),
-    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $16::BIGINT as query_ts FROM documents WHERE table_id = $13 AND id = $14 and ts = $15),
-    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $20::BIGINT as query_ts FROM documents WHERE table_id = $17 AND id = $18 and ts = $19),
-    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM documents WHERE table_id = $21 AND id = $22 and ts = $23),
-    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $28::BIGINT as query_ts FROM documents WHERE table_id = $25 AND id = $26 and ts = $27),
-    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $32::BIGINT as query_ts FROM documents WHERE table_id = $29 AND id = $30 and ts = $31)
+    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $1 AND id = $2 and ts = $3),
+    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $8::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $5 AND id = $6 and ts = $7),
+    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $9 AND id = $10 and ts = $11),
+    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $16::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $13 AND id = $14 and ts = $15),
+    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $20::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $17 AND id = $18 and ts = $19),
+    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $21 AND id = $22 and ts = $23),
+    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $28::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $25 AND id = $26 and ts = $27),
+    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $32::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $29 AND id = $30 and ts = $31)
 SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q1
 UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q2
 UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q3
@@ -1861,7 +1928,7 @@ const EXACT_REV: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts
-FROM documents
+FROM @db_name.documents
 WHERE
     table_id = $1 AND
     id = $2 AND

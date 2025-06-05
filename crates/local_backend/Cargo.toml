@@ -23,6 +23,7 @@ cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 convex_fivetran_destination = { path = "../fivetran_destination" }
 database = { path = "../database" }
+db_connection = { path = "../db_connection" }
 either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
@@ -77,6 +78,7 @@ clusters = { path = "../clusters", features = ["testing"] }
 common = { path = "../common", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
 database = { path = "../database", features = ["testing"] }
+db_connection = { path = "../db_connection", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
 events = { path = "../events", features = ["testing"] }
 function_runner = { path = "../function_runner", features = ["testing"] }
@@ -127,6 +129,7 @@ testing = [
     "events/testing",
     "node_executor/testing",
     "sync/testing",
+    "db_connection/testing",
 ]
 
 [lints]

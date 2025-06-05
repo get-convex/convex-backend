@@ -6,9 +6,10 @@ mod db_driver_tag;
 
 pub use db_driver_tag::DbDriverTag;
 
-pub struct PersistenceArgs {
-    pub url: Url,
-    pub db_name: String,
+#[derive(Debug)]
+pub enum PersistenceArgs {
+    MySql { url: Url, db_name: String },
+    Postgres { url: Url, schema: Option<String> },
 }
 
 /// Returns a fully qualified persistence url from a cluster url. The result URL
@@ -21,12 +22,6 @@ pub fn persistence_args_from_cluster_url(
     driver: DbDriverTag,
     require_ssl: bool,
 ) -> anyhow::Result<PersistenceArgs> {
-    let db_name = instance_name.replace('-', "_");
-    anyhow::ensure!(
-        cluster_url.path() == "" || cluster_url.path() == "/",
-        "cluster url already contains db name: {}",
-        cluster_url.path()
-    );
     anyhow::ensure!(
         cluster_url.query().is_none(),
         "cluster url already contains query string: {:?}",
@@ -38,50 +33,67 @@ pub fn persistence_args_from_cluster_url(
         "cluster url username must be set",
     );
     match driver {
-        DbDriverTag::Postgres(_) => {
-            cluster_url.set_path(&db_name);
+        DbDriverTag::Postgres(_) | DbDriverTag::PostgresAwsIam(_) => {
+            // NOTE: for PostgresAwsIam we do not set any database so we can
+            // reuse connections between databases
+            let schema = if matches!(driver, DbDriverTag::PostgresAwsIam(_)) {
+                // N.B.: unlike mysql we use the instance name as-is as a schema
+                // name (we don't change - to _)
+                Some(instance_name.to_string())
+            } else {
+                // selfhosted case
+                let db_name = instance_name.replace('-', "_");
+                anyhow::ensure!(
+                    cluster_url.path() == "" || cluster_url.path() == "/",
+                    "cluster url already contains db name: {}",
+                    cluster_url.path()
+                );
+                cluster_url.set_path(&db_name);
+                None
+            };
             if require_ssl {
                 cluster_url
                     .query_pairs_mut()
                     .append_pair("sslmode", "require");
             }
+            Ok(PersistenceArgs::Postgres {
+                url: cluster_url,
+                schema,
+            })
         },
-        DbDriverTag::PostgresAwsIam(_) => {
-            cluster_url.set_path(&db_name);
-            if require_ssl {
-                cluster_url
-                    .query_pairs_mut()
-                    .append_pair("sslmode", "require");
-            }
-        },
-        DbDriverTag::MySql(_) => {
+        DbDriverTag::MySql(_) | DbDriverTag::MySqlAwsIam(_) => {
             // NOTE: We do not set any database so we can reuse connections between
             // database. The persistence layer will select the correct database.
-            if require_ssl {
-                cluster_url
-                    .query_pairs_mut()
-                    .append_pair("require_ssl", "true")
-                    .append_pair("verify_ca", "true");
+            match driver {
+                DbDriverTag::MySql(_) => {
+                    if require_ssl {
+                        cluster_url
+                            .query_pairs_mut()
+                            .append_pair("require_ssl", "true")
+                            .append_pair("verify_ca", "true");
+                    }
+                },
+                DbDriverTag::MySqlAwsIam(_) => {
+                    // always require SSL
+                    cluster_url
+                        .query_pairs_mut()
+                        .append_pair("require_ssl", "true")
+                        .append_pair("verify_ca", "false");
+                },
+                _ => (),
             }
-        },
-        DbDriverTag::MySqlAwsIam(_) => {
-            // NOTE: We do not set any database so we can reuse connections between
-            // database. The persistence layer will select the correct database.
-            cluster_url
-                .query_pairs_mut()
-                .append_pair("require_ssl", "true")
-                .append_pair("verify_ca", "false");
+            let db_name = instance_name.replace('-', "_");
+            Ok(PersistenceArgs::MySql {
+                url: cluster_url,
+                db_name,
+            })
         },
         DbDriverTag::Sqlite => anyhow::bail!("no url for sqlite"),
         #[cfg(any(test, feature = "testing"))]
         DbDriverTag::TestPersistence => {
             anyhow::bail!("no url for test persistence")
         },
-    };
-    Ok(PersistenceArgs {
-        url: cluster_url,
-        db_name,
-    })
+    }
 }
 
 // Parse a single line with format "db-name=URL".
