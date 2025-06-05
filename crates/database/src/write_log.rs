@@ -4,7 +4,6 @@ use std::{
         BTreeMap,
         VecDeque,
     },
-    mem,
     sync::Arc,
 };
 
@@ -56,9 +55,7 @@ pub struct PackedDocumentUpdate {
 
 impl HeapSize for PackedDocumentUpdate {
     fn heap_size(&self) -> usize {
-        mem::size_of::<ResolvedDocumentId>()
-            + self.old_document.heap_size()
-            + self.new_document.heap_size()
+        self.old_document.heap_size() + self.new_document.heap_size()
     }
 }
 
