@@ -4306,13 +4306,19 @@
           "id",
           "name",
           "slug",
-          "creator",
           "suspended",
           "referralCode"
         ],
         "properties": {
           "creator": {
-            "$ref": "#/components/schemas/MemberId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId"
+              }
+            ]
           },
           "id": {
             "$ref": "#/components/schemas/TeamId"

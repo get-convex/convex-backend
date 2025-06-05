@@ -1927,7 +1927,7 @@ export interface components {
         /** @enum {string} */
         SpendingLimitsState: "Running" | "Disabled" | "Warning";
         Team: {
-            creator: components["schemas"]["MemberId"];
+            creator?: null | components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
             name: components["schemas"]["TeamName"];
             referralCode: components["schemas"]["ReferralCode"];
