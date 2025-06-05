@@ -1,5 +1,8 @@
 #![feature(try_blocks)]
 
+/// To run this test, download the datasets from https://www.dropbox.com/sh/f0q1o7tbfuissm8/AAAkB-JggUKL7KFCtl1nsRf1a?dl=0
+/// and run `DATASET=/location/to/datasets/ cargo bench -p database --bench
+/// subscriptions --features testing`
 use std::{
     collections::{
         BTreeMap,
@@ -72,7 +75,7 @@ struct SearchDocument {
 
 fn path() -> String {
     env::var("DATASET").expect(
-        "Set the `DATASET` variable to point to the test dataset (ask Sujay for the dataset)",
+        "Set the `DATASET` variable to point to the test dataset (https://www.dropbox.com/sh/f0q1o7tbfuissm8/AAAkB-JggUKL7KFCtl1nsRf1a?dl=0)",
     )
 }
 
