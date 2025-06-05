@@ -136,9 +136,9 @@ class SubtleCrypto {
     }
     switch (normalizedAlgorithm.name) {
       case "AES-GCM":
-        if (![16, 32].includes(innerKey.data.length)) {
+        if (![16, 24, 32].includes(innerKey.data.length)) {
           throwUncatchableDeveloperError(
-            `Unsupported AES-GCM key length: ${innerKey.data.length * 8}; only 128 and 256 bit keys supported`,
+            `Unsupported AES-GCM key length: ${innerKey.data.length * 8}; only 128, 192, and 256 bit keys supported`,
           );
         }
         break;
@@ -177,15 +177,29 @@ class SubtleCrypto {
     }
     switch (normalizedAlgorithm.name) {
       case "AES-GCM":
-        if (![16, 32].includes(innerKey.data.length)) {
+        if (![16, 24, 32].includes(innerKey.data.length)) {
           throwUncatchableDeveloperError(
             `Unsupported AES-GCM key length: ${innerKey.data.length * 8}`,
           );
         }
+        if (dataCopy.byteLength < normalizedAlgorithm.tagLength / 8) {
+          throw new DOMException(
+            "The provided data is too small.",
+            "OperationError",
+          );
+        }
         break;
     }
-    return performOp("crypto/decrypt", normalizedAlgorithm, innerKey, dataCopy)
-      .buffer;
+    const result = performOp(
+      "crypto/decrypt",
+      normalizedAlgorithm,
+      innerKey,
+      dataCopy,
+    );
+    if (result === null) {
+      throw new DOMException("Decryption failed", "OperationError");
+    }
+    return result.buffer;
   }
 
   async sign(

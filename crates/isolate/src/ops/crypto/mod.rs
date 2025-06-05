@@ -21,6 +21,7 @@ use aws_lc_rs::{
     },
     agreement::Algorithm as RingAlgorithm,
     digest,
+    error::Unspecified,
     hmac::{
         Algorithm as HmacAlgorithm,
         Key as HmacKey,
@@ -172,8 +173,8 @@ pub fn op_crypto_decrypt<'b, P: OpProvider<'b>>(
     algorithm: EncryptDecryptAlgorithm,
     key: KeyData,
     data: ByteBuf,
-) -> anyhow::Result<ToJsBuffer> {
-    Ok(CryptoOps::subtle_decrypt(algorithm, key, data.into_vec())?.into())
+) -> anyhow::Result<Option<ToJsBuffer>> {
+    Ok(CryptoOps::subtle_decrypt(algorithm, key, data.into_vec())?.map(ToJsBuffer::from))
 }
 
 #[convex_macro::v8_op]
@@ -769,6 +770,7 @@ impl CryptoOps {
                 anyhow::ensure!(matches!(key.r#type, KeyType::Secret));
                 let alg = match key.data.len() {
                     16 => &aead::AES_128_GCM,
+                    24 => &aead::AES_192_GCM,
                     32 => &aead::AES_256_GCM,
                     _ => anyhow::bail!("unsupported key length {}", key.data.len()),
                 };
@@ -798,11 +800,13 @@ impl CryptoOps {
         }
     }
 
+    /// Returns `None` if decryption failed due to invalid data (e.g. missing or
+    /// incorrect tag)
     pub fn subtle_decrypt(
         algorithm: EncryptDecryptAlgorithm,
         key: KeyData,
         mut data: Vec<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> anyhow::Result<Option<Vec<u8>>> {
         match algorithm {
             EncryptDecryptAlgorithm::AesGcm {
                 iv,
@@ -812,6 +816,7 @@ impl CryptoOps {
                 anyhow::ensure!(matches!(key.r#type, KeyType::Secret));
                 let alg = match key.data.len() {
                     16 => &aead::AES_128_GCM,
+                    24 => &aead::AES_192_GCM,
                     32 => &aead::AES_256_GCM,
                     _ => anyhow::bail!("unsupported key length {}", key.data.len()),
                 };
@@ -824,19 +829,18 @@ impl CryptoOps {
                         .ok()
                         .context("invalid AES-GCM key")?,
                 );
-                let plaintext_len = key
-                    .open_in_place(
-                        Nonce::try_assume_unique_for_key(&iv)
-                            .ok()
-                            .context("wrong AES-GCM IV length")?,
-                        Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
-                        &mut data,
-                    )
-                    .ok()
-                    .context("AES-GCM decryption failed")?
-                    .len();
+                let plaintext_len = match key.open_in_place(
+                    Nonce::try_assume_unique_for_key(&iv)
+                        .ok()
+                        .context("wrong AES-GCM IV length")?,
+                    Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
+                    &mut data,
+                ) {
+                    Ok(plaintext) => plaintext.len(),
+                    Err(Unspecified) => return Ok(None),
+                };
                 data.truncate(plaintext_len);
-                Ok(data)
+                Ok(Some(data))
             },
         }
     }

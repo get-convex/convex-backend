@@ -1400,6 +1400,24 @@ async function testAesGcmEncrypt() {
     assert(plainText instanceof ArrayBuffer);
     assert.strictEqual(plainText.byteLength, 3);
     assert.deepEqual(new Uint8Array(plainText), data);
+
+    const wrongCiphertext = new Uint8Array(cipherText);
+    wrongCiphertext[0] = (wrongCiphertext[0] + 1) & 0xff;
+    await expect(
+      crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherText),
+    )
+      .to.eventually.be.rejectedWith(DOMException, "Decryption failed")
+      .and.have.property("name", "OperationError");
+
+    // missing tag
+    await expect(
+      crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, new Uint8Array()),
+    )
+      .to.eventually.be.rejectedWith(
+        DOMException,
+        "The provided data is too small.",
+      )
+      .and.have.property("name", "OperationError");
   }
 }
 
