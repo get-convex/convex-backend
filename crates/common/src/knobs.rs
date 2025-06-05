@@ -1284,10 +1284,6 @@ pub static LIST_SNAPSHOT_MAX_AGE_SECS: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("LIST_SNAPSHOT_MAX_AGE_SECS", 30 * 24 * 60 * 60))
 });
 
-/// Whether to use the LegacyEncryptor to create tokens
-pub static USE_LEGACY_ENCRYPTOR: LazyLock<bool> =
-    LazyLock::new(|| env_config("USE_LEGACY_ENCRYPTOR", true));
-
 /// The length of the SubscriptionsWorker's input queue.
 /// If the worker starts to lag then subscriptions will fail once this many
 /// messages are unread.

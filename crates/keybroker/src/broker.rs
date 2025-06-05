@@ -778,17 +778,6 @@ pub fn cursor_parse_error() -> ErrorMetadata {
     ErrorMetadata::bad_request("InvalidCursor", "Failed to parse cursor")
 }
 
-// TODO: get rid of this after a push cycle and always use the derived encryptor
-macro_rules! encrypt_proto {
-    ($self:ident.$derived_encryptor:ident.encrypt_proto($version:expr, &$proto:expr $(,)?)) => {
-        if *common::knobs::USE_LEGACY_ENCRYPTOR {
-            $self.encryptor.encode_proto($version, $proto)
-        } else {
-            $self.$derived_encryptor.encrypt_proto($version, &$proto)
-        }
-    };
-}
-
 impl KeyBroker {
     pub fn new(instance_name: &str, instance_secret: InstanceSecret) -> anyhow::Result<Self> {
         Ok(Self {
@@ -856,9 +845,8 @@ impl KeyBroker {
             anyhow::bail!("Could not issue authorization. Issued TS too far in past.");
         }
         let component_str = component.serialize_to_string();
-        Ok(StoreFileAuthorization(encrypt_proto!(self
-            .store_file_encryptor
-            .encrypt_proto(
+        Ok(StoreFileAuthorization(
+            self.store_file_encryptor.encrypt_proto(
                 STORE_FILE_AUTHZ_VERSION,
                 &StorageTokenProto {
                     instance_name: self.instance_name.clone(),
@@ -866,7 +854,8 @@ impl KeyBroker {
                     authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
                     component_id: component_str,
                 },
-            ))))
+            ),
+        ))
     }
 
     /// Private helper method to generate an admin key.
@@ -890,9 +879,9 @@ impl KeyBroker {
         };
         format_admin_key(
             &self.instance_name,
-            &encrypt_proto!(self
+            &self
                 .admin_key_encryptor
-                .encrypt_proto(ADMIN_KEY_VERSION, &proto)),
+                .encrypt_proto(ADMIN_KEY_VERSION, &proto),
         )
     }
 
@@ -1048,7 +1037,7 @@ impl KeyBroker {
     ) -> SerializedCursor {
         let proto = self.cursor_to_proto(cursor);
         let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
-        encrypt_proto!(self.cursor_encryptor.encrypt_proto(cursor_version, &proto))
+        self.cursor_encryptor.encrypt_proto(cursor_version, &proto)
     }
 
     /// Attempts to decrypt and deserialize the EncryptedCursor. May fail if the
@@ -1078,9 +1067,10 @@ impl KeyBroker {
             None => return None,
         };
         let proto = InstanceQueryJournalProto { end_cursor: cursor };
-        Some(encrypt_proto!(self
-            .journal_encryptor
-            .encrypt_proto(query_journal_version, &proto)))
+        Some(
+            self.journal_encryptor
+                .encrypt_proto(query_journal_version, &proto),
+        )
     }
 
     pub fn decrypt_query_journal(
@@ -1120,9 +1110,8 @@ impl KeyBroker {
             component_id: component_id.serialize_to_string(),
         };
 
-        encrypt_proto!(self
-            .action_callback_encryptor
-            .encrypt_proto(ACTION_KEY_VERSION, &proto))
+        self.action_callback_encryptor
+            .encrypt_proto(ACTION_KEY_VERSION, &proto)
     }
 
     // Checks the action token and returns its issue time.
@@ -1338,7 +1327,7 @@ mod tests {
         });
         let serialized_journal_with_cursor =
             kb.encrypt_query_journal(&journal_with_cursor, PersistenceVersion::default());
-        assert_eq!(serialized_journal_with_cursor.unwrap().len(), 252);
+        assert_eq!(serialized_journal_with_cursor.unwrap().len(), 228);
         Ok(())
     }
 
