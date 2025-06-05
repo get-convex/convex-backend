@@ -364,14 +364,39 @@ pub struct ConsoleClaims {
     // domain name.
     #[serde(rename = "https://convex.dev/email")]
     email: String,
+    // This is a custom claim that is only included when the user logs in via Vercel.
+    #[serde(rename = "https://convex.dev/vercel")]
+    vercel: Option<VercelClaims>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum VercelUserRole {
+    ADMIN,
+    USER,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VercelClaims {
+    // The installation_id is the id of the vercel integration installation.
+    // We use it to decide which team a member should belong to if they're logging
+    // in via Vercel.
+    installation_id: String,
+    // Obfuscated id of the vercel team.
+    account_id: String,
+    // The user role is the role of the user in the vercel team.
+    // We use it to decide whether the user should be an admin or developer.
+    user_role: VercelUserRole,
+}
+
 #[derive(Clone, Debug)]
 pub struct ConsoleAccessToken {
     email: String,
     sub: String,
     name: Option<String>,
     nickname: Option<String>,
+    vercel: Option<VercelClaims>,
 }
+
 impl ConsoleAccessToken {
     #[cfg(any(test, feature = "testing"))]
     pub fn new(email: String, sub: String) -> Self {
@@ -380,6 +405,7 @@ impl ConsoleAccessToken {
             sub,
             name: None,
             nickname: None,
+            vercel: None,
         }
     }
 
@@ -394,6 +420,7 @@ impl From<ConsoleAccessToken> for UserInfo {
             email: value.email,
             name: value.name,
             nickname: value.nickname,
+            vercel: value.vercel,
         }
     }
 }
@@ -404,6 +431,7 @@ pub struct UserInfo {
     nickname: Option<String>,
     name: Option<String>,
     email: String,
+    vercel: Option<VercelClaims>,
 }
 
 impl UserInfo {
@@ -417,6 +445,10 @@ impl UserInfo {
 
     pub fn email(&self) -> &str {
         &self.email
+    }
+
+    pub fn vercel_info(&self) -> Option<&VercelClaims> {
+        self.vercel.as_ref()
     }
 }
 
@@ -561,6 +593,7 @@ where
             .as_ref()
             .expect("Already validated subject is present")
             .to_owned(),
+        vercel: claims.private.vercel.clone(),
         // TODO(sarah) read these from the token if possible
         nickname: None,
         name: None,
