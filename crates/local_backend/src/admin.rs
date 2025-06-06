@@ -1,7 +1,9 @@
-use anyhow::Context;
 use authentication::application_auth::ApplicationAuth;
 use common::types::MemberId;
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use keybroker::{
     AdminIdentityPrincipal,
     Identity,
@@ -32,7 +34,17 @@ async fn must_be_admin_from_key_internal(
     let identity = app_auth
         .check_key(admin_key_or_access_token, instance_name.clone())
         .await
-        .context(bad_admin_key_error(Some(instance_name)))?;
+        .map_err(|e| {
+            if e.is_forbidden() {
+                // This attaches a second ErrorMetadata to the error, but this
+                // message is more helpful
+                e.context(bad_admin_key_error(Some(instance_name)))
+            } else {
+                // This is a server error of some kind, not an issue with the
+                // key itself
+                e
+            }
+        })?;
     if needs_write_access {
         must_be_admin_with_write_access(&identity)?;
     }

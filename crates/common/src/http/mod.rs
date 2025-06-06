@@ -489,14 +489,16 @@ impl HttpError {
         }
     }
 
-    pub async fn error_message_from_bytes(
+    pub fn error_message_from_bytes(
         bytes: &[u8],
     ) -> anyhow::Result<(Cow<'static, str>, Cow<'static, str>)> {
         let ResponseErrorMessage { code, message } =
-            serde_json::from_slice(bytes).context(format!(
-                "Couldn't deserialize as json: {}",
-                String::from_utf8_lossy(bytes)
-            ))?;
+            serde_json::from_slice(bytes).with_context(|| {
+                format!(
+                    "Couldn't deserialize as json: {}",
+                    String::from_utf8_lossy(bytes)
+                )
+            })?;
 
         Ok((code, message))
     }
@@ -509,8 +511,7 @@ impl HttpError {
                 .await
                 .expect("Couldn't collect body")
                 .to_bytes(),
-        )
-        .await?;
+        )?;
 
         Ok(Self {
             status_code: parts.status,
