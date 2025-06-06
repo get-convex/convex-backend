@@ -153,7 +153,22 @@ const completeSplitQuery =
  * @param args - The arguments object for the query function, excluding
  * the `paginationOpts` property. That property is injected by this hook.
  * @param options - An object specifying the `initialNumItems` to be loaded in
- * the first page.
+ * the first page, and the `endCursorBehavior` to use.
+ * @param options.endCursorBehavior` controls how the `endCursor` is set on the
+ * last loaded page. The current behavior is to have the first request for a page
+ * "pin" the end of the page to the `endCursor` returned in the first request.
+ * This shows up as your first request growing as new items are added within
+ * the range of the initial page. This is tracked via a QueryJournal, which is
+ * not shared between clients and can have unexpected behavior, so we will be
+ * deprecating this behavior in favor of the new option `setOnLoadMore`.
+ * For `setOnLoadMore`, the `endCursor` is not inferred from the first request,
+ * instead the first call to `loadMore` will explicitly set the `endCursor` to
+ * the `continueCursor` of the last page. In the future this will not use the
+ * QueryJournal and will become the default behavior, resulting in the first
+ * page staying at the same size as `initialNumItems` until you call `loadMore`.
+ * Note: setting the `endCursor` on the request will re-request that page with
+ * the new argument, causing an effectively duplicate request per `loadMore`.
+ *
  * @returns A {@link UsePaginatedQueryResult} that includes the currently loaded
  * items, the status of the pagination, and a `loadMore` function.
  *
@@ -162,7 +177,10 @@ const completeSplitQuery =
 export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   query: Query,
   args: PaginatedQueryArgs<Query> | "skip",
-  options: { initialNumItems: number },
+  options: {
+    initialNumItems: number;
+    endCursorBehavior?: "setOnLoadMore" | "legacyQueryJournal";
+  },
 ): UsePaginatedQueryReturnType<Query> {
   if (
     typeof options?.initialNumItems !== "number" ||
@@ -353,9 +371,33 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
         if (!alreadyLoadingMore) {
           alreadyLoadingMore = true;
           setState((prevState) => {
-            const pageKeys = [...prevState.pageKeys, prevState.nextPageKey];
+            let nextPageKey = prevState.nextPageKey;
             const queries = { ...prevState.queries };
-            queries[prevState.nextPageKey] = {
+            let ongoingSplits = prevState.ongoingSplits;
+            let pageKeys = prevState.pageKeys;
+            if (options.endCursorBehavior === "setOnLoadMore") {
+              const lastPageKey = prevState.pageKeys.at(-1)!;
+              const boundLastPageKey = nextPageKey;
+              queries[boundLastPageKey] = {
+                query: prevState.query,
+                args: {
+                  ...prevState.args,
+                  paginationOpts: {
+                    ...(queries[lastPageKey]!.args
+                      .paginationOpts as unknown as PaginationOptions),
+                    endCursor: continueCursor,
+                  },
+                },
+              };
+              nextPageKey++;
+              ongoingSplits = {
+                ...ongoingSplits,
+                [lastPageKey]: [boundLastPageKey, nextPageKey],
+              };
+            } else {
+              pageKeys = [...prevState.pageKeys, nextPageKey];
+            }
+            queries[nextPageKey] = {
               query: prevState.query,
               args: {
                 ...prevState.args,
@@ -366,17 +408,19 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
                 },
               },
             };
+            nextPageKey++;
             return {
               ...prevState,
-              nextPageKey: prevState.nextPageKey + 1,
               pageKeys,
+              nextPageKey,
               queries,
+              ongoingSplits,
             };
           });
         }
       },
     } as const;
-  }, [maybeLastResult, currState.nextPageKey]);
+  }, [maybeLastResult, currState.nextPageKey, options.endCursorBehavior]);
 
   return {
     results,
