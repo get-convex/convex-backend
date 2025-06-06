@@ -15,7 +15,7 @@ use common::{
         PackedDocument,
     },
     index::IndexKeyBytes,
-    query::search_value_to_bytes,
+    query::FilterValue,
     types::{
         SubscriberId,
         TabletIndexName,
@@ -714,7 +714,7 @@ impl HeapSize for TextQueryTermRead {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FilterConditionRead {
-    Must(FieldPath, Vec<u8>),
+    Must(FieldPath, FilterValue),
 }
 
 impl HeapSize for FilterConditionRead {
@@ -911,7 +911,7 @@ impl QueryReads {
         for filter_condition in &self.filter_conditions {
             let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
             let document_value = document.value().get_path(field_path);
-            let document_value = search_value_to_bytes(document_value.as_ref());
+            let document_value = FilterValue::from_search_value(document_value.as_ref());
             // If the document doesn't match the filter condition, we can skip checking
             // fuzzy terms
             if document_value != *filter_value {
@@ -997,7 +997,7 @@ impl TextSearchSubscriptions {
                 for filter_condition in filter_conditions {
                     let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
                     let document_value = document.value().get_path(field_path);
-                    let document_value = search_value_to_bytes(document_value.as_ref());
+                    let document_value = FilterValue::from_search_value(document_value.as_ref());
 
                     if document_value == *filter_value {
                         metrics::log_query_reads_outcome(true);

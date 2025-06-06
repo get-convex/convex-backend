@@ -560,7 +560,7 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
-        query::search_value_to_bytes,
+        query::FilterValue,
         testing::TestIdGenerator,
         types::{
             IndexDescriptor,
@@ -977,7 +977,7 @@ mod tests {
             vec![].into(),
             vec![FilterConditionRead::Must(
                 FieldPath::from_str("nullField")?,
-                search_value_to_bytes(Some(&ConvexValue::Null)),
+                FilterValue::from_search_value(Some(&ConvexValue::Null)),
             )]
             .into(),
         );
@@ -1054,7 +1054,7 @@ mod tests {
             .into(),
             vec![FilterConditionRead::Must(
                 FieldPath::from_str("nullField")?,
-                search_value_to_bytes(Some(&ConvexValue::Null)),
+                FilterValue::from_search_value(Some(&ConvexValue::Null)),
             )]
             .into(),
         );

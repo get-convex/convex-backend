@@ -4,9 +4,16 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     io::Write,
-    ops::Bound,
+    ops::{
+        Bound,
+        Deref,
+    },
 };
 
+use derive_more::{
+    From,
+    Into,
+};
 use errors::ErrorMetadata;
 use itertools::{
     Either,
@@ -555,17 +562,43 @@ impl InternalSearch {
 const MAX_FILTER_FIELD_LENGTH: usize = 32;
 const UNDEFINED_TAG: u8 = 0x1;
 
-pub fn search_value_to_bytes(value: Option<&ConvexValue>) -> Vec<u8> {
-    let sort_key = match value {
-        Some(value) => value.sort_key(),
-        None => vec![UNDEFINED_TAG],
-    };
-    if sort_key.len() < MAX_FILTER_FIELD_LENGTH {
-        sort_key
-    } else {
-        let hashed_value = CommonSha256::hash(&sort_key);
-        Vec::<u8>::from(*hashed_value)
+/// A bytes representation of a value in a document that we filter on with a
+/// must clause.
+#[derive(Debug, Clone, PartialEq, Eq, From, Into)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct FilterValue(Vec<u8>);
+
+impl FilterValue {
+    pub fn from_search_value(value: Option<&ConvexValue>) -> Self {
+        let sort_key = match value {
+            Some(value) => value.sort_key(),
+            None => vec![UNDEFINED_TAG],
+        };
+        if sort_key.len() < MAX_FILTER_FIELD_LENGTH {
+            Self(sort_key)
+        } else {
+            let hashed_value = CommonSha256::hash(&sort_key);
+            Self(Vec::<u8>::from(*hashed_value))
+        }
     }
+}
+
+impl Deref for FilterValue {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl HeapSize for FilterValue {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
+    }
+}
+
+pub fn search_value_to_bytes(value: Option<&ConvexValue>) -> Vec<u8> {
+    FilterValue::from_search_value(value).into()
 }
 
 /// Filters to apply while querying a search index.
@@ -580,16 +613,17 @@ pub enum SearchFilterExpression {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum InternalSearchFilterExpression {
     Search(FieldPath, String),
-    Eq(FieldPath, Vec<u8>),
+    Eq(FieldPath, FilterValue),
 }
 
 impl SearchFilterExpression {
     pub fn to_internal(self) -> anyhow::Result<InternalSearchFilterExpression> {
         let expression = match self {
             Self::Search(field, s) => InternalSearchFilterExpression::Search(field, s),
-            Self::Eq(field, v) => {
-                InternalSearchFilterExpression::Eq(field, search_value_to_bytes(v.as_ref()))
-            },
+            Self::Eq(field, v) => InternalSearchFilterExpression::Eq(
+                field,
+                FilterValue::from_search_value(v.as_ref()),
+            ),
         };
         Ok(expression)
     }
