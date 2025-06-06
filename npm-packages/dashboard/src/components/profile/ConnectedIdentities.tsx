@@ -34,9 +34,6 @@ export function ConnectedIdentities() {
   );
   const [providerToLink, setProviderToLink] = useState<string | null>(null);
 
-  // user.sub is like "provider|id"; we want the part after the first pipe
-  const primaryId = user?.sub?.split("|")[1];
-
   // Find which providers are already connected
   const connectedProviders = new Set(
     identities?.map((identity) => {
@@ -82,6 +79,10 @@ export function ConnectedIdentities() {
           <div className="flex w-full flex-col gap-4">
             <div className="flex flex-col">
               {identities?.map((identity) => {
+                // user.sub is like "provider|id"; we want everything after provider|
+                const primaryId = user?.sub?.substring(
+                  user.sub.indexOf("|") + 1,
+                );
                 const isPrimary = identity.userId === primaryId;
                 return (
                   <div
