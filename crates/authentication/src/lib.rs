@@ -366,7 +366,7 @@ pub struct ConsoleClaims {
     email: String,
     // This is a custom claim that is only included when the user logs in via Vercel.
     #[serde(rename = "https://convex.dev/vercel")]
-    vercel: Option<VercelClaims>,
+    vercel: Option<Vec<VercelClaims>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -394,7 +394,7 @@ pub struct ConsoleAccessToken {
     sub: String,
     name: Option<String>,
     nickname: Option<String>,
-    vercel: Option<VercelClaims>,
+    vercel: Option<Vec<VercelClaims>>,
 }
 
 impl ConsoleAccessToken {
@@ -431,7 +431,7 @@ pub struct UserInfo {
     nickname: Option<String>,
     name: Option<String>,
     email: String,
-    vercel: Option<VercelClaims>,
+    vercel: Option<Vec<VercelClaims>>,
 }
 
 impl UserInfo {
@@ -447,7 +447,7 @@ impl UserInfo {
         &self.email
     }
 
-    pub fn vercel_info(&self) -> Option<&VercelClaims> {
+    pub fn vercel_info(&self) -> Option<&Vec<VercelClaims>> {
         self.vercel.as_ref()
     }
 }
