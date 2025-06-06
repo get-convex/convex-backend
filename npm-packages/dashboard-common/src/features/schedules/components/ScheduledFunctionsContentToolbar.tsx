@@ -19,7 +19,11 @@ import { Button } from "@ui/Button";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
-export function ScheduledFunctionsContentToolbar() {
+export function ScheduledFunctionsContentToolbar({
+  reload,
+}: {
+  reload: () => Promise<void>;
+}) {
   const currentOpenFunction = useCurrentOpenFunction();
   const moduleFunctions = useModuleFunctions();
   const router = useRouter();
@@ -105,7 +109,10 @@ export function ScheduledFunctionsContentToolbar() {
       {showDeleteModal && (
         <ConfirmationDialog
           onClose={() => setShowDeleteModal(false)}
-          onConfirm={() => cancelJobs(currentOpenFunction?.identifier)}
+          onConfirm={async () => {
+            await cancelJobs(currentOpenFunction?.identifier);
+            void reload();
+          }}
           confirmText="Confirm"
           dialogTitle="Cancel all runs"
           validationText={
