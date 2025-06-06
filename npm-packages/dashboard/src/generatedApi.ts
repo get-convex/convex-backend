@@ -1929,6 +1929,7 @@ export interface components {
         Team: {
             creator?: null | components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
+            managedBy?: string | null;
             name: components["schemas"]["TeamName"];
             referralCode: components["schemas"]["ReferralCode"];
             referredBy?: null | components["schemas"]["TeamId"];

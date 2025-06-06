@@ -17,3 +17,5 @@ tuple_struct_string!(ProjectName);
 tuple_struct_string!(TeamName);
 tuple_struct_string!(TeamSlug);
 tuple_struct_string!(ReferralCode);
+
+tuple_struct_string!(VercelTeamName);

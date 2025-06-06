@@ -4323,6 +4323,12 @@
           "id": {
             "$ref": "#/components/schemas/TeamId"
           },
+          "managedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "$ref": "#/components/schemas/TeamName"
           },
