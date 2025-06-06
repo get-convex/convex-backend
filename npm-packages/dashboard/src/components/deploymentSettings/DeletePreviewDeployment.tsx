@@ -13,7 +13,10 @@ import { useState } from "react";
 export function DeletePreviewDeployment() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const deployment = useCurrentDeployment();
-  if (deployment === undefined || !deployment.previewIdentifier) {
+  if (
+    deployment === undefined ||
+    typeof deployment.previewIdentifier !== "string"
+  ) {
     return null;
   }
   return (
