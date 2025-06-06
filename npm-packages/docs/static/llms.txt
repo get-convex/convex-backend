@@ -10613,7 +10613,7 @@ similarity and retrieve documents that are similar to a given query. Vector
 search is a key part of common AI techniques like RAG.
 
 [Full Text Search](https://docs.convex.dev/search/text-search) enables keyword and phrase search
-within your documents. It supports both prefix and fuzzy matching. Convex full
+within your documents. It prefix matching to enable typeahead search. Convex full
 text search is also reactive and always up to date like all Convex queries,
 making it easy to build reliable quick search boxes.
 
