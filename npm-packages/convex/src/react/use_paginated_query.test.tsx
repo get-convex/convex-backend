@@ -277,69 +277,62 @@ describe("usePaginatedQuery pages", () => {
 
   test.each([
     {
-      endCursorBehavior: undefined,
+      latestPageSize: undefined,
     },
     {
-      endCursorBehavior: "setOnLoadMore" as const,
+      latestPageSize: "fixed" as const,
     },
     {
-      endCursorBehavior: "legacyQueryJournal" as const,
+      latestPageSize: "grow" as const,
     },
-  ])(
-    "loadMore with endCursorBehavior $endCursorBehavior",
-    ({ endCursorBehavior }) => {
-      const { result } = renderHook(
-        () =>
-          usePaginatedQuery(
-            query,
-            {},
-            { initialNumItems: 1, endCursorBehavior },
-          ),
-        { wrapper },
-      );
-      mockPage(
-        {
-          numItems: 1,
-          cursor: null,
-        },
-        {
-          page: ["item1"],
-          continueCursor: "abc",
-          isDone: false,
-        },
-      );
-      mockPage(
-        {
-          numItems: 1,
-          cursor: null,
-          endCursor: "abc",
-        },
-        {
-          page: ["item1"],
-          continueCursor: "abc",
-          isDone: false,
-        },
-      );
-      mockPage(
-        {
-          numItems: 2,
-          cursor: "abc",
-        },
-        {
-          page: ["item2"],
-          continueCursor: "def",
-          isDone: true,
-        },
-      );
-      expect(result.current.status).toStrictEqual("CanLoadMore");
-      expect(result.current.results).toStrictEqual(["item1"]);
-      act(() => {
-        result.current.loadMore(2);
-      });
-      expect(result.current.status).toStrictEqual("Exhausted");
-      expect(result.current.results).toStrictEqual(["item1", "item2"]);
-    },
-  );
+  ])("loadMore with latestPageSize $latestPageSize", ({ latestPageSize }) => {
+    const { result } = renderHook(
+      () =>
+        usePaginatedQuery(query, {}, { initialNumItems: 1, latestPageSize }),
+      { wrapper },
+    );
+    mockPage(
+      {
+        numItems: 1,
+        cursor: null,
+      },
+      {
+        page: ["item1"],
+        continueCursor: "abc",
+        isDone: false,
+      },
+    );
+    mockPage(
+      {
+        numItems: 1,
+        cursor: null,
+        endCursor: "abc",
+      },
+      {
+        page: ["item1"],
+        continueCursor: "abc",
+        isDone: false,
+      },
+    );
+    mockPage(
+      {
+        numItems: 2,
+        cursor: "abc",
+      },
+      {
+        page: ["item2"],
+        continueCursor: "def",
+        isDone: true,
+      },
+    );
+    expect(result.current.status).toStrictEqual("CanLoadMore");
+    expect(result.current.results).toStrictEqual(["item1"]);
+    act(() => {
+      result.current.loadMore(2);
+    });
+    expect(result.current.status).toStrictEqual("Exhausted");
+    expect(result.current.results).toStrictEqual(["item1", "item2"]);
+  });
 
   test("single page updating", () => {
     const { result } = renderHook(

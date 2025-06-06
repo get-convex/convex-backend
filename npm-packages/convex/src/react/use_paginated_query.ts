@@ -153,22 +153,13 @@ const completeSplitQuery =
  * @param args - The arguments object for the query function, excluding
  * the `paginationOpts` property. That property is injected by this hook.
  * @param options - An object specifying the `initialNumItems` to be loaded in
- * the first page, and the `endCursorBehavior` to use.
- * @param options.endCursorBehavior` controls how the `endCursor` is set on the
- * last loaded page. The current behavior is to have the first request for a page
- * "pin" the end of the page to the `endCursor` returned in the first request.
- * This shows up as your first request growing as new items are added within
- * the range of the initial page. This is tracked via a QueryJournal, which is
- * not shared between clients and can have unexpected behavior, so we will be
- * deprecating this behavior in favor of the new option `setOnLoadMore`.
- * For `setOnLoadMore`, the `endCursor` is not inferred from the first request,
- * instead the first call to `loadMore` will explicitly set the `endCursor` to
- * the `continueCursor` of the last page. In the future this will not use the
- * QueryJournal and will become the default behavior, resulting in the first
- * page staying at the same size as `initialNumItems` until you call `loadMore`.
- * Note: setting the `endCursor` on the request will re-request that page with
- * the new argument, causing an effectively duplicate request per `loadMore`.
- *
+ * the first page, and the `latestPageSize` to use.
+ * @param options.latestPageSize controls how the latest page (the first page
+ * until another page is loaded) size grows. With "fixed", the page size will
+ * stay at the size specified by `initialNumItems` / `loadMore`. With "grow",
+ * the page size will grow as new items are added within the range of the initial
+ * page. Once multiple pages are loaded, all but the last page will grow, in
+ * order to provide seamless pagination. See the docs for more details.
  * @returns A {@link UsePaginatedQueryResult} that includes the currently loaded
  * items, the status of the pagination, and a `loadMore` function.
  *
@@ -179,7 +170,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   args: PaginatedQueryArgs<Query> | "skip",
   options: {
     initialNumItems: number;
-    endCursorBehavior?: "setOnLoadMore" | "legacyQueryJournal";
+    latestPageSize?: "grow" | "fixed";
   },
 ): UsePaginatedQueryReturnType<Query> {
   if (
@@ -256,9 +247,9 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
     Value[],
     undefined | PaginationResult<Value>,
   ] = useMemo(() => {
-    let currResult = undefined;
+    let currResult: PaginationResult<Value> | undefined = undefined;
 
-    const allItems = [];
+    const allItems: Value[] = [];
     for (const pageKey of currState.pageKeys) {
       currResult = resultsObject[pageKey];
       if (currResult === undefined) {
@@ -375,7 +366,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
             const queries = { ...prevState.queries };
             let ongoingSplits = prevState.ongoingSplits;
             let pageKeys = prevState.pageKeys;
-            if (options.endCursorBehavior === "setOnLoadMore") {
+            if (options.latestPageSize === "fixed") {
               const lastPageKey = prevState.pageKeys.at(-1)!;
               const boundLastPageKey = nextPageKey;
               queries[boundLastPageKey] = {
@@ -420,7 +411,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
         }
       },
     } as const;
-  }, [maybeLastResult, currState.nextPageKey, options.endCursorBehavior]);
+  }, [maybeLastResult, currState.nextPageKey, options.latestPageSize]);
 
   return {
     results,
