@@ -43,6 +43,7 @@ pub async fn connect_persistence<RT: Runtime>(
             persistence
         },
         DbDriverTag::Postgres(version)
+        | DbDriverTag::PostgresMultiSchema(version)
         | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
         | DbDriverTag::MySqlAwsIam(version) => {
@@ -111,6 +112,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
     let persistence: Arc<dyn PersistenceReader> = match db {
         DbDriverTag::Sqlite => Arc::new(SqlitePersistence::new(db_spec, false)?),
         DbDriverTag::Postgres(version)
+        | DbDriverTag::PostgresMultiSchema(version)
         | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
         | DbDriverTag::MySqlAwsIam(version) => {

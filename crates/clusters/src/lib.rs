@@ -33,14 +33,10 @@ pub fn persistence_args_from_cluster_url(
         "cluster url username must be set",
     );
     match driver {
-        DbDriverTag::Postgres(_) | DbDriverTag::PostgresAwsIam(_) => {
-            // NOTE: for PostgresAwsIam we do not set any database so we can
-            // reuse connections between databases
-            let schema = if matches!(driver, DbDriverTag::PostgresAwsIam(_)) {
-                // N.B.: unlike mysql we use the instance name as-is as a schema
-                // name (we don't change - to _)
-                Some(instance_name.to_string())
-            } else {
+        DbDriverTag::Postgres(_)
+        | DbDriverTag::PostgresMultiSchema(_)
+        | DbDriverTag::PostgresAwsIam(_) => {
+            let schema = if matches!(driver, DbDriverTag::Postgres(_)) {
                 // selfhosted case
                 let db_name = instance_name.replace('-', "_");
                 anyhow::ensure!(
@@ -50,6 +46,11 @@ pub fn persistence_args_from_cluster_url(
                 );
                 cluster_url.set_path(&db_name);
                 None
+            } else {
+                // NOTE: we do not set any database in this case
+                // N.B.: unlike mysql we use the instance name as-is as a schema
+                // name (we don't change - to _)
+                Some(instance_name.to_string())
             };
             if require_ssl {
                 cluster_url

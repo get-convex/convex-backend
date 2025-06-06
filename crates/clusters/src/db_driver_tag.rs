@@ -7,6 +7,7 @@ use common::types::PersistenceVersion;
 pub enum DbDriverTag {
     Sqlite,
     Postgres(PersistenceVersion),
+    PostgresMultiSchema(PersistenceVersion),
     PostgresAwsIam(PersistenceVersion),
     MySql(PersistenceVersion),
     MySqlAwsIam(PersistenceVersion),
@@ -21,6 +22,7 @@ impl clap::ValueEnum for DbDriverTag {
             DbDriverTag::MySql(PersistenceVersion::V5),
             DbDriverTag::MySqlAwsIam(PersistenceVersion::V5),
             DbDriverTag::Postgres(PersistenceVersion::V5),
+            DbDriverTag::PostgresMultiSchema(PersistenceVersion::V5),
             DbDriverTag::PostgresAwsIam(PersistenceVersion::V5),
             #[cfg(any(test, feature = "testing"))]
             DbDriverTag::TestPersistence,
@@ -36,6 +38,7 @@ impl DbDriverTag {
     pub fn persistence_version(&self) -> anyhow::Result<PersistenceVersion> {
         match self {
             Self::Postgres(version)
+            | Self::PostgresMultiSchema(version)
             | Self::PostgresAwsIam(version)
             | Self::MySql(version)
             | Self::MySqlAwsIam(version) => Ok(*version),
@@ -53,6 +56,7 @@ impl DbDriverTag {
         match self {
             DbDriverTag::Sqlite => "sqlite",
             DbDriverTag::Postgres(PersistenceVersion::V5) => "postgres-v5",
+            DbDriverTag::PostgresMultiSchema(PersistenceVersion::V5) => "postgres-v5-multi-schema",
             DbDriverTag::PostgresAwsIam(PersistenceVersion::V5) => "postgres-v5-aws-iam",
             DbDriverTag::MySql(PersistenceVersion::V5) => "mysql-v5",
             DbDriverTag::MySqlAwsIam(PersistenceVersion::V5) => "mysql-v5-aws-iam",
@@ -69,6 +73,9 @@ impl FromStr for DbDriverTag {
         match s {
             "sqlite" => Ok(Self::Sqlite),
             "postgres-v5" => Ok(DbDriverTag::Postgres(PersistenceVersion::V5)),
+            "postgres-v5-multi-schema" => {
+                Ok(DbDriverTag::PostgresMultiSchema(PersistenceVersion::V5))
+            },
             "postgres-v5-aws-iam" => Ok(DbDriverTag::PostgresAwsIam(PersistenceVersion::V5)),
             "mysql-v5" => Ok(DbDriverTag::MySql(PersistenceVersion::V5)),
             "mysql-v5-aws-iam" => Ok(DbDriverTag::MySqlAwsIam(PersistenceVersion::V5)),
