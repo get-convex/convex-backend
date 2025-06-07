@@ -124,7 +124,7 @@ function serializeConvexErrorData(thrown: unknown) {
 function assertNotBrowser() {
   if (
     typeof window === "undefined" ||
-    !(window as any).__convexAllowFunctionsInBrowser
+    (window as any).__convexAllowFunctionsInBrowser
   ) {
     return;
   }
@@ -134,7 +134,10 @@ function assertNotBrowser() {
       ?.get?.toString()
       .includes("[native code]") ?? false;
   if (isRealBrowser) {
-    throw new Error("Convex functions should not be imported in the browser.");
+    // eslint-disable-next-line no-console
+    console.error(
+      "Convex functions should not be imported in the browser. This will throw an error in future versions of `convex`. If this is a false negative, please report it to Convex support.",
+    );
   }
 }
 
