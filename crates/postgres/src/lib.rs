@@ -198,16 +198,31 @@ impl PostgresPersistence {
         pool: ConvexPgPool,
         options: PostgresOptions,
     ) -> Result<Self, ConnectError> {
-        let schema = SchemaName::new(&match options.schema {
-            Some(s) => s,
-            None => get_current_schema(&pool).await?,
-        })?;
+        let schema = if let Some(s) = &options.schema {
+            SchemaName::new(s)?
+        } else {
+            SchemaName::new(&get_current_schema(&pool).await?)?
+        };
         let newly_created = {
             let client = pool.get_connection("init_sql", &schema).await?;
+            // Only create a new schema if one was specified and it's not
+            // already present. This avoids requiring extra permissions to run
+            // `CREATE SCHEMA IF NOT EXISTS` if it's already been created.
+            if let Some(raw_schema) = &options.schema
+                && client
+                    .query_opt(CHECK_SCHEMA_SQL, &[&raw_schema])
+                    .await?
+                    .is_none()
+            {
+                client
+                    .batch_execute(CREATE_SCHEMA_SQL)
+                    .await
+                    .map_err(anyhow::Error::from)?;
+            }
             client
                 .batch_execute(INIT_SQL)
                 .await
-                .map_err(Into::<anyhow::Error>::into)?;
+                .map_err(anyhow::Error::from)?;
             if !options.allow_read_only && Self::is_read_only(&client).await? {
                 return Err(ConnectError::ReadOnly);
             }
@@ -1393,11 +1408,12 @@ impl ToSql for Param {
     }
 }
 
+const CHECK_SCHEMA_SQL: &str = r"SELECT 1 FROM information_schema.schemata WHERE schema_name = $1";
+const CREATE_SCHEMA_SQL: &str = r"CREATE SCHEMA IF NOT EXISTS @db_name;";
 // This runs (currently) every time a PostgresPersistence is created, so it
 // needs to not only be idempotent but not to affect any already-resident data.
 // IF NOT EXISTS and ON CONFLICT are helpful.
 const INIT_SQL: &str = r#"
-        CREATE SCHEMA IF NOT EXISTS @db_name;
         CREATE TABLE IF NOT EXISTS @db_name.documents (
             id BYTEA NOT NULL,
             ts BIGINT NOT NULL,
