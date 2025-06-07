@@ -21,7 +21,10 @@ use std::{
 use anyhow::Context;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
-use value::sha256::Sha256;
+use sha2::{
+    Digest as _,
+    Sha256,
+};
 use walkdir::WalkDir;
 
 const PACKAGES_DIR: &str = "../../npm-packages";
@@ -105,7 +108,7 @@ fn write_bundles(out_dir: &Path, out_name: &str, bundles: Vec<Bundle>) -> anyhow
     }
     writeln!(out, "}};")?;
 
-    let digest: [u8; 32] = *sha.finalize();
+    let digest: [u8; 32] = sha.finalize().into();
     writeln!(out, "pub const FILES_SHA256: [u8; 32] = {digest:?};")?;
 
     Ok(())

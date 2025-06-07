@@ -94,7 +94,7 @@ vector = { path = "../vector" }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-value = { path = "../value" }
+sha2 = { workspace = true }
 walkdir = { workspace = true }
 
 [dev-dependencies]
