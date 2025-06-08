@@ -14,6 +14,7 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
+    knobs::ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE,
     log_lines::{
         LogLines,
         TRUNCATED_LINE_SUFFIX,
@@ -970,5 +971,55 @@ async fn test_subfunction_depth(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     assert_eq!(result, ConvexValue::Float64(8.0));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_array_buffer_size_limit(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    // Allocating an ArrayBuffer over the size limit fails
+    let e = t
+        .query_js_error(
+            "adversarial:allocateArrayBuffers",
+            assert_obj!(
+                "size" => (*ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE + 1) as f64,
+                "count" => 1.0,
+                "retain" => 1.0,
+            ),
+        )
+        .await?;
+    assert_contains(&e, "RangeError: Array buffer allocation failed");
+    // However, we can repeatedly allocate under the size limit and succeed as
+    // long as the old ones can be GC'd
+    t.query(
+        "adversarial:allocateArrayBuffers",
+        assert_obj!(
+            "size" => *ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE as f64,
+            "count" => 10.0,
+            "retain" => 0.0,
+        ),
+    )
+    .await?;
+    t.query(
+        "adversarial:allocateArrayBuffers",
+        assert_obj!(
+            "size" => (*ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE / 2) as f64,
+            "count" => 10.0,
+            "retain" => 1.0,
+        ),
+    )
+    .await?;
+    // ... but retaining too many ArrayBuffers will fail
+    let e = t
+        .query_js_error(
+            "adversarial:allocateArrayBuffers",
+            assert_obj!(
+                "size" => (*ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE / 2) as f64,
+                "count" => 10.0,
+                "retain" => 2.0,
+            ),
+        )
+        .await?;
+    assert_contains(&e, "RangeError: Array buffer allocation failed");
     Ok(())
 }

@@ -9,6 +9,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
 
+mod array_buffer_allocator;
 pub mod bundled_js;
 pub mod client;
 mod concurrency_limiter;

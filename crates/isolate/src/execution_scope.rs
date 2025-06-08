@@ -11,6 +11,7 @@ use std::{
 use anyhow::{
     anyhow,
     bail,
+    Context as _,
 };
 use async_recursion::async_recursion;
 use common::{
@@ -36,6 +37,7 @@ use serde_json::Value as JsonValue;
 use value::heap_size::HeapSize;
 
 use crate::{
+    array_buffer_allocator::ArrayBufferMemoryLimit,
     bundled_js::system_udf_file,
     environment::{
         IsolateEnvironment,
@@ -200,6 +202,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     pub fn record_heap_stats(&mut self) -> anyhow::Result<()> {
         let stats = self.get_heap_statistics();
+        let array_buffer_size = self
+            .get_slot::<Arc<ArrayBufferMemoryLimit>>()
+            .context("missing ArrayBufferMemoryLimit?")?
+            .used();
         self.with_state_mut(|state| {
             let blobs_heap_size = state.blob_parts.heap_size();
             let streams_heap_size = state.streams.heap_size() + state.stream_listeners.heap_size();
@@ -207,6 +213,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 stats,
                 blobs_heap_size,
                 streams_heap_size,
+                array_buffer_size,
             ));
         })
     }

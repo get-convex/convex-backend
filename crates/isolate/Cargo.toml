@@ -45,6 +45,7 @@ http-body-util = { workspace = true }
 humansize = { workspace = true }
 itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
+libc = { workspace = true }
 maplit = { workspace = true, optional = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }

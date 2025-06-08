@@ -793,6 +793,10 @@ pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
 pub static ISOLATE_MAX_HEAP_EXTRA_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_HEAP_EXTRA_SIZE", 1 << 25));
 
+/// Set a separate 64MB limit on ArrayBuffer allocations.
+pub static ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE", 1 << 26));
+
 /// Chunk sizes: 1, 2, 3, ..., MAX_DYNAMIC_SMART_CHUNK_SIZE incrementing by 1.
 /// These chunk sizes allow small (common) batches to be handled in a single
 /// chunk, while limiting the size of a chunk (don't overload the db), and

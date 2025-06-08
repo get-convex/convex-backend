@@ -10,6 +10,7 @@ use anyhow::Context as _;
 use common::{
     knobs::{
         FUNRUN_INITIAL_PERMIT_TIMEOUT,
+        ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
     },
     runtime::Runtime,
@@ -31,6 +32,7 @@ use humansize::{
 use value::heap_size::WithHeapSize;
 
 use crate::{
+    array_buffer_allocator::ArrayBufferMemoryLimit,
     concurrency_limiter::ConcurrencyLimiter,
     environment::IsolateEnvironment,
     helpers::pump_message_loop,
@@ -64,6 +66,7 @@ pub struct Isolate<RT: Runtime> {
     // we reclaim after removing the callback.
     heap_ctx_ptr: *mut HeapContext,
     limiter: ConcurrencyLimiter,
+    array_buffer_memory_limit: Arc<ArrayBufferMemoryLimit>,
 
     created: tokio::time::Instant,
 }
@@ -124,6 +127,7 @@ pub struct IsolateHeapStats {
 
     pub blobs_heap_size: usize,
     pub streams_heap_size: usize,
+    pub array_buffer_size: usize,
 }
 
 impl IsolateHeapStats {
@@ -131,6 +135,7 @@ impl IsolateHeapStats {
         stats: v8::HeapStatistics,
         blobs_heap_size: usize,
         streams_heap_size: usize,
+        array_buffer_size: usize,
     ) -> Self {
         Self {
             v8_total_heap_size: stats.total_heap_size(),
@@ -142,6 +147,7 @@ impl IsolateHeapStats {
             environment_heap_size: 0,
             blobs_heap_size,
             streams_heap_size,
+            array_buffer_size,
         }
     }
 
@@ -153,7 +159,13 @@ impl IsolateHeapStats {
 impl<RT: Runtime> Isolate<RT> {
     pub fn new(rt: RT, max_user_timeout: Option<Duration>, limiter: ConcurrencyLimiter) -> Self {
         let _timer = create_isolate_timer();
-        let mut v8_isolate = crate::udf_runtime::create_isolate_with_udf_runtime();
+        let (array_buffer_memory_limit, array_buffer_allocator) =
+            crate::array_buffer_allocator::limited_array_buffer_allocator(
+                *ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE,
+            );
+        let mut v8_isolate = crate::udf_runtime::create_isolate_with_udf_runtime(
+            v8::CreateParams::default().array_buffer_allocator(array_buffer_allocator),
+        );
 
         // Tells V8 to capture current stack trace when uncaught exception occurs and
         // report it to the message listeners. The option is off by default.
@@ -189,6 +201,7 @@ impl<RT: Runtime> Isolate<RT> {
         );
 
         assert!(v8_isolate.set_slot(handle.clone()));
+        assert!(v8_isolate.set_slot(array_buffer_memory_limit.clone()));
 
         Self {
             created: rt.monotonic_now(),
@@ -198,6 +211,7 @@ impl<RT: Runtime> Isolate<RT> {
             heap_ctx_ptr,
             max_user_timeout,
             limiter,
+            array_buffer_memory_limit,
         }
     }
 
@@ -235,7 +249,7 @@ impl<RT: Runtime> Isolate<RT> {
     // Heap stats for an isolate that has no associated state or environment.
     pub fn heap_stats(&mut self) -> IsolateHeapStats {
         let stats = self.v8_isolate.get_heap_statistics();
-        IsolateHeapStats::new(stats, 0, 0)
+        IsolateHeapStats::new(stats, 0, 0, self.array_buffer_memory_limit.used())
     }
 
     pub fn check_isolate_clean(&mut self) -> Result<(), IsolateNotClean> {

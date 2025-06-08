@@ -357,6 +357,14 @@ pub fn log_system_timeout() {
 }
 
 register_convex_counter!(
+    ARRAY_BUFFER_OOM_TOTAL,
+    "Number of times that isolates hit the ArrayBuffer memory limit"
+);
+pub fn log_array_buffer_oom() {
+    log_counter(&ARRAY_BUFFER_OOM_TOTAL, 1);
+}
+
+register_convex_counter!(
     RECREATE_ISOLATE_TOTAL,
     "Number of times an isolate is recreated",
     &["reason"]
@@ -500,6 +508,10 @@ register_convex_gauge!(
     ISOLATE_TOTAL_MALLOCED_MEMORY_BYTES,
     "Total isolate malloc'd memory across all isolates"
 );
+register_convex_gauge!(
+    ISOLATE_TOTAL_ARRAY_BUFFER_MEMORY_BYTES,
+    "Total isolate ArrayBuffer-allocated memory across all isolates"
+);
 
 pub fn log_aggregated_heap_stats(stats: &IsolateHeapStats) {
     log_gauge(
@@ -525,6 +537,10 @@ pub fn log_aggregated_heap_stats(stats: &IsolateHeapStats) {
     log_gauge(
         &ISOLATE_TOTAL_MALLOCED_MEMORY_BYTES,
         stats.v8_malloced_memory as f64,
+    );
+    log_gauge(
+        &ISOLATE_TOTAL_ARRAY_BUFFER_MEMORY_BYTES,
+        stats.array_buffer_size as f64,
     );
 }
 

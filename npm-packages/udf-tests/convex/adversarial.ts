@@ -384,6 +384,20 @@ export const actionResultSized = action(
   },
 );
 
+export const allocateArrayBuffers = query(
+  async (
+    _,
+    { size, count, retain }: { size: number; count: number; retain: number },
+  ) => {
+    const r = [];
+    for (let i = 0; i < count; i++) {
+      r.push(new ArrayBuffer(size));
+      if (r.length > retain) r.shift();
+    }
+    return r.map((buf) => buf.byteLength);
+  },
+);
+
 export const simpleQuery = query(async ({ db }) => {
   return await db.query("test").collect();
 });
