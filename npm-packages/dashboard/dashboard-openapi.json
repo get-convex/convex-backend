@@ -4013,6 +4013,12 @@
               "null"
             ]
           },
+          "nickname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "username": {
             "type": [
               "string",

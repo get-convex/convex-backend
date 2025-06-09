@@ -222,7 +222,7 @@ export function IdentityDisplayName({
   if (provider === "google-oauth2") {
     main = profileData.email ?? undefined;
   } else if (provider === "github") {
-    main = profileData.username ?? undefined;
+    main = profileData.username ?? profileData.nickname ?? undefined;
   } else if (provider === "vercel") {
     const [account, u] = userId.split(":user:");
     const accountId = account.split(":")[1];

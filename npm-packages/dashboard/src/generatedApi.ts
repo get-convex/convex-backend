@@ -1832,6 +1832,7 @@ export interface components {
         ProfileData: {
             email?: string | null;
             name?: string | null;
+            nickname?: string | null;
             username?: string | null;
         };
         ProfileEmailArgs: {
