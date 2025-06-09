@@ -101,7 +101,7 @@ pub struct AccessTokenDeploymentAuthArgs {
     pub action: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessTokenDeploymentAuthResponse {
     pub is_authorized: bool,
