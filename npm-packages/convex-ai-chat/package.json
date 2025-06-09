@@ -75,7 +75,7 @@
     "tailwindcss": "^3.2.4",
     "typescript": "~5.0.3",
     "chokidar-cli": "^3.0.0",
-    "esbuild": "0.25.2"
+    "esbuild": "0.25.4"
   },
   "engines": {
     "npm": ">=7.0.0",

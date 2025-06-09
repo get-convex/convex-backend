@@ -10,7 +10,7 @@
     "assert": "2.1.0",
     "convex": "workspace:*",
     "local-store": "workspace:*",
-    "esbuild": "0.25.2",
+    "esbuild": "0.25.4",
     "vitest": "^3.1.4"
   },
   "devDependencies": {
