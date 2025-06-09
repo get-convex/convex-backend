@@ -8,7 +8,10 @@ export const SENTRY_DSN =
   "https://f9fa0306e3d540079cf40ce8c2ad9644@o1192621.ingest.sentry.io/6390839";
 
 export function initSentry() {
-  if (!process.env.CI && provisionHost === productionProvisionHost) {
+  if (
+    (!process.env.CI || process.env.VERCEL === "1") &&
+    provisionHost === productionProvisionHost
+  ) {
     Sentry.init({
       dsn: SENTRY_DSN,
       release: "cli@" + version,
