@@ -307,6 +307,15 @@ pub fn lease_acquire_timer() -> StatusTimer {
 }
 
 register_convex_histogram!(
+    POSTGRES_ADVISORY_LEASE_CHECK_SECONDS,
+    "Time to check lease is still held at the start of a transaction",
+    &STATUS_LABEL
+);
+pub fn lease_check_timer() -> StatusTimer {
+    StatusTimer::new(&POSTGRES_ADVISORY_LEASE_CHECK_SECONDS)
+}
+
+register_convex_histogram!(
     POSTGRES_LEASE_PRECOND_SECONDS,
     "Time to check lease precondition",
     &STATUS_LABEL

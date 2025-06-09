@@ -92,7 +92,10 @@ use deadpool_postgres::{
     Pool,
 };
 use futures::{
-    future::Either,
+    future::{
+        self,
+        Either,
+    },
     pin_mut,
     stream::{
         self,
@@ -1282,17 +1285,31 @@ impl Lease {
     {
         let mut client = self.pool.get_connection("transact", &self.schema).await?;
         let tx = client.transaction().await?;
+        let lease_ts = self.lease_ts;
 
+        let advisory_lease_check = async {
+            let timer = metrics::lease_check_timer();
+            let stmt = tx.prepare_cached(ADVISORY_LEASE_CHECK).await?;
+            let rows = tx.query(&stmt, &[&lease_ts]).await?;
+            if rows.len() != 1 {
+                return Err(LeaseLostError {}.into());
+            }
+            timer.finish();
+            Ok(())
+        };
+
+        let ((), result) = future::try_join(advisory_lease_check, f(&tx)).await?;
+
+        // We don't run SELECT FOR UPDATE until the *end* of the transaction
+        // to minimize the time spent holding the row lock, and therefore allow
+        // the lease to be stolen as much as possible.
         let timer = metrics::lease_precond_timer();
         let stmt = tx.prepare_cached(LEASE_PRECOND).await?;
-        let lease_ts = self.lease_ts;
         let rows = tx.query(&stmt, &[&lease_ts]).await?;
         if rows.len() != 1 {
             return Err(LeaseLostError {}.into());
         }
         timer.finish();
-
-        let result = f(&tx).await?;
 
         let timer = metrics::commit_timer();
         tx.commit().await?;
@@ -1700,6 +1717,9 @@ const UNSET_READ_ONLY: &str = "DELETE FROM @db_name.read_only WHERE id = 1";
 // If this query returns a result, the lease is still valid and will remain so
 // until the end of the transaction.
 const LEASE_PRECOND: &str = "SELECT 1 FROM @db_name.leases WHERE id=1 AND ts=$1 FOR SHARE";
+// Checks if we still hold the lease without blocking another instance from
+// stealing it.
+const ADVISORY_LEASE_CHECK: &str = "SELECT 1 FROM @db_name.leases WHERE id=1 AND ts=$1";
 
 // Acquire the lease unless acquire by someone with a higher timestamp.
 const LEASE_ACQUIRE: &str = "UPDATE @db_name.leases SET ts=$1 WHERE id=1 AND ts<$1";
