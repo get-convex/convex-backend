@@ -29,7 +29,9 @@ export default function VercelLogin() {
       // We have a code query parameter, so we store it
       // in session storage (so it's accessible once we're redirected back and redirect to the Auth0 login page.
       setVercelCode(query.code.toString());
-      void replace("/api/auth/login?connection=vercel");
+      void replace(
+        `/api/auth/login?connection=vercel${query.returnTo ? `&returnTo=${query.returnTo}` : ""}`,
+      );
     }
 
     // If both state and resume parameters are present,

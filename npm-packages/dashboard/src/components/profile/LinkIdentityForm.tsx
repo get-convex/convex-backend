@@ -3,6 +3,7 @@ import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import GithubLogo from "logos/github-logo.svg";
 import GoogleLogo from "logos/google.svg";
+import VercelLogo from "logos/vercel.svg";
 import { Spinner } from "@ui/Spinner";
 import React from "react";
 import { useRouter } from "next/router";
@@ -128,6 +129,19 @@ export function LinkIdentityForm({
                       disabled={status === "waitingForCookie"}
                     >
                       Continue with Google
+                    </Button>
+                  )}
+                  {providerHint === "vercel" && (
+                    <Button
+                      href={`https://vercel.com/sso/integrations/${process.env.NEXT_PUBLIC_VERCEL_INTEGRATION_SLUG}?returnTo=/link_identity?resume=true`}
+                      icon={<VercelLogo className="mr-2 dark:fill-white" />}
+                      size="md"
+                      variant="neutral"
+                      className="w-fit"
+                      loading={status === "waitingForCookie"}
+                      disabled={status === "waitingForCookie"}
+                    >
+                      Continue with Vercel
                     </Button>
                   )}
                 </div>
