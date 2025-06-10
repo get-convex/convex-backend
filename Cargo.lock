@@ -6646,6 +6646,7 @@ dependencies = [
  "cmd_util",
  "common",
  "deadpool-postgres",
+ "fastrace",
  "futures",
  "futures-async-stream",
  "hex",
@@ -6664,6 +6665,7 @@ dependencies = [
  "tokio",
  "tokio-postgres",
  "tokio-postgres-rustls",
+ "tokio-util",
  "tracing",
 ]
 

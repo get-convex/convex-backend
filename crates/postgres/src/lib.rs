@@ -91,12 +91,12 @@ use deadpool_postgres::{
     Manager,
     Pool,
 };
+use fastrace::func_path;
 use futures::{
     future::{
         self,
         Either,
     },
-    pin_mut,
     stream::{
         self,
         FuturesUnordered,
@@ -121,6 +121,9 @@ use rustls_pki_types::{
 };
 use serde::Deserialize as _;
 use serde_json::Value as JsonValue;
+use tokio::sync::mpsc::{
+    self,
+};
 use tokio_postgres::{
     types::{
         to_sql_checked,
@@ -131,6 +134,7 @@ use tokio_postgres::{
     Row,
 };
 use tokio_postgres_rustls::MakeRustlsConnect;
+use tokio_util::task::AbortOnDropHandle;
 
 pub use crate::connection::ConvexPgPool;
 use crate::{
@@ -650,7 +654,6 @@ impl PostgresReader {
         Ok((ts, document_id, document, prev_ts))
     }
 
-    #[allow(clippy::needless_lifetimes)]
     #[try_stream(
         ok = DocumentLogEntry,
         error = anyhow::Error,
@@ -663,10 +666,6 @@ impl PostgresReader {
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
         let timer = metrics::load_documents_timer();
-        let client = self
-            .read_pool
-            .get_connection("load_documents", &self.schema)
-            .await?;
         let mut num_returned = 0;
         let mut last_ts = match order {
             Order::Asc => Timestamp::MIN,
@@ -675,6 +674,10 @@ impl PostgresReader {
         let mut last_tablet_id_param = Self::initial_id_param(order);
         let mut last_id_param = Self::initial_id_param(order);
         loop {
+            let client = self
+                .read_pool
+                .get_connection("load_documents", &self.schema)
+                .await?;
             let mut rows_loaded = 0;
 
             let query = match order {
@@ -692,12 +695,9 @@ impl PostgresReader {
             ];
             let row_stream = client.query_raw(&stmt, params).await?;
 
-            retention_validator
-                .validate_document_snapshot(range.min_timestamp_inclusive())
-                .await?;
-
             futures::pin_mut!(row_stream);
 
+            let mut batch = vec![];
             while let Some(row) = row_stream.try_next().await? {
                 let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
                 rows_loaded += 1;
@@ -705,12 +705,29 @@ impl PostgresReader {
                 last_tablet_id_param = Param::TableId(document_id.table());
                 last_id_param = internal_doc_id_param(document_id);
                 num_returned += 1;
-                yield DocumentLogEntry {
+                batch.push(DocumentLogEntry {
                     ts,
                     id: document_id,
                     value: document,
                     prev_ts,
-                };
+                });
+            }
+            // Return the connection to the pool as soon as possible.
+            drop(client);
+
+            // N.B.: `retention_validator` can itself talk back to this
+            // PersistenceReader (to call get_persistence_global). This uses a
+            // separate connection.
+            // TODO: ideally we should be using the same connection.
+            // If we ever run against a replica DB this should also make sure
+            // that the data read & validation read run against the same
+            // replica - otherwise we may not be validating the right thing!
+            retention_validator
+                .validate_document_snapshot(range.min_timestamp_inclusive())
+                .await?;
+
+            for row in batch {
+                yield row;
             }
             if rows_loaded < page_size {
                 break;
@@ -751,7 +768,6 @@ impl PostgresReader {
         Ok(Some(fut))
     }
 
-    #[allow(clippy::needless_lifetimes)]
     #[try_stream(ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
     async fn _index_scan(
         &self,
@@ -763,16 +779,33 @@ impl PostgresReader {
         size_hint: usize,
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
-        let scan = self._index_scan_inner(
-            index_id,
-            read_timestamp,
-            interval,
-            order,
-            size_hint,
-            retention_validator,
-        );
-        pin_mut!(scan);
-        while let Some((key, ts, value, prev_ts)) = scan.try_next().await? {
+        // We use the size_hint to determine the batch size. This means in the
+        // common case we should do a single query. Exceptions are if the size_hint
+        // is wrong or if we truncate it or if we observe too many deletes.
+        let batch_size = size_hint.clamp(1, 5000);
+        let (tx, mut rx) = mpsc::channel(batch_size);
+        let task = AbortOnDropHandle::new(common::runtime::tokio_spawn(
+            func_path!(),
+            self.clone()._index_scan_inner(
+                index_id,
+                read_timestamp,
+                interval,
+                order,
+                batch_size,
+                retention_validator,
+                tx,
+            ),
+        ));
+        while let Some((key, ts, binary_value, prev_ts)) = rx.recv().await {
+            let json_value: JsonValue = serde_json::from_slice(&binary_value)
+                .context("Failed to deserialize database value")?;
+            anyhow::ensure!(
+                json_value != JsonValue::Null,
+                "Index reference to deleted document {:?} {:?}",
+                key,
+                ts
+            );
+            let value: ConvexValue = json_value.try_into()?;
             let document = ResolvedDocument::from_database(tablet_id, value)?;
             yield (
                 key,
@@ -783,43 +816,35 @@ impl PostgresReader {
                 },
             );
         }
+        task.await??;
     }
 
-    #[allow(clippy::needless_lifetimes)]
-    #[try_stream(
-        ok = (IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>),
-        error = anyhow::Error
-    )]
     async fn _index_scan_inner(
-        &self,
+        self,
         index_id: IndexId,
         read_timestamp: Timestamp,
         interval: Interval,
         order: Order,
-        size_hint: usize,
+        batch_size: usize,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) {
+        tx: mpsc::Sender<(IndexKeyBytes, Timestamp, Vec<u8>, Option<Timestamp>)>,
+    ) -> anyhow::Result<()> {
         let _timer = metrics::query_index_timer();
         let (mut lower, mut upper) = to_sql_bounds(interval.clone());
 
-        let client = self
-            .read_pool
-            .get_connection("index_scan", &self.schema)
-            .await?;
         let mut stats = QueryIndexStats::new();
-
-        // We use the size_hint to determine the batch size. This means in the
-        // common case we should do a single query. Exceptions are if the size_hint
-        // is wrong or if we truncate it or if we observe too many deletes.
-        let batch_size = size_hint.clamp(1, 5000);
 
         // We iterate results in (key_prefix, key_sha256) order while we actually
         // need them in (key_prefix, key_suffix order). key_suffix is not part of the
         // primary key so we do the sort here. If see any record with maximum length
         // prefix, we should buffer it until we reach a different prefix.
-        let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>)> =
+        let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, Vec<u8>, Option<Timestamp>)> =
             Vec::new();
         loop {
+            let client = self
+                .read_pool
+                .get_connection("index_scan", &self.schema)
+                .await?;
             stats.sql_statements += 1;
             let (query, params) = index_query(
                 index_id,
@@ -839,12 +864,6 @@ impl PostgresReader {
             let row_stream = client.query_raw(&stmt, params).await?;
             execute_timer.finish();
 
-            let retention_validate_timer = metrics::retention_validate_timer();
-            retention_validator
-                .validate_snapshot(read_timestamp)
-                .await?;
-            retention_validate_timer.finish();
-
             if let Some(check_db_leader) = check_db_leader {
                 // Check for leadership pipelined with the query.
                 // Note the ordering here is important for the pipelining:
@@ -858,6 +877,7 @@ impl PostgresReader {
             futures::pin_mut!(row_stream);
 
             let mut batch_rows = 0;
+            let mut batch = vec![];
             while let Some(row) = row_stream.try_next().await? {
                 batch_rows += 1;
 
@@ -873,7 +893,7 @@ impl PostgresReader {
                         for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
                             if interval.contains(&key) {
                                 stats.rows_returned += 1;
-                                yield (key, ts, doc, prev_ts);
+                                batch.push((key, ts, doc, prev_ts));
                             } else {
                                 stats.rows_skipped_out_of_range += 1;
                             }
@@ -910,15 +930,6 @@ impl PostgresReader {
                     anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
                 })?;
                 let binary_value: Vec<u8> = row.get(8);
-                let json_value: JsonValue = serde_json::from_slice(&binary_value)
-                    .context("Failed to deserialize database value")?;
-                anyhow::ensure!(
-                    json_value != JsonValue::Null,
-                    "Index reference to deleted document {:?} {:?}",
-                    key,
-                    ts
-                );
-                let value: ConvexValue = json_value.try_into()?;
 
                 let prev_ts: Option<i64> = row.get(9);
                 let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
@@ -927,33 +938,58 @@ impl PostgresReader {
                     assert!(result_buffer.is_empty());
                     if interval.contains(&key) {
                         stats.rows_returned += 1;
-                        yield (IndexKeyBytes(key), ts, value, prev_ts);
+                        batch.push((IndexKeyBytes(key), ts, binary_value, prev_ts));
                     } else {
                         stats.rows_skipped_out_of_range += 1;
                     }
                 } else {
                     // There might be other records with the same key_prefix that
                     // are ordered before this result. Buffer it.
-                    result_buffer.push((IndexKeyBytes(key), ts, value, prev_ts));
+                    result_buffer.push((IndexKeyBytes(key), ts, binary_value, prev_ts));
                     stats.max_rows_buffered =
                         cmp::max(result_buffer.len(), stats.max_rows_buffered);
                 }
             }
 
+            // Return the connection to the pool as soon as possible.
+            drop(client);
+
+            // N.B.: `retention_validator` can itself talk back to this
+            // PersistenceReader (to call get_persistence_global). This uses a
+            // separate connection.
+            // TODO: ideally we should be using the same connection.
+            // If we ever run against a replica DB this should also make sure
+            // that the data read & validation read run against the same
+            // replica - otherwise we may not be validating the right thing!
+            let retention_validate_timer = metrics::retention_validate_timer();
+            retention_validator
+                .validate_snapshot(read_timestamp)
+                .await?;
+            retention_validate_timer.finish();
+
+            for row in batch {
+                // this could block arbitrarily long if the caller of
+                // `index_scan` stops polling
+                tx.send(row).await?;
+            }
+
             if batch_rows < batch_size {
-                // Yield any remaining values.
-                result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-                for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
-                    if interval.contains(&key) {
-                        stats.rows_returned += 1;
-                        yield (key, ts, doc, prev_ts)
-                    } else {
-                        stats.rows_skipped_out_of_range += 1;
-                    }
-                }
                 break;
             }
         }
+
+        // Yield any remaining values.
+        result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+        for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
+            if interval.contains(&key) {
+                stats.rows_returned += 1;
+                tx.send((key, ts, doc, prev_ts)).await?;
+            } else {
+                stats.rows_skipped_out_of_range += 1;
+            }
+        }
+
+        Ok(())
     }
 
     fn _index_cursor_params(cursor: Option<&IndexEntry>) -> anyhow::Result<Vec<Param>> {
