@@ -58,6 +58,10 @@ impl ArrayBufferMemoryLimit {
     }
 }
 
+// Windows doesn't define `libc::max_align_t`
+#[cfg(windows)]
+const ALIGNMENT: usize = 16;
+#[cfg(not(windows))]
 const ALIGNMENT: usize = mem::align_of::<libc::max_align_t>();
 
 unsafe extern "C" fn allocate(handle: &ArrayBufferMemoryLimit, len: usize) -> *mut c_void {

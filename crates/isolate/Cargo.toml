@@ -71,7 +71,6 @@ http-body-util = { workspace = true }
 humansize = { workspace = true }
 itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
-libc = { workspace = true }
 maplit = { workspace = true, optional = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
@@ -116,6 +115,9 @@ usage_tracking = { path = "../usage_tracking" }
 uuid = { workspace = true }
 value = { path = "../value" }
 vector = { path = "../vector" }
+
+[target."cfg(not(windows))".dependencies]
+libc = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
