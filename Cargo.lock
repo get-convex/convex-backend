@@ -1812,6 +1812,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "colored"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
+dependencies = [
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "combine"
 version = "4.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1975,7 +1984,7 @@ dependencies = [
  "async-trait",
  "base64 0.13.1",
  "bytes",
- "colored",
+ "colored 3.0.0",
  "convex_sync_types",
  "dotenvy",
  "futures",
@@ -2942,7 +2951,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e64e461c3f1e69d99372620640b3fd5f0309eeda2e26e4af69f6760c0e1df845"
 dependencies = [
- "colored",
+ "colored 2.1.0",
  "fnv",
 ]
 
@@ -5185,7 +5194,7 @@ name = "log_interleaver"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "colored",
+ "colored 3.0.0",
  "futures",
  "parking_lot",
  "tokio",

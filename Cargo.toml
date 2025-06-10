@@ -37,7 +37,7 @@ cbc = { version = "0.1.2" }
 cfg-if = "1.0"
 chrono = "0.4.38"
 clap = { version = "^4.1.8", features = [ "derive" ] }
-colored = "2"
+colored = "3"
 const-oid = "0.9.6"
 criterion = "0.5"
 crossbeam-channel = "0.5"
