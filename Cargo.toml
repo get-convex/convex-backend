@@ -81,7 +81,7 @@ hyper-util = { version = "0.1.5", features = [ "server-graceful", "tokio" ] }
 imbl = "5.0.0"
 itertools = "0.14"
 jemalloc_pprof = "0.6"
-jsonschema = "0.29"
+jsonschema = "0.30"
 levenshtein_automata = "0.2.1"
 libc = "0.2"
 libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
