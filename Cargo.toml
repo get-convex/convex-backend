@@ -112,7 +112,7 @@ proptest = "1"
 proptest-derive = "0.5.0"
 proptest-http = { git = "https://github.com/nipunn1313/proptest-http", rev = "0e658bd4f6dbb73bdd3be66f0d2c34c00cc3a446" }
 prost = { version = "0.13", features = [ "no-recursion-limit" ] }
-prost-reflect = { version = "0.14.0", features = [ "text-format", "miette" ] }
+prost-reflect = { version = "0.15.0", features = [ "text-format", "miette" ] }
 prost-types = "0.13"
 pyo3 = "0.24"
 pyo3-async-runtimes = { version = "0.24", features = [ "tokio-runtime" ] }
