@@ -85,7 +85,7 @@ jsonschema = "0.30"
 levenshtein_automata = "0.2.1"
 libc = "0.2"
 libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
-lru = "0.13.0"
+lru = "0.14.0"
 maplit = "1"
 mime = "0.3"
 mime2ext = "0.1.52"
