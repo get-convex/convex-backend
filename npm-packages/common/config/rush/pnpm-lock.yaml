@@ -459,8 +459,8 @@ importers:
         specifier: ^1.2.0
         version: 1.6.0
       '@octokit/openapi-types':
-        specifier: ~24.2.0
-        version: 24.2.0
+        specifier: ~25.0.0
+        version: 25.0.0
       '@sentry/node':
         specifier: ^7.23.0
         version: 7.120.2
@@ -8178,8 +8178,8 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
 
-  '@octokit/openapi-types@24.2.0':
-    resolution: {integrity: sha512-9sIH3nSUttelJSXUrmGzl7QUBFul0/mB8HRYl3fOlgHbIWG+WnYDXU3v/2zMtAvuzZ/ed00Ei6on975FhBfzrg==}
+  '@octokit/openapi-types@25.0.0':
+    resolution: {integrity: sha512-FZvktFu7HfOIJf2BScLKIEYjDsw6RKc7rBJCdvCTfKsVnx2GEB/Nbzjr29DUdb7vQhlzS/j8qDzdditP0OC6aw==}
 
   '@openauthjs/openauth@0.4.3':
     resolution: {integrity: sha512-RlnjqvHzqcbFVymEwhlUEuac4utA5h4nhSK/i2szZuQmxTIqbGUxZ+nM+avM+VV4Ing+/ZaNLKILoXS3yrkOOw==}
@@ -27659,7 +27659,7 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
-  '@octokit/openapi-types@24.2.0': {}
+  '@octokit/openapi-types@25.0.0': {}
 
   '@openauthjs/openauth@0.4.3(arctic@2.3.4)(hono@4.7.2)':
     dependencies:
