@@ -1,7 +1,6 @@
 import { Value, v, GenericId, ConvexError } from "convex/values";
 import { mutationGeneric } from "../server";
 import { UNDEFINED_PLACEHOLDER } from "./lib/values";
-export { UNDEFINED_PLACEHOLDER };
 
 export default mutationGeneric({
   args: {

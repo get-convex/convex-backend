@@ -16,7 +16,7 @@ import React, {
 
 import isArray from "lodash/isArray";
 import isPlainObject from "lodash/isPlainObject";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";

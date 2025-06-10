@@ -15,7 +15,7 @@ import { useCallback, useContext, useState } from "react";
 import { useDebounce } from "react-use";
 import { ZodError, z } from "zod";
 import { generateErrorMessage } from "zod-error";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import {
   itemIdentifier,
   useModuleFunctions,

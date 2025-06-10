@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import udfs from "@common/udfs";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { Button } from "@ui/Button";
 

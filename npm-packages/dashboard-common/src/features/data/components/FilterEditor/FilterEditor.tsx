@@ -18,7 +18,7 @@ import { Button } from "@ui/Button";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { Checkbox } from "@ui/Checkbox";
 import { Tooltip } from "@ui/Tooltip";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { cn } from "@ui/cn";
 
 export const operatorOptions: Readonly<

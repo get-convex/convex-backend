@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ValidatorJSON, Value } from "convex/values";
 import isPlainObject from "lodash/isPlainObject";
 import omitBy from "lodash/omitBy";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { Button } from "@ui/Button";
 

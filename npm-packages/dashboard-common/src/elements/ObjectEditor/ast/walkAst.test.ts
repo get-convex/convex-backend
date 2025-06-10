@@ -1,5 +1,5 @@
 import { ValidatorJSON, Value } from "convex/values";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import * as Base64 from "base64-js";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { walkAst } from "@common/elements/ObjectEditor/ast/walkAst";

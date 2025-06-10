@@ -4,7 +4,7 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { useEffectOnce } from "react-use";
 import udfs from "@common/udfs";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import {
   ObjectEditor,
   ObjectEditorProps,

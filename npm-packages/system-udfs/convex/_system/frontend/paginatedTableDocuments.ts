@@ -32,7 +32,7 @@ import { jsonToConvex, v } from "convex/values";
 import { Expression } from "convex/server";
 import { ExpressionOrValue } from "convex/server";
 import { Value } from "convex/values";
-import { UNDEFINED_PLACEHOLDER } from "./patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "./lib/values";
 
 export default queryGeneric({
   args: {

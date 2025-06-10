@@ -1,6 +1,6 @@
 import { Parser } from "acorn";
 import { ValidatorJSON } from "convex/values";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import {
   Node,
   ExpressionNode,

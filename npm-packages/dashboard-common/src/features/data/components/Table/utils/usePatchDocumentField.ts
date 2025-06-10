@@ -8,7 +8,7 @@ import udfs from "@common/udfs";
 import { useCallback } from "react";
 import omitBy from "lodash/omitBy";
 import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { useNents } from "@common/lib/useNents";
 import { toast } from "@common/lib/utils";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
