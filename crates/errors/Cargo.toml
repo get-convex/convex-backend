@@ -8,6 +8,9 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = ["metrics/testing", "proptest", "proptest-derive"]
+
 [dependencies]
 anyhow = { workspace = true }
 http = { workspace = true }
@@ -26,9 +29,6 @@ cmd_util = { path = "../cmd_util" }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-
-[features]
-testing = ["metrics/testing", "proptest", "proptest-derive"]
 
 [lints]
 workspace = true

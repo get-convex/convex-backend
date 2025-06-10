@@ -7,8 +7,18 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
-[build-dependencies]
-anyhow = "1"
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "storage/testing",
+    "value/testing",
+    "udf/testing",
+]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -40,6 +50,9 @@ tracing = { workspace = true }
 udf = { path = "../udf" }
 value = { path = "../value" }
 
+[build-dependencies]
+anyhow = "1"
+
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
@@ -54,19 +67,6 @@ storage = { path = "../storage", features = ["testing"] }
 tempfile = { workspace = true }
 udf = { path = "../udf", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "isolate/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "model/testing",
-    "storage/testing",
-    "value/testing",
-    "udf/testing",
-]
 
 [lints]
 workspace = true

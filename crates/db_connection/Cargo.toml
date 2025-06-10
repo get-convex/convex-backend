@@ -23,11 +23,11 @@ postgres = { path = "../postgres" }
 sqlite = { path = "../sqlite" }
 tracing = { workspace = true }
 
-[lints]
-workspace = true
-
 [dev-dependencies]
 clusters = { path = "../clusters", features = ["testing"] }
 common = { path = "../common", features = ["testing"] }
 mysql = { path = "../mysql", features = ["testing"] }
 postgres = { path = "../postgres", features = ["testing"] }
+
+[lints]
+workspace = true

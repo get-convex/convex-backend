@@ -8,6 +8,26 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 normal = ["mysql"]
 development = ["mysql"]
 
+[features]
+testing = [
+    "common/testing",
+    "database/testing",
+    "errors/testing",
+    "indexing/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "proptest",
+    "proptest-derive",
+    "runtime/testing",
+    "storage/testing",
+    "udf/testing",
+    "usage_tracking/testing",
+    "value/testing",
+]
+tracy-tracing = ["common/tracy-tracing"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -56,26 +76,6 @@ storage = { path = "../storage", features = ["testing"] }
 udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "database/testing",
-    "errors/testing",
-    "indexing/testing",
-    "isolate/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "model/testing",
-    "proptest",
-    "proptest-derive",
-    "runtime/testing",
-    "storage/testing",
-    "udf/testing",
-    "usage_tracking/testing",
-    "value/testing",
-]
-tracy-tracing = ["common/tracy-tracing"]
 
 [lints]
 workspace = true

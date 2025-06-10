@@ -8,6 +8,34 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 name = "convex-local-backend"
 path = "src/main.rs"
 
+[features]
+testing = [
+    "common/testing",
+    "clusters/testing",
+    "database/testing",
+    "errors/testing",
+    "function_runner/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "mysql/testing",
+    "postgres/testing",
+    "runtime/testing",
+    "search/testing",
+    "storage/testing",
+    "udf/testing",
+    "usage_tracking/testing",
+    "value/testing",
+    "vector/testing",
+    "application/testing",
+    "authentication/testing",
+    "events/testing",
+    "node_executor/testing",
+    "sync/testing",
+    "db_connection/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 application = { path = "../application" }
@@ -71,6 +99,10 @@ usage_tracking = { path = "../usage_tracking" }
 value = { path = "../value" }
 vector = { path = "../vector" }
 
+[build-dependencies]
+anyhow = { workspace = true }
+vergen = { workspace = true, features = ["git", "gitcl"] }
+
 [dev-dependencies]
 application = { path = "../application", features = ["testing"] }
 authentication = { path = "../authentication", features = ["testing"] }
@@ -99,38 +131,6 @@ udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 vector = { path = "../vector", features = ["testing"] }
-
-[build-dependencies]
-anyhow = { workspace = true }
-vergen = { workspace = true, features = ["git", "gitcl"] }
-
-[features]
-testing = [
-    "common/testing",
-    "clusters/testing",
-    "database/testing",
-    "errors/testing",
-    "function_runner/testing",
-    "isolate/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "model/testing",
-    "mysql/testing",
-    "postgres/testing",
-    "runtime/testing",
-    "search/testing",
-    "storage/testing",
-    "udf/testing",
-    "usage_tracking/testing",
-    "value/testing",
-    "vector/testing",
-    "application/testing",
-    "authentication/testing",
-    "events/testing",
-    "node_executor/testing",
-    "sync/testing",
-    "db_connection/testing",
-]
 
 [lints]
 workspace = true

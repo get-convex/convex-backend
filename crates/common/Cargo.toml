@@ -5,12 +5,28 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-[lib]
-doctest = false
-
 [package.metadata.cargo-udeps.ignore]
 normal = ["proptest", "proptest-derive"]
 development = ["proptest", "proptest-derive"]
+
+[lib]
+doctest = false
+
+[features]
+tracy-tracing = ["tracy-client", "tracy-client/enable"]
+testing = [
+    "errors/testing",
+    "metrics/testing",
+    "packed_value/testing",
+    "proptest",
+    "proptest-derive",
+    "proptest-http",
+    "rand_chacha",
+    "sync_types/testing",
+    "shape_inference/testing",
+    "value/testing",
+    "tokio/test-util",
+]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -111,22 +127,6 @@ sync_types = { package = "convex_sync_types", path = "../convex/sync_types", fea
 ] }
 tokio = { workspace = true, features = ["test-util"] }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-tracy-tracing = ["tracy-client", "tracy-client/enable"]
-testing = [
-    "errors/testing",
-    "metrics/testing",
-    "packed_value/testing",
-    "proptest",
-    "proptest-derive",
-    "proptest-http",
-    "rand_chacha",
-    "sync_types/testing",
-    "shape_inference/testing",
-    "value/testing",
-    "tokio/test-util",
-]
 
 [lints]
 workspace = true

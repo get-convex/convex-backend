@@ -8,6 +8,9 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = ["proptest", "value/testing"]
+
 [dependencies]
 anyhow = { workspace = true }
 base64 = { workspace = true }
@@ -24,9 +27,6 @@ criterion = { workspace = true }
 maplit = { workspace = true }
 proptest = { workspace = true }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = ["proptest", "value/testing"]
 
 [[bench]]
 name = "packed_value"

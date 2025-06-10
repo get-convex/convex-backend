@@ -10,6 +10,9 @@ license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
 homepage = "https://www.convex.dev/"
 
+[features]
+testing = [ "proptest", "proptest-derive", "pretty_assertions" ]
+
 [dependencies]
 anyhow = { version = "1" }
 base64 = { version = "0.13" }
@@ -27,9 +30,6 @@ uuid = { features = [ "serde", "v4" ], version = "1.6" }
 pretty_assertions = { version = "1" }
 proptest = { version = "1" }
 proptest-derive = { version = "0.5.0" }
-
-[features]
-testing = [ "proptest", "proptest-derive", "pretty_assertions" ]
 
 [lints.rust]
 unused_extern_crates = "warn"

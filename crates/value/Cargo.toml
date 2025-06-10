@@ -9,6 +9,16 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "dep:byteorder",
+    "errors/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "sync_types/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 base-62 = { workspace = true }
@@ -50,16 +60,6 @@ proptest-derive = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
     "testing",
 ] }
-
-[features]
-testing = [
-    "dep:byteorder",
-    "errors/testing",
-    "metrics/testing",
-    "proptest",
-    "proptest-derive",
-    "sync_types/testing",
-]
 
 [[bench]]
 name = "document_id"

@@ -8,6 +8,18 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "indexing/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "value/testing",
+    "storage/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -52,18 +64,6 @@ proptest-derive = { workspace = true }
 storage = { path = "../storage", features = ["testing"] }
 tokio = { workspace = true }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "indexing/testing",
-    "metrics/testing",
-    "proptest",
-    "proptest-derive",
-    "value/testing",
-    "storage/testing",
-]
 
 [[bench]]
 name = "memory_index"

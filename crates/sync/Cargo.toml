@@ -8,6 +8,19 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "application/testing",
+    "common/testing",
+    "errors/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "proptest",
+    "proptest-derive",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 application = { path = "../application" }
@@ -45,19 +58,6 @@ must-let = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
-
-[features]
-testing = [
-    "application/testing",
-    "common/testing",
-    "errors/testing",
-    "isolate/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "model/testing",
-    "proptest",
-    "proptest-derive",
-]
 
 [lints]
 workspace = true

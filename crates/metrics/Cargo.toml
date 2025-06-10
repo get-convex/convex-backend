@@ -5,8 +5,14 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["vergen"] # Build dependencies not understood
+
 [lib]
 doctest = false
+
+[features]
+testing = []
 
 [dependencies]
 ahash = { workspace = true }
@@ -17,12 +23,6 @@ paste = { workspace = true }
 prometheus = { workspace = true }
 sentry = { workspace = true }
 tracing = { workspace = true }
-
-[features]
-testing = []
-
-[package.metadata.cargo-machete]
-ignored = ["vergen"] # Build dependencies not understood
 
 [lints]
 workspace = true

@@ -9,9 +9,21 @@ license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-fivetran-source"
 homepage = "https://www.convex.dev/"
 
+[package.metadata.cargo-machete]
+ignored = [
+    # Build dependencies not understood
+    "cfg_if",
+    "tonic_build",
+    # Prost required via tonic macro
+    "prost",
+]
+
 [lib]
 name = "convex_fivetran_common"
 path = "src/lib.rs"
+
+[features]
+testing = ["proptest"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -30,18 +42,6 @@ tonic-build = { workspace = true }
 [dev-dependencies]
 maplit = { workspace = true }
 proptest = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = [
-    # Build dependencies not understood
-    "cfg_if",
-    "tonic_build",
-    # Prost required via tonic macro
-    "prost",
-]
-
-[features]
-testing = ["proptest"]
 
 [lints]
 workspace = true

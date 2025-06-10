@@ -5,8 +5,31 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-udeps.ignore]
+development = ["criterion"] # udeps can't tell this is used by benchmarks
+
 [lib]
 doctest = false
+
+[features]
+bench = ["testing"]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "events/testing",
+    "indexing/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "runtime/testing",
+    "search/testing",
+    "storage/testing",
+    "shape_inference/testing",
+    "usage_tracking/testing",
+    "value/testing",
+    "vector/testing",
+]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -82,29 +105,6 @@ vector = { path = "../vector", features = ["testing"] }
 name = "subscriptions"
 harness = false
 required-features = ["testing"]
-
-[features]
-bench = ["testing"]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "events/testing",
-    "indexing/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "proptest",
-    "proptest-derive",
-    "runtime/testing",
-    "search/testing",
-    "storage/testing",
-    "shape_inference/testing",
-    "usage_tracking/testing",
-    "value/testing",
-    "vector/testing",
-]
-
-[package.metadata.cargo-udeps.ignore]
-development = ["criterion"] # udeps can't tell this is used by benchmarks
 
 [lints]
 workspace = true

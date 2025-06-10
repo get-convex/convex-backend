@@ -5,12 +5,12 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-[lib]
-doctest = false
-
 [package.metadata.cargo-udeps.ignore]
 normal = ["proptest", "proptest-derive"]
 development = ["proptest", "proptest-derive"]
+
+[lib]
+doctest = false
 
 [dependencies]
 anyhow = { workspace = true }

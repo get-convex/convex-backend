@@ -5,8 +5,21 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = []
+
 [lib]
 doctest = false
+
+[features]
+testing = [
+    "common/testing",
+    "events/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "value/testing",
+]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -30,19 +43,6 @@ metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "events/testing",
-    "metrics/testing",
-    "proptest",
-    "proptest-derive",
-    "value/testing",
-]
-
-[package.metadata.cargo-machete]
-ignored = []
 
 [lints]
 workspace = true

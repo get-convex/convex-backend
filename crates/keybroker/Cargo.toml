@@ -8,6 +8,15 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "metrics/testing",
+    "rsa",
+    "runtime/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 aws-lc-rs = { workspace = true }
@@ -44,15 +53,6 @@ proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rsa = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "metrics/testing",
-    "rsa",
-    "runtime/testing",
-]
 
 [lints]
 workspace = true

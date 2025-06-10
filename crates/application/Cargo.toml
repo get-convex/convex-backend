@@ -7,6 +7,31 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "authentication/testing",
+    "common/testing",
+    "database/testing",
+    "errors/testing",
+    "events/testing",
+    "function_runner/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "node_executor/testing",
+    "proptest",
+    "proptest-derive",
+    "runtime/testing",
+    "search/testing",
+    "storage/testing",
+    "shape_inference/testing",
+    "udf/testing",
+    "usage_tracking/testing",
+    "value/testing",
+    "vector/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
@@ -115,31 +140,6 @@ usage_tracking = { path = "../../crates/usage_tracking", features = [
 ] }
 value = { path = "../value", features = ["testing"] }
 vector = { path = "../vector", features = ["testing"] }
-
-[features]
-testing = [
-    "authentication/testing",
-    "common/testing",
-    "database/testing",
-    "errors/testing",
-    "events/testing",
-    "function_runner/testing",
-    "isolate/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "model/testing",
-    "node_executor/testing",
-    "proptest",
-    "proptest-derive",
-    "runtime/testing",
-    "search/testing",
-    "storage/testing",
-    "shape_inference/testing",
-    "udf/testing",
-    "usage_tracking/testing",
-    "value/testing",
-    "vector/testing",
-]
 
 [lints]
 workspace = true

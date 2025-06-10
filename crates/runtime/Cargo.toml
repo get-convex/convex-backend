@@ -8,6 +8,9 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = ["common/testing", "metrics/testing"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -23,9 +26,6 @@ tracing = { workspace = true }
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
-
-[features]
-testing = ["common/testing", "metrics/testing"]
 
 [lints]
 workspace = true

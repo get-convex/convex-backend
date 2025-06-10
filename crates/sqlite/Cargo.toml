@@ -5,6 +5,9 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["tokio"]
+
 [lib]
 doctest = false
 
@@ -23,12 +26,6 @@ serde_json = { workspace = true }
 common = { path = "../common", features = ["testing"] }
 tempfile = { workspace = true }
 tokio = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = [
-    # persistence_test_suite macro depends on tokio
-    "tokio",
-]
 
 [lints]
 workspace = true

@@ -8,6 +8,16 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+metrics = ["common/testing"]
+tracy-tracing = ["common/tracy-tracing"]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "keybroker/testing",
+    "metrics/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -36,16 +46,6 @@ errors = { path = "../errors", features = ["testing"] }
 keybroker = { path = "../keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 tokio = { workspace = true }
-
-[features]
-metrics = ["common/testing"]
-tracy-tracing = ["common/tracy-tracing"]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "keybroker/testing",
-    "metrics/testing",
-]
 
 [lints]
 workspace = true

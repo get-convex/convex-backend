@@ -8,12 +8,38 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 build = "build.rs"
 include = ["data"]
 
-[lib]
-doctest = false
-
 [package.metadata.cargo-udeps.ignore]
 normal = ["mysql"]
 development = ["mysql"]
+
+[package.metadata.cargo-machete]
+ignored = ["phf"]
+
+[lib]
+doctest = false
+
+[features]
+testing = [
+    "common/testing",
+    "database/testing",
+    "errors/testing",
+    "keybroker/testing",
+    "maplit",
+    "metrics/testing",
+    "model/testing",
+    "must-let",
+    "proptest",
+    "proptest-derive",
+    "proptest-http",
+    "runtime/testing",
+    "search/testing",
+    "storage/testing",
+    "usage_tracking/testing",
+    "value/testing",
+    "vector/testing",
+    "udf/testing",
+]
+tracy-tracing = ["common/tracy-tracing"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -122,35 +148,6 @@ udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 vector = { path = "../vector", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "database/testing",
-    "errors/testing",
-    "keybroker/testing",
-    "maplit",
-    "metrics/testing",
-    "model/testing",
-    "must-let",
-    "proptest",
-    "proptest-derive",
-    "proptest-http",
-    "runtime/testing",
-    "search/testing",
-    "storage/testing",
-    "usage_tracking/testing",
-    "value/testing",
-    "vector/testing",
-    "udf/testing",
-]
-tracy-tracing = ["common/tracy-tracing"]
-
-[package.metadata.cargo-machete]
-ignored = [
-    # Generated code depends on phf
-    "phf",
-]
 
 [lints]
 workspace = true

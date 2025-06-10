@@ -5,6 +5,12 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["proptest"]
+
+[features]
+testing = ["common/testing", "metrics/testing"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -36,15 +42,6 @@ common = { path = "../../crates/common", features = ["testing"] }
 metrics = { path = "../../crates/metrics", features = ["testing"] }
 proptest = { workspace = true }
 tokio = { workspace = true }
-
-[features]
-testing = ["common/testing", "metrics/testing"]
-
-[package.metadata.cargo-machete]
-ignored = [
-    # proptest_derive macro depends on proptest
-    "proptest",
-]
 
 [lints]
 workspace = true

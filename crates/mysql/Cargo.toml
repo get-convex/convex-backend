@@ -8,6 +8,14 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "metrics/testing",
+    "runtime/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -36,14 +44,6 @@ common = { path = "../../crates/common", features = ["testing"] }
 errors = { path = "../../crates/errors", features = ["testing"] }
 metrics = { path = "../../crates/metrics", features = ["testing"] }
 runtime = { path = "../../crates/runtime" }
-
-[features]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "metrics/testing",
-    "runtime/testing",
-]
 
 [lints]
 workspace = true

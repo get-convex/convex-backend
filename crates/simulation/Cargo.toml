@@ -5,9 +5,6 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-[lib]
-doctest = false
-
 [package.metadata.cargo-udeps.ignore]
 normal = [
     "anyhow",
@@ -50,6 +47,23 @@ development = [
     "tracing",
 ]
 
+[lib]
+doctest = false
+
+[features]
+testing = [
+    "application/testing",
+    "common/testing",
+    "errors/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "sync/testing",
+    "proptest",
+    "proptest-derive",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 application = { path = "../application" }
@@ -89,20 +103,6 @@ rand_distr = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 sync = { path = "../sync", features = ["testing"] }
 uuid = { workspace = true }
-
-[features]
-testing = [
-    "application/testing",
-    "common/testing",
-    "errors/testing",
-    "isolate/testing",
-    "keybroker/testing",
-    "metrics/testing",
-    "model/testing",
-    "sync/testing",
-    "proptest",
-    "proptest-derive",
-]
 
 [lints]
 workspace = true

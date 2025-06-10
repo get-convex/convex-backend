@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["cfg_if", "tonic_build"]
+
 [lib]
 doctest = false
 
@@ -11,13 +14,6 @@ doctest = false
 cfg-if = { workspace = true }
 prost = { workspace = true }
 tonic-build = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = [
-    # Build dependencies not understood
-    "cfg_if",
-    "tonic_build",
-]
 
 [lints]
 workspace = true

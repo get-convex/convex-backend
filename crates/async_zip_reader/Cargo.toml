@@ -13,10 +13,10 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 zip = { version = "2.2.2", features = ["deflate-zlib-ng", "deflate64", "zstd"] }
 
-[lints]
-workspace = true
-
 [dev-dependencies]
 async_zip = { workspace = true }
 async_zip_0_0_9 = { workspace = true }
 futures = { workspace = true }
+
+[lints]
+workspace = true

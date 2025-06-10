@@ -5,12 +5,15 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-[lib]
-doctest = false
-
 [package.metadata.cargo-udeps.ignore]
 normal = ["runtime"]
 development = ["runtime"]
+
+[lib]
+doctest = false
+
+[features]
+testing = ["common/testing", "runtime/testing", "value/testing"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -40,9 +43,6 @@ convex_macro = { path = "../convex_macro" }
 parking_lot = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = ["common/testing", "runtime/testing", "value/testing"]
 
 [lints]
 workspace = true

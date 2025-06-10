@@ -8,6 +8,15 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "metrics/testing",
+    "runtime/testing",
+    "value/testing",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -30,15 +39,6 @@ metrics = { path = "../metrics", features = ["testing"] }
 must-let = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = [
-    "common/testing",
-    "errors/testing",
-    "metrics/testing",
-    "runtime/testing",
-    "value/testing",
-]
 
 [[bench]]
 name = "index_registry"

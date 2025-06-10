@@ -5,6 +5,18 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["proptest", "proptest-derive"]
+
+[features]
+testing = [
+    "common",
+    "common/testing",
+    "parking_lot",
+    "proptest",
+    "proptest-derive",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -20,18 +32,6 @@ parking_lot = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 serde_json = { workspace = true }
-
-[features]
-testing = [
-    "common",
-    "common/testing",
-    "parking_lot",
-    "proptest",
-    "proptest-derive",
-]
-
-[package.metadata.cargo-machete]
-ignored = ["proptest", "proptest-derive"]
 
 [lints]
 workspace = true

@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = [
+    # Prost/Tonic required via tonic macro
+    "prost-types",
+    # Build dependencies not understood
+    "pb_build",
+]
+
 [lib]
 doctest = false
 
@@ -19,23 +27,15 @@ prost-types = { workspace = true }
 tonic = { workspace = true }
 value = { path = "../value" }
 
+[build-dependencies]
+pb_build = { path = "../pb_build" }
+
 [dev-dependencies]
 cmd_util = { path = "../cmd_util" }
 convex_sync_types = { path = "../convex/sync_types", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
 proptest = { workspace = true }
 value = { path = "../value", features = ["testing"] }
-
-[build-dependencies]
-pb_build = { path = "../pb_build" }
-
-[package.metadata.cargo-machete]
-ignored = [
-    # Prost/Tonic required via tonic macro
-    "prost-types",
-    # Build dependencies not understood
-    "pb_build",
-]
 
 [lints]
 workspace = true

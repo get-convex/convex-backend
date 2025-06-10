@@ -10,6 +10,9 @@ license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
 homepage = "https://www.convex.dev/"
 
+[features]
+testing = ["proptest", "proptest-derive", "pretty_assertions"]
+
 [dependencies]
 anyhow = { workspace = true }
 base64 = { workspace = true }
@@ -30,9 +33,6 @@ uuid = { workspace = true, features = ["serde", "v4"] }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-
-[features]
-testing = ["proptest", "proptest-derive", "pretty_assertions"]
 
 [lints]
 workspace = true

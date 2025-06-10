@@ -8,6 +8,9 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [lib]
 doctest = false
 
+[features]
+testing = ["common/testing", "metrics/testing", "proptest", "value/testing"]
+
 [dependencies]
 anyhow = { workspace = true }
 byteorder = { workspace = true }
@@ -27,9 +30,6 @@ common = { path = "../common", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 value = { path = "../value", features = ["testing"] }
-
-[features]
-testing = ["common/testing", "metrics/testing", "proptest", "value/testing"]
 
 [lints]
 workspace = true

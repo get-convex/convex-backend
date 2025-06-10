@@ -4,8 +4,21 @@ version = "0.1.0"
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = [
+    # proptest_derive macro depends on proptest
+    "proptest",
+    "proptest_derive",
+    # Used in macros
+    "derive_more",
+    "serde_json",
+]
+
 [lib]
 doctest = false
+
+[features]
+testing = ["common/testing", "keybroker/testing", "proptest", "proptest-derive"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -26,19 +39,6 @@ common = { path = "../../crates/common", features = ["testing"] }
 keybroker = { path = "../../crates/keybroker", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-
-[features]
-testing = ["common/testing", "keybroker/testing", "proptest", "proptest-derive"]
-
-[package.metadata.cargo-machete]
-ignored = [
-    # proptest_derive macro depends on proptest
-    "proptest",
-    "proptest_derive",
-    # Used in macros
-    "derive_more",
-    "serde_json",
-]
 
 [lints]
 workspace = true

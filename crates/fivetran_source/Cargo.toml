@@ -9,6 +9,17 @@ license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-fivetran-source"
 homepage = "https://www.convex.dev/"
 
+[package.metadata.cargo-machete]
+ignored = [
+    # Build dependencies not understood
+    "bytes",
+    "cfg_if",
+    "futures_util",
+    "tonic_build",
+    # Prost required via tonic macro
+    "prost",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -45,17 +56,6 @@ proptest-derive = { workspace = true }
 rand = { workspace = true }
 schemars = { version = "0.8" }
 uuid = { workspace = true }
-
-[package.metadata.cargo-machete]
-ignored = [
-    # Build dependencies not understood
-    "bytes",
-    "cfg_if",
-    "futures_util",
-    "tonic_build",
-    # Prost required via tonic macro
-    "prost",
-]
 
 [lints]
 workspace = true

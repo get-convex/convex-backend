@@ -10,6 +10,19 @@ license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
 homepage = "https://www.convex.dev/"
 
+[features]
+default = ["native-tls-vendored"]
+native-tls = ["tokio-tungstenite/native-tls"]
+native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
+rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
+rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
+testing = [
+    "convex_sync_types/testing",
+    "proptest",
+    "proptest-derive",
+    "parking_lot",
+]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -46,19 +59,6 @@ pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-
-[features]
-default = ["native-tls-vendored"]
-native-tls = ["tokio-tungstenite/native-tls"]
-native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
-rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
-rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
-testing = [
-    "convex_sync_types/testing",
-    "proptest",
-    "proptest-derive",
-    "parking_lot",
-]
 
 [lints]
 workspace = true
