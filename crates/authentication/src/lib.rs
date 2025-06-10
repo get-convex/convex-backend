@@ -388,6 +388,20 @@ pub struct VercelClaims {
     user_role: VercelUserRole,
 }
 
+impl VercelClaims {
+    pub fn installation_id(&self) -> &str {
+        &self.installation_id
+    }
+
+    pub fn account_id(&self) -> &str {
+        &self.account_id
+    }
+
+    pub fn user_role(&self) -> &VercelUserRole {
+        &self.user_role
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ConsoleAccessToken {
     email: String,
@@ -425,7 +439,7 @@ impl From<ConsoleAccessToken> for UserInfo {
     }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 /// Relevant fields returned from the Auth0 userinfo endpoint
 pub struct UserInfo {
     nickname: Option<String>,
@@ -479,6 +493,10 @@ impl AuthenticatedLogin {
 
     pub fn user_info(&self) -> Option<&UserInfo> {
         self.user_info.as_ref()
+    }
+
+    pub fn vercel_info(&self) -> Option<&Vec<VercelClaims>> {
+        self.user_info.as_ref().and_then(|ui| ui.vercel_info())
     }
 }
 
