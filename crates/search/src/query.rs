@@ -1096,7 +1096,7 @@ impl<'a> DocumentTokens<'a> {
         let document_tokens = self
             .tokens
             .entry(path.clone())
-            .or_insert(Self::calculate(&document_text, self.analyzer));
+            .or_insert_with(|| Self::calculate(&document_text, self.analyzer));
 
         if prefix {
             // We're inverting prefix match here by constructing all possible prefixes for
