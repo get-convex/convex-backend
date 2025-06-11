@@ -353,21 +353,25 @@ function PriceSummary({
 }) {
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="price-summary">
-      <p>
-        The {plan.name} plan costs{" "}
-        <PriceInDollars
-          price={plan.seatPrice!}
-          percentOff={!requiresPaymentMethod ? 1 : teamMemberDiscountPct}
-        />{" "}
-        per team member, per month.
-      </p>
+      {plan.seatPrice ? (
+        <p>
+          The {plan.name} plan costs{" "}
+          <PriceInDollars
+            price={plan.seatPrice}
+            percentOff={!requiresPaymentMethod ? 1 : teamMemberDiscountPct}
+          />{" "}
+          per team member, per month.
+        </p>
+      ) : (
+        <p>{plan.name} is a pay-as-you-go plan.</p>
+      )}
       {couponDurationInMonths && (
         <p>
           This discount will be applied for the next {couponDurationInMonths}{" "}
           months.
         </p>
       )}
-      {requiresPaymentMethod && (
+      {requiresPaymentMethod && plan.seatPrice && (
         <p>
           Your team has {numMembers} member{numMembers > 1 && "s"}. Once you
           upgrade, you'll be charged{" "}
