@@ -188,7 +188,7 @@ macro_rules! val {
     };
 
     ([]) => {
-        $crate::ConvexValue::Array(ConvexArray::empty())
+        $crate::ConvexValue::Array($crate::ConvexArray::empty())
     };
 
     ([ $($tt:tt)+ ]) => {
