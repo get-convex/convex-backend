@@ -6,7 +6,6 @@ use std::{
         Layout,
     },
     ffi::c_void,
-    mem,
     ptr,
     sync::{
         atomic::{
@@ -62,7 +61,7 @@ impl ArrayBufferMemoryLimit {
 #[cfg(windows)]
 const ALIGNMENT: usize = 16;
 #[cfg(not(windows))]
-const ALIGNMENT: usize = mem::align_of::<libc::max_align_t>();
+const ALIGNMENT: usize = std::mem::align_of::<libc::max_align_t>();
 
 unsafe extern "C" fn allocate(handle: &ArrayBufferMemoryLimit, len: usize) -> *mut c_void {
     if handle.consume(len) {
