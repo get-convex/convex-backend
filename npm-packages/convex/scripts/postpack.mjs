@@ -4,6 +4,7 @@ import url from "url";
 import path from "path";
 import { spawnSync } from "child_process";
 import fs from "fs";
+import * as tar from "tar";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 const convexDir = path.join(__dirname, "..");
@@ -18,7 +19,12 @@ console.log("creating temp folder", tmpDir);
 fs.rmSync(tmpDir, { force: true, recursive: true });
 fs.mkdirSync(tmpDir);
 
-run("tar", "xzf", tarball, "-C", tmpDir);
+await tar.extract({
+  gzip: true,
+  file: tarball,
+  cwd: tmpDir,
+  strict: true,
+});
 const tmpPackage = path.join(tmpDir, "package");
 
 console.log("modifying package.json");
@@ -58,7 +64,15 @@ fs.rmSync(path.join(tmpPackage, "dist", "internal-esm-types"), {
 
 auditInternal(tmpPackage);
 
-run("tar", "czvf", tarball, "-C", tmpDir, "package");
+await tar.create(
+  {
+    gzip: true,
+    file: tarball,
+    cwd: tmpDir,
+    strict: true,
+  },
+  ["package"],
+);
 fs.rmSync(tmpDir, { recursive: true });
 
 function getOnlyTarball(dirname) {
