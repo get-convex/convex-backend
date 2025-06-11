@@ -1711,6 +1711,7 @@ export interface components {
             centitokensUsed: number;
             isPaidPlan: boolean;
             isTeamDisabled: boolean;
+            planType: string;
             /** Format: int64 */
             tokensQuota: number;
             /** Format: int64 */
