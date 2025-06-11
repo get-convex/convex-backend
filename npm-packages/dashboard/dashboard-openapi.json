@@ -3953,8 +3953,7 @@
           "id",
           "name",
           "description",
-          "status",
-          "seatPrice"
+          "status"
         ],
         "properties": {
           "description": {
@@ -3973,7 +3972,10 @@
             ]
           },
           "seatPrice": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "format": "double"
           },
           "status": {

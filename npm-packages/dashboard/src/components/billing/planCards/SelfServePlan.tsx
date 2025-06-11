@@ -20,7 +20,7 @@ export function SelfServePlan({
         percentOff ? (
           <>
             <span className="mr-1 line-through">${plan.seatPrice}</span>$
-            {Number((plan.seatPrice * (1 - percentOff / 100)).toFixed(2))}
+            {Number((plan.seatPrice! * (1 - percentOff / 100)).toFixed(2))}
           </>
         ) : (
           `$${plan.seatPrice}`

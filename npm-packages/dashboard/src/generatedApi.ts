@@ -1822,7 +1822,7 @@ export interface components {
             name: string;
             planType?: string | null;
             /** Format: double */
-            seatPrice: number;
+            seatPrice?: number | null;
             status: string;
         };
         PlansResponse: {

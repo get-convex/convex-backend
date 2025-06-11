@@ -356,7 +356,7 @@ function PriceSummary({
       <p>
         The {plan.name} plan costs{" "}
         <PriceInDollars
-          price={plan.seatPrice}
+          price={plan.seatPrice!}
           percentOff={!requiresPaymentMethod ? 1 : teamMemberDiscountPct}
         />{" "}
         per team member, per month.
@@ -372,7 +372,7 @@ function PriceSummary({
           Your team has {numMembers} member{numMembers > 1 && "s"}. Once you
           upgrade, you'll be charged{" "}
           <PriceInDollars
-            price={plan.seatPrice * numMembers}
+            price={plan.seatPrice! * numMembers}
             percentOff={teamMemberDiscountPct}
           />{" "}
           immediately.{" "}
