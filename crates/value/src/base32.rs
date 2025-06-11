@@ -37,41 +37,46 @@ pub const fn encoded_len(len: usize) -> usize {
     (len / 5) * 8 + last_chunk
 }
 
-pub fn encode(data: &[u8]) -> String {
-    let mut out = Vec::with_capacity((data.len() + 4) / 5 * 8);
-
+/// Writes the base32-encoding of `data` into `out`, which should have length
+/// `(data.len() + 4) / 5 * 8`. Only the first `encoded_len(data.len())` bytes
+/// of `out` should be used.
+#[inline]
+pub fn encode_into(out: &mut [u8], data: &[u8]) {
     // Process the input in chunks of length 5 (i.e 40 bits), potentially padding
     // the last chunk with zeros for now.
-    for chunk in data.chunks(5) {
-        let mut block = [0u8; 5];
-        block[..chunk.len()].copy_from_slice(chunk);
-
-        let mut indexes = [0u8; 8];
+    for (chunk, out_chunk) in data.chunks(5).zip(out.chunks_mut(8)) {
+        let block = chunk.try_into().unwrap_or_else(|_| {
+            // Zero-extend the last chunk if necessary
+            let mut block = [0u8; 5];
+            block[..chunk.len()].copy_from_slice(chunk);
+            block
+        });
 
         // Turn our block of 5 groups of 8 bits into 8 groups of 5 bits.
-        indexes[0] = (block[0] & 0b1111_1000) >> 3;
-        indexes[1] = ((block[0] & 0b0000_0111) << 2) | ((block[1] & 0b1100_0000) >> 6);
-        indexes[2] = (block[1] & 0b0011_1110) >> 1;
-        indexes[3] = ((block[1] & 0b0000_0001) << 4) | ((block[2] & 0b1111_0000) >> 4);
-        indexes[4] = ((block[2] & 0b0000_1111) << 1) | (block[3] >> 7);
-        indexes[5] = (block[3] & 0b0111_1100) >> 2;
-        indexes[6] = (block[3] & 0b0000_0011) << 3 | ((block[4] & 0b1110_0000) >> 5);
-        indexes[7] = block[4] & 0b0001_1111;
-
-        // Look up each 5 bit index in our alphabet.
-        for index in indexes {
-            out.push(ALPHABET[index as usize]);
+        #[inline]
+        fn alphabet(index: u8) -> u8 {
+            ALPHABET[index as usize]
         }
+        out_chunk[0] = alphabet((block[0] & 0b1111_1000) >> 3);
+        out_chunk[1] = alphabet((block[0] & 0b0000_0111) << 2 | ((block[1] & 0b1100_0000) >> 6));
+        out_chunk[2] = alphabet((block[1] & 0b0011_1110) >> 1);
+        out_chunk[3] = alphabet((block[1] & 0b0000_0001) << 4 | ((block[2] & 0b1111_0000) >> 4));
+        out_chunk[4] = alphabet((block[2] & 0b0000_1111) << 1 | (block[3] >> 7));
+        out_chunk[5] = alphabet((block[3] & 0b0111_1100) >> 2);
+        out_chunk[6] = alphabet((block[3] & 0b0000_0011) << 3 | ((block[4] & 0b1110_0000) >> 5));
+        out_chunk[7] = alphabet(block[4] & 0b0001_1111);
     }
+}
+
+pub fn encode(data: &[u8]) -> String {
+    let mut out = vec![0; (data.len() + 4) / 5 * 8];
+    encode_into(&mut out, data);
     // Truncate any extra zeros we added on the last block.
-    if data.len() % 5 != 0 {
-        let num_extra = 8 - (data.len() % 5 * 8 + 4) / 5;
-        out.truncate(out.len() - num_extra);
-    }
+    out.truncate(encoded_len(data.len()));
     String::from_utf8(out).unwrap()
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 #[error("Invalid character {character} at position {position} in {string}")]
 pub struct InvalidBase32Error {
     pub character: char,
@@ -97,13 +102,15 @@ pub fn decode(data: &str) -> Result<Vec<u8>, InvalidBase32Error> {
                 b'p'..=b't' => b'a' - 10 + 3,
                 b'v'..=b'z' => b'a' - 10 + 4,
                 _ => {
+                    // Recover the index within `data_bytes`
+                    let position = i + chunk.as_ptr().addr() - data_bytes.as_ptr().addr();
                     return Err(InvalidBase32Error {
-                        character: data.chars().nth(i).unwrap_or_else(|| {
-                            panic!("Checked characters 0..{i} in {data} were one-byte")
+                        character: data[position..].chars().next().unwrap_or_else(|| {
+                            panic!("Checked characters 0..{position} in {data} were one-byte")
                         }),
-                        position: i,
+                        position,
                         string: data.to_string(),
-                    })
+                    });
                 },
             };
             indexes[i] = byte - offset;
@@ -158,5 +165,17 @@ mod tests {
             let right_encoded = encode(&right);
             assert_eq!(left.cmp(&right), left_encoded.cmp(&right_encoded));
         }
+    }
+
+    #[test]
+    fn test_invalid_base32_error() {
+        assert_eq!(
+            decode("01234567ë").unwrap_err(),
+            InvalidBase32Error {
+                character: 'ë',
+                position: 8,
+                string: "01234567ë".into()
+            }
+        );
     }
 }
