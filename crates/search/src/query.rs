@@ -1066,7 +1066,7 @@ impl ValueTokens {
 
     fn for_each_token<F>(&mut self, prefix: bool, mut for_each: F)
     where
-        F: FnMut(&String),
+        F: FnMut(&str),
     {
         if prefix {
             // We're inverting prefix match here by constructing all possible prefixes for
@@ -1080,7 +1080,7 @@ impl ValueTokens {
             // of the document, which is expected to be significantly smaller
             // than the total number of subscriptions for busy backends.
             for token in self.calculate_prefixes() {
-                for_each(&token);
+                for_each(token);
             }
         } else {
             for token in self.tokens.iter() {
@@ -1089,11 +1089,11 @@ impl ValueTokens {
         }
     }
 
-    fn calculate_prefixes(&self) -> impl Iterator<Item = String> + '_ {
-        let mut set = HashSet::new();
+    fn calculate_prefixes(&self) -> impl Iterator<Item = &str> + '_ {
+        let mut set: HashSet<&str> = HashSet::new();
 
         for token in self.tokens.iter() {
-            if !set.insert(token.clone()) {
+            if !set.insert(token) {
                 continue;
             }
             for (i, _) in token.char_indices()
@@ -1105,7 +1105,7 @@ impl ValueTokens {
                 // After that we get all prefixes except for the complete
                 // token (because `..i` always skips the last character
                 // bytes).
-                set.insert(token[..i].to_string());
+                set.insert(&token[..i]);
             }
         }
         set.into_iter()
