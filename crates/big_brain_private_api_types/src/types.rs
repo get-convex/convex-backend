@@ -52,6 +52,29 @@ impl FromStr for PlanId {
     }
 }
 
+impl PlanId {
+    pub fn is_in_orb(&self) -> bool {
+        match self {
+            PlanId::ConvexBase => false,
+            PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => true,
+        }
+    }
+
+    pub fn supports_referrals(&self) -> bool {
+        match self {
+            PlanId::ConvexBase => true,
+            PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => false,
+        }
+    }
+
+    pub fn gets_pro_resources(&self) -> bool {
+        match self {
+            PlanId::ConvexBase | PlanId::ConvexStarterPlus => false,
+            PlanId::ConvexProfessional => true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
