@@ -843,8 +843,8 @@ importers:
         specifier: ~0.13.0
         version: 0.13.4
       posthog-js:
-        specifier: ~1.234.0
-        version: 1.234.11(@rrweb/types@2.0.0-alpha.17)
+        specifier: ~1.241.0
+        version: 1.241.1(@rrweb/types@2.0.0-alpha.17)
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1049,7 +1049,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.25(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 0.9.13(next@14.2.25(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1160,7 +1160,7 @@ importers:
         version: 0.40.0
       next:
         specifier: ^14
-        version: 14.2.25(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 14.2.25(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1278,7 +1278,7 @@ importers:
         version: 4.17.14
       '@types/next':
         specifier: ~9.0.0
-        version: 9.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 9.0.0(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -1359,7 +1359,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.25(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 0.9.13(next@14.2.25(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -2889,8 +2889,8 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       posthog-js:
-        specifier: ~1.234.0
-        version: 1.234.11(@rrweb/types@2.0.0-alpha.17)
+        specifier: ~1.241.0
+        version: 1.241.1(@rrweb/types@2.0.0-alpha.17)
       prism-react-renderer:
         specifier: ~2.4.1
         version: 2.4.1(react@18.3.1)
@@ -18727,8 +18727,8 @@ packages:
     resolution: {integrity: sha512-dle9A3yYxlBSrt8Fu+IpjGT8SY8hN0mlaA6GY8t0P5PjIOZemULz/E2Bnm/2dcUOena75OTNkHI76uZBNUUq3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-js@1.234.11:
-    resolution: {integrity: sha512-46gf5AI7U8KTuRQulfQ21kSG1eOPDUZ4mudMJbGMX3yc0iTA8X//BsLFzIQXoPgr3LeXMr6/0OPlCQlUk97gNA==}
+  posthog-js@1.241.1:
+    resolution: {integrity: sha512-FJroX5kcz+twkYB8j/c+gHtuctjjAYX1EyopTG4bVZ+K5pQ/o7RCIlvUcCok1MZgDLiBrP/PnG0FkzUlMs19qQ==}
     peerDependencies:
       '@rrweb/types': 2.0.0-alpha.17
       rrweb-snapshot: 2.0.0-alpha.17
@@ -31811,9 +31811,9 @@ snapshots:
 
   '@types/ms@0.7.34': {}
 
-  '@types/next@9.0.0(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@types/next@9.0.0(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      next: 14.2.25(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.25(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - '@babel/core'
       - '@opentelemetry/api'
@@ -41334,7 +41334,12 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next-router-mock@0.9.13(next@14.2.25(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+  next-router-mock@0.9.13(next@14.2.25(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+    dependencies:
+      next: 14.2.25(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react: 18.3.1
+
+  next-router-mock@0.9.13(next@14.2.25(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
     dependencies:
       next: 14.2.25(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
@@ -41343,6 +41348,33 @@ snapshots:
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
+
+  next@14.2.25(@babel/core@7.27.1(supports-color@10.0.0))(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      '@next/env': 14.2.25
+      '@swc/helpers': 0.5.5
+      busboy: 1.6.0
+      caniuse-lite: 1.0.30001690
+      graceful-fs: 4.2.11
+      postcss: 8.4.31
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      styled-jsx: 5.1.1(@babel/core@7.27.1(supports-color@10.0.0))(react@18.3.1)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 14.2.25
+      '@next/swc-darwin-x64': 14.2.25
+      '@next/swc-linux-arm64-gnu': 14.2.25
+      '@next/swc-linux-arm64-musl': 14.2.25
+      '@next/swc-linux-x64-gnu': 14.2.25
+      '@next/swc-linux-x64-musl': 14.2.25
+      '@next/swc-win32-arm64-msvc': 14.2.25
+      '@next/swc-win32-ia32-msvc': 14.2.25
+      '@next/swc-win32-x64-msvc': 14.2.25
+      '@opentelemetry/api': 1.9.0
+      '@playwright/test': 1.49.1
+    transitivePeerDependencies:
+      - '@babel/core'
+      - babel-plugin-macros
 
   next@14.2.25(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
@@ -42877,7 +42909,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-js@1.234.11(@rrweb/types@2.0.0-alpha.17):
+  posthog-js@1.241.1(@rrweb/types@2.0.0-alpha.17):
     dependencies:
       core-js: 3.40.0
       fflate: 0.4.8
@@ -45015,6 +45047,13 @@ snapshots:
   style-to-object@1.0.8:
     dependencies:
       inline-style-parser: 0.2.4
+
+  styled-jsx@5.1.1(@babel/core@7.27.1(supports-color@10.0.0))(react@18.3.1):
+    dependencies:
+      client-only: 0.0.1
+      react: 18.3.1
+    optionalDependencies:
+      '@babel/core': 7.27.1(supports-color@10.0.0)
 
   styled-jsx@5.1.1(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react@18.3.1):
     dependencies:
