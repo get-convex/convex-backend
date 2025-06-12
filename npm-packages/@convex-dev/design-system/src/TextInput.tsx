@@ -92,6 +92,7 @@ export const TextInput = forwardRef<
             "min-w-0",
             (type === "search" || leftAddon !== undefined) && "pl-6",
             rightAddon !== undefined && "pr-6",
+            Icon && "pr-10",
             className,
           )}
           {...rest}
