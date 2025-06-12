@@ -9,6 +9,7 @@ import { runSystemQuery } from "../run.js";
 import {
   LocalDeploymentKind,
   deploymentStateDir,
+  loadDeploymentConfig,
   saveDeploymentConfig,
 } from "./filePaths.js";
 import {
@@ -133,6 +134,10 @@ export async function handlePotentialUpgrade(
       isLatestVersion: true,
     });
   }
+  const newAdminKey = args.adminKey;
+  const oldAdminKey =
+    loadDeploymentConfig(ctx, args.deploymentKind, args.deploymentName)
+      ?.adminKey ?? args.adminKey;
   return handleUpgrade(ctx, {
     deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
@@ -140,7 +145,8 @@ export async function handlePotentialUpgrade(
     newBinaryPath: args.newBinaryPath,
     newVersion: args.newVersion,
     ports: args.ports,
-    adminKey: args.adminKey,
+    oldAdminKey,
+    newAdminKey,
     instanceSecret: args.instanceSecret,
   });
 }
@@ -157,7 +163,11 @@ async function handleUpgrade(
       cloud: number;
       site: number;
     };
-    adminKey: string;
+    // In most of the cases the admin key is the same for the old and new version.
+    // This is helpful when we start generating new admin key formats that might
+    // be incompatible with older backend versions.
+    oldAdminKey: string;
+    newAdminKey: string;
     instanceSecret: string;
   },
 ): Promise<{ cleanupHandle: string }> {
@@ -183,7 +193,7 @@ async function handleUpgrade(
   const deploymentUrl = localDeploymentUrl(args.ports.cloud);
   const envs = (await runSystemQuery(ctx, {
     deploymentUrl,
-    adminKey: args.adminKey,
+    adminKey: args.oldAdminKey,
     functionName: "_system/cli/queryEnvironmentVariables",
     componentPath: undefined,
     args: {},
@@ -202,7 +212,7 @@ async function handleUpgrade(
   }
   const snaphsotExportState = await startSnapshotExport(ctx, {
     deploymentUrl,
-    adminKey: args.adminKey,
+    adminKey: args.oldAdminKey,
     includeStorage: true,
     inputPath: exportPath,
   });
@@ -216,7 +226,7 @@ async function handleUpgrade(
   await downloadSnapshotExport(ctx, {
     snapshotExportTs: snaphsotExportState.start_ts,
     inputPath: exportPath,
-    adminKey: args.adminKey,
+    adminKey: args.oldAdminKey,
     deploymentUrl,
   });
 
@@ -247,7 +257,7 @@ async function handleUpgrade(
   if (envs.length > 0) {
     const fetch = deploymentFetch(ctx, {
       deploymentUrl,
-      adminKey: args.adminKey,
+      adminKey: args.newAdminKey,
     });
     try {
       await fetch("/api/update_environment_variables", {
@@ -263,7 +273,7 @@ async function handleUpgrade(
   logVerbose(ctx, "Doing a snapshot import");
   const importId = await uploadForImport(ctx, {
     deploymentUrl,
-    adminKey: args.adminKey,
+    adminKey: args.newAdminKey,
     filePath: exportPath,
     importArgs: { format: "zip", mode: "replace", tableName: undefined },
     onImportFailed: async (e) => {
@@ -274,7 +284,7 @@ async function handleUpgrade(
   let status = await waitForStableImportState(ctx, {
     importId,
     deploymentUrl,
-    adminKey: args.adminKey,
+    adminKey: args.newAdminKey,
     onProgress: () => {
       // do nothing for now
       return 0;
@@ -292,7 +302,7 @@ async function handleUpgrade(
 
   await confirmImport(ctx, {
     importId,
-    adminKey: args.adminKey,
+    adminKey: args.newAdminKey,
     deploymentUrl,
     onError: async (e) => {
       logFailure(ctx, `Failed to confirm import: ${e}`);
@@ -302,7 +312,7 @@ async function handleUpgrade(
   status = await waitForStableImportState(ctx, {
     importId,
     deploymentUrl,
-    adminKey: args.adminKey,
+    adminKey: args.newAdminKey,
     onProgress: () => {
       // do nothing for now
       return 0;
@@ -323,7 +333,7 @@ async function handleUpgrade(
   saveDeploymentConfig(ctx, args.deploymentKind, args.deploymentName, {
     ports: args.ports,
     backendVersion: args.newVersion,
-    adminKey: args.adminKey,
+    adminKey: args.newAdminKey,
     instanceSecret: args.instanceSecret,
   });
 
