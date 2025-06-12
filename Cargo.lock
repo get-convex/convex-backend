@@ -499,6 +499,7 @@ dependencies = [
  "chrono",
  "common",
  "convex_sync_types",
+ "data-url",
  "errors",
  "futures",
  "http 1.3.1",
@@ -2565,6 +2566,12 @@ name = "data-encoding"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23d8666cb01533c39dde32bcbab8e227b4ed6679b2c925eba05feabea39508fb"
+
+[[package]]
+name = "data-url"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c297a1c74b71ae29df00c3e22dd9534821d60eb9af5a0192823fa2acea70c2a"
 
 [[package]]
 name = "database"

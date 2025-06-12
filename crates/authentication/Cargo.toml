@@ -25,6 +25,7 @@ base64 = { workspace = true }
 biscuit = { workspace = true }
 chrono = { workspace = true }
 common = { path = "../common" }
+data-url = { workspace = true }
 errors = { path = "../errors" }
 futures = { workspace = true }
 http = { workspace = true }

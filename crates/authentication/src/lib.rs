@@ -16,6 +16,7 @@ use biscuit::{
 };
 use chrono::TimeZone;
 use common::auth::AuthInfo;
+use data_url::DataUrl;
 use errors::ErrorMetadata;
 use futures::Future;
 use keybroker::{
@@ -231,53 +232,8 @@ where
             issuer,
             algorithm,
         } => {
-            const JWKS_MEDIA_TYPES: [&str; 2] = [
-                "application/json",
-                // https://www.iana.org/assignments/media-types/application/jwk-set+json
-                // used by WorkOS
-                "application/jwk-set+json",
-            ];
-
-            const APPLICATION_JSON: http::HeaderValue =
-                http::HeaderValue::from_static("application/json");
-            let request = http::Request::builder()
-                .uri(jwks_uri)
-                .method(http::Method::GET)
-                .header(http::header::ACCEPT, APPLICATION_JSON)
-                .body(vec![])?;
-            let response = http_client(request).await.map_err(|e| {
-                ErrorMetadata::unauthenticated(
-                    "InvalidAuthHeader",
-                    format!("Could not fetch JWKS: {e}"),
-                )
-            })?;
-            if response.status() != http::StatusCode::OK {
-                anyhow::bail!(ErrorMetadata::unauthenticated(
-                    "InvalidAuthHeader",
-                    "Could not fetch JWKS"
-                ));
-            }
-            if !response
-                .headers()
-                .get(http::header::CONTENT_TYPE)
-                .is_some_and(|ty| {
-                    ty.to_str()
-                        .ok()
-                        .and_then(|s| s.parse::<mime::Mime>().ok())
-                        .is_some_and(|mime| {
-                            JWKS_MEDIA_TYPES
-                                .iter()
-                                .any(|&allowed| mime.essence_str().eq_ignore_ascii_case(allowed))
-                                && mime.get_param("charset").is_none_or(|val| val == "utf-8")
-                        })
-                })
-            {
-                anyhow::bail!(ErrorMetadata::unauthenticated(
-                    "InvalidAuthHeader",
-                    "Invalid Content-Type when fetching JWKS"
-                ));
-            }
-            let jwks: JWKSet<biscuit::Empty> = serde_json::de::from_slice(response.body())
+            let jwks_body = fetch_jwks(&jwks_uri, http_client).await?;
+            let jwks: JWKSet<biscuit::Empty> = serde_json::de::from_slice(&jwks_body)
                 .with_context(|| {
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
@@ -350,6 +306,69 @@ where
             )
         },
     }
+}
+
+const JWKS_MEDIA_TYPES: [&str; 2] = [
+    "application/json",
+    // https://www.iana.org/assignments/media-types/application/jwk-set+json
+    // used by WorkOS
+    "application/jwk-set+json",
+];
+
+const APPLICATION_JSON: http::HeaderValue = http::HeaderValue::from_static("application/json");
+
+async fn fetch_jwks<F, E>(
+    jwks_uri: &str,
+    http_client: impl Fn(HttpRequest) -> F + 'static,
+) -> anyhow::Result<Vec<u8>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    if let Ok(data_url) = DataUrl::process(jwks_uri) {
+        // Don't bother checking the MIME type for data: URLs
+        let (data, _fragment) = data_url.decode_to_vec().with_context(|| {
+            ErrorMetadata::unauthenticated("InvalidAuthHeader", "Invalid JWKS URL")
+        })?;
+        return Ok(data);
+    }
+
+    let request = http::Request::builder()
+        .uri(jwks_uri)
+        .method(http::Method::GET)
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(vec![])?;
+    let response = http_client(request).await.map_err(|e| {
+        ErrorMetadata::unauthenticated("InvalidAuthHeader", format!("Could not fetch JWKS: {e}"))
+    })?;
+    if response.status() != http::StatusCode::OK {
+        anyhow::bail!(ErrorMetadata::unauthenticated(
+            "InvalidAuthHeader",
+            "Could not fetch JWKS"
+        ));
+    }
+    if !response
+        .headers()
+        .get(http::header::CONTENT_TYPE)
+        .is_some_and(|ty| {
+            ty.to_str()
+                .ok()
+                .and_then(|s| s.parse::<mime::Mime>().ok())
+                .is_some_and(|mime| {
+                    JWKS_MEDIA_TYPES
+                        .iter()
+                        .any(|&allowed| mime.essence_str().eq_ignore_ascii_case(allowed))
+                        && mime.get_param("charset").is_none_or(|val| val == "utf-8")
+                })
+        })
+    {
+        anyhow::bail!(ErrorMetadata::unauthenticated(
+            "InvalidAuthHeader",
+            "Invalid Content-Type when fetching JWKS"
+        ));
+    }
+
+    Ok(response.into_body())
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -631,6 +650,7 @@ mod tests {
         Utc,
     };
     use common::auth::AuthInfo;
+    use errors::ErrorMetadataAnyhowExt;
     use futures::{
         Future,
         FutureExt,
@@ -674,6 +694,7 @@ mod tests {
     };
 
     use crate::{
+        fetch_jwks,
         validate_access_token,
         validate_id_token,
         Auth0AccessToken,
@@ -859,6 +880,26 @@ mod tests {
         )
         .await
         .unwrap_err();
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_fetch_jwks_data_url() -> anyhow::Result<()> {
+        assert_eq!(
+            fetch_jwks::<_, Infallible>(
+                "data:text/plain;charset=utf-8;base64,eyJmb28iOiJiYXIifQ==",
+                |_| async move { panic!() }
+            )
+            .await?,
+            br#"{"foo":"bar"}"#
+        );
+        assert!(fetch_jwks::<_, Infallible>(
+            "data:application/json;base64,invalid!",
+            |_| async move { panic!() }
+        )
+        .await
+        .unwrap_err()
+        .is_unauthenticated());
         Ok(())
     }
 }
