@@ -329,6 +329,18 @@ function EntryAction({
           resumed the {metadata.current?.plan || "Convex"} subscription
         </span>
       );
+    case "changeSubscriptionPlan":
+      if (!metadata.previous?.plan || !metadata.current?.plan) {
+        captureMessage(`Found malformed metadata for ${action}`);
+        return <UnhandledAction action={action} />;
+      }
+      return (
+        <span>
+          changed the subscription plan from{" "}
+          <span className="font-semibold">{metadata.previous?.plan}</span>·to{" "}
+          <span className="font-semibold">{metadata.current?.plan}</span>
+        </span>
+      );
     case "createCustomDomain":
       return (
         <span>

@@ -1343,6 +1343,34 @@
         }
       }
     },
+    "/teams/{team_id}/change_subscription_plan": {
+      "post": {
+        "operationId": "change_subscription_plan",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeSubscriptionPlanArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/teams/{team_id}/create_setup_intent": {
       "post": {
         "operationId": "create_setup_intent",
@@ -2583,6 +2611,7 @@
           "createSubscription",
           "resumeSubscription",
           "cancelSubscription",
+          "changeSubscriptionPlan",
           "createTeamAccessToken",
           "updateTeamAccessToken",
           "deleteTeamAccessToken",
@@ -2920,6 +2949,18 @@
         ],
         "properties": {
           "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangeSubscriptionPlanArgs": {
+        "type": "object",
+        "required": [
+          "newPlanId"
+        ],
+        "properties": {
+          "newPlanId": {
             "type": "string"
           }
         },
