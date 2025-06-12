@@ -18,11 +18,12 @@ export const get = queryPrivateSystem({
   args: {
     name: v.string(),
   },
-  handler: async ({ db }, { name }) => {
-    return await db
-      .query("_environment_variables")
-      .withIndex("by_name", (q) => q.eq("name", name))
-      .order("asc")
-      .unique();
+  handler: async (_, { name }) => {
+    const value = process.env[name];
+    if (value !== undefined) {
+      return { name, value };
+    } else {
+      return null;
+    }
   },
 });

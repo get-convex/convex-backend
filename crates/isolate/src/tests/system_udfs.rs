@@ -41,6 +41,17 @@ async fn test_system_udf(rt: TestRuntime) -> anyhow::Result<()> {
     must_let!(let Some(ConvexValue::String(value)) = ConvexObject::get(&obj, "value"));
     assert_eq!(value.to_string(), "B");
 
+    // query a system environment variable
+    must_let!(let ConvexValue::Object(obj) = t.query(
+        "_system/cli/queryEnvironmentVariables:get",
+        assert_obj!("name" => "CONVEX_CLOUD_URL".to_string()),
+    )
+    .await?);
+    must_let!(let Some(ConvexValue::String(name)) = ConvexObject::get(&obj, "name"));
+    assert_eq!(name.to_string(), "CONVEX_CLOUD_URL");
+    must_let!(let Some(ConvexValue::String(value)) = ConvexObject::get(&obj, "value"));
+    assert_eq!(value.to_string(), "https://carnitas.convex.cloud");
+
     // calling with empty argument fails
     let error = t
         .query_js_error("_system/cli/queryEnvironmentVariables:get", assert_obj!())
