@@ -797,25 +797,21 @@ impl<T: Clone + Ord> SearchTermTries<T> {
 
     #[fastrace::trace]
     fn overlaps<'a>(&'a self, document: &'a PackedDocument, analyzer: &'a TextAnalyzer) -> bool {
-        let mut tokens = DocumentTokens::new(analyzer, document);
-        !self.matching_values(&mut tokens).is_empty()
-    }
-
-    fn matching_values<'a>(&'a self, tokens: &mut DocumentTokens<'a>) -> BTreeSet<T> {
         let mut result = BTreeSet::new();
+
         for (path, tries) in self.terms.iter() {
-            for ((prefix, _max_distance), trie) in tries.tries.iter() {
-                // Prefixing is handled by constructing prefix tokens in DocumentTokens (see the
-                // notes there), so we can get away with a symmetric search where the dfa's
-                // prefix is always set to false.
-                tokens.for_each_token(path, *prefix, |token| {
-                    if let Some(value) = trie.get(token) {
-                        result.extend(value.keys().cloned());
-                    }
-                });
+            let Some(ConvexValue::String(document_text)) = document.value().get_path(path) else {
+                continue;
+            };
+
+            let mut tokens = ValueTokens::new(analyzer, &document_text);
+            tries.matching_values(&mut tokens, &mut result);
+            if !result.is_empty() {
+                return true;
             }
         }
-        result
+
+        false
     }
 
     fn extend(&mut self, value: T, queries: &WithHeapSize<Vec<TextQueryTermRead>>) {
@@ -884,6 +880,21 @@ impl<T: Clone> Tries<T> {
     fn new() -> Self {
         Self {
             tries: BTreeMap::new(),
+        }
+    }
+}
+
+impl<T: Clone + Ord> Tries<T> {
+    fn matching_values(&self, tokens: &mut ValueTokens, result: &mut BTreeSet<T>) {
+        for ((prefix, _max_distance), trie) in self.tries.iter() {
+            // Prefixing is handled by constructing prefix tokens in ValueTokens (see the
+            // notes there), so we can get away with a symmetric search where the dfa's
+            // prefix is always set to false.
+            tokens.for_each_token(*prefix, |token| {
+                if let Some(value) = trie.get(token) {
+                    result.extend(value.keys().cloned());
+                }
+            });
         }
     }
 }
@@ -1017,22 +1028,67 @@ impl TextSearchSubscriptions {
     /// tokens in the document.
     fn add_fuzzy_matches(&self, document: &PackedDocument, matches: &mut BTreeSet<SubscriberId>) {
         let analyzer = convex_en();
-        let mut tokens = DocumentTokens::new(&analyzer, document);
         for (_, fuzzy_terms) in self
             .fuzzy_searches
             .iter()
             .filter(|(index, _)| *index.table() == document.id().tablet_id)
         {
-            matches.extend(fuzzy_terms.matching_values(&mut tokens));
+            for (field, tries) in fuzzy_terms.terms.iter() {
+                let Some(ConvexValue::String(value)) = document.value().get_path(field) else {
+                    continue;
+                };
+                let mut tokens = ValueTokens::new(&analyzer, &value);
+                tries.matching_values(&mut tokens, matches);
+            }
         }
     }
 }
 
-struct FieldTokens {
+struct ValueTokens {
     tokens: HashSet<String>,
 }
 
-impl FieldTokens {
+impl ValueTokens {
+    fn new(analyzer: &TextAnalyzer, value: &ConvexString) -> Self {
+        // Tokenizing the value is expensive, but so is constructing a prefix for
+        // every token. So we always keep track of the list of tokens, but we
+        // only construct the prefixes for each token if we have at least one search in
+        // the read set that uses prefixes.
+        let mut token_stream = analyzer.token_stream(value);
+        let mut tokens = HashSet::new();
+        while token_stream.advance() {
+            let text = &token_stream.token().text;
+            tokens.insert(text.clone());
+        }
+
+        ValueTokens { tokens }
+    }
+
+    fn for_each_token<F>(&mut self, prefix: bool, mut for_each: F)
+    where
+        F: FnMut(&String),
+    {
+        if prefix {
+            // We're inverting prefix match here by constructing all possible prefixes for
+            // each term in the document if at least one prefix search exists in
+            // the readset (resulting in this method being called with prefix:
+            // true).
+            //
+            // This lets callers search into tries containing the actual search term with
+            // dfa prefixes set to false and still match based on prefix.
+            // Searching a trie with the document tokens is bounded by the size
+            // of the document, which is expected to be significantly smaller
+            // than the total number of subscriptions for busy backends.
+            for token in self.calculate_prefixes() {
+                for_each(&token);
+            }
+        } else {
+            for token in self.tokens.iter() {
+                for_each(token);
+            }
+        }
+    }
+
     fn calculate_prefixes(&self) -> impl Iterator<Item = String> + '_ {
         let mut set = HashSet::new();
 
@@ -1056,66 +1112,184 @@ impl FieldTokens {
     }
 }
 
-struct DocumentTokens<'a> {
-    doc: &'a PackedDocument,
-    analyzer: &'a TextAnalyzer,
-    tokens: BTreeMap<FieldPath, FieldTokens>,
-}
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::BTreeMap,
+        str::FromStr,
+    };
 
-impl<'a> DocumentTokens<'a> {
-    fn new(analyzer: &'a TextAnalyzer, doc: &'a PackedDocument) -> Self {
-        DocumentTokens {
-            doc,
-            analyzer,
-            tokens: BTreeMap::new(),
-        }
+    use common::{
+        document::ResolvedDocument,
+        types::IndexDescriptor,
+    };
+    use value::{
+        ConvexObject,
+        ConvexString,
+        ConvexValue,
+        FieldName,
+        ResolvedDocumentId,
+        TabletId,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_search_term_tries_overlaps() -> anyhow::Result<()> {
+        let analyzer = convex_en();
+        let mut tries = SearchTermTries::new();
+
+        // Create a document with a text field
+        let mut map = BTreeMap::new();
+        map.insert(
+            "title".parse()?,
+            ConvexValue::String(ConvexString::try_from("hello world")?),
+        );
+        let object = ConvexObject::try_from(map)?;
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            object,
+        )?);
+
+        // Add a search term that matches the document using extend
+        let text_query = TextQueryTermRead::new(
+            FieldPath::from_str("title")?,
+            TextQueryTerm::Exact("hello".to_string()),
+        );
+        let text_queries = WithHeapSize::from(vec![text_query]);
+        tries.extend((), &text_queries);
+
+        // Test that the document matches
+        assert!(tries.overlaps(&doc, &analyzer));
+
+        // Add a non-matching term
+        let text_query = TextQueryTermRead::new(
+            FieldPath::from_str("title")?,
+            TextQueryTerm::Exact("goodbye".to_string()),
+        );
+        let text_queries = WithHeapSize::from(vec![text_query]);
+        tries.extend((), &text_queries);
+
+        // Document should still match because it matches at least one term
+        assert!(tries.overlaps(&doc, &analyzer));
+
+        // Create a document that doesn't match any terms
+        let mut map = BTreeMap::new();
+        map.insert(
+            "title".parse()?,
+            ConvexValue::String(ConvexString::try_from("bonjour")?),
+        );
+        let object = ConvexObject::try_from(map)?;
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            object,
+        )?);
+
+        // Document should not match
+        assert!(!tries.overlaps(&doc, &analyzer));
+        Ok(())
     }
 
-    fn calculate(document_text: &ConvexString, analyzer: &'a TextAnalyzer) -> FieldTokens {
-        // Tokenizing the document is expensive, but so is constructing a prefix for
-        // every token. So we always keep track of the list of tokens, but we
-        // only construct the prefixes for each token if we have at least one search in
-        // the read set that uses prefixes.
-        let mut token_stream = analyzer.token_stream(document_text);
-        let mut tokens = HashSet::new();
-        while token_stream.advance() {
-            let text = &token_stream.token().text;
-            tokens.insert(text.clone());
-        }
+    #[test]
+    fn test_search_term_tries_overlaps_returns_false_if_the_field_does_not_exist(
+    ) -> anyhow::Result<()> {
+        let analyzer = convex_en();
+        let mut tries = SearchTermTries::new();
+        let text_query = TextQueryTermRead::new(
+            FieldPath::from_str("title")?,
+            TextQueryTerm::Exact("hello".to_string()),
+        );
+        let text_queries = WithHeapSize::from(vec![text_query]);
+        tries.extend((), &text_queries);
 
-        FieldTokens { tokens }
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {})?,
+        )?);
+
+        assert!(!tries.overlaps(&doc, &analyzer));
+        Ok(())
     }
 
-    fn for_each_token<'b, F>(&'b mut self, path: &'a FieldPath, prefix: bool, mut for_each: F)
-    where
-        F: FnMut(&String),
-    {
-        let Some(ConvexValue::String(document_text)) = self.doc.value().get_path(path) else {
-            return;
-        };
-        let document_tokens = self
-            .tokens
-            .entry(path.clone())
-            .or_insert_with(|| Self::calculate(&document_text, self.analyzer));
+    #[test]
+    fn test_add_fuzzy_matches() -> anyhow::Result<()> {
+        let mut subscriptions = TextSearchSubscriptions::new();
+        let tablet_id = TabletId::MIN;
+        let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
+        let subscriber_id = SubscriberId::MIN;
 
-        if prefix {
-            // We're inverting prefix match here by constructing all possible prefixes for
-            // each term in the document if at least one prefix search exists in
-            // the readset (resulting in this method being called with prefix:
-            // true).
-            //
-            // This lets callers search into tries containing the actual search term with
-            // dfa prefixes set to false and still match based on prefix.
-            // Searching a trie with the document tokens is bounded by the size
-            // of the document, which is expected to be significantly smaller
-            // than the total number of subscriptions for busy backends.
-            for token in document_tokens.calculate_prefixes() {
-                for_each(&token);
-            }
-        } else {
-            for token in document_tokens.tokens.iter() {
-                for_each(token);
-            }
-        }
+        // Create a document with a text field
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {
+                FieldName::from_str("text")? => ConvexValue::String(ConvexString::try_from("hello world")?)
+            })?,
+        )?);
+
+        // Create a query that matches the document
+        let query_reads = QueryReads::new(
+            WithHeapSize::from(vec![TextQueryTermRead::new(
+                FieldPath::from_str("text")?,
+                TextQueryTerm::Exact("hello".to_string()),
+            )]),
+            WithHeapSize::default(),
+        );
+
+        // Add the subscription
+        subscriptions.insert(subscriber_id, &index, &query_reads);
+
+        // Test matching
+        let mut matches = BTreeSet::new();
+        subscriptions.add_fuzzy_matches(&doc, &mut matches);
+        assert!(matches.contains(&subscriber_id));
+
+        // Test non-matching
+        let non_matching_doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {
+                FieldName::from_str("text")? => ConvexValue::String(ConvexString::try_from("different text")?)
+            })?,
+        )?);
+
+        let mut matches = BTreeSet::new();
+        subscriptions.add_fuzzy_matches(&non_matching_doc, &mut matches);
+        assert!(matches.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_fuzzy_matches_returns_false_if_the_field_does_not_exist() -> anyhow::Result<()> {
+        let mut subscriptions = TextSearchSubscriptions::new();
+        let tablet_id = TabletId::MIN;
+        let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
+        let subscriber_id = SubscriberId::MIN;
+
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {})?,
+        )?);
+
+        let query_reads = QueryReads::new(
+            WithHeapSize::from(vec![TextQueryTermRead::new(
+                FieldPath::from_str("text")?,
+                TextQueryTerm::Exact("hello".to_string()),
+            )]),
+            WithHeapSize::default(),
+        );
+
+        subscriptions.insert(subscriber_id, &index, &query_reads);
+
+        let mut matches = BTreeSet::new();
+        subscriptions.add_fuzzy_matches(&doc, &mut matches);
+        assert!(matches.is_empty());
+
+        Ok(())
     }
 }
