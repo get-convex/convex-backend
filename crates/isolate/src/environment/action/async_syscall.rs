@@ -290,7 +290,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.resolve_function(&reference)?
             },
         };
-        let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
+        let scheduled_ts = with_argument_error("ts", || UnixTimestamp::from_secs_f64(ts))?;
         let virtual_id = self
             .action_callbacks
             .schedule_job(

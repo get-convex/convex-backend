@@ -349,8 +349,8 @@ pub trait Runtime: Clone + Sync + Send + 'static {
 pub struct UnixTimestamp(Duration);
 
 impl UnixTimestamp {
-    pub fn from_secs_f64(secs: f64) -> Self {
-        UnixTimestamp(Duration::from_secs_f64(secs))
+    pub fn from_secs_f64(secs: f64) -> anyhow::Result<Self> {
+        Ok(UnixTimestamp(Duration::try_from_secs_f64(secs)?))
     }
 
     pub fn from_nanos(nanos: u64) -> Self {
@@ -375,6 +375,11 @@ impl UnixTimestamp {
 
     pub fn as_system_time(&self) -> SystemTime {
         UNIX_EPOCH + self.0
+    }
+
+    /// Returns `None` if `time` predates the Unix epoch
+    pub fn from_system_time(time: SystemTime) -> Option<Self> {
+        time.duration_since(SystemTime::UNIX_EPOCH).ok().map(Self)
     }
 
     pub fn checked_sub(&self, rhs: UnixTimestamp) -> Option<Duration> {

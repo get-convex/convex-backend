@@ -287,7 +287,9 @@ pub async fn schedule_job(
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<ScheduleJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let scheduled_ts = UnixTimestamp::from_secs_f64(req.scheduled_ts);
+    let scheduled_ts = UnixTimestamp::from_secs_f64(req.scheduled_ts).with_context(|| {
+        ErrorMetadata::bad_request("InvalidTimestamp", "Requested scheduled_ts is invalid")
+    })?;
     // User might have entered an invalid path, so this is a developer error.
     let path = st
         .application

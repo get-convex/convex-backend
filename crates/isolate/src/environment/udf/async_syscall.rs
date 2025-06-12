@@ -937,7 +937,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         let scheduling_component = provider.component()?;
 
-        let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
+        let scheduled_ts = with_argument_error("ts", || UnixTimestamp::from_secs_f64(ts))?;
         let (path, udf_args) = provider
             .validate_schedule_args(path, args.into_arg_vec(), scheduled_ts)
             .await?;

@@ -13,6 +13,7 @@ use std::{
     },
 };
 
+use anyhow::Context as _;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
@@ -1679,9 +1680,7 @@ impl<RT: Runtime> Inner<RT> {
         let value = next_job_ts.map_or(-f32::INFINITY, |ts| signed_duration_since(now, ts));
         if value > 0.0 {
             self.log_manager.send_logs(vec![LogEvent {
-                timestamp: UnixTimestamp::from_secs_f64(
-                    now.duration_since(SystemTime::UNIX_EPOCH)?.as_secs_f64(),
-                ),
+                timestamp: UnixTimestamp::from_system_time(now).context("now < UNIX_EPOCH?")?,
                 event: StructuredLogEvent::ScheduledJobLag {
                     lag_seconds: Duration::from_secs_f32(value.max(0.0)),
                 },

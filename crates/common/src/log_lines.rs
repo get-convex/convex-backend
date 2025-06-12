@@ -792,7 +792,7 @@ mod tests {
         LogLineStructured::new_developer_log_line(
             super::LogLevel::Info,
             vec![],
-            UnixTimestamp::from_secs_f64(1733952824.),
+            UnixTimestamp::from_secs_f64(1733952824.).unwrap(),
         );
     }
 }
