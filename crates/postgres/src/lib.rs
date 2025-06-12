@@ -1511,10 +1511,15 @@ const INIT_SQL: &str = r#"
             /* table_id should be populated iff deleted is false. */
             table_id BYTEA NULL,
             /* document_id should be populated iff deleted is false. */
-            document_id BYTEA NULL,
-
-            PRIMARY KEY (index_id, key_prefix, key_sha256, ts)
+            document_id BYTEA NULL
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256_ts ON @db_name.indexes (
+            index_id,
+            key_prefix,
+            key_sha256,
+            ts DESC
+        );
+
         CREATE TABLE IF NOT EXISTS @db_name.leases (
             id BIGINT NOT NULL,
             ts BIGINT NOT NULL,
@@ -1768,8 +1773,8 @@ enum BoundType {
 }
 
 // Pre-build queries with various parameters.
-static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> = LazyLock::new(
-    || {
+static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> =
+    LazyLock::new(|| {
         let mut queries = HashMap::new();
 
         let bounds = [
@@ -1833,74 +1838,47 @@ static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> =
                     .unwrap();
                 },
             };
-            let (order_str, next_key_comparator) = match order {
-                Order::Asc => ("ASC", ">"),
-                Order::Desc => ("DESC", "<"),
+            let order_str = match order {
+                Order::Asc => "ASC",
+                Order::Desc => "DESC",
             };
             let query = format!(
                 r#"
 /*+
     Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
+    Set(enable_bitmapscan OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-WITH RECURSIVE A AS (
-    (
-        SELECT A1.index_id, A1.key_prefix, A1.key_sha256, A1.key_suffix, A2.ts, A2.deleted, A2.document_id, A3.table_id, A3.json_value, A3.prev_ts
-        FROM (
-            SELECT index_id, key_prefix, key_sha256, key_suffix
-            FROM @db_name.indexes
-            WHERE {where_clause}
-            ORDER BY key_prefix {order_str}, key_sha256 {order_str}
-            LIMIT 1
-        ) A1,
-        LATERAL (
-            SELECT ts, deleted, table_id, document_id
-            FROM @db_name.indexes
-            WHERE index_id = A1.index_id
-                AND key_prefix = A1.key_prefix
-                AND key_sha256 = A1.key_sha256
-                AND ts <= ${ts_arg}
-            ORDER BY ts DESC
-            LIMIT 1
-        ) A2
-        LEFT JOIN @db_name.documents A3
-        ON A2.ts = A3.ts
-        AND A2.table_id = A3.table_id
-        AND A2.document_id = A3.id
-    )
-    UNION
-    SELECT B.index_id, B.key_prefix, B.key_sha256, B.key_suffix, B.ts, B.deleted, B.document_id, B.table_id, B.json_value, B.prev_ts FROM A, LATERAL (
-        SELECT B1.index_id, B1.key_prefix, B1.key_sha256, B1.key_suffix, B2.ts, B2.deleted, B2.document_id, B3.table_id, B3.json_value, B3.prev_ts
-        FROM (
-            SELECT index_id, key_prefix, key_sha256, key_suffix
-            FROM @db_name.indexes
-            WHERE {where_clause}
-            AND (key_prefix, key_sha256) {next_key_comparator} (A.key_prefix, A.key_sha256)
-            ORDER BY key_prefix {order_str}, key_sha256 {order_str}
-            LIMIT 1
-        ) B1,
-        LATERAL (
-            SELECT ts, deleted, table_id, document_id
-            FROM @db_name.indexes
-            WHERE index_id = B1.index_id
-                AND key_prefix = B1.key_prefix
-                AND key_sha256 = B1.key_sha256
-                AND ts <= ${ts_arg}
-            ORDER BY ts DESC
-            LIMIT 1
-        ) B2
-        LEFT JOIN @db_name.documents B3
-        ON B2.ts = B3.ts
-        AND B2.table_id = B3.table_id
-        AND B2.document_id = B3.id
-    ) B
-)
-SELECT * FROM A LIMIT ${}
+SELECT 
+    A.index_id,
+    A.key_prefix,
+    A.key_sha256,
+    A.key_suffix,
+    A.ts,
+    A.deleted,
+    A.document_id,
+    D.table_id,
+    D.json_value,
+    D.prev_ts
+FROM (
+    SELECT DISTINCT ON (key_prefix, key_sha256)
+        index_id,
+        key_prefix,
+        key_sha256,
+        key_suffix,
+        ts,
+        deleted,
+        document_id,
+        table_id
+    FROM @db_name.indexes
+    WHERE {where_clause}
+    ORDER BY key_prefix {order_str}, key_sha256 {order_str}, ts DESC
+    LIMIT ${}
+) A
+LEFT JOIN @db_name.documents D
+    ON  D.ts          = A.ts
+    AND D.table_id    = A.table_id
+    AND D.id          = A.document_id
 "#,
                 next_arg()
             );
@@ -1908,8 +1886,7 @@ SELECT * FROM A LIMIT ${}
         }
 
         queries
-    },
-);
+    });
 
 const PREV_REV_CHUNK: &str = r#"
 /*+
