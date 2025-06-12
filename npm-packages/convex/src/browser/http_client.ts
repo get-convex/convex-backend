@@ -18,7 +18,11 @@ import {
   logForFunction,
   Logger,
 } from "./logging.js";
-import { FunctionArgs, UserIdentityAttributes } from "../server/index.js";
+import {
+  ArgsAndOptions,
+  FunctionArgs,
+  UserIdentityAttributes,
+} from "../server/index.js";
 
 export const STATUS_CODE_OK = 200;
 export const STATUS_CODE_BAD_REQUEST = 400;
@@ -33,14 +37,24 @@ export function setFetch(f: typeof globalThis.fetch) {
   specifiedFetch = f;
 }
 
+export type HttpMutationOptions = {
+  /**
+   * Skip the default queue of mutations and run this immediately.
+   *
+   * This allows the same HttpConvexClient to be used to request multiple
+   * mutations in parallel, something not possible with WebSocket-based clients.
+   */
+  skipQueue: boolean;
+};
+
 /**
  * A Convex client that runs queries and mutations over HTTP.
  *
+ * This client is stateful (it has user credentials and queues mutations)
+ * so take care to avoid sharing it between requests in a server.
+ *
  * This is appropriate for server-side code (like Netlify Lambdas) or non-reactive
  * webapps.
- *
- * If you're building a React app, consider using
- * {@link react.ConvexReactClient} instead.
  *
  * @public
  */
@@ -52,6 +66,14 @@ export class ConvexHttpClient {
   private debug: boolean;
   private fetchOptions?: FetchOptions;
   private logger: Logger;
+  private mutationQueue: Array<{
+    mutation: FunctionReference<"mutation">;
+    args: FunctionArgs<any>;
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }> = [];
+  private isProcessingQueue: boolean = false;
+
   /**
    * Create a new {@link ConvexHttpClient}.
    *
@@ -61,15 +83,19 @@ export class ConvexHttpClient {
    * - `skipConvexDeploymentUrlCheck` - Skip validating that the Convex deployment URL looks like
    * `https://happy-animal-123.convex.cloud` or localhost. This can be useful if running a self-hosted
    * Convex backend that uses a different URL.
-   * - `logger` - A logger. If not provided, logs to the console.
+   * - `logger` - A logger or a boolean. If not provided, logs to the console.
    * You can construct your own logger to customize logging to log elsewhere
-   * or not log at all.
+   * or not log at all, or use `false` as a shorthand for a no-op logger.
+   * - `auth` - A JWT containing identity claims accessible in Convex functions.
+   * This identity may expire so it may be necessary to call `setAuth()` later,
+   * but for short-lived clients it's convenient to specify this value here.
    */
   constructor(
     address: string,
     options?: {
       skipConvexDeploymentUrlCheck?: boolean;
       logger?: Logger | boolean;
+      auth?: string;
     },
   ) {
     if (typeof options === "boolean") {
@@ -124,6 +150,9 @@ export class ConvexHttpClient {
   }
 
   /**
+   * Set admin auth token to allow calling internal queries, mutations, and actions
+   * and acting as an identity.
+   *
    * @internal
    */
   setAdminAuth(token: string, actingAsIdentity?: UserIdentityAttributes) {
@@ -299,19 +328,10 @@ export class ConvexHttpClient {
     }
   }
 
-  /**
-   * Execute a Convex mutation function.
-   *
-   * @param name - The name of the mutation.
-   * @param args - The arguments object for the mutation. If this is omitted,
-   * the arguments will be `{}`.
-   * @returns A promise of the mutation's result.
-   */
-  async mutation<Mutation extends FunctionReference<"mutation">>(
+  private async mutationInner<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
-    ...args: OptionalRestArgs<Mutation>
+    mutationArgs: FunctionArgs<Mutation>,
   ): Promise<FunctionReturnType<Mutation>> {
-    const mutationArgs = parseArgs(args[0]);
     const name = getFunctionName(mutation);
     const body = JSON.stringify({
       path: name,
@@ -359,8 +379,60 @@ export class ConvexHttpClient {
     }
   }
 
+  private async processMutationQueue() {
+    if (this.isProcessingQueue) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    while (this.mutationQueue.length > 0) {
+      const { mutation, args, resolve, reject } = this.mutationQueue.shift()!;
+      try {
+        const result = await this.mutationInner(mutation, args);
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    }
+    this.isProcessingQueue = false;
+  }
+
+  private enqueueMutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
+    args: FunctionArgs<Mutation>,
+  ): Promise<FunctionReturnType<Mutation>> {
+    return new Promise((resolve, reject) => {
+      this.mutationQueue.push({ mutation, args, resolve, reject });
+      void this.processMutationQueue();
+    });
+  }
+
   /**
-   * Execute a Convex action function.
+   * Execute a Convex mutation function. Mutations are queued by default.
+   *
+   * @param name - The name of the mutation.
+   * @param args - The arguments object for the mutation. If this is omitted,
+   * the arguments will be `{}`.
+   * @param options - An optional object containing
+   * @returns A promise of the mutation's result.
+   */
+  async mutation<Mutation extends FunctionReference<"mutation">>(
+    mutation: Mutation,
+    ...args: ArgsAndOptions<Mutation, HttpMutationOptions>
+  ): Promise<FunctionReturnType<Mutation>> {
+    const [fnArgs, options] = args;
+    const mutationArgs = parseArgs(fnArgs);
+    const queued = !options?.skipQueue;
+
+    if (queued) {
+      return await this.enqueueMutation(mutation, mutationArgs);
+    } else {
+      return await this.mutationInner(mutation, mutationArgs);
+    }
+  }
+
+  /**
+   * Execute a Convex action function. Actions are not queued.
    *
    * @param name - The name of the action.
    * @param args - The arguments object for the action. If this is omitted,
@@ -420,7 +492,7 @@ export class ConvexHttpClient {
   }
 
   /**
-   * Execute a Convex function of an unknown type.
+   * Execute a Convex function of an unknown type. These function calls are not queued.
    *
    * @param name - The name of the function.
    * @param args - The arguments object for the function. If this is omitted,

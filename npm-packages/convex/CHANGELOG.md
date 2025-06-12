@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+- ConvexHttpClient mutations are now queued by default, making the
+  ConvexHttpClient match the behavior of ConvexClient and ConvexReactClient.
+  This makes switching between these safer.
+
+  If you need unqueued mutations (you need to run multiple mutations
+  concurrently), pass the unqueued: true option or create a separate
+  ConvexHttpClient for each queue of mutations you need.
+
+- Allow passing auth to ConvexHttpClient as an option in the constructor. This
+  is appropriate for short-lived ConvexHttpClients and it more convenient for
+  instantiating a client and using it in a single expression.
+
+- Restore check that Convex functions are not imported in the browser.
+
+  Convex functions run in a Convex deployment; including their source in a
+  frontend bundle is never necessary and can unintentionally reveal
+  implementation details (and even hardcoded secrets).
+
+  This check current causes a `console.warn()` warning, but in future versions
+  this will become an error. If you see the warning "Convex functions should not
+  be imported in the browser" you should address this by investigating where
+  this is being logged from; that's code you don't want in your frontend bundle.
+  If you really want your Convex functions in the browser it's possible to
+  disable this warning but this is not recommended.
+
+- TypeScript error when async callbacks are passed to
+  `mutation.withOptimisticUpdate()`: an optimistic update function is expected
+  to run synchronously.
+
 ## 1.24.8
 
 - Restore short retry timer for WebSocket reconnects initiated by an error on
