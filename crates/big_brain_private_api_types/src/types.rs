@@ -60,11 +60,13 @@ impl PlanId {
         }
     }
 
+    pub fn has_a_credit_card(&self) -> bool {
+        self.is_in_orb()
+    }
+
     pub fn supports_referrals(&self) -> bool {
-        match self {
-            PlanId::ConvexBase => true,
-            PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => false,
-        }
+        // Until we support referrals in plans within orb, this is the case.
+        !self.is_in_orb()
     }
 
     pub fn gets_pro_resources(&self) -> bool {
