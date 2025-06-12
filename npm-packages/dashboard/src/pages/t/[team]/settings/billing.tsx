@@ -31,16 +31,18 @@ function Billing({ team }: { team: Team }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
   const myProfile = useProfile();
   const orbPlans = useListPlans(team.id);
-  const selectedPlan = orbPlans.plans?.find(
-    (p) => p.id === router.query.upgradePlan,
+  const selectedPlan = orbPlans.plans?.find((p) =>
+    router.query.source === "chef"
+      ? p.planType === "CONVEX_STARTER_PLUS"
+      : p.id === router.query.upgradePlan,
   );
 
   const showUpgrade =
     selectedPlan && orbSub?.plan.id !== selectedPlan.id && hasAdminPermissions;
 
   return (
-    <div className="flex grow flex-col gap-6 overflow-hidden">
-      <div className="flex items-center gap-2">
+    <div className="-mx-6 flex grow flex-col">
+      <div className="sticky top-0 z-10 -mt-6 flex items-center gap-2 bg-background-primary p-6">
         {showUpgrade && (
           <Button
             icon={<ChevronLeftIcon className="size-5" />}
@@ -66,25 +68,29 @@ function Billing({ team }: { team: Team }) {
         <h2>Billing</h2>
       </div>
       <ErrorBoundary fallback={BillingErrorFallback}>
-        <div
-          className={cn(
-            "flex transition-transform duration-500 motion-reduce:transition-none gap-6 min-h-0",
-            !showUpgrade && "translate-x-0",
-            showUpgrade && "-translate-x-[calc(100%+1.5rem)]",
-          )}
-        >
+        <div className="relative min-h-0 flex-1 overflow-x-hidden">
           {!isOrbSubLoading && orbSub !== undefined ? (
-            <>
+            <div
+              className={cn(
+                "flex gap-6 min-h-0 w-full h-full transition-transform duration-500 motion-reduce:transition-none",
+                showUpgrade
+                  ? "-translate-x-[calc(100%+1.5rem)]"
+                  : "translate-x-0",
+              )}
+            >
               <div
-                className="flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto overflow-x-hidden pr-2 scrollbar"
+                className={cn(
+                  "flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto pr-2 scrollbar px-6",
+                  showUpgrade ? "pointer-events-none select-none" : "",
+                )}
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
                 inert={showUpgrade ? "inert" : undefined}
               >
                 <div className="flex w-full min-w-[20rem] flex-col gap-4">
                   <Sheet className="flex flex-col gap-4 text-sm">
                     <div>
-                      <h3 className="mb-4">Available Plans</h3>
-                      Compare plans and features on the{" "}
+                      <h3 className="mb-4">Manage Subscription</h3>
+                      Compare all plan features on the{" "}
                       <Link
                         href="https://convex.dev/plans"
                         passHref
@@ -113,12 +119,15 @@ function Billing({ team }: { team: Team }) {
                 </div>
               </div>
               <div
-                className="flex w-full shrink-0 grow flex-col gap-4 overflow-auto scrollbar"
+                className={cn(
+                  "flex w-full shrink-0 grow flex-col gap-4 overflow-auto scrollbar px-6",
+                  !showUpgrade ? "pointer-events-none select-none" : "",
+                )}
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
                 inert={!showUpgrade ? "inert" : undefined}
               >
                 {showUpgrade && selectedPlan && (
-                  <Sheet className="max-h-full overflow-y-auto scrollbar">
+                  <Sheet className="mb-6 max-h-full overflow-y-auto scrollbar">
                     <h3 className="mb-4">Upgrade to {selectedPlan.name}</h3>
                     <UpgradePlanContentContainer
                       name={myProfile?.name}
@@ -126,6 +135,7 @@ function Billing({ team }: { team: Team }) {
                       team={team}
                       numMembers={members?.length || 1}
                       plan={selectedPlan}
+                      isChef={router.query.source === "chef"}
                       onUpgradeComplete={() => {
                         void router.push(
                           {
@@ -142,7 +152,7 @@ function Billing({ team }: { team: Team }) {
                   </Sheet>
                 )}
               </div>
-            </>
+            </div>
           ) : (
             <Loading className="h-[18.25rem] w-full" />
           )}

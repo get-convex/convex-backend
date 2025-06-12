@@ -41,6 +41,7 @@ function render(args: UpgradePlanContentProps, formState: UpgradeFormState) {
             seatPrice: 25,
             planType: "CONVEX_PROFESSIONAL",
           }}
+          isChef={false}
           numMembers={2}
           paymentDetailsForm={
             <Callout className="w-fit">

@@ -42,7 +42,9 @@ export function OrbSelfServePlan({
       action={
         orbSub?.plan.planType === plan.planType ||
         orbSub?.plan.id === plan.id ? (
-          <p className="py-2 font-semibold">Current Plan</p>
+          <p className="flex h-[2.125rem] items-center font-semibold">
+            Current Plan
+          </p>
         ) : orbSub ? (
           <Button
             tip={
@@ -69,7 +71,7 @@ export function OrbSelfServePlan({
                 : undefined
             }
           >
-            Upgrade
+            Upgrade to {plan.name}
           </Button>
         )
       }

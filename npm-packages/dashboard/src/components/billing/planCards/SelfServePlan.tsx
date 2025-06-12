@@ -24,13 +24,12 @@ export function SelfServePlan({
               {Number((plan.seatPrice * (1 - percentOff / 100)).toFixed(2))}
             </>
           ) : (
-            `$${plan.seatPrice}`
+            `$${plan.seatPrice} per member, per month`
           )
         ) : (
-          "Pay as you go"
+          "Usage-based pricing"
         )
       }
-      saleSubheader={plan.seatPrice ? "per member, per month" : "Pay as you go"}
       action={action}
     />
   );

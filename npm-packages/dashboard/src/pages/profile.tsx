@@ -205,8 +205,8 @@ function ToggleDarkMode() {
                 classNames(
                   checked ? "border-transparent" : "",
                   active ? "" : "",
-                  "relative block cursor-pointer rounded-lg border px-6 py-4 focus:outline-none sm:flex sm:justify-between",
-                  "bg-background-tertiary border",
+                  "relative block cursor-pointer rounded-2xl border px-6 py-4 focus:outline-none sm:flex sm:justify-between",
+                  "bg-background-primary/30 hover:bg-background-primary/70 transition-colors shadow border",
                 )
               }
             >
@@ -230,7 +230,7 @@ function ToggleDarkMode() {
                     className={classNames(
                       active ? "ring-2" : "border",
                       checked ? "border-border-selected" : "border-transparent",
-                      "pointer-events-none absolute -inset-px rounded-lg",
+                      "pointer-events-none absolute -inset-px rounded-2xl",
                     )}
                     aria-hidden="true"
                   />

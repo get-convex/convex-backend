@@ -16,7 +16,7 @@ export function Plans({
   const orbPlans = useListPlans(team.id);
 
   return orbPlans.plans !== undefined ? (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <StarterPlan
         hasAdminPermissions={hasAdminPermissions}
         subscription={subscription}

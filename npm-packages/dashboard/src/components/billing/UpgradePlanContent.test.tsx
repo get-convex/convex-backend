@@ -64,6 +64,7 @@ describe("UpgradePlanContent", () => {
           setPaymentMethod={jest.fn()}
           billingAddressInputs={null}
           paymentDetailsForm={null} // Add the required paymentDetailsForm property
+          isChef={false}
           {...props}
         />
       </FormikProvider>,

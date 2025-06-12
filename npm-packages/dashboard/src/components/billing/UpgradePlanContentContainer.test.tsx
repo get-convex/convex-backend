@@ -95,6 +95,7 @@ describe("UpgradePlanContentContainer", () => {
         onUpgradeComplete={onUpgradeComplete}
         numMembers={0}
         plan={mockPlan}
+        isChef={false}
       />,
     );
 
@@ -140,6 +141,7 @@ describe("UpgradePlanContentContainer", () => {
         onUpgradeComplete={onUpgradeComplete}
         numMembers={0}
         plan={mockPlan}
+        isChef={false}
       />,
     );
 

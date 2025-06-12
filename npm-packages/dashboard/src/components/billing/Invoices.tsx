@@ -32,7 +32,7 @@ function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
   return (
     <div className="max-h-[30rem] overflow-y-auto rounded border scrollbar">
       <table className="w-full">
-        <thead className="sticky top-0 border-b bg-background-secondary">
+        <thead className="sticky top-0 z-10 border-b bg-background-secondary  ">
           <tr>
             <th className={cn(headerClass, "pl-2")}>Invoice</th>
             <th className={headerClass}>Issue Date</th>

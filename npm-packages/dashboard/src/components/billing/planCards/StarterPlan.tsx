@@ -35,11 +35,12 @@ export function StarterPlan({
           status: "active",
           seatPrice: 0,
         }}
-        saleHeader="Free"
-        saleSubheader="forever"
+        saleHeader="Free forever"
         action={
           !subscription ? (
-            <p className="py-2 font-semibold">Current Plan</p>
+            <p className="flex h-[2.125rem] items-center font-semibold">
+              Current Plan
+            </p>
           ) : typeof subscription.endDate === "number" ? (
             <p className="flex items-center gap-1 py-2 font-semibold">
               Next Billing Cycle{" "}

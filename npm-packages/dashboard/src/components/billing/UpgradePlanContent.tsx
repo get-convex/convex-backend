@@ -8,6 +8,7 @@ import { useGetCoupon, useCreateSubscription } from "api/billing";
 import { FormikProvider, useFormik, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { Address, PlanResponse, Team } from "generatedApi";
+import Link from "next/link";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import { useStripePaymentSetup } from "../../hooks/useStripe";
@@ -29,6 +30,7 @@ export type UpgradePlanContentProps = {
   setPaymentMethod: (paymentMethod?: string) => void;
   billingAddressInputs: React.ReactNode;
   paymentDetailsForm: React.ReactNode;
+  isChef: boolean;
 };
 
 export const CreateSubscriptionSchema = Yup.object().shape({
@@ -48,12 +50,14 @@ export function UpgradePlanContentContainer({
   name: profileName,
   onUpgradeComplete,
   plan,
+  isChef,
   ...props
 }: Pick<UpgradePlanContentProps, "numMembers" | "plan"> & {
   team: Team;
   email?: string;
   name?: string | null;
   onUpgradeComplete: () => void;
+  isChef: boolean;
 }) {
   const createSubscription = useCreateSubscription(team.id);
   const { spendingLimits } = useLaunchDarkly();
@@ -155,6 +159,7 @@ export function UpgradePlanContentContainer({
       <UpgradePlanContent
         {...props}
         plan={plan}
+        isChef={isChef}
         setPaymentMethod={(p) => {
           if (!p) {
             resetClientSecret();
@@ -208,6 +213,7 @@ export function UpgradePlanContent({
   setPaymentMethod,
   billingAddressInputs,
   paymentDetailsForm,
+  isChef,
 }: UpgradePlanContentProps) {
   const formState = useFormikContext<UpgradeFormState>();
   const { spendingLimits } = useLaunchDarkly();
@@ -219,103 +225,116 @@ export function UpgradePlanContent({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PriceSummary
-        plan={plan}
-        teamMemberDiscountPct={teamMemberDiscountPct}
-        numMembers={numMembers}
-        requiresPaymentMethod={requiresPaymentMethod}
-        couponDurationInMonths={couponDurationInMonths}
-      />
-      <div className="flex max-w-64 items-center gap-2">
-        <TextInput
-          label="Promo code"
-          placeholder="Enter a promo code"
-          onChange={(e) =>
-            formState.setFieldValue("promoCode", e.target.value.toUpperCase())
-          }
-          value={formState.values.promoCode}
-          id="promoCode"
-          error={promoCodeError}
+    <>
+      {isChef && plan.planType === "CONVEX_STARTER_PLUS" && (
+        <p className="mb-2">
+          {plan.name} is recommended for Convex Chef users.{" "}
+          <Link
+            href="/team/settings/billing"
+            className="text-content-link hover:underline"
+          >
+            View all plans.
+          </Link>
+        </p>
+      )}
+      <div className="flex flex-col gap-6">
+        <PriceSummary
+          plan={plan}
+          teamMemberDiscountPct={teamMemberDiscountPct}
+          numMembers={numMembers}
+          requiresPaymentMethod={requiresPaymentMethod}
+          couponDurationInMonths={couponDurationInMonths}
         />
-        {isLoadingPromo && (
-          <span data-testid="loading-spinner" className="mt-4">
-            <Spinner />
-          </span>
+        <div className="flex max-w-64 items-center gap-2">
+          <TextInput
+            label="Promo code"
+            placeholder="Enter a promo code"
+            onChange={(e) =>
+              formState.setFieldValue("promoCode", e.target.value.toUpperCase())
+            }
+            value={formState.values.promoCode}
+            id="promoCode"
+            error={promoCodeError}
+          />
+          {isLoadingPromo && (
+            <span data-testid="loading-spinner" className="mt-4">
+              <Spinner />
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h4>Billing Contact</h4>
+          <BillingContactInputs formState={formState} />
+        </div>
+
+        {billingAddressInputs}
+
+        {spendingLimits && (
+          <div className="flex flex-col gap-2">
+            <h4>Usage Spending Limits</h4>
+            <SpendingLimits />
+          </div>
+        )}
+
+        {requiresPaymentMethod && !formState.values.paymentMethod && (
+          <div className="flex flex-col gap-2">
+            <h4>Payment Details</h4>
+            {/* Reduce the amount of space stripe can take up so it doesn't render horizontal overflow */}
+            <div className="max-w-[calc(100%-1rem)]">{paymentDetailsForm}</div>
+          </div>
+        )}
+
+        {(!requiresPaymentMethod || formState.values.paymentMethod) && (
+          <form
+            className="mt-2 flex flex-col items-start gap-4 text-sm"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await formState.handleSubmit();
+            }}
+          >
+            <div className="flex gap-4">
+              {formState.values.paymentMethod && (
+                <Button
+                  size="sm"
+                  onClick={() => setPaymentMethod(undefined)}
+                  data-testid="update-payment-method-button"
+                  variant="neutral"
+                >
+                  Change payment method
+                </Button>
+              )}
+              <Button
+                data-testid="upgrade-plan-button"
+                className="w-fit"
+                size="sm"
+                disabled={
+                  isLoadingPromo ||
+                  (requiresPaymentMethod && !formState.values.paymentMethod) ||
+                  !formState.values.billingAddress ||
+                  !formState.isValid
+                }
+                type="submit"
+                loading={formState.isSubmitting}
+                tip={
+                  requiresPaymentMethod && !formState.values.paymentMethod
+                    ? "Add a payment method to continue."
+                    : !formState.values.name
+                      ? "Enter a billing contact name to continue."
+                      : !formState.values.email
+                        ? "Enter a billing contact email to continue."
+                        : !formState.values.billingAddress
+                          ? "Enter a billing address to continue."
+                          : undefined
+                }
+              >
+                Confirm and Upgrade
+              </Button>
+            </div>
+          </form>
         )}
       </div>
-
-      <div className="flex flex-col gap-2">
-        <h4>Billing Contact</h4>
-        <BillingContactInputs formState={formState} />
-      </div>
-
-      {billingAddressInputs}
-
-      {spendingLimits && (
-        <div className="flex flex-col gap-2">
-          <h4>Usage Spending Limits</h4>
-          <SpendingLimits />
-        </div>
-      )}
-
-      {requiresPaymentMethod && !formState.values.paymentMethod && (
-        <div className="flex flex-col gap-2">
-          <h4>Payment Details</h4>
-          {/* Reduce the amount of space stripe can take up so it doesn't render horizontal overflow */}
-          <div className="max-w-[calc(100%-1rem)]">{paymentDetailsForm}</div>
-        </div>
-      )}
-
-      {(!requiresPaymentMethod || formState.values.paymentMethod) && (
-        <form
-          className="mt-2 flex flex-col items-start gap-4 text-sm"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await formState.handleSubmit();
-          }}
-        >
-          <div className="flex gap-4">
-            {formState.values.paymentMethod && (
-              <Button
-                size="sm"
-                onClick={() => setPaymentMethod(undefined)}
-                data-testid="update-payment-method-button"
-                variant="neutral"
-              >
-                Change payment method
-              </Button>
-            )}
-            <Button
-              data-testid="upgrade-plan-button"
-              className="w-fit"
-              size="sm"
-              disabled={
-                isLoadingPromo ||
-                (requiresPaymentMethod && !formState.values.paymentMethod) ||
-                !formState.values.billingAddress ||
-                !formState.isValid
-              }
-              type="submit"
-              loading={formState.isSubmitting}
-              tip={
-                requiresPaymentMethod && !formState.values.paymentMethod
-                  ? "Add a payment method to continue."
-                  : !formState.values.name
-                    ? "Enter a billing contact name to continue."
-                    : !formState.values.email
-                      ? "Enter a billing contact email to continue."
-                      : !formState.values.billingAddress
-                        ? "Enter a billing address to continue."
-                        : undefined
-              }
-            >
-              Confirm and Upgrade
-            </Button>
-          </div>
-        </form>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -363,7 +382,18 @@ function PriceSummary({
           per team member, per month.
         </p>
       ) : (
-        <p>{plan.name} is a pay-as-you-go plan.</p>
+        <p className="max-w-prose">
+          {plan.name} is a "pay as you go" plan. You'll be charged for usage
+          above the included limits of this plan. See the{" "}
+          <Link
+            href="https://convex.dev/pricing"
+            target="_blank"
+            className="text-content-link hover:underline"
+          >
+            pricing page
+          </Link>{" "}
+          for more details on usage-based pricing.
+        </p>
       )}
       {couponDurationInMonths && (
         <p>
