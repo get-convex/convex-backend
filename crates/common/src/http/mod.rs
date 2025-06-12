@@ -833,7 +833,9 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
     // Sampling isn't done here, and should be done upstream
     let root = match traceparent {
-        Some(span_ctx) if *PROPAGATE_UPSTREAM_TRACES => Span::root(route.to_owned(), span_ctx),
+        Some(span_ctx) if *PROPAGATE_UPSTREAM_TRACES => {
+            Span::root(route.to_owned(), span_ctx).with_property(|| ("span.kind", "server"))
+        },
         _ => Span::noop(),
     };
 

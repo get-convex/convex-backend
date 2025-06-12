@@ -52,7 +52,7 @@ where
                 .and_then(SpanContext::decode_w3c_traceparent)
             {
                 let path = req.uri().path();
-                Span::root(path.to_owned(), context)
+                Span::root(path.to_owned(), context).with_property(|| ("span.kind", "server"))
             } else {
                 tracing::warn!("invalid traceparent: {:?}", parent);
                 Span::noop()
