@@ -818,7 +818,10 @@ impl PackedDocument {
             let value = self.0.as_ref().open_path(field_path);
             write_sort_key_or_undefined(value, out).expect("failed to unpack opened value");
         }
-        let Ok(()) = write_sort_key(ConvexValue::from(self.id()), out);
+        let Ok(()) = write_sort_key(
+            self.id().developer_id.encode_into(&mut Default::default()),
+            out,
+        );
         &buffer.0
     }
 

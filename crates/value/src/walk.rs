@@ -304,3 +304,18 @@ impl<V: ConvexValueWalker> ConvexValueWalker for ConvexValueType<V> {
         })
     }
 }
+
+impl<'a> ConvexValueWalker for &'a str {
+    type Array = ConvexArray;
+    type Bytes = ConvexBytes;
+    type Error = !;
+    type FieldName = FieldName;
+    type Map = ConvexMap;
+    type Object = ConvexObject;
+    type Set = ConvexSet;
+    type String = &'a str;
+
+    fn walk(self) -> Result<ConvexValueType<Self>, !> {
+        Ok(ConvexValueType::String(self))
+    }
+}

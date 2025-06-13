@@ -61,7 +61,7 @@ impl DeveloperDocumentId {
         base32::encoded_len(byte_length)
     }
 
-    pub fn encode(&self) -> String {
+    pub fn encode_into<'a>(&self, out: &'a mut EncodedDocumentIdBuffer) -> &'a str {
         let mut buf = [0; MAX_BINARY_LEN];
 
         let mut pos = 0;
@@ -75,7 +75,13 @@ impl DeveloperDocumentId {
         buf[pos..(pos + 2)].copy_from_slice(&footer.to_le_bytes());
         pos += 2;
 
-        base32::encode(&buf[..pos])
+        base32::encode_into(&mut out.0, &buf[..pos]);
+
+        std::str::from_utf8(&out.0[..base32::encoded_len(pos)]).expect("base32 wasn't valid UTF8?")
+    }
+
+    pub fn encode(&self) -> String {
+        self.encode_into(&mut Default::default()).to_owned()
     }
 
     /// Is the given string an ID that's not in its canonical encoding?
@@ -164,6 +170,13 @@ impl FromStr for DeveloperDocumentId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         DeveloperDocumentId::decode(s)
+    }
+}
+
+pub struct EncodedDocumentIdBuffer([u8; base32::encoded_buffer_len(MAX_BINARY_LEN)]);
+impl Default for EncodedDocumentIdBuffer {
+    fn default() -> Self {
+        Self([0; base32::encoded_buffer_len(MAX_BINARY_LEN)])
     }
 }
 

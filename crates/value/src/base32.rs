@@ -37,9 +37,13 @@ pub const fn encoded_len(len: usize) -> usize {
     (len / 5) * 8 + last_chunk
 }
 
-/// Writes the base32-encoding of `data` into `out`, which should have length
-/// `(data.len() + 4) / 5 * 8`. Only the first `encoded_len(data.len())` bytes
-/// of `out` should be used.
+pub const fn encoded_buffer_len(len: usize) -> usize {
+    (len + 4) / 5 * 8
+}
+
+/// Writes the base32-encoding of `data` into `out`, which should have length at
+/// least `encoded_buffer_len(data.len())`. Only the first
+/// `encoded_len(data.len())` bytes of `out` should be used.
 #[inline]
 pub fn encode_into(out: &mut [u8], data: &[u8]) {
     // Process the input in chunks of length 5 (i.e 40 bits), potentially padding
@@ -69,7 +73,7 @@ pub fn encode_into(out: &mut [u8], data: &[u8]) {
 }
 
 pub fn encode(data: &[u8]) -> String {
-    let mut out = vec![0; (data.len() + 4) / 5 * 8];
+    let mut out = vec![0; encoded_buffer_len(data.len())];
     encode_into(&mut out, data);
     // Truncate any extra zeros we added on the last block.
     out.truncate(encoded_len(data.len()));
