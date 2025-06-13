@@ -487,7 +487,7 @@ impl IndexRegistry {
             .find(|index| *index_id == index.id)
     }
 
-    fn all_indexes(&self) -> impl Iterator<Item = &ParsedDocument<TabletIndexMetadata>> {
+    pub fn all_indexes(&self) -> impl Iterator<Item = &ParsedDocument<TabletIndexMetadata>> {
         self.enabled_indexes
             .values()
             .chain(self.pending_indexes.values())

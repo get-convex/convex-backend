@@ -29,11 +29,7 @@ use common::{
         INDEX_TABLE,
     },
     document::ParsedDocument,
-    query::{
-        IndexRange,
-        Order,
-        Query,
-    },
+    interval::Interval,
     runtime::Runtime,
     schemas::{
         DatabaseSchema,
@@ -76,7 +72,6 @@ use crate::{
     table_summary::table_summary_bootstrapping_error,
     transaction_index::TransactionIndex,
     unauthorized_error,
-    ResolvedQuery,
     SystemMetadataModel,
     TableModel,
     Transaction,
@@ -788,21 +783,26 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     pub async fn get_all_indexes(
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<TabletIndexMetadata>>> {
-        // Index doesn't have `by_creation_time` index, and thus can't be queried via
-        // collect.
-        let index_query = Query::index_range(IndexRange {
-            index_name: IndexName::by_id(INDEX_TABLE.clone()),
-            range: vec![],
-            order: Order::Asc,
-        });
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
-
-        let mut indexes = vec![];
-        while let Some(document) = query_stream.next(self.tx, None).await? {
-            let index = TabletIndexMetadata::from_document(document)?;
-            indexes.push(index);
-        }
-        Ok(indexes)
+        let index_by_id = TabletIndexName::by_id(
+            self.tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .id(&INDEX_TABLE)
+                .context("_index should exist")?
+                .tablet_id,
+        );
+        self.tx.reads.record_indexed_directly(
+            index_by_id,
+            IndexedFields::by_id(),
+            Interval::all(),
+        )?;
+        Ok(self
+            .tx
+            .index
+            .index_registry()
+            .all_indexes()
+            .cloned()
+            .collect())
     }
 
     /// Returns all search indexes (text and vector) on non-empty tables.
