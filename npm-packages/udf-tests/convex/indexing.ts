@@ -139,6 +139,22 @@ export const rangeOnSecondFieldOutOfOrder = query(
   },
 );
 
+export const rangeFirstFieldGtUndefined = query(({ db }) => {
+  return db
+    .query("myTable")
+    .withIndex("by_a_b", (q) => q.gt("a", undefined as any))
+    .collect();
+});
+
+export const rangeSecondFieldGtUndefined = query(
+  ({ db }, { a }: { a: number }) => {
+    return db
+      .query("myTable")
+      .withIndex("by_a_b", (q) => q.eq("a", a).gt("b", undefined))
+      .collect();
+  },
+);
+
 /**
  * Error cases.
  */

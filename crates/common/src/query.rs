@@ -264,12 +264,12 @@ impl IndexRange {
                 Bound::Unbounded => BinaryKey::from(values_to_bytes(&prefix)),
                 Bound::Included(value) => {
                     let mut bound = prefix.clone();
-                    bound.push(Some(value));
+                    bound.push(value.0);
                     BinaryKey::from(values_to_bytes(&bound))
                 },
                 Bound::Excluded(value) => {
                     let mut bound = prefix.clone();
-                    bound.push(Some(value));
+                    bound.push(value.0);
                     BinaryKey::from(values_to_bytes(&bound))
                         .increment()
                         .ok_or_else(|| anyhow::anyhow!("{bound:?} should have an increment"))?
@@ -279,12 +279,12 @@ impl IndexRange {
                 Bound::Unbounded => End::after_prefix(&BinaryKey::from(values_to_bytes(&prefix))),
                 Bound::Included(value) => {
                     let mut bound = prefix;
-                    bound.push(Some(value));
+                    bound.push(value.0);
                     End::after_prefix(&BinaryKey::from(values_to_bytes(&bound)))
                 },
                 Bound::Excluded(value) => {
                     let mut bound = prefix;
-                    bound.push(Some(value));
+                    bound.push(value.0);
                     End::Excluded(BinaryKey::from(values_to_bytes(&bound)))
                 },
             };
@@ -337,7 +337,7 @@ impl IndexRange {
                     (true, true) => "<=",
                 };
                 let error =
-                    already_defined_bound_error(bound_type, &field_path, comparator, &value.into());
+                    already_defined_bound_error(bound_type, &field_path, comparator, &value);
                 anyhow::bail!(error);
             }
             // Check that all of the inequalities are for the same field path.
@@ -393,8 +393,8 @@ struct SplitIndexRange {
 
 struct IndexInequality {
     field_path: FieldPath,
-    start: Bound<ConvexValue>,
-    end: Bound<ConvexValue>,
+    start: Bound<MaybeValue>,
+    end: Bound<MaybeValue>,
 }
 
 /// A wrapper to pretty print the fields in a query for error messages.
@@ -472,10 +472,10 @@ fn field_not_in_index_error(
 #[derive(Clone, Debug, PartialEq)]
 pub enum IndexRangeExpression {
     Eq(FieldPath, MaybeValue),
-    Gt(FieldPath, ConvexValue),
-    Gte(FieldPath, ConvexValue),
-    Lt(FieldPath, ConvexValue),
-    Lte(FieldPath, ConvexValue),
+    Gt(FieldPath, MaybeValue),
+    Gte(FieldPath, MaybeValue),
+    Lt(FieldPath, MaybeValue),
+    Lte(FieldPath, MaybeValue),
 }
 
 /// A table to scan
@@ -717,13 +717,13 @@ mod proptest {
             prop_oneof![
                 any::<(FieldPath, MaybeValue)>()
                     .prop_map(|(field_path, v)| IndexRangeExpression::Eq(field_path, v)),
-                any::<(FieldPath, ConvexValue)>()
+                any::<(FieldPath, MaybeValue)>()
                     .prop_map(|(field_path, v)| IndexRangeExpression::Gt(field_path, v)),
-                any::<(FieldPath, ConvexValue)>()
+                any::<(FieldPath, MaybeValue)>()
                     .prop_map(|(field_path, v)| IndexRangeExpression::Gte(field_path, v)),
-                any::<(FieldPath, ConvexValue)>()
+                any::<(FieldPath, MaybeValue)>()
                     .prop_map(|(field_path, v)| IndexRangeExpression::Lt(field_path, v)),
-                any::<(FieldPath, ConvexValue)>()
+                any::<(FieldPath, MaybeValue)>()
                     .prop_map(|(field_path, v)| IndexRangeExpression::Lte(field_path, v)),
             ]
         }

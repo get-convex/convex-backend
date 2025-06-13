@@ -276,7 +276,7 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
                 if let Some(delete_before) = delete_before {
                     range.push(IndexRangeExpression::Lt(
                         field_path.clone(),
-                        ConvexValue::Float64(delete_before.timestamp_millis() as f64),
+                        ConvexValue::Float64(delete_before.timestamp_millis() as f64).into(),
                     ));
                 }
             } else if *field_path == *SOFT_DELETE_FIELD_PATH {

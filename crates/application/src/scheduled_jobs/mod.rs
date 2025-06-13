@@ -362,7 +362,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             index_name: SCHEDULED_JOBS_INDEX.name(),
             range: vec![IndexRangeExpression::Gt(
                 NEXT_TS_FIELD.clone(),
-                value::ConvexValue::Null,
+                value::ConvexValue::Null.into(),
             )],
             order: Order::Asc,
         });
@@ -945,7 +945,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                     index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.name(),
                     range: vec![IndexRangeExpression::Gt(
                         COMPLETED_TS_FIELD.clone(),
-                        value::ConvexValue::Null,
+                        value::ConvexValue::Null.into(),
                     )],
                     order: Order::Asc,
                 })

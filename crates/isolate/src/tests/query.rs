@@ -308,6 +308,18 @@ async fn test_index_ranges(rt: TestRuntime) -> anyhow::Result<()> {
                 assert_obj!("a" => 1, "bStart" => 2,  "bEnd" => 4)
             ).await?);
             assert_eq!(r.len(), 3);
+
+            // All objects have `a > undefined`.
+            must_let!(let ConvexValue::Array(r) = t.query(
+                "indexing:rangeFirstFieldGtUndefined", assert_obj!()
+            ).await?);
+            assert_eq!(r.len(), 35);
+
+            // Only a missing field is not `> undefined`.
+            must_let!(let ConvexValue::Array(r) = t.query(
+                "indexing:rangeSecondFieldGtUndefined", assert_obj!("a" => 1)
+            ).await?);
+            assert_eq!(r.len(), 6);
             Ok::<(), anyhow::Error>(())
         });
         checks.await?;

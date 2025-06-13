@@ -779,8 +779,8 @@ async fn test_query_index_range_single_page_asc(rt: TestRuntime) -> anyhow::Resu
         rt,
         vec![
             IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-            IndexRangeExpression::Gte("b".parse()?, val!(2)),
-            IndexRangeExpression::Lte("b".parse()?, val!(3)),
+            IndexRangeExpression::Gte("b".parse()?, maybe_val!(2)),
+            IndexRangeExpression::Lte("b".parse()?, maybe_val!(3)),
         ],
         Order::Asc,
         |a, b| a == 3 && (2..=3).contains(&b),
@@ -793,8 +793,8 @@ async fn test_query_index_range_single_page_desc(rt: TestRuntime) -> anyhow::Res
         rt,
         vec![
             IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-            IndexRangeExpression::Gte("b".parse()?, val!(8)),
-            IndexRangeExpression::Lte("b".parse()?, val!(9)),
+            IndexRangeExpression::Gte("b".parse()?, maybe_val!(8)),
+            IndexRangeExpression::Lte("b".parse()?, maybe_val!(9)),
         ],
         Order::Desc,
         |a, b| a == 3 && (8..=9).contains(&b),
@@ -806,8 +806,8 @@ async fn test_query_index_range_multi_page_asc(rt: TestRuntime) -> anyhow::Resul
     test_query_index_range(
         rt,
         vec![
-            IndexRangeExpression::Gte("a".parse()?, val!(3)),
-            IndexRangeExpression::Lte("a".parse()?, val!(7)),
+            IndexRangeExpression::Gte("a".parse()?, maybe_val!(3)),
+            IndexRangeExpression::Lte("a".parse()?, maybe_val!(7)),
         ],
         Order::Asc,
         |a, _| (3..=7).contains(&a),
@@ -829,8 +829,8 @@ async fn test_query_index_range_multi_page_desc(rt: TestRuntime) -> anyhow::Resu
     test_query_index_range(
         rt,
         vec![
-            IndexRangeExpression::Gte("a".parse()?, val!(3)),
-            IndexRangeExpression::Lte("a".parse()?, val!(7)),
+            IndexRangeExpression::Gte("a".parse()?, maybe_val!(3)),
+            IndexRangeExpression::Lte("a".parse()?, maybe_val!(7)),
         ],
         Order::Desc,
         |a, _| (3..=7).contains(&a),
@@ -851,8 +851,8 @@ async fn test_query_index_range_multi_key_multi_page_desc(rt: TestRuntime) -> an
         rt,
         vec![
             IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-            IndexRangeExpression::Gte("b".parse()?, val!(2)),
-            IndexRangeExpression::Lte("b".parse()?, val!(9)),
+            IndexRangeExpression::Gte("b".parse()?, maybe_val!(2)),
+            IndexRangeExpression::Lte("b".parse()?, maybe_val!(9)),
         ],
         Order::Desc,
         |a, b| a == 3 && (2..=9).contains(&b),
@@ -865,7 +865,7 @@ async fn test_query_index_range_half_bounded(rt: TestRuntime) -> anyhow::Result<
         rt,
         vec![
             IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-            IndexRangeExpression::Gte("b".parse()?, val!(4)),
+            IndexRangeExpression::Gte("b".parse()?, maybe_val!(4)),
         ],
         Order::Asc,
         |a, b| a == 3 && b >= 4,
@@ -1826,8 +1826,8 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
         (
             vec![
                 IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-                IndexRangeExpression::Gte("b".parse()?, val!(113)),
-                IndexRangeExpression::Lte("b".parse()?, val!(117)),
+                IndexRangeExpression::Gte("b".parse()?, maybe_val!(113)),
+                IndexRangeExpression::Lte("b".parse()?, maybe_val!(117)),
             ],
             Order::Asc,
             Box::new(|a, b| a == 3 && (113..=117).contains(&b)),
@@ -1924,8 +1924,8 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
         (
             vec![
                 IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-                IndexRangeExpression::Gte("b".parse()?, val!(113)),
-                IndexRangeExpression::Lte("b".parse()?, val!(117)),
+                IndexRangeExpression::Gte("b".parse()?, maybe_val!(113)),
+                IndexRangeExpression::Lte("b".parse()?, maybe_val!(117)),
             ],
             Order::Asc,
             Box::new(|a, b| a == 3 && (113..=117).contains(&b)),
@@ -2224,7 +2224,7 @@ async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
             index_name,
             range: vec![IndexRangeExpression::Gt(
                 "rank".parse()?,
-                ConvexValue::Float64(0.0),
+                ConvexValue::Float64(0.0).into(),
             )],
             order: Order::Asc,
         }),
@@ -2320,7 +2320,7 @@ async fn test_query_readset_empty_query(rt: TestRuntime) -> anyhow::Result<()> {
             index_name,
             range: vec![IndexRangeExpression::Lt(
                 "rank".parse()?,
-                ConvexValue::Float64(0.0),
+                ConvexValue::Float64(0.0).into(),
             )],
             order: Order::Asc,
         }),

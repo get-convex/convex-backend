@@ -61,7 +61,8 @@ used in Convex function arguments or return values, or in stored documents.
    `.withIndex("by_a", q=>q.eq("a", undefined))` matches document `{}` and
    `{b: 1}`, but not `{a: 1}` or `{a: null, b: 1}`.
    - In Convex's ordering scheme, `undefined < null < all other values`, so you
-     can match documents that _have_ a field via `q.gte("a", null as any)`.
+     can match documents that _have_ a field via `q.gte("a", null as any)` or
+     `q.gt("a", undefined)`.
 4. There is exactly one case where `{a: undefined}` is different from `{}`: when
    passed to `ctx.db.patch`. Passing `{a: undefined}` removes the field "a" from
    the document, while passing `{}` does not change the field "a". See

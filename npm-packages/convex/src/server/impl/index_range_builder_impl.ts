@@ -1,4 +1,4 @@
-import { convexToJson, JSONValue, Value } from "../../values/index.js";
+import { JSONValue, Value } from "../../values/index.js";
 import { convexOrUndefinedToJson } from "../../values/value.js";
 import { GenericDocument, GenericIndexFields } from "../data_model.js";
 import {
@@ -61,7 +61,7 @@ export class IndexRangeBuilderImpl
       this.rangeExpressions.concat({
         type: "Gt",
         fieldPath: fieldName,
-        value: convexToJson(value),
+        value: convexOrUndefinedToJson(value),
       }),
     );
   }
@@ -71,7 +71,7 @@ export class IndexRangeBuilderImpl
       this.rangeExpressions.concat({
         type: "Gte",
         fieldPath: fieldName,
-        value: convexToJson(value),
+        value: convexOrUndefinedToJson(value),
       }),
     );
   }
@@ -81,7 +81,7 @@ export class IndexRangeBuilderImpl
       this.rangeExpressions.concat({
         type: "Lt",
         fieldPath: fieldName,
-        value: convexToJson(value),
+        value: convexOrUndefinedToJson(value),
       }),
     );
   }
@@ -91,7 +91,7 @@ export class IndexRangeBuilderImpl
       this.rangeExpressions.concat({
         type: "Lte",
         fieldPath: fieldName,
-        value: convexToJson(value),
+        value: convexOrUndefinedToJson(value),
       }),
     );
   }
