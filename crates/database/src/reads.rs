@@ -129,20 +129,14 @@ impl ReadSet {
     }
 
     /// Determine whether a mutation to a document overlaps with the read set.
-    pub fn overlaps(
+    ///
+    /// `reusable_buffer` is passed as a parameter to avoid repeated
+    /// allocations.
+    pub fn overlaps_document(
         &self,
         document: &PackedDocument,
         persistence_version: PersistenceVersion,
-    ) -> Option<ConflictingRead> {
-        self.overlaps_with_buffer(document, persistence_version, &mut IndexKeyBuffer::new())
-    }
-
-    /// `overlaps` but with a reusable `IndexKeyBuffer` to avoid allocations
-    pub fn overlaps_with_buffer(
-        &self,
-        document: &PackedDocument,
-        persistence_version: PersistenceVersion,
-        buffer: &mut IndexKeyBuffer,
+        reusable_buffer: &mut IndexKeyBuffer,
     ) -> Option<ConflictingRead> {
         /// Iterates just those pairs in `map` whose table matches `tablet_id`
         fn iter_indexes_for_table<T>(
@@ -163,7 +157,7 @@ impl ReadSet {
             },
         ) in iter_indexes_for_table(&self.indexed, document.id().tablet_id)
         {
-            let index_key = document.index_key(fields, persistence_version, buffer);
+            let index_key = document.index_key(fields, persistence_version, reusable_buffer);
             if intervals.contains(index_key) {
                 let stack_traces = stack_traces.as_ref().map(|st| {
                     st.iter()
@@ -185,7 +179,7 @@ impl ReadSet {
         }
 
         for (index, search_reads) in iter_indexes_for_table(&self.search, document.id().tablet_id) {
-            if search_reads.overlaps(document) {
+            if search_reads.overlaps_document(document) {
                 return Some(ConflictingRead {
                     index: index.clone(),
                     id: document.id(),
@@ -194,6 +188,15 @@ impl ReadSet {
             }
         }
         None
+    }
+
+    #[cfg(test)]
+    pub fn overlaps_document_for_test(
+        &self,
+        document: &PackedDocument,
+        persistence_version: PersistenceVersion,
+    ) -> Option<ConflictingRead> {
+        self.overlaps_document(document, persistence_version, &mut IndexKeyBuffer::new())
     }
 
     /// writes_overlap is the core logic for
@@ -218,7 +221,7 @@ impl ReadSet {
             for (_, update) in updates {
                 if let Some(ref document) = update.new_document {
                     if let Some(conflicting_read) =
-                        self.overlaps_with_buffer(document, persistence_version, &mut buffer)
+                        self.overlaps_document(document, persistence_version, &mut buffer)
                     {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
@@ -228,7 +231,7 @@ impl ReadSet {
                 }
                 if let Some(ref prev_value) = update.old_document {
                     if let Some(conflicting_read) =
-                        self.overlaps_with_buffer(prev_value, persistence_version, &mut buffer)
+                        self.overlaps_document(prev_value, persistence_version, &mut buffer)
                     {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
@@ -901,7 +904,7 @@ mod tests {
     ) -> anyhow::Result<bool> {
         let doc_without_word = create_document_with_one_field(id, field_name, val!(document_text))?;
         Ok(read_set
-            .overlaps(
+            .overlaps_document_for_test(
                 &PackedDocument::pack(&doc_without_word),
                 PersistenceVersion::default(),
             )
@@ -938,7 +941,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set
-                .overlaps(
+                .overlaps_document_for_test(
                     &PackedDocument::pack(&doc_with_word),
                     PersistenceVersion::default()
                 )
@@ -954,7 +957,7 @@ mod tests {
             val!("This text doesn't have the keyword."),
         )?;
         assert_eq!(
-            read_set.overlaps(
+            read_set.overlaps_document_for_test(
                 &PackedDocument::pack(&doc_without_word),
                 PersistenceVersion::default()
             ),
@@ -994,7 +997,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set
-                .overlaps(
+                .overlaps_document_for_test(
                     &PackedDocument::pack(&doc_with_explicit_null),
                     PersistenceVersion::default()
                 )
@@ -1010,7 +1013,7 @@ mod tests {
             ConvexValue::Null,
         )?;
         assert_eq!(
-            read_set.overlaps(
+            read_set.overlaps_document_for_test(
                 &PackedDocument::pack(&doc_with_missing_field),
                 PersistenceVersion::default()
             ),
@@ -1024,7 +1027,7 @@ mod tests {
             ConvexValue::Int64(123),
         )?;
         assert_eq!(
-            read_set.overlaps(
+            read_set.overlaps_document_for_test(
                 &PackedDocument::pack(&doc_with_implicit_null),
                 PersistenceVersion::default()
             ),
@@ -1071,7 +1074,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set
-                .overlaps(
+                .overlaps_document_for_test(
                     &PackedDocument::pack(&doc_with_explicit_null),
                     PersistenceVersion::default()
                 )
@@ -1087,7 +1090,7 @@ mod tests {
             ConvexValue::Null,
         )?;
         assert_eq!(
-            read_set.overlaps(
+            read_set.overlaps_document_for_test(
                 &PackedDocument::pack(&doc_with_missing_field),
                 PersistenceVersion::default()
             ),
@@ -1101,7 +1104,7 @@ mod tests {
             ConvexValue::Int64(123),
         )?;
         assert_eq!(
-            read_set.overlaps(
+            read_set.overlaps_document_for_test(
                 &PackedDocument::pack(&doc_with_implicit_null),
                 PersistenceVersion::default()
             ),

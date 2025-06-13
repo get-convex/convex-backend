@@ -796,7 +796,11 @@ impl<T: Clone + Ord> SearchTermTries<T> {
     }
 
     #[fastrace::trace]
-    fn overlaps<'a>(&'a self, document: &'a PackedDocument, analyzer: &'a TextAnalyzer) -> bool {
+    fn overlaps_document<'a>(
+        &'a self,
+        document: &'a PackedDocument,
+        analyzer: &'a TextAnalyzer,
+    ) -> bool {
         let mut result = BTreeSet::new();
 
         for (path, tries) in self.terms.iter() {
@@ -916,7 +920,7 @@ impl QueryReads {
     }
 
     #[fastrace::trace]
-    pub fn overlaps(&self, document: &PackedDocument) -> bool {
+    pub fn overlaps_document(&self, document: &PackedDocument) -> bool {
         let _timer = metrics::query_reads_overlaps_timer();
 
         for filter_condition in &self.filter_conditions {
@@ -939,7 +943,7 @@ impl QueryReads {
         // If all the filter conditions match and there are text queries, we then check
         // for fuzzy matches.
         let analyzer = convex_en();
-        let is_fuzzy_match = self.fuzzy_terms.overlaps(document, &analyzer);
+        let is_fuzzy_match = self.fuzzy_terms.overlaps_document(document, &analyzer);
         metrics::log_query_reads_outcome(is_fuzzy_match);
         is_fuzzy_match
     }
@@ -1161,7 +1165,7 @@ mod tests {
         tries.extend((), &text_queries);
 
         // Test that the document matches
-        assert!(tries.overlaps(&doc, &analyzer));
+        assert!(tries.overlaps_document(&doc, &analyzer));
 
         // Add a non-matching term
         let text_query = TextQueryTermRead::new(
@@ -1172,7 +1176,7 @@ mod tests {
         tries.extend((), &text_queries);
 
         // Document should still match because it matches at least one term
-        assert!(tries.overlaps(&doc, &analyzer));
+        assert!(tries.overlaps_document(&doc, &analyzer));
 
         // Create a document that doesn't match any terms
         let mut map = BTreeMap::new();
@@ -1188,7 +1192,7 @@ mod tests {
         )?);
 
         // Document should not match
-        assert!(!tries.overlaps(&doc, &analyzer));
+        assert!(!tries.overlaps_document(&doc, &analyzer));
         Ok(())
     }
 
@@ -1210,7 +1214,7 @@ mod tests {
             ConvexObject::try_from(btreemap! {})?,
         )?);
 
-        assert!(!tries.overlaps(&doc, &analyzer));
+        assert!(!tries.overlaps_document(&doc, &analyzer));
         Ok(())
     }
 

@@ -2271,7 +2271,7 @@ async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
     // prefetched through rank 3.0
     assert!(token
         .reads()
-        .overlaps(
+        .overlaps_document_for_test(
             &PackedDocument::pack(&out_of_range_doc),
             PersistenceVersion::default()
         )
@@ -2280,7 +2280,7 @@ async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
     // A document at rank 1.5 should overlap with the readest
     assert!(token
         .reads()
-        .overlaps(
+        .overlaps_document_for_test(
             &PackedDocument::pack(&in_range_doc),
             PersistenceVersion::default()
         )
@@ -2346,7 +2346,7 @@ async fn test_query_readset_empty_query(rt: TestRuntime) -> anyhow::Result<()> {
     // A document at rank -5.0 should overlap with the readest
     assert!(token
         .reads()
-        .overlaps(
+        .overlaps_document_for_test(
             &PackedDocument::pack(&in_range_doc),
             PersistenceVersion::default()
         )
