@@ -35,6 +35,7 @@ common = { path = "../common", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
 divan = { workspace = true }
 errors = { path = "../errors", features = ["testing"] }
+maplit = { workspace = true }
 metrics = { path = "../metrics", features = ["testing"] }
 must-let = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }

@@ -4558,6 +4558,7 @@ dependencies = [
  "futures",
  "imbl",
  "itertools 0.14.0",
+ "maplit",
  "metrics",
  "must-let",
  "runtime",
