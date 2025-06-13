@@ -14,8 +14,10 @@ import {
 import {
   encodeServerMessage,
   nodeWebSocket,
+  UpdateQueue,
   withInMemoryWebSocket,
 } from "./client_node_test_helpers.js";
+import { FunctionArgs, makeFunctionReference } from "../../server/index.js";
 
 test("BaseConvexClient protocol in node", async () => {
   await withInMemoryWebSocket(async ({ address, receive }) => {
@@ -189,4 +191,176 @@ test("maxObservedTimestamp is updated on mutation and transition", async () => {
 
     await client.close();
   });
+});
+
+const apiQueriesA = makeFunctionReference<"query", {}, string>("queries:a");
+const apiQueriesB = makeFunctionReference<"query", {}, string>("queries:b");
+
+const _apiMutationsZ = makeFunctionReference<"mutation", {}>("mutations:z");
+
+/**
+ * Regression test for
+ * - subscribing to query a
+ * - running a mutation that sets an optimistic update for queries a and b
+ * - receiving an update for a
+ */
+test("Setting optimistic updates for queries that have not yet been subscribed to", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send }) => {
+    const q = new UpdateQueue(10);
+
+    const client = new BaseConvexClient(
+      address,
+      (queryTokens) => {
+        q.onTransition(client)(queryTokens);
+      },
+      {
+        webSocketConstructor: nodeWebSocket,
+        unsavedChangesWarning: false,
+        verbose: true,
+      },
+    );
+
+    client.subscribe("queries:a", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    const modify = await receive();
+
+    expect(modify.type).toEqual("ModifyQuerySet");
+    if (modify.type !== "ModifyQuerySet") {
+      return;
+    }
+    expect(modify.modifications.length).toBe(1);
+    expect(modify.modifications).toEqual([
+      {
+        type: "Add",
+        queryId: 0,
+        udfPath: "queries:a",
+        args: [{}],
+      },
+    ]);
+
+    // Now that we're subscribed to queries:a,
+    // run a mutation that, optimistically and on the server,
+    // - modifies q1
+    // - modifies q2
+
+    const mutP = client.mutation(
+      "mutations:z",
+      {},
+      {
+        optimisticUpdate: (
+          localStore,
+          _args: FunctionArgs<typeof _apiMutationsZ>,
+        ) => {
+          const curA = localStore.getQuery(apiQueriesA, {});
+          localStore.setQuery(
+            apiQueriesA,
+            {},
+            curA === undefined ? "a local" : `${curA} with a local applied`,
+          );
+          const curB = localStore.getQuery(apiQueriesB, {});
+          localStore.setQuery(
+            apiQueriesB,
+            {},
+            curB === undefined ? "b local" : `${curB} with b local applied`,
+          );
+        },
+      },
+    );
+
+    // Synchronously, the local store should update and the changes should be broadcast.
+    expect(client.localQueryResult("queries:a", {})).toEqual("a local");
+    // We haven't actually subscribed to this query but it had a value set in an optimistic update.
+    expect(client.localQueryResult("queries:b", {})).toEqual("b local");
+    const update1 = await q.updatePromises[0];
+    expect(q.updates).toHaveLength(1);
+    expect(update1).toEqual({
+      '{"udfPath":"queries:a","args":{}}': "a local",
+      '{"udfPath":"queries:b","args":{}}': "b local",
+    });
+
+    // Now a transition arrives containing only an update to query a.
+    // This previously crashed this execution context.
+    send({
+      type: "Transition",
+      startVersion: {
+        querySet: 0,
+        identity: 0,
+        ts: Long.fromNumber(0),
+      },
+      endVersion: {
+        querySet: 1,
+        identity: 0,
+        ts: Long.fromNumber(100),
+      },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "a server",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    const update2 = await q.updatePromises[1];
+    expect(update2).toEqual({
+      '{"udfPath":"queries:a","args":{}}': "a server with a local applied",
+      '{"udfPath":"queries:b","args":{}}': "b local",
+    });
+    expect(q.allResults).toEqual({
+      '{"udfPath":"queries:a","args":{}}': "a server with a local applied",
+      '{"udfPath":"queries:b","args":{}}': "b local",
+    });
+    expect(q.updates).toHaveLength(2);
+
+    const mutationRequest = await receive();
+    expect(mutationRequest.type).toEqual("Mutation");
+    expect(mutationRequest).toEqual({
+      type: "Mutation",
+      requestId: 0,
+      udfPath: "mutations:z",
+      args: [{}],
+    });
+
+    // Now the server sends:
+
+    // 1. MutationResponse saying the mutation has run
+    send({
+      type: "MutationResponse",
+      requestId: 0,
+      success: true,
+      result: null,
+      ts: Long.fromNumber(200), // "ZDhuVB3CRxg=", in example
+      logLines: [],
+    });
+
+    // 2. Transition bringing us up to date with the mutation
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "a server",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    expect(await q.updatePromises[2]).toEqual({
+      '{"udfPath":"queries:a","args":{}}': "a server",
+      // Now there's no more optimistic value for b!
+      '{"udfPath":"queries:b","args":{}}': undefined,
+    });
+
+    // After all that the mutation should resolve.
+    await mutP;
+
+    await client.close();
+  }, true);
 });

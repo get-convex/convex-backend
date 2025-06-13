@@ -131,7 +131,8 @@ type OptimisticUpdateAndId = {
 type Query = {
   // undefined means the query was set to be loading (undefined) in an optimistic update.
   // Note that we can also have queries not present in the QueryResultMap
-  // at all because they are still loading from the server.
+  // at all because they are still loading from the server and have no optimistic update
+  // setting an optimistic value in advance.
   result: FunctionResult | undefined;
   udfPath: string;
   args: Record<string, Value>;
@@ -152,6 +153,9 @@ export class OptimisticQueryResults {
     this.optimisticUpdates = [];
   }
 
+  /**
+   * Apply all optimistic updates on top of server query results
+   */
   ingestQueryResultsFromServer(
     serverQueryResults: QueryResultsMap,
     optimisticUpdatesToDrop: Set<RequestId>,
@@ -195,6 +199,13 @@ export class OptimisticQueryResults {
     // Notify about any query results that changed
     // TODO(CX-733): Change this so we avoid unnecessary rerenders
     return localStore.modifiedQueries;
+  }
+
+  /**
+   * @internal
+   */
+  rawQueryResult(queryToken: QueryToken): Query | undefined {
+    return this.queryResults.get(queryToken);
   }
 
   queryResult(queryToken: QueryToken): Value | undefined {

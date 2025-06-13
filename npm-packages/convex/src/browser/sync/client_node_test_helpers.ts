@@ -8,6 +8,8 @@ import WebSocket, { WebSocketServer } from "ws";
 export const nodeWebSocket = WebSocket as unknown as typeof window.WebSocket;
 
 import { ClientMessage, ServerMessage } from "./protocol.js";
+import { QueryToken } from "./udf_path_utils.js";
+import { BaseConvexClient } from "./client.js";
 
 export type InMemoryWebSocketTest = (args: {
   address: string;
@@ -103,4 +105,51 @@ export function encodeServerMessage(message: ServerMessage): string {
 function encodeLong(n: Long) {
   const integerBytes = Uint8Array.from(n.toBytesLE());
   return Base64.fromByteArray(integerBytes);
+}
+
+/**
+ * const q = new UpdateQueue();
+ * const client = new Client("http://...", q.onTransition);
+ *
+ * await q.updatePromises[3];
+ *
+ */
+export class UpdateQueue {
+  updateResolves: ((v: Record<QueryToken, any>) => void)[];
+  updatePromises: Promise<Record<QueryToken, any>>[];
+  updates: Record<QueryToken, any>[];
+  allResults: Record<QueryToken, any>;
+  nextIndex: number;
+
+  constructor(maxLength = 10) {
+    this.updateResolves = [];
+    this.updatePromises = [];
+    this.allResults = {};
+    this.updates = [];
+    this.nextIndex = 0;
+
+    let nextResolve: (v: Record<QueryToken, any>) => void;
+    let nextPromise: Promise<Record<QueryToken, any>>;
+
+    for (let i = 0; i < maxLength; i++) {
+      nextPromise = new Promise((r) => {
+        nextResolve = r;
+      });
+      this.updateResolves.push(nextResolve!);
+      this.updatePromises.push(nextPromise);
+    }
+  }
+
+  onTransition =
+    (client: BaseConvexClient) => (updatedQueryTokens: QueryToken[]) => {
+      const update: Record<QueryToken, any> = {};
+      for (const queryToken of updatedQueryTokens) {
+        const value = client.localQueryResultByToken(queryToken);
+        update[queryToken] = value;
+        this.allResults[queryToken] = value;
+      }
+      this.updateResolves[this.nextIndex](update);
+      this.updates.push(update);
+      this.nextIndex++;
+    };
 }

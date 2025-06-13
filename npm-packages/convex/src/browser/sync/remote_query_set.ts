@@ -7,6 +7,10 @@ import { FunctionResult } from "./function_result.js";
 /**
  * A represention of the query results we've received on the current WebSocket
  * connection.
+ *
+ * Queries you won't find here include:
+ * - queries which have been requested, but no query transition has been received yet for
+ * - queries which are populated only though active optimistic updates, but are not subscribed to
  */
 export class RemoteQuerySet {
   private version: StateVersion;

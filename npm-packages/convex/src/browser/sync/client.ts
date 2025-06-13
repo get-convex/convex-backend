@@ -185,7 +185,7 @@ export type QueryModification =
  * Object describing a transition passed into the `onTransition` handler.
  *
  * These can be from receiving a transition from the server, or from applying an
- * optimistc update locally.
+ * optimistic update locally.
  *
  * @public
  */
@@ -510,6 +510,10 @@ export class BaseConvexClient {
         queryTokenToValue.set(queryToken, query);
       }
     }
+
+    // Query tokens that are new (because of new server results or new local optimistic updates)
+    // or differ from old values (because of changes from local optimistic updates or new results
+    // from the server).
     const changedQueryTokens =
       this.optimisticQueryResults.ingestQueryResultsFromServer(
         queryTokenToValue,
@@ -517,13 +521,17 @@ export class BaseConvexClient {
       );
 
     this.handleTransition({
-      queries: changedQueryTokens.map((token) => ({
-        token,
-        modification: {
-          kind: "Updated",
-          result: queryTokenToValue.get(token)!.result,
-        },
-      })),
+      queries: changedQueryTokens.map((token) => {
+        const optimisticResult =
+          this.optimisticQueryResults.rawQueryResult(token);
+        return {
+          token,
+          modification: {
+            kind: "Updated",
+            result: optimisticResult!.result,
+          },
+        };
+      }),
       reflectedMutations: Array.from(completedRequests).map(
         ([requestId, result]) => ({
           requestId,
