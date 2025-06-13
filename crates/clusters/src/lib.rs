@@ -21,6 +21,7 @@ pub fn persistence_args_from_cluster_url(
     mut cluster_url: Url,
     driver: DbDriverTag,
     require_ssl: bool,
+    require_leader: bool,
 ) -> anyhow::Result<PersistenceArgs> {
     anyhow::ensure!(
         cluster_url.query().is_none(),
@@ -56,6 +57,11 @@ pub fn persistence_args_from_cluster_url(
                 cluster_url
                     .query_pairs_mut()
                     .append_pair("sslmode", "require");
+            }
+            if require_leader {
+                cluster_url
+                    .query_pairs_mut()
+                    .append_pair("target_session_attrs", "read-write");
             }
             Ok(PersistenceArgs::Postgres {
                 url: cluster_url,

@@ -233,15 +233,23 @@ impl PostgresTransaction<'_> {
 #[derive(Clone)]
 pub struct ConvexPgPool {
     inner: deadpool_postgres::Pool,
+    is_leader_only: bool,
     stats: ConnectionPoolStats,
 }
 
 impl ConvexPgPool {
-    pub(crate) fn new(pool: deadpool_postgres::Pool) -> Self {
+    pub(crate) fn new(pool: deadpool_postgres::Pool, is_leader_only: bool) -> Self {
         ConvexPgPool {
             inner: pool,
+            is_leader_only,
             stats: new_connection_pool_stats(""),
         }
+    }
+
+    /// Returns whether the pool is configured to connect to a leader database
+    /// only.
+    pub(crate) fn is_leader_only(&self) -> bool {
+        self.is_leader_only
     }
 
     pub(crate) async fn get_connection(

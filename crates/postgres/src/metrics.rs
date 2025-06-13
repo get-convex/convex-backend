@@ -67,27 +67,6 @@ pub fn query_index_timer() -> Timer<VMHistogram> {
     Timer::new(&POSTGRES_QUERY_INDEX_SECONDS)
 }
 
-register_convex_histogram!(
-    POSTGRES_CHECK_DB_LEADER_SECONDS,
-    "Time to perform DB leader check",
-    &STATUS_LABEL
-);
-pub fn check_db_leader_timer() -> Timer<VMHistogramVec> {
-    let mut timer = Timer::new_with_labels(&POSTGRES_CHECK_DB_LEADER_SECONDS);
-    // Success is the default in case this is dropped due to some error.
-    // Failure of the db_leader check is reserved for discovering we are on a
-    // non-leader.
-    timer.add_label(StaticMetricLabel::STATUS_SUCCESS);
-    timer
-}
-
-pub fn fail_check_db_leader_timer(mut timer: Timer<VMHistogramVec>) {
-    timer.replace_label(
-        StaticMetricLabel::STATUS_SUCCESS,
-        StaticMetricLabel::STATUS_ERROR,
-    );
-}
-
 pub struct QueryIndexStats {
     pub sql_statements: usize,
     pub rows_skipped_deleted: usize,

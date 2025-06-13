@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context as _;
 use clusters::{
     persistence_args_from_cluster_url,
     DbDriverTag,
@@ -52,6 +53,7 @@ pub async fn connect_persistence<RT: Runtime>(
                 db_spec.parse()?,
                 db,
                 require_ssl,
+                true, /* require_leader */
             )?;
             match args {
                 PersistenceArgs::Postgres { url, schema } => {
@@ -121,17 +123,19 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                 db_spec.parse()?,
                 db,
                 require_ssl,
+                db_should_be_leader,
             )?;
             match args {
                 PersistenceArgs::Postgres { url, schema } => {
-                    let options = PostgresReaderOptions {
-                        db_should_be_leader,
-                        version,
-                        schema,
-                    };
+                    let options = PostgresReaderOptions { version, schema };
                     Arc::new(
                         PostgresPersistence::new_reader(
-                            PostgresPersistence::create_pool(url.as_str())?,
+                            PostgresPersistence::create_pool(
+                                url.as_str()
+                                    .parse()
+                                    .context("Invalid postgres cluster url")?,
+                            )
+                            .context("failed to create postgres pool")?,
                             options,
                         )
                         .await?,

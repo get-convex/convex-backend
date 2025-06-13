@@ -22,7 +22,6 @@ use std::{
     ops::Bound,
     path::Path,
     pin::Pin,
-    str::FromStr,
     sync::{
         atomic::{
             AtomicBool,
@@ -125,6 +124,7 @@ use tokio::sync::mpsc::{
     self,
 };
 use tokio_postgres::{
+    config::TargetSessionAttrs,
     types::{
         to_sql_checked,
         IsNull,
@@ -173,7 +173,6 @@ pub struct PostgresOptions {
 }
 
 pub struct PostgresReaderOptions {
-    pub db_should_be_leader: bool,
     pub version: PersistenceVersion,
     /// If `None` uses the default schema (usually `public`)
     pub schema: Option<String>,
@@ -197,7 +196,10 @@ async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
 
 impl PostgresPersistence {
     pub async fn new(url: &str, options: PostgresOptions) -> Result<Self, ConnectError> {
-        let pool = Self::create_pool(url)?;
+        let mut config: tokio_postgres::Config =
+            url.parse().context("invalid postgres connection url")?;
+        config.target_session_attrs(TargetSessionAttrs::ReadWrite);
+        let pool = Self::create_pool(config)?;
         Self::with_pool(pool, options).await
     }
 
@@ -205,6 +207,13 @@ impl PostgresPersistence {
         pool: ConvexPgPool,
         options: PostgresOptions,
     ) -> Result<Self, ConnectError> {
+        if !pool.is_leader_only() {
+            return Err(anyhow::anyhow!(
+                "PostgresPersistence must be configured with target_session_attrs=read-write"
+            )
+            .into());
+        }
+
         let schema = if let Some(s) = &options.schema {
             SchemaName::new(s)?
         } else {
@@ -260,7 +269,6 @@ impl PostgresPersistence {
         };
         Ok(PostgresReader {
             read_pool: Arc::new(pool),
-            db_should_be_leader: options.db_should_be_leader,
             version: options.version,
             schema: SchemaName::new(&schema)?,
         })
@@ -270,8 +278,7 @@ impl PostgresPersistence {
         Ok(client.query_opt(CHECK_IS_READ_ONLY, &[]).await?.is_some())
     }
 
-    pub fn create_pool(url: &str) -> anyhow::Result<ConvexPgPool> {
-        let pg_config = tokio_postgres::Config::from_str(url)?;
+    pub fn create_pool(pg_config: tokio_postgres::Config) -> anyhow::Result<ConvexPgPool> {
         let mut roots = RootCertStore::empty();
         let native_certs = rustls_native_certs::load_native_certs();
         anyhow::ensure!(
@@ -299,10 +306,11 @@ impl PostgresPersistence {
             .with_no_client_auth();
         let connector = MakeRustlsConnect::new(config);
 
+        let is_leader_only = pg_config.get_target_session_attrs() == TargetSessionAttrs::ReadWrite;
         let manager = Manager::new(pg_config, connector);
         let pool_config = deadpool_postgres::PoolConfig::default();
         let pool = Pool::builder(manager).config(pool_config).build()?;
-        Ok(ConvexPgPool::new(pool))
+        Ok(ConvexPgPool::new(pool, is_leader_only))
     }
 
     async fn check_newly_created(client: &PostgresConnection) -> anyhow::Result<bool> {
@@ -319,7 +327,6 @@ impl Persistence for PostgresPersistence {
     fn reader(&self) -> Arc<dyn PersistenceReader> {
         Arc::new(PostgresReader {
             read_pool: self.read_pool.clone(),
-            db_should_be_leader: true,
             version: self.version,
             schema: self.schema.clone(),
         })
@@ -589,11 +596,6 @@ impl Persistence for PostgresPersistence {
 #[derive(Clone)]
 pub struct PostgresReader {
     read_pool: Arc<ConvexPgPool>,
-    /// Set `db_should_be_leader` if this PostgresReader should be connected
-    /// to the database leader. In particular, we protect against heterogenous
-    /// connection pools where one connection is to the leader and another is to
-    /// a follower.
-    db_should_be_leader: bool,
     version: PersistenceVersion,
     schema: SchemaName,
 }
@@ -737,37 +739,6 @@ impl PostgresReader {
         metrics::finish_load_documents_timer(timer, num_returned);
     }
 
-    // See CX-2904 for why we have to do this.
-    async fn check_db_leader(
-        &self,
-        client: &PostgresConnection,
-    ) -> anyhow::Result<Option<impl Future<Output = anyhow::Result<()>>>> {
-        if !self.db_should_be_leader {
-            return Ok(None);
-        }
-        let timer = metrics::check_db_leader_timer();
-
-        let is_db_read_only_stmt = client.prepare_cached(IS_DB_READ_ONLY).await?;
-        let no_params: &[Param] = &[];
-        let is_read_only_stream = client.query_raw(&is_db_read_only_stmt, no_params).await?;
-        let fut = async move {
-            futures::pin_mut!(is_read_only_stream);
-            let row = is_read_only_stream
-                .try_next()
-                .await?
-                .expect("SHOW transaction_read_only must return a row");
-            let is_readonly: String = row.get(0);
-            if &is_readonly == "off" {
-                drop(timer);
-            } else {
-                metrics::fail_check_db_leader_timer(timer);
-                anyhow::bail!("transaction_read_only is {is_readonly}");
-            }
-            Ok(())
-        };
-        Ok(Some(fut))
-    }
-
     #[try_stream(ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
     async fn _index_scan(
         &self,
@@ -854,7 +825,6 @@ impl PostgresReader {
                 order,
                 batch_size,
             );
-            let check_db_leader = self.check_db_leader(&client).await?;
 
             let prepare_timer = metrics::query_index_sql_prepare_timer();
             let stmt = client.prepare_cached(query).await?;
@@ -863,16 +833,6 @@ impl PostgresReader {
             let execute_timer = metrics::query_index_sql_execute_timer();
             let row_stream = client.query_raw(&stmt, params).await?;
             execute_timer.finish();
-
-            if let Some(check_db_leader) = check_db_leader {
-                // Check for leadership pipelined with the query.
-                // Note the ordering here is important for the pipelining:
-                // 1) pipelined queries execute in order, and we don't want to run the full
-                //    index scan -- fetching all rows -- before checking db_leader.
-                // 2) queries are executed in the order they are first polled, not the order
-                //    their futures are created.
-                check_db_leader.await?;
-            }
 
             futures::pin_mut!(row_stream);
 
@@ -1849,7 +1809,7 @@ static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> =
     Set(enable_bitmapscan OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT 
+SELECT
     A.index_id,
     A.key_prefix,
     A.key_sha256,
@@ -1982,10 +1942,6 @@ WHERE
     table_id = $1 AND
     id = $2 AND
     ts = $3
-"#;
-
-const IS_DB_READ_ONLY: &str = r#"
-    show transaction_read_only
 "#;
 
 static MIN_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; 32]);
