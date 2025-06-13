@@ -57,10 +57,65 @@ export async function runFunctionAndLog(
       functionArgs,
     );
   } catch (err) {
+    const errorMessage = (err as Error).toString().trim();
+
+    if (errorMessage.includes("Could not find function")) {
+      const functions = (await runSystemQuery(ctx, {
+        deploymentUrl: args.deploymentUrl,
+        adminKey: args.adminKey,
+        functionName: "_system/cli/modules:apiSpec",
+        componentPath: args.componentPath,
+        args: {},
+      })) as (
+        | {
+            functionType: "Query" | "Mutation" | "Action";
+            identifier: string;
+          }
+        | {
+            functionType: "HttpAction";
+          }
+      )[];
+
+      const functionNames = functions
+        .filter(
+          (
+            fn,
+          ): fn is {
+            functionType: "Query" | "Mutation" | "Action";
+            identifier: string;
+          } => fn.functionType !== "HttpAction",
+        )
+        .map(({ identifier }) => {
+          const separatorPos = identifier.indexOf(":");
+
+          const path =
+            separatorPos === -1
+              ? ""
+              : identifier.substring(0, separatorPos + 1);
+          const name =
+            separatorPos === -1
+              ? identifier
+              : identifier.substring(separatorPos + 1);
+
+          return `• ${chalk.gray(path)}${name}`;
+        });
+
+      const availableFunctionsMessage =
+        functionNames.length > 0
+          ? `Available functions:\n${functionNames.join("\n")}`
+          : "No functions found.";
+
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Failed to run function "${args.functionName}":\n${chalk.red(errorMessage)}\n\n${availableFunctionsMessage}`,
+      });
+    }
+
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem or env vars",
-      printedMessage: `Failed to run function "${args.functionName}":\n${chalk.red((err as Error).toString().trim())}`,
+      printedMessage: `Failed to run function "${args.functionName}":\n${chalk.red(errorMessage)}`,
     });
   }
 
