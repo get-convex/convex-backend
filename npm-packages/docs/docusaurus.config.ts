@@ -344,20 +344,11 @@ const config: Config = {
       defer: true,
       "data-domain": "docs.convex.dev",
     },
-    {
-      src: "https://widget.kapa.ai/kapa-widget.bundle.js",
-      "data-button-hide": "true",
-      "data-modal-override-open-class": "js-launch-kapa-ai",
-      "data-website-id": "a20c0988-f33e-452b-9174-5045a58b965d",
-      "data-project-name": "Convex",
-      "data-project-color": "#141414",
-      "data-project-logo":
-        "https://img.stackshare.io/service/41143/default_f1d33b63d360437ba28c8ac981dd68d7d2478b22.png",
-      "data-user-analytics-fingerprint-enabled": "true",
-      async: true,
-    },
   ],
-  clientModules: [resolve("./src/components/Analytics/analyticsModule.ts")],
+  clientModules: [
+    resolve("./src/components/Analytics/analyticsModule.ts"),
+    resolve("./src/components/AIButton/kapaModule.ts"),
+  ],
 };
 
 export default config;

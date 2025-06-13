@@ -12,7 +12,7 @@ export function useAnalyticsCookies() {
 
   // An undefined value indicates that the cookie is not present, so the user
   // has not yet accepted or rejected the cookie banner.
-  const allowsCookies = cookies[COOKIE_NAME];
+  const allowsCookies = cookies[COOKIE_NAME] as boolean | undefined;
 
   const setAllowsCookies = (value: boolean) => {
     // Return early if we're running on the server.
