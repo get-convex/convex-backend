@@ -716,7 +716,7 @@ fn udf_analyze<RT: Runtime>(
                 log_source_map_token_lookup_failed();
             }
 
-            tracing::warn!(
+            tracing::debug!(
                 "Failed to resolve source position of {module_path:?}:{canonicalized_name}"
             );
         }
