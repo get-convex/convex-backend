@@ -1,3 +1,4 @@
+import classNames from "classnames";
 import { PlanResponse } from "generatedApi";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
@@ -15,9 +16,10 @@ export function PlanCard({
   const { seatlessPlans } = useLaunchDarkly();
   return (
     <div
-      className={`flex h-full min-w-fit grow flex-col justify-between rounded-2xl border bg-background-primary/30 p-3 shadow transition-colors hover:bg-background-primary/70 ${
-        selected && "border-border-selected"
-      }`}
+      className={classNames(
+        "flex flex-col justify-between rounded-2xl border bg-background-primary/30 p-3 shadow transition-colors hover:bg-background-primary/70",
+        selected && "border-border-selected",
+      )}
     >
       <div className="mb-2 text-content-primary">
         <h3>{plan.name}</h3>
