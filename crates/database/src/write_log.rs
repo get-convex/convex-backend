@@ -31,6 +31,10 @@ use errors::{
 };
 use futures::Future;
 use imbl::Vector;
+use indexing::index_registry::{
+    DocumentIndexKeys,
+    IndexRegistry,
+};
 use parking_lot::Mutex;
 use tokio::sync::oneshot;
 use value::heap_size::{
@@ -59,7 +63,7 @@ impl HeapSize for PackedDocumentUpdate {
     }
 }
 
-type OrderedWrites = WithHeapSize<Vec<(ResolvedDocumentId, PackedDocumentUpdate)>>;
+type OrderedDocumentWrites = WithHeapSize<Vec<(ResolvedDocumentId, PackedDocumentUpdate)>>;
 
 impl PackedDocumentUpdate {
     pub fn pack(update: &impl DocumentUpdateRef) -> Self {
@@ -80,6 +84,61 @@ impl PackedDocumentUpdate {
 }
 
 pub type IterWrites<'a> = std::slice::Iter<'a, (ResolvedDocumentId, PackedDocumentUpdate)>;
+
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct DocumentIndexKeysUpdate {
+    pub id: ResolvedDocumentId,
+    pub old_document_keys: Option<DocumentIndexKeys>,
+    pub new_document_keys: Option<DocumentIndexKeys>,
+}
+
+impl DocumentIndexKeysUpdate {
+    #[allow(dead_code)]
+    pub fn from_document_update(
+        full: PackedDocumentUpdate,
+        index_registry: &IndexRegistry,
+    ) -> Self {
+        Self {
+            id: full.id,
+            old_document_keys: full
+                .old_document
+                .map(|old_doc| index_registry.document_index_keys(old_doc)),
+            new_document_keys: full
+                .new_document
+                .map(|new_doc| index_registry.document_index_keys(new_doc)),
+        }
+    }
+}
+
+impl HeapSize for DocumentIndexKeysUpdate {
+    fn heap_size(&self) -> usize {
+        self.old_document_keys.heap_size() + self.new_document_keys.heap_size()
+    }
+}
+
+#[allow(dead_code)]
+type OrderedIndexKeysWrites = WithHeapSize<Vec<(ResolvedDocumentId, DocumentIndexKeysUpdate)>>;
+
+/// Converts [OrderedDocumentWrites] (the log used in `PendingWrites` that
+/// contains full documents) to [OrderedIndexKeysWrites] (the log used
+/// in `WriteLog` that contains only index keys).
+#[allow(dead_code)]
+pub fn index_keys_from_full_documents(
+    ordered_writes: OrderedDocumentWrites,
+    index_registry: &IndexRegistry,
+) -> OrderedIndexKeysWrites {
+    let elements: Vec<_> = ordered_writes
+        .into_iter()
+        .map(|(id, update)| {
+            (
+                id,
+                DocumentIndexKeysUpdate::from_document_update(update, index_registry),
+            )
+        })
+        .collect();
+    WithHeapSize::from(elements)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WriteSource(pub(crate) Option<Cow<'static, str>>);
@@ -151,7 +210,7 @@ impl WriteLogManager {
         }
     }
 
-    fn append(&mut self, ts: Timestamp, writes: OrderedWrites, write_source: WriteSource) {
+    fn append(&mut self, ts: Timestamp, writes: OrderedDocumentWrites, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
         self.log
@@ -214,7 +273,7 @@ impl WriteLogManager {
 /// they may trigger subscriptions.
 #[derive(Clone)]
 struct WriteLog {
-    by_ts: WithHeapSize<Vector<Arc<(Timestamp, OrderedWrites, WriteSource)>>>,
+    by_ts: WithHeapSize<Vector<Arc<(Timestamp, OrderedDocumentWrites, WriteSource)>>>,
     purged_ts: Timestamp,
     persistence_version: PersistenceVersion,
 }
@@ -403,7 +462,12 @@ pub struct LogWriter {
 impl LogWriter {
     // N.B.: `writes` is `OrderedWrites` because that's what the committer
     // already has, but the write log doesn't actually care about the ordering.
-    pub fn append(&mut self, ts: Timestamp, writes: OrderedWrites, write_source: WriteSource) {
+    pub fn append(
+        &mut self,
+        ts: Timestamp,
+        writes: OrderedDocumentWrites,
+        write_source: WriteSource,
+    ) {
         block_in_place(|| self.inner.lock().append(ts, writes, write_source));
     }
 
@@ -424,7 +488,7 @@ impl LogWriter {
 /// These pending writes do not conflict with each other so any subset of them
 /// may be written to persistence, in any order.
 pub struct PendingWrites {
-    by_ts: BTreeMap<Timestamp, (OrderedWrites, WriteSource, Snapshot)>,
+    by_ts: BTreeMap<Timestamp, (OrderedDocumentWrites, WriteSource, Snapshot)>,
     persistence_version: PersistenceVersion,
 }
 
@@ -439,7 +503,7 @@ impl PendingWrites {
     pub fn push_back(
         &mut self,
         ts: Timestamp,
-        writes: OrderedWrites,
+        writes: OrderedDocumentWrites,
         write_source: WriteSource,
         snapshot: Snapshot,
     ) -> PendingWriteHandle {
@@ -499,7 +563,7 @@ impl PendingWrites {
     pub fn pop_first(
         &mut self,
         mut handle: PendingWriteHandle,
-    ) -> Option<(Timestamp, OrderedWrites, WriteSource, Snapshot)> {
+    ) -> Option<(Timestamp, OrderedDocumentWrites, WriteSource, Snapshot)> {
         let first = self.by_ts.pop_first();
         if let Some((ts, (writes, write_source, snapshot))) = first {
             if let Some(expected_ts) = handle.0 {

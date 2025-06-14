@@ -244,7 +244,7 @@ impl IndexRegistry {
         updates.into_values().collect()
     }
 
-    pub fn document_index_keys(&self, document: ResolvedDocument) -> DocumentIndexKeys {
+    pub fn document_index_keys(&self, document: PackedDocument) -> DocumentIndexKeys {
         let map: BTreeMap<_, _> = self
             .indexes_by_table(document.id().tablet_id)
             .flat_map(|index| {
@@ -253,9 +253,7 @@ impl IndexRegistry {
                         developer_config: DeveloperDatabaseIndexConfig { fields },
                         ..
                     } => Some(DocumentIndexKeyValue::Standard(
-                        document
-                            .index_key_bytes(&fields[..], self.persistence_version())
-                            .to_bytes(),
+                        document.index_key_bytes(&fields[..], self.persistence_version()),
                     )),
                     IndexConfig::Text {
                         developer_config:
@@ -269,7 +267,7 @@ impl IndexRegistry {
                             .iter()
                             .map(|field| {
                                 let value = document.value().get_path(field);
-                                let bytes = SearchFilterValue::from_search_value(value);
+                                let bytes = SearchFilterValue::from_search_value(value.as_ref());
                                 (field.clone(), bytes)
                             })
                             .collect();
@@ -928,7 +926,7 @@ mod tests {
             ),
         )?;
 
-        let index_keys = index_registry.document_index_keys(doc.clone());
+        let index_keys = index_registry.document_index_keys(PackedDocument::pack(&doc));
 
         let expected = DocumentIndexKeys(btreemap! {
             by_name.clone() => DocumentIndexKeyValue::Standard(
