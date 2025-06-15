@@ -160,7 +160,9 @@ export interface Auth {
    * Get details about the currently authenticated user.
    *
    * @returns A promise that resolves to a {@link UserIdentity} if the Convex
-   * client was configured with a valid ID token and `null` otherwise.
+   * client was configured with a valid ID token, or if not, will:
+   * + returns `null` on Convex queries, mutations, actions.
+   * + `throw` on HTTP Actions.
    */
   getUserIdentity(): Promise<UserIdentity | null>;
 }
