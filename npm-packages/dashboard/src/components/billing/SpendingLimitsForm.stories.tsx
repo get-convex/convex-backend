@@ -17,7 +17,7 @@ type Story = StoryObj<typeof SpendingLimitsForm>;
 export const Default: Story = {
   args: {
     defaultValue: {
-      spendingLimitWarningThresholdUsd: undefined,
+      spendingLimitWarningThresholdUsd: "",
       spendingLimitDisableThresholdUsd: null,
     },
   },
@@ -35,8 +35,8 @@ export const BothThresholdsDisabled: Story = {
 export const BothThresholdsEmpty: Story = {
   args: {
     defaultValue: {
-      spendingLimitWarningThresholdUsd: undefined,
-      spendingLimitDisableThresholdUsd: undefined,
+      spendingLimitWarningThresholdUsd: "",
+      spendingLimitDisableThresholdUsd: "",
     },
   },
 };
@@ -63,7 +63,7 @@ export const HighCurrentSpending: Story = {
   args: {
     defaultValue: {
       spendingLimitWarningThresholdUsd: null,
-      spendingLimitDisableThresholdUsd: undefined,
+      spendingLimitDisableThresholdUsd: "",
     },
     currentSpending: {
       ...currentSpending,

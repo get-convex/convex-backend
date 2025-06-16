@@ -13,7 +13,11 @@ import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import { useStripePaymentSetup } from "../../hooks/useStripe";
 import { BillingContactInputs } from "./BillingContactInputs";
-import { SpendingLimits, spendingLimitsSchema } from "./SpendingLimits";
+import {
+  SpendingLimits,
+  spendingLimitsSchema,
+  spendingLimitValueToCents,
+} from "./SpendingLimits";
 import { UpgradeFormState } from "./upgradeFormState";
 import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
@@ -70,7 +74,7 @@ export function UpgradePlanContentContainer({
       planId: plan.id,
       paymentMethod: undefined,
       billingAddress: undefined,
-      spendingLimitWarningThresholdUsd: undefined,
+      spendingLimitWarningThresholdUsd: "",
       spendingLimitDisableThresholdUsd: null,
     },
     validationSchema: spendingLimits
@@ -90,16 +94,7 @@ export function UpgradePlanContentContainer({
         billingAddress: v.billingAddress,
         name: v.name,
         email: v.email,
-        ...(spendingLimits && {
-          warningThresholdCents:
-            typeof v.spendingLimitWarningThresholdUsd === "number"
-              ? v.spendingLimitWarningThresholdUsd * 100
-              : v.spendingLimitWarningThresholdUsd,
-          disableThresholdCents:
-            typeof v.spendingLimitDisableThresholdUsd === "number"
-              ? v.spendingLimitDisableThresholdUsd * 100
-              : v.spendingLimitDisableThresholdUsd,
-        }),
+        ...(spendingLimits && spendingLimitValueToCents(v)),
       });
       onUpgradeComplete();
     },
@@ -311,8 +306,7 @@ export function UpgradePlanContent({
                 disabled={
                   isLoadingPromo ||
                   (requiresPaymentMethod && !formState.values.paymentMethod) ||
-                  !formState.values.billingAddress ||
-                  !formState.isValid
+                  !formState.values.billingAddress
                 }
                 type="submit"
                 loading={formState.isSubmitting}

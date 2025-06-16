@@ -1,10 +1,17 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SpendingLimitsForm } from "./SpendingLimits";
+import {
+  SpendingLimitsForm,
+  spendingLimitValueToCents,
+} from "./SpendingLimits";
 
 jest.mock("api/billing", () => ({
   useSetSpendingLimit: jest.fn(),
+}));
+
+jest.mock("@sentry/nextjs", () => ({
+  captureMessage: jest.fn(),
 }));
 
 describe("SpendingLimitsForm", () => {
@@ -68,7 +75,7 @@ describe("SpendingLimitsForm", () => {
       <SpendingLimitsForm
         defaultValue={{
           spendingLimitWarningThresholdUsd: null,
-          spendingLimitDisableThresholdUsd: undefined,
+          spendingLimitDisableThresholdUsd: "",
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
@@ -84,14 +91,63 @@ describe("SpendingLimitsForm", () => {
     await userEvent.clear(spendLimitInput);
     await userEvent.type(spendLimitInput, nonNumericValue);
 
+    // Don’t show errors yet
+    expect(
+      screen.queryByText("Please enter a positive number."),
+    ).not.toBeInTheDocument();
+
     // Blur the input
     await userEvent.click(document.body);
 
-    // The form should not be valid and the submit button should be disabled
+    // Show the error
+    expect(
+      screen.getByText("Please enter a positive number."),
+    ).toBeInTheDocument();
+
+    // Clicking the submit button should not submit the form and instead still show the error message
     const submitButton = screen.getByRole("button", {
       name: "Save Spending Limits",
     });
-    expect(submitButton).toBeDisabled();
+    await userEvent.click(submitButton);
+    expect(
+      screen.getByText("Please enter a positive number."),
+    ).toBeInTheDocument();
+  });
+
+  it("should not allow submission when spend limit is left empty", async () => {
+    render(
+      <SpendingLimitsForm
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: null,
+          spendingLimitDisableThresholdUsd: null,
+        }}
+        onSubmit={mockOnSubmit}
+        onCancel={jest.fn()}
+        currentSpending={currentSpending}
+      />,
+    );
+
+    // Enable the checkbox
+    const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
+    await userEvent.click(spendLimitCheckbox);
+    expect(spendLimitCheckbox).toBeChecked();
+
+    // At this point no error is shown
+    expect(
+      screen.queryByText("Please enter a positive number."),
+    ).not.toBeInTheDocument();
+
+    // Click the submit button
+    const submitButton = screen.getByRole("button", {
+      name: "Save Spending Limits",
+    });
+    await userEvent.click(submitButton);
+
+    // The form should not be submitted and the error is shown
+    expect(
+      screen.getByText("Please enter a positive number."),
+    ).toBeInTheDocument();
+    expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
   it("should not allow submission when warning threshold is higher than spend limit", async () => {
@@ -143,7 +199,7 @@ describe("SpendingLimitsForm", () => {
       <SpendingLimitsForm
         defaultValue={{
           spendingLimitWarningThresholdUsd: null,
-          spendingLimitDisableThresholdUsd: undefined,
+          spendingLimitDisableThresholdUsd: "",
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
@@ -170,7 +226,7 @@ describe("SpendingLimitsForm", () => {
       <SpendingLimitsForm
         defaultValue={{
           spendingLimitWarningThresholdUsd: null,
-          spendingLimitDisableThresholdUsd: undefined,
+          spendingLimitDisableThresholdUsd: "",
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
@@ -200,7 +256,7 @@ describe("SpendingLimitsForm", () => {
     render(
       <SpendingLimitsForm
         defaultValue={{
-          spendingLimitWarningThresholdUsd: undefined,
+          spendingLimitWarningThresholdUsd: "",
           spendingLimitDisableThresholdUsd: null,
         }}
         onSubmit={mockOnSubmit}
@@ -255,6 +311,59 @@ describe("SpendingLimitsForm", () => {
         spendingLimitWarningThresholdUsd: null,
         spendingLimitDisableThresholdUsd: null,
       });
+    });
+  });
+});
+
+describe("spendingLimitValuesToCents", () => {
+  it("should convert number values to cents", () => {
+    const result = spendingLimitValueToCents({
+      spendingLimitWarningThresholdUsd: 100,
+      spendingLimitDisableThresholdUsd: 200,
+    });
+
+    expect(result).toEqual({
+      warningThresholdCents: 10000,
+      disableThresholdCents: 20000,
+    });
+  });
+
+  it("should handle null values", () => {
+    const result = spendingLimitValueToCents({
+      spendingLimitWarningThresholdUsd: null,
+      spendingLimitDisableThresholdUsd: null,
+    });
+
+    expect(result).toEqual({
+      warningThresholdCents: null,
+      disableThresholdCents: null,
+    });
+  });
+
+  it("should convert empty strings to null", () => {
+    const { captureMessage } = jest.requireMock("@sentry/nextjs");
+
+    const result = spendingLimitValueToCents({
+      spendingLimitWarningThresholdUsd: "",
+      spendingLimitDisableThresholdUsd: "",
+    });
+
+    expect(result).toEqual({
+      warningThresholdCents: null,
+      disableThresholdCents: null,
+    });
+
+    expect(captureMessage).toHaveBeenCalledTimes(2);
+    expect(captureMessage).toHaveBeenCalledWith(
+      "Spending limits form submitted with empty warning threshold",
+    );
+    expect(captureMessage).toHaveBeenCalledWith(
+      "Spending limits form submitted with empty disable threshold",
+    );
+
+    expect(result).toEqual({
+      warningThresholdCents: null,
+      disableThresholdCents: null,
     });
   });
 });
