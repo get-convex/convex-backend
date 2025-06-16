@@ -139,10 +139,7 @@ export class ConvexQueryClient {
       );
     }
     if (isServer) {
-      this.serverHttpClient = new ConvexHttpClient(
-        // TODO use .url once convex@1.14 is released
-        (this.convexClient as any).address as string,
-      );
+      this.serverHttpClient = new ConvexHttpClient(this.convexClient.url);
     }
   }
   /** Complete initialization of ConvexQueryClient by connecting a TanStack QueryClient */
@@ -332,15 +329,9 @@ export class ConvexQueryClient {
       if (isConvexAction(context.queryKey)) {
         const [_, func, args] = context.queryKey;
         if (isServer) {
-          const client = new ConvexHttpClient(
-            // TODO expose this private property
-            (this.convexClient as any).address as string,
-          );
-          const data = await client.action(func, args);
-          return data;
+          return await this.convexClient.action(func, args);
         } else {
-          const data = await this.convexClient.action(func, args);
-          return data;
+          return await this.convexClient.action(func, args);
         }
       }
       return otherFetch(context);
