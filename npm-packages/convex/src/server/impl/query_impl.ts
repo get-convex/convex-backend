@@ -166,9 +166,15 @@ export class QueryImpl implements Query<GenericTableInfo> {
     | { type: "executing"; queryId: number }
     | { type: "closed" }
     | { type: "consumed" };
+  private tableNameForErrorMessages: string;
 
   constructor(query: SerializedQuery) {
     this.state = { type: "preparing", query };
+    if (query.source.type === "FullTableScan") {
+      this.tableNameForErrorMessages = query.source.tableName;
+    } else {
+      this.tableNameForErrorMessages = query.source.indexName.split(".")[0];
+    }
   }
 
   private takeQuery(): SerializedQuery {
@@ -333,7 +339,7 @@ export class QueryImpl implements Query<GenericTableInfo> {
       return null;
     }
     if (first_two_array.length === 2) {
-      throw new Error(`unique() query returned more than one result: 
+      throw new Error(`unique() query returned more than one result from table ${this.tableNameForErrorMessages}:
  [${first_two_array[0]._id}, ${first_two_array[1]._id}, ...]`);
     }
     return first_two_array[0];
