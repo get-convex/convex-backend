@@ -87,6 +87,33 @@ function hash(
 export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
   /** queryClient can also be set later by calling .connect(ReactqueryClient) */
   queryClient?: QueryClient;
+  /**
+   * opt out of consistent queries, resulting in (for now) faster SSR at the
+   * cost of potential inconsistency between queries
+   *
+   * Why might you need this? Consistency is important when clients expect
+   * multiple queries to make sense together, e.g. for "client-side joins."
+   *
+   * Say you make two queries that your React code expects to be from the same database state:
+   *
+   * ```
+   * const channels = useQuery(api.channels.all)
+   * const favChannelIds = useQuery(api.channels.favIds');
+   * const favChannels = (channels && favChannels) ? favChannels.map(c => channels[c]) : []
+   * ```
+   *
+   * During normal client operation, the `api.channels.all` and `api.channels.favIds`
+   * queries will both return results from the same logical timestamp: as long as these
+   * queries are written correctly, there will never be a favChannelId for a channel
+   * not in favChannels.
+   *
+   * But during SSR, if this value is set, these two queries may return results
+   * from different logical timestamps, as they're not just two HTTP requests.
+   *
+   * The upside of this is a faster SSR render: the current implementation
+   * of a consistent SSR render involves two roundtrips instead of one.
+   */
+  dangerouslyUseInconsistentQueriesDuringSSR?: boolean;
 }
 
 /**
@@ -112,6 +139,7 @@ export class ConvexQueryClient {
   // Only exists during SSR
   serverHttpClient?: ConvexHttpClient;
   _queryClient: QueryClient | undefined;
+  ssrQueryMode: "consistent" | "inconsistent";
   get queryClient() {
     if (!this._queryClient) {
       throw new Error(
@@ -130,6 +158,11 @@ export class ConvexQueryClient {
       this.convexClient = new ConvexReactClient(client, options);
     } else {
       this.convexClient = client as ConvexReactClient;
+    }
+    if (options.dangerouslyUseInconsistentQueriesDuringSSR) {
+      this.ssrQueryMode = "inconsistent";
+    } else {
+      this.ssrQueryMode = "consistent";
     }
     this.subscriptions = {};
     if (options.queryClient) {
@@ -321,7 +354,11 @@ export class ConvexQueryClient {
       if (isConvexQuery(context.queryKey)) {
         const [_, func, args] = context.queryKey;
         if (isServer) {
-          return await this.serverHttpClient!.consistentQuery(func, args);
+          if (this.ssrQueryMode === "consistent") {
+            return await this.serverHttpClient!.consistentQuery(func, args);
+          } else {
+            return await this.serverHttpClient!.query(func, args);
+          }
         } else {
           return await this.convexClient.query(func, args);
         }
