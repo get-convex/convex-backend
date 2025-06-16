@@ -176,6 +176,18 @@ export class TableDefinition<
   }
 
   /**
+   * This API is experimental: it may change or disappear.
+   *
+   * Returns indexes defined on this table.
+   * Intended for the advanced use cases of dynamically deciding which index to use for a query.
+   * If you think you need this, please chime in on ths issue in the Convex JS GitHub repo.
+   * https://github.com/get-convex/convex-js/issues/49
+   */
+  " indexes"(): { indexDescriptor: string; fields: string[] }[] {
+    return this.indexes;
+  }
+
+  /**
    * Define an index on this table.
    *
    * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).

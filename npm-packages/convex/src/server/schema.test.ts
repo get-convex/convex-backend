@@ -587,6 +587,20 @@ test("defineTable collects indexes", () => {
   ]);
 });
 
+test("Experimental API table.[' indexes']() returns indexes", () => {
+  const table = defineTable({
+    a: v.string(),
+    b: v.string(),
+  })
+    .index("by_a", ["a"])
+    .index("by_a_b", ["a", "b"]);
+
+  expect(table[" indexes"]()).toEqual([
+    { indexDescriptor: "by_a", fields: ["a"] },
+    { indexDescriptor: "by_a_b", fields: ["a", "b"] },
+  ]);
+});
+
 describe("JsonTypesFromSchema", () => {
   test("TableDefinition includes field types", () => {
     const table = defineTable({
