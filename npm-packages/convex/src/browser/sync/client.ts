@@ -84,6 +84,20 @@ export interface BaseConvexClientOptions {
    */
   reportDebugInfoToConvex?: boolean;
   /**
+   * This API is experimental: it may change or disappear.
+   *
+   * A function to call on receiving abnormal WebSocket close messages from the
+   * connected Convex deployment. The content of these messages is not stable,
+   * it is an implementation detail that may change.
+   *
+   * Consider this API an observability stopgap until higher level codes with
+   * recommendations on what to do are available, which could be a more stable
+   * interface instead of `string`.
+   *
+   * Check `connectionState` for more quantitative metrics about connection status.
+   */
+  onServerDisconnectError?: (message: string) => void;
+  /**
    * Skip validating that the Convex deployment URL looks like
    * `https://happy-animal-123.convex.cloud` or localhost.
    *
@@ -450,6 +464,7 @@ export class BaseConvexClient {
             hasSyncedPastLastReconnect: this.hasSyncedPastLastReconnect(),
           };
         },
+        onServerDisconnectError: options.onServerDisconnectError,
       },
       webSocketConstructor,
       this.logger,

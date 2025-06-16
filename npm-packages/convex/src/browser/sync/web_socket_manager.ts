@@ -167,6 +167,9 @@ export class WebSocketManager {
   private readonly onMessage: (message: ServerMessage) => OnMessageResponse;
   private readonly webSocketConstructor: typeof WebSocket;
   private readonly logger: Logger;
+  private readonly onServerDisconnectError:
+    | ((message: string) => void)
+    | undefined;
 
   constructor(
     uri: string,
@@ -174,6 +177,7 @@ export class WebSocketManager {
       onOpen: (reconnectMetadata: ReconnectMetadata) => void;
       onResume: () => void;
       onMessage: (message: ServerMessage) => OnMessageResponse;
+      onServerDisconnectError?: (message: string) => void;
     },
     webSocketConstructor: typeof WebSocket,
     logger: Logger,
@@ -195,6 +199,7 @@ export class WebSocketManager {
     this.onOpen = callbacks.onOpen;
     this.onResume = callbacks.onResume;
     this.onMessage = callbacks.onMessage;
+    this.onServerDisconnectError = callbacks.onServerDisconnectError;
     this.logger = logger;
 
     this.connect();
@@ -293,6 +298,12 @@ export class WebSocketManager {
           msg += `: ${event.reason}`;
         }
         this.logger.log(msg);
+        if (this.onServerDisconnectError) {
+          // This callback is a unstable API, InternalServerErrors may be removed in the future
+          // since they reflect a expected temporary outage. But until a quantitative measure
+          // of uptime is reported this unstable API errs on the inclusive side.
+          this.onServerDisconnectError(msg);
+        }
       }
       const reason = classifyDisconnectError(event.reason);
       this.scheduleReconnect(reason);
