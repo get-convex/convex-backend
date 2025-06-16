@@ -56,7 +56,7 @@ describe("StarterPlan", () => {
       <StarterPlan subscription={undefined} hasAdminPermissions team={team} />,
     );
 
-    const downgradeButton = screen.queryByText("Downgrade");
+    const downgradeButton = screen.queryByText("Downgrade to Starter");
     expect(downgradeButton).not.toBeInTheDocument();
 
     screen.getByText("Current Plan");
@@ -73,7 +73,7 @@ describe("StarterPlan", () => {
       />,
     );
 
-    const downgradeButton = screen.getByText("Downgrade");
+    const downgradeButton = screen.getByText("Downgrade to Starter");
     await act(() => {
       fireEvent.click(downgradeButton);
     });
@@ -118,7 +118,7 @@ describe("StarterPlan", () => {
       />,
     );
 
-    const downgradeButton = screen.getByText("Downgrade");
+    const downgradeButton = screen.getByText("Downgrade to Starter");
     expect(downgradeButton).toBeDisabled();
   });
 
@@ -133,7 +133,7 @@ describe("StarterPlan", () => {
       />,
     );
 
-    const downgradeButton = screen.queryByText("Downgrade");
+    const downgradeButton = screen.queryByText("Downgrade to Starter");
     expect(downgradeButton).toBeNull();
 
     screen.getByText("Next Billing Cycle");

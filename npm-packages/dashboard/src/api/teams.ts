@@ -56,7 +56,7 @@ export function useCurrentTeam() {
   return currentTeam;
 }
 
-export function useTeamMembers(teamId?: number) {
+export function useTeamMembers(teamId: number | undefined) {
   const { data: members } = useBBQuery({
     path: "/teams/{team_id}/members",
     pathParams: {

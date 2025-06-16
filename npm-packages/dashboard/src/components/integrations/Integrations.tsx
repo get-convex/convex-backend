@@ -84,7 +84,7 @@ export function Integrations({
         <div className="flex w-fit flex-col gap-2">
           <p className="max-w-prose">
             Log Stream, Exception Reporting, and Streaming Export integrations
-            are available on paid plans.
+            are available on the Pro plan.
           </p>
           <Button
             href={`/${team.slug}/settings/billing`}

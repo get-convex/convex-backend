@@ -8,9 +8,9 @@ import {
 import { FormikProvider, useFormik } from "formik";
 import { act } from "react";
 import { CreateSubscriptionArgs, PlanResponse } from "generatedApi";
+import { PriceInDollars } from "components/billing/PriceSummary";
 import {
   CreateSubscriptionSchema,
-  PriceInDollars,
   UpgradePlanContent,
   UpgradePlanContentProps,
 } from "./UpgradePlanContent";

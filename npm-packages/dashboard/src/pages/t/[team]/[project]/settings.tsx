@@ -519,7 +519,7 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
             >
               Preview deployments
             </Link>
-            {" are only available in paid plans. "}
+            {" are only available on the Pro plan. "}
             <Link
               href={`/${selectedTeamSlug}/settings/billing`}
               className="underline"

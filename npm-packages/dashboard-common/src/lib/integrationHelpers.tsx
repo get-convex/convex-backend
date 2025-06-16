@@ -231,7 +231,7 @@ export type IntegrationUnavailableReason =
   | "LocalDeployment";
 
 export const UNAVAILABLE_TOOLTIP_TEXT = {
-  MissingEntitlement: "This integration requires a paid plan.",
+  MissingEntitlement: "This integration requires the Pro plan.",
   CannotManageProd:
     "You cannot manage integrations in a production deployment.",
   LocalDeployment: "You cannot manage integrations in a local deployment.",

@@ -1,6 +1,7 @@
 import { useListPlans } from "api/billing";
 import { Loading } from "@ui/Loading";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
+import classNames from "classnames";
 import { OrbSelfServePlan } from "./planCards/OrbSelfServePlan";
 import { StarterPlan } from "./planCards/StarterPlan";
 
@@ -16,7 +17,13 @@ export function Plans({
   const orbPlans = useListPlans(team.id);
 
   return orbPlans.plans !== undefined ? (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div
+      className={classNames(
+        "grid grid-cols-1 gap-6",
+        // TODO: Remove when we always have > 1 plan
+        orbPlans.plans.length > 1 ? "xl:grid-cols-3" : "lg:grid-cols-2",
+      )}
+    >
       <StarterPlan
         hasAdminPermissions={hasAdminPermissions}
         subscription={subscription}

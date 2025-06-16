@@ -384,7 +384,7 @@ function NoPreviewTooltip({
       >
         Preview deployments
       </Link>
-      {" are only available in paid plans. "}
+      {" are only available on the Pro plan. "}
       <Link href={`/${teamSlug}/settings/billing`} className="underline">
         Upgrade to get access.
       </Link>

@@ -65,7 +65,7 @@ export function StarterPlan({
                 setIsSelfServeDowngradeModalOpen(true);
               }}
             >
-              Downgrade
+              Downgrade to Starter
             </Button>
           )
         }

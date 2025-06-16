@@ -17,7 +17,7 @@ function AuditLogPage() {
     return <Loading />;
   }
   if (!auditLogsEnabled) {
-    toast("info", "The audit log is only available on paid plans.", "upsell");
+    toast("info", "The audit log is only available on the Pro plan.", "upsell");
     void router.push(`/t/${router.query.team}/settings/billing`);
     return null;
   }

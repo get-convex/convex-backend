@@ -17,7 +17,7 @@ export function PlanCard({
   return (
     <div
       className={classNames(
-        "flex flex-col justify-between rounded-2xl border bg-background-primary/30 p-3 shadow transition-colors hover:bg-background-primary/70",
+        "flex flex-col justify-between rounded-2xl border bg-background-primary/30 p-3 shadow transition-colors hover:bg-background-primary/70 min-w-[18rem]",
         selected && "border-border-selected",
       )}
     >
@@ -40,9 +40,10 @@ export function PlanCard({
             <ul className="ml-4 list-disc">
               <li>Everything in Starter</li>
               <li>Unlocks usage-based pricing to pay as you go</li>
+              <li>Community-driven support on Discord</li>
               <li>
-                Perfect for devs and Convex Chef users who want to pay for usage
-                as they go
+                Perfect for small teams and Chef users that want to pay for
+                resources and tokens as they go
               </li>
             </ul>
           )}

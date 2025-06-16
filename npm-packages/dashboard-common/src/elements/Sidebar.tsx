@@ -171,7 +171,7 @@ export function SidebarLink({
       {proBadge && (
         <span
           className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
-          title="Only available in paid plans"
+          title="Only available on the Pro plan"
         >
           Pro
         </span>

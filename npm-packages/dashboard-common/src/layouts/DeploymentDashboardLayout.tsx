@@ -100,7 +100,7 @@ export function DeploymentDashboardLayout({
           disabled: !auditLogsEnabled,
           tooltip: auditLogsEnabled
             ? undefined
-            : "Deployment history is only available on paid plans.",
+            : "Deployment history is only available on the Pro plan.",
         },
         {
           key: "settings",

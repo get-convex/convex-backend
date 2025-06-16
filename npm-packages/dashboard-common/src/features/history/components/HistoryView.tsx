@@ -58,7 +58,7 @@ function History() {
   if (!auditLogsEnabled) {
     toast(
       "info",
-      "Deployment history is only available on paid plans.",
+      "Deployment history is only available on the Pro plan.",
       "upsell",
     );
     void router.push(`${teamsURI}/settings/billing`);

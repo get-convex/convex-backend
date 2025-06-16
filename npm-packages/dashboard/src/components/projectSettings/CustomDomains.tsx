@@ -64,7 +64,7 @@ export function CustomDomains({
     <Callout>
       <div>
         Custom domains are{" "}
-        <span className="font-semibold">only available on paid plans</span>.{" "}
+        <span className="font-semibold">only available on the Pro plan</span>.{" "}
         <Link
           href={`/${team?.slug}/settings/billing`}
           className="text-content-link"

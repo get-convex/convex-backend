@@ -31,6 +31,8 @@ export function SupportWidget() {
   const { user } = useUser();
   const [openState, setOpenState] = useSupportFormOpen();
 
+  const canSubmitTicket =
+    subscription && subscription.plan.planType === "CONVEX_PROFESSIONAL";
   if (openState === false || !user) {
     return null;
   }
@@ -78,16 +80,19 @@ export function SupportWidget() {
                 setOpenState({ defaultSubject: "", defaultMessage: "" })
               }
               icon={<ChatBubbleIcon />}
-              tip={!subscription && "Email support is available on paid plans."}
+              tip={
+                !canSubmitTicket &&
+                "Email support is available on the Pro plan."
+              }
               tipSide="left"
-              disabled={!subscription}
-              className={subscription ? "text-content-primary" : ""}
+              disabled={!canSubmitTicket}
+              className={canSubmitTicket ? "text-content-primary" : ""}
             >
               File a support ticket{" "}
-              {!subscription && (
+              {!canSubmitTicket && (
                 <span
                   className="w-fit rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
-                  title="Only available in paid plans"
+                  title="Only available on the Pro plan"
                 >
                   Pro
                 </span>

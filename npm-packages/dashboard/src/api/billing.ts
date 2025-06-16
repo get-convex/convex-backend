@@ -41,6 +41,16 @@ export function useCreateSubscription(teamId: number) {
   });
 }
 
+export function useChangeSubscription(teamId: number) {
+  return useBBMutation({
+    path: "/teams/{team_id}/change_subscription_plan",
+    pathParams: { team_id: teamId.toString() },
+    mutateKey: "/teams/{team_id}/get_orb_subscription",
+    mutatePathParams: { team_id: teamId.toString() },
+    successToast: "Subscription changed.",
+  });
+}
+
 export function useCancelSubscription(teamId: number) {
   return useBBMutation({
     path: "/teams/{team_id}/cancel_orb_subscription",

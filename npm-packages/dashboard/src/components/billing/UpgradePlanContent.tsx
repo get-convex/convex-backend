@@ -9,6 +9,7 @@ import { FormikProvider, useFormik, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { Address, PlanResponse, Team } from "generatedApi";
 import Link from "next/link";
+import { PriceSummary } from "components/billing/PriceSummary";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import { useStripePaymentSetup } from "../../hooks/useStripe";
@@ -239,6 +240,7 @@ export function UpgradePlanContent({
           numMembers={numMembers}
           requiresPaymentMethod={requiresPaymentMethod}
           couponDurationInMonths={couponDurationInMonths}
+          isUpgrading={false}
         />
         <div className="flex max-w-64 items-center gap-2">
           <TextInput
@@ -329,83 +331,5 @@ export function UpgradePlanContent({
         )}
       </div>
     </>
-  );
-}
-
-export function PriceInDollars({
-  price,
-  percentOff,
-}: {
-  price: number;
-  percentOff: number;
-}) {
-  return percentOff ? (
-    <>
-      <span className="mr-1 line-through">${price}</span>
-      <span className="font-semibold">
-        ${Number((price * (1 - percentOff)).toFixed(2))}
-      </span>
-    </>
-  ) : (
-    <span className="font-semibold">${price}</span>
-  );
-}
-
-function PriceSummary({
-  plan,
-  teamMemberDiscountPct,
-  numMembers,
-  couponDurationInMonths,
-  requiresPaymentMethod,
-}: {
-  plan: PlanResponse;
-  teamMemberDiscountPct: number;
-  numMembers: number;
-  couponDurationInMonths?: number;
-  requiresPaymentMethod: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-2 text-sm" data-testid="price-summary">
-      {plan.seatPrice ? (
-        <p>
-          The {plan.name} plan costs{" "}
-          <PriceInDollars
-            price={plan.seatPrice}
-            percentOff={!requiresPaymentMethod ? 1 : teamMemberDiscountPct}
-          />{" "}
-          per team member, per month.
-        </p>
-      ) : (
-        <p className="max-w-prose">
-          {plan.name} is a "pay as you go" plan. You'll be charged for usage
-          above the included limits of this plan. See the{" "}
-          <Link
-            href="https://convex.dev/pricing"
-            target="_blank"
-            className="text-content-link hover:underline"
-          >
-            pricing page
-          </Link>{" "}
-          for more details on usage-based pricing.
-        </p>
-      )}
-      {couponDurationInMonths && (
-        <p>
-          This discount will be applied for the next {couponDurationInMonths}{" "}
-          months.
-        </p>
-      )}
-      {requiresPaymentMethod && plan.seatPrice && (
-        <p>
-          Your team has {numMembers} member{numMembers > 1 && "s"}. Once you
-          upgrade, you'll be charged{" "}
-          <PriceInDollars
-            price={plan.seatPrice! * numMembers}
-            percentOff={teamMemberDiscountPct}
-          />{" "}
-          immediately.{" "}
-        </p>
-      )}
-    </div>
   );
 }

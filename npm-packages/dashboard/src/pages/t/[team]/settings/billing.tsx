@@ -154,7 +154,7 @@ function Billing({ team }: { team: Team }) {
               </div>
             </div>
           ) : (
-            <Loading className="h-[18.25rem] w-full" />
+            <Loading className="mx-6 h-full w-full" />
           )}
         </div>
       </ErrorBoundary>

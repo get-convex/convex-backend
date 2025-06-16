@@ -76,7 +76,7 @@ export function Backups({
             />
           ) : (
             <Tooltip
-              tip="Automatic backups are only available on paid plans."
+              tip="Automatic backups are only available on the Pro plan."
               className="flex gap-1"
             >
               <label className="flex cursor-not-allowed items-center gap-2 text-sm">
@@ -85,7 +85,7 @@ export function Backups({
               </label>
               <span
                 className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
-                title="Only available in paid plans"
+                title="Only available on the Pro plan"
               >
                 Pro
               </span>
