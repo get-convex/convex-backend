@@ -14,6 +14,8 @@ import { useRouter } from "next/router";
 import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
+import { Button } from "@ui/Button";
+import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 
@@ -522,7 +524,29 @@ function DeploymentWithConnectionState({
   );
 }
 
+function useIsSafari(): boolean {
+  const [isSafari, setIsSafari] = useState(false);
+  useEffect(() => {
+    setIsSafari(
+      // https://stackoverflow.com/a/23522755
+      /^((?!chrome|android).)*safari/i.test(navigator.userAgent),
+    );
+  }, []);
+  return isSafari;
+}
+
+function useIsBrave(): boolean {
+  const [isBrave, setIsBrave] = useState(false);
+  useEffect(() => {
+    setIsBrave("brave" in navigator);
+  }, []);
+  return isBrave;
+}
+
 function LocalDeploymentDisconnectOverlay() {
+  const isSafari = useIsSafari();
+  const isBrave = useIsBrave();
+
   return (
     <div
       className="absolute z-50 mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
@@ -531,16 +555,60 @@ function LocalDeploymentDisconnectOverlay() {
       }}
     >
       <div className="max-w-prose">
-        <h3 className="mb-4">This local deployment is not online.</h3>
-        <p className="mb-2">
-          Check that <code className="text-sm">npx convex dev</code> is running
-          successfully.
-        </p>
-        <p>
-          If you have multiple devices you use with this Convex project, the
-          local deployment may be running on a different device, and can only be
-          accessed on that machine.
-        </p>
+        <h3 className="mb-4">Can’t connect to your local deployment</h3>
+
+        {isSafari ? (
+          <>
+            <p className="mb-2">
+              Safari blocks connections to localhost. We recommend using another
+              browser when using local deployments.
+            </p>
+            <Button
+              href="https://docs.convex.dev/cli/local-deployments#safari"
+              variant="neutral"
+              icon={<ExternalLinkIcon />}
+              target="_blank"
+            >
+              Learn more
+            </Button>
+          </>
+        ) : isBrave ? (
+          <>
+            <p className="mb-2">
+              Brave blocks connections to localhost by default. We recommend
+              using another browser or{" "}
+              <a
+                href="https://docs.convex.dev/cli/local-deployments#brave"
+                target="_blank"
+                rel="noreferrer"
+                className="text-content-link hover:underline"
+              >
+                setting up Brave to allow localhost connections
+              </a>
+              .
+            </p>
+            <Button
+              href="https://docs.convex.dev/cli/local-deployments#brave"
+              variant="neutral"
+              icon={<ExternalLinkIcon />}
+              target="_blank"
+            >
+              Learn more
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="mb-2">
+              Check that <code className="text-sm">npx convex dev</code> is
+              running successfully.
+            </p>
+            <p>
+              If you have multiple devices you use with this Convex project, the
+              local deployment may be running on a different device, and can
+              only be accessed on that machine.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
