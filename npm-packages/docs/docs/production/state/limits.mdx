@@ -14,21 +14,21 @@ Limits are applied per team unless stated otherwise.
 
 ## Team
 
-|            | Starter/Starter+ | Professional                  |
-| ---------- | ---------------- | ----------------------------- |
-| Developers | 1-6              | 1-20<br/>$25/member per month |
-| Projects   | 20               | 100                           |
+|            | Free/Starter | Professional                  |
+| ---------- | ------------ | ----------------------------- |
+| Developers | 1-6          | 1-20<br/>$25/member per month |
+| Projects   | 20           | 100                           |
 
 ## Database
 
-|                   | Starter/Starter+                                                   | Professional                                       | Notes                                                                                     |
-| ----------------- | ------------------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Storage           | 0.5 GiB included<br/>(on Starter+: $0.22/month per additional GiB) | 50 GiB included<br/>$0.20/month per additional GiB | Includes database rows and indexes but not files or backups.                              |
-| Bandwidth         | 1 GiB/month included<br/>(on Starter+: $0.22 per additional GiB)   | 50 GiB/month included<br/>$0.20 per additional GiB | Document and index data transferred between Convex functions and the underlying database. |
-| Tables            | 10,000                                                             | 10,000                                             | Per deployment.                                                                           |
-| Indexes per table | 32                                                                 | 32                                                 |                                                                                           |
-| Fields per index  | 16                                                                 | 16                                                 |
-| Index name length | 64 characters                                                      | 64 characters                                      |                                                                                           |
+|                   | Free/Starter                                                      | Professional                                       | Notes                                                                                     |
+| ----------------- | ----------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Storage           | 0.5 GiB included<br/>(on Starter: $0.22/month per additional GiB) | 50 GiB included<br/>$0.20/month per additional GiB | Includes database rows and indexes but not files or backups.                              |
+| Bandwidth         | 1 GiB/month included<br/>(on Starter: $0.22 per additional GiB)   | 50 GiB/month included<br/>$0.20 per additional GiB | Document and index data transferred between Convex functions and the underlying database. |
+| Tables            | 10,000                                                            | 10,000                                             | Per deployment.                                                                           |
+| Indexes per table | 32                                                                | 32                                                 |                                                                                           |
+| Fields per index  | 16                                                                | 16                                                 |
+| Index name length | 64 characters                                                     | 64 characters                                      |                                                                                           |
 
 ### Restrictions
 
@@ -57,29 +57,29 @@ Applied per document and to any nested `Object` unless stated otherwise.
 
 ## Functions
 
-|                                                                              | Starter/Starter+                                                           | Professional                                              | Notes                                                                                                         |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Function calls                                                               | 1,000,000/month included<br/>(on Starter+: $2.20 per additional 1,000,000) | 25,000,000/month included<br/>$2 per additional 1,000,000 | Explicit client calls, scheduled executions, subscription updates, and file accesses count as function calls. |
-| Action execution                                                             | 20 GiB-hours included<br/>(on Starter+: $0.33/GiB-hour additional)         | 250 GiB-hours included<br/>$0.30/GiB-hour additional      | Convex runtime: 64 MiB RAM.<br/>Node.js runtime: 512 MiB RAM.                                                 |
-| Code size                                                                    | 32 MiB                                                                     | 32 MiB                                                    | Per deployment.                                                                                               |
-| Function argument size                                                       | 16 MiB                                                                     | 16 MiB                                                    |                                                                                                               |
-| Function return value size                                                   | 16 MiB                                                                     | 16 MiB                                                    |                                                                                                               |
-| HTTP action response size                                                    | 20 MiB                                                                     | 20 MiB                                                    | There is no specific limit on request size                                                                    |
-| Length of a console.log line                                                 | 4 KiB                                                                      | 4 KiB                                                     |                                                                                                               |
-| [Log streaming](/production/integrations/log-streams/log-streams.mdx) limits | 4096 logs, flushed every 10 seconds                                        | 4096 logs, flushed every 10 seconds                       | How many logs can be buffered when streaming                                                                  |
+|                                                                              | Free/Starter                                                              | Professional                                              | Notes                                                                                                         |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Function calls                                                               | 1,000,000/month included<br/>(on Starter: $2.20 per additional 1,000,000) | 25,000,000/month included<br/>$2 per additional 1,000,000 | Explicit client calls, scheduled executions, subscription updates, and file accesses count as function calls. |
+| Action execution                                                             | 20 GiB-hours included<br/>(on Starter: $0.33/GiB-hour additional)         | 250 GiB-hours included<br/>$0.30/GiB-hour additional      | Convex runtime: 64 MiB RAM.<br/>Node.js runtime: 512 MiB RAM.                                                 |
+| Code size                                                                    | 32 MiB                                                                    | 32 MiB                                                    | Per deployment.                                                                                               |
+| Function argument size                                                       | 16 MiB                                                                    | 16 MiB                                                    |                                                                                                               |
+| Function return value size                                                   | 16 MiB                                                                    | 16 MiB                                                    |                                                                                                               |
+| HTTP action response size                                                    | 20 MiB                                                                    | 20 MiB                                                    | There is no specific limit on request size                                                                    |
+| Length of a console.log line                                                 | 4 KiB                                                                     | 4 KiB                                                     |                                                                                                               |
+| [Log streaming](/production/integrations/log-streams/log-streams.mdx) limits | 4096 logs, flushed every 10 seconds                                       | 4096 logs, flushed every 10 seconds                       | How many logs can be buffered when streaming                                                                  |
 
 ## Concurrent Function Executions
 
 Number of functions you can run at a time for each function type.
 
-|                | Starter/Starter+ | Professional<sup>\*</sup> |
-| -------------- | ---------------- | ------------------------- |
-| Queries        | 16               | 256                       |
-| Mutations      | 16               | 256                       |
-| V8 actions     | 64               | 256                       |
-| Node actions   | 64               | 1000                      |
-| HTTP actions   | 16               | 128                       |
-| Scheduled jobs | 10               | 100                       |
+|                | Free/Starter | Professional<sup>\*</sup> |
+| -------------- | ------------ | ------------------------- |
+| Queries        | 16           | 256                       |
+| Mutations      | 16           | 256                       |
+| V8 actions     | 64           | 256                       |
+| Node actions   | 64           | 1000                      |
+| HTTP actions   | 16           | 128                       |
+| Scheduled jobs | 10           | 100                       |
 
 <sup>*</sup> Limits can be lifted for Professional plan customers on a
 case-by-case basis. Send us support message through the dashboard to discuss
@@ -121,10 +121,10 @@ Applied per-deployment.
 
 ## File Storage
 
-|           | Starter/Starter+                                                  | Professional                                        | Notes                                                                                                     |
-| --------- | ----------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Storage   | 1 GiB included<br/>(on Starter+: $0.033/month per additional GiB) | 100 GiB included<br/>$0.03/month per additional GiB | Includes user files and backups.                                                                          |
-| Bandwidth | 1 GiB/month included<br/>(on Starter+: $0.33 per additional GiB)  | 50 GiB/month included<br/>$0.30 per additional GiB  | Includes serving user files, accessing user files inside functions, and generating and restoring backups. |
+|           | Free/Starter                                                     | Professional                                        | Notes                                                                                                     |
+| --------- | ---------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Storage   | 1 GiB included<br/>(on Starter: $0.033/month per additional GiB) | 100 GiB included<br/>$0.03/month per additional GiB | Includes user files and backups.                                                                          |
+| Bandwidth | 1 GiB/month included<br/>(on Starter: $0.33 per additional GiB)  | 50 GiB/month included<br/>$0.30 per additional GiB  | Includes serving user files, accessing user files inside functions, and generating and restoring backups. |
 
 ## Full text search
 
