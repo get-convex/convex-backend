@@ -1,3 +1,4 @@
+import { planNameMap } from "components/billing/planCards/PlanCard";
 import { PlanResponse } from "generatedApi";
 import Link from "next/link";
 
@@ -16,12 +17,15 @@ export function PriceSummary({
   requiresPaymentMethod: boolean;
   isUpgrading: boolean;
 }) {
+  const newPlanName = plan.planType
+    ? planNameMap[plan.planType] || plan.name
+    : plan.name;
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="price-summary">
       {plan.seatPrice ? (
         <>
           <p>
-            The {plan.name} plan costs{" "}
+            The {newPlanName} plan costs{" "}
             <PriceInDollars
               price={plan.seatPrice}
               percentOff={!requiresPaymentMethod ? 1 : teamMemberDiscountPct}
@@ -35,7 +39,7 @@ export function PriceSummary({
         </>
       ) : (
         <p className="max-w-prose">
-          {plan.name} is a "pay as you go" plan. You'll be charged for usage
+          {newPlanName} is a "pay as you go" plan. You'll be charged for usage
           above the included limits of this plan. See the{" "}
           <Link
             href="https://convex.dev/pricing"

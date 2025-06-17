@@ -89,7 +89,7 @@ function Billing({ team }: { team: Team }) {
                 <div className="flex w-full min-w-[20rem] flex-col gap-4">
                   <Sheet className="flex flex-col gap-4 text-sm">
                     <div>
-                      <h3 className="mb-4">Manage Subscription</h3>
+                      <h3 className="mb-4">Plans</h3>
                       Compare all plan features on the{" "}
                       <Link
                         href="https://convex.dev/plans"

@@ -3,7 +3,7 @@ import { Loading } from "@ui/Loading";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
 import classNames from "classnames";
 import { OrbSelfServePlan } from "./planCards/OrbSelfServePlan";
-import { StarterPlan } from "./planCards/StarterPlan";
+import { FreePlan } from "./planCards/FreePlan";
 
 export function Plans({
   team,
@@ -24,7 +24,7 @@ export function Plans({
         orbPlans.plans.length > 1 ? "xl:grid-cols-3" : "lg:grid-cols-2",
       )}
     >
-      <StarterPlan
+      <FreePlan
         hasAdminPermissions={hasAdminPermissions}
         subscription={subscription}
         team={team}

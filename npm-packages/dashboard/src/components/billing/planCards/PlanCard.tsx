@@ -2,6 +2,11 @@ import classNames from "classnames";
 import { PlanResponse } from "generatedApi";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
+export const planNameMap: Record<string, string> = {
+  CONVEX_STARTER_PLUS: "Starter",
+  CONVEX_PROFESSIONAL: "Professional",
+};
+
 export function PlanCard({
   selected,
   plan,
@@ -22,7 +27,9 @@ export function PlanCard({
       )}
     >
       <div className="mb-2 text-content-primary">
-        <h3>{plan.name}</h3>
+        <h3>
+          {plan.planType ? planNameMap[plan.planType] || plan.name : plan.name}
+        </h3>
         <div className="text-base">{saleHeader}</div>
       </div>
       <div className="flex grow flex-col justify-between gap-2">
@@ -38,7 +45,7 @@ export function PlanCard({
           )}
           {plan.planType === "CONVEX_STARTER_PLUS" && (
             <ul className="ml-4 list-disc">
-              <li>Everything in Starter</li>
+              <li>Everything in Free</li>
               <li>Unlocks usage-based pricing to pay as you go</li>
               <li>Community-driven support on Discord</li>
               <li>
@@ -49,7 +56,7 @@ export function PlanCard({
           )}
           {plan.planType === "CONVEX_PROFESSIONAL" && (
             <ul className="ml-4 list-disc">
-              <li>Everything in Starter{seatlessPlans ? " Plus" : ""}</li>
+              <li>Everything in {seatlessPlans ? "Starter" : "Free"}</li>
               <li>Up to 20 team members</li>
               <li>Unlimited projects</li>
               <li>Higher included usage limits</li>

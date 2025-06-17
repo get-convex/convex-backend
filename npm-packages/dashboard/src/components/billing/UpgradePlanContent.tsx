@@ -242,23 +242,28 @@ export function UpgradePlanContent({
           couponDurationInMonths={couponDurationInMonths}
           isUpgrading={false}
         />
-        <div className="flex max-w-64 items-center gap-2">
-          <TextInput
-            label="Promo code"
-            placeholder="Enter a promo code"
-            onChange={(e) =>
-              formState.setFieldValue("promoCode", e.target.value.toUpperCase())
-            }
-            value={formState.values.promoCode}
-            id="promoCode"
-            error={promoCodeError}
-          />
-          {isLoadingPromo && (
-            <span data-testid="loading-spinner" className="mt-4">
-              <Spinner />
-            </span>
-          )}
-        </div>
+        {plan.planType === "CONVEX_PROFESSIONAL" && (
+          <div className="flex max-w-64 items-center gap-2">
+            <TextInput
+              label="Promo code"
+              placeholder="Enter a promo code"
+              onChange={(e) =>
+                formState.setFieldValue(
+                  "promoCode",
+                  e.target.value.toUpperCase(),
+                )
+              }
+              value={formState.values.promoCode}
+              id="promoCode"
+              error={promoCodeError}
+            />
+            {isLoadingPromo && (
+              <span data-testid="loading-spinner" className="mt-4">
+                <Spinner />
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <h4>Billing Contact</h4>

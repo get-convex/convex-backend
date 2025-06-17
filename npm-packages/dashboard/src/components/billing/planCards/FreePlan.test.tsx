@@ -7,7 +7,7 @@ import {
   getByRole,
 } from "@testing-library/react";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
-import { StarterPlan } from "./StarterPlan";
+import { FreePlan } from "./FreePlan";
 
 const cancelSubscription = jest.fn();
 
@@ -46,17 +46,17 @@ const team: Team = {
   referralCode: "CODE123",
 };
 
-describe("StarterPlan", () => {
+describe("FreePlan", () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });
 
   test("Downgrade plan button should not be visible if there is no subscription", () => {
     render(
-      <StarterPlan subscription={undefined} hasAdminPermissions team={team} />,
+      <FreePlan subscription={undefined} hasAdminPermissions team={team} />,
     );
 
-    const downgradeButton = screen.queryByText("Downgrade to Starter");
+    const downgradeButton = screen.queryByText("Downgrade to Free");
     expect(downgradeButton).not.toBeInTheDocument();
 
     screen.getByText("Current Plan");
@@ -66,14 +66,14 @@ describe("StarterPlan", () => {
     const hasAdminPermissions = true;
 
     render(
-      <StarterPlan
+      <FreePlan
         subscription={subscription}
         hasAdminPermissions={hasAdminPermissions}
         team={team}
       />,
     );
 
-    const downgradeButton = screen.getByText("Downgrade to Starter");
+    const downgradeButton = screen.getByText("Downgrade to Free");
     await act(() => {
       fireEvent.click(downgradeButton);
     });
@@ -101,8 +101,8 @@ describe("StarterPlan", () => {
     expect(cancelSubscription).toHaveBeenCalledTimes(1);
   });
 
-  test("Should say Current Plan if the plan is already Starter", () => {
-    render(<StarterPlan hasAdminPermissions team={team} />);
+  test("Should say Current Plan if the plan is already Free", () => {
+    render(<FreePlan hasAdminPermissions team={team} />);
 
     screen.getByText("Current Plan");
   });
@@ -111,14 +111,14 @@ describe("StarterPlan", () => {
     const hasAdminPermissions = false;
 
     render(
-      <StarterPlan
+      <FreePlan
         subscription={subscription}
         hasAdminPermissions={hasAdminPermissions}
         team={team}
       />,
     );
 
-    const downgradeButton = screen.getByText("Downgrade to Starter");
+    const downgradeButton = screen.getByText("Downgrade to Free");
     expect(downgradeButton).toBeDisabled();
   });
 
@@ -126,14 +126,14 @@ describe("StarterPlan", () => {
     const hasAdminPermissions = true;
 
     render(
-      <StarterPlan
+      <FreePlan
         subscription={{ ...subscription, endDate: 0 }}
         hasAdminPermissions={hasAdminPermissions}
         team={team}
       />,
     );
 
-    const downgradeButton = screen.queryByText("Downgrade to Starter");
+    const downgradeButton = screen.queryByText("Downgrade to Free");
     expect(downgradeButton).toBeNull();
 
     screen.getByText("Next Billing Cycle");

@@ -10,7 +10,7 @@ import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
 import { PlanCard } from "./PlanCard";
 
-export function StarterPlan({
+export function FreePlan({
   subscription,
   hasAdminPermissions,
   team,
@@ -30,19 +30,19 @@ export function StarterPlan({
         plan={{
           id: "CONVEX_BASE",
           planType: "CONVEX_BASE",
-          name: "Starter",
+          name: "Free",
           description: "For hobbyists and prototypes.",
           status: "active",
           seatPrice: 0,
         }}
-        saleHeader="Free forever"
+        saleHeader="No credit card required"
         action={
           !subscription ? (
-            <p className="flex h-[2.125rem] items-center font-semibold">
+            <p className="flex h-[2.125rem] items-center px-0.5 font-semibold">
               Current Plan
             </p>
           ) : typeof subscription.endDate === "number" ? (
-            <p className="flex items-center gap-1 py-2 font-semibold">
+            <p className="flex items-center gap-1 px-0.5 py-2 font-semibold">
               Next Billing Cycle{" "}
               <Tooltip
                 tip={`Your subscription has been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`}
@@ -65,7 +65,7 @@ export function StarterPlan({
                 setIsSelfServeDowngradeModalOpen(true);
               }}
             >
-              Downgrade to Starter
+              Downgrade to Free
             </Button>
           )
         }
@@ -73,16 +73,14 @@ export function StarterPlan({
       {isSelfServeDowngradeModalOpen && (
         <ConfirmationDialog
           onClose={() => setIsSelfServeDowngradeModalOpen(false)}
-          dialogTitle="Downgrade to Convex Starter"
+          dialogTitle="Downgrade to Free"
           dialogBody={
             <div className="flex flex-col gap-4">
-              <p>
-                Are you sure you want to downgrade to the Convex Starter plan?
-              </p>
+              <p>Are you sure you want to downgrade to the Free plan?</p>
               <p>
                 Once you downgrade, your team will lose access to all features
-                that are not included in the Starter plan at the end of the
-                current billing period.
+                that are not included in the Free plan at the end of the current
+                billing period.
               </p>
               <p>
                 If this team's{" "}
@@ -92,8 +90,8 @@ export function StarterPlan({
                 >
                   usage
                 </Link>{" "}
-                exceeds the Starter plan limits, your projects may be
-                automatically disabled.
+                exceeds the Free plan limits, your projects may be automatically
+                disabled.
               </p>
               <label className="mx-1 flex gap-2 text-sm">
                 <Checkbox
@@ -104,7 +102,7 @@ export function StarterPlan({
                   }
                 />{" "}
                 By checking this box, I acknowledge my team may lose access to
-                features or projects exceeding Starter plan usage limits.
+                features or projects exceeding Free plan usage limits.
               </label>
             </div>
           }

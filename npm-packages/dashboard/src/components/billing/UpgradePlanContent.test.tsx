@@ -21,7 +21,7 @@ describe("UpgradePlanContent", () => {
   const mockPlan: PlanResponse = {
     name: "Basic",
     id: "basic",
-    planType: "basic",
+    planType: "CONVEX_PROFESSIONAL",
     seatPrice: 10,
     description: "abc",
     status: "active",

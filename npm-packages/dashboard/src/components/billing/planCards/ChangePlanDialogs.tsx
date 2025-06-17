@@ -1,10 +1,16 @@
 import { Checkbox } from "@ui/Checkbox";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { Spinner } from "@ui/Spinner";
+import { TextInput } from "@ui/TextInput";
+import { useGetCoupon } from "api/billing";
 import { useTeamMembers } from "api/teams";
 import { PriceSummary } from "components/billing/PriceSummary";
+import { debounceDurationMs } from "components/billing/UpgradePlanContent";
+import { planNameMap } from "components/billing/planCards/PlanCard";
 import { PlanResponse, Team } from "generatedApi";
 import Link from "next/link";
 import { useState } from "react";
+import { useDebounce } from "react-use";
 
 export function DowngradePlanDialog({
   onClose,
@@ -18,16 +24,19 @@ export function DowngradePlanDialog({
   team: Team;
 }) {
   const [acceptedConsequences, setAcceptedConsequences] = useState(false);
+  const newPlanName = newPlan.planType
+    ? planNameMap[newPlan.planType] || newPlan.name
+    : newPlan.name;
   return (
     <ConfirmationDialog
       onClose={onClose}
-      dialogTitle={`Downgrade to ${newPlan.name}`}
+      dialogTitle={`Downgrade to ${newPlanName}`}
       dialogBody={
         <div className="flex flex-col gap-4">
-          <p>Are you sure you want to downgrade to the {newPlan.name} plan?</p>
+          <p>Are you sure you want to downgrade to the {newPlanName} plan?</p>
           <p>
             Once you downgrade, your team will lose access to all features that
-            are not included in the {newPlan.name} plan{" "}
+            are not included in the {newPlanName} plan{" "}
             {newPlan.planType === "CONVEX_STARTER"
               ? "at the end of the current billing period."
               : "immediately."}
@@ -41,7 +50,7 @@ export function DowngradePlanDialog({
               >
                 usage
               </Link>{" "}
-              exceeds the {newPlan.name} plan limits, your projects may be
+              exceeds the {newPlanName} plan limits, your projects may be
               automatically disabled.
             </p>
           )}
@@ -54,7 +63,7 @@ export function DowngradePlanDialog({
             By checking this box, I acknowledge my team may lose access to
             features
             {newPlan.planType === "CONVEX_STARTER" &&
-              ` and projects exceeding ${newPlan.name} plan usage limits`}
+              ` and projects exceeding ${newPlanName} plan usage limits`}
             .
           </label>
         </div>
@@ -74,30 +83,70 @@ export function UpgradePlanDialog({
   team,
 }: {
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (planId: string) => Promise<void>;
   newPlan: PlanResponse;
   team: Team;
 }) {
+  const [promoCode, setPromoCode] = useState("");
+  const [debouncedPromoCode, setDebouncedPromoCode] = useState(promoCode);
+  useDebounce(
+    () => {
+      setDebouncedPromoCode(promoCode);
+    },
+    debounceDurationMs,
+    [promoCode],
+  );
+
+  const couponData = useGetCoupon(
+    team.id,
+    newPlan.id,
+    debouncedPromoCode || "",
+  );
+
   const teamMembers = useTeamMembers(team.id);
+  const newPlanName = newPlan.planType
+    ? planNameMap[newPlan.planType] || newPlan.name
+    : newPlan.name;
   return (
     <ConfirmationDialog
       onClose={onClose}
-      dialogTitle={`Upgrade to ${newPlan.name}`}
+      dialogTitle={`Upgrade to ${newPlanName}`}
       dialogBody={
-        <div>
+        <div className="flex flex-col gap-6">
           <PriceSummary
             plan={newPlan}
-            teamMemberDiscountPct={0}
+            teamMemberDiscountPct={couponData.coupon?.percentOff ?? 0}
             numMembers={teamMembers?.length || 1}
+            // If we're here, we're upgrading from one paid plan to another paid plan,
+            // so we always set requiresPaymentMethod to true so that
+            // the information about how much the user will be charged is shown.
             requiresPaymentMethod
             couponDurationInMonths={undefined}
             isUpgrading
           />
+          {newPlan.planType === "CONVEX_PROFESSIONAL" && (
+            <div className="flex max-w-64 items-center gap-2">
+              <TextInput
+                label="Promo code"
+                placeholder="Enter a promo code"
+                onChange={(e) => setPromoCode(e.target.value)}
+                value={promoCode}
+                id="promoCode"
+                error={couponData.errorMessage}
+              />
+              {couponData.isLoading && (
+                <span data-testid="loading-spinner" className="mt-4">
+                  <Spinner />
+                </span>
+              )}
+            </div>
+          )}
         </div>
       }
+      disableConfirm={couponData.isLoading}
       variant="primary"
       confirmText="Upgrade"
-      onConfirm={onConfirm}
+      onConfirm={() => onConfirm(couponData.coupon?.planId ?? newPlan.id)}
     />
   );
 }

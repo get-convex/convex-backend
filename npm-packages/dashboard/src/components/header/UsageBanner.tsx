@@ -181,7 +181,7 @@ function getVariantDetails(variant: Variant): {
     case "Approaching":
       return {
         title:
-          "Your projects are approaching the Starter plan limits. Consider upgrading to avoid service interruption.",
+          "Your projects are approaching the Free plan limits. Consider upgrading to avoid service interruption.",
         containerClass: "bg-blue-100 dark:bg-blue-900",
         primaryButtonClass: "",
         secondaryButtonClass: "text-blue-900 text-content-primary",
@@ -190,7 +190,7 @@ function getVariantDetails(variant: Variant): {
     case "Exceeded":
       return {
         title:
-          "Your projects are above the Starter plan limits. Decrease your usage or upgrade to avoid service interruption.",
+          "Your projects are above the Free plan limits. Decrease your usage or upgrade to avoid service interruption.",
         containerClass: "bg-background-warning dark:text-white",
         primaryButtonClass:
           "bg-yellow-500 text-black hover:bg-yellow-700 hover:text-white",
@@ -200,14 +200,14 @@ function getVariantDetails(variant: Variant): {
     case "Disabled":
       return {
         title:
-          "Your projects are disabled because the team exceeded Starter plan limits. Decrease your usage or upgrade to re-enable your projects.",
+          "Your projects are disabled because the team exceeded Free plan limits. Decrease your usage or upgrade to re-enable your projects.",
         ...dangerStyle,
       };
     case "Paused":
       return {
         title:
           // This is shown as disabled to the user to not confuse them
-          "Your projects are disabled because the team previously exceeded Starter plan limits.",
+          "Your projects are disabled because the team previously exceeded Free plan limits.",
         ...dangerStyle,
       };
     case "ExceededSpendingLimit":

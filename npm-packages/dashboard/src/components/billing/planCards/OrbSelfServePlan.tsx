@@ -8,6 +8,7 @@ import {
   DowngradePlanDialog,
   UpgradePlanDialog,
 } from "components/billing/planCards/ChangePlanDialogs";
+import { planNameMap } from "components/billing/planCards/PlanCard";
 import { SelfServePlan } from "./SelfServePlan";
 
 export function OrbSelfServePlan({
@@ -45,6 +46,15 @@ export function OrbSelfServePlan({
 
   const [isChangingPlan, setIsChangingPlan] = useState(false);
 
+  const newPlanName = plan.planType
+    ? planNameMap[plan.planType] || plan.name
+    : plan.name;
+  const missingRequiredPaymentMethod =
+    orbSub &&
+    orbSub?.paymentMethod === null &&
+    orbSub?.plan.planType === "CONVEX_PROFESSIONAL" &&
+    plan.planType === "CONVEX_STARTER_PLUS";
+
   return (
     <>
       <SelfServePlan
@@ -54,24 +64,27 @@ export function OrbSelfServePlan({
         action={
           orbSub?.plan.planType === plan.planType ||
           orbSub?.plan.id === plan.id ? (
-            <p className="flex h-[2.125rem] items-center font-semibold">
+            <p className="flex h-[2.125rem] items-center px-2 font-semibold">
               Current Plan
             </p>
           ) : orbSub ? (
             <Button
               tip={
-                !hasAdminPermissions &&
-                "You do not have permission to modify the team subscription."
+                !hasAdminPermissions
+                  ? "You do not have permission to modify the team subscription."
+                  : missingRequiredPaymentMethod
+                    ? "Add a payment method in the settings below to switch to this plan."
+                    : undefined
               }
               onClick={() => {
                 setIsChangingPlan(true);
               }}
-              disabled={!hasAdminPermissions}
+              disabled={!hasAdminPermissions || missingRequiredPaymentMethod}
               variant={isDowngrade ? "neutral" : "primary"}
             >
               {isDowngrade
-                ? `Downgrade to ${plan.name}`
-                : `Upgrade to ${plan.name}`}
+                ? `Downgrade to ${newPlanName}`
+                : `Upgrade to ${newPlanName}`}
             </Button>
           ) : (
             <Button
@@ -86,7 +99,7 @@ export function OrbSelfServePlan({
                   : undefined
               }
             >
-              Upgrade to {plan.name}
+              Upgrade to {newPlanName}
             </Button>
           )
         }
@@ -102,7 +115,7 @@ export function OrbSelfServePlan({
         ) : (
           <UpgradePlanDialog
             onClose={() => setIsChangingPlan(false)}
-            onConfirm={() => changePlan({ newPlanId: plan.id })}
+            onConfirm={(newPlanId) => changePlan({ newPlanId })}
             newPlan={plan}
             team={team}
           />
