@@ -559,7 +559,13 @@ impl SnapshotManager {
 
     pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot) {
         assert!(*self.latest_ts() < ts);
-        while self.versions.len() > 1 && (ts - self.earliest_ts()) > *MAX_TRANSACTION_WINDOW {
+        // Note that we only drop a version if its *successor* leaves the transaction
+        // window. That's because the gap between versions could be significant,
+        // and we want any call to `latest_ts()` to return a timestamp that is
+        // still valid for at least `MAX_TRANSACTION_WINDOW`.
+        while let Some(&(successor_ts, _)) = self.versions.get(1)
+            && (ts - successor_ts) > *MAX_TRANSACTION_WINDOW
+        {
             self.versions.pop_front();
         }
         self.versions.push_back((ts, snapshot));
