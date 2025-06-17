@@ -1339,7 +1339,9 @@ impl<RT: Runtime> Database<RT> {
                 Err(e) => {
                     if is_retriable(&e) {
                         let delay = backoff.fail(&mut self.runtime.rng());
-                        tracing::warn!("Retrying transaction after error: {}", e);
+                        tracing::warn!(
+                            "Retrying transaction `{write_source:?}` after error: {e:#}"
+                        );
                         self.runtime.wait(delay).await;
                         error = Some(e);
                         continue;
@@ -1362,6 +1364,9 @@ impl<RT: Runtime> Database<RT> {
             }
         }
         let error = error.unwrap_or_else(|| anyhow::anyhow!("Error was not returned from commit"));
+        tracing::warn!(
+            "Giving up on retrying transaction `{write_source:?}` after {max_failures} failures"
+        );
         Err(error)
     }
 
