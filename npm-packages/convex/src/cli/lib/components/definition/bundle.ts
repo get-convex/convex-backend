@@ -183,7 +183,7 @@ function sharedEsbuildOptions({
     outdir: path.parse(process.cwd()).root,
     outbase: path.parse(process.cwd()).root,
 
-    minify: true,
+    minify: true, // Note that this implies NODE_ENV="production".
     keepNames: true,
 
     metafile: true,

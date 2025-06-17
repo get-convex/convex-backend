@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Set `process.env.NODE_ENV = "production"` during bundling. This will result in
+  different code being bundled!
+
 - ConvexHttpClient mutations are now queued by default, making the
   ConvexHttpClient match the behavior of ConvexClient and ConvexReactClient.
   This makes switching between these safer.

@@ -93,6 +93,9 @@ async function doEsbuild(
       treeShaking: true,
       minify: false,
       keepNames: true,
+      define: {
+        "process.env.NODE_ENV": '"production"',
+      },
       metafile: true,
     });
 
