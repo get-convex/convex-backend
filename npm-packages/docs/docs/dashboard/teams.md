@@ -142,7 +142,7 @@ All metrics are available in daily breakdowns:
 
 <Admonition type="info">
 
-The Audit Log is only available for paid teams.
+The Audit Log is only available on Convex Professional.
 
 </Admonition>
 

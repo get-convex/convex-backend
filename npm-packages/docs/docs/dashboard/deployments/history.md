@@ -8,7 +8,7 @@ sidebar_position: 50
 
 <Admonition type="info">
 
-The history page is only available for paid teams.
+The history page is only available on Convex Professional.
 
 </Admonition>
 

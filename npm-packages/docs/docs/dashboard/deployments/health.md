@@ -51,7 +51,7 @@ deployed.
 
 <Admonition type="info">
 
-Integrations are only available for paid teams.
+Integrations are only available on Convex Professional.
 
 </Admonition>
 
