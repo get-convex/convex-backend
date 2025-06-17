@@ -1839,6 +1839,7 @@ LEFT JOIN @db_name.documents D
     ON  D.ts          = A.ts
     AND D.table_id    = A.table_id
     AND D.id          = A.document_id
+ORDER BY key_prefix {order_str}, key_sha256 {order_str}
 "#,
                 next_arg()
             );
