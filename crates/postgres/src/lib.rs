@@ -86,10 +86,6 @@ use common::{
         TabletId,
     },
 };
-use deadpool_postgres::{
-    Manager,
-    Pool,
-};
 use fastrace::func_path;
 use futures::{
     future::{
@@ -183,7 +179,7 @@ async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
         .get_connection(
             "get_current_schema",
             // This is invalid but we don't use `@db_name`
-            &SchemaName::EMPTY,
+            const { &SchemaName::EMPTY },
         )
         .await?;
     let row = client
@@ -204,7 +200,7 @@ impl PostgresPersistence {
     }
 
     pub async fn with_pool(
-        pool: ConvexPgPool,
+        pool: Arc<ConvexPgPool>,
         options: PostgresOptions,
     ) -> Result<Self, ConnectError> {
         if !pool.is_leader_only() {
@@ -244,23 +240,19 @@ impl PostgresPersistence {
             }
             Self::check_newly_created(&client).await?
         };
-        tracing::info!(
-            "Postgres connection pool max size {}",
-            pool.status().max_size
-        );
 
         let lease = Lease::acquire(pool.clone(), &schema).await?;
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
-            read_pool: Arc::new(pool),
+            read_pool: pool,
             version: options.version,
             schema,
         })
     }
 
     pub async fn new_reader(
-        pool: ConvexPgPool,
+        pool: Arc<ConvexPgPool>,
         options: PostgresReaderOptions,
     ) -> anyhow::Result<PostgresReader> {
         let schema = match options.schema {
@@ -268,17 +260,17 @@ impl PostgresPersistence {
             None => get_current_schema(&pool).await?,
         };
         Ok(PostgresReader {
-            read_pool: Arc::new(pool),
+            read_pool: pool,
             version: options.version,
             schema: SchemaName::new(&schema)?,
         })
     }
 
-    async fn is_read_only(client: &PostgresConnection) -> anyhow::Result<bool> {
+    async fn is_read_only(client: &PostgresConnection<'_>) -> anyhow::Result<bool> {
         Ok(client.query_opt(CHECK_IS_READ_ONLY, &[]).await?.is_some())
     }
 
-    pub fn create_pool(pg_config: tokio_postgres::Config) -> anyhow::Result<ConvexPgPool> {
+    pub fn create_pool(pg_config: tokio_postgres::Config) -> anyhow::Result<Arc<ConvexPgPool>> {
         let mut roots = RootCertStore::empty();
         let native_certs = rustls_native_certs::load_native_certs();
         anyhow::ensure!(
@@ -306,14 +298,10 @@ impl PostgresPersistence {
             .with_no_client_auth();
         let connector = MakeRustlsConnect::new(config);
 
-        let is_leader_only = pg_config.get_target_session_attrs() == TargetSessionAttrs::ReadWrite;
-        let manager = Manager::new(pg_config, connector);
-        let pool_config = deadpool_postgres::PoolConfig::default();
-        let pool = Pool::builder(manager).config(pool_config).build()?;
-        Ok(ConvexPgPool::new(pool, is_leader_only))
+        Ok(ConvexPgPool::new(pg_config, connector))
     }
 
-    async fn check_newly_created(client: &PostgresConnection) -> anyhow::Result<bool> {
+    async fn check_newly_created(client: &PostgresConnection<'_>) -> anyhow::Result<bool> {
         Ok(client.query_opt(CHECK_NEWLY_CREATED, &[]).await?.is_none())
     }
 }
@@ -1232,7 +1220,7 @@ impl PersistenceReader for PostgresReader {
 /// database and atomically ensure that the lease was still held during the
 /// transaction, and otherwise return a `LeaseLostError`.
 struct Lease {
-    pool: ConvexPgPool,
+    pool: Arc<ConvexPgPool>,
     lease_ts: i64,
     schema: SchemaName,
 }
@@ -1240,7 +1228,7 @@ struct Lease {
 impl Lease {
     /// Acquire a lease. Blocks as long as there is another lease holder.
     /// Returns any transient errors encountered.
-    async fn acquire(pool: ConvexPgPool, schema: &SchemaName) -> anyhow::Result<Self> {
+    async fn acquire(pool: Arc<ConvexPgPool>, schema: &SchemaName) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer();
         let client = pool.get_connection("lease_acquire", schema).await?;
         let ts = SystemTime::now()
@@ -1251,6 +1239,7 @@ impl Lease {
         tracing::info!("attempting to acquire lease");
         let stmt = client.prepare_cached(LEASE_ACQUIRE).await?;
         let rows_modified = client.execute(&stmt, &[&ts]).await?;
+        drop(client);
         anyhow::ensure!(
             rows_modified == 1,
             "failed to acquire lease: Already acquired with higher timestamp"

@@ -17,13 +17,14 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 cmd_util = { path = "../../crates/cmd_util" }
 common = { path = "../../crates/common" }
-deadpool-postgres = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }
+lru = { workspace = true }
 metrics = { path = "../../crates/metrics" }
+parking_lot = { workspace = true }
 postgres-protocol = { workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true }

@@ -13,7 +13,10 @@
 #![deny(missing_docs)]
 
 use std::{
-    num::NonZeroU32,
+    num::{
+        NonZeroU32,
+        NonZeroUsize,
+    },
     sync::LazyLock,
     time::Duration,
 };
@@ -851,6 +854,23 @@ pub static MYSQL_MAX_CONNECTION_LIFETIME: LazyLock<Duration> =
 /// TableIterator)
 pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_CHUNK_SIZE", 128));
+
+/// Maximum number of connections to Postgres
+pub static POSTGRES_MAX_CONNECTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("POSTGRES_MAX_CONNECTIONS", 128));
+
+/// Maximum number of cached statements per Postgres connection
+pub static POSTGRES_MAX_CACHED_STATEMENTS: LazyLock<NonZeroUsize> = LazyLock::new(|| {
+    env_config(
+        "POSTGRES_MAX_CACHED_STATEMENTS",
+        NonZeroUsize::new(128).unwrap(),
+    )
+});
+
+/// Close Postgres connections after being idle for this long.
+pub static POSTGRES_INACTIVE_CONNECTION_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("POSTGRES_INACTIVE_CONNECTION_LIFETIME_SECS", 90))
+});
 
 /// How many actions "ops" (e.g. syscalls) can execute concurrently.
 pub static MAX_CONCURRENT_ACTION_OPS: LazyLock<usize> =
