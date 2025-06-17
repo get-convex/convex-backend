@@ -2,7 +2,6 @@ import { render, waitFor } from "@testing-library/react";
 import { fireEvent, screen } from "@testing-library/dom";
 import { PlanResponse, Team } from "generatedApi";
 import React from "react";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { UpgradePlanContentContainer } from "./UpgradePlanContent";
 
 const team: Team = {
@@ -18,10 +17,6 @@ const email = "nicolas@convex.dev";
 const name = "Nicolas";
 
 const onUpgradeComplete = jest.fn();
-
-jest.mock("hooks/useLaunchDarkly", () => ({
-  useLaunchDarkly: jest.fn(),
-}));
 
 jest.mock("@stripe/react-stripe-js", () => ({
   Elements: ({ children }: React.PropsWithChildren) => children,
@@ -82,57 +77,7 @@ jest.mock("hooks/useStripe", () => ({
 }));
 
 describe("UpgradePlanContentContainer", () => {
-  it("can submit the form when the spending limits feature is disabled", async () => {
-    (useLaunchDarkly as jest.Mock).mockReturnValue({
-      spendingLimits: false,
-    });
-
-    render(
-      <UpgradePlanContentContainer
-        team={team}
-        email={email}
-        name={name}
-        onUpgradeComplete={onUpgradeComplete}
-        numMembers={0}
-        plan={mockPlan}
-        isChef={false}
-      />,
-    );
-
-    // Fill in the billing address
-    const billingAddressInput = screen.getByTestId("mock-billing-address");
-    expect(billingAddressInput).toBeInTheDocument();
-    fireEvent.change(billingAddressInput, { target: { value: "123 Main St" } });
-
-    // Submit
-    const upgradeButton = screen.getByTestId("upgrade-plan-button");
-    expect(upgradeButton).toBeInTheDocument();
-    expect(upgradeButton).not.toBeDisabled();
-    fireEvent.click(upgradeButton);
-
-    // Verify the form submission
-    await waitFor(() => {
-      expect(mockCreateSubscription).toHaveBeenCalledWith({
-        planId: "basic",
-        billingAddress: {
-          line1: "123 Main St",
-          city: "Test City",
-          state: "CA",
-          postal_code: "12345",
-          country: "US",
-        },
-        name: "Nicolas",
-        email: "nicolas@convex.dev",
-      });
-      expect(onUpgradeComplete).toHaveBeenCalled();
-    });
-  });
-
-  it("can submit the form when the spending limits feature is enabled", async () => {
-    (useLaunchDarkly as jest.Mock).mockReturnValue({
-      spendingLimits: true,
-    });
-
+  it("can submit the form with spending limits", async () => {
     render(
       <UpgradePlanContentContainer
         team={team}

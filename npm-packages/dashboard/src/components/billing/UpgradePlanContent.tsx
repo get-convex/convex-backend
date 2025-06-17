@@ -20,7 +20,6 @@ import {
   spendingLimitValueToCents,
 } from "./SpendingLimits";
 import { UpgradeFormState } from "./upgradeFormState";
-import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export const debounceDurationMs = 200;
 
@@ -65,7 +64,6 @@ export function UpgradePlanContentContainer({
   isChef: boolean;
 }) {
   const createSubscription = useCreateSubscription(team.id);
-  const { spendingLimits } = useLaunchDarkly();
 
   const formState = useFormik<UpgradeFormState>({
     initialValues: {
@@ -78,16 +76,14 @@ export function UpgradePlanContentContainer({
       spendingLimitWarningThresholdUsd: "",
       spendingLimitDisableThresholdUsd: null,
     },
-    validationSchema: spendingLimits
-      ? CreateSubscriptionSchema.concat(
-          spendingLimitsSchema({
-            // A new billing cycle starts when the user upgrades, so we don’t need to show the
-            // warning about setting a spending limit lower than the amount spent in the current
-            // billing cycle.
-            currentSpending: undefined,
-          }),
-        )
-      : CreateSubscriptionSchema,
+    validationSchema: CreateSubscriptionSchema.concat(
+      spendingLimitsSchema({
+        // A new billing cycle starts when the user upgrades, so we don’t need to show the
+        // warning about setting a spending limit lower than the amount spent in the current
+        // billing cycle.
+        currentSpending: undefined,
+      }),
+    ),
     onSubmit: async (v) => {
       await createSubscription({
         planId: v.planId,
@@ -95,7 +91,7 @@ export function UpgradePlanContentContainer({
         billingAddress: v.billingAddress,
         name: v.name,
         email: v.email,
-        ...(spendingLimits && spendingLimitValueToCents(v)),
+        ...spendingLimitValueToCents(v),
       });
       onUpgradeComplete();
     },
@@ -212,7 +208,6 @@ export function UpgradePlanContent({
   isChef,
 }: UpgradePlanContentProps) {
   const formState = useFormikContext<UpgradeFormState>();
-  const { spendingLimits } = useLaunchDarkly();
 
   if (teamMemberDiscountPct < 0 || teamMemberDiscountPct > 1) {
     throw new Error(
@@ -272,12 +267,10 @@ export function UpgradePlanContent({
 
         {billingAddressInputs}
 
-        {spendingLimits && (
-          <div className="flex flex-col gap-2">
-            <h4>Usage Spending Limits</h4>
-            <SpendingLimits />
-          </div>
-        )}
+        <div className="flex flex-col gap-2">
+          <h4>Usage Spending Limits</h4>
+          <SpendingLimits />
+        </div>
 
         {requiresPaymentMethod && !formState.values.paymentMethod && (
           <div className="flex flex-col gap-2">

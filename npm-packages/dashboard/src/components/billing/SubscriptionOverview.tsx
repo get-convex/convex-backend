@@ -37,7 +37,6 @@ import {
   SpendingLimitsValue,
   useSubmitSpendingLimits,
 } from "./SpendingLimits";
-import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export function SubscriptionOverview({
   team,
@@ -52,7 +51,6 @@ export function SubscriptionOverview({
   const resumeSubscription = useResumeSubscription(team.id);
   const [isResuming, setIsResuming] = useState(false);
   const { invoices, isLoading: isLoadingInvoices } = useListInvoices(team.id);
-  const { spendingLimits } = useLaunchDarkly();
 
   if (isLoading || isLoadingInvoices) {
     return <Loading className="h-60 w-full" fullHeight={false} />;
@@ -111,16 +109,12 @@ export function SubscriptionOverview({
             </div>
           ) : null}
           <hr />
-          {spendingLimits && (
-            <>
-              <SpendingLimitsSectionContainer
-                subscription={subscription}
-                team={team}
-                hasAdminPermissions={hasAdminPermissions}
-              />
-              <hr />
-            </>
-          )}
+          <SpendingLimitsSectionContainer
+            subscription={subscription}
+            team={team}
+            hasAdminPermissions={hasAdminPermissions}
+          />
+          <hr />
           <BillingContactForm
             subscription={subscription}
             team={team}

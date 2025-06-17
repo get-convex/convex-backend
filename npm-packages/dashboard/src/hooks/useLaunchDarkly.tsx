@@ -10,7 +10,6 @@ const flagDefaults: {
       allowImplicitFlow?: boolean;
     }
   >;
-  spendingLimits: boolean;
   enableIndexFilters: boolean;
   referralsPage: boolean;
   commandPalette: boolean;
@@ -19,7 +18,6 @@ const flagDefaults: {
   seatlessPlans: boolean;
 } = {
   oauthProviderConfiguration: {},
-  spendingLimits: false,
   enableIndexFilters: false,
   referralsPage: false,
   commandPalette: false,

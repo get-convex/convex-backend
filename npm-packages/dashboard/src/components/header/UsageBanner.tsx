@@ -11,7 +11,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Team } from "generatedApi";
 import { useGetSpendingLimits } from "api/billing";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export type Variant =
   | "Approaching"
@@ -23,10 +22,7 @@ export type Variant =
 export function useCurrentUsageBanner(teamId: number | null): Variant | null {
   const { isDismissed } = useDismiss(teamId);
 
-  const { spendingLimits: areSpendingLimitsEnabled } = useLaunchDarkly();
-  const spendingLimits = useGetSpendingLimits(
-    areSpendingLimitsEnabled ? teamId : null,
-  );
+  const spendingLimits = useGetSpendingLimits(teamId);
 
   const currentVariantPro =
     spendingLimits.spendingLimits?.state === "Disabled"
