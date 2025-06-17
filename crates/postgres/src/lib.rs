@@ -1485,8 +1485,12 @@ const INIT_SQL: &str = r#"
             /* table_id should be populated iff deleted is false. */
             table_id BYTEA NULL,
             /* document_id should be populated iff deleted is false. */
-            document_id BYTEA NULL
+            document_id BYTEA NULL,
+            PRIMARY KEY (index_id, key_prefix, key_sha256, ts)
         );
+        /* This index with `ts DESC` enables our "loose index scan" queries
+         * (i.e. `DISTINCT ON`) to run in both directions, complementing the
+         * primary key's ts ASC ordering */
         CREATE UNIQUE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256_ts ON @db_name.indexes (
             index_id,
             key_prefix,
