@@ -366,7 +366,7 @@ export class ConvexQueryClient {
       if (isConvexAction(context.queryKey)) {
         const [_, func, args] = context.queryKey;
         if (isServer) {
-          return await this.convexClient.action(func, args);
+          return await this.serverHttpClient!.action(func, args);
         } else {
           return await this.convexClient.action(func, args);
         }
