@@ -67,6 +67,7 @@ use common::{
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
+        PersistenceTableSize,
         RetentionValidator,
         TimestampRange,
     },
@@ -1205,6 +1206,30 @@ impl PersistenceReader for PostgresReader {
     fn version(&self) -> PersistenceVersion {
         self.version
     }
+
+    async fn table_size_stats(&self) -> anyhow::Result<Vec<PersistenceTableSize>> {
+        let client = self
+            .read_pool
+            .get_connection("table_size_stats", &self.schema)
+            .await?;
+        let mut stats = vec![];
+        for &table in TABLES {
+            let row = client
+                .query_opt(
+                    TABLE_SIZE_QUERY,
+                    &[&format!("{}.{table}", self.schema.escaped)],
+                )
+                .await?
+                .context("nothing returned from table size query?")?;
+            stats.push(PersistenceTableSize {
+                table_name: table.to_owned(),
+                data_bytes: row.try_get::<_, i64>(0)? as u64,
+                index_bytes: row.try_get::<_, i64>(1)? as u64,
+                row_count: 0, // not supported easily
+            });
+        }
+        Ok(stats)
+    }
 }
 
 /// A `Lease` is unique for an instance across all of the processes in the
@@ -1486,6 +1511,13 @@ const INIT_SQL: &str = r#"
             json_value BYTEA NOT NULL,
             PRIMARY KEY (key)
         );"#;
+const TABLES: &[&str] = &[
+    "documents",
+    "indexes",
+    "leases",
+    "read_only",
+    "persistence_globals",
+];
 /// Load a page of documents, where timestamps are bounded by [$1, $2),
 /// and ($3, $4) is the (ts, id) from the last document read.
 const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"
@@ -1933,6 +1965,10 @@ WHERE
     id = $2 AND
     ts = $3
 "#;
+
+// N.B.: tokio-postgres doesn't know how to create regclass values
+const TABLE_SIZE_QUERY: &str =
+    r"SELECT pg_table_size($1::text::regclass), pg_indexes_size($1::text::regclass)";
 
 static MIN_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; 32]);
 static MAX_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![255; 32]);

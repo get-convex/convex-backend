@@ -237,6 +237,13 @@ macro_rules! run_persistence_test_suite {
             let p = $create_persistence;
             persistence_test_suite::persistence_previous_revisions(::std::sync::Arc::new(p)).await
         }
+
+        #[tokio::test]
+        async fn test_persistence_table_stats() -> anyhow::Result<()> {
+            let $db = $create_db;
+            let p = $create_persistence;
+            persistence_test_suite::persistence_table_stats(::std::sync::Arc::new(p)).await
+        }
     };
 }
 
@@ -2062,6 +2069,37 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
         .previous_revisions(queries, Arc::new(retention_validator))
         .await
         .is_err());
+
+    Ok(())
+}
+
+pub async fn persistence_table_stats<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
+    let reader = p.reader();
+
+    let table: TableName = str::parse("table")?;
+    let id = TestIdGenerator::new().user_generate(&table);
+
+    let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("field" => id)).unwrap();
+    let writes = vec![DocumentLogEntry {
+        ts: Timestamp::must(1),
+        id: id.into(),
+        value: Some(doc),
+        prev_ts: None,
+    }];
+    p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
+        .await?;
+
+    // Just check that the call doesn't error and returns either empty array or
+    // something reasonable
+    let stats = reader.table_size_stats().await?;
+    if !stats.is_empty() {
+        let documents_table = stats
+            .iter()
+            .find(|stat| stat.table_name == "documents")
+            .unwrap();
+        assert!(documents_table.data_bytes > 0);
+        assert!(documents_table.index_bytes > 0);
+    }
 
     Ok(())
 }

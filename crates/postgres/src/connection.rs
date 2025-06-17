@@ -110,7 +110,7 @@ where
 
 #[derive(Clone, Debug)]
 pub(crate) struct SchemaName {
-    escaped: String,
+    pub(crate) escaped: String,
 }
 
 impl SchemaName {
