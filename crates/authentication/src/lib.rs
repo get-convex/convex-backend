@@ -388,7 +388,7 @@ pub struct ConsoleClaims {
     vercel: Option<Vec<VercelClaims>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum VercelUserRole {
     ADMIN,
     USER,
