@@ -157,12 +157,24 @@ async fn s3_client() -> Result<Client, anyhow::Error> {
     static S3_CLIENT: tokio::sync::OnceCell<Client> = tokio::sync::OnceCell::const_new();
     let client = S3_CLIENT
         .get_or_try_init(|| async {
-            let config = must_s3_config_from_env()
+            let aws_config = must_s3_config_from_env()
                 .context("AWS env variables are required when using S3 storage")?
                 .retry_config(RetryConfig::standard())
                 .load()
                 .await;
-            anyhow::Ok(Client::new(&config))
+            
+            // Build S3 config with optional force path style
+            let mut s3_config_builder = aws_sdk_s3::Config::builder().from(&aws_config);
+            
+            // Check for AWS_S3_FORCE_PATH_STYLE environment variable
+            if let Ok(force_path_style) = env::var("AWS_S3_FORCE_PATH_STYLE") {
+                if force_path_style.to_lowercase() == "true" {
+                    s3_config_builder = s3_config_builder.force_path_style(true);
+                }
+            }
+            
+            let s3_config = s3_config_builder.build();
+            anyhow::Ok(Client::from_conf(s3_config))
         })
         .await?
         .clone();
