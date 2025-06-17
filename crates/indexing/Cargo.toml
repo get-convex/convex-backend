@@ -21,6 +21,7 @@ testing = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 common = { path = "../common" }
+derive_more = { workspace = true }
 errors = { path = "../errors" }
 fastrace = { workspace = true }
 futures = { workspace = true }

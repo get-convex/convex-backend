@@ -18,6 +18,7 @@ use common::{
     },
     document::{
         CreationTime,
+        PackedDocument,
         ResolvedDocument,
     },
     index::IndexKey,
@@ -93,7 +94,7 @@ fn gen_index_document(
 fn index_documents(
     id_generator: &mut TestIdGenerator,
     mut indexes: Vec<TabletIndexMetadata>,
-) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>> {
+) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, PackedDocument)>> {
     let mut index_documents = BTreeMap::new();
 
     let index_table = id_generator.system_table_id(&INDEX_TABLE);
@@ -105,7 +106,7 @@ fn index_documents(
     let ts = Timestamp::must(0);
     for metadata in indexes {
         let doc = gen_index_document(id_generator, metadata.clone())?;
-        index_documents.insert(doc.id(), (ts, doc));
+        index_documents.insert(doc.id(), (ts, PackedDocument::pack(&doc)));
     }
     Ok(index_documents)
 }

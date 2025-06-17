@@ -1,5 +1,9 @@
 use std::{
-    cmp,
+    borrow::Borrow,
+    cmp::{
+        self,
+        Ordering,
+    },
     collections::{
         BTreeMap,
         BTreeSet,
@@ -58,7 +62,10 @@ use futures::{
     StreamExt as _,
     TryStreamExt,
 };
-use imbl::OrdMap;
+use imbl::{
+    OrdMap,
+    OrdSet,
+};
 use itertools::Itertools;
 use value::{
     ResolvedDocumentId,
@@ -118,7 +125,7 @@ impl BackendInMemoryIndexes {
     #[fastrace::trace]
     pub fn bootstrap(
         index_registry: &IndexRegistry,
-        index_documents: BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>,
+        index_documents: BTreeMap<ResolvedDocumentId, (Timestamp, PackedDocument)>,
         ts: Timestamp,
     ) -> anyhow::Result<Self> {
         // Load the indexes by_id index
@@ -128,7 +135,7 @@ impl BackendInMemoryIndexes {
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
         for (ts, index_doc) in index_documents.into_values() {
             let index_key = IndexKey::new(vec![], index_doc.developer_id());
-            meta_index_map.insert(index_key.to_bytes(), ts, &index_doc);
+            meta_index_map.insert(index_key.to_bytes(), ts, index_doc);
         }
 
         let mut in_memory_indexes = OrdMap::new();
@@ -221,7 +228,7 @@ impl BackendInMemoryIndexes {
         for (key, rev) in entries.into_iter() {
             num_keys += 1;
             total_size += rev.value.value().size();
-            index_map.insert(key, rev.ts, &rev.value);
+            index_map.insert(key, rev.ts, PackedDocument::pack(&rev.value));
         }
 
         self.in_memory_indexes.insert(index.id(), index_map);
@@ -247,6 +254,8 @@ impl BackendInMemoryIndexes {
         // Build up the list of updates to apply to all database indexes.
         let updates = index_registry.index_updates(deletion.as_ref(), insertion.as_ref());
 
+        let mut packed = None;
+
         // Apply the updates to the subset of database indexes in memory.
         for update in &updates {
             match self.in_memory_indexes.get_mut(&update.index_id) {
@@ -260,7 +269,11 @@ impl BackendInMemoryIndexes {
                         match insertion {
                             Some(ref doc) => {
                                 assert_eq!(*doc_id, doc.id());
-                                key_set.insert(update.key.to_bytes(), ts, doc);
+                                // reuse the PackedDocument if inserting into more than one index
+                                let packed = packed
+                                    .get_or_insert_with(|| PackedDocument::pack(doc))
+                                    .clone();
+                                key_set.insert(update.key.to_bytes(), ts, packed);
                             },
                             None => panic!("Unexpected index update: {:?}", update.value),
                         }
@@ -286,11 +299,47 @@ impl BackendInMemoryIndexes {
     }
 }
 
+#[derive(Debug)]
+struct IndexDocument {
+    key: IndexKeyBytes,
+    ts: Timestamp,
+    document: PackedDocument,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, derive_more::Deref)]
+struct ArcIndexDocument(Arc<IndexDocument>);
+
+impl Borrow<[u8]> for ArcIndexDocument {
+    fn borrow(&self) -> &[u8] {
+        self.0.key.borrow()
+    }
+}
+
+impl PartialEq for IndexDocument {
+    fn eq(&self, other: &Self) -> bool {
+        self.key.eq(&other.key)
+    }
+}
+impl Eq for IndexDocument {}
+impl PartialOrd for IndexDocument {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for IndexDocument {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.key.cmp(&other.key)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DatabaseIndexMap {
-    // We use OrdMap to provide efficient copy-on-write.
+    // We use OrdSet to provide efficient copy-on-write.
     // Note that all in-memory indexes are clustered.
-    inner: OrdMap<IndexKeyBytes, (Timestamp, PackedDocument)>,
+    // N.B.: OrdMap/OrdSet are very sensitive to the size of keys and values (as
+    // a map stores a minimum of 64 key-value pairs, even if empty) and likes to
+    // clone them at will, so we store just a single Arc inside of it
+    inner: OrdSet<ArcIndexDocument>,
     /// The timestamp of the last update to the index.
     last_modified: Timestamp,
 }
@@ -299,7 +348,7 @@ impl DatabaseIndexMap {
     /// Construct an empty set.
     fn new_at(ts: Timestamp) -> Self {
         Self {
-            inner: OrdMap::new(),
+            inner: OrdSet::new(),
             last_modified: ts,
         }
     }
@@ -323,16 +372,20 @@ impl DatabaseIndexMap {
         let _s = static_span!();
         self.inner
             .range(interval)
-            .map(|(k, (ts, v))| (k.clone(), *ts, v.clone().into()))
+            .map(|e| (e.key.clone(), e.ts, e.document.clone().into()))
     }
 
-    fn insert(&mut self, k: IndexKeyBytes, ts: Timestamp, v: &ResolvedDocument) {
-        self.inner.insert(k, (ts, PackedDocument::pack(v)));
+    fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, document: PackedDocument) {
+        self.inner.insert(ArcIndexDocument(Arc::new(IndexDocument {
+            key,
+            ts,
+            document,
+        })));
         self.last_modified = cmp::max(self.last_modified, ts);
     }
 
     fn remove(&mut self, k: &IndexKeyBytes, ts: Timestamp) {
-        self.inner.remove(k);
+        self.inner.remove::<[u8]>(k);
         self.last_modified = cmp::max(self.last_modified, ts);
     }
 }

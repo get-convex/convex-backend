@@ -50,6 +50,7 @@ use common::{
         CreationTime,
         DocumentUpdate,
         InternalId,
+        PackedDocument,
         ParseDocument,
         ParsedDocument,
         ResolvedDocument,
@@ -353,7 +354,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             .ok_or_else(|| anyhow::anyhow!("no documents -- cannot load uninitialized database"))
     }
 
-    pub async fn load_raw_table_documents(
+    async fn load_raw_table_documents(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
         tablet_id: TabletId,
@@ -420,7 +421,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         TableMapping,
         OrdMap<TabletId, TableState>,
         IndexRegistry,
-        BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>,
+        BTreeMap<ResolvedDocumentId, (Timestamp, PackedDocument)>,
         BootstrapMetadata,
     )> {
         let _timer = metrics::load_table_and_index_metadata_timer();
@@ -432,9 +433,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             index_tablet_id,
         }: BootstrapMetadata = bootstrap_metadata;
 
-        let index_documents =
+        let index_documents: BTreeMap<_, _> =
             Self::load_raw_table_documents(persistence_snapshot, index_by_id, index_tablet_id)
-                .await?;
+                .await?
+                .into_iter()
+                .map(|(id, (ts, doc))| (id, (ts, PackedDocument::pack(&doc))))
+                .collect();
         let table_documents = Self::load_table_documents::<TableMetadata>(
             persistence_snapshot,
             tables_by_id,
@@ -1220,7 +1224,7 @@ impl<RT: Runtime> Database<RT> {
         let index_documents = document_writes
             .iter()
             .filter(|(id, _)| id.tablet_id == index_table_id.tablet_id)
-            .map(|(id, doc)| (*id, (ts, doc.clone())))
+            .map(|(id, doc)| (*id, (ts, PackedDocument::pack(doc))))
             .collect::<BTreeMap<_, _>>();
         let mut index_registry = IndexRegistry::bootstrap(
             &table_mapping,

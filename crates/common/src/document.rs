@@ -798,6 +798,10 @@ impl PackedDocument {
         self.1
     }
 
+    pub fn developer_id(&self) -> DeveloperDocumentId {
+        self.id().developer_id
+    }
+
     pub fn value(&self) -> &PackedValue<ByteBuffer> {
         &self.0
     }
