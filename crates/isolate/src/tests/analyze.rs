@@ -82,8 +82,8 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let expected = [
         // name, expected_type, mapped_lineno
         ("g", UdfType::Mutation, 8),
-        ("f1", UdfType::Mutation, 13),
-        ("f2", UdfType::Mutation, 13),
+        ("f1", UdfType::Mutation, 19),
+        ("f2", UdfType::Mutation, 19),
         ("default", UdfType::Query, 20),
         ("h", UdfType::Query, 20),
         ("action_in_v8", UdfType::Action, 28),
@@ -120,7 +120,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
             Some(AnalyzedSourcePosition {
                 path: "http.js".parse()?,
                 start_lineno: 12,
-                start_col: 26,
+                start_col: 8,
             }),
         ),
         (
@@ -129,7 +129,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
             Some(AnalyzedSourcePosition {
                 path: "http.js".parse()?,
                 start_lineno: 26,
-                start_col: 20,
+                start_col: 14,
             }),
         ),
     ];
@@ -332,7 +332,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 // change.
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
-                    start_lineno: 16,
+                    start_lineno: 17,
                     start_col: analyzed_module.functions[0].pos.as_ref().unwrap().start_col,
                 }),
                 UdfType::Query,
@@ -346,7 +346,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 // change.
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
-                    start_lineno: 19,
+                    start_lineno: 21,
                     start_col: analyzed_module.functions[1].pos.as_ref().unwrap().start_col,
                 }),
                 UdfType::Query,
@@ -360,7 +360,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 // change.
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
-                    start_lineno: 23,
+                    start_lineno: 24,
                     start_col: analyzed_module.functions[2].pos.as_ref().unwrap().start_col,
                 }),
                 UdfType::Mutation,
@@ -485,8 +485,8 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
                 "/test",
                 Some(AnalyzedSourcePosition {
                     path: "http_no_imports.js".parse()?,
-                    start_lineno: 9,
-                    start_col: 15,
+                    start_lineno: 11,
+                    start_col: 1,
                 }),
             )],
         ),

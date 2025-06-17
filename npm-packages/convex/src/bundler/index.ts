@@ -91,7 +91,13 @@ async function doEsbuild(
       splitting: true,
       chunkNames: path.join(chunksFolder, "[hash]"),
       treeShaking: true,
-      minify: false,
+      minifySyntax: true,
+      minifyIdentifiers: true,
+      // Enabling minifyWhitespace breaks sourcemaps on convex backends.
+      // The sourcemaps produced are valid on https://evanw.github.io/source-map-visualization
+      // but something we're doing (perhaps involving https://github.com/getsentry/rust-sourcemap)
+      // makes everything map to the same line.
+      minifyWhitespace: false, // false is the default, just showing for clarify.
       keepNames: true,
       define: {
         "process.env.NODE_ENV": '"production"',
