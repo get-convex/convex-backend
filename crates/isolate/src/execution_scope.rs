@@ -497,6 +497,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         Ok(result)
     }
 
+    #[fastrace::trace]
     fn instantiate_and_eval_module(&mut self, id: ModuleId) -> anyhow::Result<()> {
         let _s = static_span!();
         let module = {
