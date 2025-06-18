@@ -42,6 +42,9 @@ mod transaction_index;
 pub mod vector_index_worker;
 mod virtual_tables;
 mod write_limits;
+#[cfg(any(test, feature = "testing"))]
+pub mod write_log;
+#[cfg(not(any(test, feature = "testing")))]
 mod write_log;
 mod writes;
 

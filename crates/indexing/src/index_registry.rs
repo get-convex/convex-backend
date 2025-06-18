@@ -807,6 +807,25 @@ impl DocumentIndexKeys {
         );
         Self(keys.into())
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_search_index_for_test_with_filters(
+        index_name: TabletIndexName,
+        search_field: FieldPath,
+        search_field_value: ConvexString,
+        filter_values: BTreeMap<FieldPath, SearchFilterValue>,
+    ) -> Self {
+        let mut keys = BTreeMap::new();
+        keys.insert(
+            index_name,
+            DocumentIndexKeyValue::Search(SearchIndexKeyValue {
+                filter_values: filter_values.into(),
+                search_field,
+                search_field_value: Some(search_field_value),
+            }),
+        );
+        Self(keys.into())
+    }
 }
 
 impl HeapSize for DocumentIndexKeys {

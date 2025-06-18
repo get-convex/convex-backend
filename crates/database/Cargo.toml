@@ -106,5 +106,10 @@ name = "subscriptions"
 harness = false
 required-features = ["testing"]
 
+[[bench]]
+name = "is_stale"
+harness = false
+required-features = ["testing"]
+
 [lints]
 workspace = true
