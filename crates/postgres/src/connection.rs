@@ -1,3 +1,10 @@
+//! Implements a Postgres connection pool and statement cache.
+//!
+//! Unlike deadpool-postgres, we:
+//! - limit the number of cached prepared statements owned by each connection in
+//!   order to avoid high/unbounded memory usage on the Postgres server
+//! - automatically clean up idle connections.
+
 use std::{
     collections::VecDeque,
     sync::{
@@ -28,7 +35,6 @@ use fastrace::{
     Span,
 };
 use futures::{
-    future::BoxFuture,
     pin_mut,
     select_biased,
     Future,
@@ -56,20 +62,17 @@ use tokio::{
 };
 use tokio_postgres::{
     config::TargetSessionAttrs,
-    tls::{
-        MakeTlsConnect,
-        TlsConnect,
-    },
     types::{
         BorrowToSql,
         ToSql,
     },
+    GenericClient,
     Row,
     RowStream,
-    Socket,
     Statement,
     Transaction,
 };
+use tokio_postgres_rustls::MakeRustlsConnect;
 
 use crate::metrics::{
     connection_lifetime_timer,
@@ -108,6 +111,9 @@ where
     }
 }
 
+/// Stores the escaped form of a Postgres [schema]
+///
+/// [schema]: https://www.postgresql.org/docs/17/ddl-schemas.html
 #[derive(Clone, Debug)]
 pub(crate) struct SchemaName {
     pub(crate) escaped: String,
@@ -128,21 +134,23 @@ impl SchemaName {
 }
 
 type StatementCache = LruCache<String, tokio_postgres::Statement>;
+/// A Postgres connection, owned by either the connection pool
+/// ([`ConvexPgPool`]), or by an active connection ([`PostgresConnection`]).
 struct PooledConnection {
     client: tokio_postgres::Client,
     statement_cache: Mutex<StatementCache>,
     last_used: Instant,
 }
 
-async fn prepare(
-    prepare: impl AsyncFnOnce(&str) -> Result<tokio_postgres::Statement, tokio_postgres::Error>,
+async fn prepare_cached(
+    client: &impl GenericClient,
     cache: &Mutex<StatementCache>,
     statement: String,
 ) -> anyhow::Result<tokio_postgres::Statement> {
     if let Some(prepared) = cache.lock().get(&statement) {
         return Ok(prepared.clone());
     }
-    let prepared = prepare(&statement).await?;
+    let prepared = client.prepare(&statement).await?;
     // N.B.: if the cache is at capacity, this will drop the oldest statement,
     // which will send a message on the connection asking to deallocate it
     cache.lock().put(statement, prepared.clone());
@@ -157,18 +165,11 @@ impl PooledConnection {
             last_used: Instant::now(),
         }
     }
-
-    async fn prepare_cached(&self, query: String) -> anyhow::Result<tokio_postgres::Statement> {
-        let client = &self.client;
-        prepare(
-            async |query| client.prepare(query).await,
-            &self.statement_cache,
-            query,
-        )
-        .await
-    }
 }
 
+/// An active Postgres connection from a [`ConvexPgPool`].
+///
+/// Returns the underlying connection to the pool when dropped.
 pub(crate) struct PostgresConnection<'a> {
     pool: &'a ConvexPgPool,
     _permit: SemaphorePermit<'a>,
@@ -218,7 +219,13 @@ impl PostgresConnection<'_> {
     }
 
     pub async fn prepare_cached(&self, query: &'static str) -> anyhow::Result<Statement> {
-        with_timeout(self.conn().prepare_cached(self.substitute_db_name(query))).await
+        let conn = self.conn();
+        with_timeout(prepare_cached(
+            &conn.client,
+            &conn.statement_cache,
+            self.substitute_db_name(query),
+        ))
+        .await
     }
 
     pub async fn query_raw<P, I>(
@@ -286,6 +293,7 @@ impl Drop for PostgresConnection<'_> {
     }
 }
 
+/// Represents an active transaction on a [`PostgresConnection`].
 pub struct PostgresTransaction<'a> {
     inner: Transaction<'a>,
     statement_cache: &'a Mutex<StatementCache>,
@@ -298,8 +306,8 @@ impl PostgresTransaction<'_> {
     }
 
     pub async fn prepare_cached(&self, query: &'static str) -> anyhow::Result<Statement> {
-        with_timeout(prepare(
-            async |query| self.inner.prepare(query).await,
+        with_timeout(prepare_cached(
+            &self.inner,
             self.statement_cache,
             self.substitute_db_name(query),
         ))
@@ -340,58 +348,42 @@ impl PostgresTransaction<'_> {
     }
 }
 
+/// A Postgres connection pool.
+///
+/// This struct is always used behind an `Arc`.
 pub struct ConvexPgPool {
     pg_config: tokio_postgres::Config,
-    connector: Box<
-        dyn for<'a> Fn(
-                &'a tokio_postgres::Config,
-            ) -> BoxFuture<'a, anyhow::Result<tokio_postgres::Client>>
-            + Send
-            + Sync,
-    >,
+    tls_connect: MakeRustlsConnect,
     /// Limits the total number of connections that can be handed out
     /// simultaneously.
     semaphore: Semaphore,
     /// Idle connections, ordered by `last_used` from oldest to newest
     connections: Mutex<VecDeque<PooledConnection>>,
     stats: ConnectionPoolStats,
-    worker: JoinHandle<()>,
+    idle_worker: JoinHandle<()>,
 }
 
 impl ConvexPgPool {
-    pub(crate) fn new<T: MakeTlsConnect<Socket> + Clone + Send + Sync + 'static>(
+    pub(crate) fn new(
         pg_config: tokio_postgres::Config,
-        connect: T,
-    ) -> Arc<Self>
-    where
-        T::Stream: Send,
-        T::TlsConnect: Send,
-        <T::TlsConnect as TlsConnect<Socket>>::Future: Send,
-    {
+        tls_connect: MakeRustlsConnect,
+    ) -> Arc<Self> {
         let max_size = *POSTGRES_MAX_CONNECTIONS;
         tracing::info!("Postgres connection pool max size {max_size}");
         // The idle worker needs a (weak) reference to the created ConvexPgPool,
         // but the pool also wants a reference to the worker; resolve this
         // cyclic situation by sneaking the weak reference through a channel.
         let (this_tx, this_rx) = oneshot::channel();
-        let worker = common::runtime::tokio_spawn("postgres_idle_worker", async move {
+        let idle_worker = common::runtime::tokio_spawn("postgres_idle_worker", async move {
             Self::idle_worker(this_rx.await.expect("nothing sent on this_tx?")).await
         });
         let this = Arc::new(ConvexPgPool {
             pg_config,
-            connector: Box::new(move |pg_config| {
-                let f = pg_config.connect(connect.clone());
-                async move {
-                    let (client, conn) = f.await?;
-                    common::runtime::tokio_spawn("postgres_connection", conn);
-                    Ok(client)
-                }
-                .boxed()
-            }),
+            tls_connect,
             semaphore: Semaphore::new(max_size),
             connections: Mutex::new(VecDeque::new()),
             stats: new_connection_pool_stats(""),
-            worker,
+            idle_worker,
         });
         _ = this_tx.send(Arc::downgrade(&this));
         this
@@ -426,9 +418,12 @@ impl ConvexPgPool {
                     return Ok((permit, conn));
                 }
             }
-            let client = (self.connector)(&self.pg_config)
+            let (client, conn) = self
+                .pg_config
+                .connect(self.tls_connect.clone())
                 .in_span(Span::enter_with_local_parent("postgres_connect"))
                 .await?;
+            common::runtime::tokio_spawn("postgres_connection", conn);
             anyhow::Ok((permit, PooledConnection::new(client)))
         })
         .await;
@@ -445,12 +440,13 @@ impl ConvexPgPool {
         })
     }
 
+    /// Drops all pooled connections and prevents the creation of new ones.
     pub fn shutdown(&self) {
         // N.B.: this doesn't abort in-progress connections, but they won't be
         // returned to the pool on drop
         self.semaphore.close();
         self.connections.lock().clear();
-        self.worker.abort();
+        self.idle_worker.abort();
     }
 
     async fn idle_worker(this: Weak<Self>) {
@@ -480,6 +476,6 @@ impl ConvexPgPool {
 
 impl Drop for ConvexPgPool {
     fn drop(&mut self) {
-        self.worker.abort();
+        self.idle_worker.abort();
     }
 }
