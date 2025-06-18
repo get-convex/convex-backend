@@ -806,7 +806,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                         mutation_retry_count.is_none(),
                         "Actions should not have mutation_retry_count set"
                     );
-                    let mut err = anyhow::anyhow!(ErrorMetadata::bad_request(
+                    let err = anyhow::anyhow!(ErrorMetadata::bad_request(
                         "SkippingPastScheduledRuns",
                         format!(
                             "Skipping {num_skipped} run(s) of job {job_id} because multiple \
@@ -828,7 +828,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                             context,
                         )
                         .await?;
-                    report_error(&mut err).await;
+                    tracing::error!("{err:#}");
                 },
                 UdfType::Query | UdfType::HttpAction => {
                     anyhow::bail!("Executing unexpected function type as a cron")
