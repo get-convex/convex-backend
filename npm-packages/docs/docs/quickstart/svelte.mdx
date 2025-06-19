@@ -15,18 +15,19 @@ Learn how to query data from Convex in a Svelte app.
 
 <StepByStep>
   <Step title="Create a SvelteKit app">
-    Create a SvelteKit app using the `npx create svelte@latest` command.
+    Create a SvelteKit app using the `npx sv create` command.
 
-    Other sets of options will work with the library as long as Svelte 5 is used but for this quickstart guide:
+    Other sets of options will work with the library but for this quickstart guide:
 
-    - For "Which Svelte app template," choose **"Skeleton project."**
+    - For "Which Svelte app template," choose **"SvelteKit minimal."**
+    - For a package manager, choose **"npm."**
     - For "Add type checking with TypeScript," choose **"Yes, using TypeScript syntax."**
-    - For "Select additional options," enable **"Try the Svelte 5 preview."**
+    - For "Select additional options," you don't need to enable anything.
 
     <br></br>
 
     ```sh
-    npm create svelte@latest my-app
+    npx sv@latest create my-app
     ```
 
   </Step>
@@ -56,7 +57,7 @@ Learn how to query data from Convex in a Svelte app.
     will prompt you to log in with GitHub,
     create a project, and save your production and deployment URLs.
 
-    It will also create a `convex/` folder for you
+    It will also create a `src/convex/` folder for you
     to write your backend API functions in. The `dev` command
     will then continue running to sync your functions
     with your dev deployment in the cloud.
@@ -100,7 +101,7 @@ Learn how to query data from Convex in a Svelte app.
 
     <Snippet
       source={tasks}
-      title="convex/tasks.ts"
+      title="src/convex/tasks.ts"
     />
 
   </Step>
@@ -121,7 +122,7 @@ Learn how to query data from Convex in a Svelte app.
 
     <Snippet
       source={page}
-      title="src/routes/page.tsx"
+      title="src/routes/+page.svelte"
       jsExtension="js"
     />
 
