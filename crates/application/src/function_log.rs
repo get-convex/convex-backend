@@ -35,6 +35,7 @@ use common::{
         FunctionEventSource,
         LogEvent,
         LogSender,
+        SchedulerInfo,
         StructuredLogEvent,
     },
     runtime::{
@@ -163,6 +164,7 @@ pub struct FunctionExecution {
     // Number of retries prior to a successful execution. Only applicable for mutations.
     pub mutation_retry_count: Option<usize>,
 
+    // If this execution resulted in an OCC error, this will be Some.
     pub occ_info: Option<OccInfo>,
 }
 
@@ -265,6 +267,7 @@ impl FunctionExecution {
                     }),
                     None => None,
                 },
+                scheduler_info: self.caller.parent_scheduled_job().map(|_| SchedulerInfo {}),
                 usage_stats: log_streaming::AggregatedFunctionUsageStats {
                     database_read_bytes: self.usage_stats.database_read_bytes,
                     database_write_bytes: self.usage_stats.database_write_bytes,
@@ -1111,11 +1114,16 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     /// Indicates that as of now (`timestamp`), the next scheduled job is at
     /// `next_job_ts` (None if there are no pending jobs)
-    pub fn log_scheduled_job_lag(&self, next_job_ts: Option<SystemTime>, timestamp: SystemTime) {
-        if let Err(mut e) = self
-            .inner
-            .lock()
-            .log_scheduled_job_lag(next_job_ts, timestamp)
+    pub fn log_scheduled_job_stats(
+        &self,
+        next_job_ts: Option<SystemTime>,
+        timestamp: SystemTime,
+        num_running_jobs: u64,
+    ) {
+        if let Err(mut e) =
+            self.inner
+                .lock()
+                .log_scheduled_job_stats(next_job_ts, timestamp, num_running_jobs)
         {
             report_error_sync(&mut e);
         }
@@ -1670,10 +1678,11 @@ impl<RT: Runtime> Inner<RT> {
         Ok(())
     }
 
-    fn log_scheduled_job_lag(
+    fn log_scheduled_job_stats(
         &mut self,
         next_job_ts: Option<SystemTime>,
         now: SystemTime,
+        num_running_jobs: u64,
     ) -> anyhow::Result<()> {
         let name = scheduled_job_next_ts_metric();
         // -Infinity means there is no scheduled job
@@ -1683,6 +1692,15 @@ impl<RT: Runtime> Inner<RT> {
                 timestamp: UnixTimestamp::from_system_time(now).context("now < UNIX_EPOCH?")?,
                 event: StructuredLogEvent::ScheduledJobLag {
                     lag_seconds: Duration::from_secs_f32(value.max(0.0)),
+                },
+            }]);
+        }
+        if value > 0.0 || num_running_jobs > 0 {
+            self.log_manager.send_logs(vec![LogEvent {
+                timestamp: UnixTimestamp::from_system_time(now).context("now < UNIX_EPOCH?")?,
+                event: StructuredLogEvent::SchedulerStats {
+                    lag_seconds: Duration::from_secs_f32(value.max(0.0)),
+                    num_running_jobs,
                 },
             }]);
         }

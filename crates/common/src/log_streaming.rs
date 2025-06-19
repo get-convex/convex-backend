@@ -84,6 +84,11 @@ pub struct OccInfo {
     pub retry_count: u64,
 }
 
+// Nothing yet. Can add information like parent scheduled job, scheduler lag,
+// etc.
+#[derive(Serialize, Debug, Clone)]
+pub struct SchedulerInfo {}
+
 #[derive(Debug, Clone)]
 pub enum StructuredLogEvent {
     /// Topic for verification logs. These are issued on sink startup and are
@@ -103,6 +108,7 @@ pub enum StructuredLogEvent {
         execution_time: Duration,
         usage_stats: AggregatedFunctionUsageStats,
         occ_info: Option<OccInfo>,
+        scheduler_info: Option<SchedulerInfo>,
     },
     /// Topic for exceptions. These happen when a UDF raises an exception from
     /// JS
@@ -117,6 +123,12 @@ pub enum StructuredLogEvent {
     DeploymentAuditLog {
         action: String,
         metadata: serde_json::Map<String, JsonValue>,
+    },
+    /// Topic for global stats from the scheduler. For function-specific stats,
+    /// look in FunctionExecution
+    SchedulerStats {
+        lag_seconds: Duration,
+        num_running_jobs: u64,
     },
     ScheduledJobLag {
         lag_seconds: Duration,
@@ -254,7 +266,8 @@ impl LogEvent {
                     error,
                     execution_time,
                     usage_stats,
-                    ..
+                    occ_info: _,
+                    scheduler_info: _,
                 } => {
                     let (reason, status) = match error {
                         Some(err) => (Some(err.to_string()), "failure"),
@@ -307,6 +320,14 @@ impl LogEvent {
                         "actionMetadata": metadata
                     })
                 },
+                StructuredLogEvent::SchedulerStats {
+                    lag_seconds,
+                    num_running_jobs,
+                } => serialize_map!({
+                    "_timestamp": ms,
+                    "_topic":  "_scheduler_stats",
+                    "lag_seconds": lag_seconds.as_secs(), "num_running_jobs": num_running_jobs
+                }),
                 StructuredLogEvent::ScheduledJobLag { lag_seconds } => {
                     serialize_map!({
                         "_timestamp": ms,
@@ -351,6 +372,7 @@ impl LogEvent {
                     execution_time,
                     usage_stats,
                     occ_info,
+                    scheduler_info,
                 } => {
                     let function_source = source.to_json_map();
                     let (status, error_message) = match error {
@@ -376,6 +398,7 @@ impl LogEvent {
                         "status": status,
                         "error_message": error_message,
                         "occ_info": occ_info,
+                        "scheduler_info": scheduler_info,
                         "usage": Usage {
                             database_read_bytes: usage_stats.database_read_bytes,
                             database_write_bytes: usage_stats.database_write_bytes,
@@ -420,6 +443,17 @@ impl LogEvent {
                         "audit_log_action": action,
                         // stringified JSON to avoid
                         "audit_log_metadata": serde_json::to_string(metadata).map_err(serde::ser::Error::custom)?
+                    })
+                },
+                StructuredLogEvent::SchedulerStats {
+                    lag_seconds,
+                    num_running_jobs,
+                } => {
+                    serialize_map!({
+                        "topic": "scheduler_stats",
+                        "timestamp": ms,
+                        "lag_seconds": lag_seconds.as_secs(),
+                        "num_running_jobs": num_running_jobs
                     })
                 },
                 StructuredLogEvent::ScheduledJobLag { lag_seconds } => {

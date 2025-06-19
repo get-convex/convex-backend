@@ -164,6 +164,9 @@ Schema:
     `table_name`
   - `retry_count`: the number of previously failed attempts before the current
     function execution
+- `scheduler_info`: object, if set, indicates that the function execution was
+  originally invoked by a scheduled job either directly, or via a subfunction
+  execution.
 - `usage`:
   - `database_read_bytes`: number
   - `database_write_bytes`: number, this and `database_read_bytes` make up the
@@ -220,17 +223,18 @@ The following fields are added under `function` for all `console` and
   [request ID](/functions/debugging.mdx#finding-relevant-logs-by-request-id) of
   the function.
 
-### `scheduled_job_lag` events
+### `scheduler_stats` events
 
-These events are periodically sent by the scheduler reporting the delay in
-executing your scheduled functions.
+These events are periodically sent by the scheduler reporting statistics from
+the scheduled function executor.
 
 Schema:
 
-- `topic`: `"scheduled_job_lag"`
+- `topic`: `"scheduler_stats"`
 - `timestamp`: Unix epoch timestamp in milliseconds
 - `lag_seconds`: The difference between `timestamp` and the scheduled run time
   of the oldest overdue scheduled job, in seconds.
+- `num_running_jobs`: number, the number of scheduled jobs currently running
 
 ### `audit_log` events
 

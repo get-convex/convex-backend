@@ -157,6 +157,8 @@ pub struct ScheduledJobExecutor<RT: Runtime> {
     next_job_ready_time: Option<Timestamp>,
     job_finished_tx: mpsc::Sender<ResolvedDocumentId>,
     job_finished_rx: mpsc::Receiver<ResolvedDocumentId>,
+    /// The last time we logged stats, used to rate limit logging
+    last_stats_log: SystemTime,
 }
 
 #[derive(Clone)]
@@ -196,7 +198,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
         let mut executor = Self {
             context: ScheduledJobContext {
-                rt,
+                rt: rt.clone(),
                 database,
                 runner,
                 function_log,
@@ -206,6 +208,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             next_job_ready_time: None,
             job_finished_tx,
             job_finished_rx,
+            last_stats_log: rt.system_time(),
         };
         let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
         tracing::info!("Starting scheduled job executor");
@@ -244,11 +247,13 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             self.query_and_start_jobs(&mut tx).await?
         };
 
-        metrics::log_num_running_jobs(self.running_job_ids.len());
         let now = self.context.rt.system_time();
         let next_job_ready_time = self.next_job_ready_time.map(SystemTime::from);
-        self.context
-            .log_scheduled_job_execution_lag(next_job_ready_time, now);
+        // Only log stats if at least 30 seconds have elapsed since the last log
+        if now.duration_since(self.last_stats_log).unwrap_or_default() >= Duration::from_secs(30) {
+            self.log_scheduled_job_stats(next_job_ready_time, now);
+            self.last_stats_log = now;
+        }
         let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
             let wait_time = next_job_ts.duration_since(now).unwrap_or_else(|_| {
                 // If we're behind, re-run this loop every 5 seconds to log the gauge above and
@@ -285,6 +290,22 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             },
         }
         Ok(())
+    }
+
+    fn log_scheduled_job_stats(&self, next_job_ready_time: Option<SystemTime>, now: SystemTime) {
+        metrics::log_num_running_jobs(self.running_job_ids.len());
+        if let Some(next_job_ts) = next_job_ready_time {
+            metrics::log_scheduled_job_execution_lag(
+                now.duration_since(next_job_ts).unwrap_or(Duration::ZERO),
+            );
+        } else {
+            metrics::log_scheduled_job_execution_lag(Duration::ZERO);
+        }
+        self.context.function_log.log_scheduled_job_stats(
+            next_job_ready_time,
+            now,
+            self.running_job_ids.len() as u64,
+        );
     }
 
     /// Reads through scheduled jobs in timestamp ascending order and starts any
@@ -391,22 +412,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 queries.insert((next_ts, namespace), (job, query));
             }
         }
-    }
-
-    fn log_scheduled_job_execution_lag(
-        &self,
-        next_job_ready_time: Option<SystemTime>,
-        now: SystemTime,
-    ) {
-        if let Some(next_job_ts) = next_job_ready_time {
-            metrics::log_scheduled_job_execution_lag(
-                now.duration_since(next_job_ts).unwrap_or(Duration::ZERO),
-            );
-        } else {
-            metrics::log_scheduled_job_execution_lag(Duration::ZERO);
-        }
-        self.function_log
-            .log_scheduled_job_lag(next_job_ready_time, now);
     }
 
     // This handles re-running the scheduled function on transient errors. It
