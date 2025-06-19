@@ -47,7 +47,6 @@ use common::{
 use imbl::OrdMap;
 use indexing::{
     backend_in_memory_indexes::{
-        index_not_a_database_index_error,
         BatchKey,
         DatabaseIndexSnapshot,
         LazyDocument,
@@ -311,51 +310,12 @@ impl TransactionIndex {
     /// Callers must call `record_indexed_directly` when consuming the results.
     pub async fn range_batch(
         &mut self,
-        reads: &mut TransactionReadSet,
         ranges: BTreeMap<BatchKey, RangeRequest>,
     ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse>> {
         let batch_size = ranges.len();
         let mut results = BTreeMap::new();
-        let mut ranges_to_fetch = BTreeMap::new();
 
-        let mut indexed_fields_by_key = BTreeMap::new();
-        for (batch_key, range_request) in ranges {
-            let RangeRequest {
-                index_name,
-                printable_index_name,
-                ..
-            } = &range_request;
-            let result: anyhow::Result<_> = try {
-                let indexed_fields =
-                    match self.require_enabled(reads, index_name, printable_index_name) {
-                        Ok(index) => match index.metadata().config.clone() {
-                            IndexConfig::Database {
-                                developer_config: DeveloperDatabaseIndexConfig { fields },
-                                ..
-                            } => fields,
-                            _ => Err(index_not_a_database_index_error(printable_index_name))?,
-                        },
-                        // Range queries on missing system indexes are allowed.
-                        Err(_) if index_name.is_by_id() => IndexedFields::by_id(),
-                        Err(_) if index_name.is_creation_time() => IndexedFields::creation_time(),
-                        Err(e) => Err(e)?,
-                    };
-                indexed_fields_by_key.insert(batch_key, indexed_fields);
-            };
-            if let Err(e) = result {
-                assert!(results.insert(batch_key, Err(e)).is_none());
-            } else {
-                ranges_to_fetch.insert(batch_key, range_request);
-            }
-        }
-
-        let mut fetch_results = self
-            .range_no_deps(
-                // We use max_rows as size hint. We might receive more or less
-                // due to pending deletes or inserts in the transaction.
-                &ranges_to_fetch,
-            )
-            .await;
+        let mut fetch_results = self.range_no_deps(&ranges).await;
 
         for (
             batch_key,
@@ -366,7 +326,7 @@ impl TransactionIndex {
                 order: _,
                 max_size,
             },
-        ) in ranges_to_fetch
+        ) in ranges
         {
             let result: anyhow::Result<_> = try {
                 let (documents, fetch_cursor) = fetch_results
@@ -421,10 +381,9 @@ impl TransactionIndex {
     #[cfg(any(test, feature = "testing"))]
     pub async fn range(
         &mut self,
-        reads: &mut TransactionReadSet,
         range_request: RangeRequest,
     ) -> anyhow::Result<IndexRangeResponse> {
-        self.range_batch(reads, btreemap! {0 => range_request})
+        self.range_batch(btreemap! {0 => range_request})
             .await
             .remove(&0)
             .context("batch_key missing")?
@@ -833,7 +792,6 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
-        index::IndexKey,
         interval::Interval,
         persistence::{
             now_ts,
@@ -885,7 +843,6 @@ mod tests {
     use super::TextIndexManagerSnapshot;
     use crate::{
         query::IndexRangeResponse,
-        reads::TransactionReadSet,
         transaction_index::TransactionIndex,
         FollowerRetentionManager,
     };
@@ -975,7 +932,6 @@ mod tests {
         )
         .await?;
 
-        let mut reads = TransactionReadSet::new();
         let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
         let search_storage = Arc::new(LocalDirStorage::new(rt)?);
         let mut index = TransactionIndex::new(
@@ -997,16 +953,13 @@ mod tests {
         // Query the missing index. It should return an error because index is missing.
         {
             let result = index
-                .range(
-                    &mut reads,
-                    RangeRequest {
-                        index_name: messages_by_name.clone(),
-                        printable_index_name: printable_messages_by_name.clone(),
-                        interval: Interval::all(),
-                        order: Order::Asc,
-                        max_size: 100,
-                    },
-                )
+                .range(RangeRequest {
+                    index_name: messages_by_name.clone(),
+                    printable_index_name: printable_messages_by_name.clone(),
+                    interval: Interval::all(),
+                    order: Order::Asc,
+                    max_size: 100,
+                })
                 .await;
             assert!(result.is_err());
             match result {
@@ -1031,16 +984,13 @@ mod tests {
         index.begin_update(None, Some(by_name))?.apply();
 
         let result = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: messages_by_name,
-                    printable_index_name: printable_messages_by_name,
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: messages_by_name,
+                printable_index_name: printable_messages_by_name,
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
             .await;
         assert!(result.is_err());
         match result {
@@ -1082,7 +1032,6 @@ mod tests {
         let (index_registry, inner, search, _) =
             bootstrap_index(&mut id_generator, vec![], rp).await?;
 
-        let mut reads = TransactionReadSet::new();
         let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
         let search_storage = Arc::new(LocalDirStorage::new(rt)?);
         let mut index = TransactionIndex::new(
@@ -1106,16 +1055,13 @@ mod tests {
             page: results,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_id.clone(),
-                    printable_index_name: printable_by_id.clone(),
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_id.clone(),
+                printable_index_name: printable_by_id.clone(),
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
             .await?;
         assert!(matches!(cursor, CursorPosition::End));
         assert!(results.is_empty());
@@ -1123,16 +1069,13 @@ mod tests {
         // Query by any other index should return an error.
         {
             let result = index
-                .range(
-                    &mut reads,
-                    RangeRequest {
-                        index_name: by_name,
-                        printable_index_name: printable_by_name,
-                        interval: Interval::all(),
-                        order: Order::Asc,
-                        max_size: 100,
-                    },
-                )
+                .range(RangeRequest {
+                    index_name: by_name,
+                    printable_index_name: printable_by_name,
+                    interval: Interval::all(),
+                    order: Order::Asc,
+                    max_size: 100,
+                })
                 .await;
             assert!(result.is_err());
             match result {
@@ -1152,16 +1095,13 @@ mod tests {
             page: results,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_id.clone(),
-                    printable_index_name: printable_by_id.clone(),
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_id.clone(),
+                printable_index_name: printable_by_id.clone(),
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
             .await?;
         assert!(matches!(cursor, CursorPosition::End));
         assert!(results.is_empty());
@@ -1179,16 +1119,13 @@ mod tests {
             page: result,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_id,
-                    printable_index_name: printable_by_id,
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_id,
+                printable_index_name: printable_by_id,
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
             .await?;
         assert_eq!(
             result,
@@ -1219,14 +1156,13 @@ mod tests {
             unchecked_repeatable_ts(now0),
             retention_manager.clone(),
         );
-        let index_table_id = id_generator.system_table_id(&"_index".parse()?).tablet_id;
         let table: TableName = "users".parse()?;
         let table_id = id_generator.user_table_id(&table).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id(table.clone());
         let by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
         let printable_by_name = IndexName::new(table.clone(), IndexDescriptor::new("by_name")?)?;
-        let (mut index_registry, mut index, search, index_ids) = bootstrap_index(
+        let (mut index_registry, mut index, search, _index_ids) = bootstrap_index(
             &mut id_generator,
             vec![
                 IndexMetadata::new_enabled(by_id.clone(), by_id_fields.clone().try_into()?),
@@ -1290,7 +1226,6 @@ mod tests {
         let now3 = now2.succ()?;
         add(&mut index_registry, &mut index, &ps, now3, zack.clone()).await?;
 
-        let by_id_index = *(index_ids.get(&by_id).unwrap());
         id_generator.write_tables(ps.clone()).await?;
 
         let now4 = now3.succ()?;
@@ -1298,7 +1233,6 @@ mod tests {
         let ps = RepeatablePersistence::new(ps, unchecked_repeatable_ts(now4), retention_manager)
             .read_snapshot(unchecked_repeatable_ts(now4))?;
 
-        let mut reads = TransactionReadSet::new();
         let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
         let search_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let mut index = TransactionIndex::new(
@@ -1329,16 +1263,13 @@ mod tests {
             page: results,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_id.clone(),
-                    printable_index_name: printable_by_id,
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_id.clone(),
+                printable_index_name: printable_by_id,
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
             .await?;
         assert!(matches!(cursor, CursorPosition::End));
         assert_eq!(
@@ -1366,30 +1297,18 @@ mod tests {
                 ),
             ]
         );
-        let mut expected_reads = TransactionReadSet::new();
-        expected_reads.record_indexed_derived(
-            TabletIndexName::by_id(index_table_id),
-            IndexedFields::by_id(),
-            Interval::prefix(IndexKey::new(vec![], by_id_index.into()).to_bytes().into()),
-        );
-        // Note: We do not expect the reads to include the range from this query, since
-        // that will be tracked later when the query results are consumed
-        assert_eq!(reads, expected_reads);
         // Query by name in ascending order
         let IndexRangeResponse {
             page: results,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_name.clone(),
-                    printable_index_name: printable_by_name.clone(),
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_name.clone(),
+                printable_index_name: printable_by_name.clone(),
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 100,
+            })
             .await?;
         assert!(matches!(cursor, CursorPosition::End));
         assert_eq!(
@@ -1423,16 +1342,13 @@ mod tests {
             page: results,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_name.clone(),
-                    printable_index_name: printable_by_name.clone(),
-                    interval: Interval::all(),
-                    order: Order::Asc,
-                    max_size: 2,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_name.clone(),
+                printable_index_name: printable_by_name.clone(),
+                interval: Interval::all(),
+                order: Order::Asc,
+                max_size: 2,
+            })
             .await?;
         assert_eq!(
             cursor,
@@ -1467,16 +1383,13 @@ mod tests {
             page: result,
             cursor,
         } = index
-            .range(
-                &mut reads,
-                RangeRequest {
-                    index_name: by_name,
-                    printable_index_name: printable_by_name,
-                    interval: Interval::all(),
-                    order: Order::Desc,
-                    max_size: 100,
-                },
-            )
+            .range(RangeRequest {
+                index_name: by_name,
+                printable_index_name: printable_by_name,
+                interval: Interval::all(),
+                order: Order::Desc,
+                max_size: 100,
+            })
             .await?;
         assert!(matches!(cursor, CursorPosition::End));
         assert_eq!(

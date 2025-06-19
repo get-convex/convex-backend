@@ -403,7 +403,7 @@ pub async fn index_range_batch<RT: Runtime>(
         }
     }
 
-    let fetch_results = tx.index.range_batch(&mut tx.reads, fetch_requests).await;
+    let fetch_results = tx.index.range_batch(fetch_requests).await;
 
     for (batch_key, fetch_result) in fetch_results {
         let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();

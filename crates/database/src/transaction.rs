@@ -908,7 +908,7 @@ impl<RT: Runtime> Transaction<RT> {
 
         let mut results = self
             .index
-            .range_batch(&mut self.reads, btreemap! { 0 => range_request })
+            .range_batch(btreemap! { 0 => range_request })
             .await;
         self.reads
             .record_indexed_directly(index_name, IndexedFields::by_id(), interval)?;
