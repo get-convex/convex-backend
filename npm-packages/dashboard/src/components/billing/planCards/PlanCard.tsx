@@ -1,6 +1,5 @@
 import classNames from "classnames";
 import { PlanResponse } from "generatedApi";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export const planNameMap: Record<string, string> = {
   CONVEX_STARTER_PLUS: "Starter",
@@ -18,7 +17,6 @@ export function PlanCard({
   saleHeader: React.ReactNode | string;
   action: React.ReactNode;
 }) {
-  const { seatlessPlans } = useLaunchDarkly();
   return (
     <div
       className={classNames(
@@ -56,7 +54,7 @@ export function PlanCard({
           )}
           {plan.planType === "CONVEX_PROFESSIONAL" && (
             <ul className="ml-4 list-disc">
-              <li>Everything in {seatlessPlans ? "Starter" : "Free"}</li>
+              <li>Everything in Starter</li>
               <li>Up to 20 team members</li>
               <li>Unlimited projects</li>
               <li>Higher included usage limits</li>

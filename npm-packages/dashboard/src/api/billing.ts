@@ -1,4 +1,3 @@
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useBBMutation, useBBQuery } from "./api";
 
 export function useTeamOrbSubscription(teamId?: number) {
@@ -161,8 +160,6 @@ export function useListInvoices(teamId?: number) {
 }
 
 export function useListPlans(teamId?: number) {
-  const { seatlessPlans } = useLaunchDarkly();
-
   const { data, error, isLoading } = useBBQuery({
     path: "/teams/{team_id}/list_active_plans",
     pathParams: {
@@ -178,13 +175,8 @@ export function useListPlans(teamId?: number) {
     throw error;
   }
 
-  let plans = data?.plans;
-  if (plans && !seatlessPlans) {
-    plans = plans.filter((plan) => plan.seatPrice);
-  }
-
   return {
-    plans,
+    plans: data?.plans,
     isLoading,
   };
 }
