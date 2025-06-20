@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- Set `process.env.NODE_ENV = "production"` during bundling. This will result in
-  different code being bundled!
+- Set `process.env.NODE_ENV = "production"` during Convex function bundling.
+  This will result in different code being bundled from some packages, generally
+  faster code.
+
+- Smaller bundles via minification.
 
 - ConvexHttpClient mutations are now queued by default, making the
   ConvexHttpClient match the behavior of ConvexClient and ConvexReactClient.
@@ -33,6 +36,13 @@
 - TypeScript error when async callbacks are passed to
   `mutation.withOptimisticUpdate()`: an optimistic update function is expected
   to run synchronously.
+
+- Experimental onServerDisconnectError() callback option for Convex clients.
+
+  This is a stopgap client callback to report unusual server disconnect errors.
+  The content of these messages, which messages trigger the callback, and the
+  existence of the callback are all subject to change as we develop better
+  interfaces for disconnect metrics.
 
 ## 1.24.8
 
