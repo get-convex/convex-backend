@@ -475,7 +475,14 @@ export function useFunctionTester({
           return;
         }
         const user = impersonatedUserSchema.parse(v);
-        setImpersonatedUser(user);
+
+        const { customClaims, ...rootClaims } = user;
+        const flattenedUser = {
+          ...rootClaims,
+          ...(customClaims || {}),
+        };
+
+        setImpersonatedUser(flattenedUser);
         setImpersonatedUserError(undefined);
       } catch (e: any) {
         if (e instanceof ZodError) {
