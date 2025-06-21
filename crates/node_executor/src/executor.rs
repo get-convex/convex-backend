@@ -120,6 +120,11 @@ pub fn error_response_json(message: &str) -> JsonValue {
     })
 }
 
+// AWS Lambda has a 6MiB limit on invoke request size,
+// and we leave some headroom for other data in `ExecuteRequest` like
+// environment variables which could take up to 100 * 8KiB = 800 KiB
+const NODE_ACTIONS_ARGS_SIZE_LIMIT: usize = 5 * 1024 * 1024; // 5MiB
+
 pub static EXECUTE_TIMEOUT_RESPONSE_JSON: LazyLock<JsonValue> = LazyLock::new(|| {
     error_response_json(
         "Function execution unexpectedly timed out. Check your function for infinite loops or \
@@ -230,6 +235,7 @@ impl<RT: Runtime> Actions<RT> {
             + Send,
     ) -> anyhow::Result<NodeActionOutcome> {
         let path = request.path_and_args.path().clone();
+        anyhow::ensure!(request.path_and_args.args_size() < NODE_ACTIONS_ARGS_SIZE_LIMIT, ErrorMetadata::bad_request("ArgsTooLarge", format!("Node actions arguments size is too large: {} bytes. The maximum size is {} bytes.", request.path_and_args.args_size(), NODE_ACTIONS_ARGS_SIZE_LIMIT)));
         let timer = node_executor("execute");
         let request = ExecutorRequest::Execute {
             request,
