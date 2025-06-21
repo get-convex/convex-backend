@@ -21,6 +21,7 @@ import { FunctionRunnerWrapper } from "@common/features/functionRunner/component
 import { FunctionsProvider } from "@common/lib/functions/FunctionsProvider";
 import { useIsGlobalRunnerShown } from "@common/features/functionRunner/lib/functionRunner";
 import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsCloudDeploymentInSelfHostedDashboard";
+import { BotIcon } from "@common/lib/logos/BotIcon";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -79,6 +80,12 @@ export function DeploymentDashboardLayout({
       ),
       href: `${uriPrefix}/logs`,
     },
+    {
+      key: "agent",
+      label: "AI Agents",
+      Icon: (props: any) => <BotIcon {...props} />,
+      href: `${uriPrefix}/agents`,
+    },
   ];
 
   const sidebarItems = [
@@ -125,7 +132,7 @@ export function DeploymentDashboardLayout({
           <div
             className={classNames(
               "flex w-full grow overflow-x-hidden",
-              !isGlobalRunnerVertical && "flex-col",
+              !isGlobalRunnerVertical && "flex-col"
             )}
           >
             {/* If the function runner is fully expanded, hide the content */}
@@ -155,7 +162,7 @@ function PauseBanner() {
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
 
   const { useCurrentTeam, useCurrentUsageBanner } = useContext(
-    DeploymentInfoContext,
+    DeploymentInfoContext
   );
 
   const team = useCurrentTeam();
