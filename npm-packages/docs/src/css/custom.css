@@ -85,10 +85,10 @@
 
   --ifm-code-font-size: 95%;
   --ifm-font-weight-semibold: 400;
-  --ifm-font-family-base:
-    "Inter", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
-    Noto Sans, sans-serif, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --ifm-font-family-base: "Inter", system-ui, -apple-system, Segoe UI, Roboto,
+    Ubuntu, Cantarell, Noto Sans, sans-serif, BlinkMacSystemFont, "Segoe UI",
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol";
 
   /* Footer */
   --ifm-footer-background-color: var(--ifm-background-color);
@@ -593,9 +593,9 @@ a.pagination-nav__link .pagination-nav__label:hover {
 .markdown h1:first-child {
   --ifm-h1-font-size: 2rem;
   margin-top: 1.25rem;
-  --ifm-heading-font-family:
-    "GT America", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --ifm-heading-font-family: "GT America", system-ui, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol";
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -611,9 +611,9 @@ h1,
 h2,
 h3,
 h4 {
-  --ifm-heading-font-family:
-    "GT America", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --ifm-heading-font-family: "GT America", system-ui, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol";
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -1334,9 +1334,8 @@ html[data-theme="dark"] a.card.convex-invert-icon svg {
 }
 
 .StackPosts-title {
-  font-family:
-    "GT America", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-family: "GT America", system-ui, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
   display: flex;
   flex-direction: row;
   align-items: center;
