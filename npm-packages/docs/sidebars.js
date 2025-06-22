@@ -221,6 +221,12 @@ const sidebars = {
     },
     {
       type: "doc",
+      id: "client/nuxt",
+      label: "Nuxt",
+      className: "convex-sidebar-nuxt",
+    },
+    {
+      type: "doc",
       id: "client/svelte",
       label: "Svelte",
       className: "convex-sidebar-svelte",
