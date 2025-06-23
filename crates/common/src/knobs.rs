@@ -1298,6 +1298,10 @@ pub static EXPORT_MAX_INFLIGHT_PREFETCH_BYTES: LazyLock<usize> = LazyLock::new(|
     .clamp(1, u32::MAX as usize)
 });
 
+/// The page size to the table iterator in the export worker.
+pub static EXPORT_WORKER_PAGE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("EXPORT_WORKER_PAGE_SIZE", 1000));
+
 /// Whether or not a service should propagate all upstream traces or perform its
 /// own sampling
 pub static PROPAGATE_UPSTREAM_TRACES: LazyLock<bool> =
