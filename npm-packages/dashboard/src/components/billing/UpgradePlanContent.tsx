@@ -35,6 +35,7 @@ export type UpgradePlanContentProps = {
   billingAddressInputs: React.ReactNode;
   paymentDetailsForm: React.ReactNode;
   isChef: boolean;
+  teamManagedBy?: string;
 };
 
 export const CreateSubscriptionSchema = Yup.object().shape({
@@ -152,6 +153,7 @@ export function UpgradePlanContentContainer({
         {...props}
         plan={plan}
         isChef={isChef}
+        teamManagedBy={team.managedBy || undefined}
         setPaymentMethod={(p) => {
           if (!p) {
             resetClientSecret();
@@ -206,6 +208,7 @@ export function UpgradePlanContent({
   billingAddressInputs,
   paymentDetailsForm,
   isChef,
+  teamManagedBy,
 }: UpgradePlanContentProps) {
   const formState = useFormikContext<UpgradeFormState>();
 
@@ -236,6 +239,7 @@ export function UpgradePlanContent({
           requiresPaymentMethod={requiresPaymentMethod}
           couponDurationInMonths={couponDurationInMonths}
           isUpgrading={false}
+          teamManagedBy={teamManagedBy}
         />
         {plan.planType === "CONVEX_PROFESSIONAL" && (
           <div className="flex max-w-64 items-center gap-2">

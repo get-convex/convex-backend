@@ -9,6 +9,7 @@ import {
   UpgradePlanDialog,
 } from "components/billing/planCards/ChangePlanDialogs";
 import { planNameMap } from "components/billing/planCards/PlanCard";
+import startCase from "lodash/startCase";
 import { SelfServePlan } from "./SelfServePlan";
 
 export function OrbSelfServePlan({
@@ -72,14 +73,20 @@ export function OrbSelfServePlan({
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : missingRequiredPaymentMethod
-                    ? "Add a payment method in the settings below to switch to this plan."
-                    : undefined
+                  : team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL"
+                    ? `This team is managed by ${startCase(team.managedBy)}. You may select this plan in ${startCase(team.managedBy)}.`
+                    : missingRequiredPaymentMethod
+                      ? "Add a payment method in the settings below to switch to this plan."
+                      : undefined
               }
               onClick={() => {
                 setIsChangingPlan(true);
               }}
-              disabled={!hasAdminPermissions || missingRequiredPaymentMethod}
+              disabled={
+                !hasAdminPermissions ||
+                missingRequiredPaymentMethod ||
+                (!!team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL")
+              }
               variant={isDowngrade ? "neutral" : "primary"}
             >
               {isDowngrade
@@ -89,14 +96,19 @@ export function OrbSelfServePlan({
           ) : (
             <Button
               onClick={() => upgrade()}
-              disabled={!hasAdminPermissions}
+              disabled={
+                !hasAdminPermissions ||
+                (!!team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL")
+              }
               variant={
                 plan.planType === "CONVEX_PROFESSIONAL" ? "primary" : "neutral"
               }
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : undefined
+                  : team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL"
+                    ? `This team is managed by ${startCase(team.managedBy)}. You may select this plan in ${startCase(team.managedBy)}.`
+                    : undefined
               }
             >
               Upgrade to {newPlanName}

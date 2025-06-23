@@ -6,7 +6,9 @@ import { useTeamInvites } from "api/invitations";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import Link from "next/link";
 import { Team } from "generatedApi";
+import startCase from "lodash/startCase";
 
+import { captureMessage } from "@sentry/nextjs";
 import { InviteMemberForm } from "./InviteMemberForm";
 import { TeamMemberList } from "./TeamMemberList";
 
@@ -26,6 +28,17 @@ export function TeamMembers({ team }: { team: Team }) {
     // Data isn't loaded yet, show a skeleton.
     inviteMembers = (
       <Loading className="h-[9.5rem] w-full rounded" fullHeight={false} />
+    );
+  } else if (team.managedBy) {
+    inviteMembers = (
+      <Callout>
+        <div className="flex flex-col gap-2 p-2">
+          <div>
+            This team is managed by {startCase(team.managedBy)}.{" "}
+            {joinInstructionsForTeamManagedBy(team.managedBy)}
+          </div>
+        </div>
+      </Callout>
     );
   } else if (canAddMembers) {
     // Show invite form if you can add members.
@@ -85,4 +98,14 @@ export function TeamMembers({ team }: { team: Team }) {
       <TeamMemberList team={team} members={members} invites={invites} />
     </>
   );
+}
+
+function joinInstructionsForTeamManagedBy(managedBy: string) {
+  switch (managedBy) {
+    case "vercel":
+      return 'Your team members may join the team by clicking "Open in Convex" when viewing the Convex integration in their Vercel dashboard.';
+    default:
+      captureMessage(`Unknown team managed by: ${managedBy}`);
+      return "";
+  }
 }
