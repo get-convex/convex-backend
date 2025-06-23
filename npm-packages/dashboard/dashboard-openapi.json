@@ -4071,6 +4071,18 @@
               "string",
               "null"
             ]
+          },
+          "vercel_account_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vercel_installation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
