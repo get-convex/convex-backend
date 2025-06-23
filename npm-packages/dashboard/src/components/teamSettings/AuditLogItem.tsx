@@ -747,6 +747,11 @@ function AuditLogItemActor({
   const member = members?.find((m) => m.id === memberId);
   return member ? (
     <TeamMemberLink memberId={member.id} name={member.name || member.email} />
+  ) : (entry.metadata as AuditLogEntryMetadata).noun === "member" ? (
+    <span className="font-semibold">
+      {(entry.metadata as AuditLogEntryMetadata)?.current?.email ||
+        (entry.metadata as AuditLogEntryMetadata)?.previous?.email}
+    </span>
   ) : (
     <span className="font-semibold">
       A team member{" "}
