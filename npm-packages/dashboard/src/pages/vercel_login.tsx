@@ -2,6 +2,7 @@ import { useSessionStorage } from "react-use";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { LoadingLogo } from "@ui/Loading";
+import { ParsedUrlQuery } from "querystring";
 
 /**
  * This page handles the Vercel OAuth login flow integration with Convex's authentication system.
@@ -30,7 +31,7 @@ export default function VercelLogin() {
       // in session storage (so it's accessible once we're redirected back and redirect to the Auth0 login page.
       setVercelCode(query.code.toString());
       void replace(
-        `/api/auth/login?connection=vercel${query.returnTo ? `&returnTo=${query.returnTo}` : ""}`,
+        `/api/auth/login?connection=vercel&returnTo=${vercelReturnTo(query)}`,
       );
     }
 
@@ -55,4 +56,25 @@ export default function VercelLogin() {
       <LoadingLogo />
     </div>
   );
+}
+
+function vercelReturnTo(query: ParsedUrlQuery) {
+  const params = [];
+  if (query.resource_id) {
+    params.push(`projectId=${query.projectId}`);
+  }
+  if (query.invoice_id) {
+    params.push(`invoiceId=${query.invoiceId}`);
+  }
+  if (
+    query.path &&
+    ["billing", "support", "usage"].includes(query.path as string)
+  ) {
+    params.push(`vercelPath=${query.path}`);
+  }
+
+  if (params.length > 0) {
+    return `/?${params.join("&")}`;
+  }
+  return "/";
 }

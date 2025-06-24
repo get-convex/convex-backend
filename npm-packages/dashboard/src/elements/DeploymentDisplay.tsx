@@ -1,7 +1,7 @@
 import { CommandLineIcon, SignalIcon } from "@heroicons/react/20/solid";
 import { GearIcon, GlobeIcon, Pencil2Icon } from "@radix-ui/react-icons";
 import { useCurrentDeployment, useDeployments } from "api/deployments";
-import { useCurrentTeam, useTeamMembers } from "api/teams";
+import { useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRememberLastViewedDeployment } from "hooks/useLastViewed";
@@ -60,8 +60,7 @@ export function DeploymentLabel({
   whoseName: string | null;
   inline?: boolean;
 }) {
-  const team = useCurrentTeam();
-  const project = useProjectById(team?.id, deployment.projectId);
+  const project = useProjectById(deployment.projectId);
   const { deployments } = useDeployments(project?.id);
   const hasMultipleActiveLocalDeployments =
     deployments !== undefined &&
