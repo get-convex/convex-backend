@@ -56,7 +56,7 @@ const config: Config = {
     },
     navbar: {
       hideOnScroll: true,
-      // If you change the Convex logo or the “docs” link, also update
+      // If you change the Convex logo or the "docs" link, also update
       // src/theme/DocSidebar/Desktop/index.js to make sure the appearance
       // when the navbar disappears on scroll is consistent.
       logo: {
@@ -67,7 +67,7 @@ const config: Config = {
       },
       items: [
         {
-          // See the comment above if you’re modifying this link
+          // See the comment above if you're modifying this link
           type: "docSidebar",
           position: "left",
           sidebarId: "docs",
@@ -322,6 +322,54 @@ const config: Config = {
           // Don't generate sidebar_label so we can always define it ourselves
           autoConfiguration: false,
         },
+      },
+    ],
+    [
+      "@signalwire/docusaurus-plugin-llms-txt",
+      {
+        siteTitle: "Convex Documentation",
+        siteDescription:
+          "For general information about Convex, read [https://www.convex.dev/llms.txt](https://www.convex.dev/llms.txt).",
+        content: {
+          enableLlmsFullTxt: true,
+          excludeRoutes: [
+            "/home",
+            "/quickstarts",
+            "/understanding/best-practices/other-recommendations",
+          ],
+        },
+        includeOrder: [
+          "/understanding/**",
+          "/quickstart/**",
+
+          "/functions/**",
+          "/database/**",
+          "/realtime/**",
+          "/auth/**",
+          "/scheduling/**",
+          "/file-storage/**",
+          "/search/**",
+          "/components/**",
+
+          "/ai/**",
+          "/agents/**",
+          "/testing/**",
+          "/production/**",
+          "/self-hosting/**",
+
+          "/cli/**",
+          "/client/**",
+          "/dashboard/**",
+          "/error/**",
+          "/eslint/**",
+          "/home/**",
+          "/tutorial/**",
+
+          "/api/**",
+          "/generated-api/**",
+          "/http-api/**",
+        ],
+        onRouteError: "throw",
       },
     ],
     "./src/plugins/metrics",
