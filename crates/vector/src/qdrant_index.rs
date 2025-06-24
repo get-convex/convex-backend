@@ -312,7 +312,7 @@ impl QdrantSchema {
                 histograms: true,
             };
             tracing::warn!(
-                "Slow qdrant query, duration: {}ms, segment telemetry: {:#?}",
+                "Slow qdrant query, duration: {}ms, segment telemetry: {:?}",
                 duration.as_millis(),
                 segment.get_telemetry_data(detail),
             )
