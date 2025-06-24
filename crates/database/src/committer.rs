@@ -102,7 +102,10 @@ use tokio::sync::{
 };
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    heap_size::WithHeapSize,
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
     id_v6::DeveloperDocumentId,
     InternalDocumentId,
     TableMapping,
@@ -832,8 +835,10 @@ impl<RT: Runtime> Committer<RT> {
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
         let timer = metrics::write_log_append_timer();
+        let size = ordered_updates.heap_size();
         self.log.append(commit_ts, ordered_updates, write_source);
         drop(timer);
+        metrics::write_log_commit_bytes(size);
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
             metrics::log_num_keys(table_summaries.num_user_documents);
