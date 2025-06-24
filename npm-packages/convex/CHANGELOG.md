@@ -1,12 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.25.0
+
+To upgrade to this release you'll need to upgrade any Convex components you use.
 
 - Set `process.env.NODE_ENV = "production"` during Convex function bundling.
   This will result in different code being bundled from some packages, generally
   faster code.
 
-- Smaller bundles via minification.
+- Smaller bundles via esbuild minification.
 
 - ConvexHttpClient mutations are now queued by default, making the
   ConvexHttpClient match the behavior of ConvexClient and ConvexReactClient.
