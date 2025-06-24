@@ -29,7 +29,6 @@ use common::{
         ACTION_USER_TIMEOUT,
         UDF_CACHE_MAX_SIZE,
     },
-    log_streaming::NoopLogSender,
     persistence::Persistence,
     runtime::Runtime,
     shutdown::ShutdownSignal,
@@ -227,7 +226,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                     modules_storage: application_storage.modules_storage.clone(),
                 },
                 database.clone(),
-                fetch_client,
+                fetch_client.clone(),
             )
             .await?,
         );
@@ -266,13 +265,14 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             segment_term_metadata_fetcher,
             Arc::new(persistence.clone()),
             actions,
-            Arc::new(NoopLogSender),
             Arc::new(RedactLogsToClient::new(false)),
             Arc::new(ApplicationAuth::new(
                 kb.clone(),
                 Arc::new(NullAccessTokenAuth),
             )),
             QueryCache::new(*UDF_CACHE_MAX_SIZE),
+            fetch_client,
+            None, // local_log_sink
         )
         .await?;
 

@@ -212,6 +212,7 @@ dependencies = [
  "itertools 0.14.0",
  "keybroker",
  "libc",
+ "log_streaming",
  "lru 0.14.0",
  "maplit",
  "metrics",

@@ -38,16 +38,6 @@ pub trait LogSender: Send + Sync {
     fn shutdown(&self) -> anyhow::Result<()>;
 }
 
-pub struct NoopLogSender;
-
-impl LogSender for NoopLogSender {
-    fn send_logs(&self, _logs: Vec<LogEvent>) {}
-
-    fn shutdown(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
 /// Structured log
 #[derive(Debug, Clone)]
 pub struct LogEvent {
