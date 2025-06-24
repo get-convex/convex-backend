@@ -11,6 +11,7 @@ use common::{
     index::IndexKeyBytes,
     interval::Interval,
     knobs::{
+        DEFAULT_QUERY_PREFETCH,
         TRANSACTION_MAX_READ_SIZE_BYTES,
         TRANSACTION_MAX_READ_SIZE_ROWS,
     },
@@ -36,7 +37,6 @@ use super::{
     DeveloperIndexRangeResponse,
     QueryStream,
     QueryStreamNext,
-    DEFAULT_QUERY_PREFETCH,
     MAX_QUERY_FETCH,
 };
 use crate::{
@@ -251,7 +251,7 @@ impl IndexRange {
         }
 
         let mut max_rows = prefetch_hint
-            .unwrap_or(DEFAULT_QUERY_PREFETCH)
+            .unwrap_or(*DEFAULT_QUERY_PREFETCH)
             .clamp(1, MAX_QUERY_FETCH);
 
         if enforce_limits && let Some(maximum_rows_read) = self.maximum_rows_read {

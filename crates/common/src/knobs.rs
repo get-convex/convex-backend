@@ -325,6 +325,11 @@ pub static MAX_SYSCALL_BATCH_SIZE: LazyLock<usize> =
 pub static MAX_REACTOR_CALL_DEPTH: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_REACTOR_CALL_DEPTH", 8));
 
+/// Default number of records to fetch from an index if a prefetch hint is not
+/// provided.
+pub static DEFAULT_QUERY_PREFETCH: LazyLock<usize> =
+    LazyLock::new(|| env_config("DEFAULT_QUERY_PREFETCH", 100));
+
 /// Number of rows that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SIZE_ROWS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SIZE_ROWS", 32000));
