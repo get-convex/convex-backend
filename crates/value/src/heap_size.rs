@@ -260,7 +260,7 @@ impl<T: HeapSize> Extend<T> for WithHeapSize<Vec<T>> {
 
 impl<T: HeapSize> From<Vec<T>> for WithHeapSize<Vec<T>> {
     fn from(value: Vec<T>) -> Self {
-        let elements_heap_size = value.iter().map(|e| e.heap_size()).sum();
+        let elements_heap_size = value.elements_heap_size();
         Self {
             inner: value,
             elements_heap_size,
@@ -335,7 +335,7 @@ impl<T: HeapSize + Clone> HeapSize for WithHeapSize<Vector<T>> {
 
 impl<T: HeapSize + Clone> From<Vector<T>> for WithHeapSize<Vector<T>> {
     fn from(value: Vector<T>) -> Self {
-        let elements_heap_size = value.iter().map(|e| e.heap_size()).sum();
+        let elements_heap_size = value.elements_heap_size();
         Self {
             inner: value,
             elements_heap_size,
@@ -401,7 +401,7 @@ impl<T: HeapSize> HeapSize for WithHeapSize<VecDeque<T>> {
 
 impl<T: HeapSize> From<VecDeque<T>> for WithHeapSize<VecDeque<T>> {
     fn from(value: VecDeque<T>) -> Self {
-        let elements_heap_size = value.iter().map(|e| e.heap_size()).sum();
+        let elements_heap_size = value.elements_heap_size();
         Self {
             inner: value,
             elements_heap_size,
@@ -778,10 +778,7 @@ impl<K: HeapSize, V: HeapSize> HeapSize for WithHeapSize<BTreeMap<K, V>> {
 
 impl<K: HeapSize, V: HeapSize> From<BTreeMap<K, V>> for WithHeapSize<BTreeMap<K, V>> {
     fn from(value: BTreeMap<K, V>) -> Self {
-        let elements_heap_size = value
-            .iter()
-            .map(|(k, v)| k.heap_size() + v.heap_size())
-            .sum();
+        let elements_heap_size = value.elements_heap_size();
         Self {
             inner: value,
             elements_heap_size,
@@ -831,7 +828,7 @@ impl<T: HeapSize> HeapSize for WithHeapSize<BTreeSet<T>> {
 
 impl<T: HeapSize> From<BTreeSet<T>> for WithHeapSize<BTreeSet<T>> {
     fn from(value: BTreeSet<T>) -> Self {
-        let elements_heap_size = value.iter().map(|e| e.heap_size()).sum();
+        let elements_heap_size = value.elements_heap_size();
         Self {
             inner: value,
             elements_heap_size,
