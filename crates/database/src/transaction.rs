@@ -83,7 +83,6 @@ use keybroker::{
     Identity,
     UserIdentityAttributes,
 };
-use maplit::btreemap;
 use search::CandidateRevision;
 use sync_types::{
     AuthenticationToken,
@@ -906,16 +905,18 @@ impl<RT: Runtime> Transaction<RT> {
             max_size: 2,
         };
 
-        let mut results = self
+        let [result] = self
             .index
-            .range_batch(btreemap! { 0 => range_request })
-            .await;
+            .range_batch(&[&range_request])
+            .await
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("expected result"))?;
         self.reads
             .record_indexed_directly(index_name, IndexedFields::by_id(), interval)?;
         let IndexRangeResponse {
             page: range_results,
             cursor,
-        } = results.remove(&0).context("expected result")??;
+        } = result?;
         if range_results.len() > 1 {
             Err(anyhow::anyhow!("Got multiple values for id {id:?}"))?;
         }

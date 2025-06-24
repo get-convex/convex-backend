@@ -7,7 +7,6 @@ use std::{
     },
 };
 
-use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
@@ -47,7 +46,6 @@ use common::{
 use imbl::OrdMap;
 use indexing::{
     backend_in_memory_indexes::{
-        BatchKey,
         DatabaseIndexSnapshot,
         LazyDocument,
         RangeRequest,
@@ -57,7 +55,6 @@ use indexing::{
         IndexRegistry,
     },
 };
-use maplit::btreemap;
 use search::{
     query::RevisionWithKeys,
     CandidateRevision,
@@ -130,29 +127,23 @@ impl TransactionIndex {
     /// Range over a index including pending updates.
     /// `max_size` provides an estimate of the number of rows to be
     /// streamed from the database.
-    /// The returned vec may be larger or smaller than `max_size` depending on
+    /// The returned vecs may be larger or smaller than `max_size` depending on
     /// pending writes.
     async fn range_no_deps(
         &mut self,
-        ranges: &BTreeMap<BatchKey, RangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
+        ranges: &[&RangeRequest],
+    ) -> Vec<
         anyhow::Result<(
             Vec<(IndexKeyBytes, LazyDocument, WriteTimestamp)>,
             CursorPosition,
         )>,
     > {
-        let snapshot = &mut self.database_index_snapshot;
-        let mut snapshot_results = snapshot.range_batch(ranges).await;
-
+        let snapshot_results = self.database_index_snapshot.range_batch(ranges).await;
         let batch_size = ranges.len();
-        let mut results = BTreeMap::new();
-
-        for (&batch_key, range_request) in ranges {
-            let item_result: anyhow::Result<_> = try {
-                let (snapshot_result_vec, cursor) = snapshot_results
-                    .remove(&batch_key)
-                    .context("batch_key missing")??;
+        let mut results = Vec::with_capacity(batch_size);
+        for (&range_request, snapshot_result) in ranges.iter().zip(snapshot_results) {
+            let result = try {
+                let (snapshot_result_vec, cursor) = snapshot_result?;
                 let mut snapshot_it = snapshot_result_vec.into_iter();
                 let index_registry = &self.index_registry;
                 let database_index_updates = &self.database_index_updates;
@@ -250,7 +241,7 @@ impl TransactionIndex {
                 }
                 (range_results, cursor)
             };
-            assert!(results.insert(batch_key, item_result).is_none());
+            results.push(result);
         }
         assert_eq!(results.len(), batch_size);
         results
@@ -310,15 +301,14 @@ impl TransactionIndex {
     /// Callers must call `record_indexed_directly` when consuming the results.
     pub async fn range_batch(
         &mut self,
-        ranges: BTreeMap<BatchKey, RangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse>> {
+        ranges: &[&RangeRequest],
+    ) -> Vec<anyhow::Result<IndexRangeResponse>> {
         let batch_size = ranges.len();
-        let mut results = BTreeMap::new();
+        let mut results = Vec::with_capacity(batch_size);
 
-        let mut fetch_results = self.range_no_deps(&ranges).await;
+        let fetch_results = self.range_no_deps(ranges).await;
 
         for (
-            batch_key,
             RangeRequest {
                 index_name: _,
                 printable_index_name: _,
@@ -326,18 +316,17 @@ impl TransactionIndex {
                 order: _,
                 max_size,
             },
-        ) in ranges
+            fetch_result,
+        ) in ranges.iter().zip(fetch_results)
         {
             let result: anyhow::Result<_> = try {
-                let (documents, fetch_cursor) = fetch_results
-                    .remove(&batch_key)
-                    .context("batch item missing")??;
+                let (documents, fetch_cursor) = fetch_result?;
                 let mut total_bytes = 0;
                 let mut within_bytes_limit = true;
                 let out: Vec<_> = documents
                     .into_iter()
                     .map(|(key, doc, ts)| (key, doc.unpack(), ts))
-                    .take(max_size)
+                    .take(*max_size)
                     .take_while(|(_, document, _)| {
                         within_bytes_limit = total_bytes < *TRANSACTION_MAX_READ_SIZE_BYTES;
                         // Allow the query to exceed the limit by one document so the query
@@ -350,7 +339,7 @@ impl TransactionIndex {
                     .collect();
 
                 let cursor = if let Some((last_key, ..)) = out.last()
-                    && (out.len() >= max_size || !within_bytes_limit)
+                    && (out.len() >= *max_size || !within_bytes_limit)
                 {
                     // We hit an early termination condition within this page.
                     CursorPosition::After(last_key.clone())
@@ -366,7 +355,7 @@ impl TransactionIndex {
                 }
                 IndexRangeResponse { page: out, cursor }
             };
-            assert!(results.insert(batch_key, result).is_none());
+            results.push(result);
         }
         assert_eq!(results.len(), batch_size);
         results
@@ -383,10 +372,12 @@ impl TransactionIndex {
         &mut self,
         range_request: RangeRequest,
     ) -> anyhow::Result<IndexRangeResponse> {
-        self.range_batch(btreemap! {0 => range_request})
+        let [result] = self
+            .range_batch(&[&range_request])
             .await
-            .remove(&0)
-            .context("batch_key missing")?
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("wrong number of results"))?;
+        result
     }
 
     #[fastrace::trace]
@@ -411,17 +402,18 @@ impl TransactionIndex {
         let mut remaining_interval = interval.clone();
         let mut preloaded = BTreeMap::new();
         while !remaining_interval.is_empty() {
-            let (documents, cursor) = self
-                .range_no_deps(&btreemap! { 0 => RangeRequest {
+            let [result] = self
+                .range_no_deps(&[&RangeRequest {
                     index_name: tablet_index_name.clone(),
                     printable_index_name: printable_index_name.clone(),
                     interval: remaining_interval,
                     order: Order::Asc,
                     max_size: DEFAULT_PAGE_SIZE,
-                }})
+                }])
                 .await
-                .remove(&0)
-                .context("batch_key missing")??;
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("wrong number of results"))?;
+            let (documents, cursor) = result?;
             (_, remaining_interval) = interval.split(cursor, Order::Asc);
             for (_, document, _) in documents {
                 let document = document.unpack();

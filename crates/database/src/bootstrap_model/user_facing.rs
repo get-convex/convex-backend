@@ -24,6 +24,7 @@ use indexing::backend_in_memory_indexes::{
     BatchKey,
     RangeRequest,
 };
+use itertools::Itertools;
 use value::{
     check_user_size,
     ConvexObject,
@@ -403,9 +404,12 @@ pub async fn index_range_batch<RT: Runtime>(
         }
     }
 
-    let fetch_results = tx.index.range_batch(fetch_requests).await;
+    let fetch_results = tx
+        .index
+        .range_batch(&fetch_requests.values().collect_vec())
+        .await;
 
-    for (batch_key, fetch_result) in fetch_results {
+    for (&batch_key, fetch_result) in fetch_requests.keys().zip(fetch_results) {
         let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
         let result = fetch_result.and_then(|IndexRangeResponse { page, cursor }| {
             let developer_results = match virtual_table_version {
