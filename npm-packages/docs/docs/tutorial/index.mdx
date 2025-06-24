@@ -19,6 +19,19 @@ writes to the database and automatically updates all users in a chat app.
 After that we'll see how to connect to external services and setup your product
 for success and scale.
 
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/608khv7qqOI?si=ce-M8pt6EWDZ8tfd"
+    title="YouTube video player"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+
 ## Start developing with Convex
 
 <Details summary="Before you begin: You'll need Node.js 18+ and Git">
