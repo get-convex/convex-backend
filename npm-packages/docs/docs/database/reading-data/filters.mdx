@@ -1,6 +1,7 @@
 ---
 title: "Filters"
 sidebar_position: 200
+description: "Filter documents in Convex queries"
 ---
 
 # Filtering

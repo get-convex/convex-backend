@@ -1,6 +1,7 @@
 ---
 title: "Backup & Restore"
 sidebar_position: 85
+description: "Backup and restore your Convex data and files"
 ---
 
 Convex supports Backup & Restore of data via the

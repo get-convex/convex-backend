@@ -1,6 +1,7 @@
 ---
 title: Debugging
 sidebar_position: 100
+description: "Debug Convex functions during development and production"
 ---
 
 Debugging is the process of figuring out why your code isn't behaving as you

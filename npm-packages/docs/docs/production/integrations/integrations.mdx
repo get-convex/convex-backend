@@ -1,6 +1,6 @@
 ---
 title: "Integrations"
-description: "Integrate Convex with third party services."
+description: "Integrate Convex with third party services"
 sidebar_position: 1
 ---
 

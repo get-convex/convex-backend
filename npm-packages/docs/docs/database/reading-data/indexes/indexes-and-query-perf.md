@@ -2,6 +2,7 @@
 sidebar_label: "Indexes and Query Performance"
 title: "Introduction to Indexes and Query Performance"
 sidebar_position: 100
+description: "Learn the effects of indexes on query performance"
 ---
 
 How do I ensure my Convex

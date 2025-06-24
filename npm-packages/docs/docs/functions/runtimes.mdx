@@ -1,6 +1,8 @@
 ---
 title: Runtimes
 sidebar_position: 80
+description:
+  "Learn the differences between the Convex and Node.js runtimes for functions"
 ---
 
 # Runtimes

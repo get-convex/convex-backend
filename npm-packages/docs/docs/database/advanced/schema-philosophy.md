@@ -1,6 +1,7 @@
 ---
 title: Schema Philosophy
 sidebar_position: 450
+description: "Convex schema design philosophy and best practices"
 ---
 
 With Convex there is no need to write any `CREATE TABLE` statements, or think

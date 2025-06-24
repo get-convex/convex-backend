@@ -1,7 +1,7 @@
 ---
 title: "TypeScript"
 sidebar_position: 80
-description: "Move faster with end-to-end type safety."
+description: "Move faster with end-to-end type safety"
 pagination_next: null
 ---
 

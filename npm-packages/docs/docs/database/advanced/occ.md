@@ -4,6 +4,8 @@ slug: "occ"
 hidden: false
 sidebar_position: 500
 todo: Push under mutations, or inline, or kill (move to Stack)
+description:
+  "Optimistic concurrency control and transaction atomicity in Convex"
 ---
 
 In [Queries](/functions/query-functions.mdx), we mentioned that determinism as

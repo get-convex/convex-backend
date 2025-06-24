@@ -2,6 +2,8 @@
 title: "Dev workflow"
 hidden: false
 sidebar_position: 200
+description:
+  "Development workflow from project creation to production deployment"
 ---
 
 Let's walk through everything that needs to happen from creating a new project

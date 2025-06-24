@@ -1,6 +1,7 @@
 ---
 title: AI Code Generation
 hide_table_of_contents: true
+description: "How to use AI code generation effectively with Convex"
 ---
 
 <CardLink

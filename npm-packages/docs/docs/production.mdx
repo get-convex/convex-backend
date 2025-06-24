@@ -2,6 +2,7 @@
 title: "Deploying Your App to Production"
 hide_table_of_contents: true
 pagination_prev: search
+description: "Tips for building safe and reliable production apps"
 ---
 
 Convex is built to serve live, production app traffic. Here we cover how to

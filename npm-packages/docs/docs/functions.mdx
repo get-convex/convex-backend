@@ -1,6 +1,6 @@
 ---
 title: "Functions"
-description: "Write functions to define your server behavior."
+description: "Write functions to define your server behavior"
 hide_table_of_contents: true
 pagination_prev: tutorial/index
 ---

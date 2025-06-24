@@ -4,6 +4,7 @@ slug: "zen"
 hidden: false
 sidebar_position: 500
 hide_table_of_contents: true
+description: "Convex best practices and design philosophy"
 ---
 
 export function CategoryIcon(props) {

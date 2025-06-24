@@ -1,7 +1,7 @@
 ---
 title: "Using Convex with Vercel"
 sidebar_label: "Vercel"
-description: "Host your frontend on Vercel and your backend on Convex."
+description: "Host your frontend on Vercel and your backend on Convex"
 sidebar_position: 10
 ---
 
