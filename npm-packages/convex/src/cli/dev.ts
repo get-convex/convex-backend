@@ -10,6 +10,7 @@ import {
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
 } from "./lib/utils/utils.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import { detectSuspiciousEnvironmentVariables } from "./lib/envvars.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -163,6 +164,11 @@ Same format as .env.local or .env files, and overrides them.`,
       logVerbose(ctx, "Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
     });
+
+    await detectSuspiciousEnvironmentVariables(
+      ctx,
+      !!process.env.CONVEX_IGNORE_SUSPICIOUS_ENV_VARS,
+    );
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
 

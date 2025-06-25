@@ -24,7 +24,7 @@ export const promptString = async (
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Cannot prompt for input in non-interactive terminals.",
+      printedMessage: `Cannot prompt for input in non-interactive terminals. (${options.message})`,
     });
   }
 };
@@ -58,7 +58,7 @@ export const promptOptions = async <V>(
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Cannot prompt for input in non-interactive terminals.",
+      printedMessage: `Cannot prompt for input in non-interactive terminals. (${options.message})`,
     });
   }
 };
@@ -88,7 +88,7 @@ export const promptSearch = async <V>(
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Cannot prompt for input in non-interactive terminals.",
+      printedMessage: `Cannot prompt for input in non-interactive terminals. (${options.message})`,
     });
   }
 };
@@ -112,7 +112,7 @@ export const promptYesNo = async (
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Cannot prompt for input in non-interactive terminals.",
+      printedMessage: `Cannot prompt for input in non-interactive terminals. (${options.message})`,
     });
   }
 };

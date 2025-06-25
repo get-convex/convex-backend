@@ -257,6 +257,48 @@ const EXPECTED_NAMES = new Set([
   "EXPO_PUBLIC_CONVEX_URL",
 ]);
 
+// Crash or warn on
+// CONVEX_DEPLOY_KEY=project:me:new-project|eyABCD0= npx convex
+// which parses as
+// CONVEX_DEPLOY_KEY=project:me:new-project | eyABCD0='' npx convex
+// when what was intended was
+// CONVEX_DEPLOY_KEY=project:me:new-project|eyABCD0= npx convex
+// This only fails so catastrophically when the key ends with `=`.
+export async function detectSuspiciousEnvironmentVariables(
+  ctx: Context,
+  ignoreSuspiciousEnvVars = false,
+) {
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === "" && key.startsWith("ey")) {
+      try {
+        // add a "=" to the end and try to base64 decode (expected format of Convex keys)
+        const decoded = JSON.parse(
+          Buffer.from(key + "=", "base64").toString("utf8"),
+        );
+        // Only parseable v2 tokens to be sure this is a Convex token before complaining.
+        if (!("v2" in decoded)) {
+          continue;
+        }
+      } catch {
+        continue;
+      }
+
+      if (ignoreSuspiciousEnvVars) {
+        logWarning(
+          ctx,
+          `ignoring suspicious environment variable ${key}, did you mean to use quotes like CONVEX_DEPLOY_KEY='...'?`,
+        );
+      } else {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Quotes are required around environment variable values by your shell: CONVEX_DEPLOY_KEY='project:name:project|${key.slice(0, 4)}...${key.slice(key.length - 4)}=' npx convex dev`,
+        });
+      }
+    }
+  }
+}
+
 export function buildEnvironment(): string | boolean {
   return process.env.VERCEL
     ? "Vercel"
