@@ -2438,6 +2438,23 @@
         "responses": {}
       }
     },
+    "/update_primary_identity": {
+      "post": {
+        "description": "Change the primary identity for a user's account by unlinking and relinking.",
+        "operationId": "update_primary_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePrimaryIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {}
+      }
+    },
     "/update_profile_name": {
       "put": {
         "operationId": "update_profile_name",
@@ -2953,6 +2970,21 @@
           }
         },
         "additionalProperties": false
+      },
+      "ChangePrimaryIdentityRequest": {
+        "type": "object",
+        "required": [
+          "newPrimaryProvider",
+          "newPrimaryUserId"
+        ],
+        "properties": {
+          "newPrimaryProvider": {
+            "type": "string"
+          },
+          "newPrimaryUserId": {
+            "type": "string"
+          }
+        }
       },
       "ChangeSubscriptionPlanArgs": {
         "type": "object",

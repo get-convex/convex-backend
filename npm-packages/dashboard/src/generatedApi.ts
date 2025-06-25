@@ -1434,6 +1434,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/update_primary_identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Change the primary identity for a user's account by unlinking and relinking. */
+        post: operations["update_primary_identity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update_profile_name": {
         parameters: {
             query?: never;
@@ -1573,6 +1590,10 @@ export interface components {
         };
         CancelInvitationArgs: {
             email: string;
+        };
+        ChangePrimaryIdentityRequest: {
+            newPrimaryProvider: string;
+            newPrimaryUserId: string;
         };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
@@ -2118,6 +2139,7 @@ export type AuthorizeDiscordAccountRequest = components['schemas']['AuthorizeDis
 export type AuthorizeResponse = components['schemas']['AuthorizeResponse'];
 export type BillingContactResponse = components['schemas']['BillingContactResponse'];
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
+export type ChangePrimaryIdentityRequest = components['schemas']['ChangePrimaryIdentityRequest'];
 export type ChangeSubscriptionPlanArgs = components['schemas']['ChangeSubscriptionPlanArgs'];
 export type CloudBackupId = components['schemas']['CloudBackupId'];
 export type CloudBackupResponse = components['schemas']['CloudBackupResponse'];
@@ -4190,6 +4212,20 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UnlinkIdentityRequest"];
+            };
+        };
+        responses: never;
+    };
+    update_primary_identity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePrimaryIdentityRequest"];
             };
         };
         responses: never;
