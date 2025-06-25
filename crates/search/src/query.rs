@@ -22,6 +22,11 @@ use common::{
         WriteTimestamp,
     },
 };
+use indexing::index_registry::{
+    DocumentIndexKeyValue,
+    DocumentIndexKeys,
+    SearchIndexKeyValue,
+};
 use itertools::{
     Either,
     Itertools,
@@ -49,6 +54,7 @@ use value::{
     ConvexValue,
     FieldPath,
     InternalId,
+    ResolvedDocumentId,
 };
 
 use crate::{
@@ -818,6 +824,24 @@ impl<T: Clone + Ord> SearchTermTries<T> {
         false
     }
 
+    #[fastrace::trace]
+    fn overlaps_index_key_value(
+        &self,
+        index_key_value: &SearchIndexKeyValue,
+        analyzer: &TextAnalyzer,
+    ) -> bool {
+        let Some(value) = &index_key_value.search_field_value else {
+            return false;
+        };
+        let Some(tries) = self.terms.get(&index_key_value.search_field) else {
+            return false;
+        };
+        let mut tokens = ValueTokens::new(analyzer, value);
+        let mut result = BTreeSet::new();
+        tries.matching_values(&mut tokens, &mut result);
+        !result.is_empty()
+    }
+
     fn extend(&mut self, value: T, queries: &WithHeapSize<Vec<TextQueryTermRead>>) {
         for text_query in queries {
             let path = &text_query.field_path;
@@ -934,6 +958,7 @@ impl QueryReads {
                 return false;
             }
         }
+
         // If there are no text queries and all filters match, this counts as an
         // overlap.
         if self.text_queries.is_empty() {
@@ -944,6 +969,44 @@ impl QueryReads {
         // for fuzzy matches.
         let analyzer = convex_en();
         let is_fuzzy_match = self.fuzzy_terms.overlaps_document(document, &analyzer);
+        metrics::log_query_reads_outcome(is_fuzzy_match);
+        is_fuzzy_match
+    }
+
+    #[fastrace::trace]
+    pub fn overlaps_search_index_key_value(&self, index_key_value: &SearchIndexKeyValue) -> bool {
+        let _timer = metrics::query_reads_overlaps_search_value_timer();
+
+        // Filter out documents that don’t match the filter
+        for filter_condition in &self.filter_conditions {
+            let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
+
+            let Some(document_value) = index_key_value.filter_values.get(field_path) else {
+                // This shouldn’t happen because even if the field doesn’t exist in the
+                // document, there is a special `FilterValue` value for
+                // undefined. This could happen if the write log entry was created concurrently
+                // with index definition changes, but it shouldn’t be a problem.
+                metrics::log_missing_filter_value();
+                return false;
+            };
+
+            if *document_value != *filter_value {
+                return false;
+            }
+        }
+
+        // If there are no text queries and all filters match, this counts as an
+        // overlap.
+        if self.text_queries.is_empty() {
+            metrics::log_query_reads_outcome(true);
+            return true;
+        }
+        // If all the filter conditions match and there are text queries, we then check
+        // for fuzzy matches.
+        let analyzer = convex_en();
+        let is_fuzzy_match = self
+            .fuzzy_terms
+            .overlaps_index_key_value(index_key_value, &analyzer);
         metrics::log_query_reads_outcome(is_fuzzy_match);
         is_fuzzy_match
     }
@@ -993,28 +1056,42 @@ impl TextSearchSubscriptions {
         terms.remove(id, &reads.text_queries);
     }
 
-    pub fn add_matches(&self, document: &PackedDocument, to_notify: &mut BTreeSet<SubscriberId>) {
-        self.add_filter_conditions_matches(document, to_notify);
-        self.add_fuzzy_matches(document, to_notify);
+    pub fn add_matches(
+        &self,
+        document_id: &ResolvedDocumentId,
+        document_index_keys: &DocumentIndexKeys,
+        to_notify: &mut BTreeSet<SubscriberId>,
+    ) {
+        self.add_filter_conditions_matches(document_id, document_index_keys, to_notify);
+        self.add_fuzzy_matches(document_id, document_index_keys, to_notify);
     }
 
     fn add_filter_conditions_matches(
         &self,
-        document: &PackedDocument,
+        document_id: &ResolvedDocumentId,
+        document_index_keys: &DocumentIndexKeys,
         to_notify: &mut BTreeSet<SubscriberId>,
     ) {
         for (index, filter_conditions_map) in &self.filter_conditions {
-            if *index.table() != document.id().tablet_id {
+            if *index.table() != document_id.tablet_id {
                 continue;
             }
 
-            for (subscriber_id, filter_conditions) in filter_conditions_map {
-                for filter_condition in filter_conditions {
-                    let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
-                    let document_value = document.value().get_path(field_path);
-                    let document_value = FilterValue::from_search_value(document_value.as_ref());
+            let Some(DocumentIndexKeyValue::Search(SearchIndexKeyValue { filter_values, .. })) =
+                document_index_keys.get(index)
+            else {
+                metrics::log_missing_index_key();
+                continue;
+            };
 
-                    if document_value == *filter_value {
+            for (subscriber_id, filter_conditions) in filter_conditions_map {
+                for FilterConditionRead::Must(field_path, filter_value) in filter_conditions {
+                    let Some(document_value) = filter_values.get(field_path) else {
+                        metrics::log_missing_filter_value();
+                        continue;
+                    };
+
+                    if document_value == filter_value {
                         metrics::log_query_reads_outcome(true);
                         to_notify.insert(*subscriber_id);
                     }
@@ -1030,20 +1107,34 @@ impl TextSearchSubscriptions {
     /// This inverse looking search optimizes for cases where the number of
     /// reads/subscriptions is significantly larger than the number of
     /// tokens in the document.
-    fn add_fuzzy_matches(&self, document: &PackedDocument, matches: &mut BTreeSet<SubscriberId>) {
+    fn add_fuzzy_matches(
+        &self,
+        document_id: &ResolvedDocumentId,
+        document_index_keys: &DocumentIndexKeys,
+        matches: &mut BTreeSet<SubscriberId>,
+    ) {
         let analyzer = convex_en();
-        for (_, fuzzy_terms) in self
+        for (index, fuzzy_terms) in self
             .fuzzy_searches
             .iter()
-            .filter(|(index, _)| *index.table() == document.id().tablet_id)
+            .filter(|(index, _)| *index.table() == document_id.tablet_id)
         {
-            for (field, tries) in fuzzy_terms.terms.iter() {
-                let Some(ConvexValue::String(value)) = document.value().get_path(field) else {
-                    continue;
-                };
-                let mut tokens = ValueTokens::new(&analyzer, &value);
-                tries.matching_values(&mut tokens, matches);
-            }
+            let Some(DocumentIndexKeyValue::Search(index_key_value)) =
+                document_index_keys.get(index)
+            else {
+                continue;
+            };
+
+            let Some(value) = &index_key_value.search_field_value else {
+                continue;
+            };
+
+            let Some(tries) = fuzzy_terms.terms.get(&index_key_value.search_field) else {
+                continue;
+            };
+
+            let mut tokens = ValueTokens::new(&analyzer, value);
+            tries.matching_values(&mut tokens, matches);
         }
     }
 }
@@ -1131,7 +1222,6 @@ mod tests {
         ConvexObject,
         ConvexString,
         ConvexValue,
-        FieldName,
         ResolvedDocumentId,
         TabletId,
     };
@@ -1225,16 +1315,7 @@ mod tests {
         let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
         let subscriber_id = SubscriberId::MIN;
 
-        // Create a document with a text field
-        let doc = PackedDocument::pack(&ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            ConvexObject::try_from(btreemap! {
-                FieldName::from_str("text")? => ConvexValue::String(ConvexString::try_from("hello world")?)
-            })?,
-        )?);
-
-        // Create a query that matches the document
+        // Query that matches the document
         let query_reads = QueryReads::new(
             WithHeapSize::from(vec![TextQueryTermRead::new(
                 FieldPath::from_str("text")?,
@@ -1242,26 +1323,28 @@ mod tests {
             )]),
             WithHeapSize::default(),
         );
-
-        // Add the subscription
         subscriptions.insert(subscriber_id, &index, &query_reads);
+
+        let keys_matching = DocumentIndexKeys::with_search_index_for_test(
+            index.clone(),
+            FieldPath::from_str("text")?,
+            ConvexString::try_from("hello world")?,
+        );
 
         // Test matching
         let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&doc, &mut matches);
+        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &keys_matching, &mut matches);
         assert!(matches.contains(&subscriber_id));
 
         // Test non-matching
-        let non_matching_doc = PackedDocument::pack(&ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            ConvexObject::try_from(btreemap! {
-                FieldName::from_str("text")? => ConvexValue::String(ConvexString::try_from("different text")?)
-            })?,
-        )?);
+        let keys_non_matching = DocumentIndexKeys::with_search_index_for_test(
+            index.clone(),
+            FieldPath::from_str("text")?,
+            ConvexString::try_from("different text")?,
+        );
 
         let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&non_matching_doc, &mut matches);
+        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &keys_non_matching, &mut matches);
         assert!(matches.is_empty());
 
         Ok(())
@@ -1274,12 +1357,6 @@ mod tests {
         let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
         let subscriber_id = SubscriberId::MIN;
 
-        let doc = PackedDocument::pack(&ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            CreationTime::ONE,
-            ConvexObject::try_from(btreemap! {})?,
-        )?);
-
         let query_reads = QueryReads::new(
             WithHeapSize::from(vec![TextQueryTermRead::new(
                 FieldPath::from_str("text")?,
@@ -1290,8 +1367,10 @@ mod tests {
 
         subscriptions.insert(subscriber_id, &index, &query_reads);
 
+        let index_keys = DocumentIndexKeys::empty_for_test();
+
         let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&doc, &mut matches);
+        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &index_keys, &mut matches);
         assert!(matches.is_empty());
 
         Ok(())

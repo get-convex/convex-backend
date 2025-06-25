@@ -19,16 +19,11 @@ use std::{
 };
 
 use common::{
-    document::{
-        CreationTime,
-        PackedDocument,
-        ResolvedDocument,
-    },
     testing::TestIdGenerator,
     types::{
         GenericIndexName,
         IndexDescriptor,
-        PersistenceVersion,
+        TabletIndexName,
     },
 };
 use criterion::{
@@ -45,6 +40,7 @@ use humansize::{
     FormatSize,
     BINARY,
 };
+use indexing::index_registry::DocumentIndexKeys;
 use itertools::Itertools;
 use search::{
     convex_en,
@@ -56,7 +52,7 @@ use search::{
 use serde::Deserialize;
 use tokio::runtime::Runtime;
 use value::{
-    assert_obj,
+    ConvexString,
     DeveloperDocumentId,
     FieldPath,
     InternalId,
@@ -92,7 +88,7 @@ fn prefix_and_max_distances() -> Vec<(bool, FuzzyDistance)> {
 fn load_datasets(
     table_id: TabletIdAndTableNumber,
     max_size: usize,
-) -> anyhow::Result<BTreeMap<String, (Vec<PackedDocument>, Vec<String>)>> {
+) -> anyhow::Result<BTreeMap<String, (Vec<(ResolvedDocumentId, DocumentIndexKeys)>, Vec<String>)>> {
     let mut next_id = 0u64;
     let mut alloc_id = || {
         let mut result = [0; 16];
@@ -137,10 +133,16 @@ fn load_datasets(
                     *frequency_map.entry(token.text.clone()).or_default() += 1;
                 }
             }
-            let value = assert_obj!("body" => d.text);
-            let creation_time = CreationTime::try_from(1.)?;
-            let document = ResolvedDocument::new(id, creation_time, value)?;
-            documents.push(PackedDocument::pack(&document));
+
+            let field_path = FieldPath::from_str("body")?;
+            documents.push((
+                id,
+                DocumentIndexKeys::with_search_index_for_test(
+                    index_name(table_id.tablet_id),
+                    field_path,
+                    ConvexString::try_from(d.text).unwrap(),
+                ),
+            ));
         }
 
         let terms_by_frequency: Vec<String> = frequency_map
@@ -165,17 +167,18 @@ fn load_datasets(
     Ok(loaded)
 }
 
+fn index_name(tablet_id: TabletId) -> TabletIndexName {
+    GenericIndexName::new(tablet_id, IndexDescriptor::new("index").unwrap()).unwrap()
+}
+
 fn create_subscription_token(
     tablet_id: TabletId,
     prefix: bool,
     max_distance: FuzzyDistance,
     token: String,
 ) -> Token {
-    let index_name: GenericIndexName<TabletId> =
-        GenericIndexName::new(tablet_id, IndexDescriptor::new("index").unwrap()).unwrap();
-
     Token::text_search_token(
-        index_name,
+        index_name(tablet_id),
         FieldPath::from_str("body").unwrap(),
         vec![TextQueryTerm::Fuzzy {
             token,
@@ -261,12 +264,12 @@ fn bench_query(c: &mut Criterion) {
                 data,
                 |b, documents| {
                     b.to_async(&rt).iter(|| async {
-                        for doc in documents {
+                        for (doc_id, doc_index_keys) in documents {
                             let mut to_notify = BTreeSet::new();
-                            subscription_manager.overlapping_for_testing(
-                                doc,
+                            subscription_manager.overlapping(
+                                doc_id,
+                                doc_index_keys,
                                 &mut to_notify,
-                                PersistenceVersion::V5,
                             );
                         }
                     })
