@@ -313,7 +313,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             tx = self.database.begin(Identity::system()).await?;
             metadata = Self::require_index_metadata(&mut tx, index_id).await?;
             let (_, disk_state) = T::extract_metadata(metadata)?;
-            current_segments = disk_state.segments().clone();
+            current_segments = disk_state.segments();
         }
 
         let removed_segment_ids = segments_to_compact

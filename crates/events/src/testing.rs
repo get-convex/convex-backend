@@ -114,7 +114,7 @@ impl UsageCounterState {
                 }
             },
             UsageEvent::FunctionStorageCalls { call, .. } => {
-                *self.recent_storage_calls.entry(call.clone()).or_default() += 1;
+                *self.recent_storage_calls.entry(call).or_default() += 1;
             },
             UsageEvent::FunctionStorageBandwidth {
                 ingress, egress, ..

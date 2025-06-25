@@ -73,10 +73,7 @@ pub struct PendingSchemaWork {
 
 impl<RT: Runtime> SchemaWorker<RT> {
     pub fn start(runtime: RT, database: Database<RT>) -> impl Future<Output = ()> + Send {
-        let worker = Self {
-            runtime: runtime.clone(),
-            database,
-        };
+        let worker = Self { runtime, database };
         async move {
             tracing::info!("Starting SchemaWorker");
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);

@@ -615,7 +615,7 @@ mod tests_column_filtering {
 
         StreamingExportColumnSelection::new(
             btreemap! {
-                id_column.clone() => StreamingExportColumnInclusion::Included,
+                id_column => StreamingExportColumnInclusion::Included,
             },
             StreamingExportInclusionDefault::Excluded,
         )
@@ -649,7 +649,7 @@ mod tests_column_filtering {
             StreamingExportInclusionDefault::Excluded,
         )?;
 
-        let filtered = selection.filter_document(doc.clone())?;
+        let filtered = selection.filter_document(doc)?;
         assert_eq!(
             filtered,
             StreamingExportDocument::new(

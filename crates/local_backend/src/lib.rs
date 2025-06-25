@@ -234,7 +234,7 @@ pub async fn make_app(
     .await?;
 
     let origin = config.convex_origin_url()?;
-    let instance_name = config.name().clone();
+    let instance_name = config.name();
 
     if !config.disable_beacon {
         let beacon_future = beacon::start_beacon(

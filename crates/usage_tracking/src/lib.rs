@@ -305,7 +305,7 @@ impl UsageCounter {
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
         // Merge the storage stats.
-        let (_, udf_id) = udf_path.clone().into_component_and_udf_path();
+        let (_, udf_id) = udf_path.into_component_and_udf_path();
         for ((component_path, storage_api), function_count) in stats.storage_calls {
             usage_metrics.push(UsageEvent::FunctionStorageCalls {
                 id: execution_id.to_string(),

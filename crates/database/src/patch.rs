@@ -123,7 +123,7 @@ mod tests {
             },
             "job" => "engineer",
         );
-        assert_eq!(patch.clone().apply(original.clone())?, expected);
+        assert_eq!(patch.apply(original.clone())?, expected);
 
         // delete a top level field.
         let delete_job = patch_value!("job" => None)?;

@@ -899,10 +899,8 @@ impl<RT: Runtime> Committer<RT> {
         // necessary because this value is moved
         let parent_trace_copy = parent_trace.clone();
         let persistence = self.persistence.clone();
-        let request_span = initialize_root_from_parent(
-            "Committer::persistence_writes_future",
-            parent_trace.clone(),
-        );
+        let request_span =
+            initialize_root_from_parent("Committer::persistence_writes_future", parent_trace);
         let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
         let pause_client = self.runtime.pause_client();
         Some(

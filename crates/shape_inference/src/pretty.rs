@@ -195,7 +195,7 @@ impl<C: ShapeConfig> StructuralShape<C> {
         ];
         for (unit_str, unit_enum) in units {
             if let Some(suffix) = s.strip_prefix(unit_str) {
-                return Ok((Self::new(unit_enum.clone()), suffix));
+                return Ok((Self::new(unit_enum), suffix));
             }
         }
         if let Some(mut suffix) = s.strip_prefix('{') {

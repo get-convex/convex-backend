@@ -351,7 +351,7 @@ fn start_index_range<RT: Runtime>(
                 .clone()
                 .map_table(&tx.table_mapping().tablet_to_name())?;
             Ok(Err(RangeRequest {
-                index_name: tablet_index_name.clone(),
+                index_name: tablet_index_name,
                 printable_index_name: index_name,
                 interval: request.interval.clone(),
                 order: request.order,
@@ -361,8 +361,8 @@ fn start_index_range<RT: Runtime>(
         StableIndexName::Virtual(index_name, tablet_index_name) => {
             log_virtual_table_query();
             Ok(Err(RangeRequest {
-                index_name: tablet_index_name.clone(),
-                printable_index_name: index_name.clone(),
+                index_name: tablet_index_name,
+                printable_index_name: index_name,
                 interval: request.interval.clone(),
                 order: request.order,
                 max_size: max_rows,

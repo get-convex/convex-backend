@@ -1816,7 +1816,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 request_id,
                 path,
                 args,
-                identity.clone(),
+                identity,
                 ts,
                 journal,
                 caller,

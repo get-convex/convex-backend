@@ -671,7 +671,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         )
         .await?;
         let table_summaries = TableSummaries::new(
-            table_summary_snapshot.clone(),
+            table_summary_snapshot,
             self.table_registry().table_mapping(),
         );
         self.snapshot.table_summaries = Some(table_summaries);

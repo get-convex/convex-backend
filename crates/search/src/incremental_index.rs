@@ -643,7 +643,6 @@ pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
             let pool = blocking_thread_pool.clone();
             let storage = storage.clone();
             let cache = cache.clone();
-            let segment = segment.clone();
             async move {
                 let paths = fetch_text_segment(cache, storage, segment).await?;
                 pool.execute(|| open_text_segment_for_merge(paths)).await?

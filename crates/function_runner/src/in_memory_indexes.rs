@@ -124,7 +124,7 @@ fn make_transaction<RT: Runtime>(
         schema_registry,
         component_registry,
         table_count_snapshot,
-        rt.clone(),
+        rt,
         usage_tracker,
         retention_validator,
         virtual_system_mapping,

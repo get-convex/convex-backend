@@ -1123,7 +1123,7 @@ mod tests {
             tablet_id,
             TableNamespace::test_user(),
             table_number,
-            table_name.clone(),
+            table_name,
         );
         let doc = ResolvedDocument::new(
             ResolvedDocumentId::new(

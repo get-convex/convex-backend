@@ -248,7 +248,7 @@ impl HttpActionOutcome {
         };
         let path = match path {
             Some(p) => p,
-            None => http_request.url.clone().to_string(),
+            None => http_request.url.to_string(),
         };
         Ok(Self {
             identity,

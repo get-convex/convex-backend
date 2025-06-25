@@ -146,7 +146,7 @@ impl SearchIndexWorkers {
                 searcher.clone(),
                 search_storage.clone(),
                 CompactionConfig::default(),
-                vector_index_metadata_writer.clone(),
+                vector_index_metadata_writer,
             )),
         );
         let text_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(

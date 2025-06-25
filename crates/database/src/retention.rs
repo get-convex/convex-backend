@@ -570,7 +570,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             .load_documents(TimestampRange::new(*cursor..*min_snapshot_ts)?, Order::Asc)
             .try_chunks2(*RETENTION_READ_CHUNK)
             .map(move |chunk| async move {
-                let chunk = chunk?.to_vec();
+                let chunk = chunk?;
                 let mut entries_to_delete = vec![];
                 // Prev revs are the documents we are deleting.
                 // Each prev rev has 1 or 2 index entries to delete per index -- one entry at

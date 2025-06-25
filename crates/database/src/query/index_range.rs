@@ -113,7 +113,7 @@ impl IndexRange {
                 let (_, after_curr_cursor_position) = interval.split(cursor.clone(), order);
                 after_curr_cursor_position
             },
-            None => interval.clone(),
+            None => interval,
         };
         let unfetched_interval = match &cursor_interval.end_inclusive {
             Some(cursor) => {
@@ -121,7 +121,7 @@ impl IndexRange {
                     unfetched_interval.split(cursor.clone(), order);
                 up_to_end_cursor_position
             },
-            None => unfetched_interval.clone(),
+            None => unfetched_interval,
         };
 
         Self {
@@ -206,7 +206,7 @@ impl IndexRange {
                 .split(cursor_position, self.order);
 
             tx.reads.record_indexed_directly(
-                tablet_index_name.clone(),
+                tablet_index_name,
                 self.indexed_fields.clone(),
                 used_interval,
             )?;
@@ -226,7 +226,7 @@ impl IndexRange {
         }
         if let Some(CursorPosition::End) = self.cursor_interval.curr_exclusive {
             tx.reads.record_indexed_directly(
-                tablet_index_name.clone(),
+                tablet_index_name,
                 self.indexed_fields.clone(),
                 self.initial_unfetched_interval.clone(),
             )?;
@@ -234,7 +234,7 @@ impl IndexRange {
         }
         if self.unfetched_interval.is_empty() {
             tx.reads.record_indexed_directly(
-                tablet_index_name.clone(),
+                tablet_index_name,
                 self.indexed_fields.clone(),
                 self.initial_unfetched_interval.clone(),
             )?;

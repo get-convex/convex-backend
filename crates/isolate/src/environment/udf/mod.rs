@@ -852,7 +852,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // let biggest_writes = self.phase.biggest_document_writes();
         let udf_path = path.udf_path.clone();
         let system_udf_path = if udf_path.is_system() {
-            Some(udf_path.clone())
+            Some(udf_path)
         } else {
             None
         };

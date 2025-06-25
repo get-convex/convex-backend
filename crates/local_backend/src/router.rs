@@ -244,7 +244,7 @@ pub fn router(st: LocalAppState) -> Router {
         .nest("/http/", http_action_routes())
         .with_state(RouterState {
             api: Arc::new(st.application.clone()),
-            runtime: st.application.runtime().clone(),
+            runtime: st.application.runtime(),
         });
 
     let version = SERVER_VERSION_STR.to_string();

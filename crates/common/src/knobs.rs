@@ -1055,7 +1055,7 @@ pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new
         prod_override("", "cvx-firehose-usage-prod").to_string(),
     );
     if !result.is_empty() {
-        Some(result.to_string())
+        Some(result)
     } else {
         None
     }

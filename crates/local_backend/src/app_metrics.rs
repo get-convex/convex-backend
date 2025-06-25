@@ -58,7 +58,7 @@ pub(crate) async fn udf_rate(
         .application
         .udf_rate(identity, udf_identifier, metric.parse()?, window)
         .await?;
-    Ok(Json(timeseries.clone()))
+    Ok(Json(timeseries))
 }
 
 #[derive(Deserialize)]

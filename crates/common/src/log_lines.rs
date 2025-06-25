@@ -513,7 +513,7 @@ impl TryFrom<ConvexValue> for LogLine {
                             remove_nullable_object(&mut fields, "system_metadata")?;
 
                         LogLine::Structured(LogLineStructured {
-                            messages: messages.clone().into(),
+                            messages: messages.into(),
                             is_truncated,
                             level: LogLevel::from_str(&level)?,
                             timestamp: UnixTimestamp::from_millis(timestamp.try_into()?),

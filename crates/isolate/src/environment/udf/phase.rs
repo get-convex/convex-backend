@@ -376,7 +376,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             return Ok(None);
         };
         if let Some(var) = env_vars.get(tx, &name)? {
-            return Ok(Some(var.clone()));
+            return Ok(Some(var));
         }
         Ok(system_env_vars.get(&name).cloned())
     }

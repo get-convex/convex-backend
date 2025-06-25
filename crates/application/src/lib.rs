@@ -801,7 +801,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.exports_storage.clone(),
             application_storage.files_storage.clone(),
-            database.usage_counter().clone(),
+            database.usage_counter(),
             instance_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(runtime.spawn("export_worker", export_worker)));
@@ -811,7 +811,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.snapshot_imports_storage.clone(),
             file_storage.clone(),
-            database.usage_counter().clone(),
+            database.usage_counter(),
         );
         let snapshot_import_worker = Arc::new(Mutex::new(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
@@ -920,7 +920,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub fn usage_counter(&self) -> UsageCounter {
-        self.database.usage_counter().clone()
+        self.database.usage_counter()
     }
 
     #[fastrace::trace]
@@ -3450,7 +3450,7 @@ impl<RT: Runtime> Application<RT> {
             .indexes
             .into_iter()
             .map(|(descriptor, fields)| {
-                let index_name = IndexName::new_reserved(table_name.clone(), descriptor.clone())?;
+                let index_name = IndexName::new_reserved(table_name.clone(), descriptor)?;
                 let index_fields = fields.fields;
                 Ok((index_name, index_fields))
             })

@@ -188,11 +188,10 @@ impl LocalConfig {
         self.instance_name
             .clone()
             .unwrap_or(DEV_INSTANCE_NAME.to_owned())
-            .clone()
     }
 
     pub fn key_broker(&self) -> anyhow::Result<KeyBroker> {
-        let name = self.name().clone();
+        let name = self.name();
         KeyBroker::new(&name, self.secret()?)
     }
 

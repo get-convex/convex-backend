@@ -1171,6 +1171,7 @@ mod tests {
         value[0].verify_heap_size();
         // Cloning `value` recursively reallocates all contained objects, effectively
         // shrinking excess capacity.
+        #[allow(clippy::redundant_clone)]
         let cloned_value = value.clone();
         assert!(cloned_value.heap_size() < 1 << 20);
         cloned_value.verify_heap_size();
