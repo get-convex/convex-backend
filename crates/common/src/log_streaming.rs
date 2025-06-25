@@ -77,7 +77,9 @@ pub struct OccInfo {
 // Nothing yet. Can add information like parent scheduled job, scheduler lag,
 // etc.
 #[derive(Serialize, Debug, Clone)]
-pub struct SchedulerInfo {}
+pub struct SchedulerInfo {
+    pub job_id: String,
+}
 
 #[derive(Debug, Clone)]
 pub enum StructuredLogEvent {
