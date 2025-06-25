@@ -15,6 +15,7 @@ const flagDefaults: {
   commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
   multipleUserIdentities: boolean;
+  changePrimaryIdentity: boolean;
 } = {
   oauthProviderConfiguration: {},
   enableIndexFilters: false,
@@ -22,6 +23,7 @@ const flagDefaults: {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
   multipleUserIdentities: false,
+  changePrimaryIdentity: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

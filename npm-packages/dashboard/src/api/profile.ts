@@ -116,3 +116,12 @@ export function useUnlinkIdentity() {
     successToast: "Identity removed.",
   });
 }
+
+export function useChangePrimaryIdentity() {
+  return useBBMutation({
+    path: "/update_primary_identity",
+    pathParams: undefined,
+    mutateKey: "/list_identities",
+    successToast: "Primary identity changed.",
+  });
+}
