@@ -499,8 +499,8 @@ export async function bundleImplementations(
       rootComponentDirectory.path,
       directory.path,
     );
-    // Check for schema files in priority order: .mjs, .js, .ts
-    const schemaCandidates = ["schema.mjs", "schema.js", "schema.ts"];
+    // Check for schema files in priority order: .ts, .mjs, .js
+    const schemaCandidates = ["schema.ts", "schema.mjs", "schema.js"];
     const schemaExists = schemaCandidates.some(filename => 
       ctx.fs.exists(path.resolve(resolvedPath, filename))
     );

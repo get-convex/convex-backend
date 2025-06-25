@@ -68,11 +68,11 @@ export function isComponentDirectory(
     return { kind: "err", why: `Not a directory` };
   }
 
-  // Check that we have a definition file, using priority order: .mjs, .js, .ts
+  // Check that we have a definition file, using priority order: .ts, .mjs, .js
   const candidates = [
+    DEFINITION_FILENAME_TS,
     DEFINITION_FILENAME_MJS,
     DEFINITION_FILENAME_JS,
-    DEFINITION_FILENAME_TS,
   ];
   
   let filename = "";

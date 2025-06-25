@@ -36,23 +36,20 @@ def build_entrypoint(convex_build_directory, entry_point):
 def find_dts_files(path, base_path):
     dts_files = {}
     if os.path.isdir(path):
-        # Collect all .d.ts, .d.cts, .d.mts files in this directory
+        # Collect all .d.ts, .d.mts files in this directory
         dir_files = {}
         for item in os.listdir(path):
             item_path = os.path.join(path, item)
             if os.path.isdir(item_path):
                 dts_files.update(find_dts_files(item_path, base_path))
-            elif item.endswith((".d.mts", ".d.cts", ".d.ts")):
+            elif item.endswith((".d.mts", ".d.ts")):
                 # Extract base name (e.g., "a" from "a.d.mts")
                 if item.endswith(".d.mts"):
                     base_name = item[:-6]  # Remove ".d.mts"
                     priority = 0  # Highest priority
-                elif item.endswith(".d.cts"):
-                    base_name = item[:-6]  # Remove ".d.cts"
-                    priority = 1
                 else:  # .d.ts
                     base_name = item[:-5]  # Remove ".d.ts"
-                    priority = 2  # Lowest priority
+                    priority = 1  # Lower priority
                 
                 if base_name not in dir_files or priority < dir_files[base_name][1]:
                     dir_files[base_name] = (item_path, priority)
@@ -64,7 +61,7 @@ def find_dts_files(path, base_path):
                 dts_files[PATH_PREFIX + relative_path] = strip_source_map_suffix(
                     file.read()
                 )
-    elif path.endswith((".d.mts", ".d.cts", ".d.ts")):
+    elif path.endswith((".d.mts", ".d.ts")):
         relative_path = os.path.relpath(path, base_path)
         with open(path, "r", encoding="utf-8") as file:
             dts_files[PATH_PREFIX + relative_path] = strip_source_map_suffix(
