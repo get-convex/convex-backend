@@ -53,6 +53,13 @@ impl DeletedBitset {
         self.deleted.resize(size, false);
     }
 
+    pub fn set_not_deleted(&mut self, index: usize) {
+        if self.deleted[index] {
+            self.num_deleted -= 1;
+            self.deleted.set(index, false);
+        }
+    }
+
     pub fn num_deleted(&self) -> usize {
         self.num_deleted
     }
