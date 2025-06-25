@@ -31,7 +31,7 @@ impl Arbitrary for ExportContext {
         leaf.prop_recursive(2, 8, 4, move |inner| {
             prop_oneof![
                 prop::collection::vec(inner.clone(), 0..=4).prop_map(ExportContext::Array),
-                prop::collection::btree_map(any::<FieldName>(), inner.clone(), 0..4)
+                prop::collection::btree_map(any::<FieldName>(), inner, 0..4)
                     .prop_map(ExportContext::Object),
             ]
         })

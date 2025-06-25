@@ -38,7 +38,7 @@ pub struct ModuleCache<RT: Runtime> {
 impl<RT: Runtime> ModuleCache<RT> {
     pub async fn new(rt: RT, modules_storage: Arc<dyn Storage>) -> Self {
         let cache = AsyncLru::new(
-            rt.clone(),
+            rt,
             *MODULE_CACHE_MAX_SIZE_BYTES,
             *MODULE_CACHE_MAX_CONCURRENCY,
             "module_cache",

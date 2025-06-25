@@ -12,6 +12,7 @@ use axum::{
         State,
     },
     routing::{
+        delete,
         get,
         post,
         put,
@@ -72,6 +73,13 @@ use crate::{
     deploy_config2,
     environment_variables::update_environment_variables,
     http_actions::http_action_handler,
+    log_sinks::{
+        add_axiom_sink,
+        add_datadog_sink,
+        add_sentry_sink,
+        add_webhook_sink,
+        delete_log_sink,
+    },
     logs::{
         stream_function_logs,
         stream_udf_execution,
@@ -219,6 +227,7 @@ pub fn router(st: LocalAppState) -> Router {
             )),
         )
         .nest("/export", snapshot_export_routes)
+        .nest("/logs", log_sink_routes())
         .nest("/streaming_import", streaming_import_routes());
 
     // Endpoints migrated to use the RouterState trait instead of application.
@@ -235,7 +244,7 @@ pub fn router(st: LocalAppState) -> Router {
         .nest("/http/", http_action_routes())
         .with_state(RouterState {
             api: Arc::new(st.application.clone()),
-            runtime: st.application.runtime().clone(),
+            runtime: st.application.runtime(),
         });
 
     let version = SERVER_VERSION_STR.to_string();
@@ -402,6 +411,22 @@ where
         .route("/fivetran_create_table", post(fivetran_create_table))
         .route("/add_primary_key_indexes", put(add_primary_key_indexes))
         .route("/primary_key_indexes_ready", get(primary_key_indexes_ready))
+}
+
+// IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
+// such as adding or removing a route, or changing limits, also need to be
+// applied to `crates_private/usher/src/proxy.rs`.
+pub fn log_sink_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    Router::new()
+        .route("/datadog_sink", post(add_datadog_sink))
+        .route("/webhook_sink", post(add_webhook_sink))
+        .route("/axiom_sink", post(add_axiom_sink))
+        .route("/sentry_sink", post(add_sentry_sink))
+        .route("/delete_sink", delete(delete_log_sink))
 }
 
 pub fn cors() -> CorsLayer {

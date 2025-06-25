@@ -298,9 +298,9 @@ export class WebSocketManager {
           msg += `: ${event.reason}`;
         }
         this.logger.log(msg);
-        if (this.onServerDisconnectError) {
-          // This callback is a unstable API, InternalServerErrors may be removed in the future
-          // since they reflect a expected temporary outage. But until a quantitative measure
+        if (this.onServerDisconnectError && event.reason) {
+          // This callback is a unstable API, InternalServerErrors in particular may be removed
+          // since they reflect expected temporary downtime. But until a quantitative measure
           // of uptime is reported this unstable API errs on the inclusive side.
           this.onServerDisconnectError(msg);
         }

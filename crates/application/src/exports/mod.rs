@@ -10,6 +10,7 @@ use common::{
         ComponentPath,
     },
     fastrace_helpers::get_sampled_span,
+    knobs::EXPORT_WORKER_PAGE_SIZE,
     persistence::LatestDocument,
     runtime::Runtime,
     types::{
@@ -146,7 +147,10 @@ where
                     );
                 }
             }
-            let table_iterator = worker.database.table_iterator(ts, 1000).multi(tablet_ids);
+            let table_iterator = worker
+                .database
+                .table_iterator(ts, *EXPORT_WORKER_PAGE_SIZE)
+                .multi(tablet_ids);
 
             let zipper = construct_zip_snapshot(
                 worker,

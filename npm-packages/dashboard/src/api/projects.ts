@@ -12,9 +12,14 @@ export function useCurrentProject() {
   return projects?.find((p) => p.slug === projectSlug);
 }
 
-export function useProjectById(teamId?: number, projectId?: number) {
-  const projects = useProjects(teamId);
-  return projects?.find((p) => p.id === projectId);
+export function useProjectById(projectId: number | undefined) {
+  const { data } = useBBQuery({
+    path: "/projects/{project_id}",
+    pathParams: {
+      project_id: projectId?.toString() || "",
+    },
+  });
+  return data;
 }
 
 export function useProjects(

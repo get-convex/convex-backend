@@ -1,6 +1,7 @@
 ---
 title: "Dashboard"
 id: "dashboard"
+description: "Learn how to use the Convex dashboard"
 ---
 
 ![Dashboard Projects View](/screenshots/projects.png)

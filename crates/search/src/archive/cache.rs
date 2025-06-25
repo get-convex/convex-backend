@@ -287,7 +287,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
             blocking_thread_pool,
             cache,
             cleaner,
-            rt: rt.clone(),
+            rt,
         };
         Ok(this)
     }

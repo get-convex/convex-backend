@@ -18,6 +18,7 @@ import { UpgradePlanContentContainer } from "components/billing/UpgradePlanConte
 import { useProfile } from "api/profile";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { Loading } from "@ui/Loading";
+import { planNameMap } from "components/billing/planCards/PlanCard";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -36,6 +37,10 @@ function Billing({ team }: { team: Team }) {
       ? p.planType === "CONVEX_STARTER_PLUS"
       : p.id === router.query.upgradePlan,
   );
+
+  const newPlanName = selectedPlan?.planType
+    ? planNameMap[selectedPlan.planType] || selectedPlan.name
+    : selectedPlan?.name;
 
   const showUpgrade =
     selectedPlan && orbSub?.plan.id !== selectedPlan.id && hasAdminPermissions;
@@ -128,7 +133,7 @@ function Billing({ team }: { team: Team }) {
               >
                 {showUpgrade && selectedPlan && (
                   <Sheet className="max-h-full overflow-y-auto scrollbar">
-                    <h3 className="mb-4">Upgrade to {selectedPlan.name}</h3>
+                    <h3 className="mb-4">Upgrade to {newPlanName}</h3>
                     <UpgradePlanContentContainer
                       name={myProfile?.name}
                       email={myProfile?.email}

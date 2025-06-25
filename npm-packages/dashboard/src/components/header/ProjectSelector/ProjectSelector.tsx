@@ -13,6 +13,7 @@ import { cn } from "@ui/cn";
 import { logEvent } from "convex-analytics";
 import { SafeZone } from "elements/SafeZone";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
+import VercelLogo from "logos/vercel.svg";
 import { Breadcrumbs } from "../Breadcrumbs/Breadcrumbs";
 import { DeploymentMenuOptions } from "./DeploymentMenuOptions";
 import { ProjectMenuOptions } from "./ProjectMenuOptions";
@@ -66,7 +67,11 @@ export function ProjectSelector({
               maxWidth: width > 1024 ? "14rem" : width > 640 ? "10rem" : "6rem",
             }}
           >
-            <Avatar size="small" name={team?.name} />
+            {team?.managedBy === "vercel" ? (
+              <VercelLogo className="size-3 dark:fill-white" />
+            ) : (
+              <Avatar size="small" name={team?.name} />
+            )}
             <span className="grow truncate">{team?.name}</span>
           </div>
         )}
@@ -92,7 +97,12 @@ export function ProjectSelector({
     >
       <div className="flex w-fit select-none flex-col items-start truncate text-sm">
         {team && selectedProject && (
-          <span className="text-xs font-semibold">{team.name}</span>
+          <div className="flex items-center gap-1">
+            {team.managedBy === "vercel" && (
+              <VercelLogo className="size-3 dark:fill-white" />
+            )}
+            <span className="text-xs font-semibold">{team.name}</span>
+          </div>
         )}
         {selected}
       </div>

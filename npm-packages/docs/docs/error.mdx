@@ -1,3 +1,7 @@
+---
+description: "Understand specific errors thrown by Convex"
+---
+
 # Errors and Warnings
 
 This page explains specific errors thrown by Convex.

@@ -273,7 +273,7 @@ impl IndexRegistry {
                             .collect();
 
                         let search_field_value = match document.value().get_path(search_field) {
-                            Some(ConvexValue::String(string)) => Some(string.clone()),
+                            Some(ConvexValue::String(string)) => Some(string),
                             _ => None,
                         };
 
@@ -441,7 +441,7 @@ impl IndexRegistry {
             let table_id = new_document.id().tablet_id;
             if table_id == self.index_table() {
                 let metadata = TabletIndexMetadata::from_document(new_document.clone()).unwrap();
-                let index = Index::new(metadata.id().internal_id(), metadata.clone());
+                let index = Index::new(metadata.id().internal_id(), metadata);
                 self.insert(index);
                 modified = true;
             }

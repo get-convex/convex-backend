@@ -642,7 +642,7 @@ mod tests {
             vec![].into(),
         );
 
-        reads.record_search(index_name.clone(), search_reads);
+        reads.record_search(index_name, search_reads);
 
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
@@ -689,7 +689,7 @@ mod tests {
             vec![].into(),
         );
 
-        reads.record_search(index_name.clone(), search_reads);
+        reads.record_search(index_name, search_reads);
 
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
@@ -728,7 +728,7 @@ mod tests {
             vec![].into(),
         );
 
-        reads.record_search(index_name.clone(), search_reads);
+        reads.record_search(index_name, search_reads);
 
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
@@ -771,7 +771,7 @@ mod tests {
             vec![].into(),
         );
 
-        reads.record_search(index_name.clone(), search_reads);
+        reads.record_search(index_name, search_reads);
 
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
@@ -818,7 +818,7 @@ mod tests {
             vec![].into(),
         );
 
-        reads.record_search(index_name.clone(), search_reads);
+        reads.record_search(index_name, search_reads);
 
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
@@ -865,7 +865,7 @@ mod tests {
             vec![].into(),
         );
 
-        reads.record_search(index_name.clone(), search_reads);
+        reads.record_search(index_name, search_reads);
 
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);

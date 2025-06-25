@@ -1,6 +1,8 @@
 import { planNameMap } from "components/billing/planCards/PlanCard";
 import { PlanResponse } from "generatedApi";
 import Link from "next/link";
+import startCase from "lodash/startCase";
+import { Callout } from "@ui/Callout";
 
 export function PriceSummary({
   plan,
@@ -9,6 +11,7 @@ export function PriceSummary({
   couponDurationInMonths,
   requiresPaymentMethod,
   isUpgrading,
+  teamManagedBy,
 }: {
   plan: PlanResponse;
   teamMemberDiscountPct: number;
@@ -16,12 +19,21 @@ export function PriceSummary({
   couponDurationInMonths?: number;
   requiresPaymentMethod: boolean;
   isUpgrading: boolean;
+  teamManagedBy?: string;
 }) {
   const newPlanName = plan.planType
     ? planNameMap[plan.planType] || plan.name
     : plan.name;
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="price-summary">
+      {teamManagedBy && (
+        <Callout className="mb-2">
+          This team's billing is currently being managed by{" "}
+          {startCase(teamManagedBy)}. Upgrading to this plan will disable your{" "}
+          {startCase(teamManagedBy)} integration and migrate billing to be
+          handled by Convex.
+        </Callout>
+      )}
       {plan.seatPrice ? (
         <>
           <p>

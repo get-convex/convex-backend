@@ -703,7 +703,7 @@ impl From<ScenarioConfig> for ScenarioMessage {
         };
 
         Self {
-            scenario: scenario.clone(),
+            scenario,
             rate,
             threads,
         }

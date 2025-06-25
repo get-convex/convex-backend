@@ -152,7 +152,7 @@ impl RedactedJsError {
         let code = if self.block_logging {
             "Server Error".to_string()
         } else {
-            format!("Server Error: {}", self.error.message.to_owned())
+            format!("Server Error: {}", self.error.message)
         };
         let code = format!("[Request ID: {}] {}", self.request_id, code);
         let mut body = json!({
@@ -261,7 +261,7 @@ pub mod tests {
             js_error in any::<JsError>(), request_id in any::<RequestId>()
         ) {
             let redacted =
-                RedactedJsError::from_js_error(js_error.clone(), true, request_id.clone());
+                RedactedJsError::from_js_error(js_error, true, request_id.clone());
             let http_response_parts = redacted.to_http_response_parts();
             let code = get_code(http_response_parts);
 

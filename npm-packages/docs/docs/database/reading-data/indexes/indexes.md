@@ -1,6 +1,7 @@
 ---
 title: "Indexes"
 sidebar_position: 100
+description: "Speed up queries with database indexes"
 ---
 
 Indexes are a data structure that allow you to speed up your

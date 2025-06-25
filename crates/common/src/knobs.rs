@@ -325,6 +325,11 @@ pub static MAX_SYSCALL_BATCH_SIZE: LazyLock<usize> =
 pub static MAX_REACTOR_CALL_DEPTH: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_REACTOR_CALL_DEPTH", 8));
 
+/// Default number of records to fetch from an index if a prefetch hint is not
+/// provided.
+pub static DEFAULT_QUERY_PREFETCH: LazyLock<usize> =
+    LazyLock::new(|| env_config("DEFAULT_QUERY_PREFETCH", 100));
+
 /// Number of rows that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SIZE_ROWS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SIZE_ROWS", 32000));
@@ -1050,7 +1055,7 @@ pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new
         prod_override("", "cvx-firehose-usage-prod").to_string(),
     );
     if !result.is_empty() {
-        Some(result.to_string())
+        Some(result)
     } else {
         None
     }
@@ -1088,6 +1093,20 @@ pub static FIREHOSE_TIMEOUT: LazyLock<Duration> =
 /// The initial backoff time for index workers when a failure occurs.
 pub static INDEX_WORKERS_INITIAL_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKERS_INITIAL_BACKOFF", 500)));
+
+/// The maximum backoff time for search index flusher workers when a failure
+/// occurs. This shouldn't be set too high because flushes are required for
+/// write throughput.
+pub static SEARCH_INDEX_FLUSHER_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SEARCH_INDEX_FLUSHER_MAX_BACKOFF", 30)));
+
+/// The maximum backoff time for search compactor workers when a failure occurs.
+/// This can be set relatively high because compaction is not a critical
+/// operation. If compaction fails, latency for searches may increase from
+/// searching too many segments. Setting this too low can overwhelm searchlight
+/// on persistent failures.
+pub static SEARCH_COMPACTOR_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SEARCH_COMPACTOR_MAX_BACKOFF", 10 * 60)));
 
 /// The maximum size for Funrun run function request messages. This is 8MiB for
 /// path and args, plus a buffer for the smaller fields. Note that analyze has a
@@ -1297,6 +1316,10 @@ pub static EXPORT_MAX_INFLIGHT_PREFETCH_BYTES: LazyLock<usize> = LazyLock::new(|
     )
     .clamp(1, u32::MAX as usize)
 });
+
+/// The page size to the table iterator in the export worker.
+pub static EXPORT_WORKER_PAGE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("EXPORT_WORKER_PAGE_SIZE", 1000));
 
 /// Whether or not a service should propagate all upstream traces or perform its
 /// own sampling

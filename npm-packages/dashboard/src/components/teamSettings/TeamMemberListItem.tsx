@@ -17,6 +17,7 @@ import { useMount } from "react-use";
 import classNames from "classnames";
 import startCase from "lodash/startCase";
 import Link from "next/link";
+import { Callout } from "@ui/Callout";
 import { MemberProjectRolesModal } from "./MemberProjectRolesModal";
 
 export const roleOptions: Option<"admin" | "developer">[] = [
@@ -79,7 +80,9 @@ export function TeamMemberListItem({
   }
 
   let updateRoleMessage = "";
-  if (isMemberTheLastAdmin) {
+  if (team.managedBy) {
+    updateRoleMessage = `This team is managed by ${startCase(team.managedBy)}. You may manage team roles in ${startCase(team.managedBy)}.`;
+  } else if (isMemberTheLastAdmin) {
     updateRoleMessage = "You cannot change the role of the last admin.";
   } else if (!hasAdminPermissions) {
     updateRoleMessage = "You do not have permission to change member roles.";
@@ -125,10 +128,10 @@ export function TeamMemberListItem({
             <div className="text-sm text-content-primary">
               {startCase(member.role)}
             </div>
-          ) : !canManageMember ? (
+          ) : !canManageMember || team.managedBy ? (
             // Combobox is difficult to create a disabled state for, so we're using a div here that looks like a disabled input
             <Tooltip tip={updateRoleMessage}>
-              <div className="flex cursor-not-allowed items-center gap-1 rounded border bg-background-tertiary px-3 py-2 text-content-secondary">
+              <div className="flex cursor-not-allowed items-center gap-1 rounded border bg-background-tertiary p-1.5 text-content-secondary">
                 {startCase(member.role)}
                 <CaretSortIcon className="h-5 w-5" />
               </div>
@@ -195,9 +198,22 @@ export function TeamMemberListItem({
             }}
             dialogTitle={isMemberMe ? "Leave team" : "Remove team member"}
             dialogBody={
-              isMemberMe
-                ? `You are about to leave ${team.name}, are you sure you want to continue?`
-                : `You are about to remove ${confirmationDisplayName} from ${team.name}, are you sure you want to continue?`
+              isMemberMe ? (
+                `You are about to leave ${team.name}, are you sure you want to continue?`
+              ) : (
+                <>
+                  You are about to remove {confirmationDisplayName} from{" "}
+                  {team.name}, are you sure you want to continue?
+                  {team.managedBy && (
+                    <Callout>
+                      Note that this member may be able to re-join the team
+                      through the {startCase(team.managedBy)} dashboard if they
+                      are still a member of your {startCase(team.managedBy)}{" "}
+                      team.
+                    </Callout>
+                  )}
+                </>
+              )
             }
             confirmText="Confirm"
           />

@@ -1,6 +1,8 @@
 ---
 title: Runtimes
 sidebar_position: 80
+description:
+  "Learn the differences between the Convex and Node.js runtimes for functions"
 ---
 
 # Runtimes
@@ -156,3 +158,5 @@ without the `"use node"` directive should not import any files with the
 `"use node"` directive. Files that contain no Convex functions, like a
 `convex/utils.ts` file, also need the "use node" directive if they use
 Node.js-specific libraries.
+
+Note that argument size limits are lower (5MiB instead of 16MiB).

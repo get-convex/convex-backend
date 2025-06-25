@@ -1854,6 +1854,8 @@ export interface components {
             name?: string | null;
             nickname?: string | null;
             username?: string | null;
+            vercel_account_id?: string | null;
+            vercel_installation_id?: string | null;
         };
         ProfileEmailArgs: {
             email: string;

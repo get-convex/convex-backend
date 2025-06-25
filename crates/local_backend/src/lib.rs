@@ -31,7 +31,6 @@ use common::{
         ACTION_USER_TIMEOUT,
         UDF_CACHE_MAX_SIZE,
     },
-    log_streaming::NoopLogSender,
     persistence::Persistence,
     runtime::Runtime,
     shutdown::ShutdownSignal,
@@ -81,6 +80,7 @@ pub mod deploy_config;
 pub mod deploy_config2;
 pub mod environment_variables;
 pub mod http_actions;
+pub mod log_sinks;
 pub mod logs;
 pub mod node_action_callbacks;
 pub mod parse;
@@ -202,7 +202,7 @@ pub async fn make_app(
                 modules_storage: application_storage.modules_storage.clone(),
             },
             database.clone(),
-            fetch_client,
+            fetch_client.clone(),
         )
         .await?,
     );
@@ -222,18 +222,19 @@ pub async fn make_app(
         segment_metadata_fetcher,
         persistence,
         actions,
-        Arc::new(NoopLogSender),
         Arc::new(RedactLogsToClient::new(config.redact_logs_to_client)),
         Arc::new(ApplicationAuth::new(
             key_broker.clone(),
             Arc::new(NullAccessTokenAuth),
         )),
         QueryCache::new(*UDF_CACHE_MAX_SIZE),
+        fetch_client,
+        config.local_log_sink.clone(),
     )
     .await?;
 
     let origin = config.convex_origin_url()?;
-    let instance_name = config.name().clone();
+    let instance_name = config.name();
 
     if !config.disable_beacon {
         let beacon_future = beacon::start_beacon(

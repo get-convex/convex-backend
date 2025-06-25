@@ -8,6 +8,7 @@ mod environment_variables;
 mod fivetran_import;
 mod http_action;
 mod indexes;
+mod logging;
 mod mutation;
 mod occ_retries;
 mod push;

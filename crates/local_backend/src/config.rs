@@ -122,6 +122,11 @@ pub struct LocalConfig {
     /// reach the client for debugging purposes.
     #[clap(long, default_value = "false")]
     pub redact_logs_to_client: bool,
+
+    /// Path of local file for logs to be routed to. For local testing
+    /// of log integrations (eg axiom/datadog).
+    #[clap(long)]
+    pub local_log_sink: Option<String>,
 }
 
 impl fmt::Debug for LocalConfig {
@@ -183,11 +188,10 @@ impl LocalConfig {
         self.instance_name
             .clone()
             .unwrap_or(DEV_INSTANCE_NAME.to_owned())
-            .clone()
     }
 
     pub fn key_broker(&self) -> anyhow::Result<KeyBroker> {
-        let name = self.name().clone();
+        let name = self.name();
         KeyBroker::new(&name, self.secret()?)
     }
 

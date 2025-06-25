@@ -24,6 +24,7 @@ use indexing::backend_in_memory_indexes::{
     BatchKey,
     RangeRequest,
 };
+use itertools::Itertools;
 use value::{
     check_user_size,
     ConvexObject,
@@ -350,7 +351,7 @@ fn start_index_range<RT: Runtime>(
                 .clone()
                 .map_table(&tx.table_mapping().tablet_to_name())?;
             Ok(Err(RangeRequest {
-                index_name: tablet_index_name.clone(),
+                index_name: tablet_index_name,
                 printable_index_name: index_name,
                 interval: request.interval.clone(),
                 order: request.order,
@@ -360,8 +361,8 @@ fn start_index_range<RT: Runtime>(
         StableIndexName::Virtual(index_name, tablet_index_name) => {
             log_virtual_table_query();
             Ok(Err(RangeRequest {
-                index_name: tablet_index_name.clone(),
-                printable_index_name: index_name.clone(),
+                index_name: tablet_index_name,
+                printable_index_name: index_name,
                 interval: request.interval.clone(),
                 order: request.order,
                 max_size: max_rows,
@@ -403,9 +404,12 @@ pub async fn index_range_batch<RT: Runtime>(
         }
     }
 
-    let fetch_results = tx.index.range_batch(fetch_requests).await;
+    let fetch_results = tx
+        .index
+        .range_batch(&fetch_requests.values().collect_vec())
+        .await;
 
-    for (batch_key, fetch_result) in fetch_results {
+    for (&batch_key, fetch_result) in fetch_requests.keys().zip(fetch_results) {
         let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
         let result = fetch_result.and_then(|IndexRangeResponse { page, cursor }| {
             let developer_results = match virtual_table_version {

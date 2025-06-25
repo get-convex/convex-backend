@@ -1,6 +1,6 @@
 ---
 title: "Database"
-description: "Store JSON-like documents with a relational data model."
+description: "Store JSON-like documents with a relational data model"
 hide_table_of_contents: true
 pagination_prev: functions
 ---

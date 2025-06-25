@@ -16,11 +16,13 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useCollapseSidebarState } from "@common/lib/useCollapseSidebarState";
 import { PulseIcon } from "@common/elements/icons";
-import { Sidebar } from "@common/elements/Sidebar";
+import { Sidebar, useCurrentPage } from "@common/elements/Sidebar";
 import { FunctionRunnerWrapper } from "@common/features/functionRunner/components/FunctionRunnerWrapper";
 import { FunctionsProvider } from "@common/lib/functions/FunctionsProvider";
 import { useIsGlobalRunnerShown } from "@common/features/functionRunner/lib/functionRunner";
 import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsCloudDeploymentInSelfHostedDashboard";
+import { Tooltip } from "@ui/Tooltip";
+import Image from "next/image";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -121,6 +123,11 @@ export function DeploymentDashboardLayout({
             collapsed={!!collapsed}
             setCollapsed={setCollapsed}
             items={sidebarItems}
+            header={
+              process.env.NEXT_PUBLIC_HIDE_HEADER ? (
+                <EmbeddedConvexLogo collapsed={!!collapsed} />
+              ) : undefined
+            }
           />
           <div
             className={classNames(
@@ -179,5 +186,61 @@ function PauseBanner() {
       </Link>{" "}
       page.
     </div>
+  );
+}
+
+function EmbeddedConvexLogo({ collapsed }: { collapsed: boolean }) {
+  const currentPage = useCurrentPage();
+  const { deploymentName } = useIsCloudDeploymentInSelfHostedDashboard();
+
+  const href = deploymentName
+    ? `https://dashboard.convex.dev/d/${deploymentName}/${currentPage ?? ""}`
+    : "https://dashboard.convex.dev";
+
+  return (
+    <>
+      {/* Vertical layout on small screens */}
+      <div className="mr-2 sm:hidden">
+        <Tooltip tip="Convex" side="bottom" wrapsButton>
+          <a
+            className="flex h-full items-center"
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Image
+              src="/convex-logo-only.svg"
+              width="24"
+              height="24"
+              alt="Convex logo"
+            />
+          </a>
+        </Tooltip>
+      </div>
+
+      {/* Horizontal layout on larger screens, with some text when not collapsed */}
+      <div className="hidden sm:block">
+        <Tooltip tip={collapsed && "Convex"} side="bottom" wrapsButton>
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className={
+              collapsed
+                ? "flex w-full justify-center"
+                : "flex items-center gap-2 px-1.5 py-0.5"
+            }
+          >
+            <Image
+              src="/convex-logo-only.svg"
+              width={collapsed ? 24 : 18}
+              height={collapsed ? 24 : 18}
+              alt="Convex logo"
+            />
+            {!collapsed && <div className="text-sm font-medium">Convex</div>}
+          </a>
+        </Tooltip>
+      </div>
+    </>
   );
 }

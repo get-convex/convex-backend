@@ -29,19 +29,14 @@ export function Sidebar({
   items,
   collapsed,
   setCollapsed,
+  header,
 }: {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
   items: SidebarGroup[];
+  header?: ReactNode;
 }) {
-  const router = useRouter();
-
-  const path = router.pathname
-    .replace("/t/[team]/[project]/[deploymentName]", "")
-    .split("/")
-    .filter((i) => !!i);
-  const currentPage = path[0] ?? null;
-
+  const currentPage = useCurrentPage();
   const { width } = useWindowSize();
 
   return (
@@ -57,33 +52,38 @@ export function Sidebar({
         { [`min-w-[130px]`]: !collapsed },
       )}
     >
-      <div className="flex gap-1 sm:flex-col sm:divide-x-0 sm:divide-y">
-        {items.map((group) => (
-          <div key={group.key} className="flex gap-1 sm:flex-col sm:py-2">
-            {group.items.map((item) => (
-              <div className="relative h-[1.875rem]" key={item.key}>
-                <SidebarLink
-                  {...omit(item, "key")}
-                  collapsed={collapsed}
-                  isActive={currentPage === item.key}
-                  disabled={item.disabled}
-                  small
-                  tip={
-                    item.tooltip
-                      ? item.tooltip
-                      : collapsed
-                        ? item.label
-                        : undefined
-                  }
-                  tipSide={width > 640 ? "right" : "bottom"}
-                >
-                  {item.label}
-                </SidebarLink>
-              </div>
-            ))}
-          </div>
-        ))}
+      <div className="flex gap-1 sm:flex-col">
+        {header}
+
+        <div className="flex gap-1 sm:flex-col sm:divide-x-0 sm:divide-y">
+          {items.map((group) => (
+            <div key={group.key} className="flex gap-1 sm:flex-col sm:py-2">
+              {group.items.map((item) => (
+                <div className="relative h-[1.875rem]" key={item.key}>
+                  <SidebarLink
+                    {...omit(item, "key")}
+                    collapsed={collapsed}
+                    isActive={currentPage === item.key}
+                    disabled={item.disabled}
+                    small
+                    tip={
+                      item.tooltip
+                        ? item.tooltip
+                        : collapsed
+                          ? item.label
+                          : undefined
+                    }
+                    tipSide={width > 640 ? "right" : "bottom"}
+                  >
+                    {item.label}
+                  </SidebarLink>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
+
       <Button
         variant="unstyled"
         onClick={() => setCollapsed(!collapsed)}
@@ -214,4 +214,14 @@ export function sidebarLinkClassNames(props: {
       ? "text-content-tertiary cursor-not-allowed w-fit text-left"
       : null,
   );
+}
+
+export function useCurrentPage() {
+  const router = useRouter();
+
+  const path = router.pathname
+    .replace("/t/[team]/[project]/[deploymentName]", "")
+    .split("/")
+    .filter((i) => !!i);
+  return path[0] ?? null;
 }

@@ -19,7 +19,10 @@ use serde::{
 use crate::ConvexObject;
 
 pub trait ConvexSerializable: Sized {
-    type Serialized: Serialize + for<'de> Deserialize<'de> + TryFrom<Self> + TryInto<Self>;
+    type Serialized: Serialize
+        + for<'de> Deserialize<'de>
+        + TryFrom<Self, Error: Into<anyhow::Error>>
+        + TryInto<Self, Error: Into<anyhow::Error>>;
 }
 
 #[macro_export]

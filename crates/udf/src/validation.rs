@@ -505,6 +505,10 @@ impl ValidatedPathAndArgs {
         }))
     }
 
+    pub fn args_size(&self) -> usize {
+        self.args.heap_size()
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_tests(
         udf_path: CanonicalizedUdfPath,

@@ -21,7 +21,7 @@ use common::{
 use rand::Rng;
 use value::ResolvedDocumentId;
 
-pub const MAX_BACKOFF: Duration = Duration::from_secs(30);
+pub const MAX_BACKOFF: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum BuildReason {

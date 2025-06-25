@@ -1335,7 +1335,7 @@ impl Arbitrary for FuzzyDeterminismTestCase {
                 (
                     Just(query.clone()),
                     prop::collection::vec(
-                        generate_document(query.clone(), fluff_len.clone()),
+                        generate_document(query, fluff_len.clone()),
                         num_docs.clone(),
                     ),
                 )

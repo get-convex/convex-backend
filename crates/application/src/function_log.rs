@@ -267,7 +267,12 @@ impl FunctionExecution {
                     }),
                     None => None,
                 },
-                scheduler_info: self.caller.parent_scheduled_job().map(|_| SchedulerInfo {}),
+                scheduler_info: match self.caller {
+                    FunctionCaller::Scheduler { job_id, .. } => Some(SchedulerInfo {
+                        job_id: job_id.to_string(),
+                    }),
+                    _ => None,
+                },
                 usage_stats: log_streaming::AggregatedFunctionUsageStats {
                     database_read_bytes: self.usage_stats.database_read_bytes,
                     database_write_bytes: self.usage_stats.database_write_bytes,

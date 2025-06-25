@@ -922,10 +922,7 @@ where
     }
 }
 
-impl<D: ConvexSerializable> ParseDocument<D> for &ResolvedDocument
-where
-    anyhow::Error: From<<D::Serialized as TryInto<D>>::Error>,
-{
+impl<D: ConvexSerializable> ParseDocument<D> for &ResolvedDocument {
     fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
         let id = self.id();
         let creation_time = self.creation_time;
@@ -933,7 +930,7 @@ where
             ConvexValueType::<&ConvexValue>::Object(&self.document.value().0),
         )?
         .try_into()
-        .map_err(anyhow::Error::from)
+        .map_err(Into::<anyhow::Error>::into)
         .with_context(|| format!("Failed to parse document id: {id}"))?;
         Ok(ParsedDocument {
             id,
@@ -943,10 +940,7 @@ where
     }
 }
 
-impl<D: ConvexSerializable> ParseDocument<D> for &PackedDocument
-where
-    anyhow::Error: From<<D::Serialized as TryInto<D>>::Error>,
-{
+impl<D: ConvexSerializable> ParseDocument<D> for &PackedDocument {
     fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
         let creation_time = match self.value().as_ref().open()? {
             OpenedValue::Object(o) => match o.get(&CREATION_TIME_FIELD)? {
@@ -964,10 +958,7 @@ where
     }
 }
 
-impl<D: ConvexSerializable> ParseDocument<D> for PackedDocument
-where
-    anyhow::Error: From<<D::Serialized as TryInto<D>>::Error>,
-{
+impl<D: ConvexSerializable> ParseDocument<D> for PackedDocument {
     fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
         (&self).parse()
     }
@@ -1132,7 +1123,7 @@ mod tests {
             tablet_id,
             TableNamespace::test_user(),
             table_number,
-            table_name.clone(),
+            table_name,
         );
         let doc = ResolvedDocument::new(
             ResolvedDocumentId::new(

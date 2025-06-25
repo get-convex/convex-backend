@@ -1,0 +1,55 @@
+[package]
+name = "log_streaming"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[features]
+testing = [
+    "common/testing",
+    "database/testing",
+    "errors/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "runtime/testing",
+    "sentry/test",
+]
+
+[dependencies]
+anyhow = { workspace = true }
+bytes = { workspace = true }
+common = { path = "../../crates/common" }
+convex_macro = { path = "../../crates/convex_macro" }
+database = { path = "../../crates/database" }
+errors = { path = "../../crates/errors" }
+futures = { workspace = true }
+http = { workspace = true }
+keybroker = { path = "../../crates/keybroker" }
+maplit = { workspace = true }
+metrics = { path = "../../crates/metrics" }
+model = { path = "../../crates/model" }
+parking_lot = { workspace = true }
+reqwest = { workspace = true }
+sentry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+common = { path = "../../crates/common", features = ["testing"] }
+database = { path = "../../crates/database", features = ["testing"] }
+errors = { path = "../../crates/errors", features = ["testing"] }
+keybroker = { path = "../../crates/keybroker", features = ["testing"] }
+metrics = { path = "../../crates/metrics", features = ["testing"] }
+model = { path = "../../crates/model", features = ["testing"] }
+runtime = { path = "../../crates/runtime", features = ["testing"] }
+sentry = { workspace = true, features = ["test"] }
+
+[lints]
+workspace = true

@@ -1,6 +1,7 @@
 ---
 title: "Error Handling"
 sidebar_position: 70
+description: "Handle errors in Convex queries, mutations, and actions"
 ---
 
 There are four reasons why your Convex [queries](/functions/query-functions.mdx)

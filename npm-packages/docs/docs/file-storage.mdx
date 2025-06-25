@@ -1,6 +1,6 @@
 ---
 title: "File Storage"
-description: "Store and serve files of any type."
+description: "Store and serve files of any type"
 sidebar_position: 160
 pagination_prev: database
 ---

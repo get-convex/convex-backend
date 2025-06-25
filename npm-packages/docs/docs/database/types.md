@@ -1,6 +1,7 @@
 ---
 title: "Data Types"
 sidebar_position: 40
+description: "Supported data types in Convex documents"
 ---
 
 import ConvexValues from "@site/docs/\_convexValues.mdx";

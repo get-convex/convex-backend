@@ -73,13 +73,10 @@ where
         OpenedValue::new(Reader::get_root(self.buf)?)
     }
 
-    pub fn parse<T: ConvexSerializable>(self) -> anyhow::Result<T>
-    where
-        anyhow::Error: From<<T::Serialized as TryInto<T>>::Error>,
-    {
+    pub fn parse<T: ConvexSerializable>(self) -> anyhow::Result<T> {
         value::serde::from_value::<_, T::Serialized>(self.as_ref().open()?)?
             .try_into()
-            .map_err(anyhow::Error::from)
+            .map_err(Into::<anyhow::Error>::into)
     }
 
     pub fn size(&self) -> usize {

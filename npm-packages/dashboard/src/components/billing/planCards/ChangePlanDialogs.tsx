@@ -123,6 +123,7 @@ export function UpgradePlanDialog({
             requiresPaymentMethod
             couponDurationInMonths={undefined}
             isUpgrading
+            teamManagedBy={team.managedBy || undefined}
           />
           {newPlan.planType === "CONVEX_PROFESSIONAL" && (
             <div className="flex max-w-64 items-center gap-2">

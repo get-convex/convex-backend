@@ -21,6 +21,10 @@ use std::{
     },
 };
 
+use ::log_streaming::{
+    LogManager,
+    LogManagerClient,
+};
 use airbyte_import::{
     AirbyteRecord,
     PrimaryKey,
@@ -74,7 +78,10 @@ use common::{
         report_error,
         JsError,
     },
-    http::RequestDestination,
+    http::{
+        fetch::FetchClient,
+        RequestDestination,
+    },
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         MAX_JOBS_CANCEL_BATCH,
@@ -191,6 +198,7 @@ use keybroker::{
     Identity,
     KeyBroker,
 };
+use log_streaming::add_local_log_sink_on_startup;
 use maplit::{
     btreemap,
     btreeset,
@@ -201,6 +209,7 @@ use model::{
         AIRBYTE_PRIMARY_KEY_INDEX_DESCRIPTOR,
     },
     auth::AuthInfoModel,
+    backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     canonical_urls::{
         types::CanonicalUrl,
@@ -389,6 +398,7 @@ pub mod cron_jobs;
 pub mod deploy_config;
 mod exports;
 pub mod function_log;
+mod log_streaming;
 pub mod log_visibility;
 mod metrics;
 mod module_cache;
@@ -548,11 +558,11 @@ pub struct Application<RT: Runtime> {
     export_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    log_sender: Arc<dyn LogSender>,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
     system_env_var_names: HashSet<EnvVarName>,
     app_auth: Arc<ApplicationAuth>,
+    log_manager_client: LogManagerClient,
 }
 
 impl<RT: Runtime> Clone for Application<RT> {
@@ -579,11 +589,11 @@ impl<RT: Runtime> Clone for Application<RT> {
             export_worker: self.export_worker.clone(),
             system_table_cleanup_worker: self.system_table_cleanup_worker.clone(),
             migration_worker: self.migration_worker.clone(),
-            log_sender: self.log_sender.clone(),
             log_visibility: self.log_visibility.clone(),
             module_cache: self.module_cache.clone(),
             system_env_var_names: self.system_env_var_names.clone(),
             app_auth: self.app_auth.clone(),
+            log_manager_client: self.log_manager_client.clone(),
         }
     }
 }
@@ -671,10 +681,11 @@ impl<RT: Runtime> Application<RT> {
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         persistence: Arc<dyn Persistence>,
         node_actions: Actions<RT>,
-        log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
         app_auth: Arc<ApplicationAuth>,
         cache: QueryCache,
+        fetch_client: Arc<dyn FetchClient>,
+        local_log_sink: Option<String>,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -724,10 +735,32 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("system_table_cleanup_worker", system_table_cleanup_worker),
         ));
 
+        // If local_log_sink is passed in, this is a local instance, so we enable log
+        // streaming by default. Otherwise, it's hard to grant the
+        // entitlement in testing and in load generator. If not local, we
+        // read the entitlement from the database.
+        let mut tx = database.begin(Identity::system()).await?;
+        let log_streaming_allowed = if let Some(path) = local_log_sink {
+            add_local_log_sink_on_startup(database.clone(), path).await?;
+            true
+        } else {
+            let mut bi = BackendInfoModel::new(&mut tx);
+            bi.is_log_streaming_allowed().await?
+        };
+
+        let log_manager_client = LogManager::start(
+            runtime.clone(),
+            database.clone(),
+            fetch_client.clone(),
+            instance_name.clone(),
+            log_streaming_allowed,
+        )
+        .await;
+
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
             database.usage_counter(),
-            log_sender.clone(),
+            Arc::new(log_manager_client.clone()),
         );
         let runner = Arc::new(ApplicationFunctionRunner::new(
             runtime.clone(),
@@ -768,7 +801,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.exports_storage.clone(),
             application_storage.files_storage.clone(),
-            database.usage_counter().clone(),
+            database.usage_counter(),
             instance_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(runtime.spawn("export_worker", export_worker)));
@@ -778,7 +811,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.snapshot_imports_storage.clone(),
             file_storage.clone(),
-            database.usage_counter().clone(),
+            database.usage_counter(),
         );
         let snapshot_import_worker = Arc::new(Mutex::new(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
@@ -816,11 +849,11 @@ impl<RT: Runtime> Application<RT> {
             snapshot_import_worker,
             system_table_cleanup_worker,
             migration_worker,
-            log_sender,
             log_visibility,
             module_cache,
             system_env_var_names: default_system_env_vars.into_keys().collect(),
             app_auth,
+            log_manager_client,
         })
     }
 
@@ -846,6 +879,10 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn function_log(&self) -> FunctionExecutionLog<RT> {
         self.function_log.clone()
+    }
+
+    pub fn log_manager_client(&self) -> &LogManagerClient {
+        &self.log_manager_client
     }
 
     pub fn now_ts_for_reads(&self) -> RepeatableTimestamp {
@@ -883,7 +920,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub fn usage_counter(&self) -> UsageCounter {
-        self.database.usage_counter().clone()
+        self.database.usage_counter()
     }
 
     #[fastrace::trace]
@@ -2990,7 +3027,7 @@ impl<RT: Runtime> Application<RT> {
             })
             .try_collect()?;
 
-        self.log_sender.send_logs(logs);
+        self.log_manager_client.send_logs(logs);
         Ok(ts)
     }
 
@@ -3088,7 +3125,7 @@ impl<RT: Runtime> Application<RT> {
             })
             .try_collect()?;
 
-        self.log_sender.send_logs(logs);
+        self.log_manager_client.send_logs(logs);
         Ok((t, stats))
     }
 
@@ -3413,7 +3450,7 @@ impl<RT: Runtime> Application<RT> {
             .indexes
             .into_iter()
             .map(|(descriptor, fields)| {
-                let index_name = IndexName::new_reserved(table_name.clone(), descriptor.clone())?;
+                let index_name = IndexName::new_reserved(table_name.clone(), descriptor)?;
                 let index_fields = fields.fields;
                 Ok((index_name, index_fields))
             })
@@ -3439,7 +3476,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
-        self.log_sender.shutdown()?;
+        self.log_manager_client.shutdown()?;
         self.table_summary_worker.shutdown().await?;
         self.system_table_cleanup_worker.lock().shutdown();
         self.schema_worker.lock().shutdown();

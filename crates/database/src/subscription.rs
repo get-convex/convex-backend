@@ -642,11 +642,11 @@ mod tests {
             field_path in any::<FieldPath>(),
             prefix in any::<bool>(),
         ) (
-            token in Just(tokens.clone().remove(0)),
+            token in Just(tokens[0].clone()),
             index_name in Just(index_name),
             field_path in Just(field_path),
             prefix in Just(prefix),
-            mismatch_token in mismatch(tokens.clone().remove(0))
+            mismatch_token in mismatch(tokens[0].clone())
         ) -> (Token, Token) {
             let max_distance = max_distance(&token);
             (
@@ -763,11 +763,7 @@ mod tests {
             GenericIndexName::new(table_id.tablet_id, IndexDescriptor::new("index").unwrap())?;
         let field_path = FieldPath::from_str("path")?;
 
-        Ok(Token::text_search_token(
-            index_name.clone(),
-            field_path.clone(),
-            terms,
-        ))
+        Ok(Token::text_search_token(index_name, field_path, terms))
     }
 
     #[test_runtime]

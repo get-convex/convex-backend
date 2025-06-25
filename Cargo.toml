@@ -198,6 +198,8 @@ strip = "debuginfo"
 
 [patch.crates-io]
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "8794d2bbf2a5a9adc501067ee4440dde6b5e6e25" }
+tokio-postgres = { git = "https://github.com/get-convex/rust-postgres", rev = "af064b91c3f75f0004fb4f77b16682519ff62711" }
+postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev = "af064b91c3f75f0004fb4f77b16682519ff62711" }
 
 [workspace.lints.rust]
 unused_extern_crates = "warn"

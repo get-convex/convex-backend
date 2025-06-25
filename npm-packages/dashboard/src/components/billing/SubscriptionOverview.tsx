@@ -27,6 +27,7 @@ import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { Callout } from "@ui/Callout";
 import { formatUsd } from "@common/lib/utils";
 import { planNameMap } from "components/billing/planCards/PlanCard";
+import startCase from "lodash/startCase";
 import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
@@ -452,6 +453,14 @@ function BillingAddressForm({
   return (
     <div className="flex flex-col gap-4" ref={ref}>
       <h4>Billing Address</h4>
+      {team.managedBy && (
+        <Callout>
+          <div>
+            This team is managed by {startCase(team.managedBy)}. You may add a
+            billing address if you wish to upgrade to the Professional plan.
+          </div>
+        </Callout>
+      )}
       {!showForm ? (
         <>
           <div className="text-sm">
@@ -589,6 +598,14 @@ function PaymentMethodForm({
   return (
     <div className="flex flex-col gap-4">
       <h4>Payment Method</h4>
+      {team.managedBy && (
+        <Callout>
+          <div>
+            This team is managed by {startCase(team.managedBy)}. You may add a
+            payment method if you wish to upgrade to the Professional plan.
+          </div>
+        </Callout>
+      )}
       {subscription.paymentMethod && (
         <div className="text-sm">
           Current payment method:{" "}

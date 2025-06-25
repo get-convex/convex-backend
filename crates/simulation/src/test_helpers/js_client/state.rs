@@ -303,8 +303,8 @@ impl<'a> JsThreadState<'a> {
                 };
                 let () = self.call(scope, self.add_sync_query, func_args)?;
                 self.replay_state.add_message(ReplayMessage::AddSyncQuery {
-                    id: id.to_string(),
-                    name: name.to_string(),
+                    id,
+                    name,
                     args: args_json,
                 });
                 let _ = sender.send(());
@@ -314,7 +314,7 @@ impl<'a> JsThreadState<'a> {
                     self.call(scope, self.sync_query_result, id.clone())?;
                 self.replay_state
                     .add_message(ReplayMessage::CheckSyncQueryResult {
-                        id: id.to_string(),
+                        id,
                         expected_result: query_result.clone(),
                     });
                 let result = match query_result {
@@ -331,7 +331,7 @@ impl<'a> JsThreadState<'a> {
             JsClientThreadRequest::RemoveSyncQuery { id, sender } => {
                 self.call::<_, ()>(scope, self.remove_sync_query, id.clone())?;
                 self.replay_state
-                    .add_message(ReplayMessage::RemoveSyncQuery { id: id.to_string() });
+                    .add_message(ReplayMessage::RemoveSyncQuery { id });
                 let _ = sender.send(());
             },
             JsClientThreadRequest::RequestSyncMutation {
@@ -347,7 +347,7 @@ impl<'a> JsThreadState<'a> {
                 };
                 let () = self.call(scope, self.request_sync_mutation, args)?;
                 self.replay_state.add_message(ReplayMessage::Mutate {
-                    id: id.to_string(),
+                    id,
                     mutation_info: value,
                 });
                 let _ = sender.send(());
@@ -357,7 +357,7 @@ impl<'a> JsThreadState<'a> {
                     self.call(scope, self.get_sync_mutation_status, id.clone())?;
                 self.replay_state
                     .add_message(ReplayMessage::CheckMutationStatus {
-                        id: id.to_string(),
+                        id,
                         expected_status: status.clone(),
                     });
                 let _ = sender.send(status);

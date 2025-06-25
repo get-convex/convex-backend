@@ -229,7 +229,7 @@ pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentD
     let module_loader = Arc::new(UncachedModuleLoader { modules_storage });
     let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
     let convex_origin = "http://127.0.0.1:8000".into();
-    let file_storage = TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
+    let file_storage = TransactionalFileStorage::new(rt, storage, convex_origin);
 
     let default_system_env_vars = btreemap! {
         CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,

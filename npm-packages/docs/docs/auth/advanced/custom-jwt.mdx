@@ -14,6 +14,8 @@ For example, [OpenAuth](https://openauth.js.org/) implements the OAuth 2.0 spec
 but not OIDC, so to use it with Convex you'll need to set it up as a Custom JWT
 provider.
 
+The JWT must contain at least the `sub`, `iss`, `iat`, and `exp` fields.
+
 ## Server-side integration
 
 Use `type: "customJwt"` to configure a Custom JWT auth provider:

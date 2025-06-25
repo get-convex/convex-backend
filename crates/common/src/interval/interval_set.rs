@@ -530,7 +530,7 @@ mod tests {
         r.add(int_interval(6, 24));
 
         assert_eq!(
-            r.intervals().clone().into_iter().collect::<Vec<_>>(),
+            r.intervals().into_iter().collect::<Vec<_>>(),
             vec![(int_start(0), int_end(3)), (int_start(4), int_end(28)),]
         );
     }
@@ -553,7 +553,7 @@ mod tests {
 
         r.add(int_interval(6, 24));
         assert_eq!(
-            r.intervals().clone().into_iter().collect::<Vec<_>>(),
+            r.intervals().into_iter().collect::<Vec<_>>(),
             vec![(int_start(0), int_end(3)), (int_start(6), int_end(28)),]
         );
     }
@@ -575,7 +575,7 @@ mod tests {
 
         r.add(int_interval(6, 24));
         assert_eq!(
-            r.intervals().clone().into_iter().collect::<Vec<_>>(),
+            r.intervals().into_iter().collect::<Vec<_>>(),
             vec![
                 (int_start(0), int_end(3)),
                 (int_start(6), int_end(24)),

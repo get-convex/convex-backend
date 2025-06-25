@@ -38,16 +38,6 @@ pub trait LogSender: Send + Sync {
     fn shutdown(&self) -> anyhow::Result<()>;
 }
 
-pub struct NoopLogSender;
-
-impl LogSender for NoopLogSender {
-    fn send_logs(&self, _logs: Vec<LogEvent>) {}
-
-    fn shutdown(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
 /// Structured log
 #[derive(Debug, Clone)]
 pub struct LogEvent {
@@ -87,7 +77,9 @@ pub struct OccInfo {
 // Nothing yet. Can add information like parent scheduled job, scheduler lag,
 // etc.
 #[derive(Serialize, Debug, Clone)]
-pub struct SchedulerInfo {}
+pub struct SchedulerInfo {
+    pub job_id: String,
+}
 
 #[derive(Debug, Clone)]
 pub enum StructuredLogEvent {

@@ -1,6 +1,6 @@
 ---
 title: "Hosting and Deployment"
-description: "Share your Convex backend and web app with the world."
+description: "Share your Convex backend and web app with the world"
 sidebar_position: 1
 ---
 

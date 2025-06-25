@@ -1,7 +1,7 @@
 ---
 title: "Using Convex with Netlify"
 sidebar_label: "Netlify"
-description: "Host your frontend on Netlify and your backend on Convex."
+description: "Host your frontend on Netlify and your backend on Convex"
 sidebar_position: 20
 ---
 

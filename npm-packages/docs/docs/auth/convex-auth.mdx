@@ -2,6 +2,7 @@
 title: "Convex Auth"
 sidebar_label: "Convex Auth"
 sidebar_position: 1
+description: "Built-in authentication for Convex applications"
 ---
 
 [Convex Auth](https://labs.convex.dev/auth) is a library for implementing

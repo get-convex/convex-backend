@@ -73,9 +73,6 @@ pub use index_range::soft_data_limit;
 // data at once.
 const MAX_QUERY_FETCH: usize = 1024;
 
-// Default number of records to fetch if prefetch hint is not provided.
-const DEFAULT_QUERY_PREFETCH: usize = 100;
-
 /// The implementation of `interface Query` from the npm package.
 #[async_trait]
 trait QueryStream: Send {

@@ -13,10 +13,7 @@ use common::{
 use errors::ErrorMetadataAnyhowExt;
 use sync_types::backoff::Backoff;
 
-use crate::{
-    index_workers::MAX_BACKOFF,
-    Database,
-};
+use crate::Database;
 
 // Overloaded means indexes are not yet ready, but if we fail to load them in
 // 10ish minutes, probably something has gone wrong.
@@ -38,21 +35,23 @@ pub(crate) async fn retry_loop_expect_occs_and_overloaded<RT: Runtime>(
     runtime: RT,
     db: Database<RT>,
     initial_wait: Duration,
+    max_backoff: Duration,
     work: impl RetriableWorker<RT>,
 ) {
     tracing::info!("Starting {name}");
     runtime.wait(initial_wait).await;
-    retry_failures(name, runtime, db, MAX_OVERLOADED_RETRIES, work).await
+    retry_failures_impl(name, runtime, db, MAX_OVERLOADED_RETRIES, max_backoff, work).await
 }
 
-async fn retry_failures<RT: Runtime>(
+async fn retry_failures_impl<RT: Runtime>(
     name: &'static str,
     runtime: RT,
     db: Database<RT>,
     max_overloaded_errors: usize,
+    max_backoff: Duration,
     mut work: impl RetriableWorker<RT>,
 ) {
-    let mut backoff = Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, MAX_BACKOFF);
+    let mut backoff = Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, max_backoff);
     let mut occ_errors = 0;
     let mut overloaded_errors = 0;
     loop {
@@ -88,9 +87,11 @@ async fn retry_failures<RT: Runtime>(
             }
             let delay = backoff.fail(&mut runtime.rng());
             tracing::error!(
-                "{name} died, num_failures: {}. Backing off for {}ms, expected: {}: {e:#}",
+                "{name} died, num_failures: {}. Backing off for {}ms (max: {}ms), expected: {}: \
+                 {e:#}",
                 backoff.failures(),
                 delay.as_millis(),
+                max_backoff.as_millis(),
                 expected_error,
             );
             runtime.wait(delay).await;

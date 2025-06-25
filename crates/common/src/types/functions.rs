@@ -118,7 +118,7 @@ impl UdfIdentifier {
     pub fn into_component_and_udf_path(self) -> (Option<String>, String) {
         match self {
             UdfIdentifier::Function(path) => {
-                let (component_path, udf_path) = path.clone().into_component_and_udf_path();
+                let (component_path, udf_path) = path.into_component_and_udf_path();
                 (component_path.serialize(), udf_path.to_string())
             },
             UdfIdentifier::Http(_) | UdfIdentifier::SystemJob(_) => (None, self.to_string()),

@@ -154,7 +154,7 @@ fn suggested_validator(data_type: FivetranDataType, nullability: Nullability) ->
 pub fn suggested_convex_table(
     table: fivetran_sdk::Table,
 ) -> Result<TableDefinition, DestinationError> {
-    let schema = FivetranTableSchema::try_from(table.clone())?;
+    let schema = FivetranTableSchema::try_from(table)?;
     schema.suggested_convex_table()
 }
 
@@ -759,7 +759,7 @@ pub fn is_field_validator_valid(actual_validator: &Validator, data_type: Fivetra
 
     actual_validator == &expected_validator
         || actual_validator == &Validator::Union(vec![Validator::Null, expected_validator.clone()])
-        || actual_validator == &Validator::Union(vec![expected_validator.clone(), Validator::Null])
+        || actual_validator == &Validator::Union(vec![expected_validator, Validator::Null])
 }
 
 /// Converts the given Convex schema table to a Fivetran table. This is used in
@@ -1655,7 +1655,7 @@ mod tests {
                         "deleted".parse()?,
                     ])?,
                 ],
-                FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => sync_index.clone(),
+                FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => sync_index,
             }))
             .is_err());
 

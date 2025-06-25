@@ -440,6 +440,16 @@ async function handleOwnDev(
         deploymentType: "dev",
       };
     }
+    default: {
+      const _exhaustivenessCheck: never = projectSelection;
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        // This should be unreachable, so don't bother with a printed message.
+        printedMessage: null,
+        errForSentry: `Unexpected project selection: ${(projectSelection as any).kind}`,
+      });
+    }
   }
 }
 

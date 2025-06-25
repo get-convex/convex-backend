@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useCancelSubscription } from "api/billing";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
+import startCase from "lodash/startCase";
 import { PlanCard } from "./PlanCard";
 
 export function FreePlan({
@@ -52,13 +53,15 @@ export function FreePlan({
             </p>
           ) : (
             <Button
-              disabled={!hasAdminPermissions}
+              disabled={!hasAdminPermissions || !!team.managedBy}
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : typeof subscription.endDate === "number"
-                    ? `Your subscription has already been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`
-                    : undefined
+                  : team.managedBy
+                    ? `This team is managed by ${startCase(team.managedBy)}. You may manage the team subscription in ${startCase(team.managedBy)}.`
+                    : typeof subscription.endDate === "number"
+                      ? `Your subscription has already been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`
+                      : undefined
               }
               variant="neutral"
               onClick={() => {

@@ -629,7 +629,7 @@ impl ConvexHttpService {
                     .layer(axum::middleware::from_fn(tokio_instrumentation_middleware))
                     .layer(axum::middleware::from_fn(log_middleware))
                     .layer(axum::middleware::from_fn_with_state(
-                        route_metric_mapper.clone(),
+                        route_metric_mapper,
                         stats_middleware::<RM>,
                     ))
                     .layer(axum::middleware::from_fn(client_version_state_middleware))

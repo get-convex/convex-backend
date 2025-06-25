@@ -184,10 +184,17 @@ const getProps: GetServerSideProps<{
 
     const projectsByTeam = groupBy(projects, (p: ProjectDetails) => p.teamId);
 
-    const initialProjects = Object.fromEntries(
+    const initialProjectsByTeam = Object.fromEntries(
       teams.map(({ id: teamId }) => [
         `/teams/${teamId}/projects`,
         projectsByTeam[teamId] ?? [],
+      ]),
+    );
+
+    const initialIndividualProjects = Object.fromEntries(
+      projects.map(({ id: projectId }) => [
+        `/projects/${projectId}`,
+        projects.find((p: ProjectDetails) => p.id === projectId),
       ]),
     );
 
@@ -204,7 +211,8 @@ const getProps: GetServerSideProps<{
 
     const initialData: Record<string, object> = {
       "/teams": teams,
-      ...initialProjects,
+      ...initialProjectsByTeam,
+      ...initialIndividualProjects,
       ...initialDeployments,
     };
 

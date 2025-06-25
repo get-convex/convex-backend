@@ -10,7 +10,7 @@ export function BackupIdentifier({ backup }: { backup: BackupResponse }) {
     team?.id || 0,
     backup.sourceDeploymentId,
   );
-  const project = useProjectById(team?.id, deployment?.projectId);
+  const project = useProjectById(deployment?.projectId);
   return (
     <span className="text-xs text-content-secondary">
       {team?.slug}-{project?.slug}-{deployment?.name}-

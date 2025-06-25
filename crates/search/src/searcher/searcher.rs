@@ -1617,7 +1617,7 @@ mod tests {
         let id_tracker = StaticIdTracker::load_from_path(id_tracker_path)?;
         let start = std::time::Instant::now();
         let text_segment = Arc::new(TextSegment::Segment {
-            searcher: searcher.clone(),
+            searcher,
             deletion_tracker,
             id_tracker,
             segment_ord: 0,
@@ -1701,7 +1701,7 @@ mod tests {
     fn test_schema() -> TantivySearchIndexSchema {
         let field_path: FieldPath = "mySearchField".parse().unwrap();
         TantivySearchIndexSchema::new(&DeveloperTextIndexConfig {
-            search_field: field_path.clone(),
+            search_field: field_path,
             filter_fields: BTreeSet::new(),
         })
     }
@@ -1865,7 +1865,7 @@ mod tests {
         let id_tracker = StaticIdTracker::load_from_path(segment_paths.id_tracker_path)?;
         let start = std::time::Instant::now();
         let text_segment = Arc::new(TextSegment::Segment {
-            searcher: searcher.clone(),
+            searcher,
             deletion_tracker,
             id_tracker,
             segment_ord: 0,

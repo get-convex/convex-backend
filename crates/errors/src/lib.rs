@@ -325,7 +325,6 @@ impl ErrorMetadata {
             .map(|name| format!("the \"{name}\" table"))
             .unwrap_or("some table".to_owned());
         let write_source_description = description
-            .clone()
             .map(|source| format!("{}. ", source))
             .unwrap_or_default();
         Self {

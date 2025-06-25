@@ -989,6 +989,11 @@ impl<RT: Runtime> IsolateClient<RT> {
         let auth_config = IsolateClient::<RT>::receive_response(rx)
             .await?
             .map_err(|e| {
+                if let Some(e) = e.downcast_ref::<ErrorMetadata>()
+                    && e.is_rejected_before_execution()
+                {
+                    return e.clone();
+                }
                 let err = if e.is_overloaded() {
                     recapture_stacktrace(e)
                 } else {

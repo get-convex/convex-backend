@@ -154,9 +154,7 @@ pub enum Identity {
 impl From<Identity> for AuthenticationToken {
     fn from(i: Identity) -> Self {
         match i {
-            Identity::User(identity) => {
-                AuthenticationToken::User(identity.original_token.to_string())
-            },
+            Identity::User(identity) => AuthenticationToken::User(identity.original_token),
             Identity::ActingUser(identity, user) => {
                 AuthenticationToken::Admin(identity.key, Some(user))
             },

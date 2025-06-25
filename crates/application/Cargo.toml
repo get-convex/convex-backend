@@ -17,6 +17,7 @@ testing = [
     "function_runner/testing",
     "isolate/testing",
     "keybroker/testing",
+    "log_streaming/testing",
     "metrics/testing",
     "model/testing",
     "node_executor/testing",
@@ -67,6 +68,7 @@ humansize = { workspace = true }
 isolate = { path = "../isolate" }
 itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
+log_streaming = { path = "../log_streaming" }
 lru = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
@@ -121,6 +123,7 @@ events = { path = "../events", features = ["testing"] }
 function_runner = { path = "../function_runner", features = ["testing"] }
 isolate = { path = "../isolate", features = ["testing"] }
 keybroker = { path = "../keybroker", features = ["testing"] }
+log_streaming = { path = "../log_streaming", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
 must-let = { workspace = true }

@@ -1,6 +1,7 @@
 ---
 title: "Bundling"
 sidebar_position: 90
+description: "How Convex bundles and optimizes your function code"
 ---
 
 Bundling is the process of gathering, optimizing and transpiling the JS/TS

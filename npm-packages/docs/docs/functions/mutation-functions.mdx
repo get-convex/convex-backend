@@ -1,6 +1,7 @@
 ---
 title: Mutations
 sidebar_position: 20
+description: "Insert, update, and remove data from the database"
 ---
 
 import Example from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsExample.ts";
@@ -162,11 +163,8 @@ npm install @faker-js/faker
 
 ## Calling mutations from clients
 
-To call a mutation from [React](/client/react.mdx) use the generated
-[`useMutation`](/client/react.mdx#editing-data) hook:
-
 To call a mutation from [React](/client/react.mdx) use the
-[`useMutation`](/api/modules/react#usemutation) hook along with the generated
+[`useMutation`](/client/react.mdx#editing-data) hook along with the generated
 [`api`](/generated-api/api) object.
 
 <TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
