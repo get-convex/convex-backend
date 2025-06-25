@@ -55,13 +55,11 @@ import {
   DEFINITION_FILENAME_JS,
   DEFINITION_FILENAME_TS,
   DEFINITION_FILENAME_MJS,
-  DEFINITION_FILENAME_CJS,
 } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
   const candidates = [
     DEFINITION_FILENAME_MJS,
-    DEFINITION_FILENAME_CJS,
     DEFINITION_FILENAME_JS,
     DEFINITION_FILENAME_TS,
   ];
@@ -73,8 +71,8 @@ async function findComponentRootPath(ctx: Context, functionsDir: string) {
     }
   }
   
-  // Default fallback to .ts for backward compatibility
-  return path.resolve(path.join(functionsDir, DEFINITION_FILENAME_TS));
+  // Default fallback to .js for backward compatibility
+  return path.resolve(path.join(functionsDir, DEFINITION_FILENAME_JS));
 }
 
 export async function runCodegen(

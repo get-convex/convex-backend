@@ -297,12 +297,11 @@ export async function bundleSchema(
   dir: string,
   extraConditions: string[],
 ) {
-  const candidates = [
-    "schema.ts",
-    "schema.mjs",
-    "schema.cjs",
-    "schema.js",
-  ];
+      const candidates = [
+      "schema.ts",
+      "schema.mjs",
+      "schema.js",
+    ];
   
   let target = "";
   for (const filename of candidates) {
@@ -330,30 +329,21 @@ export async function bundleSchema(
 }
 
 export async function bundleAuthConfig(ctx: Context, dir: string) {
-  const candidates = [
-    "auth.config.ts",
-    "auth.config.mjs",
-    "auth.config.cjs", 
-    "auth.config.js"
-  ];
-  
-  const existingPaths = candidates
-    .map(filename => path.resolve(dir, filename))
-    .filter(filepath => ctx.fs.exists(filepath));
-  
-  if (existingPaths.length > 1) {
+  const authConfigPath = path.resolve(dir, "auth.config.js");
+  const authConfigTsPath = path.resolve(dir, "auth.config.ts");
+  if (ctx.fs.exists(authConfigPath) && ctx.fs.exists(authConfigTsPath)) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
-      printedMessage: `Found multiple auth config files: ${existingPaths.join(", ")}, choose one.`,
+      printedMessage: `Found both ${authConfigPath} and ${authConfigTsPath}, choose one.`,
     });
   }
-  
-  if (existingPaths.length === 0) {
+  const chosenPath = ctx.fs.exists(authConfigTsPath)
+    ? authConfigTsPath
+    : authConfigPath;
+  if (!ctx.fs.exists(chosenPath)) {
     return [];
   }
-  
-  const chosenPath = existingPaths[0];
   const result = await bundle(ctx, dir, [chosenPath], true, "browser");
   return result.modules;
 }
@@ -444,7 +434,7 @@ export async function entryPoints(
       logVerbose(ctx, chalk.yellow(`Skipping dotfile ${fpath}`));
     } else if (base.startsWith("#")) {
       logVerbose(ctx, chalk.yellow(`Skipping likely emacs tempfile ${fpath}`));
-    } else if (base === "schema.mjs" || base === "schema.cjs" || base === "schema.js" || base === "schema.ts") {
+    } else if (base === "schema.mjs" || base === "schema.js" || base === "schema.ts") {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if ((base.match(/\./g) || []).length > 1) {
       // `auth.config.*` and `convex.config.*` files are important not to bundle.

@@ -4,7 +4,6 @@ import {
   DEFINITION_FILENAME_JS,
   DEFINITION_FILENAME_TS,
   DEFINITION_FILENAME_MJS,
-  DEFINITION_FILENAME_CJS,
 } from "../constants.js";
 import { getFunctionsDirectoryPath } from "../../config.js";
 
@@ -31,7 +30,7 @@ export type ComponentDirectory = {
   path: string;
 
   /**
-   * Absolute local filesystem path to the `convex.config.{mjs,cjs,js,ts}` file within the component definition.
+   * Absolute local filesystem path to the `convex.config.{mjs,js,ts}` file within the component definition.
    */
   definitionPath: string;
 };
@@ -69,10 +68,9 @@ export function isComponentDirectory(
     return { kind: "err", why: `Not a directory` };
   }
 
-  // Check that we have a definition file, using priority order: .mjs, .cjs, .js, .ts
+  // Check that we have a definition file, using priority order: .mjs, .js, .ts
   const candidates = [
     DEFINITION_FILENAME_MJS,
-    DEFINITION_FILENAME_CJS,
     DEFINITION_FILENAME_JS,
     DEFINITION_FILENAME_TS,
   ];

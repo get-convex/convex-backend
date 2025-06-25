@@ -53,7 +53,7 @@ function componentPlugin({
     name: `convex-${mode === "discover" ? "discover-components" : "bundle-components"}`,
     async setup(build) {
       // This regex can't be really precise since developers could import
-      // "convex.config", "convex.config.mjs", "convex.config.cjs", "convex.config.js", "convex.config.ts", etc.
+      // "convex.config", "convex.config.mjs", "convex.config.js", "convex.config.ts", etc.
       build.onResolve({ filter: /.*convex.config.*/ }, async (args) => {
         verbose && logMessage(ctx, "esbuild resolving import:", args);
         if (args.namespace !== "file") {
@@ -84,13 +84,13 @@ function componentPlugin({
         const candidates = [args.path];
         const ext = path.extname(args.path);
         
-        if (ext === ".mjs" || ext === ".cjs" || ext === ".js") {
+        if (ext === ".mjs" || ext === ".js") {
           candidates.push(args.path.slice(0, -ext.length) + ".ts");
         }
         
         // If no extension or unrecognized extension, try all in priority order
-        if (!ext || ![".mjs", ".cjs", ".js", ".ts"].includes(ext)) {
-          candidates.push(args.path + ".mjs", args.path + ".cjs", args.path + ".js", args.path + ".ts");
+        if (!ext || ![".mjs", ".js", ".ts"].includes(ext)) {
+          candidates.push(args.path + ".mjs", args.path + ".js", args.path + ".ts");
         }
         let resolvedPath = undefined;
         for (const candidate of candidates) {
@@ -499,8 +499,8 @@ export async function bundleImplementations(
       rootComponentDirectory.path,
       directory.path,
     );
-    // Check for schema files in priority order: .mjs, .cjs, .js, .ts
-    const schemaCandidates = ["schema.mjs", "schema.cjs", "schema.js", "schema.ts"];
+    // Check for schema files in priority order: .mjs, .js, .ts
+    const schemaCandidates = ["schema.mjs", "schema.js", "schema.ts"];
     const schemaExists = schemaCandidates.some(filename => 
       ctx.fs.exists(path.resolve(resolvedPath, filename))
     );
