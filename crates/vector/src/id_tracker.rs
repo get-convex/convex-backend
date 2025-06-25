@@ -115,16 +115,8 @@ impl IdTracker for VectorMemoryIdTracker {
         let PointIdType::Uuid(uuid) = external_id else {
             panic!("Invalid external ID: {external_id}");
         };
-        // If this is a replace, find the old internal_id and set it as not deleted.
-        let maybe_old_internal_id = self.memory_id_tracker.index_id(*uuid.as_bytes());
-        if let Some(old_internal_id) = maybe_old_internal_id {
-            self.deleted.set_not_deleted(old_internal_id as usize);
-        }
         self.memory_id_tracker.insert(internal_id, *uuid.as_bytes());
-        // Only resize if we need to make the bitset larger
-        if internal_id as usize >= self.deleted.len() {
-            self.deleted.resize(internal_id as usize + 1);
-        }
+        self.deleted.resize(internal_id as usize + 1);
         Ok(())
     }
 
@@ -462,35 +454,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn memory_tracker_correctly_replaces_point_with_different_id() {
-        let mut tracker = VectorMemoryIdTracker::new();
-        let internal_id = 0;
-        let external_id = PointIdType::Uuid(Uuid::from_u128(0));
-        tracker.set_link(external_id, internal_id).unwrap();
-        tracker.drop(external_id).unwrap();
-        assert_eq!(tracker.deleted.num_deleted(), 1);
-        assert!(tracker.deleted.is_deleted(internal_id));
-        let new_internal_id = 1;
-        tracker.set_link(external_id, new_internal_id).unwrap();
-        assert!(!tracker.deleted.is_deleted(internal_id));
-        assert_eq!(tracker.deleted.num_deleted(), 0);
-    }
-
-    #[test]
-    fn memory_tracker_correctly_replaces_point_with_same_id() {
-        let mut tracker = VectorMemoryIdTracker::new();
-        let internal_id = 0;
-        let external_id = PointIdType::Uuid(Uuid::from_u128(0));
-        tracker.set_link(external_id, internal_id).unwrap();
-        tracker.drop(external_id).unwrap();
-        assert_eq!(tracker.deleted.num_deleted(), 1);
-        assert!(tracker.deleted.is_deleted(internal_id));
-        tracker.set_link(external_id, internal_id).unwrap();
-        assert!(!tracker.deleted.is_deleted(internal_id));
-        assert_eq!(tracker.deleted.num_deleted(), 0);
-    }
-
     proptest! {
         #![proptest_config(
             ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
@@ -680,31 +643,7 @@ mod tests {
                     tracker.drop(external_id).unwrap();
                 }
             }
-            assert_eq!(tracker.deleted.num_deleted(), deleted.len());
         }
-
-        #[test]
-        fn memory_tracker_correctly_replaces_points((all, deleted) in uuids_with_some_deleted()) {
-            let mut tracker = VectorMemoryIdTracker::new();
-            for (i, uuid) in all.iter().enumerate() {
-                let internal_id = i as u32;
-                let external_id = PointIdType::Uuid(*uuid);
-                tracker.set_link(external_id, internal_id).unwrap();
-                if deleted.contains(uuid) {
-                    tracker.drop(external_id).unwrap();
-                }
-            }
-            assert_eq!(tracker.deleted.num_deleted(), deleted.len());
-            for (i, uuid) in deleted.iter().enumerate() {
-                if deleted.contains(uuid) {
-                    let internal_id = i as u32;
-                    let external_id = PointIdType::Uuid(*uuid);
-                    tracker.set_link(external_id, internal_id).unwrap();
-                }
-            }
-            assert_eq!(tracker.deleted.num_deleted(), 0);
-        }
-
 
         #[test]
         fn test_deleted_bitset((all, deleted) in uuids_with_some_deleted()) {
