@@ -18,7 +18,7 @@ export function SchedulerStatus({ small = false }: { small?: boolean }) {
   const log = useLogDeploymentEvent();
 
   const health =
-    behindBySeconds <= 5
+    behindBySeconds <= 20
       ? "healthy"
       : behindBySeconds > 300
         ? "error"
