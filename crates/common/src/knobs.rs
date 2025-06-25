@@ -1094,6 +1094,20 @@ pub static FIREHOSE_TIMEOUT: LazyLock<Duration> =
 pub static INDEX_WORKERS_INITIAL_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKERS_INITIAL_BACKOFF", 500)));
 
+/// The maximum backoff time for search index flusher workers when a failure
+/// occurs. This shouldn't be set too high because flushes are required for
+/// write throughput.
+pub static SEARCH_INDEX_FLUSHER_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SEARCH_INDEX_FLUSHER_MAX_BACKOFF", 30)));
+
+/// The maximum backoff time for search compactor workers when a failure occurs.
+/// This can be set relatively high because compaction is not a critical
+/// operation. If compaction fails, latency for searches may increase from
+/// searching too many segments. Setting this too low can overwhelm searchlight
+/// on persistent failures.
+pub static SEARCH_COMPACTOR_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SEARCH_COMPACTOR_MAX_BACKOFF", 10 * 60)));
+
 /// The maximum size for Funrun run function request messages. This is 8MiB for
 /// path and args, plus a buffer for the smaller fields. Note that analyze has a
 /// much higher limit because it includes user source code.

@@ -59,6 +59,7 @@ use crate::{
     index_workers::{
         retriable_worker::RetriableWorker,
         timeout_with_jitter,
+        MAX_BACKOFF,
     },
     text_index_worker::fast_forward::TextFastForward,
     vector_index_worker::fast_forward::VectorFastForward,
@@ -101,6 +102,7 @@ impl FastForwardIndexWorker {
             rt,
             db,
             Duration::ZERO,
+            MAX_BACKOFF,
             FastForwardIndexWorker,
         )
     }
