@@ -2,6 +2,7 @@
 title: convex-test
 sidebar_label: convex-test
 sidebar_position: 100
+description: "Mock Convex backend for fast automated testing of functions"
 ---
 
 The `convex-test` library provides a mock implementation of the Convex backend

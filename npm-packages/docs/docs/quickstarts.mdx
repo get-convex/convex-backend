@@ -1,6 +1,8 @@
 ---
 title: Quickstarts
 hide_table_of_contents: true
+description:
+  "Get started quickly with your favorite frontend framework or language"
 ---
 
 import {
