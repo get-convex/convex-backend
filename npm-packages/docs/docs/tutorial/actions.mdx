@@ -25,6 +25,19 @@ work that can then write data back via mutations.
 Let's make our chat app a bit smarter by letting anyone in the chat get the
 Wikipedia summary of a topic using the Wikipedia API.
 
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/0bn9RcwOwOQ?si=C5Gvz2Us2H1KIAQu"
+    title="YouTube video player"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+
 ## Your first `action`
 
 **Add the following action to your `convex/chat.ts` file.**
