@@ -1,20 +1,16 @@
-use std::collections::BTreeMap;
-
-use common::{
-    obj,
-    types::{
-        BackendInfo,
-        DeploymentId,
-        DeploymentType,
-        ProjectId,
-        TeamId,
-        DEFAULT_PROVISION_CONCURRENCY,
-    },
+use common::types::{
+    BackendInfo,
+    DeploymentId,
+    DeploymentType,
+    ProjectId,
+    TeamId,
+    DEFAULT_PROVISION_CONCURRENCY,
 };
-use value::{
-    ConvexObject,
-    ConvexValue,
+use serde::{
+    Deserialize,
+    Serialize,
 };
+use value::codegen_convex_serialization;
 
 /// Information and configuration about the backend.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -74,83 +70,59 @@ impl Default for BackendInfoPersisted {
     }
 }
 
-impl TryFrom<BackendInfoPersisted> for ConvexObject {
-    type Error = anyhow::Error;
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedBackendInfo {
+    org: i64,
+    project: i64,
+    instance: i64,
+    deployment_type: String,
+    #[serde(default)]
+    streaming_export_enabled: bool,
+    #[serde(default)]
+    provision_concurrency: Option<i64>,
+    #[serde(default)]
+    log_streaming_enabled: bool,
+    project_name: Option<String>,
+    project_slug: Option<String>,
+}
 
-    fn try_from(b: BackendInfoPersisted) -> anyhow::Result<Self> {
+impl From<BackendInfoPersisted> for SerializedBackendInfo {
+    fn from(b: BackendInfoPersisted) -> Self {
         let team: u64 = b.team.into();
         let project: u64 = b.project.into();
         let deployment: u64 = b.deployment.into();
         let deployment_type: String = b.deployment_type.to_string();
 
-        obj!(
-            "org" => (team as i64),
-            "project" => (project as i64),
-            "instance" => (deployment as i64),
-            "deploymentType" => deployment_type,
-            "streamingExportEnabled" => b.streaming_export_enabled,
-            "provisionConcurrency" => (b.provision_concurrency as i64),
-            "logStreamingEnabled" => b.log_streaming_enabled,
-            "projectName" => b.project_name,
-            "projectSlug" => b.project_slug,
-        )
+        SerializedBackendInfo {
+            org: (team as i64),
+            project: (project as i64),
+            instance: (deployment as i64),
+            deployment_type,
+            streaming_export_enabled: b.streaming_export_enabled,
+            provision_concurrency: Some(b.provision_concurrency as i64),
+            log_streaming_enabled: b.log_streaming_enabled,
+            project_name: b.project_name,
+            project_slug: b.project_slug,
+        }
     }
 }
 
-impl TryFrom<ConvexObject> for BackendInfoPersisted {
+impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
     type Error = anyhow::Error;
 
-    fn try_from(o: ConvexObject) -> Result<Self, Self::Error> {
-        let mut object_fields: BTreeMap<_, _> = o.into();
-        let team: TeamId = match object_fields.remove("org") {
-            Some(ConvexValue::Int64(i)) => TeamId(i as u64),
-            _ => anyhow::bail!(
-                "Missing or invalid team for BackendInfoPersisted: {:?}",
-                object_fields
-            ),
-        };
-        let project: ProjectId = match object_fields.remove("project") {
-            Some(ConvexValue::Int64(i)) => ProjectId(i as u64),
-            _ => anyhow::bail!(
-                "Missing or invalid project for BackendInfoPersisted: {:?}",
-                object_fields
-            ),
-        };
-        let deployment: DeploymentId = match object_fields.remove("instance") {
-            Some(ConvexValue::Int64(i)) => DeploymentId(i as u64),
-            _ => anyhow::bail!(
-                "Missing or invalid deployment for BackendInfoPersisted: {:?}",
-                object_fields
-            ),
-        };
-        let deployment_type: DeploymentType = match object_fields.remove("deploymentType") {
-            Some(ConvexValue::String(s)) => String::from(s).parse()?,
-            dt => anyhow::bail!(
-                "Missing or invalid deployment type for BackendInfoPersisted: {:?}, {dt:?}",
-                object_fields
-            ),
-        };
-        let streaming_export_enabled = matches!(
-            object_fields.remove("streamingExportEnabled"),
-            Some(ConvexValue::Boolean(true))
-        );
-        let provision_concurrency = match object_fields.remove("provisionConcurrency") {
-            Some(ConvexValue::Int64(i)) => i as i32,
-            _ => DEFAULT_PROVISION_CONCURRENCY,
-        };
-        let log_streaming_enabled = matches!(
-            object_fields.remove("logStreamingEnabled"),
-            Some(ConvexValue::Boolean(true))
-        );
-
-        let project_name = match object_fields.remove("projectName") {
-            Some(ConvexValue::String(s)) => Some(s.to_string()),
-            _ => None,
-        };
-        let project_slug = match object_fields.remove("projectSlug") {
-            Some(ConvexValue::String(s)) => Some(s.to_string()),
-            _ => None,
-        };
+    fn try_from(o: SerializedBackendInfo) -> Result<Self, Self::Error> {
+        let team = TeamId(o.org as u64);
+        let project = ProjectId(o.project as u64);
+        let deployment = DeploymentId(o.instance as u64);
+        let deployment_type: DeploymentType = o.deployment_type.parse()?;
+        let streaming_export_enabled = o.streaming_export_enabled;
+        let provision_concurrency = o
+            .provision_concurrency
+            .map_or(DEFAULT_PROVISION_CONCURRENCY, |c| c as i32);
+        let log_streaming_enabled = o.log_streaming_enabled;
+        let project_name = o.project_name;
+        let project_slug = o.project_slug;
 
         Ok(Self {
             team,
@@ -166,22 +138,46 @@ impl TryFrom<ConvexObject> for BackendInfoPersisted {
     }
 }
 
+codegen_convex_serialization!(BackendInfoPersisted, SerializedBackendInfo);
+
 #[cfg(test)]
 mod tests {
-    use cmd_util::env::env_config;
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
+    use common::types::{
+        DeploymentId,
+        DeploymentType,
+        ProjectId,
+        TeamId,
+    };
+    use value::assert_obj;
 
     use super::BackendInfoPersisted;
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_backend_info_roundtrips(v in any::<BackendInfoPersisted>()) {
-            assert_roundtrips::<BackendInfoPersisted, ConvexObject>(v);
-        }
+    #[test]
+    fn test_frozen_obj() {
+        assert_eq!(
+            BackendInfoPersisted::try_from(assert_obj! {
+                "deploymentType" => "prod",
+                "instance" => 1926612683017131100i64,
+                "logStreamingEnabled" => true,
+                "org" => -667731666772323580i64,
+                "project" => 6688466498098154475i64,
+                "projectName" => null,
+                "projectSlug" => "ayaya",
+                "provisionConcurrency" => 1740011963i64,
+                "streamingExportEnabled" => false,
+            })
+            .unwrap(),
+            BackendInfoPersisted {
+                team: TeamId(17779012406937228036),
+                project: ProjectId(6688466498098154475),
+                deployment: DeploymentId(1926612683017131100),
+                deployment_type: DeploymentType::Prod,
+                project_name: None,
+                project_slug: Some("ayaya".to_string()),
+                streaming_export_enabled: false,
+                provision_concurrency: 1740011963,
+                log_streaming_enabled: true,
+            }
+        );
     }
 }

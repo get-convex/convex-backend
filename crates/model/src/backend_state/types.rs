@@ -1,54 +1,53 @@
-use std::collections::BTreeMap;
-
 pub use common::types::BackendState;
-use value::{
-    obj,
-    ConvexObject,
-    ConvexValue,
+use serde::{
+    Deserialize,
+    Serialize,
 };
+use value::codegen_convex_serialization;
 
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct PersistedBackendState(pub BackendState);
 
-impl TryFrom<PersistedBackendState> for ConvexObject {
-    type Error = anyhow::Error;
+#[derive(Serialize, Deserialize)]
+pub struct SerializedBackendState {
+    pub state: String,
+}
 
-    fn try_from(state: PersistedBackendState) -> anyhow::Result<Self> {
-        obj!("state" => state.0.to_string())
+impl From<PersistedBackendState> for SerializedBackendState {
+    fn from(state: PersistedBackendState) -> Self {
+        SerializedBackendState {
+            state: state.0.to_string(),
+        }
     }
 }
 
-impl TryFrom<ConvexObject> for PersistedBackendState {
+impl TryFrom<SerializedBackendState> for PersistedBackendState {
     type Error = anyhow::Error;
 
-    fn try_from(object: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields: BTreeMap<_, _> = object.into();
-        let state = match fields.remove("state") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            _ => anyhow::bail!("Missing state field for BackendState: {fields:?}"),
-        };
+    fn try_from(object: SerializedBackendState) -> anyhow::Result<Self> {
+        let state = object.state.parse()?;
         Ok(Self(state))
     }
 }
 
+codegen_convex_serialization!(PersistedBackendState, SerializedBackendState);
+
 #[cfg(test)]
 mod tests {
-    use cmd_util::env::env_config;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-    use value::ConvexObject;
+    use common::types::BackendState;
+    use value::assert_obj;
 
     use crate::backend_state::types::PersistedBackendState;
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_using_proptest(v in any::<PersistedBackendState>()) {
-            assert_roundtrips::<PersistedBackendState, ConvexObject>(v);
-        }
+    #[test]
+    fn test_frozen_obj() {
+        assert_eq!(
+            PersistedBackendState::try_from(assert_obj! {
+                "state" => "suspended",
+            })
+            .unwrap(),
+            PersistedBackendState(BackendState::Suspended)
+        );
     }
 }
