@@ -31,6 +31,7 @@ mod snapshot_manager;
 mod stack_traces;
 pub mod streaming_export_selection;
 pub mod subscription;
+pub mod system_query;
 pub mod system_tables;
 mod table_registry;
 pub mod table_summary;

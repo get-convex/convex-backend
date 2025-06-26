@@ -1,12 +1,16 @@
 use std::{
     assert_matches::assert_matches,
     str::FromStr,
+    sync::Arc,
 };
 
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        database_index::DatabaseIndexState,
+        database_index::{
+            DatabaseIndexState,
+            IndexedFields,
+        },
         text_index::TextIndexState,
         vector_index::VectorIndexState,
         IndexConfig,
@@ -14,6 +18,11 @@ use common::{
         TabletIndexMetadata,
     },
     document::ParsedDocument,
+    persistence::{
+        NoopRetentionValidator,
+        Persistence,
+    },
+    runtime::Runtime,
     types::{
         IndexDescriptor,
         IndexDiff,
@@ -22,11 +31,15 @@ use common::{
     },
 };
 use runtime::testing::TestRuntime;
-use value::TableNamespace;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     Database,
     IndexModel,
+    IndexWorker,
     Transaction,
 };
 
@@ -198,5 +211,42 @@ pub fn get_index_fields<T: IndexTableIdentifier>(index_metadata: IndexMetadata<T
             .iter()
             .map(|field| field.to_string())
             .collect(),
+    }
+}
+
+impl<RT: Runtime> Database<RT> {
+    pub async fn create_backfilled_index_for_test(
+        &self,
+        tp: Arc<dyn Persistence>,
+        namespace: TableNamespace,
+        index_name: IndexName,
+        fields: IndexedFields,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let mut tx = self.begin_system().await?;
+        let begin_ts = tx.begin_timestamp();
+        let id = IndexModel::new(&mut tx)
+            .add_application_index(
+                namespace,
+                IndexMetadata::new_backfilling(*begin_ts, index_name.clone(), fields),
+            )
+            .await?;
+        self.commit(tx).await?;
+
+        let retention_validator = Arc::new(NoopRetentionValidator);
+
+        let index_backfill_fut = IndexWorker::new_terminating(
+            self.runtime.clone(),
+            tp,
+            retention_validator,
+            self.clone(),
+        );
+        index_backfill_fut.await?;
+
+        let mut tx = self.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .enable_index_for_testing(namespace, &index_name)
+            .await?;
+        self.commit(tx).await?;
+        Ok(id)
     }
 }

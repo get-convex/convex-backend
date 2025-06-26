@@ -129,7 +129,7 @@ impl TransactionIndex {
     /// streamed from the database.
     /// The returned vecs may be larger or smaller than `max_size` depending on
     /// pending writes.
-    async fn range_no_deps(
+    pub(crate) async fn range_no_deps(
         &mut self,
         ranges: &[&RangeRequest],
     ) -> Vec<

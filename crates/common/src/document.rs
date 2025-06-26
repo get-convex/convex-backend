@@ -180,6 +180,12 @@ impl From<CreationTime> for f64 {
     }
 }
 
+impl From<CreationTime> for ConvexValue {
+    fn from(t: CreationTime) -> ConvexValue {
+        ConvexValue::from(f64::from(t))
+    }
+}
+
 pub fn timestamp_to_ms(ts: Timestamp) -> anyhow::Result<f64> {
     let nanos = u64::from(ts);
 

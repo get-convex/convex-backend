@@ -121,6 +121,14 @@ impl ReadSet {
         self.indexed.iter()
     }
 
+    #[cfg(test)]
+    pub fn index_reads_for_test(&self, index_name: &TabletIndexName) -> IntervalSet {
+        self.indexed
+            .get(index_name)
+            .map(|reads| reads.intervals.clone())
+            .unwrap_or_default()
+    }
+
     pub fn iter_search(&self) -> impl Iterator<Item = (&TabletIndexName, &SearchQueryReads)> {
         self.search.iter()
     }
@@ -539,6 +547,11 @@ impl TransactionReadSet {
             );
         }
         Ok(())
+    }
+
+    pub fn record_read_system_document(&mut self, document_size: usize) {
+        self.system_tx_size.total_document_count += 1;
+        self.system_tx_size.total_document_size += document_size;
     }
 
     pub fn record_indexed_directly(

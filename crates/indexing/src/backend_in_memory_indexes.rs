@@ -1150,4 +1150,13 @@ impl LazyDocument {
             LazyDocument::Packed(doc) => doc.unpack(),
         }
     }
+
+    pub fn approximate_size(&self) -> usize {
+        match self {
+            LazyDocument::Resolved(doc) => doc.size(),
+            // This is the size of the PackedValue representation, not the
+            // proper size of the ConvexValue
+            LazyDocument::Packed(doc, ..) => doc.value().size(),
+        }
+    }
 }
