@@ -67,7 +67,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>>;
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>>;
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue>;
     fn start_async_syscall(

@@ -131,7 +131,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path != AUTH_CONFIG_FILE_NAME {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoImportModuleDuringAuthConfig",
@@ -139,10 +139,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
             ))
         }
         Ok(Some((
-            FullModuleSource {
+            Arc::new(FullModuleSource {
                 source: self.auth_config_bundle.clone(),
                 source_map: self.source_map.clone(),
-            },
+            }),
             ModuleCodeCacheResult::noop(),
         )))
     }

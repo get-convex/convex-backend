@@ -116,7 +116,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path != "schema.js" {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoImportModuleInSchema",
@@ -124,10 +124,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
             ))
         }
         Ok(Some((
-            FullModuleSource {
+            Arc::new(FullModuleSource {
                 source: self.schema_bundle.clone(),
                 source_map: self.source_map.clone(),
-            },
+            }),
             ModuleCodeCacheResult::noop(),
         )))
     }
