@@ -8,7 +8,9 @@ use async_trait::async_trait;
 use common::{
     knobs::{
         DATABASE_WORKERS_POLL_INTERVAL,
+        INDEX_WORKERS_INITIAL_BACKOFF,
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+        SEARCH_COMPACTOR_INITIAL_BACKOFF,
         SEARCH_COMPACTOR_MAX_BACKOFF,
         SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
     },
@@ -126,6 +128,7 @@ impl SearchIndexWorkers {
             database.clone(),
             // Wait a bit since vector needs time to bootstrap. Makes startup logs a bit cleaner.
             Duration::from_secs(5),
+            *INDEX_WORKERS_INITIAL_BACKOFF,
             *SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
             SearchIndexWorker::VectorFlusher(new_vector_flusher(
                 runtime.clone(),
@@ -140,6 +143,7 @@ impl SearchIndexWorkers {
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
+            *SEARCH_COMPACTOR_INITIAL_BACKOFF,
             *SEARCH_COMPACTOR_MAX_BACKOFF,
             SearchIndexWorker::VectorCompactor(new_vector_compactor(
                 database.clone(),
@@ -162,6 +166,7 @@ impl SearchIndexWorkers {
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
+            *INDEX_WORKERS_INITIAL_BACKOFF,
             *SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
             text_flusher,
         );
@@ -171,6 +176,7 @@ impl SearchIndexWorkers {
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
+            *SEARCH_COMPACTOR_INITIAL_BACKOFF,
             *SEARCH_COMPACTOR_MAX_BACKOFF,
             SearchIndexWorker::TextCompactor(new_text_compactor(
                 database,

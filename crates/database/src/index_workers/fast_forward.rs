@@ -24,6 +24,7 @@ use common::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DATABASE_WORKERS_MIN_COMMITS,
         DATABASE_WORKERS_POLL_INTERVAL,
+        INDEX_WORKERS_INITIAL_BACKOFF,
     },
     persistence::PersistenceSnapshot,
     query::Order,
@@ -102,6 +103,7 @@ impl FastForwardIndexWorker {
             rt,
             db,
             Duration::ZERO,
+            *INDEX_WORKERS_INITIAL_BACKOFF,
             MAX_BACKOFF,
             FastForwardIndexWorker,
         )
