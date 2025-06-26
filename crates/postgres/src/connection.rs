@@ -8,6 +8,10 @@
 use std::{
     collections::VecDeque,
     sync::{
+        atomic::{
+            self,
+            AtomicBool,
+        },
         Arc,
         LazyLock,
         Weak,
@@ -78,6 +82,7 @@ use crate::metrics::{
     connection_lifetime_timer,
     get_connection_timer,
     log_execute,
+    log_poisoned_connection,
     log_query,
     log_query_result,
     log_transaction,
@@ -86,6 +91,10 @@ use crate::metrics::{
 
 static POSTGRES_TIMEOUT: LazyLock<u64> =
     LazyLock::new(|| env_config("POSTGRES_TIMEOUT_SECONDS", 30));
+
+#[derive(Debug, thiserror::Error)]
+#[error("Postgres timeout")]
+pub struct PostgresTimeout;
 
 // We have observed postgres connections hanging during bootstrapping --
 // which means backends can't start -- and during commit -- which means all
@@ -107,7 +116,9 @@ where
                 Err(e) => Err(e.into())
             }
         },
-        _ = sleep(Duration::from_secs(*POSTGRES_TIMEOUT)).fuse() => Err(anyhow::anyhow!("Postgres timeout")),
+        _ = sleep(Duration::from_secs(*POSTGRES_TIMEOUT)).fuse() => {
+            Err(anyhow::anyhow!(PostgresTimeout))
+        },
     }
 }
 
@@ -169,15 +180,29 @@ impl PooledConnection {
 
 /// An active Postgres connection from a [`ConvexPgPool`].
 ///
-/// Returns the underlying connection to the pool when dropped.
+/// Returns the underlying connection to the pool when dropped (unless
+/// `self.poisoned` is true).
 pub(crate) struct PostgresConnection<'a> {
     pool: &'a ConvexPgPool,
     _permit: SemaphorePermit<'a>,
     conn: Option<PooledConnection>,
+    poisoned: AtomicBool,
     schema: &'a SchemaName,
     labels: Vec<StaticMetricLabel>,
     _tracker: ConnectionTracker,
     _timer: Timer<VMHistogramVec>,
+}
+
+fn handle_error(poisoned: &AtomicBool, e: impl Into<anyhow::Error>) -> anyhow::Error {
+    let e: anyhow::Error = e.into();
+    if e.downcast_ref::<tokio_postgres::Error>()
+        .is_some_and(|e| e.is_closed() || e.to_string().contains("unexpected message from server"))
+        || e.downcast_ref::<PostgresTimeout>().is_some()
+    {
+        tracing::error!("Not reusing connection after error: {e:#}");
+        poisoned.store(true, atomic::Ordering::Relaxed);
+    }
+    e
 }
 
 impl PostgresConnection<'_> {
@@ -193,11 +218,12 @@ impl PostgresConnection<'_> {
 
     pub async fn batch_execute(&self, query: &'static str) -> anyhow::Result<()> {
         log_execute(self.labels.clone());
-        Ok(self
-            .conn()
+        let query = self.substitute_db_name(query);
+        self.conn()
             .client
-            .batch_execute(&self.substitute_db_name(query))
-            .await?)
+            .batch_execute(&query)
+            .await
+            .map_err(|e| handle_error(&self.poisoned, e))
     }
 
     pub async fn query_opt(
@@ -206,12 +232,10 @@ impl PostgresConnection<'_> {
         params: &[&(dyn ToSql + Sync)],
     ) -> anyhow::Result<Option<Row>> {
         log_query(self.labels.clone());
-        let row = with_timeout(
-            self.conn()
-                .client
-                .query_opt(&self.substitute_db_name(statement), params),
-        )
-        .await?;
+        let query = self.substitute_db_name(statement);
+        let row = with_timeout(self.conn().client.query_opt(&query, params))
+            .await
+            .map_err(|e| handle_error(&self.poisoned, e))?;
         if let Some(row) = &row {
             log_query_result(row, self.labels.clone());
         }
@@ -226,6 +250,7 @@ impl PostgresConnection<'_> {
             self.substitute_db_name(query),
         ))
         .await
+        .map_err(|e| handle_error(&self.poisoned, e))
     }
 
     pub async fn query_raw<P, I>(
@@ -240,7 +265,9 @@ impl PostgresConnection<'_> {
     {
         let labels = self.labels.clone();
         log_query(labels.clone());
-        let stream = with_timeout(self.conn().client.query_raw(statement, params)).await?;
+        let stream = with_timeout(self.conn().client.query_raw(statement, params))
+            .await
+            .map_err(|e| handle_error(&self.poisoned, e))?;
         Ok(Self::wrap_query_stream(stream, labels))
     }
 
@@ -263,7 +290,9 @@ impl PostgresConnection<'_> {
         params: &[&(dyn ToSql + Sync)],
     ) -> anyhow::Result<u64> {
         log_execute(self.labels.clone());
-        with_timeout(self.conn().client.execute(statement, params)).await
+        with_timeout(self.conn().client.execute(statement, params))
+            .await
+            .map_err(|e| handle_error(&self.poisoned, e))
     }
 
     pub async fn transaction(&mut self) -> anyhow::Result<PostgresTransaction<'_>> {
@@ -272,10 +301,14 @@ impl PostgresConnection<'_> {
             .conn
             .as_mut()
             .expect("connection is only taken in Drop");
-        let inner = with_timeout(conn.client.transaction()).await?;
+        let inner = match with_timeout(conn.client.transaction()).await {
+            Ok(t) => t,
+            Err(e) => return Err(handle_error(&self.poisoned, e)),
+        };
         Ok(PostgresTransaction {
             inner,
             statement_cache: &conn.statement_cache,
+            poisoned: &self.poisoned,
             schema: self.schema,
         })
     }
@@ -283,6 +316,12 @@ impl PostgresConnection<'_> {
 
 impl Drop for PostgresConnection<'_> {
     fn drop(&mut self) {
+        if *self.poisoned.get_mut() {
+            // We log here (not at poison time) in case the same connection is
+            // poisoned more than once.
+            log_poisoned_connection();
+            return;
+        }
         let mut conn = self.conn.take().expect("connection is only taken in Drop");
         conn.last_used = Instant::now();
         let mut idle_conns = self.pool.connections.lock();
@@ -298,6 +337,7 @@ pub struct PostgresTransaction<'a> {
     inner: Transaction<'a>,
     statement_cache: &'a Mutex<StatementCache>,
     schema: &'a SchemaName,
+    poisoned: &'a AtomicBool,
 }
 
 impl PostgresTransaction<'_> {
@@ -312,6 +352,7 @@ impl PostgresTransaction<'_> {
             self.substitute_db_name(query),
         ))
         .await
+        .map_err(|e| handle_error(self.poisoned, e))
     }
 
     pub async fn query(
@@ -319,7 +360,9 @@ impl PostgresTransaction<'_> {
         statement: &Statement,
         params: &[&(dyn ToSql + Sync)],
     ) -> anyhow::Result<Vec<Row>> {
-        with_timeout(self.inner.query(statement, params)).await
+        with_timeout(self.inner.query(statement, params))
+            .await
+            .map_err(|e| handle_error(self.poisoned, e))
     }
 
     pub async fn execute_str(
@@ -332,6 +375,7 @@ impl PostgresTransaction<'_> {
                 .execute(&self.substitute_db_name(statement), params),
         )
         .await
+        .map_err(|e| handle_error(self.poisoned, e))
     }
 
     pub async fn execute_raw<P, I>(&self, statement: &Statement, params: I) -> anyhow::Result<u64>
@@ -340,11 +384,15 @@ impl PostgresTransaction<'_> {
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
     {
-        with_timeout(self.inner.execute_raw(statement, params)).await
+        with_timeout(self.inner.execute_raw(statement, params))
+            .await
+            .map_err(|e| handle_error(self.poisoned, e))
     }
 
     pub async fn commit(self) -> anyhow::Result<()> {
-        with_timeout(self.inner.commit()).await
+        with_timeout(self.inner.commit())
+            .await
+            .map_err(|e| handle_error(self.poisoned, e))
     }
 }
 
@@ -395,6 +443,27 @@ impl ConvexPgPool {
         self.pg_config.get_target_session_attrs() == TargetSessionAttrs::ReadWrite
     }
 
+    /// Assumes that we already have a semaphore permit
+    async fn get_connection_internal(&self) -> anyhow::Result<PooledConnection> {
+        {
+            let mut conns = self.connections.lock();
+            // Always reuse the newest connection
+            while let Some(conn) = conns.pop_back() {
+                if conn.client.is_closed() {
+                    continue;
+                }
+                return Ok(conn);
+            }
+        }
+        let (client, conn) = self
+            .pg_config
+            .connect(self.tls_connect.clone())
+            .in_span(Span::enter_with_local_parent("postgres_connect"))
+            .await?;
+        common::runtime::tokio_spawn("postgres_connection", conn);
+        Ok(PooledConnection::new(client))
+    }
+
     pub(crate) async fn get_connection<'a>(
         &'a self,
         name: &'static str,
@@ -408,23 +477,8 @@ impl ConvexPgPool {
                 .trace_if_pending("postgres_semaphore_acquire")
                 .await
                 .context("ConvexPgPool has been shut down")?;
-            {
-                let mut conns = self.connections.lock();
-                // Always reuse the newest connection
-                while let Some(conn) = conns.pop_back() {
-                    if conn.client.is_closed() {
-                        continue;
-                    }
-                    return Ok((permit, conn));
-                }
-            }
-            let (client, conn) = self
-                .pg_config
-                .connect(self.tls_connect.clone())
-                .in_span(Span::enter_with_local_parent("postgres_connect"))
-                .await?;
-            common::runtime::tokio_spawn("postgres_connection", conn);
-            anyhow::Ok((permit, PooledConnection::new(client)))
+            let conn = self.get_connection_internal().await?;
+            anyhow::Ok((permit, conn))
         })
         .await;
         pool_get_timer.finish(conn.is_ok());
@@ -433,6 +487,7 @@ impl ConvexPgPool {
             pool: self,
             _permit: permit,
             conn: Some(conn),
+            poisoned: AtomicBool::new(false),
             schema,
             labels: vec![StaticMetricLabel::new("name", name)],
             _tracker: ConnectionTracker::new(&self.stats),
