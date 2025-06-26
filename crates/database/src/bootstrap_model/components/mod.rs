@@ -2,7 +2,10 @@ pub mod definition;
 
 use std::{
     collections::BTreeMap,
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
 };
 
 use anyhow::Context;
@@ -52,6 +55,7 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
+    ComponentDefinitionsTable,
     ResolvedQuery,
     Transaction,
     COMPONENT_DEFINITIONS_TABLE,
@@ -282,11 +286,14 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             },
             ComponentDefinitionId::Child(id) => id,
         };
-        let component_definition_doc_id = self.resolve_component_definition_id(internal_id)?;
-        let Some(doc) = self.tx.get(component_definition_doc_id).await? else {
+        let Some(doc) = self
+            .tx
+            .get_system::<ComponentDefinitionsTable>(TableNamespace::Global, internal_id)
+            .await?
+        else {
             return Ok(None);
         };
-        let mut doc: ParsedDocument<ComponentDefinitionMetadata> = doc.parse()?;
+        let mut doc = Arc::unwrap_or_clone(doc);
         if !doc.exports.is_empty() {
             metrics::log_nonempty_component_exports();
             doc.exports = BTreeMap::new();

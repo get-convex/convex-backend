@@ -156,7 +156,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         let udf_config = UdfConfigModel::new(self.tx, self.component.into())
             .get()
             .await?
-            .map(|u| u.into_value());
+            .map(|u| (**u).clone());
         Ok((config, modules, udf_config))
     }
 
@@ -192,7 +192,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         let udf_config = UdfConfigModel::new(self.tx, self.component.into())
             .get()
             .await?
-            .map(|u| u.into_value());
+            .map(|u| (**u).clone());
         Ok((config, modules, udf_config))
     }
 }

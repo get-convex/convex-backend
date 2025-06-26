@@ -3,7 +3,10 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
 };
 
 use anyhow::Context;
@@ -14,30 +17,14 @@ use common::{
         ComponentId,
         ResolvedComponentFunctionPath,
     },
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
-    query::{
-        IndexRange,
-        IndexRangeExpression,
-        Order,
-        Query,
-    },
+    document::ParsedDocument,
     runtime::Runtime,
-    types::{
-        IndexName,
-        ModuleEnvironment,
-    },
-    value::{
-        ConvexValue,
-        ResolvedDocumentId,
-    },
+    types::ModuleEnvironment,
+    value::ResolvedDocumentId,
 };
 use database::{
     unauthorized_error,
     BootstrapComponentsModel,
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -196,23 +183,17 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         component: ComponentId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
-        // Hacky: Scan the _by_id index instead of the _by_creation_time index
-        // (which is used by `Query::full_table_scan`)
+        // Hacky: It's important that we scan the _by_id index instead of the
+        // _by_creation_time index (which is used by `Query::full_table_scan`).
         // This prevents creating too many read ranges in the transaction later
         // if we need to replace many documents by-id.
-        let index_query = Query::index_range(IndexRange {
-            index_name: IndexName::by_id(MODULES_TABLE.clone()),
-            range: vec![],
-            order: Order::Asc,
-        });
-        let mut query_stream = ResolvedQuery::new(self.tx, component.into(), index_query)?;
-
-        let mut modules = Vec::new();
-        while let Some(metadata_document) = query_stream.next(self.tx, None).await? {
-            let metadata: ParsedDocument<ModuleMetadata> = metadata_document.parse()?;
-            modules.push(metadata);
-        }
-        Ok(modules)
+        let modules = self
+            .tx
+            .query_system(component.into(), &SystemIndex::<ModulesTable>::by_id())?
+            .all()
+            .await?;
+        // TODO: thread Arc out of this function
+        Ok(modules.into_iter().map(Arc::unwrap_or_clone).collect())
     }
 
     pub async fn get_application_metadata(
@@ -392,23 +373,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
         let namespace = path.component.into();
-        let module_path = ConvexValue::try_from(path.module_path.as_str())?;
-        let index_range = IndexRange {
-            index_name: MODULE_INDEX_BY_PATH.name(),
-            range: vec![IndexRangeExpression::Eq(
-                PATH_FIELD.clone(),
-                module_path.into(),
-            )],
-            order: Order::Asc,
-        };
-        let module_query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, namespace, module_query)?;
-        let module_document: ParsedDocument<ModuleMetadata> =
-            match query_stream.expect_at_most_one(self.tx).await? {
-                Some(v) => v.parse()?,
-                None => return Ok(None),
-            };
-        Ok(Some(module_document))
+        let module_document = self
+            .tx
+            .query_system(namespace, &MODULE_INDEX_BY_PATH)?
+            .eq(&[path.module_path.as_str()])?
+            .unique()
+            .await?;
+        // TODO: thread Arc out of this function
+        Ok(module_document.map(Arc::unwrap_or_clone))
     }
 
     // Helper method that returns the AnalyzedFunction for the specified path.

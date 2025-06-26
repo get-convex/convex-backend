@@ -1,18 +1,10 @@
 use std::sync::LazyLock;
 
 use common::{
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
-    query::{
-        Order,
-        Query,
-    },
+    document::ParsedDocument,
     runtime::Runtime,
 };
 use database::{
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -80,18 +72,16 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
     async fn get_backend_state_inner(
         &mut self,
     ) -> anyhow::Result<ParsedDocument<PersistedBackendState>> {
-        let query = Query::full_table_scan(BACKEND_STATE_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        let doc = query_stream
-            .next(self.tx, None)
+        let backend_state = self
+            .tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<BackendStateTable>::by_id(),
+            )?
+            .unique()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Backend must have a state."))?;
-        let backend_state: ParsedDocument<PersistedBackendState> = doc.parse()?;
-        anyhow::ensure!(
-            query_stream.next(self.tx, None).await?.is_none(),
-            "Backend must have a single state."
-        );
-        Ok(backend_state)
+        Ok((*backend_state).clone())
     }
 
     pub async fn toggle_backend_state(&mut self, new_state: BackendState) -> anyhow::Result<()> {

@@ -1,19 +1,14 @@
-use std::sync::LazyLock;
+use std::sync::{
+    Arc,
+    LazyLock,
+};
 
 use cmd_util::env::env_config;
 use common::{
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
-    query::{
-        Order,
-        Query,
-    },
+    document::ParsedDocument,
     runtime::Runtime,
 };
 use database::{
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -59,12 +54,16 @@ impl<'a, RT: Runtime> BackendInfoModel<'a, RT> {
         Self { tx }
     }
 
-    pub async fn get(&mut self) -> anyhow::Result<Option<ParsedDocument<BackendInfoPersisted>>> {
-        let backend_info_query = Query::full_table_scan(BACKEND_INFO_TABLE.clone(), Order::Asc);
-        let mut query_stream =
-            ResolvedQuery::new(self.tx, TableNamespace::Global, backend_info_query)?;
-        let backend_info_doc = query_stream.expect_at_most_one(self.tx).await?;
-        backend_info_doc.map(|doc| doc.parse()).transpose()
+    pub async fn get(
+        &mut self,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<BackendInfoPersisted>>>> {
+        self.tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<BackendInfoTable>::by_id(),
+            )?
+            .unique()
+            .await
     }
 
     pub async fn set(&mut self, backend_info: BackendInfoPersisted) -> anyhow::Result<()> {
