@@ -185,7 +185,7 @@ export function logMessage(ctx: Context, ...logged: any) {
 }
 
 // For the rare case writing output to stdout. Status and error messages
-// (logMesage, logWarning, etc.) should be written to stderr.
+// (logMessage, logWarning, etc.) should be written to stderr.
 export function logOutput(ctx: Context, ...logged: any) {
   ctx.spinner?.clear();
   // the one spot where we can console.log
