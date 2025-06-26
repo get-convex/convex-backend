@@ -7,6 +7,7 @@ use std::{
         AddAssign,
         SubAssign,
     },
+    sync::Arc,
 };
 
 use bitvec::{
@@ -112,18 +113,21 @@ use crate::{
 /// to keep a constant false positive rate.
 #[derive(Clone, Debug)]
 pub struct TermList {
-    inner: Option<NonemptyTermList>,
+    // The `EliasFano` structures are really large (336 bytes on the stack), so
+    // box the `NonemptyTermList` - containing two - to avoid stack overflow.
+    // https://github.com/kampersanda/sucds/issues/96
+    //
+    // Furthermore, since term lists are immutable, we use Arc to make cloning
+    // cheaper because we store these in `imbl::OrdMap`s.
+    inner: Option<Arc<NonemptyTermList>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct NonemptyTermList {
     term_filter: BinaryFuse16,
 
-    // The `EliasFano` structures are really large (336 bytes on the stack), so
-    // box them to avoid stack overflow.
-    // https://github.com/kampersanda/sucds/issues/96
-    terms: Box<EliasFano>,
-    cumulative_freqs: Box<EliasFano>,
+    terms: EliasFano,
+    cumulative_freqs: EliasFano,
     positions: DacsOpt,
 }
 
@@ -184,11 +188,13 @@ impl TermList {
 
         let inner = NonemptyTermList {
             term_filter,
-            terms: Box::new(terms),
-            cumulative_freqs: Box::new(cumulative_freqs),
+            terms,
+            cumulative_freqs,
             positions,
         };
-        Ok(Self { inner: Some(inner) })
+        Ok(Self {
+            inner: Some(Arc::new(inner)),
+        })
     }
 
     pub fn iter_terms(&self) -> impl Iterator<Item = TermId> + '_ {
