@@ -704,12 +704,13 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
             return Ok(None);
         };
         let range = order
-            .apply(
-                index_map
-                    .0
-                    .range(interval)
-                    .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.clone().into())),
-            )
+            .apply(index_map.0.range(interval).map(|(k, (ts, v))| {
+                (
+                    IndexKeyBytes(k.clone()),
+                    *ts,
+                    LazyDocument::Packed(v.clone(), None),
+                )
+            }))
             .collect::<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>();
         Ok(Some(range))
     }

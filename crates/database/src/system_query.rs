@@ -270,11 +270,15 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
         Ok((
             page.into_iter()
                 .map(|(_index_key, doc, _ts)| {
-                    match doc {
-                        LazyDocument::Resolved(doc) => SystemTableMetadata::parse_from_doc(doc),
-                        LazyDocument::Packed(doc) => doc.parse(),
-                    }
-                    .map(Arc::new)
+                    Ok(match doc {
+                        LazyDocument::Resolved(doc) => {
+                            Arc::new(SystemTableMetadata::parse_from_doc(doc)?)
+                        },
+                        LazyDocument::Packed(doc, Some(cached_system_doc)) if !T::FOR_MIGRATION => {
+                            cached_system_doc.force(&doc)?
+                        },
+                        LazyDocument::Packed(doc, _) => Arc::new(doc.parse()?),
+                    })
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
             !self.index_range.is_empty(),
