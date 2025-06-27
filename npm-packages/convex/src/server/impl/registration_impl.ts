@@ -52,34 +52,23 @@ declare const Convex: {
 async function getExecutionContext(): Promise<any> {
   try {
     if (typeof Convex === "undefined" || Convex.op === undefined) {
-      console.log("❌ Convex.op not available");
       throw new Error("Convex.op not available");
     }
-    console.log("✅ Calling getExecutionContext op...");
     const context = Convex.op("getExecutionContext");
-    console.log("✅ Got execution context:", JSON.stringify(context, null, 2));
     return context;
   } catch (error) {
-    console.log("❌ Error getting execution context:", error);
-    return {
-      testValue: "FALLBACK_CONTEXT_EXECUTED", // Make this very obvious
-      remoteIp: "DEBUG_FALLBACK", // Change null to a string so it's obvious
-      debugInfo: "getExecutionContext was called but failed",
-    };
+    return {};
   }
 }
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
 >(func: F, argsStr: string) {
-  console.log("🔍 TypeScript: invokeMutation called!");
   // TODO(presley): Change the function signature and propagate the requestId from Rust.
   // Ok, to mock it out for now, since queries are only running in V8.
   const requestId = "";
   const args = jsonToConvex(JSON.parse(argsStr));
-  console.log("🔍 TypeScript: About to call getExecutionContext for mutation");
   const executionContext = await getExecutionContext();
-  console.log("🔍 TypeScript: Mutation execution context:", executionContext);
   const mutationCtx = {
     db: setupWriter(),
     auth: setupAuth(requestId),
@@ -91,7 +80,6 @@ async function invokeMutation<
       runUdf("mutation", reference, args),
     ...executionContext,
   };
-  console.log("🔍 TypeScript: Final mutation context:", mutationCtx);
   const result = await invokeFunction(func, mutationCtx, args as any);
   validateReturnValue(result);
   return JSON.stringify(convexToJson(result === undefined ? null : result));
@@ -286,15 +274,11 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
 async function invokeQuery<
   F extends (ctx: GenericQueryCtx<GenericDataModel>, ...args: any) => any,
 >(func: F, argsStr: string) {
-  INTENTIONAL_SYNTAX_ERROR_TO_FORCE_FAILURE;
-  console.log("🔍 TypeScript: invokeQuery called!");
   // TODO(presley): Change the function signature and propagate the requestId from Rust.
   // Ok, to mock it out for now, since queries are only running in V8.
   const requestId = "";
   const args = jsonToConvex(JSON.parse(argsStr));
-  console.log("🔍 TypeScript: About to call getExecutionContext for query");
   const executionContext = await getExecutionContext();
-  console.log("🔍 TypeScript: Query execution context:", executionContext);
   const queryCtx = {
     db: setupReader(),
     auth: setupAuth(requestId),
@@ -302,7 +286,6 @@ async function invokeQuery<
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
     ...executionContext,
   };
-  console.log("🔍 TypeScript: Final query context:", queryCtx);
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);
   return JSON.stringify(convexToJson(result === undefined ? null : result));

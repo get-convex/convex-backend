@@ -518,12 +518,8 @@ pub fn op_get_execution_context<'b, P: OpProvider<'b>>(
     _args: v8::FunctionCallbackArguments,
     mut rv: v8::ReturnValue,
 ) -> anyhow::Result<()> {
-    tracing::info!("🔍 op_get_execution_context called!");
-    
     // Get the execution context using the trait method
     let context_json = provider.get_execution_context()?;
-    
-    tracing::info!("🔍 Retrieved execution context: {:?}", context_json);
     
     // Return the context or empty object if not available
     let result = context_json.unwrap_or_else(|| serde_json::json!({}));
@@ -532,6 +528,5 @@ pub fn op_get_execution_context<'b, P: OpProvider<'b>>(
     let v8_value = serde_v8::to_v8(provider.scope(), result)?;
     rv.set(v8_value);
     
-    tracing::info!("🔍 op_get_execution_context completed successfully");
     Ok(())
 }
