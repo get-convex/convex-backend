@@ -7,6 +7,7 @@
 
 use std::{
     collections::VecDeque,
+    future,
     sync::{
         atomic::{
             self,
@@ -16,6 +17,10 @@ use std::{
         LazyLock,
         Weak,
     },
+    task::{
+        ready,
+        Poll,
+    },
     time::Duration,
 };
 
@@ -23,6 +28,7 @@ use ::metrics::StaticMetricLabel;
 use anyhow::Context as _;
 use cmd_util::env::env_config;
 use common::{
+    errors::report_error_sync,
     fastrace_helpers::FutureExt as _,
     knobs::{
         POSTGRES_INACTIVE_CONNECTION_LIFETIME,
@@ -70,6 +76,7 @@ use tokio_postgres::{
         BorrowToSql,
         ToSql,
     },
+    AsyncMessage,
     GenericClient,
     Row,
     RowStream,
@@ -455,12 +462,32 @@ impl ConvexPgPool {
                 return Ok(conn);
             }
         }
-        let (client, conn) = self
+        let (client, mut conn) = self
             .pg_config
             .connect(self.tls_connect.clone())
             .in_span(Span::enter_with_local_parent("postgres_connect"))
             .await?;
-        common::runtime::tokio_spawn("postgres_connection", conn);
+        common::runtime::tokio_spawn(
+            "postgres_connection",
+            future::poll_fn(move |cx| loop {
+                match ready!(conn.poll_message(cx)) {
+                    Some(Ok(AsyncMessage::Notice(notice))) => {
+                        tracing::info!("{}: {}", notice.severity(), notice.message());
+                    },
+                    Some(Ok(msg)) => {
+                        // This is unexpected; the only other message type is a
+                        // Notification and we don't use LISTEN
+                        tracing::warn!("unexpected message: {:?}", msg);
+                    },
+                    Some(Err(e)) => {
+                        tracing::error!("connection error: {e}");
+                        report_error_sync(&mut e.into());
+                        return Poll::Ready(());
+                    },
+                    None => return Poll::Ready(()),
+                }
+            }),
+        );
         Ok(PooledConnection::new(client))
     }
 
