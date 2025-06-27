@@ -173,6 +173,7 @@ pub async fn http_any_method(
         http_request_metadata,
         identity,
         st.api.clone(),
+        remote_addr.0,
     );
     let head = http_response_stream.try_next().await?;
     let Some(HttpActionResponsePart::Head(response_head)) = head else {
@@ -213,6 +214,7 @@ async fn stream_http_response(
     http_request_metadata: HttpActionRequest,
     identity: Identity,
     application: Arc<dyn ApplicationApi>,
+    remote_addr: std::net::SocketAddr,
 ) {
     let (http_response_sender, http_response_receiver) = mpsc::unbounded_channel();
 
@@ -223,7 +225,7 @@ async fn stream_http_response(
                 request_id,
                 http_request_metadata,
                 identity,
-                FunctionCaller::HttpEndpoint(Some(remote_addr.0)),
+                FunctionCaller::HttpEndpoint(Some(remote_addr)),
                 HttpActionResponseStreamer::new(http_response_sender),
             )
             .fuse();

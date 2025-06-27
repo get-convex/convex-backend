@@ -639,6 +639,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                     request_id.clone().unwrap_or_else(RequestId::new),
                     execution_id.clone().unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
+                    caller.remote_ip(),
                     caller.is_root(),
                 );
                 sentry::configure_scope(|scope| context.add_sentry_tags(scope));
