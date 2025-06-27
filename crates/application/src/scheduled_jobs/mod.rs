@@ -159,6 +159,8 @@ pub struct ScheduledJobExecutor<RT: Runtime> {
     job_finished_rx: mpsc::Receiver<ResolvedDocumentId>,
     /// The last time we logged stats, used to rate limit logging
     last_stats_log: SystemTime,
+    /// The last logged value of `next_job_ready_time`
+    last_logged_ready_time: Option<SystemTime>,
 }
 
 #[derive(Clone)]
@@ -209,6 +211,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             job_finished_tx,
             job_finished_rx,
             last_stats_log: rt.system_time(),
+            // This value will force the first call to `run_once` to log
+            last_logged_ready_time: Some(SystemTime::UNIX_EPOCH),
         };
         let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
         tracing::info!("Starting scheduled job executor");
@@ -249,9 +253,24 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
         let now = self.context.rt.system_time();
         let next_job_ready_time = self.next_job_ready_time.map(SystemTime::from);
-        // Only log stats if at least 30 seconds have elapsed since the last log
-        if now.duration_since(self.last_stats_log).unwrap_or_default() >= Duration::from_secs(30) {
+        // Only log stats if:
+        // - next_job_ready_time differs by >=30 seconds from the last logged value; or
+        // - we're lagging and >=30 seconds have elapsed
+        let should_log = match (self.last_logged_ready_time, next_job_ready_time) {
+            (None, None) => false,
+            (Some(t1), Some(t2)) => {
+                let abs_diff = t1.duration_since(t2).unwrap_or_else(|e| e.duration());
+                abs_diff >= Duration::from_secs(30)
+            },
+            // always log if transitioning between Some and None
+            _ => true,
+        } || (next_job_ready_time.is_some_and(|t| t <= now)
+            && now
+                .duration_since(self.last_stats_log)
+                .is_ok_and(|d| d >= Duration::from_secs(30)));
+        if should_log {
             self.log_scheduled_job_stats(next_job_ready_time, now);
+            self.last_logged_ready_time = next_job_ready_time;
             self.last_stats_log = now;
         }
         let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
