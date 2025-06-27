@@ -155,6 +155,7 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
 #[debug_handler]
 pub async fn http_any_method(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     TryExtractIdentity(identity_result): TryExtractIdentity,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -222,7 +223,7 @@ async fn stream_http_response(
                 request_id,
                 http_request_metadata,
                 identity,
-                FunctionCaller::HttpEndpoint,
+                FunctionCaller::HttpEndpoint(Some(remote_addr.0)),
                 HttpActionResponseStreamer::new(http_response_sender),
             )
             .fuse();

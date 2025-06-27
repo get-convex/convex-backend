@@ -40,7 +40,7 @@ async fn run_zero_arg_mutation(
             vec![obj],
             Identity::user(UserIdentity::test()),
             None,
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
             None,
         )
         .await
@@ -60,7 +60,7 @@ async fn run_zero_arg_query(
             }),
             vec![obj],
             Identity::user(UserIdentity::test()),
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
         )
         .await
 }
@@ -79,7 +79,7 @@ async fn run_zero_arg_action(
             }),
             vec![obj],
             Identity::user(UserIdentity::test()),
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
         )
         .await
 }

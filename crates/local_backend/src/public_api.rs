@@ -183,6 +183,7 @@ impl UdfResponse {
 /// Executes an arbitrary query/mutation/action from its name.
 pub async fn public_function_post(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -212,7 +213,7 @@ pub async fn public_function_post(
             identity,
             component_function_path,
             req.args.into_arg_vec(),
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -242,6 +243,7 @@ pub struct UdfPostRequestArgsOnly {
 /// request and doesn't require admin auth.
 pub async fn public_function_post_with_path(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     Path(path): Path<String>,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -289,7 +291,7 @@ pub async fn public_function_post_with_path(
                 udf_path,
             },
             req.args.into_arg_vec(),
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
         )
         .await?;
     // Default to ConvexCleanJSON if no format is provided.
@@ -328,6 +330,7 @@ pub fn export_value(
 #[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     Query(req): Query<UdfArgsQuery>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -353,7 +356,7 @@ pub async fn public_query_get(
             identity,
             export_path,
             args,
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
             ExecuteQueryTimestamp::Latest,
             journal,
         )
@@ -373,6 +376,7 @@ pub async fn public_query_get(
 #[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -397,7 +401,7 @@ pub async fn public_query_post(
             identity,
             udf_path,
             req.args.into_arg_vec(),
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
             ExecuteQueryTimestamp::Latest,
             journal,
         )
@@ -416,9 +420,10 @@ pub async fn public_query_post(
 }
 
 pub async fn public_get_query_ts(
+    State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
-    State(st): State<RouterState>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let ts = *(st.api.latest_timestamp(&host, request_id).await?);
     Ok(Json(Ts { ts: ts.into() }))
@@ -427,6 +432,7 @@ pub async fn public_get_query_ts(
 #[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_at_ts_post(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -452,7 +458,7 @@ pub async fn public_query_at_ts_post(
             identity,
             export_path,
             req.args.into_arg_vec(),
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
             ExecuteQueryTimestamp::At(ts),
             journal,
         )
@@ -482,6 +488,7 @@ pub struct QueryBatchResponse {
 
 pub async fn public_query_batch_post(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -506,7 +513,7 @@ pub async fn public_query_batch_post(
                 identity.clone(),
                 export_path,
                 req.args.into_arg_vec(),
-                FunctionCaller::HttpApi(client_version.clone()),
+                FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
                 ExecuteQueryTimestamp::At(*ts),
                 None,
             )
@@ -531,6 +538,7 @@ pub async fn public_query_batch_post(
 #[fastrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -554,7 +562,7 @@ pub async fn public_mutation_post(
             identity,
             export_path,
             req.args.into_arg_vec(),
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
             None,
             None,
         )
@@ -578,6 +586,7 @@ pub async fn public_mutation_post(
 #[fastrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -602,7 +611,7 @@ pub async fn public_action_post(
             identity,
             export_path,
             req.args.into_arg_vec(),
-            FunctionCaller::HttpApi(client_version.clone()),
+            FunctionCaller::HttpApi(client_version.clone(), Some(remote_addr.0)),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;

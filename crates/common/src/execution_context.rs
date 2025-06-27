@@ -3,6 +3,7 @@ use std::{
         Display,
         Formatter,
     },
+    net::SocketAddr,
     str::FromStr,
 };
 
@@ -39,6 +40,8 @@ pub struct ExecutionContext {
     pub execution_id: ExecutionId,
     /// The id of the scheduled job that triggered this UDF, if any.
     pub parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
+    /// The remote IP address of the client that initiated this request
+    pub remote_ip: Option<SocketAddr>,
     /// False if this function was called as part of a request (e.g. action
     /// calling a mutation) TODO: This is a stop gap solution. The richer
     /// version of this would be something like parent_execution_id:
@@ -52,6 +55,17 @@ impl ExecutionContext {
             request_id,
             execution_id: ExecutionId::new(),
             parent_scheduled_job: caller.parent_scheduled_job(),
+            remote_ip: caller.remote_ip(),
+            is_root: caller.is_root(),
+        }
+    }
+
+    pub fn new_with_remote_ip(request_id: RequestId, caller: &FunctionCaller, remote_ip: Option<SocketAddr>) -> Self {
+        Self {
+            request_id,
+            execution_id: ExecutionId::new(),
+            parent_scheduled_job: caller.parent_scheduled_job(),
+            remote_ip,
             is_root: caller.is_root(),
         }
     }
@@ -60,12 +74,14 @@ impl ExecutionContext {
         request_id: RequestId,
         execution_id: ExecutionId,
         parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
+        remote_ip: Option<SocketAddr>,
         is_root: bool,
     ) -> Self {
         Self {
             request_id,
             execution_id,
             parent_scheduled_job,
+            remote_ip,
             is_root,
         }
     }
@@ -80,6 +96,7 @@ impl ExecutionContext {
             request_id: RequestId::new(),
             execution_id: ExecutionId::new(),
             parent_scheduled_job: None,
+            remote_ip: None,
             is_root: true,
         }
     }
@@ -97,6 +114,7 @@ impl HeapSize for ExecutionContext {
             + self
                 .parent_scheduled_job
                 .map_or(0, |(_, document_id)| document_id.heap_size())
+            + self.remote_ip.map_or(0, |_| std::mem::size_of::<std::net::SocketAddr>())
             + self.is_root.heap_size()
     }
 }
@@ -259,6 +277,7 @@ impl From<ExecutionContext> for pb::common::ExecutionContext {
         pb::common::ExecutionContext {
             request_id: Some(value.request_id.into()),
             execution_id: Some(value.execution_id.to_string()),
+            remote_ip: value.remote_ip.map(|addr| addr.to_string()),
             parent_scheduled_job_component_id: parent_component_id
                 .and_then(|id| id.serialize_to_string()),
             parent_scheduled_job: parent_document_id.map(Into::into),
@@ -275,6 +294,8 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
             value.parent_scheduled_job_component_id.as_deref(),
         )?;
         let parent_document_id = value.parent_scheduled_job.map(|s| s.parse()).transpose()?;
+        let remote_ip = value.remote_ip.map(|s| s.parse()).transpose()
+            .context("Invalid remote IP address")?;
         Ok(Self {
             request_id: RequestId::from_str(&value.request_id.context("Missing request id")?)?,
             execution_id: match &value.execution_id {
@@ -282,6 +303,7 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
                 None => ExecutionId::new(),
             },
             parent_scheduled_job: parent_document_id.map(|id| (parent_component_id, id)),
+            remote_ip,
             is_root: value.is_root.unwrap_or_default(),
         })
     }
@@ -294,6 +316,7 @@ impl From<ExecutionContext> for JsonValue {
             "requestId": String::from(value.request_id),
             "executionId": value.execution_id.to_string(),
             "isRoot": value.is_root,
+            "remoteIp": value.remote_ip.map(|addr| addr.to_string()),
             "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
             "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
         })
