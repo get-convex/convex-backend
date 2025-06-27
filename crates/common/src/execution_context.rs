@@ -61,7 +61,11 @@ impl ExecutionContext {
         }
     }
 
-    pub fn new_with_remote_ip(request_id: RequestId, caller: &FunctionCaller, remote_ip: Option<SocketAddr>) -> Self {
+    pub fn new_with_remote_ip(
+        request_id: RequestId,
+        caller: &FunctionCaller,
+        remote_ip: Option<SocketAddr>,
+    ) -> Self {
         Self {
             request_id,
             execution_id: ExecutionId::new(),
@@ -115,7 +119,9 @@ impl HeapSize for ExecutionContext {
             + self
                 .parent_scheduled_job
                 .map_or(0, |(_, document_id)| document_id.heap_size())
-            + self.remote_ip.map_or(0, |_| std::mem::size_of::<std::net::SocketAddr>())
+            + self
+                .remote_ip
+                .map_or(0, |_| std::mem::size_of::<std::net::SocketAddr>())
             + self.is_root.heap_size()
     }
 }
@@ -295,7 +301,10 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
             value.parent_scheduled_job_component_id.as_deref(),
         )?;
         let parent_document_id = value.parent_scheduled_job.map(|s| s.parse()).transpose()?;
-        let remote_ip = value.remote_ip.map(|s| s.parse()).transpose()
+        let remote_ip = value
+            .remote_ip
+            .map(|s| s.parse())
+            .transpose()
             .context("Invalid remote IP address")?;
         Ok(Self {
             request_id: RequestId::from_str(&value.request_id.context("Missing request id")?)?,
@@ -319,7 +328,6 @@ impl From<ExecutionContext> for JsonValue {
             "executionId": value.execution_id.to_string(),
             "isRoot": value.is_root,
             "remoteIp": remote_ip_str,
-            "testValue": "HELLO_FROM_RUST",
             "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
             "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
         })
