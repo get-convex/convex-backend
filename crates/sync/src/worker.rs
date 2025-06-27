@@ -810,7 +810,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // We failed to refresh the subscription or it was invalid to start
                                 // with. Rerun the query.
                                 let caller = FunctionCaller::SyncWorker(client_version, remote_ip);
-                                tracing::info!("🔍 About to execute query with FunctionCaller containing remote IP: {:?}", remote_ip);
                                 let ts = ExecuteQueryTimestamp::At(new_ts);
 
                                 // This query run might have been triggered due to invalidation

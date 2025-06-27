@@ -213,7 +213,6 @@ impl FunctionCaller {
             #[cfg(any(test, feature = "testing"))]
             FunctionCaller::Test => None,
         };
-        tracing::info!("🔍 FunctionCaller::remote_ip() called, returning: {:?}", remote_ip);
         remote_ip
     }
 
