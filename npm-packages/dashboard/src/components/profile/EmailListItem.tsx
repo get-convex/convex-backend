@@ -19,8 +19,8 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 border-b py-2 last:border-b-0">
-      <div className="flex items-center gap-2">
-        {email.email}
+      <div className="flex grow items-center gap-2">
+        <div className="grow">{email.email}</div>
         {email.isPrimary && (
           <div className="rounded border p-1 text-xs">Primary</div>
         )}

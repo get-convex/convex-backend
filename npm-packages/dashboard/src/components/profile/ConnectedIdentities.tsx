@@ -87,8 +87,8 @@ export function ConnectedIdentities() {
     <Sheet className="flex flex-col gap-4">
       <h3>Identities</h3>
       <p className="max-w-prose text-sm">
-        These are the identities associated with your account. You can unlink
-        secondary identities here.
+        These are the identities associated with your account. You can change
+        your primary identity and unlink secondary identities here.
       </p>
       <LoadingTransition loadingProps={{ className: "h-[13rem]" }}>
         {user && identities && (
