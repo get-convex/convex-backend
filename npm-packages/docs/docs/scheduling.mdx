@@ -2,6 +2,9 @@
 title: "Scheduling"
 hide_table_of_contents: true
 pagination_prev: auth
+description:
+  "Schedule functions to run once or repeatedly with scheduled functions and
+  cron jobs"
 ---
 
 import { ComponentCardList } from "@site/src/components/ComponentCard";

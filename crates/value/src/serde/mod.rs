@@ -74,7 +74,7 @@ macro_rules! codegen_convex_serialization {
                 use cmd_util::env::env_config;
                 use proptest::prelude::*;
 
-                use super::$struct;
+                use super::$struct as S;
 
                 // TODO: For some reason, `proptest!` isn't usable from within this macro.
                 #[test]
@@ -87,8 +87,8 @@ macro_rules! codegen_convex_serialization {
                     };
                     config.test_name = Some(concat!(module_path!(), "::test_roundtrips"));
                     proptest::test_runner::TestRunner::new(config)
-                        .run(&any::<$struct>(), |left| {
-                            let right = $struct::try_from(
+                        .run(&any::<S>(), |left| {
+                            let right = S::try_from(
                                 value::ConvexObject::try_from(left.clone()).unwrap()
                             ).unwrap();
                             prop_assert_eq!(left, right);

@@ -840,6 +840,10 @@ html[data-theme="dark"] .convex-menu-header {
   --convex-icon: url("../../static/img/sidebar-icons/bot.svg");
 }
 
+.convex-sidebar-chef {
+  --convex-icon: url("../../static/img/sidebar-icons/chef.svg");
+}
+
 .convex-sidebar-production {
   --convex-icon: url("../../static/img/sidebar-icons/paper-plane.svg");
 }

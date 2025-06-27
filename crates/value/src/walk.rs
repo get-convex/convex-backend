@@ -319,3 +319,48 @@ impl<'a> ConvexValueWalker for &'a str {
         Ok(ConvexValueType::String(self))
     }
 }
+
+impl ConvexValueWalker for ! {
+    type Array = &'static ConvexArray;
+    type Bytes = &'static [u8];
+    type Error = !;
+    type FieldName = &'static str;
+    type Map = &'static ConvexMap;
+    type Object = &'static ConvexObject;
+    type Set = &'static ConvexSet;
+    type String = &'static str;
+
+    fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {
+        self
+    }
+}
+
+impl ConvexValueWalker for i64 {
+    type Array = &'static ConvexArray;
+    type Bytes = &'static [u8];
+    type Error = !;
+    type FieldName = &'static str;
+    type Map = &'static ConvexMap;
+    type Object = &'static ConvexObject;
+    type Set = &'static ConvexSet;
+    type String = &'static str;
+
+    fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {
+        Ok(ConvexValueType::Int64(self))
+    }
+}
+
+impl ConvexValueWalker for f64 {
+    type Array = &'static ConvexArray;
+    type Bytes = &'static [u8];
+    type Error = !;
+    type FieldName = &'static str;
+    type Map = &'static ConvexMap;
+    type Object = &'static ConvexObject;
+    type Set = &'static ConvexSet;
+    type String = &'static str;
+
+    fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {
+        Ok(ConvexValueType::Float64(self))
+    }
+}

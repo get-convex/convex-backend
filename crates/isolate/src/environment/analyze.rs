@@ -122,7 +122,7 @@ use crate::{
 };
 
 pub struct AnalyzeEnvironment {
-    modules: BTreeMap<CanonicalizedModulePath, FullModuleSource>,
+    modules: BTreeMap<CanonicalizedModulePath, Arc<FullModuleSource>>,
     // This is used to lazily cache the result of sourcemap::SourceMap::from_slice across
     // modules and functions. There are certain source maps whose source origin we don't
     // need to construct during analysis (i.e. if all of the UDFs it defines have function
@@ -178,7 +178,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         let p = ModulePath::from_str(path)?.canonicalize();
         let result = self.modules.get(&p).cloned();
         Ok(result.map(|m| (m, ModuleCodeCacheResult::noop())))
@@ -268,10 +268,10 @@ impl AnalyzeEnvironment {
                 .map(|(path, module)| {
                     (
                         path,
-                        FullModuleSource {
+                        Arc::new(FullModuleSource {
                             source: module.source,
                             source_map: module.source_map,
-                        },
+                        }),
                     )
                 })
                 .collect(),

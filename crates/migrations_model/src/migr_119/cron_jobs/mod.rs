@@ -99,6 +99,8 @@ pub struct CronJobsTable;
 impl SystemTable for CronJobsTable {
     type Metadata = CronJob;
 
+    const FOR_MIGRATION: bool = true;
+
     fn table_name() -> &'static TableName {
         &CRON_JOBS_TABLE
     }
@@ -116,6 +118,8 @@ pub struct CronJobLogsTable;
 impl SystemTable for CronJobLogsTable {
     type Metadata = CronJobLog;
 
+    const FOR_MIGRATION: bool = true;
+
     fn table_name() -> &'static TableName {
         &CRON_JOB_LOGS_TABLE
     }
@@ -129,6 +133,8 @@ impl SystemTable for CronJobLogsTable {
 pub struct CronNextRunTable;
 impl SystemTable for CronNextRunTable {
     type Metadata = CronNextRun;
+
+    const FOR_MIGRATION: bool = true;
 
     fn table_name() -> &'static TableName {
         &CRON_NEXT_RUN_TABLE

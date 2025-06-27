@@ -361,7 +361,9 @@ async function _getDeploymentSelection(
     }
     return result.metadata;
   }
+  // start with .env.local (but doesn't override existing)
   dotenv.config({ path: ENV_VAR_FILE_PATH });
+  // for variables not already set, use .env values
   dotenv.config();
   const result = await getDeploymentSelectionFromEnv(ctx, (name) => {
     const value = process.env[name];

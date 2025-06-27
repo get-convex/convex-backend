@@ -1,5 +1,6 @@
 #![feature(bound_as_ref)]
 #![feature(coroutines)]
+#![feature(once_cell_try)]
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
 #![feature(iter_from_coroutine)]

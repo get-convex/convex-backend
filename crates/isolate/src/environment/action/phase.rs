@@ -261,7 +261,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         module_path: &ModulePath,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         let ActionPreloaded::Ready {
             ref module_loader,
             ref modules,
@@ -270,9 +270,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         else {
             anyhow::bail!("Phase not initialized");
         };
-        let module = modules
-            .get(&module_path.clone().canonicalize())
-            .map(|(module, source)| (module, (**source).clone()));
+        let module = modules.get(&module_path.clone().canonicalize());
 
         let Some((module, source)) = module else {
             return Ok(None);
@@ -286,7 +284,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         );
 
         let code_cache_result = module_loader.clone().code_cache_result(module.clone());
-        Ok(Some((source, code_cache_result)))
+        Ok(Some((source.clone(), code_cache_result)))
     }
 
     pub fn begin_execution(&mut self) -> anyhow::Result<()> {

@@ -420,6 +420,14 @@ pub fn query_reads_overlaps_timer() -> Timer<VMHistogram> {
     Timer::new(&SEARCH_QUERY_READS_OVERLAPS_SECONDS)
 }
 
+register_convex_histogram!(
+    SEARCH_QUERY_READS_OVERLAPS_SEARCH_VALUE_SECONDS,
+    "Time to compute if a read query overlaps with a search value"
+);
+pub fn query_reads_overlaps_search_value_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_QUERY_READS_OVERLAPS_SEARCH_VALUE_SECONDS)
+}
+
 register_convex_counter!(
     SEARCH_QUERY_READS_OVERLAPS_TOTAL,
     "Number of query reads and whether or not they overlapped a document",
@@ -644,4 +652,21 @@ register_convex_histogram!(
 );
 pub fn log_num_segments_searched_total(num_segments: usize) {
     log_distribution(&TEXT_SEARCH_NUMBER_OF_SEGMENTS_TOTAL, num_segments as f64);
+}
+
+register_convex_counter!(
+    SEARCH_MISSING_INDEX_KEY_TOTAL,
+    "Number of times an index was not found in DocumentIndexKeys"
+);
+pub fn log_missing_index_key() {
+    // See the comment in the homologous function in database::metrics
+    log_counter(&SEARCH_MISSING_INDEX_KEY_TOTAL, 1);
+}
+
+register_convex_counter!(
+    SEARCH_MISSING_FILTER_VALUE_TOTAL,
+    "Number of times a filter value was not found in SearchIndexKeyValue"
+);
+pub fn log_missing_filter_value() {
+    log_counter(&SEARCH_MISSING_FILTER_VALUE_TOTAL, 1);
 }

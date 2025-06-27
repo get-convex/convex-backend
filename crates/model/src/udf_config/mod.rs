@@ -1,19 +1,14 @@
-use std::sync::LazyLock;
+use std::sync::{
+    Arc,
+    LazyLock,
+};
 
 use common::{
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
-    query::{
-        Order,
-        Query,
-    },
+    document::ParsedDocument,
     runtime::Runtime,
 };
 use database::{
     unauthorized_error,
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -60,14 +55,12 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
         Self { tx, namespace }
     }
 
-    pub async fn get(&mut self) -> anyhow::Result<Option<ParsedDocument<UdfConfig>>> {
-        let index_query = Query::full_table_scan(UDF_CONFIG_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, index_query)?;
-        let config = query_stream
-            .expect_at_most_one(self.tx)
-            .await?
-            .map(|document| document.parse())
-            .transpose()?;
+    pub async fn get(&mut self) -> anyhow::Result<Option<Arc<ParsedDocument<UdfConfig>>>> {
+        let config = self
+            .tx
+            .query_system(self.namespace, &SystemIndex::<UdfConfigTable>::by_id())?
+            .unique()
+            .await?;
         Ok(config)
     }
 
@@ -87,7 +80,7 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
             SystemMetadataModel::new(self.tx, self.namespace)
                 .replace(existing_doc.id(), value)
                 .await?;
-            Some(existing_doc.into_value().server_version)
+            Some(existing_doc.server_version.clone())
         } else {
             SystemMetadataModel::new(self.tx, self.namespace)
                 .insert(&UDF_CONFIG_TABLE, value)

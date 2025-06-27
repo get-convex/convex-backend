@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeMap,
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
     time::Duration,
 };
 
@@ -78,15 +81,15 @@ impl IsolateEnvironment<TestRuntime> for TestEnvironment {
         path: &str,
         _timeout: &mut Timeout<TestRuntime>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path != "test.js" {
             return Ok(None);
         }
         Ok(Some((
-            FullModuleSource {
+            Arc::new(FullModuleSource {
                 source: TEST_SOURCE.to_string(),
                 source_map: Some(TEST_SOURCE_MAP_STR.to_string()),
-            },
+            }),
             ModuleCodeCacheResult::noop(),
         )))
     }

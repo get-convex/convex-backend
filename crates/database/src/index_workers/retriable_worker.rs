@@ -4,10 +4,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     errors::report_error,
-    knobs::{
-        INDEX_WORKERS_INITIAL_BACKOFF,
-        UDF_EXECUTOR_OCC_MAX_RETRIES,
-    },
+    knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
     runtime::Runtime,
 };
 use errors::ErrorMetadataAnyhowExt;
@@ -35,12 +32,22 @@ pub(crate) async fn retry_loop_expect_occs_and_overloaded<RT: Runtime>(
     runtime: RT,
     db: Database<RT>,
     initial_wait: Duration,
+    initial_backoff: Duration,
     max_backoff: Duration,
     work: impl RetriableWorker<RT>,
 ) {
     tracing::info!("Starting {name}");
     runtime.wait(initial_wait).await;
-    retry_failures_impl(name, runtime, db, MAX_OVERLOADED_RETRIES, max_backoff, work).await
+    retry_failures_impl(
+        name,
+        runtime,
+        db,
+        MAX_OVERLOADED_RETRIES,
+        initial_backoff,
+        max_backoff,
+        work,
+    )
+    .await
 }
 
 async fn retry_failures_impl<RT: Runtime>(
@@ -48,10 +55,11 @@ async fn retry_failures_impl<RT: Runtime>(
     runtime: RT,
     db: Database<RT>,
     max_overloaded_errors: usize,
+    initial_backoff: Duration,
     max_backoff: Duration,
     mut work: impl RetriableWorker<RT>,
 ) {
-    let mut backoff = Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, max_backoff);
+    let mut backoff = Backoff::new(initial_backoff, max_backoff);
     let mut occ_errors = 0;
     let mut overloaded_errors = 0;
     loop {

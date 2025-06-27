@@ -422,11 +422,10 @@ impl<RT: Runtime> LogManager<RT> {
 
             let mut bi_model = BackendInfoModel::new(&mut tx);
             if let Some(bi) = bi_model.get().await? {
-                let bi = bi.into_value();
                 let mut metadata_guard = metadata.lock();
                 metadata_guard.deployment_type = Some(bi.deployment_type);
-                metadata_guard.project_name = bi.project_name;
-                metadata_guard.project_slug = bi.project_slug;
+                metadata_guard.project_name = bi.project_name.clone();
+                metadata_guard.project_slug = bi.project_slug.clone();
             }
 
             let mut log_sinks_model = LogSinksModel::new(&mut tx);

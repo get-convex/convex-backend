@@ -30,7 +30,7 @@ use value::{
     TableName,
 };
 
-/// Represents a system table.
+/// Represents a system table. This is never a virtual table.
 ///
 /// This trait is not dyn-compatible because it has a `Metadata` associated
 /// type.
@@ -47,7 +47,12 @@ pub trait SystemTable: Send + Sync + Sized + 'static {
         None
     }
 
-    type Metadata: SystemTableMetadata;
+    type Metadata: SystemTableMetadata + Send + Sync + 'static;
+
+    /// SystemTable types defined in `migrations_model` should set this. This
+    /// turns off typed caching which avoids polluting the database cache with
+    /// migration-only metadata types.
+    const FOR_MIGRATION: bool = false;
 }
 
 pub trait SystemTableMetadata: Sized {
@@ -175,6 +180,13 @@ impl<T: SystemTable> SystemIndex<T> {
         SystemIndex {
             name: GenericIndexName::by_id(SystemTableName::new()),
             fields: IndexedFields::by_id(),
+        }
+    }
+
+    pub fn by_creation_time() -> Self {
+        SystemIndex {
+            name: GenericIndexName::by_creation_time(SystemTableName::new()),
+            fields: IndexedFields::creation_time(),
         }
     }
 

@@ -334,12 +334,12 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
     ) -> String {
         let pause_client = self.rt.pause_client();
         pause_client.wait(PAUSE_REQUEST).await;
-        let client_id = request.client_id.clone();
+        let client_id = &request.client_id;
         // Set the scope to be tagged with the client_id just for the duration of
         // handling the request. It would be nice to get sentry::with_scope to work, but
         // it uses a synchronous callback and we need `report_error` in the future to
         // have the client_id tag.
-        sentry::configure_scope(|scope| scope.set_tag("client_id", client_id.clone()));
+        sentry::configure_scope(|scope| scope.set_tag("client_id", client_id));
         // Also add the tag to tracing so it shows up in DataDog logs.
         let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
         let result = self

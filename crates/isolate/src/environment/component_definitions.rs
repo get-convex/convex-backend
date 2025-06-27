@@ -4,6 +4,7 @@ use std::{
         BTreeSet,
     },
     str::FromStr,
+    sync::Arc,
 };
 
 use anyhow::Context;
@@ -167,7 +168,7 @@ impl AppDefinitionEvaluator {
                             &path,
                             &definitions,
                             filename,
-                            source,
+                            Arc::new(source),
                         )
                         .await?;
                     in_progress.remove(&path);
@@ -185,7 +186,7 @@ impl AppDefinitionEvaluator {
         path: &ComponentDefinitionPath,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         filename: &str,
-        source: FullModuleSource,
+        source: Arc<FullModuleSource>,
     ) -> anyhow::Result<ComponentDefinitionMetadata> {
         let environment_variables = if path.is_root() {
             let mut env_vars = self.system_env_vars.clone();
@@ -334,10 +335,10 @@ impl ComponentInitializerEvaluator {
         let filename = COMPONENT_CONFIG_FILE_NAME.to_string();
         let env = DefinitionEnvironment {
             expected_filename: filename.clone(),
-            source: FullModuleSource {
+            source: Arc::new(FullModuleSource {
                 source: self.definition.source,
                 source_map: self.definition.source_map,
-            },
+            }),
             evaluated_definitions: self.evaluated_definitions,
             environment_variables: None,
         };
@@ -448,7 +449,7 @@ const APP_CONFIG_FILE_NAME: &str = "convex.config.js";
 
 struct DefinitionEnvironment {
     expected_filename: String,
-    source: FullModuleSource,
+    source: Arc<FullModuleSource>,
 
     evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
     /// Environment variables are allowed in app but not in
@@ -511,7 +512,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if path == &self.expected_filename {
             return Ok(Some((self.source.clone(), ModuleCodeCacheResult::noop())));
         }
@@ -545,7 +546,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                 ),
                 source_map: None,
             };
-            return Ok(Some((synthetic_module, ModuleCodeCacheResult::noop())));
+            return Ok(Some((
+                Arc::new(synthetic_module),
+                ModuleCodeCacheResult::noop(),
+            )));
         }
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoImportModuleDuringDefinitionEvaluation",

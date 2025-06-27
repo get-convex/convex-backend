@@ -2379,7 +2379,7 @@ impl<RT: Runtime> Application<RT> {
 
         let mut udf_config_model = UdfConfigModel::new(&mut tx, component.into());
         let udf_config = match udf_config_model.get().await? {
-            Some(udf_config) => udf_config.into_value(),
+            Some(udf_config) => (**udf_config).clone(),
             None => {
                 // If there hasn't been a push
                 // yet, act like the most recent version.

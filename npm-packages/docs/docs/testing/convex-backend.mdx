@@ -2,6 +2,7 @@
 title: Testing Local Backend
 sidebar_label: Local Backend
 sidebar_position: 200
+description: "Test functions using the local open-source Convex backend"
 ---
 
 Alternatively to [`convex-test`](/testing/convex-test.mdx) you can test your

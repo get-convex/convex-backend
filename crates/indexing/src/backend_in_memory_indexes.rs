@@ -1,4 +1,8 @@
 use std::{
+    any::{
+        type_name,
+        Any,
+    },
     borrow::Borrow,
     cmp::{
         self,
@@ -8,7 +12,11 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
-    sync::Arc,
+    fmt::Debug,
+    sync::{
+        Arc,
+        OnceLock,
+    },
 };
 
 use anyhow::Context;
@@ -20,6 +28,8 @@ use common::{
     },
     document::{
         PackedDocument,
+        ParseDocument,
+        ParsedDocument,
         ResolvedDocument,
     },
     index::{
@@ -304,6 +314,7 @@ struct IndexDocument {
     key: IndexKeyBytes,
     ts: Timestamp,
     document: PackedDocument,
+    system_doc: SystemDocument,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, derive_more::Deref)]
@@ -370,9 +381,13 @@ impl DatabaseIndexMap {
         interval: &Interval,
     ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, LazyDocument)> + '_ {
         let _s = static_span!();
-        self.inner
-            .range(interval)
-            .map(|e| (e.key.clone(), e.ts, e.document.clone().into()))
+        self.inner.range(interval).map(|e| {
+            (
+                e.key.clone(),
+                e.ts,
+                LazyDocument::Packed(e.document.clone(), Some(e.system_doc.clone())),
+            )
+        })
     }
 
     fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, document: PackedDocument) {
@@ -380,6 +395,7 @@ impl DatabaseIndexMap {
             key,
             ts,
             document,
+            system_doc: SystemDocument::new(),
         })));
         self.last_modified = cmp::max(self.last_modified, ts);
     }
@@ -676,7 +692,7 @@ impl DatabaseIndexSnapshot {
                 DatabaseIndexSnapshotCacheResult::Document(index_key, ts, document) => {
                     // Serve from cache.
                     log_transaction_cache_query(true);
-                    results.push((index_key, ts, document.into()));
+                    results.push((index_key, ts, LazyDocument::Packed(document, None)));
                 },
                 DatabaseIndexSnapshotCacheResult::CacheMiss(interval) => {
                     log_transaction_cache_query(false);
@@ -1128,7 +1144,45 @@ pub struct RangeRequest {
 
 pub enum LazyDocument {
     Resolved(ResolvedDocument),
-    Packed(PackedDocument),
+    Packed(PackedDocument, Option<SystemDocument>),
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct SystemDocument(Arc<OnceLock<Arc<dyn Any + Send + Sync>>>);
+
+impl SystemDocument {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn force<T: Send + Sync + 'static>(
+        &self,
+        doc: &PackedDocument,
+    ) -> anyhow::Result<Arc<ParsedDocument<T>>>
+    where
+        for<'a> &'a PackedDocument: ParseDocument<T>,
+    {
+        if let Ok(val) = self
+            .0
+            .get_or_try_init(|| doc.parse().map(|doc| Arc::new(doc) as Arc<_>))?
+            .clone()
+            .downcast()
+        {
+            return Ok(val);
+        }
+        // This is unexpected; it could happen if there is more than one
+        // SystemTable type pointing at a table.
+        let msg = format!(
+            "doc {} already has a cached system document not of type {}",
+            doc.id(),
+            type_name::<T>()
+        );
+        if cfg!(debug_assertions) {
+            panic!("{msg}");
+        }
+        tracing::warn!("{msg}");
+        doc.parse().map(Arc::new)
+    }
 }
 
 impl From<ResolvedDocument> for LazyDocument {
@@ -1137,17 +1191,20 @@ impl From<ResolvedDocument> for LazyDocument {
     }
 }
 
-impl From<PackedDocument> for LazyDocument {
-    fn from(value: PackedDocument) -> Self {
-        Self::Packed(value)
-    }
-}
-
 impl LazyDocument {
     pub fn unpack(self) -> ResolvedDocument {
         match self {
             LazyDocument::Resolved(doc) => doc,
-            LazyDocument::Packed(doc) => doc.unpack(),
+            LazyDocument::Packed(doc, _) => doc.unpack(),
+        }
+    }
+
+    pub fn approximate_size(&self) -> usize {
+        match self {
+            LazyDocument::Resolved(doc) => doc.size(),
+            // This is the size of the PackedValue representation, not the
+            // proper size of the ConvexValue
+            LazyDocument::Packed(doc, ..) => doc.value().size(),
         }
     }
 }

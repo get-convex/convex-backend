@@ -3,6 +3,7 @@ import {
   useListIdentities,
   useSetLinkIdentityCookie,
   useUnlinkIdentity,
+  useChangePrimaryIdentity,
 } from "api/profile";
 import { useEffect, useState } from "react";
 import { Sheet } from "@ui/Sheet";
@@ -16,6 +17,9 @@ import VercelLogo from "logos/vercel.svg";
 import { Tooltip } from "@ui/Tooltip";
 import { useSessionStorage } from "react-use";
 import { Button } from "@ui/Button";
+import { Menu, MenuItem } from "@ui/Menu";
+import { DotsVerticalIcon } from "@radix-ui/react-icons";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export const linkIdentityStateKey = "linkIdentityState";
 export type LinkIdentityState = {
@@ -26,7 +30,11 @@ export function ConnectedIdentities() {
   const { user } = useAuth0();
   const identities = useListIdentities();
   const unlinkIdentity = useUnlinkIdentity();
+  const changePrimaryIdentity = useChangePrimaryIdentity();
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
+  const [changingPrimaryId, setChangingPrimaryId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | undefined>();
   const [, setLinkIdentityState] = useSessionStorage<LinkIdentityState>(
     linkIdentityStateKey,
@@ -66,6 +74,14 @@ export function ConnectedIdentities() {
       window.location.href = `/api/auth/login?connection=${connection}&returnTo=/link_identity?resume=fromProfile&returnTo=/profile`;
     }
   }, [providerToLink]);
+
+  // Find the identity being changed to primary
+  const candidatePrimaryIdentity = identities?.find(
+    (i) => i.userId === changingPrimaryId,
+  );
+
+  const { changePrimaryIdentity: changePrimaryIdentityFlag } =
+    useLaunchDarkly();
 
   return (
     <Sheet className="flex flex-col gap-4">
@@ -107,22 +123,49 @@ export function ConnectedIdentities() {
                         </div>
                       )}
                     </div>
-                    <Tooltip
-                      tip={
-                        isPrimary
-                          ? "You cannot unlink your primary identity. Please contact us at support@convex.dev if you need to remove your primary identity."
-                          : undefined
-                      }
+                    <Menu
+                      placement="bottom-end"
+                      buttonProps={{
+                        variant: "neutral",
+                        icon: <DotsVerticalIcon />,
+                        "aria-label": "Identity options",
+                        size: "xs",
+                      }}
                     >
-                      <Button
-                        variant="danger"
-                        size="xs"
+                      {changePrimaryIdentityFlag ? (
+                        <MenuItem
+                          action={() => setChangingPrimaryId(identity.userId)}
+                          disabled={
+                            isPrimary || identity.connection === "vercel"
+                          }
+                          tip={
+                            isPrimary
+                              ? "This is already your primary identity."
+                              : identity.connection === "vercel"
+                                ? "You cannot set a Vercel identity as your primary identity."
+                                : undefined
+                          }
+                          tipSide="right"
+                        >
+                          Set as primary
+                        </MenuItem>
+                      ) : null}
+                      <MenuItem
+                        action={() => setUnlinkingId(identity.userId)}
                         disabled={isPrimary}
-                        onClick={() => setUnlinkingId(identity.userId)}
+                        variant="danger"
+                        tip={
+                          isPrimary
+                            ? changePrimaryIdentityFlag
+                              ? "You cannot unlink your primary identity. To unlink this identity, you must first set a new primary identity."
+                              : "You cannot unlink your primary identity."
+                            : undefined
+                        }
+                        tipSide="right"
                       >
                         Unlink
-                      </Button>
-                    </Tooltip>
+                      </MenuItem>
+                    </Menu>
                     {unlinkingId === identity.userId && (
                       <ConfirmationDialog
                         onClose={() => {
@@ -183,6 +226,32 @@ export function ConnectedIdentities() {
                 Link Google account
               </Button>
             </div>
+            {/* Render the confirmation dialog for changing primary identity at the root */}
+            {changingPrimaryId && candidatePrimaryIdentity && (
+              <ConfirmationDialog
+                onClose={() => {
+                  setChangingPrimaryId(null);
+                  setError(undefined);
+                }}
+                onConfirm={async () => {
+                  try {
+                    await changePrimaryIdentity({
+                      newPrimaryProvider: candidatePrimaryIdentity.provider,
+                      newPrimaryUserId: candidatePrimaryIdentity.userId,
+                    });
+                    setChangingPrimaryId(null);
+                    window.location.href = "/api/auth/logout";
+                  } catch (e: any) {
+                    setError(e.message);
+                    throw e;
+                  }
+                }}
+                confirmText="Confirm"
+                dialogTitle="Change Primary Identity"
+                dialogBody="Changing your primary identity will log you out of the dashboard. You will be logged out of the dashboard and need to log in again after changing your primary identity."
+                error={error}
+              />
+            )}
           </div>
         )}
       </LoadingTransition>

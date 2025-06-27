@@ -164,9 +164,11 @@ Schema:
     `table_name`
   - `retry_count`: the number of previously failed attempts before the current
     function execution
-- `scheduler_info`: object, if set, indicates that the function execution was
-  originally invoked by a scheduled job either directly, or via a subfunction
-  execution.
+- `scheduler_info`: object, if set, indicates that the function was originally
+  invoked by the [scheduler](/scheduling/scheduled-functions).
+  - `job_id`: the job within the
+    [`_scheduled_functions`](/scheduling/scheduled-functions#retrieving-scheduled-function-status)
+    table
 - `usage`:
   - `database_read_bytes`: number
   - `database_write_bytes`: number, this and `database_read_bytes` make up the

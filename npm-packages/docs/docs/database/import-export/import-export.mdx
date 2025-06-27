@@ -1,6 +1,8 @@
 ---
 title: "Data Import & Export"
 sidebar_position: 90
+description:
+  "Import data from existing sources and export data to external systems"
 ---
 
 If you're bootstrapping your app from existing data, Convex provides three ways

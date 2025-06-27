@@ -64,6 +64,7 @@ use indexing::{
         DatabaseIndexSnapshot,
         InMemoryIndexes,
         LazyDocument,
+        SystemDocument,
     },
     index_registry::IndexRegistry,
 };
@@ -72,10 +73,7 @@ use model::virtual_system_mapping;
 use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    heap_size::{
-        HeapSize,
-        WithHeapSize,
-    },
+    heap_size::HeapSize,
     InternalId,
     TableName,
     TableNamespace,
@@ -146,12 +144,14 @@ impl LruKey for IndexCacheKey {
 
 /// The cache value is the same as [DatabaseIndexMap] apart from keeping track
 /// of last modified timestamps. The [BTreeMap] keys are the index keys.
-#[derive(Clone)]
-struct IndexCacheValue(WithHeapSize<BTreeMap<Vec<u8>, (Timestamp, PackedDocument)>>);
+struct IndexCacheValue {
+    map: BTreeMap<Vec<u8>, (Timestamp, PackedDocument, SystemDocument)>,
+    size: usize,
+}
 
 impl SizedValue for IndexCacheValue {
     fn size(&self) -> u64 {
-        self.0.heap_size() as u64
+        self.size as u64
     }
 }
 
@@ -170,7 +170,8 @@ async fn load_index(
     table_name: String,
 ) -> anyhow::Result<Arc<IndexCacheValue>> {
     let _timer = load_index_timer(&table_name, &instance_name);
-    let index_map: BTreeMap<Vec<u8>, (Timestamp, PackedDocument)> = persistence_snapshot
+    let mut size = 0;
+    let index_map: BTreeMap<Vec<u8>, _> = persistence_snapshot
         .index_scan(
             index_id,
             tablet_id,
@@ -178,11 +179,21 @@ async fn load_index(
             Order::Asc,
             usize::MAX,
         )
-        .map_ok(|(key, rev)| (key.0, (rev.ts, PackedDocument::pack(&rev.value))))
+        .map_ok(|(key, rev)| {
+            let doc = PackedDocument::pack(&rev.value);
+            // This doesn't take into account the future size of the cached
+            // SystemDocument, so the cache will use more memory than its
+            // nominal size
+            size += key.0.heap_size() + doc.heap_size();
+            (key.0, (rev.ts, doc, SystemDocument::new()))
+        })
         .try_collect()
         .await?;
     log_funrun_index_load_rows(index_map.len() as u64, &table_name, &instance_name);
-    Ok(Arc::new(IndexCacheValue(index_map.into())))
+    Ok(Arc::new(IndexCacheValue {
+        map: index_map,
+        size,
+    }))
 }
 
 #[fastrace::trace]
@@ -706,9 +717,15 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
         let range = order
             .apply(
                 index_map
-                    .0
+                    .map
                     .range(interval)
-                    .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.clone().into())),
+                    .map(|(k, (ts, v, system_doc))| {
+                        (
+                            IndexKeyBytes(k.clone()),
+                            *ts,
+                            LazyDocument::Packed(v.clone(), Some(system_doc.clone())),
+                        )
+                    }),
             )
             .collect::<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>();
         Ok(Some(range))

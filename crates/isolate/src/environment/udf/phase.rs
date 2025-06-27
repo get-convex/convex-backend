@@ -233,7 +233,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         module_path: &ModulePath,
         timeout: &mut Timeout<RT>,
         permit_slot: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(FullModuleSource, ModuleCodeCacheResult)>> {
+    ) -> anyhow::Result<Option<(Arc<FullModuleSource>, ModuleCodeCacheResult)>> {
         if self.phase != Phase::Importing {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDynamicImport",
@@ -284,7 +284,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         )
         .await?;
         let code_cache_result = module_loader.code_cache_result(module_metadata.into_value());
-        Ok(Some(((*module_source).clone(), code_cache_result)))
+        Ok(Some((module_source, code_cache_result)))
     }
 
     pub fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {

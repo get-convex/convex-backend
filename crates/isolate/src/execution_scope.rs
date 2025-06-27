@@ -328,8 +328,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             }
         }
         let (id, import_specifiers) = {
-            let (FullModuleSource { source, source_map }, code_cache) =
-                self.lookup_source(name).await?;
+            let (module_source, code_cache) = self.lookup_source(name).await?;
 
             // Step 1: Compile the module and discover its imports.
             let timer = metrics::compile_module_timer(matches!(
@@ -343,7 +342,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
             let name_str = v8::String::new(&mut scope, name.as_str())
                 .ok_or_else(|| anyhow!("Failed to create name string"))?;
-            let source_str = v8::String::new(&mut scope, &source)
+            let source_str = v8::String::new(&mut scope, &module_source.source)
                 .ok_or_else(|| anyhow!("Failed to create source string"))?;
 
             let origin = helpers::module_origin(&mut scope, name_str);
@@ -414,7 +413,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             let id = {
                 let module_v8 = v8::Global::<v8::Module>::new(&mut scope, module);
                 let module_map = scope.module_map_mut();
-                module_map.register(name, module_v8, source_map)
+                module_map.register(name, module_v8, module_source)
             };
             (id, import_specifiers)
         };
@@ -434,7 +433,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     async fn lookup_source(
         &mut self,
         module_specifier: &ModuleSpecifier,
-    ) -> anyhow::Result<(FullModuleSource, ModuleCodeCacheResult)> {
+    ) -> anyhow::Result<(Arc<FullModuleSource>, ModuleCodeCacheResult)> {
         let _s = static_span!();
         if module_specifier.scheme() != CONVEX_SCHEME {
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -482,7 +481,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             };
             timer.finish();
             // TODO: should we code-cache system UDFs?
-            return Ok((result, ModuleCodeCacheResult::noop()));
+            return Ok((Arc::new(result), ModuleCodeCacheResult::noop()));
         }
 
         let state = self.state_mut()?;

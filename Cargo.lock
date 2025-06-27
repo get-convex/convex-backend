@@ -6642,7 +6642,7 @@ dependencies = [
 [[package]]
 name = "postgres-protocol"
 version = "0.6.8"
-source = "git+https://github.com/get-convex/rust-postgres?rev=af064b91c3f75f0004fb4f77b16682519ff62711#af064b91c3f75f0004fb4f77b16682519ff62711"
+source = "git+https://github.com/get-convex/rust-postgres?rev=5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6#5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6"
 dependencies = [
  "base64 0.22.1",
  "byteorder",
@@ -6659,7 +6659,7 @@ dependencies = [
 [[package]]
 name = "postgres-types"
 version = "0.2.9"
-source = "git+https://github.com/get-convex/rust-postgres?rev=af064b91c3f75f0004fb4f77b16682519ff62711#af064b91c3f75f0004fb4f77b16682519ff62711"
+source = "git+https://github.com/get-convex/rust-postgres?rev=5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6#5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6"
 dependencies = [
  "bytes",
  "fallible-iterator 0.2.0",
@@ -9248,7 +9248,7 @@ dependencies = [
 [[package]]
 name = "tokio-postgres"
 version = "0.7.13"
-source = "git+https://github.com/get-convex/rust-postgres?rev=af064b91c3f75f0004fb4f77b16682519ff62711#af064b91c3f75f0004fb4f77b16682519ff62711"
+source = "git+https://github.com/get-convex/rust-postgres?rev=5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6#5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6"
 dependencies = [
  "async-trait",
  "byteorder",

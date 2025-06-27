@@ -1,10 +1,16 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 
 use deno_core::{
     v8,
     ModuleSpecifier,
 };
-use model::modules::module_versions::SourceMap;
+use model::modules::module_versions::{
+    FullModuleSource,
+    SourceMap,
+};
 
 pub type ModuleId = usize;
 
@@ -18,7 +24,7 @@ pub struct ModuleMap {
 struct ModuleInfo {
     pub name: ModuleSpecifier,
     pub handle: v8::Global<v8::Module>,
-    pub source_map: Option<SourceMap>,
+    pub module_source: Arc<FullModuleSource>,
 }
 
 impl ModuleMap {
@@ -45,21 +51,21 @@ impl ModuleMap {
     }
 
     pub fn source_map(&self, id: ModuleId) -> Option<&SourceMap> {
-        self.modules[id].source_map.as_ref()
+        self.modules[id].module_source.source_map.as_ref()
     }
 
     pub fn register(
         &mut self,
         name: &ModuleSpecifier,
         handle: v8::Global<v8::Module>,
-        source_map: Option<SourceMap>,
+        module_source: Arc<FullModuleSource>,
     ) -> ModuleId {
         let id = self.modules.len();
 
         let info = ModuleInfo {
             name: name.to_owned(),
             handle: handle.clone(),
-            source_map,
+            module_source,
         };
         self.modules.push(info);
         self.by_name.insert(name.to_owned(), id);

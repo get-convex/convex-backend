@@ -225,7 +225,9 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         let table_mapping = tx.table_mapping().clone();
         let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
         let mut table_model = TableModel::new(&mut tx);
-        for (namespace, map) in table_mapping.iter_active_namespaces() {
+        const MAX_TABLES_PER_RUN: usize = 1024;
+        let mut deleted_tables = 0;
+        'cleanup: for (namespace, map) in table_mapping.iter_active_namespaces() {
             let component_id = ComponentId::from(*namespace);
             if component_paths.contains_key(&component_id) {
                 continue;
@@ -252,6 +254,17 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                     table_model
                         .delete_active_table(*namespace, table_name.clone())
                         .await?;
+                    deleted_tables += 1;
+
+                    if deleted_tables >= MAX_TABLES_PER_RUN {
+                        // Don't create an overly large transaction; we'll get
+                        // to the remaining tables on the next run.
+                        tracing::warn!(
+                            "Hit the limit of {} tables, stopping early",
+                            MAX_TABLES_PER_RUN
+                        );
+                        break 'cleanup;
+                    }
                 }
             }
         }

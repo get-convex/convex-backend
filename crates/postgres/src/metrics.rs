@@ -192,6 +192,14 @@ pub fn connection_lifetime_timer(name: &'static str) -> Timer<VMHistogramVec> {
     timer
 }
 
+register_convex_counter!(
+    POSTGRES_POISONED_CONNECTIONS,
+    "Number of times connections were poisoned",
+);
+pub fn log_poisoned_connection() {
+    POSTGRES_POISONED_CONNECTIONS.inc();
+}
+
 register_convex_histogram!(
     POSTGRES_POOL_ACTIVE_CONNECTIONS,
     "Number of active connections",

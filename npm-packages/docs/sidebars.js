@@ -159,6 +159,11 @@ const sidebars = {
       className: "convex-sidebar-ai-agents",
     },
     {
+      type: "doc",
+      id: "chef",
+      className: "convex-sidebar-chef",
+    },
+    {
       type: "category",
       label: "Testing",
       link: { type: "doc", id: "testing" },

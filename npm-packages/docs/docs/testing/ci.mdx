@@ -2,6 +2,7 @@
 title: Continuous Integration
 sidebar_label: CI
 sidebar_position: 300
+description: "Set up continuous integration testing for Convex applications"
 ---
 
 Continuous integration allows your team to move fast by combining changes from
