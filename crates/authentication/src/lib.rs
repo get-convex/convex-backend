@@ -261,7 +261,9 @@ where
                     format!("https://{}", token_issuer)
                 };
 
-            if token_issuer_with_protocol != issuer.as_str() {
+            if token_issuer_with_protocol.trim_end_matches('/')
+                != issuer.as_str().trim_end_matches('/')
+            {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
                     format!("Invalid issuer: {} != {}", token_issuer, issuer)
