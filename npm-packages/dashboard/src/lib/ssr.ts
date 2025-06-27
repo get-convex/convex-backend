@@ -339,7 +339,7 @@ function pageNotFound(res: GetServerSidePropsContext["res"]) {
 }
 
 export const retryingFetch = fetchRetryFactory(fetch, {
-  retries: 4,
+  retries: 2,
   retryDelay: (attempt: number, _error: any, _response: any) => {
     // immediate, 1s delay, 2s delay, 4s delay, etc.
     const delay = attempt === 0 ? 1 : 2 ** (attempt - 1) * 1000;
