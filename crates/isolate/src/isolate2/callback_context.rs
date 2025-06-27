@@ -595,5 +595,10 @@ mod op_provider {
         fn remove_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<TextDecoderResource> {
             self.context_state()?.remove_text_decoder(uuid)
         }
+        
+        fn get_execution_context(&mut self) -> anyhow::Result<Option<serde_json::Value>> {
+            let state = self.context_state()?;
+            state.environment.get_execution_context()
+        }
     }
 }

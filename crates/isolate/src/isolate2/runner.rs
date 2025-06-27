@@ -243,6 +243,8 @@ struct UdfEnvironment<RT: Runtime> {
 
     #[allow(unused)]
     env_vars: PreloadedEnvironmentVariables,
+    
+    execution_context: ExecutionContext,
 }
 
 impl<RT: Runtime> UdfEnvironment<RT> {
@@ -254,6 +256,7 @@ impl<RT: Runtime> UdfEnvironment<RT> {
         shared: UdfShared<RT>,
         env_vars: PreloadedEnvironmentVariables,
         log_line_sender: spsc::Sender<LogLine>,
+        execution_context: ExecutionContext,
     ) -> Self {
         let rng = ChaCha12Rng::from_seed(import_time_seed.rng_seed);
         Self {
@@ -270,6 +273,7 @@ impl<RT: Runtime> UdfEnvironment<RT> {
 
             shared,
             env_vars,
+            execution_context,
         }
     }
 
@@ -469,6 +473,11 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         self.check_executing()?;
         Ok(self.shared.get_all_table_mappings())
+    }
+    
+    fn get_execution_context(&mut self) -> anyhow::Result<Option<serde_json::Value>> {
+        let context_json: serde_json::Value = self.execution_context.clone().into();
+        Ok(Some(context_json))
     }
 }
 
@@ -1063,6 +1072,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
         shared.clone(),
         env_vars,
         log_line_sender,
+        context.clone(),
     );
 
     // The protocol is synchronous, so there should never be more than

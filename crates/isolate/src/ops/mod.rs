@@ -38,11 +38,15 @@ use common::{
         EnvVarValue,
     },
 };
+use runtime::prod::ProdRuntime;
+#[cfg(any(test, feature = "testing"))]
+use runtime::testing::TestRuntime;
 use crypto::{
     op_crypto_decrypt,
     op_crypto_encrypt,
 };
 use deno_core::{
+    serde_v8,
     v8,
     ModuleSpecifier,
 };
@@ -201,6 +205,8 @@ pub trait OpProvider<'b> {
         -> anyhow::Result<Option<EnvVarValue>>;
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
+    
+    fn get_execution_context(&mut self) -> anyhow::Result<Option<serde_json::Value>>;
 }
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
@@ -350,6 +356,37 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
         let state = self.state_mut()?;
         state.environment.get_all_table_mappings()
     }
+    
+    fn get_execution_context(&mut self) -> anyhow::Result<Option<serde_json::Value>> {
+        use crate::environment::udf::DatabaseUdfEnvironment;
+        use std::any::{Any, TypeId};
+        
+        let state = self.state_mut()?;
+        
+        // Check if this is a DatabaseUdfEnvironment by checking type ID
+        let environment_any = &state.environment as &dyn Any;
+        let type_id = environment_any.type_id();
+        
+        // Try common runtime types
+        if type_id == TypeId::of::<DatabaseUdfEnvironment<ProdRuntime>>() {
+            if let Some(udf_env) = environment_any.downcast_ref::<DatabaseUdfEnvironment<ProdRuntime>>() {
+                let context_json: serde_json::Value = udf_env.execution_context().clone().into();
+                return Ok(Some(context_json));
+            }
+        }
+        
+        // Add other runtime types as needed
+        #[cfg(any(test, feature = "testing"))]
+        if type_id == TypeId::of::<DatabaseUdfEnvironment<TestRuntime>>() {
+            if let Some(udf_env) = environment_any.downcast_ref::<DatabaseUdfEnvironment<TestRuntime>>() {
+                let context_json: serde_json::Value = udf_env.execution_context().clone().into();
+                return Ok(Some(context_json));
+            }
+        }
+        
+        // Not in UDF environment - return None
+        Ok(None)
+    }
 }
 
 pub fn run_op<'b, P: OpProvider<'b>>(
@@ -428,6 +465,7 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "crypto/exportPkcs8X25519" => op_crypto_export_pkcs8_x25519(provider, args, rv)?,
         "crypto/generateKeyPair" => op_crypto_generate_keypair(provider, args, rv)?,
         "crypto/generateKeyBytes" => op_crypto_generate_key_bytes(provider, args, rv)?,
+        "getExecutionContext" => op_get_execution_context(provider, args, rv)?,
         _ => {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "UnknownOperation",
@@ -471,5 +509,29 @@ pub fn start_async_op<'b, P: OpProvider<'b>>(
     };
 
     rv.set(promise.into());
+    Ok(())
+}
+
+// Access to execution context for user functions
+pub fn op_get_execution_context<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    _args: v8::FunctionCallbackArguments,
+    mut rv: v8::ReturnValue,
+) -> anyhow::Result<()> {
+    tracing::info!("🔍 op_get_execution_context called!");
+    
+    // Get the execution context using the trait method
+    let context_json = provider.get_execution_context()?;
+    
+    tracing::info!("🔍 Retrieved execution context: {:?}", context_json);
+    
+    // Return the context or empty object if not available
+    let result = context_json.unwrap_or_else(|| serde_json::json!({}));
+    
+    // Convert to V8 value and return
+    let v8_value = serde_v8::to_v8(provider.scope(), result)?;
+    rv.set(v8_value);
+    
+    tracing::info!("🔍 op_get_execution_context completed successfully");
     Ok(())
 }

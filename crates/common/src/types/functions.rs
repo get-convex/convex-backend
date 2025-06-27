@@ -202,7 +202,7 @@ impl FunctionCaller {
     }
 
     pub fn remote_ip(&self) -> Option<SocketAddr> {
-        match self {
+        let remote_ip = match self {
             FunctionCaller::SyncWorker(_, remote_ip) 
             | FunctionCaller::HttpApi(_, remote_ip) 
             | FunctionCaller::HttpEndpoint(remote_ip) => *remote_ip,
@@ -212,7 +212,9 @@ impl FunctionCaller {
             | FunctionCaller::Action { .. } => None,
             #[cfg(any(test, feature = "testing"))]
             FunctionCaller::Test => None,
-        }
+        };
+        tracing::info!("🔍 FunctionCaller::remote_ip() called, returning: {:?}", remote_ip);
+        remote_ip
     }
 
     pub fn is_root(&self) -> bool {

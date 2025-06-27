@@ -51,11 +51,13 @@ pub struct ExecutionContext {
 
 impl ExecutionContext {
     pub fn new(request_id: RequestId, caller: &FunctionCaller) -> Self {
+        let remote_ip = caller.remote_ip();
+        tracing::info!("🔍 Creating ExecutionContext with remote IP: {:?}", remote_ip);
         Self {
             request_id,
             execution_id: ExecutionId::new(),
             parent_scheduled_job: caller.parent_scheduled_job(),
-            remote_ip: caller.remote_ip(),
+            remote_ip,
             is_root: caller.is_root(),
         }
     }
@@ -312,11 +314,14 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
 impl From<ExecutionContext> for JsonValue {
     fn from(value: ExecutionContext) -> Self {
         let (parent_component_id, parent_document_id) = value.parent_scheduled_job.unzip();
+        let remote_ip_str = value.remote_ip.map(|addr| addr.to_string());
+        tracing::info!("🔍 Serializing ExecutionContext to JSON with remoteIp: {:?}", remote_ip_str);
         json!({
             "requestId": String::from(value.request_id),
             "executionId": value.execution_id.to_string(),
             "isRoot": value.is_root,
-            "remoteIp": value.remote_ip.map(|addr| addr.to_string()),
+            "remoteIp": remote_ip_str,
+            "testValue": "HELLO_FROM_RUST",
             "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
             "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
         })

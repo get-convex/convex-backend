@@ -999,4 +999,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }
         Ok(())
     }
+    
+    pub fn execution_context(&self) -> &ExecutionContext {
+        &self.context
+    }
 }

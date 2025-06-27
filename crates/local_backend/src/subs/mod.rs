@@ -244,6 +244,7 @@ async fn run_sync_socket_with_remote_ip(
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
         let _sync_worker_drop_token = DebugSyncSocketDropToken::new("sync_worker");
+        tracing::info!("🔍 Creating SyncWorker with remote IP: {:?}", remote_ip);
         let mut sync_worker = SyncWorker::new_with_remote_ip(
             st.api.clone(),
             st.runtime.clone(),
@@ -395,6 +396,7 @@ pub async fn sync(
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    tracing::info!("🔍 WebSocket connection from remote IP: {}", remote_addr.0);
     sync_handler_with_remote_ip(st, Some(remote_addr.0), host, client_version, ws, Box::new(|_session_id| ())).await
 }
 
