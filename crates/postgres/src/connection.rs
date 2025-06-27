@@ -77,7 +77,6 @@ use tokio_postgres::{
         ToSql,
     },
     AsyncMessage,
-    GenericClient,
     Row,
     RowStream,
     Statement,
@@ -161,7 +160,7 @@ struct PooledConnection {
 }
 
 async fn prepare_cached(
-    client: &impl GenericClient,
+    client: &tokio_postgres::Client,
     cache: &Mutex<StatementCache>,
     statement: String,
 ) -> anyhow::Result<tokio_postgres::Statement> {
@@ -354,7 +353,7 @@ impl PostgresTransaction<'_> {
 
     pub async fn prepare_cached(&self, query: &'static str) -> anyhow::Result<Statement> {
         with_timeout(prepare_cached(
-            &self.inner,
+            self.inner.client(),
             self.statement_cache,
             self.substitute_db_name(query),
         ))
