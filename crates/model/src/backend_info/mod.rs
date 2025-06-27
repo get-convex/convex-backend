@@ -99,7 +99,7 @@ impl<'a, RT: Runtime> BackendInfoModel<'a, RT> {
                 .unwrap_or_default(),
             ErrorMetadata::forbidden(
                 "StreamingExportNotEnabled",
-                "Streaming egress is not available on the Convex Starter plan. See https://www.convex.dev/plans to upgrade.",
+                "Streaming export is only available on the Convex Professional plan. See https://www.convex.dev/plans to upgrade.",
             ),
         );
         Ok(())
@@ -117,7 +117,7 @@ impl<'a, RT: Runtime> BackendInfoModel<'a, RT> {
             self.is_log_streaming_allowed().await?,
             ErrorMetadata::forbidden(
                 "LogStreamingNotEnabled",
-                "Log streaming is not available on the Convex Starter plan. See https://www.convex.dev/plans to upgrade."
+                "Log streaming is only available on the Convex Professional plan. See https://www.convex.dev/plans to upgrade."
             )
         );
         Ok(())

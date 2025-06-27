@@ -67,27 +67,27 @@ export async function usageStateWarning(
     });
   } else if (usageState === "Approaching") {
     await warn(ctx, {
-      title: "Your projects are approaching the Starter plan limits.",
+      title: "Your projects are approaching the Free plan limits.",
       subtitle: "Consider upgrading to avoid service interruption.",
       teamSlug: team,
     });
   } else if (usageState === "Exceeded") {
     await warn(ctx, {
-      title: "Your projects are above the Starter plan limits.",
+      title: "Your projects are above the Free plan limits.",
       subtitle: "Decrease your usage or upgrade to avoid service interruption.",
       teamSlug: team,
     });
   } else if (usageState === "Disabled") {
     await warn(ctx, {
       title:
-        "Your projects are disabled because the team exceeded Starter plan limits.",
+        "Your projects are disabled because the team exceeded Free plan limits.",
       subtitle: "Decrease your usage or upgrade to reenable your projects.",
       teamSlug: team,
     });
   } else if (usageState === "Paused") {
     await warn(ctx, {
       title:
-        "Your projects are disabled because the team previously exceeded Starter plan limits.",
+        "Your projects are disabled because the team previously exceeded Free plan limits.",
       subtitle: "Restore your projects by going to the dashboard.",
       teamSlug: team,
     });
