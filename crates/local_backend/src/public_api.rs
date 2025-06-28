@@ -421,7 +421,6 @@ pub async fn public_query_post(
 
 pub async fn public_get_query_ts(
     State(st): State<RouterState>,
-    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
 ) -> Result<impl IntoResponse, HttpResponseError> {

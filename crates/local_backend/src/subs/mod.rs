@@ -130,16 +130,7 @@ impl Drop for DebugSyncSocketDropToken {
 // on a close frame and close the WebSocket. They can also signal clean shutdown
 // by returning `Ok(())`, and once all of them have cleanly exited, we'll
 // gracefully close the socket.
-async fn run_sync_socket(
-    st: RouterState,
-    host: ResolvedHostname,
-    config: SyncWorkerConfig,
-    socket: WebSocket,
-    sentry_scope: sentry::Scope,
-    on_connect: Box<dyn FnOnce(SessionId) + Send>,
-) {
-    run_sync_socket_with_remote_ip(st, None, host, config, socket, sentry_scope, on_connect).await
-}
+
 
 async fn run_sync_socket_with_remote_ip(
     st: RouterState,
