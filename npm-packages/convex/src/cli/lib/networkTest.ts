@@ -132,10 +132,17 @@ async function checkTcpHostPort(
       )})`,
     );
   } catch (e: any) {
+    let errorMessage = `${e}`;
+    if (e instanceof AggregateError) {
+      const individualErrors = e.errors
+        .map((err, i) => `  ${i + 1}. ${err}`)
+        .join("\n");
+      errorMessage = `AggregateError with ${e.errors.length} errors:\n${individualErrors}`;
+    }
     return ctx.crash({
       exitCode: 1,
       errorType: "transient",
-      printedMessage: `FAIL: ${tcpString} connect (${e})`,
+      printedMessage: `FAIL: ${tcpString} connect (${errorMessage})`,
     });
   }
 }
