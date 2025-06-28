@@ -117,8 +117,11 @@ use rustls_pki_types::{
 };
 use serde::Deserialize as _;
 use serde_json::Value as JsonValue;
-use tokio::sync::mpsc::{
-    self,
+use tokio::sync::{
+    mpsc::{
+        self,
+    },
+    oneshot,
 };
 use tokio_postgres::{
     config::TargetSessionAttrs,
@@ -756,25 +759,37 @@ impl PostgresReader {
                 tx,
             ),
         ));
-        while let Some((key, ts, binary_value, prev_ts)) = rx.recv().await {
-            let json_value: JsonValue = serde_json::from_slice(&binary_value)
-                .context("Failed to deserialize database value")?;
-            anyhow::ensure!(
-                json_value != JsonValue::Null,
-                "Index reference to deleted document {:?} {:?}",
-                key,
-                ts
-            );
-            let value: ConvexValue = json_value.try_into()?;
-            let document = ResolvedDocument::from_database(tablet_id, value)?;
-            yield (
-                key,
-                LatestDocument {
+        while let Some(result) = rx.recv().await {
+            match result {
+                IndexScanResult::Row {
+                    key,
                     ts,
-                    value: document,
+                    json,
                     prev_ts,
+                } => {
+                    let json_value: JsonValue = serde_json::from_slice(&json)
+                        .context("Failed to deserialize database value")?;
+                    anyhow::ensure!(
+                        json_value != JsonValue::Null,
+                        "Index reference to deleted document {:?} {:?}",
+                        key,
+                        ts
+                    );
+                    let value: ConvexValue = json_value.try_into()?;
+                    let document = ResolvedDocument::from_database(tablet_id, value)?;
+                    yield (
+                        key,
+                        LatestDocument {
+                            ts,
+                            value: document,
+                            prev_ts,
+                        },
+                    );
                 },
-            );
+                IndexScanResult::PageBoundary(sender) => {
+                    _ = sender.send(());
+                },
+            }
         }
         task.await??;
     }
@@ -787,7 +802,7 @@ impl PostgresReader {
         order: Order,
         batch_size: usize,
         retention_validator: Arc<dyn RetentionValidator>,
-        tx: mpsc::Sender<(IndexKeyBytes, Timestamp, Vec<u8>, Option<Timestamp>)>,
+        tx: mpsc::Sender<IndexScanResult>,
     ) -> anyhow::Result<()> {
         let _timer = metrics::query_index_timer();
         let (mut lower, mut upper) = to_sql_bounds(interval.clone());
@@ -916,23 +931,47 @@ impl PostgresReader {
                 .await?;
             retention_validate_timer.finish();
 
-            for row in batch {
+            for (key, ts, json, prev_ts) in batch {
                 // this could block arbitrarily long if the caller of
                 // `index_scan` stops polling
-                tx.send(row).await?;
+                tx.send(IndexScanResult::Row {
+                    key,
+                    ts,
+                    json,
+                    prev_ts,
+                })
+                .await?;
             }
 
             if batch_rows < batch_size {
                 break;
             }
+
+            // After each page, wait until the caller of `index_scan()` next
+            // polls the stream before beginning the next read. This hurts
+            // latency if the caller wants to read everything, but avoids
+            // prefetching an extra page in the common case where the caller
+            // only reads the first `batch_size` rows.
+            let (page_tx, page_rx) = oneshot::channel();
+            tx.send(IndexScanResult::PageBoundary(page_tx)).await?;
+            if page_rx.await.is_err() {
+                // caller dropped
+                return Ok(());
+            }
         }
 
         // Yield any remaining values.
         result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-        for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
+        for (key, ts, json, prev_ts) in order.apply(result_buffer.drain(..)) {
             if interval.contains(&key) {
                 stats.rows_returned += 1;
-                tx.send((key, ts, doc, prev_ts)).await?;
+                tx.send(IndexScanResult::Row {
+                    key,
+                    ts,
+                    json,
+                    prev_ts,
+                })
+                .await?;
             } else {
                 stats.rows_skipped_out_of_range += 1;
             }
@@ -968,6 +1007,18 @@ impl PostgresReader {
         let ts = Param::Ts((*ts).into());
         Ok(vec![tablet_id, id, ts])
     }
+}
+
+enum IndexScanResult {
+    Row {
+        key: IndexKeyBytes,
+        ts: Timestamp,
+        json: Vec<u8>,
+        prev_ts: Option<Timestamp>,
+    },
+    // After a page the index scan will wait until a message is sent on this
+    // channel
+    PageBoundary(oneshot::Sender<()>),
 }
 
 fn parse_row(row: &Row) -> anyhow::Result<IndexEntry> {
