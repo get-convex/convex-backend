@@ -48,16 +48,17 @@ declare const Convex: {
   op: (opName: string, ...args: any[]) => any;
 };
 
-// Get execution context from Rust
-async function getExecutionContext(): Promise<any> {
+// Get remote IP address for the current request (lazy loaded)
+function getRemoteIp(): string | null {
   try {
     if (typeof Convex === "undefined" || Convex.op === undefined) {
-      throw new Error("Convex.op not available");
+      return null;
     }
-    const context = Convex.op("getExecutionContext");
-    return context;
+    // Use synchronous op call - fast and only called when needed
+    const remoteIp = Convex.op("getRemoteIp");
+    return remoteIp;
   } catch (error) {
-    return {};
+    return null;
   }
 }
 
@@ -68,7 +69,6 @@ async function invokeMutation<
   // Ok, to mock it out for now, since queries are only running in V8.
   const requestId = "";
   const args = jsonToConvex(JSON.parse(argsStr));
-  const executionContext = await getExecutionContext();
   const mutationCtx = {
     db: setupWriter(),
     auth: setupAuth(requestId),
@@ -78,7 +78,9 @@ async function invokeMutation<
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
     runMutation: (reference: any, args?: any) =>
       runUdf("mutation", reference, args),
-    ...executionContext,
+    
+    // Lazy-loaded remote IP access
+    getRemoteIp,
   };
   const result = await invokeFunction(func, mutationCtx, args as any);
   validateReturnValue(result);
@@ -278,13 +280,14 @@ async function invokeQuery<
   // Ok, to mock it out for now, since queries are only running in V8.
   const requestId = "";
   const args = jsonToConvex(JSON.parse(argsStr));
-  const executionContext = await getExecutionContext();
   const queryCtx = {
     db: setupReader(),
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
-    ...executionContext,
+    
+    // Lazy-loaded remote IP access
+    getRemoteIp,
   };
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);

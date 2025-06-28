@@ -243,7 +243,7 @@ struct UdfEnvironment<RT: Runtime> {
 
     #[allow(unused)]
     env_vars: PreloadedEnvironmentVariables,
-    
+
     execution_context: ExecutionContext,
 }
 
@@ -474,7 +474,7 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         self.check_executing()?;
         Ok(self.shared.get_all_table_mappings())
     }
-    
+
     fn get_execution_context(&mut self) -> anyhow::Result<Option<serde_json::Value>> {
         let context_json: serde_json::Value = self.execution_context.clone().into();
         Ok(Some(context_json))

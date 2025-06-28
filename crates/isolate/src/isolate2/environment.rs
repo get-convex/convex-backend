@@ -44,6 +44,6 @@ pub trait Environment {
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome>;
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
-    
+
     fn get_execution_context(&mut self) -> anyhow::Result<Option<serde_json::Value>>;
 }
