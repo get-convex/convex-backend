@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as langchain from "../langchain.js";
 import type * as listMessages from "../listMessages.js";
 import type * as node from "../node.js";
+import type * as nodeAction from "../nodeAction.js";
 import type * as notSourceMappable from "../notSourceMappable.js";
 import type * as sendGifMessage from "../sendGifMessage.js";
 import type * as sendMessage from "../sendMessage.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   langchain: typeof langchain;
   listMessages: typeof listMessages;
   node: typeof node;
+  nodeAction: typeof nodeAction;
   notSourceMappable: typeof notSourceMappable;
   sendGifMessage: typeof sendGifMessage;
   sendMessage: typeof sendMessage;

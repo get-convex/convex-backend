@@ -70,6 +70,10 @@ describe("HTTPClient", () => {
   test("Action calls a function with big args", async () => {
     await httpClient.action(api.actions.simple.actionCallsWithBigArgument);
   });
+
+  test("Action calls another action twice", async () => {
+    await httpClient.action(api.actions.simple.actionCallAction);
+  });
 });
 
 describe("ConvexReactClient", () => {

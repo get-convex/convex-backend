@@ -11,6 +11,7 @@ export default mutation({
       extras,
     }: { format: "text" | "giphy"; body: string; author: string; extras?: any },
   ) => {
+    console.log("running sendMessage mutation");
     const message = {
       body,
       author,

@@ -3,7 +3,11 @@ import { v4 as uuidv4 } from "uuid";
 import { jsonToConvex } from "convex/values";
 import {
   ExecuteResponseInner,
+  defaultConsoleState,
   executeInner,
+  globalConsoleState,
+  globalDevConsole,
+  ogConsole,
   setupConsole,
 } from "../src/executor.js";
 import { Syscalls, SyscallsImpl } from "../src/syscalls.js";
@@ -30,7 +34,6 @@ async function executeWrapper(
   syscalls?: Syscalls,
 ) {
   createPackageJsonIfMissing(__dirname);
-  const saved = console;
   const timeoutSecs = 300;
   const logLines: {
     level: string;
@@ -47,39 +50,39 @@ async function executeWrapper(
       callback();
     },
   });
-  try {
-    setupConsole(responseStream);
-    const requestId = uuidv4();
-    const response = await executeInner(
-      requestId,
-      __dirname,
-      modulePath,
-      name,
-      args,
-      environmentVariables,
-      timeoutSecs,
-      syscalls ??
-        new SyscallsImpl(
-          { canonicalizedPath: "", function: "" },
-          requestId,
-          "",
-          "",
-          null,
-          null,
-          {
-            requestId: randomUUID(),
-            executionId: randomUUID(),
-            isRoot: true,
-            parentScheduledJob: null,
-            parentScheduledJobComponentId: null,
-          },
-          null,
-        ),
-    );
-    return { response, logLines };
-  } finally {
-    globalThis.console = saved;
-  }
+  return await globalConsoleState.run(defaultConsoleState(), async () => {
+    const devConsole = setupConsole(responseStream);
+    return await globalDevConsole.run(devConsole, async () => {
+      const requestId = uuidv4();
+      const response = await executeInner(
+        requestId,
+        __dirname,
+        modulePath,
+        name,
+        args,
+        environmentVariables,
+        timeoutSecs,
+        syscalls ??
+          new SyscallsImpl(
+            { canonicalizedPath: "", function: "" },
+            requestId,
+            "",
+            "",
+            null,
+            null,
+            {
+              requestId: randomUUID(),
+              executionId: randomUUID(),
+              isRoot: true,
+              parentScheduledJob: null,
+              parentScheduledJobComponentId: null,
+            },
+            null,
+          ),
+      );
+      return { response, logLines };
+    });
+  });
 }
 
 const printResponses = true;
@@ -88,11 +91,11 @@ function printResponse(response: ExecuteResponseInner) {
     return;
   }
   if (response.type === "success") {
-    console.log(`SUCCESS -> ${response.udfReturn}`);
+    ogConsole.log(`SUCCESS -> ${response.udfReturn}`);
   } else {
-    console.log(`ERROR -> ${response.message}`);
+    ogConsole.log(`ERROR -> ${response.message}`);
     for (const frame of response.frames ?? []) {
-      console.log(
+      ogConsole.log(
         `  ${frame.functionName ?? "[unknown]"} @ ${frame.fileName}:${
           frame.lineNumber
         }`,
@@ -531,7 +534,7 @@ async function test_logging() {
   try {
     await test_cyclic();
   } catch (e) {
-    console.log(e);
+    ogConsole.log(e);
     failed = true;
   }
   if (!failed) {

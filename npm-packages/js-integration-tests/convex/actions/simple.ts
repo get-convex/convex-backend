@@ -90,3 +90,19 @@ export const actionCallsWithBigArgument = action(async (ctx) => {
   const bigString = "a".repeat(6_050_000);
   await ctx.runQuery(api.basic.doNothing, { x: bigString } as any);
 });
+
+export const nodeAction = action({
+  handler: async () => {
+    console.log("INNER");
+  },
+});
+
+export const actionCallAction = action({
+  handler: async (ctx) => {
+    console.log("OUTER 1");
+    await ctx.runAction(api.actions.simple.nodeAction);
+    console.log("OUTER 2");
+    await ctx.runAction(api.actions.simple.nodeAction);
+    console.log("OUTER 3");
+  },
+});

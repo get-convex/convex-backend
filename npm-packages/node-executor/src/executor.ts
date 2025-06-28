@@ -28,6 +28,7 @@ import { SourcePackage, maybeDownloadAndLinkPackages } from "./source_package";
 import { buildDeps, BuildDepsRequest } from "./build_deps";
 import { ConvexError, JSONValue } from "convex/values";
 import { log, logDebug, logDurationMs } from "./log";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 // Small hack to detect if we're running in the dynamic or static lambda.
 const AWS_LAMBDA_EXECUTOR_TYPE = (
@@ -102,7 +103,8 @@ function unhandledRejectionHandler(responseStream: Writable, e: unknown) {
     type: "error",
     message: `Unhandled promise rejection: ${extractErrorMessage(e)}`,
     frames: [],
-    syscallTrace: (globalSyscalls as SyscallsImpl | null)?.syscallTrace,
+    syscallTrace: (globalSyscalls.getStore() as SyscallsImpl | null)
+      ?.syscallTrace,
     memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
   };
   if (e instanceof Error) {
@@ -129,19 +131,27 @@ export async function invoke(
     unhandledRejectionHandler(responseStream, e),
   );
   const start = performance.now();
-  setupConsole(responseStream);
   numInvocations += 1;
   logDebug(`Environment numInvocations=${numInvocations}`);
-  let result;
-  if (request.type === "execute") {
-    result = await execute(request);
-  } else if (request.type === "analyze") {
-    result = await analyze(request);
-  } else if (request.type === "build_deps") {
-    result = await buildDeps(request);
-  } else {
-    throw new Error(`Unknown request type ${request}`);
-  }
+  const result = await globalConsoleState.run(
+    defaultConsoleState(),
+    async () => {
+      const devConsole = setupConsole(responseStream);
+      return await globalDevConsole.run(devConsole, async () => {
+        let result;
+        if (request.type === "execute") {
+          result = await execute(request);
+        } else if (request.type === "analyze") {
+          result = await analyze(request);
+        } else if (request.type === "build_deps") {
+          result = await buildDeps(request);
+        } else {
+          throw new Error(`Unknown request type ${request}`);
+        }
+        return result;
+      });
+    },
+  );
 
   logDurationMs("Total invocation time", start);
   logDebug(`Memory allocated: ${AWS_LAMBDA_FUNCTION_MEMORY_SIZE}MB`);
@@ -326,7 +336,7 @@ export async function executeInner(
   // Use this symbol to determine if the result of the Promise.race
   // was a timeout or not.
   const timeoutError = Symbol();
-  let udfReturn;
+  let udfReturn: string | symbol;
   try {
     let timer: NodeJS.Timeout | null = null;
 
@@ -334,15 +344,16 @@ export async function executeInner(
       timer = setTimeout(() => res(timeoutError), timeoutSecs * 1000);
     });
 
-    globalSyscalls = syscalls;
-    udfReturn = await Promise.race<string | symbol>([
-      invoke(lambdaExecuteId, args),
-      timeout,
-    ]).finally(() => {
-      // Always clear the timeout after the promise is settled.
-      // There shouldn't be a race because the timeout promise is created first.
-      // But it's also fine because with Promise.race the timeout promise should be swallowed
-      timer && clearTimeout(timer);
+    udfReturn = await globalSyscalls.run(syscalls, () => {
+      return Promise.race<string | symbol>([
+        invoke(lambdaExecuteId, args),
+        timeout,
+      ]).finally(() => {
+        // Always clear the timeout after the promise is settled.
+        // There shouldn't be a race because the timeout promise is created first.
+        // But it's also fine because with Promise.race the timeout promise should be swallowed
+        timer && clearTimeout(timer);
+      });
     });
   } catch (e: any) {
     // Accessing `e.stack` is important! Without it e.__frameData
@@ -361,9 +372,6 @@ export async function executeInner(
       udfTimeMs,
       importTimeMs,
     };
-  } finally {
-    globalSyscalls = null;
-    globalConsoleState = defaultConsoleState();
   }
 
   if (udfReturn === timeoutError) {
@@ -580,28 +588,40 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
   return analyzed;
 }
 
-let globalSyscalls: Syscalls | null = null;
+const globalSyscalls = new AsyncLocalStorage<Syscalls>();
+export const globalConsoleState = new AsyncLocalStorage<ConsoleState>();
+export const globalDevConsole = new AsyncLocalStorage<Console>();
 
 (globalThis as any).Convex = {
   syscall: (op: string, jsonArgs: string) => {
-    if (!globalSyscalls) {
+    const syscalls = globalSyscalls.getStore();
+    if (!syscalls) {
       throw new Error(`Cannot invoke syscall during module imports`);
     }
-    return globalSyscalls.syscall(op, jsonArgs);
+    return syscalls.syscall(op, jsonArgs);
   },
   asyncSyscall: (op: string, jsonArgs: string) => {
-    if (!globalSyscalls) {
+    const syscalls = globalSyscalls.getStore();
+    if (!syscalls) {
       throw new Error(`Cannot invoke syscall during module imports`);
     }
-    return globalSyscalls.asyncSyscall(op, jsonArgs);
+    return syscalls.asyncSyscall(op, jsonArgs);
   },
   jsSyscall: (op: string, args: Record<string, any>) => {
-    if (!globalSyscalls) {
+    const syscalls = globalSyscalls.getStore();
+    if (!syscalls) {
       throw new Error(`Cannot invoke syscall during module imports`);
     }
-    return globalSyscalls.asyncJsSyscall(op, args);
+    return syscalls.asyncJsSyscall(op, args);
   },
 };
+
+export const ogConsole = globalThis.console;
+Object.defineProperty(globalThis, "console", {
+  get() {
+    return globalDevConsole.getStore()!;
+  },
+});
 
 function toString(value: unknown, defaultValue: string) {
   return value === undefined
@@ -618,9 +638,7 @@ type ConsoleState = {
   timers: Map<string, number>;
 };
 
-let globalConsoleState: ConsoleState;
-
-function defaultConsoleState(): ConsoleState {
+export function defaultConsoleState(): ConsoleState {
   return {
     sentLines: 0,
     totalSentLineLength: 0,
@@ -650,7 +668,7 @@ export function setupConsole(responseStream: Writable) {
 
   // TODO: This code is copy & pasted from setup.ts in v8. We should
   // probably unify it at some points.
-  globalConsoleState = defaultConsoleState();
+  const consoleState = globalConsoleState.getStore()!;
   function consoleMessage(level: string, ...args: any[]) {
     // TODO: Support string substitution.
     // TODO: Implement the rest of the Console API.
@@ -671,24 +689,21 @@ export function setupConsole(responseStream: Writable) {
     //   maximum 2MB of logs, one ~million UTF16 code units (UTF16
     //   code unit is 2 bytes).
     // - we only allow max 256 logs, see MAX_LOG_LINES
-    if (globalConsoleState.logLimitHit === true) {
+    if (consoleState.logLimitHit === true) {
       return;
     }
     const totalMessageLength =
       messages.reduce((acc, current) => acc + current.length + 1, 0) - 1;
-    if (
-      globalConsoleState.totalSentLineLength + totalMessageLength >
-      1_048_576
-    ) {
+    if (consoleState.totalSentLineLength + totalMessageLength > 1_048_576) {
       level = "ERROR";
       messages = [
         "Log overflow (maximum 1M characters). Remaining log lines omitted.",
       ];
-      globalConsoleState.logLimitHit = true;
-    } else if (globalConsoleState.sentLines >= 256) {
+      consoleState.logLimitHit = true;
+    } else if (consoleState.sentLines >= 256) {
       level = "ERROR";
       messages = ["Log overflow (maximum 256). Remaining log lines omitted."];
-      globalConsoleState.logLimitHit = true;
+      consoleState.logLimitHit = true;
     }
     responseStream.write(
       JSON.stringify({
@@ -701,8 +716,8 @@ export function setupConsole(responseStream: Writable) {
         },
       }) + "\n",
     );
-    globalConsoleState.totalSentLineLength += totalMessageLength;
-    globalConsoleState.sentLines += 1;
+    consoleState.totalSentLineLength += totalMessageLength;
+    consoleState.sentLines += 1;
   }
   devConsole.debug = function (...args) {
     consoleMessage("DEBUG", ...args);
@@ -721,15 +736,15 @@ export function setupConsole(responseStream: Writable) {
   };
   devConsole.time = function (label: unknown) {
     const labelStr = toString(label, "default");
-    if (globalConsoleState.timers.has(labelStr)) {
+    if (consoleState.timers.has(labelStr)) {
       consoleMessage("WARN", `Timer '${labelStr}' already exists`);
     } else {
-      globalConsoleState.timers.set(labelStr, Date.now());
+      consoleState.timers.set(labelStr, Date.now());
     }
   };
   devConsole.timeLog = function (label: unknown, ...args: any[]) {
     const labelStr = toString(label, "default");
-    const time = globalConsoleState.timers.get(labelStr);
+    const time = consoleState.timers.get(labelStr);
     if (time === undefined) {
       consoleMessage("WARN", `Timer '${labelStr}' does not exist`);
     } else {
@@ -739,14 +754,14 @@ export function setupConsole(responseStream: Writable) {
   };
   devConsole.timeEnd = function (label: unknown) {
     const labelStr = toString(label, "default");
-    const time = globalConsoleState.timers.get(labelStr);
+    const time = consoleState.timers.get(labelStr);
     if (time === undefined) {
       consoleMessage("WARN", `Timer '${labelStr}' does not exist`);
     } else {
       const duration = Date.now() - time;
-      globalConsoleState.timers.delete(labelStr);
+      consoleState.timers.delete(labelStr);
       consoleMessage("INFO", `${labelStr}: ${duration}ms`);
     }
   };
-  globalThis.console = devConsole;
+  return devConsole;
 }

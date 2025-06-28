@@ -7,8 +7,9 @@ export default action({
   args: {
     author: v.string(),
   },
-  handler: async ({ runMutation }, { author }: { author: string }) => {
-    await runMutation(api.sendMessage.default, {
+  handler: async (ctx, { author }) => {
+    console.log("running toe mutation");
+    await ctx.runMutation(api.sendMessage.default, {
       format: "text",
       body: "toe",
       author,

@@ -1,11 +1,15 @@
+import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 
-export default mutation(
-  async (
+export default mutation({
+  args: {
+    author: v.string(),
+  },
+  handler: async (
     { db, scheduler },
-    { author }: { author: string },
+    { author },
   ): Promise<Id<"_scheduled_functions">> => {
     const message = {
       format: "text" as const,
@@ -15,4 +19,4 @@ export default mutation(
     await db.insert("messages", message);
     return await scheduler.runAfter(1000, api.tac.default, { author });
   },
-);
+});
