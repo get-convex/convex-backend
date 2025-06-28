@@ -105,10 +105,10 @@ pub fn persistence_args_from_cluster_url(
 
 // Parse a single line with format "db-name=URL".
 pub fn parse_cluster_name_to_url(s: &str) -> anyhow::Result<(String, Url)> {
-    let pos = s
-        .find('=')
-        .ok_or_else(|| anyhow::anyhow!("invalid `database=URL` entry: no `=` found in `{s}`"))?;
-    Ok((s[..pos].to_owned(), s[pos + 1..].parse()?))
+    let Some((cluster_name, url)) = s.split_once('=') else {
+        anyhow::bail!("invalid `database=URL` entry: no `=` found in `{s}`")
+    };
+    Ok((cluster_name.to_owned(), url.parse()?))
 }
 
 /// Path to a file containing one `db-name=URL` entry per line. The URL

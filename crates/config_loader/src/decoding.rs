@@ -1,5 +1,9 @@
 //! Decoding configuration files into Rust types
-use std::marker::PhantomData;
+use std::{
+    collections::HashMap,
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use prost_reflect::{
     prost::Message,
@@ -23,6 +27,51 @@ impl ConfigDecoder for TextDecoder {
 
     fn decode(&self, contents: Vec<u8>) -> anyhow::Result<String> {
         Ok(String::from_utf8(contents)?)
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct DelimitedKeyValueDecoder<K, V> {
+    delimiter: char,
+    _marker: PhantomData<(K, V)>,
+}
+
+impl<K: FromStr, V: FromStr> DelimitedKeyValueDecoder<K, V> {
+    pub fn new(delimiter: char) -> Self {
+        Self {
+            delimiter,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<K, V> ConfigDecoder for DelimitedKeyValueDecoder<K, V>
+where
+    K: FromStr + Eq + std::hash::Hash + Clone + Send + Sync + 'static,
+    V: FromStr + Eq + Clone + Send + Sync + 'static,
+    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+    <V as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+{
+    type Output = HashMap<K, V>;
+
+    fn decode(&self, contents: Vec<u8>) -> anyhow::Result<Self::Output> {
+        let contents = std::str::from_utf8(&contents)?;
+        let mut map = HashMap::new();
+        for line in contents.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let (key, value) = trimmed.split_once(self.delimiter).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "failed to find delimiter `{}` in line: `{}`",
+                    self.delimiter,
+                    line
+                )
+            })?;
+            map.insert(key.parse()?, value.parse()?);
+        }
+        Ok(map)
     }
 }
 
