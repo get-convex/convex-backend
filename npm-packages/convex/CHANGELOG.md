@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.25.1
+
+- Print more error info in `npx convex network-test`.
+
+- Crash when it looks like an environment variable is missing:
+  `CONVEX_DEPLOY_KEY=project:me:new-project|eyABCD0= npx convex` parses as
+  `CONVEX_DEPLOY_KEY=project:me:new-project | eyABCD0='' npx convex` but when
+  was meant was
+  `CONVEX_DEPLOY_KEY='project:me:new-project|eyABCD0=' npx convex`.
+
+  Crash when an environment variable like `ey...0=` is present to surface errors
+  like this quicker.
+
 ## 1.25.0
 
 To upgrade to this release you'll need to upgrade any Convex components you use.
