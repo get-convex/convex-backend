@@ -29,7 +29,7 @@
  *
  * And pass it to a Client Component:
  * ```typescript
- * import { Preloaded, usePreloadedQuery } from "convex/nextjs";
+ * import { Preloaded, usePreloadedQuery } from "convex/react";
  * import { api } from "@/convex/_generated/api";
  *
  * export function ClientComponent(props: {
