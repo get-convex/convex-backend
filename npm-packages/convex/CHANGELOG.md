@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.25.2
+
+- Increase a network timeout that was causing Node.js v20+ issues on slow
+  connections, good old Happy Eyeballs
+  https://github.com/nodejs/node/issues/54359.
+
 ## 1.25.1
 
 - Print more error info in `npx convex network-test`.
