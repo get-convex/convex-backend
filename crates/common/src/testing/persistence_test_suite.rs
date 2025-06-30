@@ -222,6 +222,14 @@ macro_rules! run_persistence_test_suite {
         }
 
         #[tokio::test]
+        async fn test_persistence_delete_many_documents() -> anyhow::Result<()> {
+            let $db = $create_db;
+            let p = $create_persistence;
+            persistence_test_suite::persistence_delete_many_documents(::std::sync::Arc::new(p))
+                .await
+        }
+
+        #[tokio::test]
         async fn test_persistence_previous_revisions_of_documents() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
@@ -1775,6 +1783,37 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
     }
     assert_eq!(&documents[3..], &all_docs);
 
+    Ok(())
+}
+
+pub async fn persistence_delete_many_documents<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
+    let mut id_generator = TestIdGenerator::new();
+    let table: TableName = str::parse("table")?;
+
+    const NUM_DOCS: usize = 8191; // power of 2 minus one to exercise chunking
+    let ids: Vec<_> = (0..NUM_DOCS)
+        .map(|_| id_generator.user_generate(&table))
+        .collect();
+    let documents: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, &id)| doc(id, i as i32 + 1, Some(i as i64), None).unwrap())
+        .collect();
+
+    p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
+        .await?;
+
+    let docs_to_delete = documents[..NUM_DOCS - 1]
+        .iter()
+        .map(|update| (update.ts, update.id))
+        .collect_vec();
+
+    assert_eq!(p.delete(docs_to_delete).await?, NUM_DOCS - 1);
+
+    let reader = p.reader();
+    let stream = reader.load_all_documents();
+    let all_docs = stream.try_collect::<Vec<_>>().await?;
+    assert_eq!(all_docs, [documents.last().unwrap().clone()]);
     Ok(())
 }
 

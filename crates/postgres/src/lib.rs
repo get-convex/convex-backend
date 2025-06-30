@@ -1802,13 +1802,13 @@ const DELETE_DOCUMENT_CHUNK: &str = r#"
 */
 DELETE FROM @db_name.documents WHERE
     (table_id = $1 AND id = $2 AND ts <= $3) OR
-    (table_id = $5 AND id = $6 AND ts <= $7) OR
-    (table_id = $9 AND id = $10 AND ts <= $11) OR
+    (table_id = $4 AND id = $5 AND ts <= $6) OR
+    (table_id = $7 AND id = $8 AND ts <= $9) OR
+    (table_id = $10 AND id = $11 AND ts <= $12) OR
     (table_id = $13 AND id = $14 AND ts <= $15) OR
-    (table_id = $17 AND id = $18 AND ts <= $19) OR
-    (table_id = $21 AND id = $22 AND ts <= $23) OR
-    (table_id = $25 AND id = $26 AND ts <= $27) OR
-    (table_id = $29 AND id = $30 AND ts <= $31)
+    (table_id = $16 AND id = $17 AND ts <= $18) OR
+    (table_id = $19 AND id = $20 AND ts <= $21) OR
+    (table_id = $22 AND id = $23 AND ts <= $24)
 "#;
 
 const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO @db_name.persistence_globals
