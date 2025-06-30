@@ -7,7 +7,7 @@ See https://docs.convex.dev/functions for more.
 A query function that takes two arguments looks like:
 
 \`\`\`ts
-// functions.js
+// convex/myFunctions.ts
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -37,14 +37,14 @@ export const myQueryFunction = query({
 Using this query function in a React component looks like:
 
 \`\`\`ts
-const data = useQuery(api.functions.myQueryFunction, { first: 10, second: "hello" });
+const data = useQuery(api.myFunctions.myQueryFunction, { first: 10, second: "hello" });
 \`\`\`
 
 
 A mutation function looks like:
 
 \`\`\`ts
-// functions.js
+// convex/myFunctions.ts
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -72,7 +72,7 @@ export const myMutationFunction = mutation({
 Using this mutation function in a React component looks like:
 
 \`\`\`ts
-const mutation = useMutation(api.functions.myMutationFunction);
+const mutation = useMutation(api.myFunctions.myMutationFunction);
 function handleButtonPress() {
   // fire and forget, the most common way to use mutations
   mutation({ first: "Hello!", second: "me" });
