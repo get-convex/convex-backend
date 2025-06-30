@@ -1,6 +1,7 @@
 #![feature(coroutines)]
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
+#![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
 mod connection;
 mod metrics;
@@ -72,6 +73,7 @@ use common::{
         TimestampRange,
     },
     query::Order,
+    runtime::assert_send,
     sha256::Sha256,
     types::{
         DatabaseIndexUpdate,
@@ -179,7 +181,7 @@ pub struct PostgresReaderOptions {
 }
 
 async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
-    let client = pool
+    let mut client = pool
         .get_connection(
             "get_current_schema",
             // This is invalid but we don't use `@db_name`
@@ -187,7 +189,7 @@ async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
         )
         .await?;
     let row = client
-        .query_opt("SELECT current_schema()", &[])
+        .with_retry(async |client| client.query_opt("SELECT current_schema()", &[]).await)
         .await?
         .context("current_schema() returned nothing?")?;
     row.try_get::<_, Option<String>>(0)?
@@ -220,13 +222,15 @@ impl PostgresPersistence {
             SchemaName::new(&get_current_schema(&pool).await?)?
         };
         let newly_created = {
-            let client = pool.get_connection("init_sql", &schema).await?;
+            let mut client = pool.get_connection("init_sql", &schema).await?;
             // Only create a new schema if one was specified and it's not
             // already present. This avoids requiring extra permissions to run
             // `CREATE SCHEMA IF NOT EXISTS` if it's already been created.
-            if let Some(raw_schema) = &options.schema
+            if let Some(raw_schema) = options.schema
                 && client
-                    .query_opt(CHECK_SCHEMA_SQL, &[&raw_schema])
+                    .with_retry(async move |client| {
+                        client.query_opt(CHECK_SCHEMA_SQL, &[&raw_schema]).await
+                    })
                     .await?
                     .is_none()
             {
@@ -236,9 +240,13 @@ impl PostgresPersistence {
                     .map_err(anyhow::Error::from)?;
             }
             client
-                .batch_execute(INIT_SQL)
-                .await
-                .map_err(anyhow::Error::from)?;
+                .with_retry(async |client| {
+                    client
+                        .batch_execute(INIT_SQL)
+                        .await
+                        .map_err(anyhow::Error::from)
+                })
+                .await?;
             if !options.allow_read_only && Self::is_read_only(&client).await? {
                 return Err(ConnectError::ReadOnly);
             }
@@ -504,19 +512,19 @@ impl Persistence for PostgresPersistence {
         cursor: Option<IndexEntry>,
         chunk_size: usize,
     ) -> anyhow::Result<Vec<IndexEntry>> {
-        let client = self
+        let mut client = self
             .read_pool
             .get_connection("load_index_chunk", &self.schema)
             .await?;
-        let stmt = client.prepare_cached(LOAD_INDEXES_PAGE).await?;
-        let cursor_params = PostgresReader::_index_cursor_params(cursor.as_ref())?;
+        let mut params = PostgresReader::_index_cursor_params(cursor.as_ref())?;
         let limit = chunk_size as i64;
-        let mut params = cursor_params
-            .iter()
-            .map(|p| p as &(dyn ToSql + Sync))
-            .collect_vec();
-        params.push(&limit);
-        let row_stream = client.query_raw(&stmt, params).await?;
+        params.push(Param::Limit(limit));
+        let row_stream = client
+            .with_retry(async move |client| {
+                let stmt = client.prepare_cached(LOAD_INDEXES_PAGE).await?;
+                client.query_raw(&stmt, &params).await
+            })
+            .await?;
 
         let parsed = row_stream.map(|row| parse_row(&row?));
         parsed.try_collect().await
@@ -668,7 +676,7 @@ impl PostgresReader {
         let mut last_tablet_id_param = Self::initial_id_param(order);
         let mut last_id_param = Self::initial_id_param(order);
         loop {
-            let client = self
+            let mut client = self
                 .read_pool
                 .get_connection("load_documents", &self.schema)
                 .await?;
@@ -678,7 +686,6 @@ impl PostgresReader {
                 Order::Asc => &LOAD_DOCS_BY_TS_PAGE_ASC,
                 Order::Desc => &LOAD_DOCS_BY_TS_PAGE_DESC,
             };
-            let stmt = client.prepare_cached(query).await?;
             let params: Vec<Param> = vec![
                 Param::Ts(i64::from(range.min_timestamp_inclusive())),
                 Param::Ts(i64::from(range.max_timestamp_exclusive())),
@@ -687,7 +694,11 @@ impl PostgresReader {
                 last_id_param.clone(),
                 Param::Limit(page_size as i64),
             ];
-            let row_stream = client.query_raw(&stmt, params).await?;
+            let row_stream = assert_send(client.with_retry(async move |client| {
+                let stmt = client.prepare_cached(query).await?;
+                client.query_raw(&stmt, &params).await
+            }))
+            .await?;
 
             futures::pin_mut!(row_stream);
 
@@ -816,7 +827,7 @@ impl PostgresReader {
         let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, Vec<u8>, Option<Timestamp>)> =
             Vec::new();
         loop {
-            let client = self
+            let mut client = self
                 .read_pool
                 .get_connection("index_scan", &self.schema)
                 .await?;
@@ -830,13 +841,16 @@ impl PostgresReader {
                 batch_size,
             );
 
-            let prepare_timer = metrics::query_index_sql_prepare_timer();
-            let stmt = client.prepare_cached(query).await?;
-            prepare_timer.finish();
-
-            let execute_timer = metrics::query_index_sql_execute_timer();
-            let row_stream = client.query_raw(&stmt, params).await?;
-            execute_timer.finish();
+            let row_stream = assert_send(client.with_retry(async move |client| {
+                let prepare_timer = metrics::query_index_sql_prepare_timer();
+                let stmt = client.prepare_cached(query).await?;
+                prepare_timer.finish();
+                let execute_timer = metrics::query_index_sql_execute_timer();
+                let row_stream = client.query_raw(&stmt, &params).await?;
+                execute_timer.finish();
+                Ok(row_stream)
+            }))
+            .await?;
 
             futures::pin_mut!(row_stream);
 
@@ -1062,14 +1076,18 @@ impl PersistenceReader for PostgresReader {
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let timer = metrics::prev_revisions_timer();
 
-        let client = self
+        let mut client = self
             .read_pool
             .get_connection("previous_revisions", &self.schema)
             .await?;
-        let (prev_rev_chunk, prev_rev) = try_join!(
-            client.prepare_cached(PREV_REV_CHUNK),
-            client.prepare_cached(PREV_REV)
-        )?;
+        let (prev_rev_chunk, prev_rev) = client
+            .with_retry(async |client| {
+                try_join!(
+                    client.prepare_cached(PREV_REV_CHUNK),
+                    client.prepare_cached(PREV_REV)
+                )
+            })
+            .await?;
         let ids: Vec<_> = ids.into_iter().collect();
 
         let mut result = BTreeMap::new();
@@ -1138,14 +1156,18 @@ impl PersistenceReader for PostgresReader {
     ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
         let timer = metrics::previous_revisions_of_documents_timer();
 
-        let client = self
+        let mut client = self
             .read_pool
             .get_connection("previous_revisions_of_documents", &self.schema)
             .await?;
-        let (exact_rev_chunk, exact_rev) = try_join!(
-            client.prepare_cached(EXACT_REV_CHUNK),
-            client.prepare_cached(EXACT_REV)
-        )?;
+        let (exact_rev_chunk, exact_rev) = client
+            .with_retry(async |client| {
+                try_join!(
+                    client.prepare_cached(EXACT_REV_CHUNK),
+                    client.prepare_cached(EXACT_REV)
+                )
+            })
+            .await?;
         let ids: Vec<_> = ids.into_iter().collect();
 
         let mut result = BTreeMap::new();
@@ -1231,13 +1253,17 @@ impl PersistenceReader for PostgresReader {
         &self,
         key: PersistenceGlobalKey,
     ) -> anyhow::Result<Option<JsonValue>> {
-        let client = self
+        let mut client = self
             .read_pool
             .get_connection("get_persistence_global", &self.schema)
             .await?;
-        let stmt = client.prepare_cached(GET_PERSISTENCE_GLOBAL).await?;
         let params = vec![Param::PersistenceGlobalKey(key)];
-        let row_stream = client.query_raw(&stmt, params).await?;
+        let row_stream = client
+            .with_retry(async move |client| {
+                let stmt = client.prepare_cached(GET_PERSISTENCE_GLOBAL).await?;
+                client.query_raw(&stmt, &params).await
+            })
+            .await?;
         futures::pin_mut!(row_stream);
 
         let row = row_stream.try_next().await?;
@@ -1259,17 +1285,17 @@ impl PersistenceReader for PostgresReader {
     }
 
     async fn table_size_stats(&self) -> anyhow::Result<Vec<PersistenceTableSize>> {
-        let client = self
+        let mut client = self
             .read_pool
             .get_connection("table_size_stats", &self.schema)
             .await?;
         let mut stats = vec![];
         for &table in TABLES {
+            let full_name = format!("{}.{table}", self.schema.escaped);
             let row = client
-                .query_opt(
-                    TABLE_SIZE_QUERY,
-                    &[&format!("{}.{table}", self.schema.escaped)],
-                )
+                .with_retry(async move |client| {
+                    client.query_opt(TABLE_SIZE_QUERY, &[&full_name]).await
+                })
                 .await?
                 .context("nothing returned from table size query?")?;
             stats.push(PersistenceTableSize {
@@ -1306,14 +1332,16 @@ impl Lease {
     /// Returns any transient errors encountered.
     async fn acquire(pool: Arc<ConvexPgPool>, schema: &SchemaName) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer();
-        let client = pool.get_connection("lease_acquire", schema).await?;
+        let mut client = pool.get_connection("lease_acquire", schema).await?;
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("before 1970")
             .as_nanos() as i64;
 
         tracing::info!("attempting to acquire lease");
-        let stmt = client.prepare_cached(LEASE_ACQUIRE).await?;
+        let stmt = client
+            .with_retry(async |client| client.prepare_cached(LEASE_ACQUIRE).await)
+            .await?;
         let rows_modified = client.execute(&stmt, &[&ts]).await?;
         drop(client);
         anyhow::ensure!(
@@ -1345,7 +1373,25 @@ impl Lease {
         ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'b>>,
     {
         let mut client = self.pool.get_connection("transact", &self.schema).await?;
-        let tx = client.transaction().await?;
+        // Retry once to open a transaction. We can't use `with_retry` for
+        // awkward borrow checker reasons.
+        let mut retried_err = None;
+        let mut reconnected = false;
+        let tx = 'retry: loop {
+            if let Some(e) = retried_err {
+                if reconnected || !client.reconnect_if_poisoned().await? {
+                    return Err(e);
+                }
+                reconnected = true;
+            }
+            match client.transaction().await {
+                Ok(tx) => break 'retry tx,
+                Err(e) => {
+                    retried_err = Some(e);
+                    continue 'retry;
+                },
+            }
+        };
         let lease_ts = self.lease_ts;
 
         let advisory_lease_check = async {

@@ -211,6 +211,8 @@ fn handle_error(poisoned: &AtomicBool, e: impl Into<anyhow::Error>) -> anyhow::E
     e
 }
 
+pub(crate) type QueryStream = impl Stream<Item = anyhow::Result<Row>>;
+
 impl PostgresConnection<'_> {
     fn substitute_db_name(&self, query: &'static str) -> String {
         query.replace("@db_name", &self.schema.escaped)
@@ -220,6 +222,36 @@ impl PostgresConnection<'_> {
         self.conn
             .as_ref()
             .expect("connection is only taken in Drop")
+    }
+
+    /// Runs `f`, retrying on connection errors. This gracefully handles the
+    /// case where a pooled connection was unusable for some reason.
+    ///
+    /// This reopens the connection on retry, so `with_retry` should never be
+    /// called after obtaining a prepared statement.
+    /// calling this method!
+    pub async fn with_retry<R>(
+        &mut self,
+        f: impl AsyncFn(&PostgresConnection<'_>) -> anyhow::Result<R> + Send,
+    ) -> anyhow::Result<R> {
+        let r = f(self).await;
+        if !self.reconnect_if_poisoned().await? {
+            return r;
+        }
+        f(self).await
+    }
+
+    /// If the connection is poisoned, reconnects it and returns true
+    pub async fn reconnect_if_poisoned(&mut self) -> anyhow::Result<bool> {
+        if !*self.poisoned.get_mut() {
+            return Ok(false);
+        }
+        tracing::warn!("Retrying with a new connection");
+        // Always retry with a fresh connection in case other pooled connections
+        // are also stale
+        self.conn = Some(self.pool.create_connection().await?);
+        self.poisoned = AtomicBool::new(false);
+        Ok(true)
     }
 
     pub async fn batch_execute(&self, query: &'static str) -> anyhow::Result<()> {
@@ -263,7 +295,7 @@ impl PostgresConnection<'_> {
         &self,
         statement: &Statement,
         params: I,
-    ) -> anyhow::Result<impl Stream<Item = anyhow::Result<Row>>>
+    ) -> anyhow::Result<QueryStream>
     where
         P: BorrowToSql,
         I: IntoIterator<Item = P>,
@@ -279,10 +311,7 @@ impl PostgresConnection<'_> {
 
     #[allow(clippy::needless_lifetimes)]
     #[try_stream(ok = Row, error = anyhow::Error)]
-    async fn wrap_query_stream(
-        stream: impl Stream<Item = <RowStream as Stream>::Item>,
-        labels: Vec<StaticMetricLabel>,
-    ) {
+    async fn wrap_query_stream(stream: RowStream, labels: Vec<StaticMetricLabel>) {
         pin_mut!(stream);
         while let Some(row) = with_timeout(stream.try_next()).await? {
             log_query_result(&row, labels.clone());
@@ -461,6 +490,10 @@ impl ConvexPgPool {
                 return Ok(conn);
             }
         }
+        self.create_connection().await
+    }
+
+    async fn create_connection(&self) -> anyhow::Result<PooledConnection> {
         let (client, mut conn) = self
             .pg_config
             .connect(self.tls_connect.clone())
