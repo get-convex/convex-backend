@@ -30,6 +30,7 @@ import { functionSpec } from "./functionSpec.js";
 import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
 import dns from "node:dns";
+import net from "node:net";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
@@ -40,15 +41,23 @@ function logToStderr(...args: unknown[]) {
 }
 
 async function main() {
+  const nodeVersion = process.versions.node;
+  const majorVersion = parseInt(nodeVersion.split(".")[0], 10);
+  const minorVersion = parseInt(nodeVersion.split(".")[1], 10);
+
   // Use ipv4 first for 127.0.0.1 in tests
   dns.setDefaultResultOrder("ipv4first");
+
+  // Increase the timeout from default 250ms for high latency situations,
+  // see https://github.com/nodejs/node/issues/54359.
+  if (majorVersion >= 20) {
+    // While we use Node.js v18 types
+    (net as any).setDefaultAutoSelectFamilyAttemptTimeout?.(1000);
+  }
 
   initSentry();
   inquirer.registerPrompt("search-list", inquirerSearchList);
 
-  const nodeVersion = process.versions.node;
-  const majorVersion = parseInt(nodeVersion.split(".")[0], 10);
-  const minorVersion = parseInt(nodeVersion.split(".")[1], 10);
   if (
     majorVersion < MINIMUM_MAJOR_VERSION ||
     (majorVersion === MINIMUM_MAJOR_VERSION &&
