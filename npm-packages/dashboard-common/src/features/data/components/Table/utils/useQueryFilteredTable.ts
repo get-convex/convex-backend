@@ -16,17 +16,14 @@ const isGenericDocument = (
 ): result is GenericDocument => !!result && "_id" in result;
 
 export const pageSize = 25;
-const dataPageInactivityTime = 10;
+const dataPageInactivityTimeMinutes = 1;
 
 export const useQueryFilteredTable = (tableName: string) => {
   const router = useRouter();
 
   const filters = (router.query.filters as string) || null;
 
-  const isPaused = useIdle(
-    dataPageInactivityTime > 0 ? dataPageInactivityTime * 1000 * 60 : undefined,
-    false,
-  );
+  const isPaused = useIdle(dataPageInactivityTimeMinutes * 1000 * 60, false);
 
   const { selectedNent } = useNents();
   const { results, loadMore, isLoading, status } = usePaginatedQuery(
