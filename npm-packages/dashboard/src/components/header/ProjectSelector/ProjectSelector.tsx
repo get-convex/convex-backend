@@ -13,7 +13,6 @@ import { cn } from "@ui/cn";
 import { logEvent } from "convex-analytics";
 import { SafeZone } from "elements/SafeZone";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
-import VercelLogo from "logos/vercel.svg";
 import { Breadcrumbs } from "../Breadcrumbs/Breadcrumbs";
 import { DeploymentMenuOptions } from "./DeploymentMenuOptions";
 import { ProjectMenuOptions } from "./ProjectMenuOptions";
@@ -48,6 +47,9 @@ export function ProjectSelector({
   const selected =
     team === undefined ? null : (
       <Breadcrumbs>
+        {team && selectedProject ? (
+          <Avatar name={team.name} hashKey={team.id.toString()} />
+        ) : null}
         {selectedProject ? (
           <div
             className="truncate"
@@ -67,11 +69,7 @@ export function ProjectSelector({
               maxWidth: width > 1024 ? "14rem" : width > 640 ? "10rem" : "6rem",
             }}
           >
-            {team?.managedBy === "vercel" ? (
-              <VercelLogo className="size-3 dark:fill-white" />
-            ) : (
-              <Avatar size="small" name={team?.name} />
-            )}
+            <Avatar name={team?.name} hashKey={team?.id.toString() ?? ""} />
             <span className="grow truncate">{team?.name}</span>
           </div>
         )}
@@ -85,7 +83,7 @@ export function ProjectSelector({
       type="button"
       className={classNames(
         "rounded",
-        selectedProject ? "items-center h-12" : "items-center h-10",
+        "items-center h-12",
         "px-3 py-2 w-fit flex gap-2 select-none",
         ...(className !== undefined
           ? [className]
@@ -95,20 +93,8 @@ export function ProjectSelector({
         logEvent("click project selector");
       }}
     >
-      <div className="flex w-fit select-none flex-col items-start truncate text-sm">
-        {team && selectedProject && (
-          <div className="flex items-center gap-1">
-            {team.managedBy === "vercel" && (
-              <VercelLogo className="size-3 dark:fill-white" />
-            )}
-            <span className="text-xs font-semibold">{team.name}</span>
-          </div>
-        )}
-        {selected}
-      </div>
-      <CaretSortIcon
-        className={classNames("h-5 w-5", selectedProject && "mt-4")}
-      />
+      {selected}
+      <CaretSortIcon className="size-5" />
     </Button>
   );
 
@@ -211,6 +197,7 @@ function ProjectSelectorPanel({
                   tip="Select team"
                   tipSide="right"
                 >
+                  <Avatar name={team.name} hashKey={team.id.toString()} />
                   <span className="max-w-[12rem] truncate">{team.name}</span>
                   <CaretSortIcon
                     className={cn(

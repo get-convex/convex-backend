@@ -42,7 +42,10 @@ export function TeamMenuOptions({
             >
               {/* Make room for the checkbox on selected items with this width calculation */}
               <div className="flex w-[calc(100%-0.75rem)] items-center gap-2">
-                <Avatar size="small" name={currentTeam.name} />
+                <Avatar
+                  name={currentTeam.name}
+                  hashKey={currentTeam.id.toString()}
+                />
                 <span className="grow truncate">{currentTeam.name}</span>
               </div>
             </SelectorItem>
@@ -65,7 +68,7 @@ export function TeamMenuOptions({
               >
                 {/* Make room for the checkbox on selected items with this width calculation */}
                 <div className="flex w-[calc(100%-0.75rem)] items-center gap-2">
-                  <Avatar size="small" name={t.name} />
+                  <Avatar name={t.name} hashKey={t.id.toString()} />
                   <span className="grow truncate">{t.name}</span>
                 </div>
               </SelectorItem>

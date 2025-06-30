@@ -171,7 +171,7 @@ function DeploymentLinks({
         } h-6 items-center justify-end gap-1 truncate text-xs`}
       >
         {isProdDefault ? dev : prod}
-        <div className="text-[8px] text-neutral-4">●</div>
+        <div className="text-neutral-4">•</div>
         {isProdDefault ? prod : dev}
       </div>
     </div>
