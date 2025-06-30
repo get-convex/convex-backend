@@ -43,6 +43,7 @@ import { isAnonymousDeployment } from "../deployment.js";
 import { createProject } from "../api.js";
 import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
+import { doCodegenForNewProject } from "../codegen.js";
 
 export async function handleAnonymousDeployment(
   ctx: Context,
@@ -174,6 +175,9 @@ export async function handleAnonymousDeployment(
     }
   });
 
+  if (deployment.kind === "new") {
+    await doCodegenForNewProject(ctx);
+  }
   return {
     adminKey,
     deploymentName: deployment.deploymentName,
@@ -404,11 +408,7 @@ export async function handleLinkToProject(
     ctx,
     `Linking ${args.deploymentName} to a project in team ${args.teamSlug}`,
   );
-  const config = await loadDeploymentConfig(
-    ctx,
-    "anonymous",
-    args.deploymentName,
-  );
+  const config = loadDeploymentConfig(ctx, "anonymous", args.deploymentName);
   if (config === null) {
     return ctx.crash({
       exitCode: 1,
@@ -468,7 +468,7 @@ export async function handleLinkToProject(
     },
   );
   logVerbose(ctx, `Saving deployment config for ${localDeploymentName}`);
-  await saveDeploymentConfig(ctx, "local", localDeploymentName, {
+  saveDeploymentConfig(ctx, "local", localDeploymentName, {
     adminKey,
     backendVersion: config.backendVersion,
     ports: config.ports,

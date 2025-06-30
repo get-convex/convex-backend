@@ -20,7 +20,7 @@ import {
   logVerbose,
 } from "../../bundler/context.js";
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
-import { readProjectConfig } from "./config.js";
+import { configFilepath, readProjectConfig } from "./config.js";
 import { recursivelyDelete } from "./fsUtils.js";
 import {
   componentServerDTS,
@@ -35,6 +35,7 @@ import {
   componentApiStubDTS,
   rootComponentApiCJS,
 } from "../codegen_templates/component_api.js";
+import { functionsDir } from "./utils/utils.js";
 
 export type CodegenOptions = {
   url?: string;
@@ -46,6 +47,15 @@ export type CodegenOptions = {
   commonjs: boolean;
   liveComponentSources: boolean;
 };
+
+export async function doCodegenForNewProject(ctx: Context) {
+  const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
+  const configPath = await configFilepath(ctx);
+  const functionsPath = functionsDir(configPath, existingProjectConfig);
+  await doInitCodegen(ctx, functionsPath, true);
+  // Disable typechecking since there isn't any code yet.
+  await doCodegen(ctx, functionsPath, "disable");
+}
 
 export async function doInitCodegen(
   ctx: Context,
