@@ -32,11 +32,59 @@ export function AuthConfig() {
             <div className="flex max-w-3xl flex-col divide-y divide-border-transparent">
               {authProviders?.map((provider, i) => (
                 <div key={i} className="flex flex-wrap gap-4 py-6">
-                  <ProviderAttribute label="Domain" value={provider.domain} />
-                  <ProviderAttribute
-                    label="Application ID"
-                    value={provider.applicationID}
-                  />
+                  {"type" in provider ? (
+                    <>
+                      <ProviderAttribute
+                        label="Issuer"
+                        value={provider.issuer}
+                      />
+                      <ProviderAttribute
+                        label="JWKS URL"
+                        value={provider.jwks}
+                      />
+                      <ProviderAttribute
+                        label="Algorithm"
+                        value={provider.algorithm.replace(/^"(.*)"$/, "$1")}
+                      />
+                      {provider.applicationID && (
+                        <ProviderAttribute
+                          label="Application ID"
+                          value={provider.applicationID}
+                        />
+                      )}
+                      <div className="flex flex-col gap-2 text-xs">
+                        <span className="font-semibold">Type</span>
+                        <Link
+                          href="https://docs.convex.dev/auth/advanced/custom-jwt"
+                          className="border-y border-transparent py-1 text-sm font-normal text-content-link"
+                          target="_blank"
+                        >
+                          Custom JWT provider
+                        </Link>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <ProviderAttribute
+                        label="Domain"
+                        value={provider.domain}
+                      />
+                      <ProviderAttribute
+                        label="Application ID"
+                        value={provider.applicationID}
+                      />
+                      <div className="flex flex-col gap-2 text-xs">
+                        <span className="font-semibold">Type</span>
+                        <Link
+                          href="https://docs.convex.dev/auth/advanced/custom-auth"
+                          className="border-y border-transparent py-1 text-sm font-normal text-content-link"
+                          target="_blank"
+                        >
+                          OIDC provider
+                        </Link>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -55,9 +103,9 @@ export function ProviderAttribute({
   value: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 text-xs">
+    <div className="flex max-w-96 flex-col gap-2 text-xs">
       <span className="font-semibold">{label}</span>
-      <CopyTextButton text={value} className="text-sm font-normal" />
+      <CopyTextButton text={value} className="truncate text-sm font-normal" />
     </div>
   );
 }

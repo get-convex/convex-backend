@@ -276,10 +276,22 @@ export default defineSchema({
     analyzeResult: v.union(analyzedModule, v.null()),
     sourcePackageId: v.string(),
   }).index("by_path", ["path"]),
-  _auth: defineTable({
-    applicationID: v.string(),
-    domain: v.string(),
-  }),
+  _auth: defineTable(
+    v.union(
+      v.object({
+        type: v.literal("customJwt"),
+        applicationID: v.union(v.string(), v.null()),
+        issuer: v.string(),
+        jwks: v.string(),
+        // This is serialized *wrapped with double quotes* (!)
+        algorithm: v.string(),
+      }),
+      v.object({
+        applicationID: v.string(),
+        domain: v.string(),
+      }),
+    ),
+  ),
   _environment_variables: defineTable({
     name: v.string(),
     value: v.string(),
