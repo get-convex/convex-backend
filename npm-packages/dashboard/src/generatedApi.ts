@@ -4158,7 +4158,10 @@ export interface operations {
     };
     get_token_info: {
         parameters: {
-            query?: never;
+            query?: {
+                from?: string;
+                to?: string;
+            };
             header?: never;
             path: {
                 team_slug: string;
