@@ -601,13 +601,6 @@ pub struct PostgresReader {
 }
 
 impl PostgresReader {
-    fn initial_id_param(order: Order) -> Param {
-        Param::Bytes(match order {
-            Order::Asc => InternalId::BEFORE_ALL_BYTES.to_vec(),
-            Order::Desc => InternalId::AFTER_ALL_BYTES.to_vec(),
-        })
-    }
-
     fn row_to_document(
         &self,
         row: Row,
@@ -669,12 +662,25 @@ impl PostgresReader {
     ) {
         let timer = metrics::load_documents_timer();
         let mut num_returned = 0;
-        let mut last_ts = match order {
-            Order::Asc => Timestamp::MIN,
-            Order::Desc => Timestamp::MAX,
+        // Construct the initial cursor on (ts, table_id, id);
+        // note that this is always an exclusive bound
+        let (mut last_ts_param, mut last_tablet_id_param, mut last_id_param) = match order {
+            Order::Asc => (
+                // `ts >= $1` <==> `(ts, table_id, id) > ($1 - 1, AFTER_ALL_BYTES,
+                // AFTER_ALL_BYTES)`
+                // N.B.: subtracting 1 never overflows since
+                // i64::from(Timestamp::MIN) >= 0
+                Param::Ts(i64::from(range.min_timestamp_inclusive()) - 1),
+                Param::Bytes(InternalId::AFTER_ALL_BYTES.to_vec()),
+                Param::Bytes(InternalId::AFTER_ALL_BYTES.to_vec()),
+            ),
+            Order::Desc => (
+                // `ts < $1` <==> `(ts, table_id, id) < ($1, BEFORE_ALL_BYTES, BEFORE_ALL_BYTES)`
+                Param::Ts(i64::from(range.max_timestamp_exclusive())),
+                Param::Bytes(InternalId::BEFORE_ALL_BYTES.to_vec()),
+                Param::Bytes(InternalId::BEFORE_ALL_BYTES.to_vec()),
+            ),
         };
-        let mut last_tablet_id_param = Self::initial_id_param(order);
-        let mut last_id_param = Self::initial_id_param(order);
         loop {
             let mut client = self
                 .read_pool
@@ -682,18 +688,28 @@ impl PostgresReader {
                 .await?;
             let mut rows_loaded = 0;
 
-            let query = match order {
-                Order::Asc => &LOAD_DOCS_BY_TS_PAGE_ASC,
-                Order::Desc => &LOAD_DOCS_BY_TS_PAGE_DESC,
+            let (query, params) = match order {
+                Order::Asc => (
+                    LOAD_DOCS_BY_TS_PAGE_ASC,
+                    [
+                        last_ts_param.clone(),
+                        last_tablet_id_param.clone(),
+                        last_id_param.clone(),
+                        Param::Ts(i64::from(range.max_timestamp_exclusive())),
+                        Param::Limit(page_size as i64),
+                    ],
+                ),
+                Order::Desc => (
+                    LOAD_DOCS_BY_TS_PAGE_DESC,
+                    [
+                        Param::Ts(i64::from(range.min_timestamp_inclusive())),
+                        last_ts_param.clone(),
+                        last_tablet_id_param.clone(),
+                        last_id_param.clone(),
+                        Param::Limit(page_size as i64),
+                    ],
+                ),
             };
-            let params: Vec<Param> = vec![
-                Param::Ts(i64::from(range.min_timestamp_inclusive())),
-                Param::Ts(i64::from(range.max_timestamp_exclusive())),
-                Param::Ts(i64::from(last_ts)),
-                last_tablet_id_param.clone(),
-                last_id_param.clone(),
-                Param::Limit(page_size as i64),
-            ];
             let row_stream = assert_send(client.with_retry(async move |client| {
                 let stmt = client.prepare_cached(query).await?;
                 client.query_raw(&stmt, &params).await
@@ -706,7 +722,7 @@ impl PostgresReader {
             while let Some(row) = row_stream.try_next().await? {
                 let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
                 rows_loaded += 1;
-                last_ts = ts;
+                last_ts_param = Param::Ts(i64::from(ts));
                 last_tablet_id_param = Param::TableId(document_id.table());
                 last_id_param = internal_doc_id_param(document_id);
                 num_returned += 1;
@@ -1004,7 +1020,7 @@ impl PostgresReader {
                 Ok(vec![last_id_param, last_key_prefix, last_sha256, last_ts])
             },
             None => {
-                let last_id_param = Self::initial_id_param(Order::Asc);
+                let last_id_param = Param::Bytes(InternalId::BEFORE_ALL_BYTES.to_vec());
                 let last_key_prefix = Param::Bytes(vec![]);
                 let last_sha256 = Param::Bytes(vec![]);
                 let last_ts = Param::Ts(0);
@@ -1619,8 +1635,11 @@ const TABLES: &[&str] = &[
     "read_only",
     "persistence_globals",
 ];
-/// Load a page of documents, where timestamps are bounded by [$1, $2),
-/// and ($3, $4) is the (ts, id) from the last document read.
+
+/// Load a page of documents in ascending order.
+///
+/// N.B.: it's important to provide only one bound on each side of the index
+/// range - otherwise postgres may choose the wrong bounds for its index scan
 const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"
 /*+
     Set(enable_seqscan OFF)
@@ -1633,13 +1652,14 @@ const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"
 */
 SELECT id, ts, table_id, json_value, deleted, prev_ts
     FROM @db_name.documents
-    WHERE ts >= $1
-    AND ts < $2
-    AND (ts, table_id, id) > ($3, $4, $5)
+    WHERE (ts, table_id, id) > ($1, $2, $3)
+    AND ts < $4
     ORDER BY ts ASC, table_id ASC, id ASC
-    LIMIT $6
+    LIMIT $5
 "#;
 
+/// Load a page of documents in descending order.
+/// Note that the parameters are different than LOAD_DOCS_BY_TS_PAGE_ASC.
 const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"
 /*+
     Set(enable_seqscan OFF)
@@ -1653,10 +1673,9 @@ const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"
 SELECT id, ts, table_id, json_value, deleted, prev_ts
     FROM @db_name.documents
     WHERE ts >= $1
-    AND ts < $2
-    AND (ts, table_id, id) < ($3, $4, $5)
+    AND (ts, table_id, id) < ($2, $3, $4)
     ORDER BY ts DESC, table_id DESC, id DESC
-    LIMIT $6
+    LIMIT $5
 "#;
 
 const INSERT_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
