@@ -107,6 +107,10 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
     if (process.env.NEXT_PUBLIC_DEPLOYMENT_URL) {
       deploymentUrl = normalizeUrl(process.env.NEXT_PUBLIC_DEPLOYMENT_URL);
     }
+    let adminKey: string | null = null;
+    if (process.env.NEXT_PUBLIC_ADMIN_KEY) {
+      adminKey = process.env.NEXT_PUBLIC_ADMIN_KEY;
+    }
 
     const listDeploymentsApiPort =
       process.env.NEXT_PUBLIC_DEFAULT_LIST_DEPLOYMENTS_API_PORT;
@@ -121,7 +125,7 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
     return {
       pageProps: {
         deploymentUrl,
-        adminKey: null,
+        adminKey,
         defaultListDeploymentsApiUrl: listDeploymentsApiUrl,
       },
     };
