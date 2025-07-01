@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    // Environment Settings
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    // This needs to run in
+    // - Cloudflare (has Node.js compat)
+    // - Node.js for the MCP stdio protocol
+    // - Convex JS runtime (*not* Node.js compatible)
+    // Should run in any environment so don't use Node.js types
+    "types": [],
+
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Stricter Typechecking Options
+    "noFallthroughCasesInSwitch": true,
+
+    // Recommended Options
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  }
+}

@@ -1,0 +1,22 @@
+# OpenAPI spec
+dashboard-openapi.json
+filtered-openapi.json
+./src/generatedApi.ts
+
+# Node
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

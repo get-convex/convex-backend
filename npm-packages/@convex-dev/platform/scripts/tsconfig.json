@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    // Environment Settings
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+
+    // Stricter Typechecking Options
+    "noFallthroughCasesInSwitch": true,
+
+    // Recommended Options
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  },
+  "include": ["*.ts"]
+}

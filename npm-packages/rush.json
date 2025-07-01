@@ -281,6 +281,10 @@
       "projectFolder": "package-tests"
     },
     {
+      "packageName": "@convex-dev/platform",
+      "projectFolder": "@convex-dev/platform"
+    },
+    {
       "packageName": "bundle-size",
       "projectFolder": "private-demos/bundle-size"
     },

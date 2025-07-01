@@ -1,0 +1,36 @@
+{
+  "name": "@convex-dev/platform",
+  "version": "0.0.1",
+  "private": true,
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "build": "npm run generateApiSpec && tsdown",
+    "prepack": "node -e \"if (process.env.npm_config_user_agent && !process.env.npm_config_user_agent.startsWith('pnpm')) { console.error('❌ Use pnpm publish instead of npm publish'); process.exit(1); }\"",
+    "test": "echo 0",
+    "typecheck": "tsc --noEmit",
+    "generateApiSpec": "node filter-openapi.mjs && openapi-typescript ./src/filtered-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix",
+    "prepare": "tsdown"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "openapi-typescript": "~7.6.0",
+    "openapi-typescript-helpers": "~0.0.15",
+    "dashboard": "workspace:*"
+  },
+  "dependencies": {
+    "openapi-fetch": "~0.13.0",
+    "tsdown": "^0.12.7",
+    "tsx": "^4.19.4"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  }
+}
