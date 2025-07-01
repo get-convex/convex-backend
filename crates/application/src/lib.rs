@@ -86,7 +86,6 @@ use common::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         MAX_JOBS_CANCEL_BATCH,
         MAX_USER_MODULES,
-        SNAPSHOT_LIST_LIMIT,
     },
     log_lines::LogLines,
     log_streaming::LogSender,
@@ -145,7 +144,6 @@ use database::{
     unauthorized_error,
     BootstrapComponentsModel,
     Database,
-    DocumentDeltas,
     FastForwardIndexWorker,
     IndexModel,
     IndexWorker,
@@ -154,8 +152,6 @@ use database::{
     SchemaModel,
     SearchIndexWorkers,
     Snapshot,
-    SnapshotPage,
-    StreamingExportTableFilter,
     Subscription,
     TableModel,
     Token,
@@ -406,6 +402,7 @@ pub mod redaction;
 pub mod scheduled_jobs;
 mod schema_worker;
 pub mod snapshot_import;
+mod streaming_export;
 mod system_table_cleanup;
 mod table_summary_worker;
 pub mod valid_identifier;
@@ -921,64 +918,6 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn usage_counter(&self) -> UsageCounter {
         self.database.usage_counter()
-    }
-
-    #[fastrace::trace]
-    pub async fn document_deltas(
-        &self,
-        identity: Identity,
-        cursor: Timestamp,
-        table_filter: Option<TableName>,
-        component_filter: Option<ComponentPath>,
-        rows_read_limit: usize,
-        rows_returned_limit: usize,
-    ) -> anyhow::Result<DocumentDeltas> {
-        if let Some(ref component_filter) = component_filter {
-            if !component_filter.is_root() {
-                anyhow::bail!(
-                    "Components are currently unsupported in streaming export: {}",
-                    String::from(component_filter.clone())
-                );
-            }
-        }
-        self.database
-            .document_deltas(
-                identity,
-                Some(cursor),
-                StreamingExportTableFilter {
-                    table_name: table_filter,
-                    component_path: component_filter,
-                    ..Default::default()
-                },
-                rows_read_limit,
-                rows_returned_limit,
-            )
-            .await
-    }
-
-    #[fastrace::trace]
-    pub async fn list_snapshot(
-        &self,
-        identity: Identity,
-        snapshot: Option<Timestamp>,
-        cursor: Option<ResolvedDocumentId>,
-        table_filter: Option<TableName>,
-        component_filter: Option<ComponentPath>,
-    ) -> anyhow::Result<SnapshotPage> {
-        self.database
-            .list_snapshot(
-                identity,
-                snapshot,
-                cursor,
-                StreamingExportTableFilter {
-                    table_name: table_filter,
-                    component_path: component_filter,
-                    ..Default::default()
-                },
-                *SNAPSHOT_LIST_LIMIT,
-                *SNAPSHOT_LIST_LIMIT,
-            )
-            .await
     }
 
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {

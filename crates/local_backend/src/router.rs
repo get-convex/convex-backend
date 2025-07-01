@@ -135,6 +135,16 @@ use crate::{
         storage_get,
         storage_upload,
     },
+    streaming_export::{
+        document_deltas_get,
+        document_deltas_post,
+        get_table_column_names,
+        get_tables_and_columns,
+        json_schemas,
+        list_snapshot_get,
+        list_snapshot_post,
+        test_streaming_export_connection,
+    },
     streaming_import::{
         add_primary_key_indexes,
         apply_fivetran_operations,
@@ -219,6 +229,7 @@ pub fn router(st: LocalAppState) -> Router {
     let api_routes = Router::new()
         .merge(cli_routes)
         .merge(dashboard_routes)
+        .merge(streaming_export_routes())
         .nest(
             "/actions",
             action_callback_routes().layer(axum::middleware::map_request_with_state(
@@ -411,6 +422,28 @@ where
         .route("/fivetran_create_table", post(fivetran_create_table))
         .route("/add_primary_key_indexes", put(add_primary_key_indexes))
         .route("/primary_key_indexes_ready", get(primary_key_indexes_ready))
+}
+
+// IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
+// such as adding or removing a route, or changing limits, also need to be
+// applied to `crates_private/usher/src/proxy.rs`.
+pub fn streaming_export_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    Router::new()
+        .route("/document_deltas", get(document_deltas_get))
+        .route("/document_deltas", post(document_deltas_post))
+        .route("/list_snapshot", get(list_snapshot_get))
+        .route("/list_snapshot", post(list_snapshot_post))
+        .route("/json_schemas", get(json_schemas))
+        .route(
+            "/test_streaming_export_connection",
+            get(test_streaming_export_connection),
+        )
+        .route("/get_tables_and_columns", get(get_tables_and_columns))
+        .route("/get_table_column_names", get(get_table_column_names))
 }
 
 // IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,

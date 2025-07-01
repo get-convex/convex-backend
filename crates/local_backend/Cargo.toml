@@ -50,6 +50,7 @@ clusters = { path = "../clusters" }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 convex_fivetran_destination = { path = "../fivetran_destination" }
+convex_fivetran_source = { path = "../fivetran_source" }
 database = { path = "../database" }
 db_connection = { path = "../db_connection" }
 either = { workspace = true }
@@ -115,6 +116,7 @@ errors = { path = "../errors", features = ["testing"] }
 events = { path = "../events", features = ["testing"] }
 function_runner = { path = "../function_runner", features = ["testing"] }
 isolate = { path = "../isolate", features = ["testing"] }
+jsonschema = { workspace = true }
 keybroker = { path = "../keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
@@ -122,8 +124,10 @@ mysql = { path = "../mysql", features = ["testing"] }
 node_executor = { path = "../node_executor", features = ["testing"] }
 portpicker = { workspace = true }
 postgres = { path = "../postgres", features = ["testing"] }
+proptest = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
+shape_inference = { path = "../shape_inference", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 sync = { path = "../sync", features = ["testing"] }
 tokio-tungstenite = { workspace = true }
