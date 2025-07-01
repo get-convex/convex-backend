@@ -4,16 +4,9 @@ import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import { usePaginatedQuery, PaginationStatus } from "convex/react";
 import udfs from "@common/udfs";
 import { useCounter, useIdle, usePrevious } from "react-use";
-import {
-  isFilterValidationError,
-  FilterValidationError,
-} from "system-udfs/convex/_system/frontend/lib/filters";
+import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
 import { maximumRowsRead } from "system-udfs/convex/_system/paginationLimits";
 import { useNents } from "@common/lib/useNents";
-
-const isGenericDocument = (
-  result: GenericDocument | FilterValidationError,
-): result is GenericDocument => !!result && "_id" in result;
 
 export const pageSize = 25;
 const dataPageInactivityTimeMinutes = 1;
@@ -45,14 +38,12 @@ export const useQueryFilteredTable = (tableName: string) => {
     staleAsOf,
   } = useLastKnownValue(results, status, filters);
 
-  const data = useMemo(
-    () => maybeStaleResults.filter(isGenericDocument),
-    [maybeStaleResults],
-  );
   const errors = useMemo(
     () => results.filter(isFilterValidationError),
     [results],
   );
+  const data =
+    errors.length > 0 ? [] : (maybeStaleResults as GenericDocument[]);
 
   const [
     numRowsReadEstimate,
