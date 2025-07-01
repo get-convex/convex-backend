@@ -32,7 +32,7 @@ export function useCurrentBillingPeriod(teamId: number) {
   return data;
 }
 
-const USAGE_REFRESH_INTERVAL_MS =
+export const USAGE_REFRESH_INTERVAL_MS =
   getURLConfigInt("usage_refresh_secs", 60 * 10) * 1000;
 
 export type DatabricksQueryId = string;

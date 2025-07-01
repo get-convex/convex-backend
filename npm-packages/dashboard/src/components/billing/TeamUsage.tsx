@@ -17,6 +17,7 @@ import {
   useUsageTeamVectorBandwidthPerDay,
   useUsageTeamVectorStoragePerDay,
   useUsageTeamSummary,
+  useTokenUsage,
 } from "hooks/usageMetrics";
 import { Team, ProjectDetails } from "generatedApi";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -117,6 +118,11 @@ export function TeamUsage({ team }: { team: Team }) {
     componentPrefix,
   );
 
+  const { data: chefTokenUsage } = useTokenUsage(
+    team?.slug,
+    shownBillingPeriod,
+  );
+
   const entitlements = useTeamEntitlements(team?.id);
 
   const hasOrbSubscription = useHasSubscription(team?.id);
@@ -167,6 +173,8 @@ export function TeamUsage({ team }: { team: Team }) {
 
             <div className="mb-6 flex flex-col gap-6">
               <PlanSummary
+                hasFilter={projectId !== null || !!componentPrefix}
+                chefTokenUsage={chefTokenUsage}
                 teamSummary={teamSummary}
                 entitlements={entitlements}
                 hasSubscription={hasSubscription}

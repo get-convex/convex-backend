@@ -4,29 +4,35 @@ import { Loading } from "@ui/Loading";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { UsageSummary } from "hooks/usageMetrics";
 import { ReactNode } from "react";
-import { TeamEntitlementsResponse } from "generatedApi";
+import { GetTokenInfoResponse, TeamEntitlementsResponse } from "generatedApi";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import Link from "next/link";
 import { Donut } from "@ui/Donut";
 
 export function PlanSummary({
+  chefTokenUsage,
   teamSummary,
   entitlements,
   hasSubscription,
   showEntitlements,
+  hasFilter,
 }: {
+  chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary;
   entitlements?: TeamEntitlementsResponse;
   hasSubscription: boolean;
   showEntitlements: boolean;
+  hasFilter: boolean;
 }) {
   return (
     <PlanSummaryForTeam
+      chefTokenUsage={chefTokenUsage}
       teamSummary={teamSummary}
       entitlements={entitlements}
       hasSubscription={hasSubscription}
       showEntitlements={showEntitlements}
+      hasFilter={hasFilter}
     />
   );
 }
@@ -40,7 +46,8 @@ const sections: {
     | "fileStorage"
     | "fileBandwidth"
     | "vectorStorage"
-    | "vectorBandwidth";
+    | "vectorBandwidth"
+    | "chefTokens";
   entitlement:
     | "teamMaxDatabaseStorage"
     | "teamMaxDatabaseBandwidth"
@@ -49,7 +56,8 @@ const sections: {
     | "teamMaxFileStorage"
     | "teamMaxFileBandwidth"
     | "teamMaxVectorStorage"
-    | "teamMaxVectorBandwidth";
+    | "teamMaxVectorBandwidth"
+    | "maxChefTokens";
   format: (value: number) => string;
   detail: string;
   title: string;
@@ -60,7 +68,7 @@ const sections: {
     entitlement: "teamMaxFunctionCalls",
     format: formatNumberCompact,
     detail:
-      "The number of times any query, mutation, file access or other function was called in the last month",
+      "The number of times any query, mutation, file access or other function was called",
     title: "Function Calls",
   },
   {
@@ -69,7 +77,7 @@ const sections: {
     format: formatNumberCompact,
     suffix: "GB-hours",
     detail:
-      "The execution time of all actions multiplied by their allocated amount of RAM in the last month",
+      "The execution time of all actions multiplied by their allocated amount of RAM",
     title: "Action Compute",
   },
   {
@@ -83,7 +91,7 @@ const sections: {
     metric: "databaseBandwidth",
     entitlement: "teamMaxDatabaseBandwidth",
     format: formatBytes,
-    detail: "The amount of data read and written in the last month",
+    detail: "The amount of data read and written",
     title: "Database Bandwidth",
   },
   {
@@ -97,7 +105,7 @@ const sections: {
     metric: "fileBandwidth",
     entitlement: "teamMaxFileBandwidth",
     format: formatBytes,
-    detail: "The amount of file data stored and read in the last month",
+    detail: "The amount of file data stored and read",
     title: "File Bandwidth",
   },
   {
@@ -111,23 +119,34 @@ const sections: {
     metric: "vectorBandwidth",
     entitlement: "teamMaxVectorBandwidth",
     format: formatBytes,
-    detail: "The amount of data read and written for vector indexes last month",
+    detail: "The amount of data read and written for vector indexes",
     title: "Vector Bandwidth",
+  },
+  {
+    metric: "chefTokens",
+    entitlement: "maxChefTokens",
+    format: formatNumberCompact,
+    detail: "The number of Chef tokens used",
+    title: "Chef Tokens",
   },
 ];
 
 export type PlanSummaryForTeamProps = {
+  chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary;
   entitlements?: TeamEntitlementsResponse;
   showEntitlements: boolean;
   hasSubscription: boolean;
+  hasFilter: boolean;
 };
 
 export function PlanSummaryForTeam({
+  chefTokenUsage,
   teamSummary,
   entitlements,
   hasSubscription,
   showEntitlements,
+  hasFilter,
 }: PlanSummaryForTeamProps) {
   return (
     <Sheet className="animate-fadeInFromLoading" padding={false}>
@@ -173,12 +192,25 @@ export function PlanSummaryForTeam({
         {sections.map((section, index) => (
           <UsageSection
             key={index}
-            metric={teamSummary ? teamSummary[section.metric] : undefined}
-            entitlement={
-              entitlements
-                ? (entitlements[section.entitlement] ?? 0)
-                : undefined
+            metric={
+              section.metric === "chefTokens"
+                ? chefTokenUsage
+                  ? chefTokenUsage.centitokensUsed / 100
+                  : undefined
+                : teamSummary
+                  ? teamSummary[section.metric]
+                  : undefined
             }
+            entitlement={
+              section.metric === "chefTokens"
+                ? chefTokenUsage
+                  ? chefTokenUsage.centitokensQuota / 100
+                  : undefined
+                : entitlements
+                  ? (entitlements[section.entitlement] ?? 0)
+                  : undefined
+            }
+            isNotSubjectToFilter={section.metric === "chefTokens" && hasFilter}
             hasSubscription={hasSubscription}
             metricName={section.metric}
             format={section.format}
@@ -281,6 +313,7 @@ function UsageSection({
   title,
   suffix = "",
   showEntitlements,
+  isNotSubjectToFilter,
 }: {
   metric?: number;
   metricName: string;
@@ -291,17 +324,49 @@ function UsageSection({
   title: string;
   suffix?: string;
   showEntitlements: boolean;
+  isNotSubjectToFilter: boolean;
 }) {
+  const className = cn(
+    "px-4 py-2 grid items-center gap-2 rounded group min-h-10 transition-colors",
+    hasSubscription
+      ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
+      : "grid-cols-[5fr_4fr]",
+    isNotSubjectToFilter ? "bg-stripes" : "hover:bg-background-primary",
+  );
+
+  if (metricName === "chefTokens") {
+    const content = (
+      <div className={className}>
+        <UsageAmount
+          {...{
+            metric,
+            entitlement,
+            hasSubscription,
+            format,
+            detail,
+            title,
+            suffix,
+            showEntitlements,
+          }}
+        />
+      </div>
+    );
+    if (isNotSubjectToFilter) {
+      return (
+        <Tooltip
+          tip="This metric does not support filtering by project or component"
+          side="bottom"
+          wrapsButton
+        >
+          {content}
+        </Tooltip>
+      );
+    }
+    return content;
+  }
+
   return (
-    <Link
-      href={`#${metricName}`}
-      className={cn(
-        "px-4 py-2 grid items-center gap-2 rounded group hover:bg-background-primary min-h-10",
-        hasSubscription
-          ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
-          : "grid-cols-[5fr_4fr]",
-      )}
-    >
+    <Link href={`#${metricName}`} className={className}>
       <UsageAmount
         {...{
           metric,
