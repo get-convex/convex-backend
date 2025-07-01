@@ -74,7 +74,7 @@ export function SettingsSidebar({
       >
         {/* On larger screens, this is a sidebar and not a popover menu. */}
         {allowedPages.map((page) => {
-          const isCloudOnlyPage = ["backups", "integrations"].includes(page);
+          const isCloudOnlyPage = ["backups"].includes(page);
           const showInCloudDashboard =
             isCloudOnlyPage && isCloudDeploymentInSelfHostedDashboard;
           const isUnavailableForSelfHosted =

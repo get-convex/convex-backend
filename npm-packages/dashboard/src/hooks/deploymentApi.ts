@@ -5,11 +5,7 @@ import {
   useDeploymentUrl,
 } from "@common/lib/deploymentApi";
 import { toast } from "@common/lib/utils";
-import {
-  CompletedExport,
-  DatadogSiteLocation,
-  IntegrationType,
-} from "system-udfs/convex/_system/frontend/common";
+import { CompletedExport } from "system-udfs/convex/_system/frontend/common";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { logDeploymentEvent } from "convex-analytics";
 import { reportHttpError } from "hooks/fetching";
@@ -56,128 +52,6 @@ export function useGetZipExport(
   };
 }
 
-export function useCreateDatadogSink(): (
-  siteLocation: DatadogSiteLocation,
-  ddApiKey: string,
-  ddTags: string[],
-  service: string | null,
-  version: "1" | "2",
-) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-
-  return async (
-    siteLocation: DatadogSiteLocation,
-    ddApiKey: string,
-    ddTags: string[],
-    service: string | null,
-    version: "1" | "2",
-  ) => {
-    const body = JSON.stringify({
-      siteLocation,
-      ddApiKey,
-      ddTags,
-      service,
-      version,
-    });
-    await createSink("datadog", body, deploymentUrl, adminKey);
-  };
-}
-
-export function useCreateWebhookSink(): (url: string) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-
-  return async (url: string) => {
-    const body = JSON.stringify({ url });
-    await createSink("webhook", body, deploymentUrl, adminKey);
-  };
-}
-
-export function useCreateAxiomSink(): (
-  datasetName: string,
-  apiKey: string,
-  attributes: { key: string; value: string }[],
-  version: "1" | "2",
-) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-
-  return async (
-    datasetName: string,
-    apiKey: string,
-    attributes: { key: string; value: string }[],
-    version: "1" | "2",
-  ) => {
-    const body = JSON.stringify({ datasetName, apiKey, attributes, version });
-    await createSink("axiom", body, deploymentUrl, adminKey);
-  };
-}
-
-export function useCreateSentrySink(): (
-  dsn: string,
-  tags: Record<string, string>,
-  version: "1" | "2",
-) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-
-  return async (
-    dsn: string,
-    tags: Record<string, string>,
-    version: "1" | "2",
-  ) => {
-    const body = JSON.stringify({ dsn, tags, version });
-    await createSink("sentry", body, deploymentUrl, adminKey);
-  };
-}
-
-async function createSink(
-  integrationType: IntegrationType,
-  body: string,
-  deploymentUrl: string,
-  adminKey: string,
-): Promise<void> {
-  const res = await fetch(`${deploymentUrl}/api/logs/${integrationType}_sink`, {
-    method: "POST",
-    headers: {
-      Authorization: `Convex ${adminKey}`,
-      "Content-Type": "application/json",
-    },
-    body,
-  });
-  if (res.status !== 200) {
-    const err = await res.json();
-    reportHttpError("POST", res.url, err);
-    toast("error", err.message);
-  }
-}
-
-export function useDeleteSink(): (
-  integrationType: IntegrationType,
-) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-
-  return async (integrationType: IntegrationType) => {
-    const body = JSON.stringify({
-      sinkType: integrationType,
-    });
-    const res = await fetch(`${deploymentUrl}/api/logs/delete_sink`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Convex ${adminKey}`,
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-    if (res.status !== 200) {
-      const err = await res.json();
-      reportHttpError("DELETE", res.url, err);
-      toast("error", err.message);
-    }
-  };
-}
 export function useCancelImport(): (
   id: Id<"_snapshot_imports">,
 ) => Promise<void> {

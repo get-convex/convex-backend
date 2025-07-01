@@ -5,13 +5,13 @@ import { DatadogSiteLocation } from "system-udfs/convex/_system/frontend/common"
 import { Infer } from "convex/values";
 import { datadogConfig } from "system-udfs/convex/schema";
 import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
-import { useCurrentProject } from "api/projects";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { Combobox, Option } from "@ui/Combobox";
 import { integrationUsingLegacyFormat } from "@common/lib/integrationHelpers";
-import { useCreateDatadogSink } from "hooks/deploymentApi";
+import { useCreateDatadogIntegration } from "@common/lib/integrationsApi";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 const siteLocationOptions: Option<DatadogSiteLocation>[] = [
   { value: "US1", label: "US1" },
@@ -37,7 +37,8 @@ export function DatadogConfigurationForm({
 }) {
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
 
-  const createDatadogSink = useCreateDatadogSink();
+  const createDatadogIntegration = useCreateDatadogIntegration();
+  const { useCurrentProject } = useContext(DeploymentInfoContext);
   const project = useCurrentProject();
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -58,7 +59,7 @@ export function DatadogConfigurationForm({
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
     },
     onSubmit: async (values) => {
-      await createDatadogSink(
+      await createDatadogIntegration(
         values.siteLocation,
         values.ddApiKey,
         values.ddTags.split(",").filter((v) => v !== ""),

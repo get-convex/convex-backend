@@ -4,7 +4,7 @@ import { Combobox } from "@ui/Combobox";
 import { TextInput } from "@ui/TextInput";
 import { Infer } from "convex/values";
 import { useFormik } from "formik";
-import { useCreateSentrySink } from "hooks/deploymentApi";
+import { useCreateSentryIntegration } from "@common/lib/integrationsApi";
 import Link from "next/link";
 import { sentryConfig } from "system-udfs/convex/schema";
 import * as Yup from "yup";
@@ -37,7 +37,7 @@ export function SentryConfigurationForm({
   onClose: () => void;
   existingConfig: Infer<typeof sentryConfig> | null;
 }) {
-  const createSentrySink = useCreateSentrySink();
+  const createSentryIntegration = useCreateSentryIntegration();
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
 
   const formState = useFormik<{
@@ -53,7 +53,7 @@ export function SentryConfigurationForm({
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
     },
     onSubmit: async (values) => {
-      await createSentrySink(
+      await createSentryIntegration(
         values.dsn,
         values.tags ? JSON.parse(values.tags) : undefined,
         values.version,

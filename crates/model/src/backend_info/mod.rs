@@ -107,9 +107,10 @@ impl<'a, RT: Runtime> BackendInfoModel<'a, RT> {
 
     pub async fn is_log_streaming_allowed(&mut self) -> anyhow::Result<bool> {
         let backend_info = self.get().await?;
+        // Log streaming is allowed on local-deployments.
         Ok(backend_info
             .map(|bi| bi.log_streaming_enabled)
-            .unwrap_or_default())
+            .unwrap_or(true))
     }
 
     pub async fn ensure_log_streaming_allowed(&mut self) -> anyhow::Result<()> {

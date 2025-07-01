@@ -2,7 +2,7 @@ import { DotsVerticalIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Menu, MenuItem } from "@ui/Menu";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { useDeleteSink } from "hooks/deploymentApi";
+import { useDeleteIntegration } from "@common/lib/integrationsApi";
 import { useState } from "react";
 import {
   LogIntegration,
@@ -18,7 +18,7 @@ export function IntegrationOverflowMenu({
   integration: LogIntegration | ExceptionReportingIntegration;
   onConfigure: () => void;
 }) {
-  const deleteSink = useDeleteSink();
+  const deleteIntegration = useDeleteIntegration();
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   return integration.existing ? (
     <>
@@ -27,7 +27,7 @@ export function IntegrationOverflowMenu({
           onClose={() => {
             setShowDeleteConfirmation(false);
           }}
-          onConfirm={() => deleteSink(integration.kind)}
+          onConfirm={() => deleteIntegration(integration.kind)}
           dialogTitle={`Delete ${integrationName(integration.existing.config.type)} Integration`}
           dialogBody="Are you sure you want to delete this integration?"
           confirmText="Delete"

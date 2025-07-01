@@ -15,7 +15,7 @@ import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
 import { integrationUsingLegacyFormat } from "@common/lib/integrationHelpers";
 import { useState } from "react";
-import { useCreateAxiomSink } from "../../hooks/deploymentApi";
+import { useCreateAxiomIntegration } from "@common/lib/integrationsApi";
 
 const axiomValidationSchema = Yup.object().shape({
   datasetName: Yup.string().required("Dataset name is required"),
@@ -38,7 +38,7 @@ export function AxiomConfigurationForm({
   existingConfig: Infer<typeof axiomConfig> | null;
 }) {
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
-  const createAxiomSink = useCreateAxiomSink();
+  const createAxiomIntegration = useCreateAxiomIntegration();
 
   const formState = useFormik<{
     datasetName: string;
@@ -53,7 +53,7 @@ export function AxiomConfigurationForm({
       version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
     },
     onSubmit: async (values) => {
-      await createAxiomSink(
+      await createAxiomIntegration(
         values.datasetName,
         values.apiKey,
         values.attributes,

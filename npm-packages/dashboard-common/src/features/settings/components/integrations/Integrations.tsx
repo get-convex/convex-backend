@@ -1,6 +1,4 @@
-import React from "react";
-import { Integration } from "system-udfs/convex/_system/frontend/common";
-import { Team, TeamEntitlementsResponse } from "generatedApi";
+import React, { useContext } from "react";
 import { LocalDevCallout } from "@common/elements/LocalDevCallout";
 import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
@@ -13,9 +11,12 @@ import {
   LogIntegration,
 } from "@common/lib/integrationHelpers";
 
-import { useCurrentDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
+import {
+  DeploymentInfo,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
+import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { PanelCard } from "./PanelCard";
 
 export function Integrations({
@@ -23,17 +24,19 @@ export function Integrations({
   entitlements,
   integrations,
 }: {
-  team: Team;
-  entitlements: TeamEntitlementsResponse;
-  integrations: Integration[];
+  team: ReturnType<DeploymentInfo["useCurrentTeam"]>;
+  entitlements: ReturnType<DeploymentInfo["useTeamEntitlements"]>;
+  integrations: Doc<"_log_sinks">[];
 }) {
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
   );
   const cannotManageBecauseProd =
     deployment?.deploymentType === "prod" && !hasAdminPermissions;
-  const isLocalDeployment = deployment?.kind === "local";
 
   const logStreamingEntitlementGranted = entitlements?.logStreamingEnabled;
   const streamingExportEntitlementGranted =
@@ -87,7 +90,7 @@ export function Integrations({
             are available on the Pro plan.
           </p>
           <Button
-            href={`/${team.slug}/settings/billing`}
+            href={`/${team?.slug}/settings/billing`}
             size="xs"
             className="w-fit"
           >
@@ -102,7 +105,7 @@ export function Integrations({
     devCallouts.push(
       <LocalDevCallout
         tipText="Tip: Run this to enable log streaming locally:"
-        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement log_streaming_enabled --team-id ${team.id} --reason "local" true --for-real`}
+        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement log_streaming_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
     );
   }
@@ -111,7 +114,7 @@ export function Integrations({
       <LocalDevCallout
         className="flex-col"
         tipText="Tip: Run this to enable streaming export locally:"
-        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement streaming_export_enabled --team-id ${team.id} --reason "local" true --for-real`}
+        command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement streaming_export_enabled --team-id ${team?.id} --reason "local" true --for-real`}
       />,
     );
   }
@@ -119,16 +122,10 @@ export function Integrations({
     ? "MissingEntitlement"
     : cannotManageBecauseProd
       ? "CannotManageProd"
-      : isLocalDeployment
-        ? "LocalDeployment"
-        : null;
+      : null;
 
   const streamingExportIntegrationUnavailableReason =
-    !streamingExportEntitlementGranted
-      ? "MissingEntitlement"
-      : isLocalDeployment
-        ? "LocalDeployment"
-        : null;
+    !streamingExportEntitlementGranted ? "MissingEntitlement" : null;
 
   return (
     <div className="flex flex-col gap-4">

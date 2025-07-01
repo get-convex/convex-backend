@@ -4,7 +4,7 @@ import { Infer } from "convex/values";
 import { webhookConfig } from "system-udfs/convex/schema";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
-import { useCreateWebhookSink } from "../../hooks/deploymentApi";
+import { useCreateWebhookIntegration } from "@common/lib/integrationsApi";
 
 const webhookValidationSchema = Yup.object().shape({
   url: Yup.string().url().required("URL required"),
@@ -17,14 +17,14 @@ export function WebhookConfigurationForm({
   onClose: () => void;
   existingIntegration: Infer<typeof webhookConfig> | null;
 }) {
-  const createWebhookSink = useCreateWebhookSink();
+  const createWebhookIntegration = useCreateWebhookIntegration();
 
   const formState = useFormik({
     initialValues: {
       url: existingIntegration?.url ?? "",
     },
     onSubmit: async (values) => {
-      await createWebhookSink(values.url);
+      await createWebhookIntegration(values.url);
       onClose();
     },
     validationSchema: webhookValidationSchema,

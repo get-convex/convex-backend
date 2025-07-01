@@ -156,11 +156,13 @@ describe("SettingsSidebar", () => {
       expect(disabledLink).toHaveAttribute("aria-disabled", "true");
     });
 
-    test("Integrations link is disabled in self-hosted deployment", async () => {
-      const disabledLink = await screen.findByRole("button", {
+    test("Integrations tab has correct URL and is enabled", async () => {
+      const link = await screen.findByRole("link", {
         name: "Integrations",
       });
-      expect(disabledLink).toHaveAttribute("aria-disabled", "true");
+      expect(link).toHaveAttribute("href", "/settings/integrations");
+      expect(link).not.toHaveAttribute("target");
+      expect(link).not.toBeDisabled();
     });
 
     test("Project Settings link is disabled in self-hosted deployment", async () => {
@@ -236,11 +238,8 @@ describe("SettingsSidebar", () => {
         name: "Integrations",
       });
 
-      expect(link).toHaveAttribute(
-        "href",
-        "https://dashboard.convex.dev/d/fine-marmot-266/settings/integrations",
-      );
-      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("href", "/settings/integrations");
+      expect(link).not.toHaveAttribute("target");
       expect(link).not.toBeDisabled();
     });
 
