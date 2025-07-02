@@ -201,7 +201,6 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
             "text-sm font-medium transition-opacity truncate hover:bg-background-tertiary",
             menuTarget && "bg-background-tertiary border-border-selected",
           )}
-          style={{ height: "100%" }}
           ref={buttonRef}
           tabIndex={0}
           role="button"

@@ -77,7 +77,10 @@ export function DeploymentDashboardLayout({
       key: "logs",
       label: "Logs",
       Icon: (props: any) => (
-        <TextAlignBottomIcon {...props} style={{ marginTop: "-4px" }} />
+        <TextAlignBottomIcon
+          {...props}
+          style={{ marginBottom: "2px", marginTop: "-2px" }}
+        />
       ),
       href: `${uriPrefix}/logs`,
     },

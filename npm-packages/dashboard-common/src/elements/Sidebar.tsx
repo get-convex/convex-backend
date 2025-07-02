@@ -159,7 +159,7 @@ export function SidebarLink({
       {Icon && (
         <Icon
           className={classNames(
-            "size-[1.125rem] shrink-0",
+            "size-[1.125rem] shrink-0 min-h-[1.125rem]",
             !collapsed && "text-content-secondary",
           )}
           aria-hidden
