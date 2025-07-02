@@ -255,6 +255,11 @@ impl IndexesToBootstrap {
             stream_revision_pairs_for_indexes(&tables_with_indexes, persistence, range);
         futures::pin_mut!(revision_stream);
 
+        tracing::info!(
+            "Starting search index bootstrap at {} with upper bound {}",
+            self.oldest_index_ts,
+            upper_bound
+        );
         while let Some(revision_pair) = revision_stream.try_next().await? {
             num_revisions += 1;
             total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
@@ -273,6 +278,17 @@ impl IndexesToBootstrap {
                 for text_index in text_indexes_to_update {
                     text_index.update(&revision_pair)?;
                 }
+            }
+            if num_revisions % 500 == 0 {
+                let percent_progress =
+                    (u64::from(revision_pair.ts()) - u64::from(self.oldest_index_ts)) as f64
+                        / (u64::from(*upper_bound) - u64::from(self.oldest_index_ts)) as f64
+                        * 100.0;
+                tracing::info!(
+                    "Processed ts {}, estimated progress: ({:.1}%)",
+                    revision_pair.ts(),
+                    percent_progress
+                );
             }
         }
 
