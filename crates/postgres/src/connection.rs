@@ -42,6 +42,7 @@ use common::{
 };
 use fastrace::{
     future::FutureExt as _,
+    Event,
     Span,
 };
 use futures::{
@@ -287,6 +288,7 @@ impl PostgresConnection<'_> {
             &conn.statement_cache,
             self.substitute_db_name(query),
         ))
+        .trace_if_pending("prepare_cached")
         .await
         .map_err(|e| handle_error(&self.poisoned, e))
     }
@@ -301,22 +303,25 @@ impl PostgresConnection<'_> {
         I: IntoIterator<Item = P>,
         I::IntoIter: ExactSizeIterator,
     {
+        let span = Span::enter_with_local_parent("query_raw");
         let labels = self.labels.clone();
         log_query(labels.clone());
         let stream = with_timeout(self.conn().client.query_raw(statement, params))
             .await
             .map_err(|e| handle_error(&self.poisoned, e))?;
-        Ok(Self::wrap_query_stream(stream, labels))
+        span.add_event(Event::new("query_returned"));
+        Ok(Self::wrap_query_stream(stream, labels, span))
     }
 
     #[allow(clippy::needless_lifetimes)]
     #[try_stream(ok = Row, error = anyhow::Error)]
-    async fn wrap_query_stream(stream: RowStream, labels: Vec<StaticMetricLabel>) {
+    async fn wrap_query_stream(stream: RowStream, labels: Vec<StaticMetricLabel>, span: Span) {
         pin_mut!(stream);
         while let Some(row) = with_timeout(stream.try_next()).await? {
             log_query_result(&row, labels.clone());
             yield row;
         }
+        drop(span);
     }
 
     pub async fn execute(
