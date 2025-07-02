@@ -193,11 +193,13 @@ function setupClient(options: NextjsOptions) {
   client.setFetchOptions({ cache: "no-store" });
   return client;
 }
-
 function getConvexUrl(
-  deploymentUrl: string | undefined,
+  deploymentUrl: string | undefined = "NOT_PROVIDED", // This is set if they do not pass in an explicit "undefined" (broken env var)
   skipConvexDeploymentUrlCheck: boolean,
 ) {
+  if (deploymentUrl !== "NOT_PROVIDED" && deploymentUrl === undefined) {
+    throw new Error(`deploymentUrl is undefined, are your environment variables set?`);
+  }
   const url = deploymentUrl ?? process.env.NEXT_PUBLIC_CONVEX_URL;
   const isFromEnv = deploymentUrl === undefined;
   if (typeof url !== "string") {
