@@ -76,6 +76,11 @@ pub struct CompiledQuery {
 }
 
 impl CompiledQuery {
+    /// If true, this query can't match anything
+    pub fn is_empty(&self) -> bool {
+        self.text_query.is_empty()
+    }
+
     pub fn num_terms(&self) -> usize {
         self.text_query.len() + self.filter_conditions.len()
     }

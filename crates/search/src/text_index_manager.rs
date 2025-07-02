@@ -20,7 +20,6 @@ use common::{
     knobs::SEARCHLIGHT_CLUSTER_NAME,
     query::{
         InternalSearch,
-        InternalSearchFilterExpression,
         SearchVersion,
     },
     types::{
@@ -193,17 +192,6 @@ impl TextIndexManager {
         let tantivy_schema =
             TantivySearchIndexSchema::new_for_index(index, &search.printable_index_name()?)?;
         let (compiled_query, reads) = tantivy_schema.compile(search, version)?;
-        // Ignore empty searches to avoid failures due to transient search issues (e.g.
-        // bootstrapping). Do this after validating the query above.
-        if search.filters.iter().any(|filter| {
-            let InternalSearchFilterExpression::Search(_, query_string) = filter else {
-                return false;
-            };
-            query_string.trim().is_empty()
-        }) {
-            tracing::debug!("Skipping empty search query");
-            return Ok(QueryResults::empty());
-        }
 
         let revisions_with_keys = self
             .run_compiled_query(
@@ -260,6 +248,12 @@ impl TextIndexManager {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
     ) -> anyhow::Result<RevisionWithKeys> {
+        // Ignore empty searches to avoid failures due to transient search
+        // issues (e.g. bootstrapping).
+        if compiled_query.is_empty() {
+            tracing::debug!("Skipping empty search query");
+            return Ok(vec![]);
+        }
         let SnapshotInfo {
             disk_index,
             disk_index_ts,
