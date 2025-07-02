@@ -735,6 +735,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         pin_mut!(stream);
         let mut index_updates_written = 0;
         let mut last_logged = self.runtime.system_time();
+        let mut last_logged_count = 0;
         while !stream.is_done() {
             let mut chunk = BTreeSet::new();
             while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
@@ -763,9 +764,12 @@ impl<RT: Runtime> IndexWriter<RT> {
             if last_logged.elapsed()? >= Duration::from_secs(60) {
                 tracing::info!(
                     "backfilled {index_updates_written} index rows for table {tablet_id} at \
-                     snapshot {snapshot_ts}",
+                     snapshot {snapshot_ts} ({} rows/s)",
+                    (index_updates_written - last_logged_count) as f64
+                        / last_logged.elapsed()?.as_secs_f64()
                 );
                 last_logged = self.runtime.system_time();
+                last_logged_count = index_updates_written;
             }
         }
         tracing::info!(
