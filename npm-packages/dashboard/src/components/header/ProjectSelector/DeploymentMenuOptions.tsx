@@ -1,41 +1,35 @@
-import { useDefaultDevDeployment, useDeployments } from "api/deployments";
+import { useDefaultDevDeployment } from "api/deployments";
 import { useTeamMembers, useTeamEntitlements } from "api/teams";
 import { useProfile } from "api/profile";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useRef } from "react";
-import { CommandLineIcon, SignalIcon } from "@heroicons/react/20/solid";
+import { CommandLineIcon, SignalIcon } from "@heroicons/react/24/outline";
 import { Tooltip } from "@ui/Tooltip";
-import { SelectorItem } from "elements/SelectorItem";
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ExternalLinkIcon,
+  GearIcon,
   GlobeIcon,
   Pencil2Icon,
+  Share1Icon,
 } from "@radix-ui/react-icons";
 import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
-import { Disclosure } from "@headlessui/react";
-import { logEvent } from "convex-analytics";
 import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
+import { ContextMenu } from "@common/features/data/components/ContextMenu";
+import { Key } from "@ui/KeyboardShortcut";
 
 export function DeploymentMenuOptions({
   team,
   project,
-  close,
+  deployments,
 }: {
   team: Team;
   project: ProjectDetails;
-  close: () => void;
+  deployments: DeploymentResponse[];
 }) {
   const member = useProfile();
   const router = useRouter();
   const arePreviewDeploymentsAvailable =
     useTeamEntitlements(team.id)?.projectMaxPreviewDeployments !== 0;
-
-  const { deployments: deploymentData } = useDeployments(project.id);
-  const deployments = deploymentData || [];
 
   const previews = deployments
     .filter((d) => d.deploymentType === "preview")
@@ -66,147 +60,145 @@ export function DeploymentMenuOptions({
 
   const projectsURI = `/t/${selectedTeamSlug}/${projectSlug}`;
   // 0-4 are /t/[team]/[project]/[deploymentName].
-  // 5- is the currentView
-  const currentView = router.asPath.split("/").slice(5).join("/");
+  // 5- is the currentView, without query params
+  const currentView = router.asPath.split("?")[0].split("/").slice(5).join("/");
+
   return (
-    <div className="mx-0.5 mb-2">
-      <SelectorItem
-        className="flex items-center gap-2"
-        selected={
-          !!router.query.deploymentName &&
-          router.query.deploymentName === prod?.name
+    <>
+      <ContextMenu.Item
+        icon={<SignalIcon className="h-4 w-4" />}
+        label={
+          <DeploymentOption
+            name={prod?.name || "Select to create a Prod deployment"}
+            identifier="Production"
+          />
         }
-        disabled={project.isDemo}
-        href={`${projectsURI}/${
-          prod === undefined
-            ? PROVISION_PROD_PAGE_NAME
-            : `${prod?.name}/${currentView}`
-        }`}
-        close={close}
-        eventName="switch to production deployment"
-      >
-        <SignalIcon className="h-4 w-4" />
-        <p>
-          Production{" "}
-          {prod && (
-            <span className="text-xs text-content-secondary">
-              ({prod?.name})
-            </span>
-          )}
-        </p>
-      </SelectorItem>
-      <AllPersonalDeployments team={team} project={project} close={close} />
+        shortcut={["Ctrl", "Alt", "1"]}
+        action={
+          prod
+            ? `${projectsURI}/${prod.name}/${currentView}`
+            : `${projectsURI}/${PROVISION_PROD_PAGE_NAME}`
+        }
+        blankTarget={false}
+      />
+      <AllPersonalDeployments
+        team={team}
+        project={project}
+        deployments={deployments}
+      />
       {previews.length === 0 && (
-        <Tooltip
-          className="w-full"
-          side="right"
-          tip={
-            <NoPreviewTooltip
-              isDemo={project.isDemo}
-              arePreviewDeploymentsAvailable={arePreviewDeploymentsAvailable}
-              teamSlug={selectedTeamSlug!}
-            />
+        <ContextMenu.Item
+          icon={<Pencil2Icon className="h-4 w-4" />}
+          label={
+            <div className="flex flex-col">
+              Preview Deployments
+              <NoPreview
+                isDemo={project.isDemo}
+                arePreviewDeploymentsAvailable={arePreviewDeploymentsAvailable}
+              />
+            </div>
           }
-        >
-          <SelectorItem
-            className="flex items-center gap-2"
-            disabled={project.isDemo}
-            href="https://docs.convex.dev/production/hosting/preview-deployments"
-            target="_blank"
-            close={close}
-            eventName="open preview deployment docs"
-          >
-            <Pencil2Icon className="h-4 w-4" />
-            Preview
-            <ExternalLinkIcon className="ml-auto h-4 w-4" />
-          </SelectorItem>
-        </Tooltip>
+          proBadge={!arePreviewDeploymentsAvailable}
+          blankTarget={false}
+          action="https://docs.convex.dev/production/hosting/preview-deployments"
+        />
       )}
       {previews.length > 0 && (
-        <Disclosure>
-          {({ open }) => (
-            <>
-              <Disclosure.Button
-                className="w-full pr-2"
-                onClick={() => logEvent("toggle preview deployments")}
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <div className="p-2 text-xs font-semibold text-content-secondary">
-                    Preview Deployments ({previews.length})
-                  </div>
-                  {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                </div>
-              </Disclosure.Button>
-              <Disclosure.Panel className="w-full">
-                {previews.map((previewDeployment) => (
-                  <SelectorItem
-                    close={close}
-                    href={`${projectsURI}/${previewDeployment.name}/${currentView}`}
-                    selected={
-                      router.query.deploymentName === previewDeployment.name
+        <ContextMenu.Submenu
+          label={
+            <p className="flex flex-col">
+              Previews
+              <span className="text-xs text-content-secondary">
+                {previews.length} deployment{previews.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          }
+          icon={<Pencil2Icon className="h-4 w-4" />}
+        >
+          {previews
+            .sort(
+              (a, b) =>
+                a.previewIdentifier
+                  ?.toLowerCase()
+                  .localeCompare(b.previewIdentifier?.toLowerCase() ?? "") ?? 0,
+            )
+            .map((previewDeployment) => (
+              <ContextMenu.Item
+                key={previewDeployment.name}
+                label={
+                  <DeploymentOption
+                    identifier={
+                      previewDeployment.previewIdentifier ??
+                      previewDeployment.name
                     }
-                    eventName="switch to preview deployment"
-                  >
-                    <DeploymentOption
-                      identifier={
-                        previewDeployment.previewIdentifier ??
-                        previewDeployment.name
-                      }
-                      name={previewDeployment.name}
-                    />
-                  </SelectorItem>
-                ))}
-              </Disclosure.Panel>
-            </>
-          )}
-        </Disclosure>
+                    name={previewDeployment.name}
+                  />
+                }
+                action={`${projectsURI}/${previewDeployment.name}/${currentView}`}
+                blankTarget={false}
+              />
+            ))}
+        </ContextMenu.Submenu>
       )}
       {teamMemberDeployments.length > 0 && (
-        <Disclosure>
-          {({ open }) => (
-            <>
-              <Disclosure.Button
-                className="w-full pr-2"
-                onClick={() => logEvent("toggle other deployments")}
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <div className="p-2 text-xs font-semibold text-content-secondary">
-                    Other Deployments ({teamMemberDeployments.length})
-                  </div>
-                  {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                </div>
-              </Disclosure.Button>
-              <Disclosure.Panel className="w-full">
-                {teamMemberDeployments.map((d) => (
-                  <SelectorItem
-                    close={close}
-                    href={`${projectsURI}/${d.name}/${currentView}`}
-                    selected={router.query.deploymentName === d.name}
-                    eventName="switch to other deployment"
-                  >
-                    <DeploymentOption
-                      identifier={`${d.creator}'s Dev`}
-                      name={d.name}
-                    />
-                  </SelectorItem>
-                ))}
-              </Disclosure.Panel>
-            </>
-          )}
-        </Disclosure>
+        <ContextMenu.Submenu
+          label={
+            <p className="flex flex-col">
+              Other Deployments
+              <span className="text-xs text-content-secondary">
+                {teamMemberDeployments.length} deployment
+                {teamMemberDeployments.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          }
+          icon={<Share1Icon />}
+        >
+          {teamMemberDeployments
+            .sort((a, b) =>
+              a.creator.toLowerCase().localeCompare(b.creator.toLowerCase()),
+            )
+            .map((d) => (
+              <ContextMenu.Item
+                key={d.name}
+                label={
+                  <DeploymentOption
+                    identifier={`${d.creator}'s dev`}
+                    name={d.name}
+                  />
+                }
+                action={`${projectsURI}/${d.name}/${currentView}`}
+                blankTarget={false}
+              />
+            ))}
+        </ContextMenu.Submenu>
       )}
-    </div>
+      <hr className="my-1 bg-border-transparent" />
+      <ContextMenu.Item
+        icon={<GearIcon />}
+        label={
+          <div className="flex flex-col">
+            Project Settings
+            <span className="text-xs text-content-secondary">
+              Manage this project's configuration
+            </span>
+          </div>
+        }
+        shortcut={["Ctrl", "Alt", "S"]}
+        action={`${projectsURI}/settings`}
+        blankTarget={false}
+      />
+    </>
   );
 }
 
 function AllPersonalDeployments({
   team,
   project,
-  close,
+  deployments,
 }: {
   project: ProjectDetails;
   team: Team;
-  close: () => void;
+  deployments: DeploymentResponse[];
 }) {
   const member = useProfile();
   const dev = useDefaultDevDeployment(project.id);
@@ -218,59 +210,67 @@ function AllPersonalDeployments({
   const projectsURI = `/t/${selectedTeamSlug}/${projectSlug}`;
   // 0-4 are /t/[team]/[project]/[deploymentName].
   // 5- is the currentView
-  const currentView = router.asPath.split("/").slice(5).join("/");
-  const deployments = useDeployments(project.id).deployments || [];
+  const currentView = router.asPath.split("?")[0].split("/").slice(5).join("/");
   const allDevDeployments = sortDevDeployments(
     deployments.filter(
-      (d) => d.deploymentType === "dev" && d.creator === member?.id,
+      (d: DeploymentResponse) =>
+        d.deploymentType === "dev" && d.creator === member?.id,
     ),
   );
-  const hasMultipleActiveLocalDeployments =
-    allDevDeployments.filter((d) => d.kind === "local" && d.isActive).length >
-    1;
 
   if (allDevDeployments.length === 0) {
-    <Tooltip className="w-full" side="right" tip={<NoDevTooltip />}>
-      <SelectorItem
-        className="flex items-center gap-2"
-        selected={false}
+    return (
+      <ContextMenu.Item
+        icon={<CommandLineIcon className="h-4 w-4" />}
+        tip={
+          <>
+            You do not have a personal development deployment for this project
+            yet. Run <code className="px-0.5">npx convex dev</code> to provision
+            one.
+          </>
+        }
+        tipSide="right"
+        label={
+          <DeploymentOption
+            identifier="Development"
+            name="You don't have a dev deployment yet"
+          />
+        }
+        action={`${projectsURI}/${dev?.name}/${currentView}`}
+        blankTarget={false}
         disabled
-        href={`${projectsURI}/${dev?.name}/${currentView}`}
-        close={close}
-      >
-        <CommandLineIcon className="h-4 w-4" />
-        Development
-      </SelectorItem>
-    </Tooltip>;
+      />
+    );
   }
-  // TODO(sarah) - consider adding a tooltip around inactive local deployments
   return (
     <>
-      {allDevDeployments.map((d) => (
-        <SelectorItem
-          key={d.name}
-          className="flex items-center gap-2"
-          close={close}
-          disabled={d.kind === "local" && d.isActive === false}
-          href={`${projectsURI}/${d.name}/${currentView}`}
-          selected={router.query.deploymentName === d.name}
-          eventName={
-            d.kind === "local"
-              ? "switch to local dev deployment"
-              : "switch to cloud dev deployment"
-          }
-        >
-          {d.kind === "local" ? (
-            <CommandLineIcon className="h-4 w-4" />
-          ) : (
-            <GlobeIcon className="h-4 w-4" />
-          )}
-          <DeploymentOption
-            identifier={`${d.kind === "local" ? `${d.deviceName} ${hasMultipleActiveLocalDeployments ? `(Port ${d.port})` : ""}` : "Cloud Dev"}`}
-            name={d.name}
+      {allDevDeployments
+        .filter((d) => (d.kind === "local" ? d.isActive : true))
+        .map((d, idx) => (
+          <ContextMenu.Item
+            key={d.name}
+            icon={
+              d.kind === "local" ? (
+                <CommandLineIcon className="h-4 w-4" />
+              ) : (
+                <GlobeIcon className="h-4 w-4" />
+              )
+            }
+            shortcut={
+              idx + 2 > 9
+                ? undefined
+                : ["Ctrl", "Alt", (idx + 2).toString() as Key]
+            }
+            label={
+              <DeploymentOption
+                identifier={`${d.kind === "local" ? `${d.deviceName}` : "Development (Cloud)"}`}
+                name={d.kind === "local" ? `Port ${d.port}` : d.name}
+              />
+            }
+            action={`${projectsURI}/${d.name}/${currentView}`}
+            blankTarget={false}
           />
-        </SelectorItem>
-      ))}
+        ))}
     </>
   );
 }
@@ -321,73 +321,46 @@ function DeploymentOption({
       side="right"
       wrapsButton
     >
-      <p className="max-w-[20rem] truncate" ref={ref}>
+      <p className="flex max-w-[20rem] flex-col truncate" ref={ref}>
         {identifier}{" "}
         {name && (
-          <span className="text-xs text-content-secondary">({name})</span>
+          <span
+            className={`text-xs text-content-secondary ${
+              !name.includes(" ") ? "font-mono" : ""
+            }`}
+          >
+            {name}
+          </span>
         )}
       </p>
     </Tooltip>
   );
 }
 
-function NoDevTooltip() {
-  return (
-    <div>
-      You do not have a personal development environment in this project yet.{" "}
-      <Link
-        passHref
-        href="https://docs.convex.dev/cli#run-the-convex-dev-server"
-        className="underline"
-        target="_blank"
-      >
-        Learn more
-      </Link>
-    </div>
-  );
-}
-
-function NoPreviewTooltip({
+function NoPreview({
   isDemo,
   arePreviewDeploymentsAvailable,
-  teamSlug,
 }: {
   isDemo: boolean;
   arePreviewDeploymentsAvailable: boolean;
-  teamSlug: string;
 }) {
   if (isDemo) {
-    return <div>Create a new project to use preview deployments.</div>;
+    return (
+      <div className="text-xs text-content-secondary">
+        Create a new project to use preview deployments
+      </div>
+    );
   }
   if (arePreviewDeploymentsAvailable) {
     return (
-      <div>
-        You do not have any preview deployments for this project yet.{" "}
-        <Link
-          passHref
-          href="https://docs.convex.dev/production/hosting/preview-deployments"
-          className="underline"
-          target="_blank"
-        >
-          Learn more
-        </Link>
+      <div className="text-xs text-content-secondary">
+        Learn how to use preview deployments
       </div>
     );
   }
   return (
-    <div>
-      <Link
-        passHref
-        href="https://docs.convex.dev/production/hosting/preview-deployments"
-        className="underline"
-        target="_blank"
-      >
-        Preview deployments
-      </Link>
-      {" are only available on the Pro plan. "}
-      <Link href={`/${teamSlug}/settings/billing`} className="underline">
-        Upgrade to get access.
-      </Link>
+    <div className="text-xs text-content-secondary">
+      Available on the Pro plan
     </div>
   );
 }

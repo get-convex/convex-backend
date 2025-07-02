@@ -33,7 +33,7 @@ export function Card({
   return (
     <div
       className={classNames(
-        "relative border rounded-md bg-background-secondary",
+        "relative border rounded-xl bg-background-secondary",
         "flex items-center gap-4 px-4",
         "hover:border-border-selected",
         cardClassName,

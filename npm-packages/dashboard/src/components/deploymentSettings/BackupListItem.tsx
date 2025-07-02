@@ -5,7 +5,9 @@ import {
   CrossCircledIcon,
   DotsVerticalIcon,
   ExclamationTriangleIcon,
+  GlobeIcon,
   MinusCircledIcon,
+  Pencil2Icon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
@@ -23,8 +25,11 @@ import { useDeploymentById } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
-import { ServerIcon } from "@heroicons/react/24/outline";
-import { DeploymentLabel } from "elements/DeploymentDisplay";
+import {
+  CommandLineIcon,
+  ServerIcon,
+  SignalIcon,
+} from "@heroicons/react/24/outline";
 import {
   useRequestCloudBackup,
   useRestoreFromCloudBackup,
@@ -35,6 +40,8 @@ import {
 } from "api/backups";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupIdentifier } from "elements/BackupIdentifier";
+import { cn } from "@ui/cn";
+import { getDeploymentLabel } from "elements/DeploymentDisplay";
 
 export function BackupListItem({
   backup,
@@ -606,12 +613,10 @@ export function FullDeploymentName({
   deployment,
   team,
   showProjectName = true,
-  inline = false,
 }: {
   deployment: DeploymentResponse;
   team: Team;
   showProjectName?: boolean;
-  inline?: boolean;
 }) {
   const projects = useProjects(team.id);
 
@@ -635,11 +640,7 @@ export function FullDeploymentName({
           <span className="text-content-secondary">/</span>
         </>
       )}
-      <DeploymentLabel
-        deployment={deployment}
-        whoseName={whoseName ?? null}
-        inline={inline}
-      />
+      <DeploymentLabel deployment={deployment} whoseName={whoseName ?? null} />
     </div>
   );
 }
@@ -757,4 +758,32 @@ export function progressMessageForBackup(
     existingCloudBackup._id === backup.snapshotId
     ? existingCloudBackup.progress_message || null
     : null;
+}
+
+function DeploymentLabel({
+  whoseName,
+  deployment,
+}: {
+  deployment: DeploymentResponse;
+  whoseName: string | null;
+}) {
+  return (
+    <div className={cn("flex items-center gap-2 rounded-md")}>
+      {deployment.deploymentType === "dev" ? (
+        deployment.kind === "local" ? (
+          <CommandLineIcon className="size-4" />
+        ) : (
+          <GlobeIcon className="size-4" />
+        )
+      ) : deployment.deploymentType === "prod" ? (
+        <SignalIcon className="size-4" />
+      ) : deployment.deploymentType === "preview" ? (
+        <Pencil2Icon className="size-4" />
+      ) : null}
+      {getDeploymentLabel({
+        deployment,
+        whoseName,
+      })}
+    </div>
+  );
 }

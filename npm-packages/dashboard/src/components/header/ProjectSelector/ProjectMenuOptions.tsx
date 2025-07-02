@@ -9,18 +9,14 @@ import { useDeploymentUris } from "hooks/useDeploymentUris";
 
 export function ProjectMenuOptions({
   projectsForHoveredTeam,
-  lastHoveredProject,
   team,
-  setLastHoveredProject,
   onCreateProjectClick,
   optionRef,
   scrollRef,
   close,
 }: {
   projectsForHoveredTeam?: ProjectDetails[];
-  lastHoveredProject: ProjectDetails | null;
   team: Team;
-  setLastHoveredProject: (project: ProjectDetails | null) => void;
   onCreateProjectClick: (team: Team) => void;
   optionRef: React.RefObject<HTMLDivElement>;
   scrollRef: React.RefObject<HTMLDivElement>;
@@ -38,7 +34,6 @@ export function ProjectMenuOptions({
           autoFocus
           onChange={(e) => {
             setProjectQuery(e.target.value);
-            setLastHoveredProject(null);
           }}
           value={projectQuery}
           className={classNames(
@@ -66,16 +61,12 @@ export function ProjectMenuOptions({
               .toLowerCase()
               .includes(projectQuery.toLowerCase()) && (
               <ProjectSelectorItem
-                active={currentProject?.slug === lastHoveredProject?.slug}
                 optionRef={optionRef}
                 selected={currentProject.slug === currentProject?.slug}
                 close={close}
                 project={currentProject}
                 key={currentProject.id}
                 teamSlug={team.slug}
-                onFocusOrMouseEnter={() =>
-                  setLastHoveredProject(currentProject)
-                }
               />
             )}
           {projectsForHoveredTeam
@@ -87,13 +78,11 @@ export function ProjectMenuOptions({
             .reverse()
             .map((project) => (
               <ProjectSelectorItem
-                active={project.slug === lastHoveredProject?.slug}
                 optionRef={optionRef}
                 close={close}
                 project={project}
                 key={project.id}
                 teamSlug={team.slug}
-                onFocusOrMouseEnter={() => setLastHoveredProject(project)}
               />
             ))}
         </div>
@@ -106,7 +95,6 @@ export function ProjectMenuOptions({
         }}
         icon={<PlusIcon aria-hidden="true" />}
         className="w-full"
-        onMouseOver={() => setLastHoveredProject(null)}
         size="sm"
       >
         Create Project

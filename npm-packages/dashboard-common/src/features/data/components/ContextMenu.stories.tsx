@@ -83,6 +83,9 @@ function ContextMenuDemo() {
           <ContextMenu.Submenu label="Another submenu" action={() => {}}>
             <ContextMenu.Item label="Other item" action={() => {}} />
           </ContextMenu.Submenu>
+          <ContextMenu.Submenu label="Non-clickable submenu">
+            <ContextMenu.Item label="Disabled submenu item" action={() => {}} />
+          </ContextMenu.Submenu>
         </ContextMenu.Submenu>
         <hr />
         <ContextMenu.Item

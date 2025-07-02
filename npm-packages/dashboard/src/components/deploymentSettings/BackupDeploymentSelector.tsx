@@ -272,7 +272,6 @@ export function BackupDeploymentSelector({
                                         deployment={deployment}
                                         team={team}
                                         showProjectName={false}
-                                        inline
                                       />
                                     </span>
                                   </Listbox.Option>

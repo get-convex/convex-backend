@@ -28,7 +28,7 @@ export function NavBar({ items, activeLabel }: NavBarProps) {
               className={classNames(
                 "p-2 my-2 mx-1 text-sm",
                 "text-content-primary",
-                "hover:bg-background-tertiary rounded",
+                "hover:bg-background-tertiary rounded-full",
                 {
                   "underline-offset-[1rem] decoration-4 font-medium underline sm:no-underline":
                     activeLabel === label,

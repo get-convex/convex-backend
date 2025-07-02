@@ -179,14 +179,14 @@ function ContextMenuInner({ target, onClose, children }: ContextMenuProps) {
         <FloatingList elementsRef={listItemsRef} labelsRef={listContentRef}>
           <FloatingPortal>
             {isOpen && (
-              <FloatingOverlay className="z-40">
+              <FloatingOverlay className="z-50">
                 <FloatingFocusManager
                   context={context}
                   initialFocus={refs.floating}
                 >
                   {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
                   <div
-                    className="flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary/85 py-2 text-xs shadow-sm outline-none backdrop-blur-[2px] dark:border"
+                    className="flex max-h-[calc(100vh-20px)] animate-fadeInFromLoading flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-sm outline-none dark:border"
                     ref={refs.setFloating}
                     style={floatingStyles}
                     {...getFloatingProps()}
@@ -212,15 +212,19 @@ function ContextMenuItem({
   shortcut,
   tip,
   tipSide,
+  blankTarget = true,
+  proBadge,
 }: {
   icon?: ReactNode;
   label: ReactNode;
-  action: (() => void) | UrlObject;
+  action: (() => void) | UrlObject | string;
   disabled?: boolean;
   variant?: "neutral" | "danger";
   shortcut?: Key[];
   tip?: ReactNode;
   tipSide?: TooltipSide;
+  blankTarget?: boolean;
+  proBadge?: boolean;
 }) {
   const menu = useContext(ContextMenuContext);
   const { itemRef: labelRef, itemText: labelText } = useTextContent();
@@ -244,7 +248,13 @@ function ContextMenuItem({
       ref={item.ref}
       tabIndex={isActive ? 0 : -1}
       href={typeof action !== "function" ? action : undefined}
-      target={typeof action !== "function" ? "_blank" : undefined}
+      target={
+        typeof action !== "function"
+          ? blankTarget
+            ? "_blank"
+            : undefined
+          : undefined
+      }
       {...menu.getItemProps({
         onClick: () => {
           typeof action === "function" && action();
@@ -252,7 +262,22 @@ function ContextMenuItem({
             tree?.events.emit("click");
           }, 0);
         },
+        onKeyDown: (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            typeof action === "function" && action();
+            typeof action !== "function" && e.currentTarget.click();
+            setTimeout(() => {
+              tree?.events.emit("click");
+            }, 0);
+          }
+        },
       })}
+      onClickOfAnchorLink={(e) => {
+        e.stopPropagation();
+        setTimeout(() => {
+          tree?.events.emit("click");
+        }, 0);
+      }}
       tip={tip}
       tipSide={tipSide}
     >
@@ -266,21 +291,31 @@ function ContextMenuItem({
           className="ml-auto pl-6 text-content-tertiary"
         />
       )}
+      {proBadge && (
+        <span
+          className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+          title="Only available on the Pro plan"
+        >
+          Pro
+        </span>
+      )}
     </Button>
   );
 }
 ContextMenu.Item = ContextMenuItem;
+
+type ContextMenuSubmenuProps = React.PropsWithChildren<{
+  icon?: ReactNode;
+  label: ReactNode;
+  action?: () => void;
+}>;
 
 function ContextMenuSubmenu({
   icon,
   label,
   children,
   action,
-}: React.PropsWithChildren<{
-  icon?: ReactNode;
-  label: ReactNode;
-  action: () => void;
-}>) {
+}: ContextMenuSubmenuProps) {
   // Item in the parent menu
   const parent = useContext(ContextMenuContext);
   const { itemRef: labelRef, itemText: labelText } = useTextContent();
@@ -370,6 +405,8 @@ function ContextMenuSubmenu({
     [activeIndex, setActiveIndex, getItemProps, isOpen],
   );
 
+  const isClickable = action !== undefined;
+
   return (
     <FloatingNode id={nodeId}>
       <Button
@@ -380,13 +417,18 @@ function ContextMenuSubmenu({
           "w-full flex max-w-xs gap-2 items-center px-3 py-1.5 text-left",
           "outline-none text-content-primary",
           "active:bg-background-tertiary focus:bg-background-tertiary",
+          !isClickable && "cursor-default hover:bg-background-tertiary",
         )}
         tabIndex={item.index === parent.activeIndex ? 0 : -1}
         {...getReferenceProps(parent.getItemProps())}
-        onClick={() => {
-          action();
-          tree?.events.emit("click");
-        }}
+        onClick={
+          isClickable
+            ? () => {
+                action?.();
+                tree?.events.emit("click");
+              }
+            : undefined
+        }
       >
         {icon ?? null}
         <span className="flex-1 overflow-hidden truncate" ref={labelRef}>
@@ -403,7 +445,7 @@ function ContextMenuSubmenu({
             <FloatingPortal>
               {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
               <div
-                className="z-40 flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary/85 py-2 text-xs shadow-md outline-none backdrop-blur-[2px]"
+                className="z-40 flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-md outline-none"
                 ref={refs.setFloating}
                 style={floatingStyles}
                 {...getFloatingProps()}
@@ -417,6 +459,7 @@ function ContextMenuSubmenu({
     </FloatingNode>
   );
 }
+ContextMenuSubmenu.displayName = "ContextMenuSubmenu";
 ContextMenu.Submenu = ContextMenuSubmenu;
 
 function useTextContent(): {

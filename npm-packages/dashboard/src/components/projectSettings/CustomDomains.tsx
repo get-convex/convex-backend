@@ -158,7 +158,7 @@ export function CustomDomains({
   );
 }
 
-function ProdProvider({
+export function ProdProvider({
   children,
   deploymentName,
 }: {

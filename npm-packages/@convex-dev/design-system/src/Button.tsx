@@ -7,6 +7,7 @@ import { Spinner } from "@ui/Spinner";
 import classNames from "classnames";
 
 export type ButtonProps = {
+  id?: string;
   children?: React.ReactNode;
   variant?: "primary" | "danger" | "neutral" | "unstyled";
   inline?: boolean;
@@ -50,6 +51,7 @@ export type ButtonProps = {
 
 export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
   {
+    id,
     children,
     inline = false,
     variant = "primary",
@@ -110,6 +112,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
       {/* we're allowed to use button here. It's the Button component */}
       {/* eslint-disable-next-line react/forbid-elements */}
       <button
+        id={id}
         // eslint-disable-next-line react/button-has-type
         type={type ?? "button"}
         tabIndex={0}

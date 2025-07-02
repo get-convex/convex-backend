@@ -32,6 +32,8 @@ export function UserMenu() {
           <GearIcon className="h-7 w-7 rounded p-1 text-content-primary hover:bg-background-tertiary" />
         ),
         variant: "unstyled",
+        className:
+          "rounded-full p-2 transition-colors hover:bg-background-tertiary",
         "aria-label": "User profile",
       }}
       placement="bottom-end"

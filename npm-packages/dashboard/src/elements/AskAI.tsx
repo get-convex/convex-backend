@@ -21,7 +21,7 @@ export function AskAI() {
       />
       <Button
         inline
-        className="js-launch-kapa-ai flex items-center gap-1 px-2.5 text-sm text-content-primary"
+        className="js-launch-kapa-ai flex items-center gap-1 rounded-full px-2.5 text-sm text-content-primary"
       >
         <SparklesIcon className="size-4" />
         <span className="hidden md:block">Ask AI</span>

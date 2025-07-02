@@ -19,6 +19,10 @@ jest.mock("api/profile", () => {});
 jest.mock("api/backups", () => ({
   useConfigurePeriodicBackup: jest.fn().mockReturnValue(jest.fn()),
 }));
+jest.mock("api/vanityDomains", () => ({}));
+jest.mock("api/usage", () => ({}));
+jest.mock("api/billing", () => ({}));
+jest.mock("api/environmentVariables", () => ({}));
 jest.mock("api/roles", () => {});
 jest.mock("api/teams", () => {});
 jest.mock("api/projects", () => {});

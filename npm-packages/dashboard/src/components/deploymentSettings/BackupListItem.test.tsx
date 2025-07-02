@@ -101,6 +101,15 @@ jest.mock("api/projects", () => {
   };
 });
 
+jest.mock("api/roles", () => ({
+  useHasProjectAdminPermissions: jest.fn().mockReturnValue(true),
+}));
+
+jest.mock("api/vanityDomains", () => ({}));
+jest.mock("api/usage", () => ({}));
+jest.mock("api/billing", () => ({}));
+jest.mock("api/environmentVariables", () => ({}));
+
 jest.mock("api/teams", () => {
   const t: Team = {
     id: 1,
