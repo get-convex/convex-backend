@@ -135,7 +135,7 @@ export function Avatar({
   return (
     <span
       className={classNames(
-        "inline-flex items-center select-none justify-center rounded-full relative overflow-hidden font-display",
+        "inline-flex items-center select-none justify-center rounded-full relative overflow-hidden font-display shrink-0",
         isSystem ? "bg-util-accent/30 dark:bg-util-accent" : undefined,
         classesForSize[size],
       )}
