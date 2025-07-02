@@ -36,5 +36,7 @@ export function useDeploymentUris(
     prodHref,
     devHref,
     defaultHref: isProdDefault ? prodHref : devHref,
+    generateHref: (deploymentName: string) =>
+      `${projectURI}/${deploymentName}${subroute}`,
   };
 }

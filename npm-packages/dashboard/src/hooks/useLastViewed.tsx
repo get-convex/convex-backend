@@ -31,7 +31,27 @@ export function useLastViewedDeployment() {
   return useLocalStorage<string>(`/lastViewedDeployment`);
 }
 
-export function useRememberLastViewedDeployment(name: string | undefined) {
+export function useLastViewedDeploymentForProject(projectSlug: string) {
+  return useLocalStorage<string>(
+    `/lastViewedDeploymentForProject/${projectSlug}`,
+  );
+}
+
+export function useRememberLastViewedDeploymentForProject(
+  projectSlug: string,
+  name: string | undefined,
+) {
+  const [, setLastViewedDeploymentForProject] =
+    useLastViewedDeploymentForProject(projectSlug);
+  useRememberLastViewedDeployment(name);
+  useEffect(() => {
+    if (name !== undefined) {
+      setLastViewedDeploymentForProject(name);
+    }
+  }, [name, setLastViewedDeploymentForProject]);
+}
+
+function useRememberLastViewedDeployment(name: string | undefined) {
   const [, setLastViewedDeployment] = useLastViewedDeployment();
   useEffect(() => {
     if (name !== undefined) {

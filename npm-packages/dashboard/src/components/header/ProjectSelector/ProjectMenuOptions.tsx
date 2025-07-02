@@ -6,6 +6,7 @@ import { Team, ProjectDetails } from "generatedApi";
 import classNames from "classnames";
 import { SelectorItem } from "elements/SelectorItem";
 import { useDeploymentUris } from "hooks/useDeploymentUris";
+import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
 
 export function ProjectMenuOptions({
   projectsForHoveredTeam,
@@ -120,7 +121,14 @@ function ProjectSelectorItem({
   onFocusOrMouseEnter?: () => void;
   optionRef?: React.RefObject<HTMLDivElement>;
 }) {
-  const { defaultHref } = useDeploymentUris(project.id, project.slug, teamSlug);
+  const { generateHref, defaultHref } = useDeploymentUris(
+    project.id,
+    project.slug,
+    teamSlug,
+  );
+  const [lastViewedDeployment] = useLastViewedDeploymentForProject(
+    project.slug,
+  );
   return (
     <div
       className={classNames("flex w-full gap-0.5 p-0.5")}
@@ -128,7 +136,11 @@ function ProjectSelectorItem({
     >
       <SelectorItem
         className="grow"
-        href={defaultHref!}
+        href={
+          lastViewedDeployment
+            ? generateHref(lastViewedDeployment)
+            : defaultHref!
+        }
         active={active}
         selected={selected}
         close={close}

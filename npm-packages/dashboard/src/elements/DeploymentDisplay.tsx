@@ -8,7 +8,7 @@ import {
 import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
-import { useRememberLastViewedDeployment } from "hooks/useLastViewed";
+import { useRememberLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import {
@@ -101,7 +101,7 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
   const deployment = useCurrentDeployment();
   const member = useProfile();
 
-  useRememberLastViewedDeployment(deployment?.name);
+  useRememberLastViewedDeploymentForProject(project.slug, deployment?.name);
 
   const teamMembers = useTeamMembers(project.teamId);
 
