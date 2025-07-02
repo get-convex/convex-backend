@@ -195,6 +195,11 @@ use crate::{
     environment_variables::EnvironmentVariablesTable,
     exports::ExportsTable,
     external_packages::EXTERNAL_PACKAGES_TABLE,
+    index_backfills::{
+        IndexBackfillTable,
+        INDEX_BACKFILLS_BY_INDEX_ID,
+        INDEX_BACKFILLS_TABLE,
+    },
     log_sinks::LOG_SINKS_TABLE,
 };
 
@@ -214,6 +219,7 @@ pub mod exports;
 pub mod external_packages;
 pub mod file_storage;
 pub mod fivetran_import;
+pub mod index_backfills;
 pub mod log_sinks;
 mod metrics;
 pub mod migrations;
@@ -261,9 +267,10 @@ enum DefaultTableNumber {
     FunctionHandlesTable = 33,
     CanonicalUrls = 34,
     CronNextRun = 35,
+    IndexBackfills = 36,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 36 - nipunn
+    // Next Number - 37 - emma
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -305,6 +312,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::FunctionHandlesTable => &FunctionHandlesTable,
             DefaultTableNumber::CanonicalUrls => &CanonicalUrlsTable,
             DefaultTableNumber::CronNextRun => &CronNextRunTable,
+            DefaultTableNumber::IndexBackfills => &IndexBackfillTable,
         }
     }
 }
@@ -534,6 +542,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &LogSinksTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
+        &IndexBackfillTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());
@@ -620,6 +629,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         COMPONENT_DEFINITIONS_TABLE.clone() => 100,
         FUNCTION_HANDLES_TABLE.clone() => 102,
         CANONICAL_URLS_TABLE.clone() => 116,
+        INDEX_BACKFILLS_TABLE.clone() => 120,
     }
 });
 
@@ -645,6 +655,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         COMPONENTS_BY_PARENT_INDEX.name() => 100,
         BY_COMPONENT_PATH_INDEX.name() => 102,
         EXPORTS_BY_REQUESTOR.name() => 110,
+        INDEX_BACKFILLS_BY_INDEX_ID.name() => 120,
     }
 });
 

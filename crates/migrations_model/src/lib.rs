@@ -29,7 +29,7 @@ pub type DatabaseVersion = i64;
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 119; // nipunn
+pub const DATABASE_VERSION: DatabaseVersion = 120; // emma
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -60,6 +60,11 @@ impl<RT: Runtime> MigrationExecutor<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_119")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            120 => {
+                // This is an empty migration because we added a new system
+                // table, _index_backfills
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
