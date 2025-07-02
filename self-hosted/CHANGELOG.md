@@ -10,6 +10,15 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-07-01 `6efab6f2b6c182b90255774d747328cfc7b80dd9`
+
+- Add support for integrations (axiom/datadog/sentry/fivetran/airbyte) to
+  self-hosted
+- Fix node actions bug affecting multiple concurrent requests with local node
+  executor
+- Variety of performance improvements to backend (caching, memory usage, CPU
+  usage)
+
 ## 2025-05-29 `c1a7ac393888d743e704de56cf569a154b4526d4`
 
 - Fix bug that prevented folks with crons from upgrading existing older
