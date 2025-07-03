@@ -6,7 +6,7 @@ import GoogleLogo from "logos/google.svg";
 import React from "react";
 import { UIProvider } from "@ui/UIContext";
 
-export function LinkIdentitySuccessPrompt() {
+export function LinkIdentitySuccessPrompt({ returnTo }: { returnTo: string }) {
   return (
     <div className="h-screen">
       <LoginLayout>
@@ -18,7 +18,7 @@ export function LinkIdentitySuccessPrompt() {
           <UIProvider>
             <div className="flex flex-wrap gap-3">
               <Button
-                href="/api/auth/login?connection=github&returnTo=/profile"
+                href={`/api/auth/login?connection=github&returnTo=${returnTo}`}
                 icon={<GithubLogo className="mr-2 dark:fill-white" />}
                 size="md"
                 variant="neutral"
@@ -27,7 +27,7 @@ export function LinkIdentitySuccessPrompt() {
                 Continue with GitHub
               </Button>
               <Button
-                href="/api/auth/login?connection=google-oauth2&returnTo=/profile"
+                href={`/api/auth/login?connection=google-oauth2&returnTo=${returnTo}`}
                 icon={<GoogleLogo className="mr-2 dark:fill-white" />}
                 size="md"
                 variant="neutral"

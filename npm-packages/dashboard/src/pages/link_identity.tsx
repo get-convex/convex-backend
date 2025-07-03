@@ -36,6 +36,7 @@ function LinkIdentity() {
     message,
     setLinkIdentityState,
     linkSuccess,
+    returnTo,
   } = useLinkIdentityStateMachine();
 
   // The feature flag is disabled, so show a UI that explains that the user
@@ -44,11 +45,8 @@ function LinkIdentity() {
     return <LinkIdentityNoMultipleIdentities user={user} />;
   }
 
-  // When we link an account from the profile page, we need to log in again
-  // because the original JWT from the secondary account doesn't have the
-  // primary account's subject associated with it.
-  if (linkSuccess && resume === "fromProfile") {
-    return <LinkIdentitySuccessPrompt />;
+  if (linkSuccess && resume !== undefined) {
+    return <LinkIdentitySuccessPrompt returnTo={returnTo} />;
   }
 
   return (
@@ -136,13 +134,8 @@ function useLinkIdentityStateMachine() {
       setMessage("");
       try {
         await linkIdentity({ fromProfile: normalizedResume === "fromProfile" });
-        if (normalizedResume === "fromProfile") {
-          setLinkSuccess(true);
-          setStatus("ready");
-        } else {
-          const destination = linkIdentityState.returnTo || "/profile";
-          await router.push(destination);
-        }
+        setLinkSuccess(true);
+        setStatus("ready");
       } catch (err: any) {
         setStatus("error");
         setMessage(err.message || "Failed to link identity.");
@@ -165,6 +158,7 @@ function useLinkIdentityStateMachine() {
     resume: normalizedResume,
     status,
     message,
+    returnTo: linkIdentityState.returnTo || "/profile",
     setLinkIdentityState,
     linkSuccess,
   };
