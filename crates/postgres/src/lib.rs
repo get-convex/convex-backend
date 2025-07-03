@@ -821,6 +821,7 @@ impl PostgresReader {
         task.await??;
     }
 
+    #[fastrace::trace]
     async fn _index_scan_inner(
         self,
         index_id: IndexId,
