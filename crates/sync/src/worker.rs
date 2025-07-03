@@ -373,6 +373,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 _ = self.search_query_retry_future
                         .as_mut()
                         .unwrap_or(&mut search_retry_pending) => {
+                    tracing::info!("Scheduling an update to queries after a search query failed because of search indexes bootstrapping.");
                     self.search_query_retry_future = None;
                     self.schedule_update();
                     None
