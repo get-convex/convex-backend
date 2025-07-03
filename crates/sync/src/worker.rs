@@ -33,7 +33,10 @@ use common::{
     },
     fastrace_helpers::get_sampled_span,
     http::ResolvedHostname,
-    knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
+    knobs::{
+        SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY,
+        SYNC_MAX_SEND_TRANSITION_COUNT,
+    },
     runtime::{
         try_join_buffer_unordered,
         Runtime,
@@ -232,6 +235,10 @@ pub struct SyncWorker<RT: Runtime> {
     // Has an update been scheduled for the future?
     update_scheduled: bool,
 
+    /// If we've seen a SearchIndexesUnavailable error, wait for this Future to
+    /// resolve before retrying
+    search_query_retry_future: Option<Fuse<BoxFuture<'static, ()>>>,
+
     /// Timers to track time between handling ModifyQuerySet message and sending
     /// the Transition with the update
     modify_query_to_transition_timers: BTreeMap<QuerySetVersion, StatusTimer>,
@@ -245,6 +252,9 @@ enum QueryResult {
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
     },
+    /// Skip returning results of this query because search indexes are
+    /// unavailable
+    SearchIndexesUnavailable,
     Refresh,
 }
 
@@ -254,6 +264,7 @@ struct TransitionState {
     current_version: StateVersion,
     new_version: StateVersion,
     timer: StatusTimer,
+    search_indexes_unavailable: bool,
 }
 
 impl<RT: Runtime> SyncWorker<RT> {
@@ -281,6 +292,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             action_futures: FuturesUnordered::new(),
             transition_future: None,
             update_scheduled: false,
+            search_query_retry_future: None,
             modify_query_to_transition_timers: BTreeMap::new(),
             on_connect: Some((connect_timer(), on_connect)),
         }
@@ -290,12 +302,26 @@ impl<RT: Runtime> SyncWorker<RT> {
         self.update_scheduled = true;
     }
 
+    fn schedule_search_query_retry(&mut self) {
+        if self.search_query_retry_future.is_none() {
+            let rt = self.rt.clone();
+            self.search_query_retry_future = Some(
+                async move {
+                    rt.wait(*SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY).await;
+                }
+                .boxed()
+                .fuse(),
+            );
+        }
+    }
+
     /// Run the sync protocol worker, returning `Ok(())` on clean exit and `Err`
     /// if there's an exceptional protocol condition that should shutdown
     /// the WebSocket.
     pub async fn go(&mut self) -> anyhow::Result<()> {
         let mut ping_timeout = self.rt.wait(HEARTBEAT_INTERVAL);
         let mut pending = future::pending().boxed().fuse();
+        let mut search_retry_pending = future::pending().boxed().fuse();
 
         // Create a new subscription client for every sync socket. Thus we don't require
         // the subscription client to auto-recover on connection failures.
@@ -343,6 +369,13 @@ impl<RT: Runtime> SyncWorker<RT> {
                 transition_state = self.transition_future.as_mut().unwrap_or(&mut pending) => {
                     self.transition_future = None;
                     Some(self.finish_update_queries(transition_state?)?)
+                },
+                _ = self.search_query_retry_future
+                        .as_mut()
+                        .unwrap_or(&mut search_retry_pending) => {
+                    self.search_query_retry_future = None;
+                    self.schedule_update();
+                    None
                 },
                 _ = self.tx.message_consumed().fuse() => {
                     // Wake up if any message is consumed from the send buffer
@@ -787,7 +820,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             None => None,
                         };
                         let (query_result, subscription) = match new_subscription {
-                            Some(subscription) => (QueryResult::Refresh, subscription),
+                            Some(subscription) => (QueryResult::Refresh, Some(subscription)),
                             None => {
                                 // We failed to refresh the subscription or it was invalid to start
                                 // with. Rerun the query.
@@ -799,7 +832,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // of the query so we do not want to re-use the original query
                                 // request id.
                                 let request_id = RequestId::new();
-                                let udf_return = match query.component_path {
+                                let udf_return_result = match query.component_path {
                                     None => {
                                         api.execute_public_query(
                                             &host,
@@ -811,7 +844,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                             ts,
                                             query.journal,
                                         )
-                                        .await?
+                                        .await
                                     },
                                     Some(ref p) => {
                                         let path = Self::parse_admin_component_path(
@@ -829,19 +862,33 @@ impl<RT: Runtime> SyncWorker<RT> {
                                             ts,
                                             query.journal,
                                         )
-                                        .await?
+                                        .await
                                     },
                                 };
-                                let subscription =
-                                    subscriptions_client.subscribe(udf_return.token).await?;
-                                (
-                                    QueryResult::Rerun {
-                                        result: udf_return.result,
-                                        log_lines: udf_return.log_lines,
-                                        journal: udf_return.journal,
+                                match udf_return_result {
+                                    Err(e) => {
+                                        if let Some(error) = e.downcast_ref::<ErrorMetadata>()
+                                            && error.short_msg == "SearchIndexesUnavailable"
+                                        {
+                                            (QueryResult::SearchIndexesUnavailable, None)
+                                        } else {
+                                            anyhow::bail!(e)
+                                        }
                                     },
-                                    subscription,
-                                )
+                                    Ok(udf_return) => {
+                                        let subscription = subscriptions_client
+                                            .subscribe(udf_return.token)
+                                            .await?;
+                                        (
+                                            QueryResult::Rerun {
+                                                result: udf_return.result,
+                                                log_lines: udf_return.log_lines,
+                                                journal: udf_return.journal,
+                                            },
+                                            Some(subscription),
+                                        )
+                                    },
+                                }
                             },
                         };
                         Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
@@ -851,9 +898,15 @@ impl<RT: Runtime> SyncWorker<RT> {
             .await;
 
             let mut udf_results = vec![];
+            let mut search_indexes_unavailable = false;
             for result in future_results? {
-                let (query_id, result, subscription) = result;
-                udf_results.push((query_id, result, subscription));
+                let (query_id, result, maybe_subscription) = result;
+                if matches!(result, QueryResult::SearchIndexesUnavailable) {
+                    search_indexes_unavailable = true;
+                }
+                if let Some(subscription) = maybe_subscription {
+                    udf_results.push((query_id, result, subscription));
+                }
             }
 
             Ok(TransitionState {
@@ -862,6 +915,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 current_version,
                 new_version,
                 timer,
+                search_indexes_unavailable,
             })
         }
         .in_span(root))
@@ -875,6 +929,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             current_version,
             new_version,
             timer,
+            search_indexes_unavailable,
         }: TransitionState,
     ) -> anyhow::Result<ServerMessage> {
         for (query_id, result, subscription) in udf_results {
@@ -899,7 +954,17 @@ impl<RT: Runtime> SyncWorker<RT> {
                 QueryResult::Refresh => {
                     self.state.refill_subscription(query_id, subscription)?;
                 },
+                QueryResult::SearchIndexesUnavailable => {
+                    anyhow::bail!(
+                        "No QueryResult::SearchIndexesUnavailable should have a udf result and \
+                         subscription"
+                    )
+                },
             }
+        }
+
+        if search_indexes_unavailable {
+            self.schedule_search_query_retry();
         }
 
         // Resubscribe for queries that don't have an active invalidation

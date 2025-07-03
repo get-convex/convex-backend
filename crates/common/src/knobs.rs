@@ -1344,3 +1344,8 @@ pub static LIST_SNAPSHOT_MAX_AGE_SECS: LazyLock<Duration> = LazyLock::new(|| {
 /// messages are unread.
 pub static SUBSCRIPTIONS_WORKER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SUBSCRIPTIONS_WORKER_QUEUE_SIZE", 10000));
+
+/// Time to wait before scheduling update queries in the sync worker after a
+/// search query fails because indexes are bootstrapping.
+pub static SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY", 3)));
