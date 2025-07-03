@@ -245,9 +245,7 @@ impl<RT: Runtime> Actions<RT> {
         } = self.executor.invoke(request, log_line_sender).await?;
         let execute_result = ExecuteResponse::try_from(response.clone()).map_err(|e| {
             anyhow::anyhow!(
-                "Failed to deserialize execute response: {}. Response: {}",
-                e.to_string(),
-                response
+                "Failed to deserialize execute (aws_request_id: {aws_request_id:?}) response: {e}. Response: {response}",
             )
         })?;
 
@@ -1001,10 +999,10 @@ pub async fn handle_node_executor_stream(
     }
     anyhow::ensure!(
         result_values.len() <= 1,
-        "Received more than one result from lambda response"
+        "Received more than one result from node executor response"
     );
     let payload = result_values
         .pop()
-        .ok_or_else(|| anyhow::anyhow!("Received no result from lambda response"))?;
+        .ok_or_else(|| anyhow::anyhow!("Received no result from node executor response"))?;
     Ok(Ok(payload))
 }
