@@ -63,7 +63,7 @@ function Main() {
   }
 
   if (query.projectId) {
-    return <RedirectToProjectById id={query.vercel_resource_id as string} />;
+    return <RedirectToProjectById id={query.projectId as string} />;
   }
   return <RedirectToTeam />;
 }

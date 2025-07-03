@@ -61,10 +61,10 @@ export default function VercelLogin() {
 function vercelReturnTo(query: ParsedUrlQuery) {
   const params = [];
   if (query.resource_id) {
-    params.push(`projectId=${query.projectId}`);
+    params.push(`projectId=${query.resource_id}`);
   }
   if (query.invoice_id) {
-    params.push(`invoiceId=${query.invoiceId}`);
+    params.push(`invoiceId=${query.invoice_id}`);
   }
   if (
     query.path &&
