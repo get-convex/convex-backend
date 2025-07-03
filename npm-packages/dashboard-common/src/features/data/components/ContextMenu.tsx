@@ -237,7 +237,7 @@ function ContextMenuItem({
       variant="unstyled"
       className={classNames(
         "w-full flex max-w-xs gap-2 items-center px-3 py-1.5 text-left",
-        "active:bg-background-tertiary focus:bg-background-tertiary outline-none",
+        "active:bg-background-tertiary disabled:active:bg-background-secondary focus:bg-background-tertiary disabled:focus:bg-background-secondary outline-none",
         disabled
           ? "cursor-not-allowed fill-content-tertiary text-content-tertiary"
           : variant === "danger"
@@ -308,6 +308,7 @@ type ContextMenuSubmenuProps = React.PropsWithChildren<{
   icon?: ReactNode;
   label: ReactNode;
   action?: () => void;
+  disabled?: boolean;
 }>;
 
 function ContextMenuSubmenu({
@@ -315,6 +316,7 @@ function ContextMenuSubmenu({
   label,
   children,
   action,
+  disabled = false,
 }: ContextMenuSubmenuProps) {
   // Item in the parent menu
   const parent = useContext(ContextMenuContext);
@@ -418,7 +420,9 @@ function ContextMenuSubmenu({
           "outline-none text-content-primary",
           "active:bg-background-tertiary focus:bg-background-tertiary",
           !isClickable && "cursor-default hover:bg-background-tertiary",
+          "disabled:text-content-tertiary disabled:hover:bg-background-secondary disabled:cursor-not-allowed",
         )}
+        disabled={disabled}
         tabIndex={item.index === parent.activeIndex ? 0 : -1}
         {...getReferenceProps(parent.getItemProps())}
         onClick={
@@ -434,14 +438,16 @@ function ContextMenuSubmenu({
         <span className="flex-1 overflow-hidden truncate" ref={labelRef}>
           {label}
         </span>
-        <span className="ml-auto shrink-0 text-content-primary">
-          <ChevronRightIcon className="ml-2" />
-        </span>
+        {!disabled && (
+          <span className="ml-auto shrink-0 text-content-primary">
+            <ChevronRightIcon className="ml-2" />
+          </span>
+        )}
       </Button>
 
       <ContextMenuContext.Provider value={contextValue}>
         <FloatingList elementsRef={elementsRef} labelsRef={labelsRef}>
-          {isOpen && (
+          {!disabled && isOpen && (
             <FloatingPortal>
               {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
               <div

@@ -140,38 +140,44 @@ export function DeploymentMenuOptions({
             ))}
         </ContextMenu.Submenu>
       )}
-      {teamMemberDeployments.length > 0 && (
-        <ContextMenu.Submenu
-          label={
-            <p className="flex flex-col">
-              Other Deployments
+      <ContextMenu.Submenu
+        disabled
+        label={
+          <p className="flex flex-col">
+            Other Deployments
+            {teamMemberDeployments.length === 0 ? (
               <span className="text-xs text-content-secondary">
-                {teamMemberDeployments.length} deployment
-                {teamMemberDeployments.length === 1 ? "" : "s"}
+                <span className="text-content-tertiary">
+                  Team member deployments appear here
+                </span>
               </span>
-            </p>
-          }
-          icon={<Share1Icon />}
-        >
-          {teamMemberDeployments
-            .sort((a, b) =>
-              a.creator.toLowerCase().localeCompare(b.creator.toLowerCase()),
-            )
-            .map((d) => (
-              <ContextMenu.Item
-                key={d.name}
-                label={
-                  <DeploymentOption
-                    identifier={`${d.creator}'s dev`}
-                    name={d.name}
-                  />
-                }
-                action={`${projectsURI}/${d.name}/${currentView}`}
-                blankTarget={false}
-              />
-            ))}
-        </ContextMenu.Submenu>
-      )}
+            ) : (
+              <span className="text-xs text-content-secondary">
+                {`${teamMemberDeployments.length} deployment${teamMemberDeployments.length === 1 ? "" : "s"}`}
+              </span>
+            )}
+          </p>
+        }
+        icon={<Share1Icon />}
+      >
+        {teamMemberDeployments
+          .sort((a, b) =>
+            a.creator.toLowerCase().localeCompare(b.creator.toLowerCase()),
+          )
+          .map((d) => (
+            <ContextMenu.Item
+              key={d.name}
+              label={
+                <DeploymentOption
+                  identifier={`${d.creator}'s dev`}
+                  name={d.name}
+                />
+              }
+              action={`${projectsURI}/${d.name}/${currentView}`}
+              blankTarget={false}
+            />
+          ))}
+      </ContextMenu.Submenu>
       <hr className="my-1 bg-border-transparent" />
       <ContextMenu.Item
         icon={<GearIcon />}
