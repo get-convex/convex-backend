@@ -4,6 +4,9 @@ mod promise;
 pub mod syscall_error;
 mod version;
 
+use std::ops::Deref;
+
+use anyhow::Context;
 use deno_core::{
     serde_v8,
     v8,
@@ -13,6 +16,7 @@ use errors::{
     ErrorMetadata,
 };
 use serde_json::Value as JsonValue;
+use value::TableName;
 
 pub use self::{
     promise::{
@@ -73,4 +77,53 @@ pub fn remove_rejected_before_execution(mut e: anyhow::Error) -> anyhow::Error {
         em.code = ErrorCode::Overloaded;
     }
     e
+}
+
+/// For DB syscalls that take an explicit table name, checks that the
+/// explicit table name that the user used (`requested_table_name`)
+/// matches the name of the ID’s table (`actual_name_name`).
+pub fn check_table_name(
+    requested_table_name: &Option<String>,
+    actual_table_name: &TableName,
+) -> anyhow::Result<()> {
+    if let Some(requested_table_name) = requested_table_name {
+        if requested_table_name != actual_table_name.deref() {
+            return Err(ErrorMetadata::bad_request(
+                "InvalidTable",
+                format!(
+                    "expected to be an Id<\"{}\">, got Id<\"{}\"> instead.",
+                    requested_table_name,
+                    actual_table_name.deref()
+                ),
+            ))
+            .context(ArgName("id"));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_table_name_accepts_the_correct_name() {
+        let requested_table_name = Some("documents".to_string());
+        let actual_table_name: TableName = "documents".parse().unwrap();
+        assert!(check_table_name(&requested_table_name, &actual_table_name).is_ok());
+    }
+
+    #[test]
+    fn test_check_table_name_rejects_oher_names() {
+        let requested_table_name = Some("documents".to_string());
+        let actual_table_name: TableName = "users".parse().unwrap();
+        assert!(check_table_name(&requested_table_name, &actual_table_name).is_err());
+    }
+
+    #[test]
+    fn test_check_table_name_does_nothing_if_the_requested_table_name_is_none() {
+        let requested_table_name = None;
+        let actual_table_name: TableName = "documents".parse().unwrap();
+        assert!(check_table_name(&requested_table_name, &actual_table_name).is_ok());
+    }
 }

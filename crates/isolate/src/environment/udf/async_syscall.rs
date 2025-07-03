@@ -104,6 +104,7 @@ use crate::{
     environment::{
         action::parse_name_or_reference,
         helpers::{
+            check_table_name,
             parse_version,
             remove_rejected_before_execution,
             with_argument_error,
@@ -1010,6 +1011,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct UpdateArgs {
+            #[serde(default)]
+            table: Option<String>,
             id: String,
             value: JsonValue,
         }
@@ -1020,12 +1023,13 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             let args: UpdateArgs = serde_json::from_value(args)?;
 
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
-            let table_name = tx
+            let actual_table_name = tx
                 .resolve_idv6(id, component.into(), table_filter)
                 .context(ArgName("id"))?;
+            check_table_name(&args.table, &actual_table_name)?;
 
             let value = PatchValue::try_from(args.value).context(ArgName("value"))?;
-            Ok((id, value, table_name))
+            Ok((id, value, actual_table_name))
         })?;
 
         system_table_guard(&table_name, false)?;
@@ -1042,6 +1046,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ReplaceArgs {
+            #[serde(default)]
+            table: Option<String>,
             id: String,
             value: JsonValue,
         }
@@ -1052,12 +1058,17 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             let args: ReplaceArgs = serde_json::from_value(args)?;
 
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
-            let table_name = tx
+            let actual_table_name = tx
                 .resolve_idv6(id, component.into(), table_filter)
                 .context(ArgName("id"))?;
+            check_table_name(&args.table, &actual_table_name)?;
 
             let value = ConvexValue::try_from(args.value).context(ArgName("value"))?;
-            Ok((id, value.try_into().context(ArgName("value"))?, table_name))
+            Ok((
+                id,
+                value.try_into().context(ArgName("value"))?,
+                actual_table_name,
+            ))
         })?;
 
         system_table_guard(&table_name, false)?;
@@ -1077,6 +1088,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct GetArgs {
+            #[serde(default)]
+            table: Option<String>,
             id: String,
             #[serde(default)]
             is_system: bool,
@@ -1126,8 +1139,17 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     AsyncRead::Get(args) => {
                         let component = provider.component()?;
                         let tx = provider.tx()?;
-                        let (id, is_system, version) = with_argument_error("db.get", || {
-                            let args: GetArgs = serde_json::from_value(args)?;
+
+                        let args = with_argument_error("db.get", || {
+                            Ok(serde_json::from_value::<GetArgs>(args)?)
+                        })?;
+                        let method_name = if args.is_system {
+                            "db.system.get"
+                        } else {
+                            "db.get"
+                        };
+
+                        let (id, is_system, version) = with_argument_error(method_name, || {
                             let id =
                                 DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
                             let version = parse_version(args.version)?;
@@ -1142,6 +1164,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         }
                         match tx.resolve_idv6(id, component.into(), table_filter) {
                             Ok(table_name) => {
+                                with_argument_error(method_name, || {
+                                    check_table_name(&args.table, &table_name)
+                                })?;
+
                                 let query = Query::get(table_name, id);
                                 Some((
                                     None,
@@ -1245,6 +1271,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RemoveArgs {
+            #[serde(default)]
+            table: Option<String>,
             id: String,
         }
 
@@ -1254,10 +1282,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let (id, table_name) = with_argument_error("db.delete", || {
             let args: RemoveArgs = serde_json::from_value(args)?;
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
-            let table_name = tx
+            let actual_table_name = tx
                 .resolve_idv6(id, component.into(), table_filter)
                 .context(ArgName("id"))?;
-            Ok((id, table_name))
+            check_table_name(&args.table, &actual_table_name)?;
+            Ok((id, actual_table_name))
         })?;
 
         system_table_guard(&table_name, false)?;
