@@ -1,10 +1,10 @@
 import {
+  data,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
-  json,
   useLoaderData,
 } from "@remix-run/react";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
@@ -12,7 +12,7 @@ import { useState } from "react";
 
 export async function loader() {
   const CONVEX_URL = process.env["CONVEX_URL"]!;
-  return json({ ENV: { CONVEX_URL } });
+  return data({ ENV: { CONVEX_URL } });
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
