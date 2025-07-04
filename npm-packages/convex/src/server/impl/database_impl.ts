@@ -17,7 +17,13 @@ import { validateArg } from "./validate.js";
 import { version } from "../../index.js";
 import { patchValueToJson } from "../../values/value.js";
 
-async function get(id: GenericId<string>, isSystem: boolean) {
+async function get(
+  table: string | undefined,
+  id: GenericId<string>,
+  isSystem: boolean,
+) {
+  // If the user doesn’t provide any arguments, we use the new signature in the error message.
+  // We don’t do argument validation on the table argument since it’s not provided when using the old signature.
   validateArg(id, 1, "get", "id");
   if (typeof id !== "string") {
     throw new Error(
@@ -30,6 +36,7 @@ async function get(id: GenericId<string>, isSystem: boolean) {
     id: convexToJson(id),
     isSystem,
     version,
+    table,
   };
   const syscallJSON = await performAsyncSyscall("1.0/get", args);
 
@@ -42,8 +49,10 @@ export function setupReader(): GenericDatabaseReader<GenericDataModel> {
   ): GenericDatabaseReader<GenericDataModel> &
     GenericDatabaseReaderWithTable<GenericDataModel> => {
     return {
-      get: async (id: GenericId<string>) => {
-        return await get(id, isSystem);
+      get: async (arg0: any, arg1?: any) => {
+        return arg1 !== undefined
+          ? await get(arg0, arg1, isSystem)
+          : await get(undefined, arg0, isSystem);
       },
       query: (tableName: string) => {
         return new TableReader(tableName, isSystem).query();
@@ -98,27 +107,32 @@ async function insert(tableName: string, value: any) {
   return syscallResult._id;
 }
 
-async function patch(id: any, value: any) {
+async function patch(table: string | undefined, id: any, value: any) {
   validateArg(id, 1, "patch", "id");
   validateArg(value, 2, "patch", "value");
   await performAsyncSyscall("1.0/shallowMerge", {
     id: convexToJson(id),
     value: patchValueToJson(value as Value),
+    table,
   });
 }
 
-async function replace(id: any, value: any) {
+async function replace(table: string | undefined, id: any, value: any) {
   validateArg(id, 1, "replace", "id");
   validateArg(value, 2, "replace", "value");
   await performAsyncSyscall("1.0/replace", {
     id: convexToJson(id),
     value: convexToJson(value),
+    table,
   });
 }
 
-async function delete_(id: any) {
+async function delete_(table: string | undefined, id: any) {
   validateArg(id, 1, "delete", "id");
-  await performAsyncSyscall("1.0/remove", { id: convexToJson(id) });
+  await performAsyncSyscall("1.0/remove", {
+    id: convexToJson(id),
+    table,
+  });
 }
 
 export function setupWriter(): GenericDatabaseWriter<GenericDataModel> &
@@ -132,14 +146,20 @@ export function setupWriter(): GenericDatabaseWriter<GenericDataModel> &
     insert: async (table, value) => {
       return await insert(table, value);
     },
-    patch: async (id, value) => {
-      return await patch(id, value);
+    patch: async (arg0: any, arg1: any, arg2?: any) => {
+      return arg2 !== undefined
+        ? await patch(arg0, arg1, arg2)
+        : await patch(undefined, arg0, arg1);
     },
-    replace: async (id, value) => {
-      return await replace(id, value);
+    replace: async (arg0: any, arg1: any, arg2?: any) => {
+      return arg2 !== undefined
+        ? await replace(arg0, arg1, arg2)
+        : await replace(undefined, arg0, arg1);
     },
-    delete: async (id) => {
-      return await delete_(id);
+    delete: async (arg0: any, arg1?: any) => {
+      return arg1 !== undefined
+        ? await delete_(arg0, arg1)
+        : await delete_(undefined, arg0);
     },
     table: (tableName) => {
       return new TableWriter(tableName, false);
@@ -154,7 +174,7 @@ class TableReader {
   ) {}
 
   async get(id: GenericId<string>) {
-    return get(id, this.isSystem);
+    return get(this.tableName, id, this.isSystem);
   }
 
   query() {
@@ -177,12 +197,12 @@ class TableWriter extends TableReader {
     return insert(this.tableName, value);
   }
   async patch(id: any, value: any) {
-    return patch(id, value);
+    return patch(this.tableName, id, value);
   }
   async replace(id: any, value: any) {
-    return replace(id, value);
+    return replace(this.tableName, id, value);
   }
   async delete(id: any) {
-    return delete_(id);
+    return delete_(this.tableName, id);
   }
 }

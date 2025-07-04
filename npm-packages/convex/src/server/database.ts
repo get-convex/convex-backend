@@ -16,6 +16,20 @@ interface BaseDatabaseReader<DataModel extends GenericDataModel> {
   /**
    * Fetch a single document from the database by its {@link values.GenericId}.
    *
+   * @param table - The name of the table to fetch the document from.
+   * @param id - The {@link values.GenericId} of the document to fetch from the database.
+   * @returns - The {@link GenericDocument} of the document at the given {@link values.GenericId}, or `null` if it no longer exists.
+   *
+   * @internal
+   */
+  get<TableName extends TableNamesInDataModel<DataModel>>(
+    table: NonUnion<TableName>,
+    id: GenericId<TableName>,
+  ): Promise<DocumentByName<DataModel, TableName> | null>;
+
+  /**
+   * Fetch a single document from the database by its {@link values.GenericId}.
+   *
    * @param id - The {@link values.GenericId} of the document to fetch from the database.
    * @returns - The {@link GenericDocument} of the document at the given {@link values.GenericId}, or `null` if it no longer exists.
    */
@@ -167,6 +181,26 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * New fields are added. Existing fields are overwritten. Fields set to
    * `undefined` are removed.
    *
+   * @param table - The name of the table the document is in.
+   * @param id - The {@link values.GenericId} of the document to patch.
+   * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
+   * specifies system fields like `_id`, they must match the document's existing field values.
+   *
+   * @internal
+   */
+  patch<TableName extends TableNamesInDataModel<DataModel>>(
+    table: NonUnion<TableName>,
+    id: GenericId<TableName>,
+    value: Partial<DocumentByName<DataModel, TableName>>,
+  ): Promise<void>;
+
+  /**
+   * Patch an existing document, shallow merging it with the given partial
+   * document.
+   *
+   * New fields are added. Existing fields are overwritten. Fields set to
+   * `undefined` are removed.
+   *
    * @param id - The {@link values.GenericId} of the document to patch.
    * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
    * specifies system fields like `_id`, they must match the document's existing field values.
@@ -179,6 +213,22 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   /**
    * Replace the value of an existing document, overwriting its old value.
    *
+   * @param table - The name of the table the document is in.
+   * @param id - The {@link values.GenericId} of the document to replace.
+   * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
+   * and the database will fill them in.
+   *
+   * @internal
+   */
+  replace<TableName extends TableNamesInDataModel<DataModel>>(
+    table: NonUnion<TableName>,
+    id: GenericId<TableName>,
+    value: WithOptionalSystemFields<DocumentByName<DataModel, TableName>>,
+  ): Promise<void>;
+
+  /**
+   * Replace the value of an existing document, overwriting its old value.
+   *
    * @param id - The {@link values.GenericId} of the document to replace.
    * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
    * and the database will fill them in.
@@ -186,6 +236,19 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   replace<TableName extends TableNamesInDataModel<DataModel>>(
     id: GenericId<TableName>,
     value: WithOptionalSystemFields<DocumentByName<DataModel, TableName>>,
+  ): Promise<void>;
+
+  /**
+   * Delete an existing document.
+   *
+   * @param table - The name of the table the document is in.
+   * @param id - The {@link values.GenericId} of the document to remove.
+   *
+   * @internal
+   */
+  delete<TableName extends TableNamesInDataModel<DataModel>>(
+    table: NonUnion<TableName>,
+    id: GenericId<TableName>,
   ): Promise<void>;
 
   /**
@@ -270,3 +333,11 @@ export interface BaseTableWriter<
    */
   delete(id: GenericId<TableName>): Promise<void>;
 }
+
+/**
+ * This prevents TypeScript from inferring that the generic `TableName` type is
+ * a union type when `table` and `id` disagree.
+ */
+type NonUnion<T> = T extends never // `never` is the bottom type for TypeScript unions
+  ? never
+  : T;

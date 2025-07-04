@@ -81,6 +81,42 @@ export const listAllObjects = query(async ({ db }) => {
   return await db.query("objects").collect();
 });
 
+export const explicitDbTableApi = mutation(async ({ db }) => {
+  const id = await db.insert("objects", {
+    name: "test",
+  });
+
+  const obj = await db.get("objects", id);
+  if (!obj || obj.name !== "test") {
+    throw new Error();
+  }
+
+  await db.patch("objects", id, {
+    name: "test2",
+  });
+
+  const obj2 = await db.get("objects", id);
+  if (!obj2 || obj2.name !== "test2") {
+    throw new Error();
+  }
+
+  await db.replace("objects", id, {
+    name: "test3",
+  });
+
+  const obj3 = await db.get("objects", id);
+  if (!obj3 || obj3.name !== "test3") {
+    throw new Error();
+  }
+
+  await db.delete("objects", id);
+
+  const obj4 = await db.get("objects", id);
+  if (obj4 !== null) {
+    throw new Error();
+  }
+});
+
 export const doNothing = query(async () => "hi");
 
 export const count = query(async ({ db }) => {

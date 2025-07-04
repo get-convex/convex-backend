@@ -19,6 +19,7 @@
     "canonicalized",
     "chatbots",
     "codegen",
+    "codemod",
     "convexapp",
     "convexmobile",
     "cronspec",

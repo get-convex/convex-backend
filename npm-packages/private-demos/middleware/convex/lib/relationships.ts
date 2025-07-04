@@ -39,7 +39,7 @@ export async function getAll<TableName extends TableNames>(
   db: DatabaseReader,
   ids: Id<TableName>[],
 ): Promise<(Doc<TableName> | null)[]> {
-  return asyncMap(ids, db.get);
+  return asyncMap(ids, (id) => db.get(id));
 }
 
 // `FieldPath`s that have a `"FieldPath"` index on [`FieldPath`, ...]

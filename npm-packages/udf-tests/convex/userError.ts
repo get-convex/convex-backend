@@ -1,5 +1,6 @@
+import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 /* eslint-disable */
 function _aPrivateFunction() {}
@@ -224,6 +225,37 @@ export const nonexistentUserIdFails = mutation({
     const fakeUserId = nonexistentUserId as Id<any>;
     await db.system.get(fakeUserId);
   },
+});
+
+export const incorrectExplicitIdGet = mutation(async ({ db }) => {
+  const id = await db.insert("objects", {});
+  await db.get("table", id as Id<any>);
+});
+
+export const incorrectExplicitIdGetSystem = mutation(async (ctx) => {
+  const systemId = await ctx.scheduler.runAfter(
+    0,
+    internal.userError.doNothing,
+    {},
+  );
+  await ctx.db.system.get("_storage", systemId as Id<any>);
+});
+
+export const doNothing = internalMutation(async () => {});
+
+export const incorrectExplicitIdPatch = mutation(async ({ db }) => {
+  const id = await db.insert("objects", {});
+  await db.patch("table", id as Id<any>, {});
+});
+
+export const incorrectExplicitIdReplace = mutation(async ({ db }) => {
+  const id = await db.insert("objects", {});
+  await db.replace("table", id as Id<any>, {});
+});
+
+export const incorrectExplicitIdDelete = mutation(async ({ db }) => {
+  const id = await db.insert("objects", {});
+  await db.delete("table", id as Id<any>);
 });
 
 export const privateSystemQuery = query(

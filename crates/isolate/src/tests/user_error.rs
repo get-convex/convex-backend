@@ -239,6 +239,81 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_incorrect_explicit_id(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let err = t
+            .mutation_js_error("userError:incorrectExplicitIdGet", assert_obj!())
+            .await?;
+        assert!(err.message.contains(
+            "Invalid argument `id` for `db.get`: expected to be an Id<\"table\">, got \
+             Id<\"objects\"> instead."
+        ));
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_incorrect_explicit_id_system(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let err = t
+            .mutation_js_error("userError:incorrectExplicitIdGetSystem", assert_obj!())
+            .await?;
+        assert!(err.message.contains(
+            "Invalid argument `id` for `db.system.get`: expected to be an Id<\"_storage\">, got \
+             Id<\"_scheduled_functions\"> instead."
+        ));
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_incorrect_explicit_id_patch(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let err = t
+            .mutation_js_error("userError:incorrectExplicitIdPatch", assert_obj!())
+            .await?;
+        assert!(err.message.contains(
+            "Invalid argument `id` for `db.patch`: expected to be an Id<\"table\">, got \
+             Id<\"objects\"> instead."
+        ));
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_incorrect_explicit_id_replace(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let err = t
+            .mutation_js_error("userError:incorrectExplicitIdReplace", assert_obj!())
+            .await?;
+        assert!(err.message.contains(
+            "Invalid argument `id` for `db.replace`: expected to be an Id<\"table\">, got \
+             Id<\"objects\"> instead."
+        ));
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_incorrect_explicit_id_delete(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let err = t
+            .mutation_js_error("userError:incorrectExplicitIdDelete", assert_obj!())
+            .await?;
+        assert!(err.message.contains(
+            "Invalid argument `id` for `db.delete`: expected to be an Id<\"table\">, got \
+             Id<\"objects\"> instead."
+        ));
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
 async fn test_private_system_table(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let mut tx = t.database.begin(Identity::system()).await?;

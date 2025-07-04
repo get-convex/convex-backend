@@ -394,6 +394,16 @@ async fn test_query_missing_table(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_explicit_db_table_api(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        t.mutation("basic:explicitDbTableApi", assert_obj!())
+            .await?;
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
 async fn test_time_constructor_args(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let ms_in: f64 = 1234567890123.0;
