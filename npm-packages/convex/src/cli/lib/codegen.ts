@@ -46,6 +46,7 @@ export type CodegenOptions = {
   init: boolean;
   commonjs: boolean;
   liveComponentSources: boolean;
+  debugNodeApis: boolean;
 };
 
 export async function doCodegenForNewProject(ctx: Context) {

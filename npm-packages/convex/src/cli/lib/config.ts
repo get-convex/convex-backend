@@ -40,6 +40,7 @@ import {
   LocalDeploymentError,
   printLocalDeploymentOnError,
 } from "./localDeployment/errors.js";
+import { debugIsolateBundlesSerially } from "../../bundler/debugBundle.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -367,11 +368,10 @@ export async function configFromProjectConfig(
   bundledModuleInfos: BundledModuleInfo[];
 }> {
   const baseDir = functionsDir(configPath, projectConfig);
-  // We bundle functions entry points separately since they execute on different
-  // platforms.
+  // We bundle Node.js and Convex JS runtime functions entry points separately
+  // since they execute on different platforms.
   const entryPoints = await entryPointsByEnvironment(ctx, baseDir);
-  // es-build prints errors to console which would clobber
-  // our spinner.
+  // es-build prints errors to console which would clobber our spinner.
   if (verbose) {
     showSpinner(ctx, "Bundling modules for Convex's runtime...");
   }
@@ -459,6 +459,26 @@ export async function configFromProjectConfig(
     },
     bundledModuleInfos,
   };
+}
+
+/**
+ * Bundle modules one by one for good bundler errors.
+ */
+export async function debugIsolateEndpointBundles(
+  ctx: Context,
+  projectConfig: ProjectConfig,
+  configPath: string,
+): Promise<void> {
+  const baseDir = functionsDir(configPath, projectConfig);
+  const entryPoints = await entryPointsByEnvironment(ctx, baseDir);
+  if (entryPoints.isolate.length === 0) {
+    logFinishedStep(ctx, "No non-'use node' modules found.");
+  }
+  await debugIsolateBundlesSerially(ctx, {
+    entryPoints: entryPoints.isolate,
+    extraConditions: [],
+    dir: baseDir,
+  });
 }
 
 /**

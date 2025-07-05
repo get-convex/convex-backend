@@ -48,5 +48,6 @@ export const codegen = new Command("codegen")
       url: options.url,
       adminKey: options.adminKey,
       liveComponentSources: !!options.liveComponentSources,
+      debugNodeApis: false,
     });
   });

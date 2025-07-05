@@ -136,9 +136,9 @@ can also live in the same file as your query and mutation functions.
 ## Node.js runtime
 
 Some JavaScript and TypeScript libraries use features that are not included in
-the default Convex runtime. This is why Convex actions provide an escape hatch
-to [Node.js 18](https://nodejs.org/en/about) via the `"use node"` directive at
-the top of a file that contains your action.
+the default Convex runtime. Convex actions provide an escape hatch to
+[Node.js 18](https://nodejs.org/en/about) via the `"use node"` directive at the
+top of a file that contains your action.
 [Learn more](/functions/actions.mdx#choosing-the-runtime-use-node).
 
 Use of the Node.js environment is restricted to **action functions only**. If
@@ -158,5 +158,11 @@ without the `"use node"` directive should not import any files with the
 `"use node"` directive. Files that contain no Convex functions, like a
 `convex/utils.ts` file, also need the "use node" directive if they use
 Node.js-specific libraries.
+
+If you encounter bundling errors about Node.js-specific imports like `fs` /
+`node:fs` not being available when deploying convex functions, running
+`npx convex dev --once --debug-node-apis` gives more information about these. It
+uses a slower bundling method to track the train of imports, narrowing down
+which import is responsible for the error.
 
 Note that argument size limits are lower (5MiB instead of 16MiB).

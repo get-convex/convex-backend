@@ -239,6 +239,7 @@ async function deployToNewPreviewDeployment(
     typecheckComponents: options.typecheckComponents,
     debug: !!options.debug,
     debugBundlePath: options.debugBundlePath,
+    debugNodeApis: false,
     codegen: options.codegen === "enable",
     url: previewUrl,
     liveComponentSources: false,

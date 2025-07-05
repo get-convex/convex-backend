@@ -1,10 +1,16 @@
 import chalk from "chalk";
-import { Context, changeSpinner, logMessage } from "../../bundler/context.js";
+import {
+  Context,
+  changeSpinner,
+  logFinishedStep,
+  logMessage,
+} from "../../bundler/context.js";
 import { doCodegen } from "./codegen.js";
 import {
   ProjectConfig,
   configFromProjectConfig,
   diffConfig,
+  debugIsolateEndpointBundles,
   pullConfig,
   pushConfig,
 } from "./config.js";
@@ -23,6 +29,7 @@ export type PushOptions = {
   typecheckComponents: boolean;
   debug: boolean;
   debugBundlePath?: string;
+  debugNodeApis: boolean;
   codegen: boolean;
   url: string;
   deploymentName: string | null;
@@ -73,7 +80,16 @@ export async function runNonComponentsPush(
     }
   }
 
+  if (options.debugNodeApis) {
+    await debugIsolateEndpointBundles(ctx, projectConfig, configPath);
+    logFinishedStep(
+      ctx,
+      "All non-'use node' entry points successfully bundled. Skipping rest of push.",
+    );
+    return;
+  }
   const timeBundleStarts = performance.now();
+
   const { config: localConfig, bundledModuleInfos } =
     await configFromProjectConfig(ctx, projectConfig, configPath, verbose);
 

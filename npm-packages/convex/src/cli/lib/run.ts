@@ -476,6 +476,7 @@ export async function runInDeployment(
         typecheck: args.typecheck,
         typecheckComponents: args.typecheckComponents,
         debug: false,
+        debugNodeApis: false,
         codegen: args.codegen,
         liveComponentSources: args.liveComponentSources,
       },

@@ -80,6 +80,7 @@ export const dev = new Command("dev")
   )
   .addOption(new Option("--trace-events").default(false).hideHelp())
   .addOption(new Option("--debug-bundle-path <path>").hideHelp())
+  .addOption(new Option("--debug-node-apis").hideHelp())
   .addOption(new Option("--live-component-sources").hideHelp())
   .addOption(
     new Option(

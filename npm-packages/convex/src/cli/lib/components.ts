@@ -8,6 +8,7 @@ import {
 import {
   ProjectConfig,
   configFromProjectConfig,
+  debugIsolateEndpointBundles,
   getFunctionsDirectoryPath,
   readProjectConfig,
 } from "./config.js";
@@ -109,6 +110,7 @@ export async function runCodegen(
         codegen: true,
         liveComponentSources: options.liveComponentSources,
         typecheckComponents: false,
+        debugNodeApis: options.debugNodeApis,
       },
     );
   } else {
@@ -161,6 +163,7 @@ async function startComponentsPushAndCodegen(
     writePushRequest?: string;
     codegen: boolean;
     liveComponentSources?: boolean;
+    debugNodeApis: boolean;
   },
 ): Promise<StartPushResponse | null> {
   const convexDir = await getFunctionsDirectoryPath(ctx);
@@ -226,6 +229,15 @@ async function startComponentsPushAndCodegen(
       !!options.liveComponentSources,
     ),
   );
+
+  if (options.debugNodeApis) {
+    await debugIsolateEndpointBundles(ctx, projectConfig, configPath);
+    logFinishedStep(
+      ctx,
+      "All non-'use node' entry points successfully bundled. Skipping rest of push.",
+    );
+    return null;
+  }
 
   changeSpinner(ctx, "Bundling component schemas and implementations...");
   const { appImplementation, componentImplementations } =

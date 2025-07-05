@@ -1,6 +1,6 @@
 import path from "path";
 import chalk from "chalk";
-import esbuild, { BuildFailure } from "esbuild";
+import esbuild from "esbuild";
 import { parse as parseAST } from "@babel/parser";
 import { Identifier, ImportSpecifier } from "@babel/types";
 import * as Sentry from "@sentry/node";
@@ -13,6 +13,7 @@ import {
   createExternalPlugin,
   findExactVersionAndDependencies,
 } from "./external.js";
+import { innerEsbuild, isEsbuildBuildError } from "./debugBundle.js";
 export { nodeFs, RecordingFs } from "./fs.js";
 export type { Filesystem } from "./fs.js";
 
@@ -74,35 +75,15 @@ async function doEsbuild(
 ): Promise<EsBuildResult> {
   const external = createExternalPlugin(ctx, externalPackages);
   try {
-    const result = await esbuild.build({
+    const result = await innerEsbuild({
       entryPoints,
-      bundle: true,
-      platform: platform,
-      format: "esm",
-      target: "esnext",
-      jsx: "automatic",
-      outdir: "out",
-      outbase: dir,
-      conditions: ["convex", "module", ...extraConditions],
+      platform,
+      generateSourceMaps,
+      chunksFolder,
+      extraConditions,
+      dir,
       // The wasmPlugin should be last so it doesn't run on external modules.
       plugins: [external.plugin, wasmPlugin],
-      write: false,
-      sourcemap: generateSourceMaps,
-      splitting: true,
-      chunkNames: path.join(chunksFolder, "[hash]"),
-      treeShaking: true,
-      minifySyntax: true,
-      minifyIdentifiers: true,
-      // Enabling minifyWhitespace breaks sourcemaps on convex backends.
-      // The sourcemaps produced are valid on https://evanw.github.io/source-map-visualization
-      // but something we're doing (perhaps involving https://github.com/getsentry/rust-sourcemap)
-      // makes everything map to the same line.
-      minifyWhitespace: false, // false is the default, just showing for clarify.
-      keepNames: true,
-      define: {
-        "process.env.NODE_ENV": '"production"',
-      },
-      metafile: true,
     });
 
     for (const [relPath, input] of Object.entries(result.metafile!.inputs)) {
@@ -174,15 +155,6 @@ async function doEsbuild(
   }
 }
 
-function isEsbuildBuildError(e: any): e is BuildFailure {
-  return (
-    "errors" in e &&
-    "warnings" in e &&
-    Array.isArray(e.errors) &&
-    Array.isArray(e.warnings)
-  );
-}
-
 export async function bundle(
   ctx: Context,
   dir: string,
@@ -211,6 +183,7 @@ export async function bundle(
     availableExternalPackages,
     extraConditions,
   );
+  // Some ESBuild errors won't show up here, instead crashing in doEsbuild().
   if (result.errors.length) {
     const errorMessage = result.errors
       .map((e) => `esbuild error: ${e.text}`)

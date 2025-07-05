@@ -210,6 +210,7 @@ export async function normalizeDevOptions(
     tailLogs?: string | true;
     traceEvents: boolean;
     debugBundlePath?: string;
+    debugNodeApis?: boolean;
     liveComponentSources?: boolean;
     while?: string;
   },
@@ -226,6 +227,7 @@ export async function normalizeDevOptions(
   tailLogs: LogMode;
   traceEvents: boolean;
   debugBundlePath?: string;
+  debugNodeApis: boolean;
   liveComponentSources: boolean;
 }> {
   if (cmdOptions.runComponent && !cmdOptions.run) {
@@ -241,6 +243,13 @@ export async function normalizeDevOptions(
       exitCode: 1,
       errorType: "fatal",
       printedMessage: "`--debug-bundle-path` can only be used with `--once`.",
+    });
+  }
+  if (cmdOptions.debugNodeApis && !cmdOptions.once) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "`--debug-node-apis` can only be used with `--once`.",
     });
   }
 
@@ -270,6 +279,7 @@ export async function normalizeDevOptions(
         : "pause-on-deploy",
     traceEvents: cmdOptions.traceEvents,
     debugBundlePath: cmdOptions.debugBundlePath,
+    debugNodeApis: !!cmdOptions.debugNodeApis,
     liveComponentSources: !!cmdOptions.liveComponentSources,
   };
 }

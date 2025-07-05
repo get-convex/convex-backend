@@ -314,6 +314,7 @@ export async function deployToDeployment(
     typecheckComponents: options.typecheckComponents,
     debug: !!options.debug,
     debugBundlePath: options.debugBundlePath,
+    debugNodeApis: false,
     codegen: options.codegen === "enable",
     url,
     writePushRequest: options.writePushRequest,

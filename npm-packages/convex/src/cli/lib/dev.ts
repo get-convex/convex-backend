@@ -45,6 +45,7 @@ export async function devAgainstDeployment(
     tailLogs: LogMode;
     traceEvents: boolean;
     debugBundlePath?: string;
+    debugNodeApis: boolean;
     liveComponentSources: boolean;
   },
 ) {
@@ -71,6 +72,7 @@ export async function devAgainstDeployment(
         typecheckComponents: devOptions.typecheckComponents,
         debug: false,
         debugBundlePath: devOptions.debugBundlePath,
+        debugNodeApis: devOptions.debugNodeApis,
         codegen: devOptions.codegen,
         liveComponentSources: devOptions.liveComponentSources,
         logManager, // Pass logManager to control logs during deploy
