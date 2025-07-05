@@ -83,7 +83,7 @@ async fn test_udf_logs(rt: TestRuntime) -> anyhow::Result<()> {
             PublicFunctionPath::Component(path),
             vec![],
             Identity::system(),
-            FunctionCaller::SyncWorker(ClientVersion::unknown()),
+            FunctionCaller::SyncWorker(ClientVersion::unknown(), None),
         )
         .await?;
     assert!(result.result.is_ok());
