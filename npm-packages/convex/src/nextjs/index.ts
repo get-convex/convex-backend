@@ -195,6 +195,13 @@ function setupClient(options: NextjsOptions) {
 }
 
 function getConvexUrl(
+    /** 
+    * The URL of the Convex deployment to use for the function call. 
+    * 
+    * Defaults to `process.env.NEXT_PUBLIC_CONVEX_URL` if not provided. 
+    * 
+    * Explicity passing undefined here (such as in broken ENV variables) will throw an error in the future
+    */ 
   deploymentUrl: string | undefined,
   skipConvexDeploymentUrlCheck: boolean,
 ) {
@@ -202,7 +209,7 @@ function getConvexUrl(
     deploymentUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   }
    else if (deploymentUrl === undefined) { // It will skip over this check if it hits the first one
-    throw new Error(`deploymentUrl is undefined, are your environment variables set?`);
+    console.error("deploymentUrl is undefined, are your environment variables set?");
   }
   const url = deploymentUrl;
   const isFromEnv = deploymentUrl === undefined;
