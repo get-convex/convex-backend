@@ -81,7 +81,7 @@ export function Backups({
             >
               <label className="flex cursor-not-allowed items-center gap-2 text-sm">
                 <Checkbox disabled checked={false} onChange={() => {}} />
-                Backup Automatically
+                Backup automatically
               </label>
               <span
                 className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
