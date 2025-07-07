@@ -35,7 +35,7 @@
  * export function ClientComponent(props: {
  *   preloaded: Preloaded<typeof api.foo.baz>;
  * }) {
- *   const data = await usePreloadedQuery(props.preloaded);
+ *   const data = usePreloadedQuery(props.preloaded);
  *   // render `data`...
  * }
  * ```
