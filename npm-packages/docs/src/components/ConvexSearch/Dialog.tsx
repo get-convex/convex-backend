@@ -101,7 +101,7 @@ const Dialog = ({ open, onClose }: Props) => {
         )}
       </div>
       <button
-        className="hidden bg-neutral-n12/50 dark:bg-neutral-n12/80 inset-0 absolute border-none p-0 w-screen h-screen backdrop-blur-sm md:block"
+        className="hidden bg-neutral-n12/50 dark:bg-neutral-n12/80 inset-0 absolute border-none p-0 w-screen h-screen backdrop-blur-xs md:block"
         aria-label="Close search"
         onClick={handleClose}
       />

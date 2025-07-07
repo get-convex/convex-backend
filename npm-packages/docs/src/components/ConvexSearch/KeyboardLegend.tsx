@@ -1,7 +1,7 @@
 import React from "react";
 
 const KeyCap = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="flex items-center p-0 bg-gradient-to-tl from-neutral-n3 to-neutral-n1 rounded-sm [box-shadow:inset_0_-2px_0_0_#c2c2c2,inset_0_0_1px_1px_#fff,0_1px_2px_1px_rgba(30,35,90,0.4)] h-[1.125rem] w-5 justify-center mr-[0.4em] text-neutral-n8 border-none dark:text-neutral-n12 dark:opacity-80">
+  <kbd className="flex items-center p-0! bg-gradient-to-tl from-neutral-n3 to-neutral-n1 rounded-xs [box-shadow:inset_0_-2px_0_0_#c2c2c2,inset_0_0_1px_1px_#fff,0_1px_2px_1px_rgba(30,35,90,0.4)]! h-[1.125rem] w-5 justify-center mr-[0.4em] text-neutral-n8! border-none! dark:text-neutral-n12! dark:opacity-80">
     {children}
   </kbd>
 );

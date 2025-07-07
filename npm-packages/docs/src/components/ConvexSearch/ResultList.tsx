@@ -77,7 +77,7 @@ export default function ResultList({ results }: ResultListProps) {
 
   return (
     <ul
-      className="flex flex-col list-none p-0 gap-1 m-0"
+      className="flex flex-col list-none p-0! gap-1 m-0"
       role="list"
       ref={listRef}
     >
@@ -96,7 +96,7 @@ export default function ResultList({ results }: ResultListProps) {
           className={cn(
             "js-hitList-item border-2 border-solid border-transparent p-2 rounded-md overflow-hidden transition-all",
             {
-              "border-plum-p4/50 shadow bg-neutral-white dark:bg-neutral-n12 dark:border-plum-p3/80":
+              "border-plum-p4/50 shadow-sm bg-neutral-white dark:bg-neutral-n12 dark:border-plum-p3/80":
                 index === selectedResult,
             },
           )}
@@ -108,7 +108,7 @@ export default function ResultList({ results }: ResultListProps) {
         >
           <a
             href={result.url}
-            className="text-neutral-n10 flex gap-4 items-center hover:no-underline hover:text-neutral-n10 w-full dark:text-neutral-n2"
+            className="text-neutral-n10! flex gap-4 items-center hover:no-underline hover:text-neutral-n10! w-full dark:text-neutral-n2!"
           >
             <div className="flex flex-col grow min-w-0">
               <div className="font-bold text-sm">{result.title}</div>
@@ -118,7 +118,7 @@ export default function ResultList({ results }: ResultListProps) {
                 </div>
               )}
             </div>
-            <span className="text-xs text-neutral-n8 font-semibold bg-neutral-n2 rounded shrink-0 px-2 py-1">
+            <span className="text-xs text-neutral-n8 font-semibold bg-neutral-n2 rounded-sm shrink-0 px-2 py-1">
               {labelForUrl(result.url)}
             </span>
           </a>

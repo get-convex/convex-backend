@@ -64,7 +64,7 @@ export default function SearchBox({
     >
       <MagnifyingGlassIcon className="h-7 w-7 text-plum-p4 dark:text-plum-p3" />
       <input
-        className="bg-transparent border-none flex-grow text-lg font-sans text-neutral-n11 focus:outline-none dark:text-neutral-n2"
+        className="bg-transparent border-none grow text-lg font-sans text-neutral-n11 focus:outline-hidden dark:text-neutral-n2"
         type="text"
         placeholder="Search across Docs, Stack, and Discord..."
         value={value}

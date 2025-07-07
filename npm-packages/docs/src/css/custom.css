@@ -1,8 +1,59 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* stylelint-disable docusaurus/copyright-header */
+
+/* @import "tailwindcss"; but without preflight */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "../**/*.{js,jsx,ts,tsx}";
+
+@theme {
+  --color-neutral-white: #ffffff;
+  --color-neutral-n1: #f6f6f6;
+  --color-neutral-n2: #f1f1f1;
+  --color-neutral-n3: #e5e5e5;
+  --color-neutral-n4: #d7d7d7;
+  --color-neutral-n5: #c2c2c2;
+  --color-neutral-n6: #a9a9ac;
+  --color-neutral-n7: #8b8b8e;
+  --color-neutral-n8: #6d6d70;
+  --color-neutral-n9: #4f4f52;
+  --color-neutral-n10: #38383a;
+  --color-neutral-n11: #292929;
+  --color-neutral-n12: #141414;
+  --color-neutral-n13: #111111;
+  --color-neutral-black: #000000;
+
+  --color-plum-p1: #f4e9f1;
+  --color-plum-p2: #e3d0df;
+  --color-plum-p3: #d7b3cf;
+  --color-plum-p4: #8d2676;
+  --color-plum-p5: #711e5e;
+  --color-plum-p6: #47133b;
+
+  --color-yellow-y1: #fdefd2;
+  --color-yellow-y2: #f8d077;
+  --color-yellow-y3: #f3b01c;
+  --color-yellow-y4: #e7a71b;
+
+  --color-red-r1: #fcd6d5;
+  --color-red-r2: #f15d59;
+  --color-red-r3: #ee342f;
+  --color-red-r4: #d62f2a;
+
+  --color-green-g1: #e5f3dc;
+  --color-green-g2: #72c043;
+  --color-green-g3: #4fb014;
+  --color-green-g4: #479e12;
+
+  --color-transparent: transparent;
+
+  --font-sans: "Inter", "sans-serif";
+}
+
+/* Apply the dark mode when [data-theme="dark"] is present */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 /**
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to
@@ -302,6 +353,7 @@ nav.menu {
 /* reset padding on container because we added footer inside of it */
 main > .container {
   padding: 0 !important;
+  max-width: unset !important;
 }
 
 /* Increase the padding on the main text */
@@ -1258,6 +1310,13 @@ h2.zen-header {
 /* Fix pages should not be too wide, except for all the quick starts */
 html:not([class*="docs-doc-id-quickstart/"]) main > .container > .row .col {
   max-width: 800px !important;
+  margin: 0 auto;
+}
+
+@media (min-width: 997px) {
+  html:not([class*="docs-doc-id-quickstart/"]) main > .container > .row .col {
+    margin: unset;
+  }
 }
 
 /* Border for screenshots that are confusing if left on white background */
