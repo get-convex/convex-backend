@@ -96,12 +96,16 @@ export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
   return createHash("md5").update(JSON.stringify(envs)).digest("hex");
 }
 
-function unhandledRejectionHandler(responseStream: Writable, e: unknown) {
+function unhandledRejectionHandler(
+  responseStream: Writable,
+  event: "unhandledRejection" | "uncaughtException",
+  e: unknown,
+) {
   // Respond with a user error.
-  log("handling unhandledRejection");
+  log(`handling ${event}`);
   const response = {
     type: "error",
-    message: `Unhandled promise rejection: ${extractErrorMessage(e)}`,
+    message: `${event}: ${extractErrorMessage(e)}`,
     frames: [],
     syscallTrace: (globalSyscalls.getStore() as SyscallsImpl | null)
       ?.syscallTrace,
@@ -127,8 +131,12 @@ export async function invoke(
   responseStream: Writable,
 ) {
   process.removeAllListeners("unhandledRejection");
+  process.removeAllListeners("uncaughtException");
   process.on("unhandledRejection", (e: unknown) =>
-    unhandledRejectionHandler(responseStream, e),
+    unhandledRejectionHandler(responseStream, "unhandledRejection", e),
+  );
+  process.on("uncaughtException", (e: unknown) =>
+    unhandledRejectionHandler(responseStream, "uncaughtException", e),
   );
   const start = performance.now();
   numInvocations += 1;

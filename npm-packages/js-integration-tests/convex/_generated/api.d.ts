@@ -36,6 +36,7 @@ import type * as logging from "../logging.js";
 import type * as maps from "../maps.js";
 import type * as messages from "../messages.js";
 import type * as mountedSearch from "../mountedSearch.js";
+import type * as nodeError from "../nodeError.js";
 import type * as references from "../references.js";
 import type * as removeObject from "../removeObject.js";
 import type * as scheduler from "../scheduler.js";
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   maps: typeof maps;
   messages: typeof messages;
   mountedSearch: typeof mountedSearch;
+  nodeError: typeof nodeError;
   references: typeof references;
   removeObject: typeof removeObject;
   scheduler: typeof scheduler;
