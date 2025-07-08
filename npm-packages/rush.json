@@ -87,7 +87,7 @@
    * and set projectFolderMaxDepth to a large number.
    */
   // "projectFolderMinDepth": 2,
-  "projectFolderMaxDepth": 3,
+  "projectFolderMaxDepth": 5,
   /**
    * Today the npmjs.com registry enforces fairly strict naming rules for packages, but in the early
    * days there was no standard and hardly any enforcement.  A few large legacy projects are still using
@@ -271,6 +271,18 @@
       "packageName": "@convex-dev/eslint-plugin",
       "projectFolder": "@convex-dev/eslint-plugin"
       // move to `"versionPolicyName": "convex"` once this is stable
+    },
+    {
+      "packageName": "@convex-dev/codemod",
+      "projectFolder": "@convex-dev/codemod"
+    },
+    {
+      "packageName": "codemod-test-custom-convex-folder",
+      "projectFolder": "@convex-dev/codemod/test/explicit-ids/custom-convex-folder"
+    },
+    {
+      "packageName": "codemod-test-sample-convex-project",
+      "projectFolder": "@convex-dev/codemod/test/explicit-ids/sample-convex-project"
     },
     {
       "packageName": "publishing-tests",
