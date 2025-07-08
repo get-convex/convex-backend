@@ -75,6 +75,8 @@ export interface BaseConvexClientOptions {
    * If `false`, logs are not printed anywhere.
    *
    * You can construct your own logger to customize logging to log elsewhere.
+   * A logger is an object with 4 methods: log(), warn(), error(), and logVerbose().
+   * These methods can receive multiple arguments of any types, like console.log().
    */
   logger?: Logger | boolean;
   /**

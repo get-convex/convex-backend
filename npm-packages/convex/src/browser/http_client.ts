@@ -86,6 +86,8 @@ export class ConvexHttpClient {
    * - `logger` - A logger or a boolean. If not provided, logs to the console.
    * You can construct your own logger to customize logging to log elsewhere
    * or not log at all, or use `false` as a shorthand for a no-op logger.
+   * A logger is an object with 4 methods: log(), warn(), error(), and logVerbose().
+   * These methods can receive multiple arguments of any types, like console.log().
    * - `auth` - A JWT containing identity claims accessible in Convex functions.
    * This identity may expire so it may be necessary to call `setAuth()` later,
    * but for short-lived clients it's convenient to specify this value here.

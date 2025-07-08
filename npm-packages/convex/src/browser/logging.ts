@@ -28,7 +28,14 @@ export type LogLevel = "debug" | "info" | "warn" | "error";
  * around `console`, but can be configured to not log at all or to log somewhere
  * else.
  */
-export class Logger {
+export type Logger = {
+  logVerbose(...args: any[]): void;
+  log(...args: any[]): void;
+  warn(...args: any[]): void;
+  error(...args: any[]): void;
+};
+
+export class DefaultLogger implements Logger {
   private _onLogLineFuncs: Record<
     string,
     (level: LogLevel, ...args: any[]) => void
@@ -86,7 +93,7 @@ export class Logger {
 export function instantiateDefaultLogger(options: {
   verbose: boolean;
 }): Logger {
-  const logger = new Logger(options);
+  const logger = new DefaultLogger(options);
   logger.addLogLineListener((level, ...args) => {
     switch (level) {
       case "debug":
@@ -111,7 +118,7 @@ export function instantiateDefaultLogger(options: {
 }
 
 export function instantiateNoopLogger(options: { verbose: boolean }): Logger {
-  return new Logger(options);
+  return new DefaultLogger(options);
 }
 
 export function logForFunction(

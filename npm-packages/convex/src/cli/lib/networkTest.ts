@@ -18,7 +18,7 @@ import {
 } from "./utils/utils.js";
 import ws from "ws";
 import { BaseConvexClient } from "../../browser/index.js";
-import { Logger } from "../../browser/logging.js";
+import { DefaultLogger } from "../../browser/logging.js";
 const ipFamilyNumbers = { ipv4: 4, ipv6: 6, auto: 0 } as const;
 const ipFamilyNames = { 4: "ipv4", 6: "ipv6", 0: "auto" } as const;
 
@@ -217,7 +217,7 @@ async function checkWs(
   const queryPromise = new Promise<string | null>((resolve) => {
     queryPromiseResolver = resolve;
   });
-  const logger = new Logger({
+  const logger = new DefaultLogger({
     verbose: process.env.CONVEX_VERBOSE !== undefined,
   });
   logger.addLogLineListener((level, ...args) => {

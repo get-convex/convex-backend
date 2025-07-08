@@ -5,7 +5,7 @@ import { parseArgs, parseFunctionName } from "../../run.js";
 import { readProjectConfig } from "../../config.js";
 import { ConvexHttpClient } from "../../../../browser/index.js";
 import { Value } from "../../../../values/index.js";
-import { Logger } from "../../../../browser/logging.js";
+import { DefaultLogger } from "../../../../browser/logging.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 const inputSchema = z.object({
   deploymentSelector: z
@@ -61,7 +61,7 @@ export const RunTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       args.functionName,
       projectConfig.functions,
     );
-    const logger = new Logger({ verbose: true });
+    const logger = new DefaultLogger({ verbose: true });
     const logLines: string[] = [];
     logger.addLogLineListener((level, ...args) => {
       logLines.push(`${level}: ${args.join(" ")}`);
