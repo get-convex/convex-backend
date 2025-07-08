@@ -82,4 +82,5 @@ export {
   useQuery,
   useMutation,
   useAction,
+  useConvexConnectionState,
 } from "./client.js";

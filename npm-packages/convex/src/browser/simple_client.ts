@@ -13,6 +13,7 @@ import {
 } from "../server/index.js";
 import { getFunctionName } from "../server/api.js";
 import { AuthTokenFetcher } from "./sync/authentication_manager.js";
+import { ConnectionState } from "./sync/client.js";
 
 // In Node.js builds this points to a bundled WebSocket implementation. If no
 // WebSocket implementation is manually specified or globally available,
@@ -392,6 +393,34 @@ export class ConvexClient {
         },
       );
     });
+  }
+
+  /**
+   * Get the current {@link ConnectionState} between the client and the Convex
+   * backend.
+   *
+   * @returns The {@link ConnectionState} with the Convex backend.
+   */
+  connectionState(): ConnectionState {
+    if (this.disabled) throw new Error("ConvexClient is disabled");
+    return this.client.connectionState();
+  }
+
+  /**
+   * Subscribe to the {@link ConnectionState} between the client and the Convex
+   * backend, calling a callback each time it changes.
+   *
+   * Subscribed callbacks will be called when any part of ConnectionState changes.
+   * ConnectionState may grow in future versions (e.g. to provide a array of
+   * inflight requests) in which case callbacks would be called more frequently.
+   *
+   * @returns An unsubscribe function to stop listening.
+   */
+  subscribeToConnectionState(
+    cb: (connectionState: ConnectionState) => void,
+  ): () => void {
+    if (this.disabled) return () => {};
+    return this.client.subscribeToConnectionState(cb);
   }
 }
 

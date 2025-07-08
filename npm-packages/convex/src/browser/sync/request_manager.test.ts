@@ -1,14 +1,17 @@
-import { test, expect, beforeEach } from "vitest";
+import { test, expect, beforeEach, vi } from "vitest";
 import { RequestManager } from "./request_manager.js";
 import { Long } from "../long.js";
 import { ActionRequest, MutationRequest } from "./protocol.js";
 import { instantiateDefaultLogger } from "../logging.js";
 
 let requestManager: RequestManager;
+let markConnectionStateDirty: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  markConnectionStateDirty = vi.fn();
   requestManager = new RequestManager(
     instantiateDefaultLogger({ verbose: false }),
+    markConnectionStateDirty,
   );
 });
 
@@ -212,4 +215,59 @@ test("actions are retried only if unsent", async () => {
     errorMessage: "Connection lost while action was in flight",
     logLines: [],
   });
+});
+
+test("markConnectionStateDirty is called on state changes", () => {
+  expect(markConnectionStateDirty).toHaveBeenCalledTimes(0);
+
+  // Adding a request should trigger the callback
+  const message: MutationRequest = {
+    type: "Mutation",
+    requestId: 0,
+    udfPath: "myMutation",
+    args: [],
+  };
+  void requestManager.request(message, true);
+  expect(markConnectionStateDirty).toHaveBeenCalledTimes(1);
+
+  // Response for actions triggers callback immediately, but mutations need to complete
+  const actionMessage: ActionRequest = {
+    type: "Action",
+    requestId: 1,
+    udfPath: "myAction",
+    args: [],
+  };
+  void requestManager.request(actionMessage, true);
+  expect(markConnectionStateDirty).toHaveBeenCalledTimes(2);
+
+  // Action response should trigger callback
+  requestManager.onResponse({
+    type: "ActionResponse",
+    requestId: 1,
+    success: true,
+    result: null,
+    logLines: [],
+  });
+  expect(markConnectionStateDirty).toHaveBeenCalledTimes(3);
+
+  // First make a mutation response that gets completed
+  requestManager.onResponse({
+    type: "MutationResponse",
+    requestId: 0,
+    success: true,
+    result: null,
+    ts: Long.fromNumber(0),
+    logLines: [],
+  });
+
+  // removeCompleted should trigger the callback when mutations complete
+  markConnectionStateDirty.mockClear();
+  const completedRequests = requestManager.removeCompleted(Long.fromNumber(1));
+  expect(completedRequests.size).toBe(1);
+  expect(markConnectionStateDirty).toHaveBeenCalledTimes(1);
+
+  // restart should trigger the callback
+  markConnectionStateDirty.mockClear();
+  requestManager.restart();
+  expect(markConnectionStateDirty).toHaveBeenCalledTimes(1);
 });

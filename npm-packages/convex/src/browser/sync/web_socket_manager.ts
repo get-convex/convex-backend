@@ -181,6 +181,7 @@ export class WebSocketManager {
     },
     webSocketConstructor: typeof WebSocket,
     logger: Logger,
+    private readonly markConnectionStateDirty: () => void,
   ) {
     this.webSocketConstructor = webSocketConstructor;
     this.socket = { state: "disconnected" };
@@ -212,6 +213,7 @@ export class WebSocketManager {
         "paused" in this.socket ? this.socket.paused : undefined
       }`,
     );
+    this.markConnectionStateDirty();
   }
 
   private connect() {
@@ -280,6 +282,7 @@ export class WebSocketManager {
       if (response.hasSyncedPastLastReconnect) {
         // Reset backoff to 0 once all outstanding requests are complete.
         this.retries = 0;
+        this.markConnectionStateDirty();
       }
     };
     ws.onclose = (event) => {
@@ -376,6 +379,7 @@ export class WebSocketManager {
   private scheduleReconnect(reason: "client" | ServerDisconnectError) {
     this.socket = { state: "disconnected" };
     const backoff = this.nextBackoff(reason);
+    this.markConnectionStateDirty();
     this.logger.log(`Attempting reconnect in ${backoff}ms`);
     setTimeout(() => this.connect(), backoff);
   }

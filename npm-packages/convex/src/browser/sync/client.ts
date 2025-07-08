@@ -235,6 +235,12 @@ export class BaseConvexClient {
   private readonly debug: boolean;
   private readonly logger: Logger;
   private maxObservedTimestamp: TS | undefined;
+  private connectionStateSubscribers = new Map<
+    number,
+    (connectionState: ConnectionState) => void
+  >();
+  private nextConnectionStateSubscriberId: number = 0;
+  private _lastPublishedConnectionState: ConnectionState | undefined;
 
   /**
    * @param address - The url of your Convex deployment, often provided
@@ -297,7 +303,10 @@ export class BaseConvexClient {
       (queryId) => this.state.queryPath(queryId),
       this.logger,
     );
-    this.requestManager = new RequestManager(this.logger);
+    this.requestManager = new RequestManager(
+      this.logger,
+      this.markConnectionStateDirty,
+    );
     this.authenticationManager = new AuthenticationManager(
       this.state,
       {
@@ -468,6 +477,7 @@ export class BaseConvexClient {
       },
       webSocketConstructor,
       this.logger,
+      this.markConnectionStateDirty,
     );
     this.mark("convexClientConstructed");
   }
@@ -735,6 +745,47 @@ export class BaseConvexClient {
         this.requestManager.timeOfOldestInflightRequest(),
       inflightMutations: this.requestManager.inflightMutations(),
       inflightActions: this.requestManager.inflightActions(),
+    };
+  }
+
+  /**
+   * Call this whenever the connection state may have changed in a way that could
+   * require publishing it. Schedules a possibly update.
+   */
+  private markConnectionStateDirty = () => {
+    void Promise.resolve().then(() => {
+      const curConnectionState = this.connectionState();
+      if (
+        JSON.stringify(curConnectionState) !==
+        JSON.stringify(this._lastPublishedConnectionState)
+      ) {
+        this._lastPublishedConnectionState = curConnectionState;
+        for (const cb of this.connectionStateSubscribers.values()) {
+          // One of these callback throwing will prevent other callbacks
+          // from running but will not leave the client in a undefined state.
+          cb(curConnectionState);
+        }
+      }
+    });
+  };
+
+  /**
+   * Subscribe to the {@link ConnectionState} between the client and the Convex
+   * backend, calling a callback each time it changes.
+   *
+   * Subscribed callbacks will be called when any part of ConnectionState changes.
+   * ConnectionState may grow in future versions (e.g. to provide a array of
+   * inflight requests) in which case callbacks would be called more frequently.
+   *
+   * @returns An unsubscribe function to stop listening.
+   */
+  subscribeToConnectionState(
+    cb: (connectionState: ConnectionState) => void,
+  ): () => void {
+    const id = this.nextConnectionStateSubscriberId++;
+    this.connectionStateSubscribers.set(id, cb);
+    return () => {
+      this.connectionStateSubscribers.delete(id);
     };
   }
 

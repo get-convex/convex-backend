@@ -1,6 +1,6 @@
 import { BaseConvexClient } from "../browser/index.js";
 import type { OptimisticUpdate, QueryToken } from "../browser/index.js";
-import React, { useContext, useMemo } from "react";
+import React, { useCallback, useContext, useMemo } from "react";
 import { convexToJson, Value } from "../values/index.js";
 import { QueryJournal } from "../browser/sync/protocol.js";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../browser/sync/client.js";
 import type { UserIdentityAttributes } from "../browser/sync/protocol.js";
 import { RequestForQueries, useQueries } from "./use_queries.js";
+import { useSubscription } from "./use_subscription.js";
 import { parseArgs } from "../common/index.js";
 import {
   ArgsAndOptions,
@@ -509,6 +510,24 @@ export class ConvexReactClient {
   }
 
   /**
+   * Subscribe to the {@link ConnectionState} between the client and the Convex
+   * backend, calling a callback each time it changes.
+   *
+   * Subscribed callbacks will be called when any part of ConnectionState changes.
+   * ConnectionState may grow in future versions (e.g. to provide a array of
+   * inflight requests) in which case callbacks would be called more frequently.
+   * ConnectionState may also *lose* properties in future versions as we figure
+   * out what information is most useful. As such this API is considered unstable.
+   *
+   * @returns An unsubscribe function to stop listening.
+   */
+  subscribeToConnectionState(
+    cb: (connectionState: ConnectionState) => void,
+  ): () => void {
+    return this.sync.subscribeToConnectionState(cb);
+  }
+
+  /**
    * Get the logger for this client.
    *
    * @returns The {@link Logger} for this client.
@@ -721,6 +740,48 @@ export function useAction<Action extends FunctionReference<"action">>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [convex, getFunctionName(actionReference)],
   );
+}
+
+/**
+ * React hook to get the current {@link ConnectionState} and subscribe to changes.
+ *
+ * This hook returns the current connection state and automatically rerenders
+ * when any part of the connection state changes (e.g., when going online/offline,
+ * when requests start/complete, etc.).
+ *
+ * The shape of ConnectionState may change in the future which may cause this
+ * hook to rerender more frequently.
+ *
+ * Throws an error if not used under {@link ConvexProvider}.
+ *
+ * @returns The current {@link ConnectionState} with the Convex backend.
+ *
+ * @public
+ */
+export function useConvexConnectionState(): ConnectionState {
+  const convex = useContext(ConvexContext);
+  if (convex === undefined) {
+    throw new Error(
+      "Could not find Convex client! `useConvexConnectionState` must be used in the React component " +
+        "tree under `ConvexProvider`. Did you forget it? " +
+        "See https://docs.convex.dev/quick-start#set-up-convex-in-your-react-app",
+    );
+  }
+
+  const getCurrentValue = useCallback(() => {
+    return convex.connectionState();
+  }, [convex]);
+
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      return convex.subscribeToConnectionState(() => {
+        callback();
+      });
+    },
+    [convex],
+  );
+
+  return useSubscription({ getCurrentValue, subscribe });
 }
 
 // When a function is called with a single argument that looks like a
