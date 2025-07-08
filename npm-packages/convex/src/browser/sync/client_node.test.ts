@@ -364,3 +364,418 @@ test("Setting optimistic updates for queries that have not yet been subscribed t
     await client.close();
   }, true);
 });
+
+/**
+ * Regression test for
+ * - subscribing to slow query a
+ * - subscribing to fast query b
+ * - receiving an update for b, without a
+ */
+test("Query results coming back out of order (fast query first, slower query later)", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send }) => {
+    const q = new UpdateQueue(10);
+
+    const client = new BaseConvexClient(
+      address,
+      (queryTokens) => {
+        q.onTransition(client)(queryTokens);
+      },
+      {
+        webSocketConstructor: nodeWebSocket,
+        unsavedChangesWarning: false,
+        verbose: true,
+      },
+    );
+
+    client.subscribe("queries:slow", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    const modify = await receive();
+
+    expect(modify.type).toEqual("ModifyQuerySet");
+    if (modify.type !== "ModifyQuerySet") {
+      return;
+    }
+    expect(modify.modifications.length).toBe(1);
+    expect(modify.modifications).toEqual([
+      {
+        type: "Add",
+        queryId: 0,
+        udfPath: "queries:slow",
+        args: [{}],
+      },
+    ]);
+
+    // Later we subscribe to a fast query
+    client.subscribe("queries:fast", {});
+
+    const modify2 = await receive();
+
+    expect(modify2.type).toEqual("ModifyQuerySet");
+    if (modify2.type !== "ModifyQuerySet") {
+      return;
+    }
+    expect(modify2.modifications.length).toBe(1);
+    expect(modify2.modifications).toEqual([
+      {
+        type: "Add",
+        queryId: 1,
+        udfPath: "queries:fast",
+        args: [{}],
+      },
+    ]);
+
+    // Once the client has subscribed to queries:slow and queries:fast but has no results for either,
+    // the server is allowed to respond with a Transition that contains no mutations, "acknowledging"
+    // the slow query subscription but not responding with a value for it.
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        // This is unusual, but allowed.
+      ],
+    });
+
+    // TODO test what happens when this first Transition contains an update for a query that does not exist in this query set.
+
+    // apparently this triggers an update???
+    const update1 = await q.awaitPromiseAtIndexWithTimeout(0);
+    expect(update1).toEqual({});
+
+    // Later the server sends a fast result
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      endVersion: { querySet: 2, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 1,
+          value: "fast result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+    const update2 = await q.awaitPromiseAtIndexWithTimeout(1);
+
+    expect(update2).toStrictEqual({
+      '{"udfPath":"queries:fast","args":{}}': "fast result",
+    });
+    expect(q.allResults).toStrictEqual({
+      '{"udfPath":"queries:fast","args":{}}': "fast result",
+    });
+    expect(q.updates).toHaveLength(2);
+
+    expect(client.localQueryResult("queries:fast", {})).toEqual("fast result");
+    expect(client.localQueryResult("queries:slow", {})).toEqual(undefined);
+
+    // Later the server sends a slow result
+    send({
+      type: "Transition",
+      startVersion: { querySet: 2, identity: 0, ts: Long.fromNumber(200) },
+      endVersion: { querySet: 2, identity: 0, ts: Long.fromNumber(300) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "slow result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+    const update3 = await q.awaitPromiseAtIndexWithTimeout(2);
+
+    expect(update3).toStrictEqual({
+      '{"udfPath":"queries:slow","args":{}}': "slow result",
+    });
+    expect(q.allResults).toStrictEqual({
+      '{"udfPath":"queries:fast","args":{}}': "fast result",
+      '{"udfPath":"queries:slow","args":{}}': "slow result",
+    });
+    expect(q.updates).toHaveLength(3);
+
+    expect(client.localQueryResult("queries:fast", {})).toEqual("fast result");
+    expect(client.localQueryResult("queries:slow", {})).toEqual("slow result");
+
+    await client.close();
+  }, true);
+});
+
+/**
+ * Test to characterize behavior so we know if it changes. This behavior is not relied upon,
+ * we consider it a protocol error, but it does happen to work.
+ *
+ * - subscribe to slow query (query 0) (querySet 1)
+ * - subscribe to fast query (query 1) (querySet 2)
+ * - server sends message transitioning to querySet 1 that includes result for only the fast query (!)
+ * This works! The fast query result is not dropped on the floor.
+ * - server send message transitioning to querySet 2, plus it includes slow query.
+ */
+test("Transition contains result for query not in purported query set version", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send }) => {
+    const q = new UpdateQueue(10);
+
+    const client = new BaseConvexClient(
+      address,
+      (queryTokens) => {
+        q.onTransition(client)(queryTokens);
+      },
+      {
+        webSocketConstructor: nodeWebSocket,
+        unsavedChangesWarning: false,
+        verbose: true,
+      },
+    );
+
+    // Subscribe to slow query first
+    client.subscribe("queries:slow", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    const modify1 = await receive();
+
+    expect(modify1.type).toEqual("ModifyQuerySet");
+    if (modify1.type !== "ModifyQuerySet") {
+      return;
+    }
+    expect(modify1.modifications).toEqual([
+      {
+        type: "Add",
+        queryId: 0,
+        udfPath: "queries:slow",
+        args: [{}],
+      },
+    ]);
+
+    // Then subscribe to fast query
+    client.subscribe("queries:fast", {});
+
+    const modify2 = await receive();
+    expect(modify2.type).toEqual("ModifyQuerySet");
+    if (modify2.type !== "ModifyQuerySet") {
+      return;
+    }
+    expect(modify2.modifications).toEqual([
+      {
+        type: "Add",
+        queryId: 1,
+        udfPath: "queries:fast",
+        args: [{}],
+      },
+    ]);
+
+    // Server sends malformed Transition: claims querySet version 1 (only slow query)
+    // but includes result for queryId 1 (fast query) which should be in querySet version 2
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 1, // But provides result for fast query!
+          value: "fast result from malformed transition",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    // Client should still process the result (the client is forgiving)
+    const update1 = await q.awaitPromiseAtIndexWithTimeout(0);
+    expect(update1).toEqual({
+      '{"udfPath":"queries:fast","args":{}}':
+        "fast result from malformed transition",
+    });
+
+    // The fast query result should be available
+    expect(client.localQueryResult("queries:fast", {})).toEqual(
+      "fast result from malformed transition",
+    );
+    expect(client.localQueryResult("queries:slow", {})).toEqual(undefined);
+
+    // Next transition should work normally
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      endVersion: { querySet: 2, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "slow result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    const update2 = await q.awaitPromiseAtIndexWithTimeout(1);
+    expect(update2).toEqual({
+      '{"udfPath":"queries:slow","args":{}}': "slow result",
+    });
+
+    // Both results should be available and the fast query result should persist
+    expect(client.localQueryResult("queries:fast", {})).toEqual(
+      "fast result from malformed transition",
+    );
+    expect(client.localQueryResult("queries:slow", {})).toEqual("slow result");
+
+    await client.close();
+  }, true);
+});
+
+/**
+ * Test to characterize existing behavior that we may want to change.
+ *
+ * - subscribe to a query
+ * - get a result
+ * - get a new "result" (Transition with QueryRemoved modification) that, if you didn't know better,
+ *   you might send from the server to indicate this result is now loading
+ * - get a new real result (Transition with QueryUpdated modification)
+ *
+ * One might expect the client to publish updates "result, loading, result,"
+ * but the client only publishes "result."
+ *
+ * Currently the client stops tracking a query when it receives QueryRemoved
+ * from the server (it stops tracking it in the RemoteQuerySet).
+ */
+test("Query unsubscription triggers empty transition for listeners", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send }) => {
+    const q = new UpdateQueue(10);
+
+    const client = new BaseConvexClient(
+      address,
+      (queryTokens) => {
+        q.onTransition(client)(queryTokens);
+      },
+      {
+        webSocketConstructor: nodeWebSocket,
+        unsavedChangesWarning: false,
+        verbose: true,
+      },
+    );
+
+    client.subscribe("queries:test", {});
+
+    expect((await receive()).type).toEqual("Connect");
+    const modify1 = await receive();
+
+    expect(modify1.type).toEqual("ModifyQuerySet");
+    if (modify1.type !== "ModifyQuerySet") {
+      return;
+    }
+    expect(modify1.modifications).toEqual([
+      {
+        type: "Add",
+        queryId: 0,
+        udfPath: "queries:test",
+        args: [{}],
+      },
+    ]);
+
+    // Server sends result for the query
+    send({
+      type: "Transition",
+      startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "test result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    const update1 = await q.awaitPromiseAtIndexWithTimeout(0);
+    expect(update1).toEqual({
+      '{"udfPath":"queries:test","args":{}}': "test result",
+    });
+    expect(q.allResults).toStrictEqual({
+      '{"udfPath":"queries:test","args":{}}': "test result",
+    });
+    expect(client.localQueryResult("queries:test", {})).toEqual("test result");
+
+    // "QueryRemoved" from the server communicates that this query is now in an loading state.
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(100) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      modifications: [
+        {
+          type: "QueryRemoved",
+          queryId: 0,
+        },
+      ],
+    });
+
+    // The update received contains nothing so there's no notification
+    // that this has gone back to undefined!
+    const update2 = await q.awaitPromiseAtIndexWithTimeout(1);
+
+    // What we wish happened, if removing a query is supposed to be
+    // the same as setting it to undefined.
+    /*
+    expect(update2).toStrictEqual({
+      '{"udfPath":"queries:test","args":{}}': undefined,
+    });
+    */
+    // what actually happens
+    expect(update2).toStrictEqual({});
+
+    expect(q.updates).toHaveLength(2);
+
+    // The query result is no longer available locally after removal...
+    expect(client.localQueryResult("queries:test", {})).toEqual(undefined);
+
+    // ...but anyone listening won't have been updated.
+    expect(q.allResults).toEqual({
+      '{"udfPath":"queries:test","args":{}}': "test result",
+    });
+    // So e.g. a useQuery() React hook would return the correct value (undefined),
+    // but that component would not be triggered to rerender. The displayed result
+    // will be stale until the component is rerendered for some other reason.
+
+    // What if we set a result again?
+    send({
+      type: "Transition",
+      startVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(200) },
+      endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(300) },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: "new test result",
+          logLines: [],
+          journal: null,
+        },
+      ],
+    });
+
+    // What we might expect to happen if removing a query were equivalent to
+    // "updating the query to loading" and setting a value after worked:
+    /*
+    const update3 = await q.awaitPromiseAtIndexWithTimeout(2);
+    expect(update3).toEqual({
+      '{"udfPath":"queries:test","args":{}}': "new test result",
+    });
+    expect(q.allResults).toStrictEqual({
+      '{"udfPath":"queries:test","args":{}}': "new test result",
+    });
+    */
+    // what actually happens
+    // wait a macrotask just in case
+    //await new Promise((r) => setTimeout(r, 0));
+    expect(q.updates).toHaveLength(2);
+
+    // This result is no longer tracked!
+    expect(client.localQueryResult("queries:test", {})).toEqual(undefined);
+
+    await client.close();
+  }, true);
+});

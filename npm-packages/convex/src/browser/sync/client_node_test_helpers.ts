@@ -140,6 +140,25 @@ export class UpdateQueue {
     }
   }
 
+  /**
+   * Useful to use instead of directly awaiting so that the timeout has a line number
+   * unlike the default Vite test timeout.
+   */
+  async awaitPromiseAtIndexWithTimeout(i: number) {
+    if (!this.updatePromises[i]) {
+      throw new Error("That promise doesn't exist yet");
+    }
+    const inBandSignal = "UpdateQueue await timed out";
+    const result = await Promise.race([
+      new Promise((r) => setTimeout(() => r(inBandSignal), 1000)),
+      this.updatePromises[i],
+    ]);
+    if (result === inBandSignal) {
+      throw new Error("Awaiting promise in UpdateQueue");
+    }
+    return result;
+  }
+
   onTransition =
     (client: BaseConvexClient) => (updatedQueryTokens: QueryToken[]) => {
       const update: Record<QueryToken, any> = {};

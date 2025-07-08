@@ -11,6 +11,8 @@ import { FunctionResult } from "./function_result.js";
  * Queries you won't find here include:
  * - queries which have been requested, but no query transition has been received yet for
  * - queries which are populated only though active optimistic updates, but are not subscribed to
+ * - queries which have already been removed by the server (which it shouldn't do unless that's
+ *   been requested by the client)
  */
 export class RemoteQuerySet {
   private version: StateVersion;
