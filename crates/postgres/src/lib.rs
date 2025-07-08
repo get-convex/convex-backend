@@ -241,10 +241,9 @@ impl PostgresPersistence {
             }
             client
                 .with_retry(async |client| {
-                    client
-                        .batch_execute(INIT_SQL)
-                        .await
-                        .map_err(anyhow::Error::from)
+                    client.batch_execute(INIT_SQL).await?;
+                    client.batch_execute(INIT_LEASE_SQL).await?;
+                    Ok(())
                 })
                 .await?;
             if !options.allow_read_only && Self::is_read_only(&client).await? {
@@ -1617,7 +1616,6 @@ const INIT_SQL: &str = r#"
 
             PRIMARY KEY (id)
         );
-        INSERT INTO @db_name.leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;
         CREATE TABLE IF NOT EXISTS @db_name.read_only (
             id BIGINT NOT NULL,
 
@@ -1628,6 +1626,10 @@ const INIT_SQL: &str = r#"
             json_value BYTEA NOT NULL,
             PRIMARY KEY (key)
         );"#;
+// We also run this on every initialization, but separate it from INIT_SQL to
+// keep DDL and DML separate.
+const INIT_LEASE_SQL: &str =
+    "INSERT INTO @db_name.leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;";
 const TABLES: &[&str] = &[
     "documents",
     "indexes",
