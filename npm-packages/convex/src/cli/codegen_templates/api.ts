@@ -18,6 +18,60 @@ export function moduleIdentifier(modulePath: string) {
   if (["fullApi", "api", "internal", "components"].includes(safeModulePath)) {
     safeModulePath = `${safeModulePath}_`;
   }
+  // Escape reserved words which are legal property names unescaped but are not
+  // legal identifiers.
+  // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#reserved_words
+  const reserved = [
+    "break",
+    "case",
+    "catch",
+    "class",
+    "const",
+    "continue",
+    "debugger",
+    "default",
+    "delete",
+    "do",
+    "else",
+    "export",
+    "extends",
+    "false",
+    "finally",
+    "for",
+    "function",
+    "if",
+    "import",
+    "in",
+    "instanceof",
+    "new",
+    "null",
+    "return",
+    "super",
+    "switch",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "typeof",
+    "var",
+    "void",
+    "while",
+    "with",
+    "let",
+    "static",
+    "yield",
+    "await",
+    "enum",
+    "implements",
+    "interface",
+    "package",
+    "private",
+    "protected",
+    "public",
+  ];
+  if (reserved.includes(safeModulePath)) {
+    safeModulePath = `${safeModulePath}_`;
+  }
   return safeModulePath;
 }
 

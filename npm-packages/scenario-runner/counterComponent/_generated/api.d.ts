@@ -8,7 +8,7 @@
  * @module
  */
 
-import type * as public from "../public.js";
+import type * as public_ from "../public.js";
 
 import type {
   ApiFromModules,
@@ -25,7 +25,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  public: typeof public;
+  public: typeof public_;
 }>;
 export type Mounts = {
   public: {
