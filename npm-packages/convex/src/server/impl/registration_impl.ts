@@ -149,6 +149,14 @@ type FunctionDefinition =
       handler: (ctx: any, args: DefaultFunctionArgs) => any;
     };
 
+function strictReplacer(key: string, value: any) {
+  if (value === undefined) {
+    throw new Error(
+      `Cannot serialize validator value \`undefined\` for ${key}`,
+    );
+  }
+  return value;
+}
 function exportArgs(functionDefinition: FunctionDefinition) {
   return () => {
     let args: GenericValidator = v.any();
@@ -158,7 +166,7 @@ function exportArgs(functionDefinition: FunctionDefinition) {
     ) {
       args = asObjectValidator(functionDefinition.args);
     }
-    return JSON.stringify(args.json);
+    return JSON.stringify(args.json, strictReplacer);
   };
 }
 
@@ -171,7 +179,7 @@ function exportReturns(functionDefinition: FunctionDefinition) {
     ) {
       returns = asObjectValidator(functionDefinition.returns);
     }
-    return JSON.stringify(returns ? returns.json : null);
+    return JSON.stringify(returns ? returns.json : null, strictReplacer);
   };
 }
 

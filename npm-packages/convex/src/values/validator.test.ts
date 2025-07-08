@@ -131,3 +131,74 @@ describe("Validators", () => {
     assert<Equals<Infer<typeof _obj>, Expected>>();
   });
 });
+
+describe("invalid validators fail when constructed obviously wrongly", () => {
+  describe("easy ones", () => {
+    test("v.id", () => {
+      expect(() => {
+        (v as any).id();
+      }).toThrow();
+
+      expect(() => {
+        v.id({} as any);
+      }).toThrow();
+
+      expect(() => {
+        v.id({} as any);
+      }).toThrow();
+    });
+
+    // no tests for v.null, number, floag64, bigint, in64, boolean, string, or bytes
+
+    test("v.literal", () => {
+      expect(() => {
+        (v as any).literal();
+      }).toThrow();
+
+      expect(() => {
+        v.literal({} as any);
+      }).toThrow();
+    });
+  });
+
+  test("v.object", () => {
+    expect(() => {
+      (v as any).object();
+    }).toThrow();
+
+    expect(() => {
+      v.object({ a: {} } as any);
+    }).toThrow();
+
+    expect(() => {
+      v.object({});
+    }).not.toThrow();
+
+    expect(() => {
+      v.object({ a: undefined as any });
+    }).toThrow();
+  });
+
+  test("v.object regression test", () => {
+    expect(() => {
+      // real issue from the wild
+      v.object({ a: v.string as any });
+    }).toThrow();
+  });
+
+  test("v.record", () => {
+    expect(() => {
+      (v as any).record();
+    }).toThrow();
+
+    expect(() => {
+      v.record({} as any, {} as any);
+    }).toThrow();
+  });
+
+  test("v.union", () => {
+    expect(() => {
+      v.union({} as any, {} as any);
+    }).toThrow();
+  });
+});

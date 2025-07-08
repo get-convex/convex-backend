@@ -77,6 +77,9 @@ export class VId<
     tableName: TableNameFromType<Type>;
   }) {
     super({ isOptional });
+    if (typeof tableName !== "string") {
+      throw new Error("v.id(tableName) requires a string");
+    }
     this.tableName = tableName;
   }
   /** @internal */
@@ -294,6 +297,11 @@ export class VObject<
     fields: Fields;
   }) {
     super({ isOptional });
+    globalThis.Object.values(fields).forEach((v) => {
+      if (!v.isConvexValidator) {
+        throw new Error("v.object() entries must be valiators");
+      }
+    });
     this.fields = fields;
   }
   /** @internal */
@@ -342,6 +350,14 @@ export class VLiteral<
    */
   constructor({ isOptional, value }: { isOptional: IsOptional; value: Type }) {
     super({ isOptional });
+    if (
+      typeof value !== "string" &&
+      typeof value !== "boolean" &&
+      typeof value !== "number" &&
+      typeof value !== "bigint"
+    ) {
+      throw new Error("v.literal(value) must be a string, number, or boolean");
+    }
     this.value = value;
   }
   /** @internal */
@@ -451,6 +467,9 @@ export class VRecord<
     if ((value.isOptional as OptionalProperty) === "optional") {
       throw new Error("Record validator cannot have optional values");
     }
+    if (!key.isConvexValidator || !value.isConvexValidator) {
+      throw new Error("Key and value of v.record() but be validators");
+    }
     this.key = key;
     this.value = value;
   }
@@ -500,6 +519,11 @@ export class VUnion<
    */
   constructor({ isOptional, members }: { isOptional: IsOptional; members: T }) {
     super({ isOptional });
+    members.forEach((member) => {
+      if (!member.isConvexValidator) {
+        throw new Error("All members of v.union() must be validators");
+      }
+    });
     this.members = members;
   }
   /** @internal */
