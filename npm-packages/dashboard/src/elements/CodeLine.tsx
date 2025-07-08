@@ -14,7 +14,7 @@ export function CodeLine({
     <div className="relative flex flex-row items-stretch">
       <code
         className={classNames(
-          "static bg-background-secondary border rounded p-5 pr-32 flex flex-row w-full",
+          "static bg-background-secondary border rounded-sm p-5 pr-32 flex flex-row w-full",
           className,
         )}
       >

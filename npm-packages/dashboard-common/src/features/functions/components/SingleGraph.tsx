@@ -106,7 +106,9 @@ export function SingleGraph({
                   horizontal
                   strokeWidth={1}
                   vertical={false}
-                  horizontalFill={["rgba(var(--background-tertiary), 0.33)"]}
+                  horizontalFill={[
+                    "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
+                  ]}
                   verticalFill={[]}
                   syncWithTicks
                 />

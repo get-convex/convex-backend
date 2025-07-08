@@ -118,7 +118,7 @@ export function ConnectedIdentities() {
                         />
                       </span>
                       {isPrimary && (
-                        <div className="rounded border p-1 text-xs">
+                        <div className="rounded-sm border p-1 text-xs">
                           Primary
                         </div>
                       )}
@@ -338,7 +338,7 @@ function ProviderLogo({
         );
       default:
         return (
-          <div className="rounded border p-1 text-xs opacity-60">
+          <div className="rounded-sm border p-1 text-xs opacity-60">
             {providerToDisplayName[resolvedProvider] || resolvedProvider}
           </div>
         );

@@ -59,7 +59,7 @@ export function Modal({
                 "text-left shadow-xl dark:border transform",
                 "transition-all align-middle",
                 "rounded-b-none sm:rounded-b-xl",
-                "absolute bottom-0 sm:static",
+                "absolute bottom-0 sm:relative",
                 size === "lg"
                   ? "sm:max-w-6xl"
                   : size === "md"

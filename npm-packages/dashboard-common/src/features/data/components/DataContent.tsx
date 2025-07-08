@@ -219,7 +219,7 @@ export function DataContent({
           isLoadingMore={isLoading && !isPaused}
         />
 
-        <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded">
+        <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded-sm">
           {numRowsInTable !== undefined && numRowsInTable > 0 && (
             <DataFilters
               tableName={tableName}
@@ -242,7 +242,7 @@ export function DataContent({
 
           <LoadingTransition
             loadingState={
-              <div className="flex h-full flex-col items-center justify-center gap-8 rounded border bg-background-secondary">
+              <div className="flex h-full flex-col items-center justify-center gap-8 rounded-sm border bg-background-secondary">
                 <LoadingLogo />
               </div>
             }

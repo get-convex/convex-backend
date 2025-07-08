@@ -174,7 +174,7 @@ export function GlobalFunctionTester({
     <aside
       key={isVertical.toString() + isExpanded.toString()}
       className={classNames(
-        "bg-background-secondary shadow",
+        "bg-background-secondary shadow-sm",
         "gap-6 z-30 relative overflow-auto",
         isExpanded
           ? "h-full w-full border-l"

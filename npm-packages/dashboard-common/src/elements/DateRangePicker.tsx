@@ -124,7 +124,7 @@ export function DateRangePicker({
                     close();
                     setDate(s, s);
                   }}
-                  className="-ml-4 flex w-full items-start gap-1 rounded p-1 text-xs hover:bg-background-tertiary"
+                  className="-ml-4 flex w-full items-start gap-1 rounded-sm p-1 text-xs hover:bg-background-tertiary"
                   icon={
                     activeShortcut === s.value ? (
                       <CheckIcon className="mt-1" />

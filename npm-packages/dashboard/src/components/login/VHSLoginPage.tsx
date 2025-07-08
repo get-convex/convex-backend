@@ -15,10 +15,10 @@ export function VHSLoginPage({ returnTo }: { returnTo?: string }) {
       {/* Loading Google Analytics because we're not using the LoginLayout for this component. */}
       <GoogleAnalytics />
       <a
-        className="group relative z-20 mt-36 flex w-[384px] flex-col items-center rounded-lg bg-neutral-8 focus:outline-none"
+        className="group relative z-20 mt-36 flex w-[384px] flex-col items-center rounded-lg bg-neutral-8 focus:outline-hidden"
         style={{
           // Box shadow to make the TV look 3D.
-          boxShadow: "32px 0px 0px 0px rgba(var(--neutral-7))",
+          boxShadow: "32px 0px 0px 0px var(--neutral-7)",
         }}
         onClick={() => {
           setIsLoggingIn(true);
@@ -39,7 +39,7 @@ function VHSTape({ isLoggingIn }: { isLoggingIn: boolean }) {
       <div
         className={classNames(
           "relative transition-all duration-150 ease-in-out",
-          "flex items-center gap-2 py-2 px-4 rounded bg-neutral-11",
+          "flex items-center gap-2 py-2 px-4 rounded-sm bg-neutral-11",
           "-ml-10",
           !isLoggingIn && [
             // VHS Tape looks fairly ejected while not logging in.
@@ -58,7 +58,7 @@ function VHSTape({ isLoggingIn }: { isLoggingIn: boolean }) {
       >
         <div
           className={classNames(
-            "absolute left-0 top-0 z-50  w-full rounded-sm bg-neutral-8 border border-neutral-11",
+            "absolute left-0 top-0 z-50  w-full rounded-xs bg-neutral-8 border border-neutral-11",
             isLoggingIn ? "block animate-vhs" : "hidden",
           )}
         />
@@ -86,7 +86,7 @@ function TVPanel({ isVHSAnimationDone }: { isVHSAnimationDone: boolean }) {
       )}
       style={{
         // Box shadow to make the TV panel look 3D.
-        boxShadow: "-8px 0px 0px 0px rgba(var(--neutral-7))",
+        boxShadow: "-8px 0px 0px 0px var(--neutral-7)",
       }}
     >
       {isVHSAnimationDone ? (

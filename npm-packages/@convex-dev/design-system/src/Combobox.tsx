@@ -167,7 +167,7 @@ export function Combobox<T>({
                   className={cn(
                     "flex gap-1 w-full items-center group",
                     "truncate relative text-left text-content-primary rounded-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background-secondary",
-                    "border focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-none bg-background-secondary text-sm",
+                    "border focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-hidden bg-background-secondary text-sm",
                     "hover:bg-background-tertiary",
                     "cursor-pointer",
                     open && "border-border-selected z-10",
@@ -223,7 +223,7 @@ export function Combobox<T>({
                     <HeadlessCombobox.Options
                       static
                       className={cn(
-                        "mt-1 max-h-[14.75rem] overflow-auto rounded-md bg-background-secondary pb-1 text-xs shadow scrollbar border",
+                        "mt-1 max-h-[14.75rem] overflow-auto rounded-md bg-background-secondary pb-1 text-xs shadow-sm scrollbar border",
                       )}
                       ref={(el) => {
                         el && "scrollTo" in el && el.scrollTo(0, 0);
@@ -242,7 +242,7 @@ export function Combobox<T>({
                               autoFocus
                               className={cn(
                                 "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-                                "focus:outline-none bg-background-secondary",
+                                "focus:outline-hidden bg-background-secondary",
                               )}
                               placeholder={searchPlaceholder}
                             />

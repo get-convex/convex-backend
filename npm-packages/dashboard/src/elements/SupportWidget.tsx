@@ -91,7 +91,7 @@ export function SupportWidget() {
               File a support ticket{" "}
               {!canSubmitTicket && (
                 <span
-                  className="w-fit rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+                  className="w-fit rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
                   title="Only available on the Pro plan"
                 >
                   Pro
@@ -212,7 +212,7 @@ function SupportForm() {
         <textarea
           id="message"
           name="message"
-          className="h-48 resize-y rounded border bg-background-secondary px-4 py-2 text-content-primary placeholder:text-content-tertiary focus:border-border-selected focus:outline-none"
+          className="h-48 resize-y rounded-sm border bg-background-secondary px-4 py-2 text-content-primary placeholder:text-content-tertiary focus:border-border-selected focus:outline-hidden"
           required
           onChange={formState.handleChange}
           value={formState.values.message}

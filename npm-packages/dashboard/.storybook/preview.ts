@@ -1,7 +1,5 @@
+import "../../@convex-dev/design-system/src/styles/shared.css";
 import "../../dashboard-common/src/styles/globals.css";
-// TODO: Figure out why storybook breaks when importing the shared css file
-// postcss is not running/saving files for some reason
-// import "../../@convex-dev/design-system/src/styles/shared.css";
 import { Preview } from "@storybook/react";
 import themeDecorator from "./themeDecorator";
 import { RouterContext } from "next/dist/shared/lib/router-context.shared-runtime";

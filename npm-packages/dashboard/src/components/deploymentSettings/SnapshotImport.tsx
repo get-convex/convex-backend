@@ -144,7 +144,7 @@ function ImportStateBody({
     }
     case "failed":
       return (
-        <div className="flex w-fit items-center gap-1 rounded border p-1 text-sm">
+        <div className="flex w-fit items-center gap-1 rounded-sm border p-1 text-sm">
           <CrossCircledIcon className="min-w-[1rem] text-content-errorSecondary" />
           {snapshotImport.state.error_message}
         </div>
@@ -166,26 +166,26 @@ function ImportStatePill({
     case "uploaded":
     case "waiting_for_confirmation":
       return (
-        <span className="h-fit w-fit rounded bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
+        <span className="h-fit w-fit rounded-sm bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
           pending confirmation
         </span>
       );
     case "in_progress":
       return (
-        <span className="h-fit w-fit rounded bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
+        <span className="h-fit w-fit rounded-sm bg-blue-100 p-1 text-center text-xs text-blue-900 dark:bg-blue-900 dark:text-blue-100">
           in progress
         </span>
       );
 
     case "completed":
       return (
-        <span className="h-fit w-14 rounded bg-background-success p-1 text-center text-xs text-content-success">
+        <span className="h-fit w-14 rounded-sm bg-background-success p-1 text-center text-xs text-content-success">
           success
         </span>
       );
     case "failed":
       return (
-        <span className="h-fit w-14 rounded bg-background-error p-1 text-center text-xs text-content-error">
+        <span className="h-fit w-14 rounded-sm bg-background-error p-1 text-center text-xs text-content-error">
           failure
         </span>
       );

@@ -265,7 +265,7 @@ function ValueEditor({
               "min-w-4 rounded-none border focus-within:border focus-within:border-border-selected",
               state.enabled !== false && "border-x-transparent",
             )}
-            editorClassname="px-2 py-1 mt-0 rounded bg-background-secondary rounded-l-none rounded-r-none"
+            editorClassname="px-2 py-1 mt-0 rounded-sm bg-background-secondary rounded-l-none rounded-r-none"
             allowTopLevelUndefined
             disabled={state.enabled === false}
             onChangeInnerText={setInnerText}

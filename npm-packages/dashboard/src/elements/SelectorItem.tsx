@@ -36,7 +36,7 @@ export function SelectorItem({
   const fullClassName = cn(
     className,
     "w-full SelectorItem flex text-sm items-center",
-    "p-2 rounded text-left transition",
+    "p-2 rounded-sm text-left transition",
     "text-content-primary",
     "hover:bg-background-tertiary",
     active && "bg-background-tertiary SelectorItem-active",
@@ -84,7 +84,7 @@ export function selectorButtonComponent(
         variant="unstyled"
         type="button"
         className={cn(
-          "h-10 rounded outline-none focus-visible:ring",
+          "h-10 rounded-sm outline-hidden focus-visible:ring-2 focus-visible:ring-util-accent",
           "px-3 py-2 w-fit flex gap-2 items-center select-none",
           ...(className !== undefined
             ? [className]

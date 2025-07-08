@@ -17,7 +17,7 @@ export function Loading({
       aria-live="polite"
       className={cn(
         "animate-fadeInFromLoading",
-        "relative rounded isolate overflow-hidden transition-opacity",
+        "relative rounded-sm isolate overflow-hidden transition-opacity",
         "before:absolute before:inset-0",
         "before:-translate-x-full",
         shimmer && "before:animate-loading",

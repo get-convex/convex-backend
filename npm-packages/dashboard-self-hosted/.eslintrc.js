@@ -8,11 +8,6 @@ module.exports = {
     tsconfigRootDir: __dirname,
   },
   plugins: [],
-  settings: {
-    tailwindcss: {
-      config: "../@convex-dev/design-system/src/tailwind.config.ts",
-    },
-  },
   overrides: [
     {
       files: ["src/pages/**/*.tsx"],

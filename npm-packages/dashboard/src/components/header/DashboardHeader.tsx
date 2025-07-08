@@ -97,7 +97,7 @@ function DashboardHeaderWhenLoggedIn() {
         <div className="flex items-center gap-2">
           <Link
             href="/"
-            className="flex items-center gap-1 rounded px-1 py-1.5 text-xs text-content-secondary hover:bg-background-tertiary"
+            className="flex items-center gap-1 rounded-sm px-1 py-1.5 text-xs text-content-secondary hover:bg-background-tertiary"
           >
             <ChevronLeftIcon />
             Back

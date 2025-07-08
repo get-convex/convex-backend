@@ -124,7 +124,7 @@ export function FileStorageView() {
         />
         {isDraggingFile && (
           // eslint-disable-next-line no-restricted-syntax
-          <div className="pointer-events-none absolute inset-0 z-50 mx-6 my-4 flex max-w-[60rem] animate-fadeInFromLoading items-center justify-center rounded-lg border-2 border-dashed bg-background-secondary/70 text-center text-lg tracking-tight text-content-tertiary backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-0 z-50 mx-6 my-4 flex max-w-[60rem] animate-fadeInFromLoading items-center justify-center rounded-lg border-2 border-dashed bg-background-secondary/70 text-center text-lg tracking-tight text-content-tertiary backdrop-blur-xs">
             <UploadIcon className="mr-2 size-6" />
             Drop files to upload
           </div>

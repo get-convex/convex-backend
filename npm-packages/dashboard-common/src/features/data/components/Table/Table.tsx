@@ -235,7 +235,7 @@ export function Table({
           <ScrollingComponent
             {...getTableProps()}
             className={classNames(
-              "flex rounded w-full h-full overflow-y-hidden",
+              "flex rounded-sm w-full h-full overflow-y-hidden",
               "scrollbar",
             )}
           >
@@ -371,7 +371,7 @@ export function Table({
 
 export function TableSkeleton() {
   return (
-    <div className="flex h-full items-center justify-center rounded border bg-background-secondary">
+    <div className="flex h-full items-center justify-center rounded-sm border bg-background-secondary">
       <LoadingLogo />
     </div>
   );

@@ -36,7 +36,7 @@ export function PanelCard({
 }: PanelCardProps) {
   const classes = classNames(
     "py-3 px-4",
-    "items-center gap-2.5 transition-colors rounded text-sm font-medium",
+    "items-center gap-2.5 transition-colors rounded-sm text-sm font-medium",
     "border",
     className,
   );

@@ -197,7 +197,7 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
           variant="unstyled"
           className={cn(
             "flex h-full items-center gap-2 px-3 rounded-full",
-            "bg-background-secondary text-content-primary border border-border",
+            "bg-background-secondary text-content-primary border",
             "text-sm font-medium transition-opacity truncate hover:bg-background-tertiary",
             menuTarget && "bg-background-tertiary border-border-selected",
           )}
@@ -311,7 +311,7 @@ export function DeploymentLabel({
           "text-sm flex w-full items-center rounded-full gap-2 grow font-medium border-b-0 transition-opacity truncate border hover:opacity-80",
           "max-w-screen-lg",
           menuTarget && "opacity-80",
-          "focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-none",
+          "focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden",
           getBackgroundColor(deployment.deploymentType),
         )}
         type="button"

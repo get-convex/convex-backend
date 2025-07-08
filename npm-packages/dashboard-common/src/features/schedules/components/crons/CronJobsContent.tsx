@@ -137,7 +137,7 @@ function Details({
         <ul className="flex w-full flex-col border-b px-6">
           <li
             key="current"
-            className={`w-fit p-2 ${currentlyRunning ? "" : "rounded border border-dashed border-border-selected"}`}
+            className={`w-fit p-2 ${currentlyRunning ? "" : "rounded-sm border border-dashed border-border-selected"}`}
           >
             <TopCronJobLogListItem cronJob={cronJob} />
           </li>

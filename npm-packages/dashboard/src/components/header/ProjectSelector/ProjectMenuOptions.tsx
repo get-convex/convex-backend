@@ -39,7 +39,7 @@ export function ProjectMenuOptions({
           value={projectQuery}
           className={classNames(
             "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-            "focus:outline-none bg-background-secondary font-normal",
+            "focus:outline-hidden bg-background-secondary font-normal",
           )}
           placeholder="Search projects..."
         />

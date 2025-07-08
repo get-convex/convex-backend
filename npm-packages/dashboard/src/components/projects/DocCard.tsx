@@ -35,7 +35,7 @@ export function DocCard({
               href={href}
               target="_blank"
               onClick={() => logEvent("viewed doc", { title })}
-              className="focus:outline-none"
+              className="focus:outline-hidden"
             >
               <span className="absolute inset-0" aria-hidden="true" />
               <span>{title}</span>

@@ -19,7 +19,7 @@ export function IntegrationTitle({
         {integrationKind.charAt(0).toUpperCase() + integrationKind.slice(1)}
       </p>
       <Tooltip tip={description}>
-        <p className="max-w-fit rounded border p-1 text-xs">
+        <p className="max-w-fit rounded-sm border p-1 text-xs">
           {integrationKind === "sentry"
             ? "Exception Reporting"
             : integrationKind === "airbyte" || integrationKind === "fivetran"

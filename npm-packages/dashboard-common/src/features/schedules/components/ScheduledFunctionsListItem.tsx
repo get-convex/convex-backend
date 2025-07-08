@@ -98,14 +98,14 @@ function JobItemImpl({
           onClose={() => setShowArgs(false)}
           header="Arguments for scheduled function"
           content={
-            <div className="h-full rounded p-4">
+            <div className="h-full rounded-sm p-4">
               <ReadonlyCode
                 disableLineNumbers
                 path="scheduling"
                 code={`${prettier(`
                           [${udfArgsParsed
                             .map((arg) => stringifyValue(jsonToConvex(arg)))
-                            .join(",")}]`).slice(0, -1)} 
+                            .join(",")}]`).slice(0, -1)}
                           `}
               />
             </div>

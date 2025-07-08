@@ -203,7 +203,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
       className={cn(
         // Setting a min-h makes sure the editor is able to properly resize when the
         // parent is resized.
-        "border rounded min-h-4 w-full h-full max-w-full relative",
+        "border rounded-sm min-h-4 w-full h-full max-w-full relative",
         className,
         disabled && "bg-background-tertiary cursor-not-allowed",
         numLines > 2 && multilineClasses,

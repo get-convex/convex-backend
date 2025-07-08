@@ -84,7 +84,7 @@ export function FileStorageListHeader({
             icon={
               <CaretUpIcon
                 className={classNames(
-                  "transition-all m-1.5 border rounded",
+                  "transition-all m-1.5 border rounded-sm",
                   filters.order === "desc" ? "rotate-180" : "",
                 )}
               />

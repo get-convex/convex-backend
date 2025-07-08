@@ -97,7 +97,7 @@ export function MenuItem({
           tipSide={tipSide}
           variant="unstyled"
           className={classNames(
-            "mx-1 flex gap-2 items-center p-2 rounded-sm",
+            "mx-1 flex gap-2 items-center p-2 rounded-xs",
             disabled
               ? "cursor-not-allowed fill-content-tertiary text-content-tertiary"
               : "hover:bg-background-tertiary",
@@ -143,7 +143,7 @@ export function MenuLink({
           aria-disabled={disabled}
           onClick={disabled ? (e) => e.preventDefault() : () => close()}
           className={classNames(
-            "rounded-sm flex gap-2 items-center mx-1 px-2 py-2 text-content-primary",
+            "rounded-xs flex gap-2 items-center mx-1 px-2 py-2 text-content-primary",
             disabled &&
               "cursor-not-allowed fill-content-secondary bg-background-tertiary text-content-secondary",
 

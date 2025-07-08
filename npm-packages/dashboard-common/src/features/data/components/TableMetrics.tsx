@@ -15,7 +15,7 @@ const useChartData =
     metric: TableMetric,
     authHeader: string,
     name: string,
-    color = "rgb(var(--chart-line-1))",
+    color = "var(--chart-line-1)",
   ) =>
   async (start: Date, end: Date): Promise<ChartData> => {
     const { startTime, endTime, numBuckets, timeMultiplier, formatTime } =
@@ -77,7 +77,7 @@ export function TableMetrics({
     "rowsWritten",
     authHeader,
     " writes",
-    "rgb(var(--chart-line-2))",
+    "var(--chart-line-2)",
   );
 
   return (

@@ -30,7 +30,7 @@ export function Invoices({ invoices }: { invoices: InvoiceResponse[] }) {
 
 function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
   return (
-    <div className="max-h-[30rem] overflow-y-auto rounded border scrollbar">
+    <div className="max-h-[30rem] overflow-y-auto rounded-sm border scrollbar">
       <table className="w-full">
         <thead className="sticky top-0 z-10 border-b bg-background-secondary  ">
           <tr>
@@ -105,7 +105,7 @@ const statusColors: Record<InvoiceResponse["status"], string> = {
 function StatusPill({ status }: { status: InvoiceResponse["status"] }) {
   const color = statusColors[status] || "bg-blue-200";
   return (
-    <span className={cn("rounded p-1 text-xs", color)}>
+    <span className={cn("rounded-sm p-1 text-xs", color)}>
       {status === "draft"
         ? "Preview"
         : status.charAt(0).toUpperCase() + status.slice(1)}

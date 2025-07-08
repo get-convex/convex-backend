@@ -45,7 +45,7 @@ export function HealthCard({
           <div className="flex items-center gap-1">
             {warning && (
               <Tooltip
-                className="flex gap-1 rounded border bg-background-warning p-0.5 text-xs text-content-warning"
+                className="flex gap-1 rounded-sm border bg-background-warning p-0.5 text-xs text-content-warning"
                 tip={<div>{warning}</div>}
               >
                 <ExclamationTriangleIcon />
@@ -53,7 +53,7 @@ export function HealthCard({
             )}
             {error && (
               <Tooltip
-                className="flex gap-1 rounded border bg-background-error p-0.5 text-xs text-content-error"
+                className="flex gap-1 rounded-sm border bg-background-error p-0.5 text-xs text-content-error"
                 tip={<div>{error}</div>}
               >
                 <CrossCircledIcon />

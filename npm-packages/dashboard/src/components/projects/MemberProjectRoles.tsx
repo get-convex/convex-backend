@@ -119,14 +119,14 @@ export function MemberProjectRoles() {
                         </div>
                       }
                     >
-                      <div className="rounded border p-1 text-xs">
+                      <div className="rounded-sm border p-1 text-xs">
                         Team Admin
                       </div>
                     </Tooltip>
                   )}
                   {member.isProjectAdmin && (
                     <Tooltip tip="This member can manage this project because they are a project admin.">
-                      <div className="rounded border p-1 text-xs">
+                      <div className="rounded-sm border p-1 text-xs">
                         Project Admin
                       </div>
                     </Tooltip>

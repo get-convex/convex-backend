@@ -95,7 +95,7 @@ export function DirectoryItem({
     isActive &&
       "outline outline-util-accent/40 bg-util-accent/30 hover:bg-util-accent/30 font-normal",
     !isActive && "hover:bg-util-accent/20",
-    "focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-util-accent/20",
+    "focus-visible:outline-hidden focus-visible:ring-0 focus-visible:bg-util-accent/20",
   );
 
   const buttonChildren = (

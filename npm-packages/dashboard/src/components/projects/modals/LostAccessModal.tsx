@@ -24,7 +24,7 @@ export function LostAccessDescription() {
   return (
     <p className="mb-5 text-sm leading-6 text-content-primary">
       Reinitialize a Convex app in your local directory if you've lost your{" "}
-      <code className="rounded bg-background-tertiary p-1 text-content-primary">
+      <code className="rounded-sm bg-background-tertiary p-1 text-content-primary">
         .env.local
       </code>{" "}
       file.

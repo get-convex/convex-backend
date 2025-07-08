@@ -71,7 +71,7 @@ export function FunctionSummary({
           <div className="flex flex-wrap items-center gap-x-2">
             <h3 className="font-mono">{currentOpenFunction.name}</h3>
             <div
-              className={`rounded p-1 text-xs font-semibold ${getFunctionTypeStyles(currentOpenFunction.udfType).text} ${getFunctionTypeStyles(currentOpenFunction.udfType).background}`}
+              className={`rounded-sm p-1 text-xs font-semibold ${getFunctionTypeStyles(currentOpenFunction.udfType).text} ${getFunctionTypeStyles(currentOpenFunction.udfType).background}`}
             >
               {currentOpenFunction.visibility.kind === "internal" &&
                 "Internal "}

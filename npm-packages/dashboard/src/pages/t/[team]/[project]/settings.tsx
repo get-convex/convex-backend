@@ -140,11 +140,11 @@ function SettingsNavigation() {
       aria-label="Settings navigation"
     >
       <div
-        className="absolute left-0 h-full w-0.5 rounded bg-background-tertiary"
+        className="absolute left-0 h-full w-0.5 rounded-sm bg-background-tertiary"
         aria-hidden="true"
       />
       <div
-        className="absolute left-0 h-8 w-0.5 rounded bg-content-primary transition-transform duration-75"
+        className="absolute left-0 h-8 w-0.5 rounded-sm bg-content-primary transition-transform duration-75"
         style={{
           top: `max(0%, calc(${scrollPercentage}% - 2rem))`,
         }}
@@ -156,7 +156,7 @@ function SettingsNavigation() {
             <a
               href={`#${id}`}
               className={cn(
-                "block rounded px-2 py-1.5 transition-all duration-200",
+                "block rounded-sm px-2 py-1.5 transition-all duration-200",
                 "text-content-secondary hover:bg-background-secondary hover:text-content-primary",
                 visibleSections.has(id) && "text-content-primary",
               )}

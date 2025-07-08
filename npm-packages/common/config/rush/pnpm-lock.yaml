@@ -107,6 +107,9 @@ importers:
 
   ../../@convex-dev/design-system:
     dependencies:
+      '@fontsource-variable/inter':
+        specifier: 5.0.3
+        version: 5.0.3
       '@headlessui/react':
         specifier: 1.7.19
         version: 1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -117,8 +120,8 @@ importers:
         specifier: ~1.2.0
         version: 1.2.7(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tailwindcss/forms':
-        specifier: ^0.5.6
-        version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^0.5.10
+        version: 0.5.10(tailwindcss@4.1.11)
       classnames:
         specifier: ^2.3.2
         version: 2.5.1
@@ -144,17 +147,17 @@ importers:
         specifier: ~17.6.0
         version: 17.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tailwind-merge:
-        specifier: ^1.14.0
-        version: 1.14.0
+        specifier: ^3.2.0
+        version: 3.3.1
       tailwind-scrollbar:
-        specifier: ^3.0.0
-        version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^4
+        version: 4.0.2(react@18.3.1)(tailwindcss@4.1.11)
       tailwind-variants:
-        specifier: ~0.2.0
-        version: 0.2.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^1.0.0
+        version: 1.0.0(tailwindcss@4.1.11)
       tailwindcss:
-        specifier: ^3.0.0
-        version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+        specifier: ^4
+        version: 4.1.11
     devDependencies:
       '@jest/types':
         specifier: ^29.6.0
@@ -213,6 +216,9 @@ importers:
       eslint-config-prettier:
         specifier: ^10.0.0
         version: 10.1.2(eslint@8.57.1)
+      eslint-plugin-better-tailwindcss:
+        specifier: ^3.4.4
+        version: 3.4.4(eslint@8.57.1)(tailwindcss@4.1.11)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.31.0(eslint@8.57.1)
@@ -228,9 +234,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^4.6.2
         version: 4.6.2(eslint@8.57.1)
-      eslint-plugin-tailwindcss:
-        specifier: ~3.12.1
-        version: 3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
       jest:
         specifier: ^29.6.0
         version: 29.7.0(@types/node@18.19.70)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
@@ -244,8 +247,8 @@ importers:
         specifier: 3.5.3
         version: 3.5.3
       prettier-plugin-tailwindcss:
-        specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.3)
+        specifier: ~0.6.11
+        version: 0.6.13(prettier@3.5.3)
       tsc-alias:
         specifier: ~1.8.15
         version: 1.8.15
@@ -1028,8 +1031,11 @@ importers:
         specifier: ^7.6.16
         version: 7.6.20
       '@tailwindcss/forms':
-        specifier: ^0.5.6
-        version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^0.5.10
+        version: 0.5.10(tailwindcss@4.1.11)
+      '@tailwindcss/postcss':
+        specifier: ^4.1.5
+        version: 4.1.11
       '@testing-library/dom':
         specifier: ~10.4.0
         version: 10.4.0
@@ -1084,9 +1090,6 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^6.7.4
         version: 6.21.0(eslint@8.57.1)(typescript@5.0.4)
-      autoprefixer:
-        specifier: ^10.4.13
-        version: 10.4.20(postcss@8.4.49)
       babel-loader:
         specifier: ^8.2.5
         version: 8.4.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.0))
@@ -1117,6 +1120,9 @@ importers:
       eslint-config-prettier:
         specifier: ^10.0.0
         version: 10.1.2(eslint@8.57.1)
+      eslint-plugin-better-tailwindcss:
+        specifier: ^3.4.4
+        version: 3.4.4(eslint@8.57.1)(tailwindcss@4.1.11)
       eslint-plugin-boundaries:
         specifier: ~5.0.1
         version: 5.0.1(eslint@8.57.1)
@@ -1135,9 +1141,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^4.6.2
         version: 4.6.2(eslint@8.57.1)
-      eslint-plugin-tailwindcss:
-        specifier: ~3.12.1
-        version: 3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
       http-server:
         specifier: ^14.1.1
         version: 14.1.1
@@ -1166,17 +1169,17 @@ importers:
         specifier: 3.5.3
         version: 3.5.3
       prettier-plugin-tailwindcss:
-        specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.3)
+        specifier: ~0.6.11
+        version: 0.6.13(prettier@3.5.3)
       storybook:
         specifier: ^7.6.16
         version: 7.6.20(bufferutil@4.0.9)(encoding@0.1.13)(utf-8-validate@5.0.10)
       tailwind-scrollbar:
-        specifier: 3.0.3
-        version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^4.0.2
+        version: 4.0.2(react@18.3.1)(tailwindcss@4.1.11)
       tailwindcss:
-        specifier: ^3.2.4
-        version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+        specifier: ^4.1.5
+        version: 4.1.11
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1198,9 +1201,6 @@ importers:
       '@floating-ui/react':
         specifier: ^0.27.0
         version: 0.27.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@fontsource-variable/inter':
-        specifier: 5.0.3
-        version: 5.0.3
       '@headlessui/react':
         specifier: 1.7.19
         version: 1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1337,11 +1337,11 @@ importers:
         specifier: workspace:*
         version: link:../system-udfs
       tailwind-merge:
-        specifier: ^1.14.0
-        version: 1.14.0
+        specifier: ^3.2.0
+        version: 3.3.1
       tailwind-variants:
-        specifier: ~0.2.0
-        version: 0.2.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^1.0.0
+        version: 1.0.0(tailwindcss@4.1.11)
       yup:
         specifier: ~0.32.11
         version: 0.32.11
@@ -1359,8 +1359,11 @@ importers:
         specifier: ^7.6.16
         version: 7.6.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(supports-color@10.0.0)(typescript@5.0.4)
       '@tailwindcss/forms':
-        specifier: ^0.5.6
-        version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^0.5.10
+        version: 0.5.10(tailwindcss@4.1.11)
+      '@tailwindcss/postcss':
+        specifier: ^4.1.5
+        version: 4.1.11
       '@testing-library/dom':
         specifier: ~10.4.0
         version: 10.4.0
@@ -1436,6 +1439,9 @@ importers:
       eslint-config-prettier:
         specifier: ^10.0.0
         version: 10.1.2(eslint@8.57.1(supports-color@10.0.0))
+      eslint-plugin-better-tailwindcss:
+        specifier: ^3.4.4
+        version: 3.4.4(eslint@8.57.1(supports-color@10.0.0))(tailwindcss@4.1.11)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.31.0(eslint@8.57.1(supports-color@10.0.0))
@@ -1451,9 +1457,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^4.6.2
         version: 4.6.2(eslint@8.57.1(supports-color@10.0.0))
-      eslint-plugin-tailwindcss:
-        specifier: ~3.12.1
-        version: 3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
       jest:
         specifier: ^29.6.0
         version: 29.7.0(@types/node@18.19.70)(supports-color@10.0.0)(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
@@ -1470,14 +1473,14 @@ importers:
         specifier: 3.5.3
         version: 3.5.3
       prettier-plugin-tailwindcss:
-        specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.3)
+        specifier: ~0.6.11
+        version: 0.6.13(prettier@3.5.3)
       tailwind-scrollbar:
-        specifier: 3.0.3
-        version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+        specifier: ^4.0.2
+        version: 4.0.2(react@18.3.1)(tailwindcss@4.1.11)
       tailwindcss:
-        specifier: ^3.2.4
-        version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+        specifier: ^4.1.5
+        version: 4.1.11
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1519,8 +1522,11 @@ importers:
         version: 3.24.1
     devDependencies:
       '@tailwindcss/forms':
-        specifier: ^0.5.6
-        version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4)))
+        specifier: ^0.5.10
+        version: 0.5.10(tailwindcss@4.1.11)
+      '@tailwindcss/postcss':
+        specifier: ^4.1.5
+        version: 4.1.11
       '@types/react':
         specifier: ^18.0.0
         version: 18.3.18
@@ -1536,9 +1542,6 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^6.7.4
         version: 6.21.0(eslint@8.57.1)(typescript@5.0.4)
-      autoprefixer:
-        specifier: ^10.4.13
-        version: 10.4.20(postcss@8.4.49)
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
@@ -1557,6 +1560,9 @@ importers:
       eslint-config-prettier:
         specifier: ^10.0.0
         version: 10.1.2(eslint@8.57.1)
+      eslint-plugin-better-tailwindcss:
+        specifier: ^3.4.4
+        version: 3.4.4(eslint@8.57.1)(tailwindcss@4.1.11)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.31.0(eslint@8.57.1)
@@ -1572,9 +1578,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^4.6.2
         version: 4.6.2(eslint@8.57.1)
-      eslint-plugin-tailwindcss:
-        specifier: ~3.12.1
-        version: 3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4)))
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -1582,14 +1585,14 @@ importers:
         specifier: 3.5.3
         version: 3.5.3
       prettier-plugin-tailwindcss:
-        specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.3)
+        specifier: ~0.6.11
+        version: 0.6.13(prettier@3.5.3)
       tailwind-scrollbar:
-        specifier: 3.0.3
-        version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4)))
+        specifier: ^4.0.2
+        version: 4.0.2(react@18.3.1)(tailwindcss@4.1.11)
       tailwindcss:
-        specifier: ^3.2.4
-        version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4))
+        specifier: ^4.1.5
+        version: 4.1.11
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -7388,6 +7391,10 @@ packages:
   '@eslint/core@0.9.1':
     resolution: {integrity: sha512-GuUdqkyyzQI5RMIWkHhvTWLCyLo1jNK3vzkSyaExH5kHPDHcuL2VOpHjmMY+y3+NC69qAKToBqldTBgYeLSr9Q==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@eslint/css-tree@3.6.1':
+    resolution: {integrity: sha512-5DIsBME23tUQD5zHD+T38lC2DG4jB8x8JRa+yDncLne2TIZA0VuCpcSazOX1EC+sM/q8w24qeevXfmfsIxAeqA==}
+    engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
 
   '@eslint/eslintrc@2.1.4':
     resolution: {integrity: sha512-269Z39MS6wVJtsoUl10L60WdkhJVdPG24Q4eZTH3nnF6lpvSShEK3wQjDX9JRWAUPvPh7COouPpU9IrqaZFvtQ==}
@@ -14469,6 +14476,10 @@ packages:
     resolution: {integrity: sha512-ZSW3ma5GkcQBIpwZTSRAI8N71Uuwgs93IezB7mf7R60tC8ZbJideoDNKjHn2O9KIlx6rkGTTEk1xUCK2E1Y2Yg==}
     engines: {node: '>=10.13.0'}
 
+  enhanced-resolve@5.18.2:
+    resolution: {integrity: sha512-6Jw4sE1maoRJo3q8MsSIn2onJFbLTOjY9hlx4DZXmOKvLRd1Ok2kXmAGXaafL2+ijsJZ1ClYbl/pmqr9+k4iUQ==}
+    engines: {node: '>=10.13.0'}
+
   entities@1.1.2:
     resolution: {integrity: sha512-f2LZMYl1Fzu7YSBKg+RoROelpOaNrcGmE9AZubeDfrCEia483oW4MI4VyFd5VNHIgQ/7qm1I0wUHK1eJnn2y2w==}
 
@@ -14695,6 +14706,13 @@ packages:
       eslint:
         optional: true
 
+  eslint-plugin-better-tailwindcss@3.4.4:
+    resolution: {integrity: sha512-Zi3B0sKOm8o6R7ezytjdubpDmF9RmSEej8ikteuCY/eUKECc/FFP/ldPuceuEWmYZzX9KiEaJwKt9kmzSR2B0w==}
+    engines: {node: ^20.11.0 || >=21.2.0}
+    peerDependencies:
+      eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
+      tailwindcss: ^3.3.0 || ^4.0.0
+
   eslint-plugin-boundaries@5.0.1:
     resolution: {integrity: sha512-QBw1TgoA3JnD+AQ8EHqZL8LtiFVREnFmD2BnHzVl38UKtRTds8rawIg03ZLwFs/90yKSh+DVVXRpvVK631Z/0w==}
     engines: {node: '>=18.18'}
@@ -14784,12 +14802,6 @@ packages:
     engines: {node: '>=16'}
     peerDependencies:
       eslint: '*'
-
-  eslint-plugin-tailwindcss@3.12.1:
-    resolution: {integrity: sha512-LyIRV0rx6prTpJZsSCXSNJ34Yry3Nj9OJwvzh1xTsiG6+UCnAPW1Bx41s7vZzUDKMlwFgpUN9Me+NK12T4DHYg==}
-    engines: {node: '>=12.13.0'}
-    peerDependencies:
-      tailwindcss: ^3.3.2
 
   eslint-plugin-testing-library@5.11.1:
     resolution: {integrity: sha512-5eX9e1Kc2PqVRed3taaLnAAqPZGEX75C+M/rXzUAI3wIg/ZxzUm1OVAwfe/O+vE+6YXOLetSe9g5GKD2ecXipw==}
@@ -17598,6 +17610,9 @@ packages:
   mdn-data@2.0.30:
     resolution: {integrity: sha512-GaqWWShW4kv/G9IEucWScBx9G1/vsFZZJUO+tD26M8J8z3Kw5RDQjaoZe03YAClgeS/SWPOcb4nkFBTEi5DUEA==}
 
+  mdn-data@2.21.0:
+    resolution: {integrity: sha512-+ZKPQezM5vYJIkCxaC+4DTnRrVZR1CgsKLu5zsQERQx6Tea8Y+wMx5A24rq8A8NepCeatIQufVAekKNgiBMsGQ==}
+
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
     engines: {node: '>= 0.6'}
@@ -19054,6 +19069,12 @@ packages:
     peerDependencies:
       postcss: ^8.0.0
 
+  postcss-import@16.1.1:
+    resolution: {integrity: sha512-2xVS1NCZAfjtVdvXiyegxzJ447GyqCeEI5V7ApgQVOWnros1p5lGNovJNapwPpMombyFBfqDwt7AD3n2l0KOfQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      postcss: ^8.0.0
+
   postcss-js@4.0.1:
     resolution: {integrity: sha512-dDLF8pEO191hJMtlHFPRa8xsizHaM82MLfNkUHdUtVEV3tgTp5oj+8qbEqYM57SLfc74KSbw//4SeJma2LRVIw==}
     engines: {node: ^12 || ^14 || >= 16}
@@ -19374,6 +19395,10 @@ packages:
     resolution: {integrity: sha512-d/jtm+rdNT8tpXuHY5MMtcbJFBkhXE6593XVR9UoGCH8jSFGci7jGvMGH5RYd5PBJW+00NZQt6gf7CbagJCrhg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postcss@8.5.6:
+    resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
+    engines: {node: ^10 || ^12 || >=14}
+
   posthog-js@1.241.1:
     resolution: {integrity: sha512-FJroX5kcz+twkYB8j/c+gHtuctjjAYX1EyopTG4bVZ+K5pQ/o7RCIlvUcCok1MZgDLiBrP/PnG0FkzUlMs19qQ==}
     peerDependencies:
@@ -19417,26 +19442,27 @@ packages:
     resolution: {integrity: sha512-GbK2cP9nraSSUF9N2XwUwqfzlAFlMNYYl+ShE/V+H8a9uNl/oUqB1w2EL54Jh0OlyRSd8RfWYJ3coVS4TROP2w==}
     engines: {node: '>=6.0.0'}
 
-  prettier-plugin-tailwindcss@0.3.0:
-    resolution: {integrity: sha512-009/Xqdy7UmkcTBpwlq7jsViDqXAYSOMLDrHAdTMlVZOrKfM2o9Ci7EMWTMZ7SkKBFTG04UM9F9iM2+4i6boDA==}
-    engines: {node: '>=12.17.0'}
+  prettier-plugin-tailwindcss@0.6.13:
+    resolution: {integrity: sha512-uQ0asli1+ic8xrrSmIOaElDu0FacR4x69GynTh2oZjFY10JUt6EEumTQl5tB4fMeD6I1naKd+4rXQQ7esT2i1g==}
+    engines: {node: '>=14.21.3'}
     peerDependencies:
       '@ianvs/prettier-plugin-sort-imports': '*'
       '@prettier/plugin-pug': '*'
       '@shopify/prettier-plugin-liquid': '*'
-      '@shufo/prettier-plugin-blade': '*'
       '@trivago/prettier-plugin-sort-imports': '*'
-      prettier: '>=2.2.0'
+      '@zackad/prettier-plugin-twig': '*'
+      prettier: ^3.0
       prettier-plugin-astro: '*'
       prettier-plugin-css-order: '*'
       prettier-plugin-import-sort: '*'
       prettier-plugin-jsdoc: '*'
       prettier-plugin-marko: '*'
+      prettier-plugin-multiline-arrays: '*'
       prettier-plugin-organize-attributes: '*'
       prettier-plugin-organize-imports: '*'
+      prettier-plugin-sort-imports: '*'
       prettier-plugin-style-order: '*'
       prettier-plugin-svelte: '*'
-      prettier-plugin-twig-melody: '*'
     peerDependenciesMeta:
       '@ianvs/prettier-plugin-sort-imports':
         optional: true
@@ -19444,9 +19470,9 @@ packages:
         optional: true
       '@shopify/prettier-plugin-liquid':
         optional: true
-      '@shufo/prettier-plugin-blade':
-        optional: true
       '@trivago/prettier-plugin-sort-imports':
+        optional: true
+      '@zackad/prettier-plugin-twig':
         optional: true
       prettier-plugin-astro:
         optional: true
@@ -19458,15 +19484,17 @@ packages:
         optional: true
       prettier-plugin-marko:
         optional: true
+      prettier-plugin-multiline-arrays:
+        optional: true
       prettier-plugin-organize-attributes:
         optional: true
       prettier-plugin-organize-imports:
         optional: true
+      prettier-plugin-sort-imports:
+        optional: true
       prettier-plugin-style-order:
         optional: true
       prettier-plugin-svelte:
-        optional: true
-      prettier-plugin-twig-melody:
         optional: true
 
   prettier@2.8.8:
@@ -21308,23 +21336,30 @@ packages:
   tabbable@6.2.0:
     resolution: {integrity: sha512-Cat63mxsVJlzYvN51JmVXIgNoUokrIaT2zLclCXjRd8boZ0004U4KCs/sToJ75C6sdlByWxpYnb5Boif1VSFew==}
 
+  tailwind-csstree@0.1.1:
+    resolution: {integrity: sha512-Tv5IXRHtlb7LanNXjmGg0vu84Iu+/sKDqTLJBO0kP/rggfjJDKnS/HV+e0qn8yIrRByhGg+908rSOxT/7o1diw==}
+    engines: {node: '>=18.18'}
+
   tailwind-merge@1.14.0:
     resolution: {integrity: sha512-3mFKyCo/MBcgyOTlrY8T7odzZFx+w+qKSMAmdFzRvqBfLlSigU6TZnlFHK0lkMwj9Bj8OYU+9yW9lmGuS0QEnQ==}
 
   tailwind-merge@2.6.0:
     resolution: {integrity: sha512-P+Vu1qXfzediirmHOC3xKGAYeZtPcV9g76X+xg2FD4tYgR71ewMA35Y3sCz3zhiN/dwefRpJX0yBcgwi1fXNQA==}
 
+  tailwind-merge@3.0.2:
+    resolution: {integrity: sha512-l7z+OYZ7mu3DTqrL88RiKrKIqO3NcpEO8V/Od04bNpvk0kiIFndGEoqfuzvj4yuhRkHKjRkII2z+KS2HfPcSxw==}
+
   tailwind-merge@3.3.1:
     resolution: {integrity: sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g==}
 
-  tailwind-scrollbar@3.0.3:
-    resolution: {integrity: sha512-g0yBeQODAHERnyNejtHrYMTuifhRKtNYC9zKtmhi3dtNlOdUtSrvXlJKWljgzDgdpUixbhKMgD7G636DFTI8Rw==}
+  tailwind-scrollbar@4.0.2:
+    resolution: {integrity: sha512-wAQiIxAPqk0MNTPptVe/xoyWi27y+NRGnTwvn4PQnbvB9kp8QUBiGl/wsfoVBHnQxTmhXJSNt9NHTmcz9EivFA==}
     engines: {node: '>=12.13.0'}
     peerDependencies:
-      tailwindcss: 3.x
+      tailwindcss: 4.x
 
-  tailwind-variants@0.2.1:
-    resolution: {integrity: sha512-2xmhAf4UIc3PijOUcJPA1LP4AbxhpcHuHM2C26xM0k81r0maAO6uoUSHl3APmvHZcY5cZCY/bYuJdfFa4eGoaw==}
+  tailwind-variants@1.0.0:
+    resolution: {integrity: sha512-2WSbv4ulEEyuBKomOunut65D8UZwxrHoRfYnxGcQNnHqlSCp2+B7Yz2W+yrNDrxRodOXtGD/1oCcKGNBnUqMqA==}
     engines: {node: '>=16.x', pnpm: '>=7.x'}
     peerDependencies:
       tailwindcss: '*'
@@ -27257,6 +27292,11 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
+  '@eslint/css-tree@3.6.1':
+    dependencies:
+      mdn-data: 2.21.0
+      source-map-js: 1.2.1
+
   '@eslint/eslintrc@2.1.4(supports-color@10.0.0)':
     dependencies:
       ajv: 6.12.6
@@ -31539,15 +31579,10 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
-  '@tailwindcss/forms@0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))':
+  '@tailwindcss/forms@0.5.10(tailwindcss@4.1.11)':
     dependencies:
       mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
-
-  '@tailwindcss/forms@0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4)))':
-    dependencies:
-      mini-svg-data-uri: 1.4.4
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4))
+      tailwindcss: 4.1.11
 
   '@tailwindcss/node@4.1.11':
     dependencies:
@@ -37155,6 +37190,11 @@ snapshots:
       graceful-fs: 4.2.11
       tapable: 2.2.1
 
+  enhanced-resolve@5.18.2:
+    dependencies:
+      graceful-fs: 4.2.11
+      tapable: 2.2.1
+
   entities@1.1.2: {}
 
   entities@2.2.0: {}
@@ -37642,6 +37682,30 @@ snapshots:
     optionalDependencies:
       eslint: 9.16.0(jiti@2.4.2)
 
+  eslint-plugin-better-tailwindcss@3.4.4(eslint@8.57.1(supports-color@10.0.0))(tailwindcss@4.1.11):
+    dependencies:
+      '@eslint/css-tree': 3.6.1
+      enhanced-resolve: 5.18.2
+      eslint: 8.57.1(supports-color@10.0.0)
+      jiti: 2.4.2
+      postcss: 8.5.6
+      postcss-import: 16.1.1(postcss@8.5.6)
+      synckit: 0.11.8
+      tailwind-csstree: 0.1.1
+      tailwindcss: 4.1.11
+
+  eslint-plugin-better-tailwindcss@3.4.4(eslint@8.57.1)(tailwindcss@4.1.11):
+    dependencies:
+      '@eslint/css-tree': 3.6.1
+      enhanced-resolve: 5.18.2
+      eslint: 8.57.1
+      jiti: 2.4.2
+      postcss: 8.5.6
+      postcss-import: 16.1.1(postcss@8.5.6)
+      synckit: 0.11.8
+      tailwind-csstree: 0.1.1
+      tailwindcss: 4.1.11
+
   eslint-plugin-boundaries@5.0.1(eslint@8.57.1):
     dependencies:
       chalk: 4.1.2
@@ -37936,18 +38000,6 @@ snapshots:
   eslint-plugin-require-extensions@0.1.3(eslint@9.26.0(jiti@2.4.2)):
     dependencies:
       eslint: 9.26.0(jiti@2.4.2)
-
-  eslint-plugin-tailwindcss@3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))):
-    dependencies:
-      fast-glob: 3.3.3
-      postcss: 8.4.49
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
-
-  eslint-plugin-tailwindcss@3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4))):
-    dependencies:
-      fast-glob: 3.3.3
-      postcss: 8.4.49
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4))
 
   eslint-plugin-testing-library@5.11.1(eslint@8.57.1)(typescript@5.0.4):
     dependencies:
@@ -42027,6 +42079,8 @@ snapshots:
 
   mdn-data@2.0.30: {}
 
+  mdn-data@2.21.0: {}
+
   media-typer@0.3.0: {}
 
   media-typer@1.1.0: {}
@@ -43806,6 +43860,13 @@ snapshots:
       read-cache: 1.0.0
       resolve: 1.22.10
 
+  postcss-import@16.1.1(postcss@8.5.6):
+    dependencies:
+      postcss: 8.5.6
+      postcss-value-parser: 4.2.0
+      read-cache: 1.0.0
+      resolve: 1.22.10
+
   postcss-js@4.0.1(postcss@8.4.49):
     dependencies:
       camelcase-css: 2.0.1
@@ -44198,6 +44259,12 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  postcss@8.5.6:
+    dependencies:
+      nanoid: 3.3.11
+      picocolors: 1.1.1
+      source-map-js: 1.2.1
+
   posthog-js@1.241.1(@rrweb/types@2.0.0-alpha.17):
     dependencies:
       core-js: 3.40.0
@@ -44262,7 +44329,7 @@ snapshots:
     dependencies:
       fast-diff: 1.3.0
 
-  prettier-plugin-tailwindcss@0.3.0(prettier@3.5.3):
+  prettier-plugin-tailwindcss@0.6.13(prettier@3.5.3):
     dependencies:
       prettier: 3.5.3
 
@@ -46557,24 +46624,27 @@ snapshots:
 
   tabbable@6.2.0: {}
 
+  tailwind-csstree@0.1.1: {}
+
   tailwind-merge@1.14.0: {}
 
   tailwind-merge@2.6.0: {}
 
+  tailwind-merge@3.0.2: {}
+
   tailwind-merge@3.3.1: {}
 
-  tailwind-scrollbar@3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))):
+  tailwind-scrollbar@4.0.2(react@18.3.1)(tailwindcss@4.1.11):
     dependencies:
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+      prism-react-renderer: 2.4.1(react@18.3.1)
+      tailwindcss: 4.1.11
+    transitivePeerDependencies:
+      - react
 
-  tailwind-scrollbar@3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4))):
+  tailwind-variants@1.0.0(tailwindcss@4.1.11):
     dependencies:
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4))
-
-  tailwind-variants@0.2.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))):
-    dependencies:
-      tailwind-merge: 2.6.0
-      tailwindcss: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+      tailwind-merge: 3.0.2
+      tailwindcss: 4.1.11
 
   tailwindcss-animate@1.0.7(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))):
     dependencies:

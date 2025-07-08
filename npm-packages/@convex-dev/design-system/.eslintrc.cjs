@@ -8,8 +8,8 @@ module.exports = {
     tsconfigRootDir: __dirname,
   },
   settings: {
-    tailwindcss: {
-      config: "./src/tailwind.config.ts",
+    "better-tailwindcss": {
+      entryPoint: "./src/styles/shared.css",
     },
   },
 };

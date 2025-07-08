@@ -127,7 +127,7 @@ function EmptyFunctions() {
                     <span className="font-mono text-sm font-semibold text-content-secondary">
                       example/function:myFunction
                     </span>
-                    <span className="rounded bg-yellow-500/10 p-1 text-xs font-semibold text-yellow-500">
+                    <span className="rounded-sm bg-yellow-500/10 p-1 text-xs font-semibold text-yellow-500">
                       Query
                     </span>
                   </div>
@@ -182,7 +182,7 @@ function EmptyFunctions() {
                     {
                       key: "metric",
                       name: "calls",
-                      color: "rgb(var(--chart-line-1))",
+                      color: "var(--chart-line-1)",
                     },
                   ],
                 }}
@@ -215,7 +215,7 @@ function EmptyFunctions() {
                     {
                       key: "metric",
                       name: "errors",
-                      color: "rgb(var(--chart-line-4))",
+                      color: "var(--chart-line-4)",
                     },
                   ],
                 }}
@@ -248,17 +248,17 @@ function EmptyFunctions() {
                     {
                       key: "p50",
                       name: "p50",
-                      color: "rgb(var(--chart-line-1))",
+                      color: "var(--chart-line-1)",
                     },
                     {
                       key: "p90",
                       name: "p90",
-                      color: "rgb(var(--chart-line-2))",
+                      color: "var(--chart-line-2)",
                     },
                     {
                       key: "p95",
                       name: "p95",
-                      color: "rgb(var(--chart-line-3))",
+                      color: "var(--chart-line-3)",
                     },
                   ],
                 }}
@@ -291,7 +291,7 @@ function EmptyFunctions() {
                     {
                       key: "metric",
                       name: "%",
-                      color: "rgb(var(--chart-line-1))",
+                      color: "var(--chart-line-1)",
                     },
                   ],
                 }}

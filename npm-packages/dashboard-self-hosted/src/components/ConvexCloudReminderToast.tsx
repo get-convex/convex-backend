@@ -39,7 +39,7 @@ export function ConvexCloudReminderToast() {
           <Button
             variant="unstyled"
             className={cn(
-              "flex w-full cursor-pointer items-center justify-between rounded-lg p-2 text-sm font-medium text-purple-700 hover:bg-background-tertiary focus:outline-none focus:ring-2 focus:ring-purple-700",
+              "flex w-full cursor-pointer items-center justify-between rounded-lg p-2 text-sm font-medium text-purple-700 hover:bg-background-tertiary focus:outline-hidden focus:ring-2 focus:ring-purple-700",
               isExpanded && "border-b border-purple-500",
             )}
             onClick={() => setIsExpanded(!isExpanded)}

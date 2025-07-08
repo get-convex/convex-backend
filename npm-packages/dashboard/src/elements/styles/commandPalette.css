@@ -1,9 +1,9 @@
 [cmdk-root] {
-  @apply p-2 bg-background-secondary/95 dark:border backdrop-blur-sm fixed left-1/2 top-1/3 z-50 -translate-x-1/2 -translate-y-1/2 shadow-md max-w-[640px] w-full overflow-hidden rounded-lg;
+  @apply p-2 bg-background-secondary/95 dark:border backdrop-blur-xs fixed left-1/2 top-1/3 z-50 -translate-x-1/2 -translate-y-1/2 shadow-md max-w-[640px] w-full overflow-hidden rounded-lg;
 }
 
 [cmdk-input] {
-  @apply bg-transparent border-b mb-2 rounded-b-none px-3 py-2 text-sm block rounded placeholder:text-content-tertiary border-0 w-full focus:outline-none;
+  @apply bg-transparent border-b mb-2 rounded-b-none px-3 py-2 text-sm block rounded-sm placeholder:text-content-tertiary border-0 w-full focus:outline-hidden;
 }
 
 [cmdk-overlay] {
@@ -13,7 +13,7 @@
 [cmdk-item] {
   content-visibility: auto;
 
-  @apply rounded text-sm flex items-center gap-1 p-2 cursor-pointer;
+  @apply rounded-sm text-sm flex items-center gap-1 p-2 cursor-pointer;
 
   &[data-selected="true"]:not([data-button]) {
     @apply bg-background-tertiary;
@@ -45,7 +45,7 @@
 }
 
 [cmdk-list] {
-  @apply h-[330px] overflow-auto overscroll-contain transition-[height] duration-100 ease-[ease] focus:outline-none;
+  @apply h-[330px] overflow-auto overscroll-contain transition-[height] duration-100 ease-[ease] focus:outline-hidden;
 }
 
 [cmdk-separator] {

@@ -119,8 +119,8 @@ export function BackupDeploymentSelector({
                 variant="unstyled"
                 className={cn(
                   "relative flex gap-1 items-center group",
-                  "truncate text-left text-content-primary rounded disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-                  "border focus:border-border-selected focus:outline-none bg-background-secondary text-sm py-2 px-3",
+                  "truncate text-left text-content-primary rounded-sm disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+                  "border focus:border-border-selected focus:outline-hidden bg-background-secondary text-sm py-2 px-3",
                   "hover:bg-background-tertiary",
                   open && "border-border-selected",
                   "cursor-pointer",
@@ -157,7 +157,7 @@ export function BackupDeploymentSelector({
                         setPopperElement(el as HTMLDivElement | null)
                       }
                       {...attributes.popper}
-                      className="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded border bg-background-secondary shadow transition-[max-height] focus:outline-none"
+                      className="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-sm border bg-background-secondary shadow-sm transition-[max-height] focus:outline-hidden"
                       onKeyDown={(e) => {
                         switch (e.key) {
                           case "ArrowLeft":
@@ -212,7 +212,7 @@ export function BackupDeploymentSelector({
                                       value={project.id}
                                       className={({ active, selected }) =>
                                         cn(
-                                          "w-full flex text-sm items-center p-2 rounded text-left text-content-primary hover:bg-background-tertiary cursor-pointer",
+                                          "w-full flex text-sm items-center p-2 rounded-sm text-left text-content-primary hover:bg-background-tertiary cursor-pointer",
                                           active && "bg-background-tertiary",
                                           selected &&
                                             "bg-background-tertiary/60",
@@ -244,7 +244,7 @@ export function BackupDeploymentSelector({
                             <header className="flex min-h-12 w-full items-center border-b">
                               <Button
                                 variant="unstyled"
-                                className="flex h-full w-10 shrink-0 items-center justify-center rounded text-content-secondary transition-colors hover:text-content-primary focus:outline-none"
+                                className="flex h-full w-10 shrink-0 items-center justify-center rounded-sm text-content-secondary transition-colors hover:text-content-primary focus:outline-hidden"
                                 onClick={() => goBack()}
                                 tip="Back to projects"
                               >
@@ -286,7 +286,7 @@ export function BackupDeploymentSelector({
                                           value={deployment.id}
                                           className={({ active, selected }) =>
                                             cn(
-                                              "w-full flex text-sm items-center p-2 rounded text-left text-content-primary hover:bg-background-tertiary cursor-pointer",
+                                              "w-full flex text-sm items-center p-2 rounded-sm text-left text-content-primary hover:bg-background-tertiary cursor-pointer",
                                               active &&
                                                 "bg-background-tertiary",
                                               selected &&

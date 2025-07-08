@@ -86,7 +86,7 @@ export function GenerateSchema({
       </div>
       {displayedSchema && (
         <div
-          className="relative block whitespace-pre-wrap break-words rounded border p-4 text-sm"
+          className="relative block whitespace-pre-wrap break-words rounded-sm border p-4 text-sm"
           aria-hidden="true"
         >
           <ReadonlyCode

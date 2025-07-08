@@ -43,7 +43,7 @@ export function InsightsSummaryListItem({ insight }: { insight: Insight }) {
       <span className="w-20">
         {severityForInsightKind[insight.kind] === "error" ? (
           <Tooltip
-            className="flex w-fit gap-1 rounded border bg-background-error p-1 text-xs text-content-error"
+            className="flex w-fit gap-1 rounded-sm border bg-background-error p-1 text-xs text-content-error"
             tip="This insight is a critical problem and should be addressed soon."
             side="left"
           >
@@ -51,7 +51,7 @@ export function InsightsSummaryListItem({ insight }: { insight: Insight }) {
           </Tooltip>
         ) : (
           <Tooltip
-            className="flex w-fit gap-1 rounded border bg-background-warning p-1 text-xs text-content-warning"
+            className="flex w-fit gap-1 rounded-sm border bg-background-warning p-1 text-xs text-content-warning"
             tip="This insight indicates a potential issue and should be investigated."
             side="left"
           >

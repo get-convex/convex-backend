@@ -396,7 +396,7 @@ function RequestIdLogs({
                     />
                   </div>
                   {filteredLogs && filteredLogs.length > 0 ? (
-                    <div className="mx-6 my-4 flex grow flex-col overflow-y-hidden rounded border text-xs">
+                    <div className="mx-6 my-4 flex grow flex-col overflow-y-hidden rounded-sm border text-xs">
                       <RequestIdLogsHeader />
                       <div className="flex grow flex-col divide-y overflow-y-auto font-mono scrollbar">
                         {filteredLogs.map((log, idx) => (

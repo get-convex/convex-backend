@@ -186,7 +186,7 @@ function ContextMenuInner({ target, onClose, children }: ContextMenuProps) {
                 >
                   {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
                   <div
-                    className="flex max-h-[calc(100vh-20px)] animate-fadeInFromLoading flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-sm outline-none dark:border"
+                    className="flex max-h-[calc(100vh-20px)] animate-fadeInFromLoading flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-xs outline-hidden dark:border"
                     ref={refs.setFloating}
                     style={floatingStyles}
                     {...getFloatingProps()}
@@ -237,7 +237,7 @@ function ContextMenuItem({
       variant="unstyled"
       className={classNames(
         "w-full flex max-w-xs gap-2 items-center px-3 py-1.5 text-left",
-        "active:bg-background-tertiary disabled:active:bg-background-secondary focus:bg-background-tertiary disabled:focus:bg-background-secondary outline-none",
+        "active:bg-background-tertiary disabled:active:bg-background-secondary focus:bg-background-tertiary disabled:focus:bg-background-secondary outline-hidden",
         disabled
           ? "cursor-not-allowed fill-content-tertiary text-content-tertiary"
           : variant === "danger"
@@ -293,7 +293,7 @@ function ContextMenuItem({
       )}
       {proBadge && (
         <span
-          className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
           title="Only available on the Pro plan"
         >
           Pro
@@ -417,7 +417,7 @@ function ContextMenuSubmenu({
         variant="unstyled"
         className={classNames(
           "w-full flex max-w-xs gap-2 items-center px-3 py-1.5 text-left",
-          "outline-none text-content-primary",
+          "outline-hidden text-content-primary",
           "active:bg-background-tertiary focus:bg-background-tertiary",
           !isClickable && "cursor-default hover:bg-background-tertiary",
           "disabled:text-content-tertiary disabled:hover:bg-background-secondary disabled:cursor-not-allowed",
@@ -451,7 +451,7 @@ function ContextMenuSubmenu({
             <FloatingPortal>
               {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
               <div
-                className="z-40 flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-md outline-none"
+                className="z-40 flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-md outline-hidden"
                 ref={refs.setFloating}
                 style={floatingStyles}
                 {...getFloatingProps()}

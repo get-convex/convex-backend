@@ -663,7 +663,7 @@ function LatestBackup({ backup }: { backup: BackupResponse | null }) {
   return (
     <p>
       {backup === null ? (
-        <span className="text-xs text-util-danger">No backup</span>
+        <span className="text-xs text-content-errorSecondary">No backup</span>
       ) : (
         <TimestampDistance
           prefix="Last backup created"

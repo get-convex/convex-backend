@@ -42,7 +42,7 @@ export function DirectorySidebar({
           type="search"
           className={classNames(
             "placeholder:text-content-tertiary truncate relative w-full text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-            "focus:outline-none bg-background-secondary font-normal",
+            "focus:outline-hidden bg-background-secondary font-normal",
           )}
         />
       </div>

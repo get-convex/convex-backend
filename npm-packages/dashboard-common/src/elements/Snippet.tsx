@@ -26,7 +26,7 @@ export function Snippet({ value, monospace, className, copying }: Props) {
   return (
     <div
       className={classNames(
-        "rounded border bg-background-secondary flex items-center justify-between pl-2 py-1",
+        "rounded-sm border bg-background-secondary flex items-center justify-between pl-2 py-1",
         className,
       )}
     >

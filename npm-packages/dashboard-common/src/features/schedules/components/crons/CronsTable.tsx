@@ -189,13 +189,13 @@ function Args({ value }: CellProps<CronDatum, JSONValue[]>) {
           onClose={() => setShowArgs(false)}
           header="Cron job arguments"
           content={
-            <div className="h-full rounded p-4">
+            <div className="h-full rounded-sm p-4">
               <ReadonlyCode
                 path="scheduling"
                 code={`${prettier(`
                 [${value
                   .map((arg) => stringifyValue(jsonToConvex(arg)))
-                  .join(",")}]`).slice(0, -1)} 
+                  .join(",")}]`).slice(0, -1)}
                 `}
               />
             </div>

@@ -103,7 +103,7 @@ export function EmptyDataContent({
           >
             <div className="flex justify-between gap-2">
               <div className="flex items-center">
-                <div className="flex w-full rounded bg-background-secondary">
+                <div className="flex w-full rounded-sm bg-background-secondary">
                   <Button
                     size="xs"
                     variant="neutral"
@@ -127,7 +127,7 @@ export function EmptyDataContent({
 
           {/* Table */}
           <div
-            className="flex h-full w-full flex-col overflow-hidden rounded rounded-t-none border bg-background-secondary"
+            className="flex h-full w-full flex-col overflow-hidden rounded-sm rounded-t-none border bg-background-secondary"
             inert
           >
             <table className="h-full w-full table-fixed">

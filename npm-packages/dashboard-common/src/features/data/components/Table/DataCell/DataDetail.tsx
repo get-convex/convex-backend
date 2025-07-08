@@ -20,7 +20,7 @@ export function DataDetail({
       onClose={onClose}
       header={header}
       content={
-        <div className="h-full rounded border p-4">
+        <div className="h-full rounded-sm border p-4">
           <ReadonlyCode path="dataDetail" code={content} disableLineNumbers />
         </div>
       }

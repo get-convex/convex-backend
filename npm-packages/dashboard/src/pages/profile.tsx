@@ -205,8 +205,8 @@ function ToggleDarkMode() {
                 classNames(
                   checked ? "border-transparent" : "",
                   active ? "" : "",
-                  "relative block cursor-pointer rounded-2xl border px-6 py-4 focus:outline-none sm:flex sm:justify-between",
-                  "bg-background-primary/30 hover:bg-background-primary/70 transition-colors shadow border",
+                  "relative block cursor-pointer rounded-2xl border px-6 py-4 focus:outline-hidden sm:flex sm:justify-between",
+                  "bg-background-primary/30 hover:bg-background-primary/70 transition-colors shadow-sm border",
                 )
               }
             >
@@ -228,7 +228,7 @@ function ToggleDarkMode() {
                   />
                   <span
                     className={classNames(
-                      active ? "ring-2" : "border",
+                      active ? "ring-2 ring-util-accent" : "border",
                       checked ? "border-border-selected" : "border-transparent",
                       "pointer-events-none absolute -inset-px rounded-2xl",
                     )}

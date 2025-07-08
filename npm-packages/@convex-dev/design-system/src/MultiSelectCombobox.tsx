@@ -151,7 +151,7 @@ export function MultiSelectCombobox({
                     "flex gap-2 w-full justify-between",
                     "truncate relative rounded-md py-1.5 px-1.5 text-left text-sm text-content-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background-secondary",
                     "border",
-                    "focus:border-border-selected focus:outline-none bg-background-secondary hover:bg-background-tertiary",
+                    "focus:border-border-selected focus:outline-hidden bg-background-secondary hover:bg-background-tertiary",
                     open && "border-border-selected",
                   )}
                 >
@@ -178,7 +178,7 @@ export function MultiSelectCombobox({
                   >
                     <Combobox.Options
                       static
-                      className="max-h-60 w-fit min-w-full max-w-80 overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow scrollbar focus:outline-none"
+                      className="max-h-60 w-fit min-w-full max-w-80 overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm scrollbar focus:outline-hidden"
                     >
                       <div className="min-w-fit">
                         {!disableSearch && (
@@ -190,7 +190,7 @@ export function MultiSelectCombobox({
                               placeholder={`Search ${unitPlural}...`}
                               className={classNames(
                                 "placeholder:text-content-tertiary relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-                                "focus:outline-none bg-background-secondary",
+                                "focus:outline-hidden bg-background-secondary",
                               )}
                             />
                           </div>

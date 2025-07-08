@@ -29,7 +29,7 @@ export function ProvisionProductionDeploymentPage() {
               ) : null}
             </h1>
             <div className="w-full animate-fadeIn">
-              <div className="h-4 rounded bg-background-tertiary" />
+              <div className="h-4 rounded-sm bg-background-tertiary" />
             </div>
           </div>
         </div>

@@ -87,7 +87,7 @@ export const TextInput = forwardRef<
             !error && "focus:border-border-selected text-content-primary",
             "block rounded-md bg-background-secondary",
             size === "sm" ? "px-1.5 py-1 text-xs" : "p-1.5 px-2 text-sm",
-            "disabled:text-content-secondary disabled:bg-background-tertiary placeholder-content-tertiary border focus:outline-none",
+            "disabled:text-content-secondary disabled:bg-background-tertiary placeholder-content-tertiary border focus:outline-hidden",
             "shrink grow disabled:cursor-not-allowed truncate",
             "min-w-0",
             (type === "search" || leftAddon !== undefined) && "pl-6",

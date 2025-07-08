@@ -47,22 +47,22 @@ export function FileStorageListItemInner({
         className={`${FILE_STORAGE_LIST_GRID_CLASSES} items-center gap-2 px-2 py-1`}
       >
         <div className="flex items-center justify-center pr-2">
-          <div className="h-4 w-4 rounded bg-background-tertiary" />
+          <div className="h-4 w-4 rounded-sm bg-background-tertiary" />
         </div>
         <div>
-          <div className="h-4 w-3/4 rounded bg-background-tertiary" />
+          <div className="h-4 w-3/4 rounded-sm bg-background-tertiary" />
         </div>
         <div>
-          <div className="h-4 w-3/4 rounded bg-background-tertiary" />
+          <div className="h-4 w-3/4 rounded-sm bg-background-tertiary" />
         </div>
         <div>
-          <div className="h-4 w-3/4 rounded bg-background-tertiary" />
+          <div className="h-4 w-3/4 rounded-sm bg-background-tertiary" />
         </div>
         <div>
-          <div className="h-4 w-3/4 rounded bg-background-tertiary" />
+          <div className="h-4 w-3/4 rounded-sm bg-background-tertiary" />
         </div>
         <div className="ml-auto">
-          <div className="h-4 w-1/2 rounded bg-background-tertiary" />
+          <div className="h-4 w-1/2 rounded-sm bg-background-tertiary" />
         </div>
       </div>
     );

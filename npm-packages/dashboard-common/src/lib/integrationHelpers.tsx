@@ -91,7 +91,7 @@ export function integrationToLogo(
       return {
         logo: (
           <DatadogLogo
-            className={classNames("rounded border", sizeClass)}
+            className={classNames("rounded-sm border", sizeClass)}
             size={size}
           />
         ),
@@ -101,7 +101,7 @@ export function integrationToLogo(
         logo: (
           <div
             className={classNames(
-              "flex items-center justify-center rounded border",
+              "flex items-center justify-center rounded-sm border",
               sizeClass,
             )}
           >
@@ -113,7 +113,7 @@ export function integrationToLogo(
       return {
         logo: (
           <AxiomLogo
-            className={classNames("rounded border", sizeClass)}
+            className={classNames("rounded-sm border", sizeClass)}
             size={size}
           />
         ),
@@ -122,7 +122,7 @@ export function integrationToLogo(
       return {
         logo: (
           <SentryLogo
-            className={classNames("rounded border", sizeClass)}
+            className={classNames("rounded-sm border", sizeClass)}
             size={size}
           />
         ),
@@ -131,7 +131,7 @@ export function integrationToLogo(
       return {
         logo: (
           <AirbyteLogo
-            className={classNames("rounded border", sizeClass)}
+            className={classNames("rounded-sm border", sizeClass)}
             size={size}
           />
         ),
@@ -141,7 +141,7 @@ export function integrationToLogo(
         logo: (
           <FivetranLogo
             className={classNames(
-              "rounded border bg-white dark:bg-black",
+              "rounded-sm border bg-white dark:bg-black",
               sizeClass,
             )}
             size={size}

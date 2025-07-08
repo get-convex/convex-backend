@@ -43,7 +43,7 @@ export function Sidebar({
     <aside
       className={classNames(
         "bg-background-secondary animate-fadeInFromLoading",
-        "shadow border-b sm:border-b-0 sm:border-r transition-[min-width]",
+        "shadow-sm border-b sm:border-b-0 sm:border-r transition-[min-width]",
         "px-3 py-2 w-0 overflow-auto scrollbar-none",
         "z-40 w-full min-h-fit sm:w-fit sm:h-full",
         "flex flex-row sm:flex-col justify-between",
@@ -55,7 +55,7 @@ export function Sidebar({
       <div className="flex gap-1 sm:flex-col">
         {header}
 
-        <div className="flex gap-1 sm:flex-col sm:divide-x-0 sm:divide-y">
+        <div className="flex sm:flex-col sm:divide-x-0 sm:divide-y">
           {items.map((group) => (
             <div key={group.key} className="flex gap-1 sm:flex-col sm:py-2">
               {group.items.map((item) => (
@@ -170,7 +170,7 @@ export function SidebarLink({
       </span>
       {proBadge && (
         <span
-          className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
           title="Only available on the Pro plan"
         >
           Pro
@@ -199,16 +199,16 @@ export function sidebarLinkClassNames(props: {
   }
   return classNames(
     "w-full",
-    "rounded flex items-center gap-2 whitespace-nowrap",
+    "rounded-sm flex items-center gap-2 whitespace-nowrap",
     "text-content-primary",
     fontSize,
     (props.fitWidth ?? true) ? "min-w-fit" : null,
     props.font === "mono" && "font-mono px-1 py-1",
     props.small ? "p-1.5" : "px-3 py-2",
     !props.isDisabled && (props.isHoverable ?? true)
-      ? "focus-visible:ring cursor-pointer hover:bg-background-primary"
+      ? "cursor-pointer hover:bg-background-primary"
       : null,
-    "focus-visible:outline-0 focus-visible:ring-1 focus-visible:ring-util-accent/40 rounded focus-visible:ring-offset-2",
+    "focus-visible:outline-0 focus-visible:ring-2 focus-visible:ring-util-accent",
     (props.isActive ?? false) ? "font-semibold bg-background-tertiary" : null,
     props.isDisabled
       ? "text-content-tertiary cursor-not-allowed w-fit text-left"

@@ -64,7 +64,7 @@ export function TeamSettingsLayout({
               "px-3 py-2",
               "overflow-x-auto scrollbar-none",
               "bg-background-secondary",
-              "sm:shadow sm:border-r",
+              "sm:shadow-sm sm:border-r",
               "border-b sm:border-b-0",
             )}
           >

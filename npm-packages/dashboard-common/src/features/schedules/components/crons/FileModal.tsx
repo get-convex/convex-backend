@@ -15,7 +15,7 @@ export function FileModal({ contents, onClose, displayName }: Props) {
       title={
         <div className="flex items-center gap-3">
           Cron Jobs
-          <pre className="inline rounded border bg-background-tertiary p-1 text-xs text-content-primary">
+          <pre className="inline rounded-sm border bg-background-tertiary p-1 text-xs text-content-primary">
             {displayName}
           </pre>
         </div>
@@ -36,7 +36,7 @@ export function FileModal({ contents, onClose, displayName }: Props) {
       }
       onClose={onClose}
     >
-      <div className="rounded border p-4" style={{ height: "80vh" }}>
+      <div className="rounded-sm border p-4" style={{ height: "80vh" }}>
         {contents ? (
           <ReadonlyCode
             path={displayName}

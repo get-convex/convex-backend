@@ -675,7 +675,7 @@ export function IndexFilterEditor({
         {renderValueEditor()}
         {error && (
           <Tooltip tip={error}>
-            <div className="ml-1 rounded border bg-background-error p-1">
+            <div className="ml-1 rounded-sm border bg-background-error p-1">
               <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
             </div>
           </Tooltip>
@@ -736,7 +736,7 @@ function ObjectEditorWithPlaceholder({
           className,
         )}
         editorClassname={cn(
-          "px-2 py-1 mt-0 rounded bg-background-secondary text-xs",
+          "px-2 py-1 mt-0 rounded-sm bg-background-secondary text-xs",
           className,
         )}
         allowTopLevelUndefined

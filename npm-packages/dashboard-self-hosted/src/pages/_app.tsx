@@ -1,7 +1,7 @@
 // eslint-disable-next-line import/no-relative-packages
-import "../../../dashboard-common/src/styles/globals.css";
-// eslint-disable-next-line import/no-relative-packages
 import "../../../@convex-dev/design-system/src/styles/shared.css";
+// eslint-disable-next-line import/no-relative-packages
+import "../../../dashboard-common/src/styles/globals.css";
 import { AppProps } from "next/app";
 import Head from "next/head";
 import { useQuery } from "convex/react";
@@ -383,7 +383,7 @@ function Header({ onLogout }: { onLogout: () => void }) {
       <Menu
         buttonProps={{
           icon: (
-            <GearIcon className="h-7 w-7 rounded p-1 text-content-primary hover:bg-background-tertiary" />
+            <GearIcon className="h-7 w-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
           ),
           variant: "unstyled",
           "aria-label": "Dashboard Settings",

@@ -63,7 +63,7 @@ export function LogListItem({
             </span>
           </div>
           {setShownLog && (
-            <div className="-ml-0.5 min-w-8 overflow-hidden rounded border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected">
+            <div className="-ml-0.5 min-w-8 overflow-hidden rounded-sm border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected">
               {log.requestId.slice(0, 4)}
             </div>
           )}
@@ -95,7 +95,7 @@ export function LogListItem({
             )
           )}
           <div className="flex items-center gap-2">
-            <p className="rounded bg-background-tertiary/80 p-0.5 px-1 text-[11px]">
+            <p className="rounded-sm bg-background-tertiary/80 p-0.5 px-1 text-[11px]">
               {log.udfType.charAt(0).toUpperCase()}
             </p>
             <FunctionNameOption

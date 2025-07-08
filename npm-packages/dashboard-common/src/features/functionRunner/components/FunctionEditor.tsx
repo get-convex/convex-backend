@@ -37,7 +37,7 @@ declare global {
    * @returns The wrapped query. Include this as an \`export\` to name it and make it accessible.
    */
   const query: QueryBuilder<DataModel, "public">;
-  
+
   /**
    * Define a query that is only accessible from other Convex functions (but not from the client).
    *
@@ -323,7 +323,7 @@ export function useFunctionEditor(
           />
         </div>
         <div
-          className="h-full min-h-0 animate-fadeInFromLoading rounded border"
+          className="h-full min-h-0 animate-fadeInFromLoading rounded-sm border"
           key={runHistoryItem ? stringifyValue(runHistoryItem) : ""}
         >
           <Editor

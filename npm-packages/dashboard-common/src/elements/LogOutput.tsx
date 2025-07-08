@@ -31,7 +31,7 @@ export function LogLinesOutput({ output }: { output: Output[] }) {
         <div className="flex items-start gap-2 p-2" key={idx}>
           <div className="flex">
             {out.level && (
-              <span className="ml-auto rounded p-1">
+              <span className="ml-auto rounded-sm p-1">
                 <LogLevel level={out.level} />
               </span>
             )}

@@ -9,9 +9,6 @@ module.exports = {
   },
   plugins: ["boundaries"],
   settings: {
-    tailwindcss: {
-      config: "../@convex-dev/design-system/src/tailwind.config.ts",
-    },
     "boundaries/elements": [
       {
         type: "hooks",

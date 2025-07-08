@@ -104,7 +104,7 @@ export function TeamMemberListItem({
       className={classNames(
         "flex flex-wrap justify-between items-center gap-4 py-2",
         isHighlighted
-          ? "bg-highlight px-2 -mx-2 rounded border"
+          ? "bg-highlight px-2 -mx-2 rounded-sm border"
           : "border-b last:border-b-0",
       )}
     >
@@ -131,7 +131,7 @@ export function TeamMemberListItem({
           ) : !canManageMember || team.managedBy ? (
             // Combobox is difficult to create a disabled state for, so we're using a div here that looks like a disabled input
             <Tooltip tip={updateRoleMessage}>
-              <div className="flex cursor-not-allowed items-center gap-1 rounded border bg-background-tertiary p-1.5 text-content-secondary">
+              <div className="flex cursor-not-allowed items-center gap-1 rounded-sm border bg-background-tertiary p-1.5 text-content-secondary">
                 {startCase(member.role)}
                 <CaretSortIcon className="h-5 w-5" />
               </div>

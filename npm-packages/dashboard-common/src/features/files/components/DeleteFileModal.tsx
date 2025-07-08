@@ -27,7 +27,7 @@ export function DeleteFileModal({
         storageIds.length === 1 ? (
           <>
             Are you sure you want delete{" "}
-            <span className="rounded bg-background-tertiary p-1 font-mono text-sm text-content-secondary">
+            <span className="rounded-sm bg-background-tertiary p-1 font-mono text-sm text-content-secondary">
               {storageIds[0]}
             </span>
             ? Deleted files cannot be recovered.

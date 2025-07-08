@@ -22,9 +22,9 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
       <div className="flex grow items-center gap-2">
         <div className="grow">{email.email}</div>
         {email.isPrimary && (
-          <div className="rounded border p-1 text-xs">Primary</div>
+          <div className="rounded-sm border p-1 text-xs">Primary</div>
         )}
-        <div className="rounded border p-1 text-xs">
+        <div className="rounded-sm border p-1 text-xs">
           {email.isVerified ? "Verified" : "Unverified"}
         </div>
       </div>

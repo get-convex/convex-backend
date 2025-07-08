@@ -297,7 +297,7 @@ function useUsageByProject(
 }
 
 function ChartLoading() {
-  return <Loading className="h-56 w-full rounded" fullHeight={false} />;
+  return <Loading className="h-56 w-full rounded-sm" fullHeight={false} />;
 }
 
 function FunctionUsageBreakdown({

@@ -70,7 +70,7 @@ export function ChartForFunctionRate({
                 <ReferenceLine
                   key={timestamp}
                   x={hour}
-                  stroke="rgb(var(--brand-yellow))"
+                  stroke="var(--brand-yellow)"
                   strokeDasharray="3 3"
                 />
               ))}
@@ -197,7 +197,9 @@ export function ChartForFunctionRate({
                 strokeWidth={1}
                 vertical={false}
                 verticalFill={[]}
-                horizontalFill={["rgba(var(--background-tertiary), 0.33)"]}
+                horizontalFill={[
+                  "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
+                ]}
                 syncWithTicks
                 horizontalValues={
                   kind !== "schedulerStatus"

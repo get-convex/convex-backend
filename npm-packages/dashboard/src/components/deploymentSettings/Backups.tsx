@@ -84,7 +84,7 @@ export function Backups({
                 Backup automatically
               </label>
               <span
-                className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+                className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
                 title="Only available on the Pro plan"
               >
                 Pro

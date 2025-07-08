@@ -40,7 +40,7 @@ export function Card({
       )}
     >
       {!href ? (
-        <div className={classNames("flex-grow py-4", contentClassName)}>
+        <div className={classNames("grow py-4", contentClassName)}>
           {children}
         </div>
       ) : (
@@ -48,7 +48,7 @@ export function Card({
           href={href}
           passHref
           className={classNames(
-            "flex-grow cursor-pointer min-w-0 py-4",
+            "grow cursor-pointer min-w-0 py-4",
             contentClassName,
           )}
         >

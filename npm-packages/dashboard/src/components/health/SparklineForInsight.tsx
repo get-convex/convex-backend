@@ -40,7 +40,7 @@ export function SparklineForInsight({ insight }: { insight: Insight }) {
 function Sparkline({
   data,
   height = 36,
-  color = "rgb(var(--chart-line-1))",
+  color = "var(--chart-line-1)",
   min = 0,
   max,
 }: {

@@ -24,10 +24,10 @@ export function PerformanceGraphs() {
 
   const file = currentOpenFunction!;
   const lineColors = [
-    "rgb(var(--chart-line-1))",
-    "rgb(var(--chart-line-2))",
-    "rgb(var(--chart-line-3))",
-    "rgb(var(--chart-line-4))",
+    "var(--chart-line-1)",
+    "var(--chart-line-2)",
+    "var(--chart-line-3)",
+    "var(--chart-line-4)",
   ];
 
   function genErrorOrInvocationFunc(
@@ -103,7 +103,7 @@ export function PerformanceGraphs() {
         {
           key: "metric",
           name: "%",
-          color: "rgb(var(--chart-line-1))",
+          color: "var(--chart-line-1)",
         },
       ],
     });
@@ -169,7 +169,7 @@ export function PerformanceGraphs() {
         dataSource={genErrorOrInvocationFunc(
           "invocations",
           " function calls",
-          "rgb(var(--chart-line-1))",
+          "var(--chart-line-1)",
         )}
         syncId="fnMetrics"
       />
@@ -178,7 +178,7 @@ export function PerformanceGraphs() {
         dataSource={genErrorOrInvocationFunc(
           "errors",
           " errors",
-          "rgb(var(--chart-line-4))",
+          "var(--chart-line-4)",
         )}
         syncId="fnMetrics"
       />

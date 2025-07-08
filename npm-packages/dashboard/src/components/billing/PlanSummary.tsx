@@ -327,7 +327,7 @@ function UsageSection({
   isNotSubjectToFilter: boolean;
 }) {
   const className = cn(
-    "px-4 py-2 grid items-center gap-2 rounded group min-h-10 transition-colors",
+    "px-4 py-2 grid items-center gap-2 rounded-sm group min-h-10 transition-colors",
     hasSubscription
       ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
       : "grid-cols-[5fr_4fr]",

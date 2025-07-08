@@ -1,119 +1,378 @@
-@tailwind base;
-@tailwind utilities;
+@import "tailwindcss";
+
+@import "@fontsource-variable/inter/slnt.css";
+
+@plugin "tailwind-scrollbar" {
+  nocompatible: true;
+}
+
+@plugin "@tailwindcss/forms" {
+  strategy: "class";
+}
+
+/* Apply the dark mode when the .dark class is present */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Colors */
+  --color-red-100: var(--red-100);
+  --color-red-200: var(--red-200);
+  --color-red-300: var(--red-300);
+  --color-red-400: var(--red-400);
+  --color-red-500: var(--red-500);
+  --color-red-700: var(--red-700);
+  --color-red-900: var(--red-900);
+
+  --color-purple-100: var(--purple-100);
+  --color-purple-200: var(--purple-200);
+  --color-purple-500: var(--purple-500);
+  --color-purple-700: var(--purple-700);
+  --color-purple-900: var(--purple-900);
+
+  --color-blue-100: var(--blue-100);
+  --color-blue-200: var(--blue-200);
+  --color-blue-500: var(--blue-500);
+  --color-blue-700: var(--blue-700);
+  --color-blue-900: var(--blue-900);
+
+  --color-cyan-200: var(--cyan-200);
+  --color-cyan-500: var(--cyan-500);
+  --color-cyan-700: var(--cyan-700);
+  --color-cyan-900: var(--cyan-900);
+
+  --color-green-100: var(--green-100);
+  --color-green-200: var(--green-200);
+  --color-green-500: var(--green-500);
+  --color-green-700: var(--green-700);
+  --color-green-900: var(--green-900);
+
+  --color-yellow-50: var(--yellow-50);
+  --color-yellow-100: var(--yellow-100);
+  --color-yellow-200: var(--yellow-200);
+  --color-yellow-500: var(--yellow-500);
+  --color-yellow-700: var(--yellow-700);
+  --color-yellow-900: var(--yellow-900);
+
+  --color-neutral-1: var(--neutral-1);
+  --color-neutral-2: var(--neutral-2);
+  --color-neutral-3: var(--neutral-3);
+  --color-neutral-4: var(--neutral-4);
+  --color-neutral-5: var(--neutral-5);
+  --color-neutral-6: var(--neutral-6);
+  --color-neutral-7: var(--neutral-7);
+  --color-neutral-8: var(--neutral-8);
+  --color-neutral-9: var(--neutral-9);
+  --color-neutral-10: var(--neutral-10);
+  --color-neutral-11: var(--neutral-11);
+  --color-neutral-12: var(--neutral-12);
+
+  --color-background-brand: var(--background-brand);
+  --color-background-primary: var(--background-primary);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-tertiary: var(--background-tertiary);
+  --color-background-highlight: var(--background-highlight);
+  --color-background-success: var(--background-success);
+  --color-background-warning: var(--background-warning);
+  --color-background-error: var(--background-error);
+  --color-background-errorSecondary: var(--background-errorSecondary);
+
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-tertiary: var(--content-tertiary);
+  --color-content-accent: var(--content-accent);
+  --color-content-success: var(--content-success);
+  --color-content-warning: var(--content-warning);
+  --color-content-error: var(--content-error);
+  --color-content-errorSecondary: var(--content-errorSecondary);
+  --color-content-link: var(--content-link);
+
+  --color-chart-line-1: var(--chart-line-1);
+  --color-chart-line-2: var(--chart-line-2);
+  --color-chart-line-3: var(--chart-line-3);
+  --color-chart-line-4: var(--chart-line-4);
+  --color-chart-line-5: var(--chart-line-5);
+  --color-chart-line-6: var(--chart-line-6);
+  --color-chart-line-7: var(--chart-line-7);
+  --color-chart-line-8: var(--chart-line-8);
+
+  --color-border-transparent: var(--border-transparent);
+  --color-border-selected: var(--border-selected);
+
+  --color-macosScrollbar-thumb: var(--macosScrollbar-thumb);
+  --color-macosScrollbar-thumb-hover: var(--macosScrollbar-thumb-hover);
+  --color-macosScrollbar-track: var(--macosScrollbar-track);
+
+  --color-util-accent: var(--accent);
+  --color-util-info: var(--info);
+  --color-util-success: var(--success);
+  --color-util-warning: var(--warning);
+  --color-util-error: var(--error);
+
+  --color-util-brand-purple: var(--brand-purple);
+  --color-util-brand-red: var(--brand-red);
+  --color-util-brand-yellow: var(--brand-yellow);
+
+  /* Font families */
+  --font-display: "GT America", "Inter Variable", ui-sans-serif, system-ui,
+    -apple-system, "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue",
+    "Arial", "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+
+  /* Animations */
+  --animate-blink: blink 2s linear infinite;
+  --animate-bounceIn: bounceIn 0.5s ease-in-out;
+  --animate-highlight: highlight 1s;
+  --animate-highlightBorder: highlightBorder 1s;
+  --animate-loading: fadeIn 1.2s, shimmer 1.2s infinite;
+  --animate-fadeIn: fadeIn 1s;
+  --animate-fadeInFromLoading: fadeIn 0.3s;
+  --animate-vhs: vhs 0.5s linear 0.25s 1 normal forwards;
+  --animate-blinkFill: blinkFill 1.2s ease-in-out infinite;
+  --animate-rotate: fadeIn 0.8s, rotate 0.75s linear infinite;
+  --animate-dashLength: dashLength 1.5s ease-in-out infinite;
+
+  /* Keyframes */
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes dashLength {
+    0% {
+      stroke-dasharray: 1 99;
+    }
+    50% {
+      stroke-dasharray: 35 65;
+    }
+    100% {
+      stroke-dasharray: 1 99;
+    }
+  }
+
+  @keyframes blinkFill {
+    0% {
+      fill-opacity: 1;
+      opacity: 1;
+    }
+    50% {
+      fill-opacity: 0.75;
+      opacity: 0.75;
+    }
+    100% {
+      fill-opacity: 1;
+      opacity: 1;
+    }
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes blink {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes vhs {
+    0% {
+      height: 0%;
+      transform: skew(-90deg);
+      margin-left: -2rem;
+    }
+    100% {
+      height: 100%;
+      transform: skew(0deg);
+      margin-right: 0px;
+    }
+  }
+
+  @keyframes bounceIn {
+    0% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-0.5rem);
+    }
+    50% {
+      transform: translateY(0px);
+    }
+    75% {
+      transform: translateY(-0.25rem);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+
+  @keyframes highlight {
+    0% {
+      background-color: var(--background-secondary);
+    }
+    50% {
+      background-color: var(--background-highlight);
+    }
+    100% {
+      background-color: var(--background-secondary);
+    }
+  }
+
+  @keyframes highlightBorder {
+    0% {
+      background-color: var(--border-transparent);
+    }
+    50% {
+      background-color: var(--content-success);
+    }
+    100% {
+      background-color: var(--border-transparent);
+    }
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes indeterminateProgressBar {
+    0% {
+      transform: none;
+    }
+    100% {
+      transform: translateX(-1rem);
+    }
+  }
+}
 
 :root {
-  --red-100: 252, 215, 203;
-  --red-200: 255, 202, 193;
-  --red-300: 252, 165, 165;
-  --red-400: 253, 76, 65;
-  --red-500: 238, 52, 47;
-  --red-700: 168, 21, 21;
-  --red-900: 107, 33, 31;
-  --purple-100: 241, 200, 233;
-  --purple-200: 232, 180, 220;
-  --purple-500: 141, 38, 118;
-  --purple-700: 86, 0, 83;
-  --purple-900: 113, 36, 96;
-  --blue-100: 204, 222, 250;
-  --blue-200: 177, 202, 240;
-  --blue-500: 7, 78, 232;
-  --blue-700: 33, 34, 181;
-  --blue-900: 0, 43, 153;
-  --cyan-200: 170, 227, 239;
-  --cyan-500: 7, 192, 232;
-  --cyan-700: 0, 155, 221;
-  --cyan-900: 15, 89, 105;
-  --green-100: 203, 237, 182;
-  --green-200: 180, 236, 146;
-  --green-500: 79, 176, 20;
-  --green-700: 34, 137, 9;
-  --green-900: 44, 83, 20;
-  --yellow-50: 254, 252, 232;
-  --yellow-100: 250, 228, 171;
-  --yellow-200: 230, 226, 168;
-  --yellow-500: 243, 176, 28;
-  --yellow-700: 213, 113, 21;
-  --yellow-900: 109, 82, 23;
-  --neutral-1: 222, 226, 234;
-  --neutral-2: 204, 206, 211;
-  --neutral-3: 174, 177, 184;
-  --neutral-4: 151, 154, 164;
-  --neutral-5: 133, 136, 147;
-  --neutral-6: 118, 121, 131;
-  --neutral-7: 103, 106, 116;
-  --neutral-8: 88, 92, 101;
-  --neutral-9: 73, 76, 84;
-  --neutral-10: 57, 60, 66;
-  --neutral-11: 41, 43, 48;
-  --neutral-12: 24, 25, 28;
-  --accent: 63, 82, 149;
-  --info: 7, 191, 232;
+  --red-100: rgb(252, 215, 203);
+  --red-200: rgb(255, 202, 193);
+  --red-300: rgb(252, 165, 165);
+  --red-400: rgb(253, 76, 65);
+  --red-500: rgb(238, 52, 47);
+  --red-700: rgb(168, 21, 21);
+  --red-900: rgb(107, 33, 31);
+  --purple-100: rgb(241, 200, 233);
+  --purple-200: rgb(232, 180, 220);
+  --purple-500: rgb(141, 38, 118);
+  --purple-700: rgb(86, 0, 83);
+  --purple-900: rgb(113, 36, 96);
+  --blue-100: rgb(204, 222, 250);
+  --blue-200: rgb(177, 202, 240);
+  --blue-500: rgb(7, 78, 232);
+  --blue-700: rgb(33, 34, 181);
+  --blue-900: rgb(0, 43, 153);
+  --cyan-200: rgb(170, 227, 239);
+  --cyan-500: rgb(7, 192, 232);
+  --cyan-700: rgb(0, 155, 221);
+  --cyan-900: rgb(15, 89, 105);
+  --green-100: rgb(203, 237, 182);
+  --green-200: rgb(180, 236, 146);
+  --green-500: rgb(79, 176, 20);
+  --green-700: rgb(34, 137, 9);
+  --green-900: rgb(44, 83, 20);
+  --yellow-50: rgb(254, 252, 232);
+  --yellow-100: rgb(250, 228, 171);
+  --yellow-200: rgb(230, 226, 168);
+  --yellow-500: rgb(243, 176, 28);
+  --yellow-700: rgb(213, 113, 21);
+  --yellow-900: rgb(109, 82, 23);
+  --neutral-1: rgb(222, 226, 234);
+  --neutral-2: rgb(204, 206, 211);
+  --neutral-3: rgb(174, 177, 184);
+  --neutral-4: rgb(151, 154, 164);
+  --neutral-5: rgb(133, 136, 147);
+  --neutral-6: rgb(118, 121, 131);
+  --neutral-7: rgb(103, 106, 116);
+  --neutral-8: rgb(88, 92, 101);
+  --neutral-9: rgb(73, 76, 84);
+  --neutral-10: rgb(57, 60, 66);
+  --neutral-11: rgb(41, 43, 48);
+  --neutral-12: rgb(24, 25, 28);
+  --accent: rgb(63, 82, 149);
+  --info: rgb(7, 191, 232);
   --success: var(--green-500);
   --warning: var(--yellow-500);
   --error: var(--red-500);
   --brand-purple: var(--purple-500);
   --brand-red: var(--red-500);
   --brand-yellow: var(--yellow-500);
-  --chart-line-1: 31, 119, 180;
-  --chart-line-2: 255, 127, 14;
-  --chart-line-3: 44, 160, 44;
-  --chart-line-4: 214, 39, 40;
-  --chart-line-5: 148, 103, 189;
-  --chart-line-6: 140, 86, 75;
-  --chart-line-7: 227, 119, 194;
-  --chart-line-8: 188, 189, 34;
+  --chart-line-1: rgb(31, 119, 180);
+  --chart-line-2: rgb(255, 127, 14);
+  --chart-line-3: rgb(44, 160, 44);
+  --chart-line-4: rgb(214, 39, 40);
+  --chart-line-5: rgb(148, 103, 189);
+  --chart-line-6: rgb(140, 86, 75);
+  --chart-line-7: rgb(227, 119, 194);
+  --chart-line-8: rgb(188, 189, 34);
 }
 
 html.light {
-  --background-brand: 249, 247, 238;
-  --background-primary: 243, 240, 237;
-  --background-secondary: 253, 252, 250;
-  --background-tertiary: 240, 238, 235;
+  --background-brand: rgb(249, 247, 238);
+  --background-primary: rgb(243, 240, 237);
+  --background-secondary: rgb(253, 252, 250);
+  --background-tertiary: rgb(240, 238, 235);
   --background-highlight: var(--yellow-50);
   --background-success: var(--green-100);
   --background-warning: var(--yellow-100);
   --background-error: var(--red-100);
-  --background-error-secondary: var(--red-200);
-  --content-primary: 42, 40, 37;
-  --content-secondary: 120, 118, 113;
-  --content-tertiary: 120, 118, 113;
-  --content-accent: 48, 106, 207;
+  --background-errorSecondary: var(--red-200);
+  --content-primary: rgb(42, 40, 37);
+  --content-secondary: rgb(120, 118, 113);
+  --content-tertiary: rgb(120, 118, 113);
+  --content-accent: rgb(48, 106, 207);
   --content-success: var(--green-700);
   --content-warning: var(--yellow-900);
   --content-error: var(--red-700);
-  --content-error-secondary: var(--red-500);
+  --content-errorSecondary: var(--red-500);
   --content-link: var(--blue-700);
-  --border-transparent: 33, 34, 30, 0.14;
-  --border-selected: 30, 28, 25;
-  --macos-scrollbar-thumb: 193, 193, 193;
-  --macos-scrollbar-thumb-hover: 125, 125, 125;
-  --macos-scrollbar-track: 250, 250, 250;
+  --border-transparent: rgba(33, 34, 30, 0.14);
+  --border-selected: rgb(30, 28, 25);
+  --macosScrollbar-thumb: rgb(193, 193, 193);
+  --macosScrollbar-thumb-hover: rgb(125, 125, 125);
+  --macosScrollbar-track: rgb(250, 250, 250);
 }
 
 html.dark {
   --background-brand: var(--background-primary);
-  --background-primary: 30, 28, 26;
-  --background-secondary: 42, 40, 37;
-  --background-tertiary: 60, 58, 65;
+  --background-primary: rgb(30, 28, 26);
+  --background-secondary: rgb(42, 40, 37);
+  --background-tertiary: rgb(60, 58, 65);
   --background-highlight: var(--yellow-900);
   --background-success: var(--green-900);
   --background-warning: var(--yellow-900);
   --background-error: var(--red-900);
-  --background-error-secondary: var(--red-700);
-  --content-primary: 255, 255, 255;
-  --content-secondary: 185, 177, 170;
-  --content-tertiary: 143, 135, 128;
-  --content-accent: 99, 168, 248;
+  --background-errorSecondary: var(--red-700);
+  --content-primary: rgb(255, 255, 255);
+  --content-secondary: rgb(185, 177, 170);
+  --content-tertiary: rgb(143, 135, 128);
+  --content-accent: rgb(99, 168, 248);
   --content-success: var(--green-200);
   --content-warning: var(--yellow-200);
   --content-error: var(--red-200);
-  --content-error-secondary: var(--red-400);
+  --content-errorSecondary: var(--red-400);
   --content-link: var(--blue-200);
-  --border-transparent: 163, 156, 148, 0.3;
-  --border-selected: 225, 215, 205;
-  --macos-scrollbar-thumb: 107, 107, 107;
-  --macos-scrollbar-thumb-hover: 147, 147, 147;
-  --macos-scrollbar-track: 43, 43, 43;
+  --border-transparent: rgba(163, 156, 148, 0.3);
+  --border-selected: rgb(225, 215, 205);
+  --macosScrollbar-thumb: rgb(107, 107, 107);
+  --macosScrollbar-thumb-hover: rgb(147, 147, 147);
+  --macosScrollbar-track: rgb(43, 43, 43);
 }
 
 @layer base {
@@ -165,7 +424,7 @@ html.dark {
   [data-sonner-toast] [data-close-button] {
     @apply bg-background-secondary
       border-background-tertiary
-      text-content-primary !important;
+      text-content-primary;
   }
 
   [data-sonner-toast][data-type="success"],
@@ -175,7 +434,7 @@ html.dark {
       text-green-700
       dark:bg-green-950
       dark:border-green-900
-      dark:text-green-200 !important;
+      dark:text-green-200;
   }
 
   [data-sonner-toast][data-type="error"],
@@ -185,7 +444,7 @@ html.dark {
       text-red-700
       dark:bg-red-950
       dark:border-red-900
-      dark:text-red-200 !important;
+      dark:text-red-200;
   }
 }
 /* Used for elements that need to fade in to a specific opacity

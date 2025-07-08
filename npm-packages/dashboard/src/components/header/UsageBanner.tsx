@@ -65,7 +65,7 @@ export function UsageBanner({
       size: "sm",
     }),
     primaryButtonClass,
-    "px-2.5 py-2 rounded text-sm font-medium",
+    "px-2.5 py-2 rounded-sm text-sm font-medium",
     "ml-2",
   );
   const secondaryButtonClassFull = classNames(
@@ -74,7 +74,7 @@ export function UsageBanner({
       size: "sm",
     }),
     "hover:opacity-75",
-    "px-1 py-2 rounded text-xs font-medium",
+    "px-1 py-2 rounded-sm text-xs font-medium",
     secondaryButtonClass,
   );
 
@@ -137,8 +137,7 @@ export function UsageBanner({
 
         {isDismissable(variant) && (
           <Button
-            // eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-            className="ml-2 h-fit hover:bg-opacity-50"
+            className="ml-2 h-fit"
             variant="neutral"
             size="xs"
             inline

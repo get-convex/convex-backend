@@ -20,7 +20,7 @@ export function PlanCard({
   return (
     <div
       className={classNames(
-        "flex flex-col justify-between rounded-2xl border bg-background-primary/30 p-3 shadow transition-colors hover:bg-background-primary/70 min-w-[18rem]",
+        "flex flex-col justify-between rounded-2xl border bg-background-primary/30 p-3 shadow-sm transition-colors hover:bg-background-primary/70 min-w-[18rem]",
         selected && "border-border-selected",
       )}
     >

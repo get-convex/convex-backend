@@ -1,8 +1,6 @@
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
 // eslint-disable-next-line import/no-relative-packages
-import "../../../@convex-dev/design-system/src/styles/shared.css";
-// eslint-disable-next-line import/no-relative-packages
 import "../elements/styles/commandPalette.css";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";

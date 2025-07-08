@@ -12,7 +12,7 @@ const levelToColor: Record<Level | "FAILURE", string> = {
 
 export function LogLevel({ level }: { level: Level | "FAILURE" }) {
   return (
-    <span className={classNames("p-0.5 px-1 rounded", levelToColor[level])}>
+    <span className={classNames("p-0.5 px-1 rounded-sm", levelToColor[level])}>
       {level.toLowerCase()}
     </span>
   );

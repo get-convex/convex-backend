@@ -201,16 +201,16 @@ function ProjectRoleItem({
         projectId={project.id}
         team={team}
       />
-      <div className="ml-auto rounded p-1 text-xs">
+      <div className="ml-auto rounded-sm p-1 text-xs">
         {originalProjectRoles.includes(project.id) &&
           !newProjectRoles.includes(project.id) && (
-            <div className="rounded bg-background-error p-1 text-xs text-content-error">
+            <div className="rounded-sm bg-background-error p-1 text-xs text-content-error">
               Role will be removed
             </div>
           )}
         {!originalProjectRoles.includes(project.id) &&
           newProjectRoles.includes(project.id) && (
-            <div className="rounded bg-background-success p-1 text-xs text-content-success">
+            <div className="rounded-sm bg-background-success p-1 text-xs text-content-success">
               Role will be added
             </div>
           )}

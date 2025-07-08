@@ -51,7 +51,7 @@ Press "Cancel" to return to the editor, or "OK" to discard unsaved changes.`,
         <p>• Overwrite existing fields</p>
         <p>
           • Remove existing fields by setting them to{" "}
-          <code className="rounded bg-background-tertiary p-[2px] text-content-primary">
+          <code className="rounded-sm bg-background-tertiary p-[2px] text-content-primary">
             undefined
           </code>
         </p>

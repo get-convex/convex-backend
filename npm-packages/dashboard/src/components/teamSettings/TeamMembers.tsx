@@ -27,7 +27,7 @@ export function TeamMembers({ team }: { team: Team }) {
   if (isLoading) {
     // Data isn't loaded yet, show a skeleton.
     inviteMembers = (
-      <Loading className="h-[9.5rem] w-full rounded" fullHeight={false} />
+      <Loading className="h-[9.5rem] w-full rounded-sm" fullHeight={false} />
     );
   } else if (team.managedBy) {
     inviteMembers = (

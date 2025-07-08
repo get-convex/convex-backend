@@ -88,13 +88,13 @@ export function FunctionNameOption({
       <div className="group/overlay relative" role="tooltip">
         <span
           className={cn(
-            "hidden border p-0.5 rounded absolute bg-background-secondary top-[-3px]",
+            "hidden border p-0.5 rounded-sm absolute bg-background-secondary top-[-3px]",
             oneLine
               ? "right-[-3px]"
               : "whitespace-normal break-words max-w-full",
             showHover && "block",
             !disableTruncation &&
-              "group-focus/overlay:block group-focus/overlay:ring",
+              "group-focus/overlay:block group-focus/overlay:ring-3",
           )}
         >
           <span className="text-content-secondary">{hoverSecondary}</span>

@@ -19,7 +19,7 @@ export function FunctionBreakdownSelector({
 }) {
   const optionClass = ({ active }: { active: boolean }) =>
     classNames(
-      "cursor-pointer w-full items-center rounded p-2 text-left text-sm text-content-primary transition",
+      "cursor-pointer w-full items-center rounded-sm p-2 text-left text-sm text-content-primary transition",
       active && "bg-background-tertiary",
     );
 
@@ -28,8 +28,8 @@ export function FunctionBreakdownSelector({
       <Listbox value={value ?? ""} onChange={onChange}>
         <Listbox.Button
           className={classNames(
-            "relative h-full w-full appearance-none rounded border",
-            "bg-background-secondary py-2 pl-3 pr-10 text-left text-sm font-medium text-content-primary hover:bg-background-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-background-secondary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-content-accent",
+            "relative h-full w-full appearance-none rounded-sm border",
+            "bg-background-secondary py-2 pl-3 pr-10 text-left text-sm font-medium text-content-primary hover:bg-background-tertiary focus:outline-hidden focus-visible:ring-2 focus-visible:ring-background-secondary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-content-accent",
           )}
         >
           {OPTIONS[value]}
@@ -41,7 +41,7 @@ export function FunctionBreakdownSelector({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <Listbox.Options className="absolute right-0 z-50 mt-2 max-h-60 w-full min-w-[256px] overflow-auto rounded border bg-background-secondary px-3 py-4 shadow">
+          <Listbox.Options className="absolute right-0 z-50 mt-2 max-h-60 w-full min-w-[256px] overflow-auto rounded-sm border bg-background-secondary px-3 py-4 shadow-sm">
             {OPTIONS.map((option, index) => (
               <Listbox.Option className={optionClass} key={index} value={index}>
                 {option}

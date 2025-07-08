@@ -12,15 +12,13 @@ module.exports = {
     "airbnb/hooks",
     "airbnb-typescript",
     "prettier",
-    "plugin:tailwindcss/recommended",
+    "plugin:better-tailwindcss/recommended-warn",
+    "plugin:better-tailwindcss/recommended-error",
   ],
-  plugins: ["prettier", "tailwindcss"],
+  plugins: ["prettier"],
   settings: {
-    tailwindcss: {
-      config: path.join(
-        __dirname,
-        "../@convex-dev/design-system/src/tailwind.config.ts",
-      ),
+    "better-tailwindcss": {
+      entryPoint: "../@convex-dev/design-system/src/styles/shared.css",
     },
   },
   rules: {
@@ -183,11 +181,35 @@ module.exports = {
     // Makes it harder to accidentally fire off a promise without waiting for it.
     "@typescript-eslint/no-floating-promises": "error",
     "no-void": "off",
-
-    "tailwindcss/no-custom-classname": [
+    // Disable enforce-consistent-line-wrapping temporarily (will enable later + blame-ignore diff)
+    "better-tailwindcss/enforce-consistent-line-wrapping": "off",
+    // Disable enforce-consistent-class-order temporarily (will enable later + blame-ignore diff)
+    "better-tailwindcss/enforce-consistent-class-order": "off",
+    // Disable no-unnecessary-whitespace temporarily (will enable later + blame-ignore diff)
+    "better-tailwindcss/no-unnecessary-whitespace": "off",
+    "better-tailwindcss/no-unregistered-classes": [
       "error",
       {
-        whitelist: ["bottom-four", "js-launch-kapa-ai"],
+        ignore: [
+          // For some reason the ESLint plugin doesn’t recognize classes defined in CSS files,
+          // so let’s ignore them manually for now.
+          "animate-fadeInToVar",
+          "bg-stripes",
+          "bottom-four",
+          "DataRow",
+          "disabled",
+          "focused",
+          "hover-decoration",
+          "SelectorItem-active",
+          "SelectorItem",
+
+          // Classes not used for styling but only for referencing from JS code
+          "js-.+",
+
+          // Monaco classes
+          "codicon-.+",
+          "mtk.+",
+        ],
       },
     ],
   },

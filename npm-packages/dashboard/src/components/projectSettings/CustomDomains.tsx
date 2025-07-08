@@ -589,7 +589,7 @@ function DisplayVanityDomain({
           <span className="mb-4 font-semibold">
             Set the following records on your DNS provider:
           </span>
-          <div className="rounded border p-2">
+          <div className="rounded-sm border p-2">
             <div className="grid grid-cols-1 p-2 md:grid md:grid-cols-[2fr_6fr_3fr] md:gap-2">
               {/* Header */}
               {["Type", "Name", "Value"].map((header) => (

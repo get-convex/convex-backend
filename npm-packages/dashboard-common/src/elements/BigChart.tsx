@@ -116,7 +116,7 @@ export function BigChart({
                         vertical={false}
                         verticalFill={[]}
                         horizontalFill={[
-                          "rgba(var(--background-tertiary), 0.33)",
+                          "color-mix(in srgb, var(--background-tertiary) 33%, transparent)",
                         ]}
                         syncWithTicks
                       />

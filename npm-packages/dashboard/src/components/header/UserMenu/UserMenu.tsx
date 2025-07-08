@@ -29,7 +29,7 @@ export function UserMenu() {
             className="min-h-[2rem] min-w-[2rem] rounded-full"
           />
         ) : (
-          <GearIcon className="h-7 w-7 rounded p-1 text-content-primary hover:bg-background-tertiary" />
+          <GearIcon className="h-7 w-7 rounded-sm p-1 text-content-primary hover:bg-background-tertiary" />
         ),
         variant: "unstyled",
         className:

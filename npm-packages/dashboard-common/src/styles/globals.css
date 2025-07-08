@@ -1,8 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@import "@fontsource-variable/inter/slnt.css";
+@import "../../node_modules/@convex-dev/design-system/src/styles/shared.css";
+@source "../../node_modules/@convex-dev/design-system/src/";
+@source "../"; /* dashboard-common/src */
 
 @font-face {
   font-family: "GT America";
@@ -71,12 +69,12 @@ body {
 
 .monaco-editor .monaco-editor-background,
 .margin {
-  @apply bg-background-secondary !important;
+  @apply bg-background-secondary!;
 }
 
 .disabled .monaco-editor .monaco-editor-background,
 .disabled .margin {
-  @apply bg-background-tertiary !important;
+  @apply bg-background-tertiary!;
 }
 
 .monaco-editor .hover-row.status-bar {
@@ -86,7 +84,7 @@ body {
 .monaco-editor,
 .margin,
 .monaco-scrollable-element {
-  @apply bg-background-secondary !important;
+  @apply bg-background-secondary!;
 }
 
 /* Makes spans in hovers not take up too much vertical space */

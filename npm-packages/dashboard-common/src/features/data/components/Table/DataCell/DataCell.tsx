@@ -229,7 +229,7 @@ function DataCellImpl({
             // from overlapping other cells
             didValueJustChange && "animate-highlight border-r",
             "font-mono text-xs text-content-primary",
-            "w-full h-full flex items-center focus:outline-none",
+            "w-full h-full flex items-center focus:outline-hidden",
             "focus:ring-1 focus:ring-border-selected text-left",
             isContextMenuOpen && "ring-1 ring-border-selected",
             !isEditable && "cursor-default",
@@ -293,7 +293,7 @@ function DataCellImpl({
             }
             className={cn(
               buttonClasses({ size: "xs", variant: "neutral" }),
-              "absolute z-20 shadow-sm",
+              "absolute z-20 shadow-xs",
               isFocused && "focused",
               "animate-none",
             )}
@@ -322,7 +322,7 @@ function DataCellImpl({
             <div className="flex items-center gap-1" data-testid="cell-detail">
               Viewing
               <span className="mr-2 font-mono">{columnName}</span>
-              <span className="rounded border p-1 font-mono text-xs">
+              <span className="rounded-sm border p-1 font-mono text-xs">
                 Document: {rowId}
               </span>
             </div>
@@ -340,7 +340,7 @@ function DataCellImpl({
               data-testid="cell-detail-document"
             >
               Viewing
-              <span className="rounded border p-1 font-mono text-xs">
+              <span className="rounded-sm border p-1 font-mono text-xs">
                 Document: {rowId}
               </span>
             </div>
@@ -416,7 +416,7 @@ function DataCellImpl({
         <div
           ref={setCopiedPopperElement}
           style={styles.popper}
-          className="z-50 flex items-center gap-1 rounded border bg-background-tertiary p-1 text-xs"
+          className="z-50 flex items-center gap-1 rounded-sm border bg-background-tertiary p-1 text-xs"
           data-testid="copied-popper"
           {...attributes.popper}
         >

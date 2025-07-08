@@ -274,7 +274,7 @@ function ChartRow({
         role="presentation"
         aria-hidden
         className={classNames(
-          "absolute left-0 top-0 h-full w-full group-hover:bg-slate-900/5 dark:group-hover:bg-white/5 pointer-events-none rounded",
+          "absolute left-0 top-0 h-full w-full group-hover:bg-slate-900/5 dark:group-hover:bg-white/5 pointer-events-none rounded-sm",
         )}
       />
     </div>

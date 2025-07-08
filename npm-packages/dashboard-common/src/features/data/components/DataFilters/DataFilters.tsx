@@ -214,7 +214,7 @@ export function DataFilters({
         </div>
         {indexes && showFilters && (
           <div className="w-full animate-fadeInFromLoading">
-            <div className="flex w-full flex-col gap-2 overflow-x-auto rounded rounded-tl-none border bg-background-secondary p-2 pb-2.5 scrollbar">
+            <div className="flex w-full flex-col gap-2 overflow-x-auto rounded-sm rounded-tl-none border bg-background-secondary p-2 pb-2.5 scrollbar">
               {enableIndexFilters && (
                 <IndexFilters
                   shownFilters={shownFilters}
@@ -416,7 +416,7 @@ function FilterItem({
       />
       {error && (
         <Tooltip tip={error}>
-          <div className="rounded border bg-background-error p-1">
+          <div className="rounded-sm border bg-background-error p-1">
             <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
           </div>
         </Tooltip>

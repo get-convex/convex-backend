@@ -71,7 +71,6 @@ export function ProjectSelector({
       variant="unstyled"
       type="button"
       className={classNames(
-        "rounded",
         "items-center h-10",
         "px-3 py-2 w-fit flex gap-2 select-none",
         ...(className !== undefined
