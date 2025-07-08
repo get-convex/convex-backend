@@ -117,6 +117,11 @@ pub use self::{
             IndexTable,
             LegacyIndexDiff,
         },
+        index_backfills::{
+            IndexBackfillTable,
+            INDEX_BACKFILLS_BY_INDEX_ID,
+            INDEX_BACKFILLS_TABLE,
+        },
         index_workers::{
             IndexWorkerMetadataTable,
             INDEX_DOC_ID_INDEX,

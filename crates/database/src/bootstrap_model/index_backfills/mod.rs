@@ -6,7 +6,7 @@ use value::{
     TableName,
 };
 
-use crate::{
+use crate::system_tables::{
     SystemIndex,
     SystemTable,
 };

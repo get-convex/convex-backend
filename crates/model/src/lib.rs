@@ -95,6 +95,7 @@ use database::{
     ComponentDefinitionsTable,
     ComponentsTable,
     Database,
+    IndexBackfillTable,
     IndexModel,
     IndexTable,
     IndexWorkerMetadataTable,
@@ -104,6 +105,8 @@ use database::{
     COMPONENTS_BY_PARENT_INDEX,
     COMPONENTS_TABLE,
     COMPONENT_DEFINITIONS_TABLE,
+    INDEX_BACKFILLS_BY_INDEX_ID,
+    INDEX_BACKFILLS_TABLE,
     INDEX_DOC_ID_INDEX,
     INDEX_WORKER_METADATA_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
@@ -195,11 +198,6 @@ use crate::{
     environment_variables::EnvironmentVariablesTable,
     exports::ExportsTable,
     external_packages::EXTERNAL_PACKAGES_TABLE,
-    index_backfills::{
-        IndexBackfillTable,
-        INDEX_BACKFILLS_BY_INDEX_ID,
-        INDEX_BACKFILLS_TABLE,
-    },
     log_sinks::LOG_SINKS_TABLE,
 };
 
@@ -219,7 +217,6 @@ pub mod exports;
 pub mod external_packages;
 pub mod file_storage;
 pub mod fivetran_import;
-pub mod index_backfills;
 pub mod log_sinks;
 mod metrics;
 pub mod migrations;
@@ -542,7 +539,6 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &LogSinksTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
-        &IndexBackfillTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());
