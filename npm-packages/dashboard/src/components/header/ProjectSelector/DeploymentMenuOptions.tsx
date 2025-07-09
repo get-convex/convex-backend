@@ -141,7 +141,7 @@ export function DeploymentMenuOptions({
         </ContextMenu.Submenu>
       )}
       <ContextMenu.Submenu
-        disabled
+        disabled={teamMemberDeployments.length === 0}
         label={
           <p className="flex flex-col">
             Other Deployments
