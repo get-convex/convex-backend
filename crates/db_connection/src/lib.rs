@@ -62,8 +62,9 @@ pub async fn connect_persistence<RT: Runtime>(
                         version,
                         schema,
                     };
-                    let persistence =
-                        Arc::new(PostgresPersistence::new(url.as_str(), options).await?);
+                    let persistence = Arc::new(
+                        PostgresPersistence::new(url.as_str(), options, shutdown_signal).await?,
+                    );
                     tracing::info!("Connected to Postgres database: {}", instance_name);
                     persistence
                 },

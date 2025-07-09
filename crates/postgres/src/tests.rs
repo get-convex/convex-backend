@@ -18,6 +18,7 @@ use common::{
         Persistence,
     },
     run_persistence_test_suite,
+    shutdown::ShutdownSignal,
     testing::{
         self,
         persistence_test_suite,
@@ -50,7 +51,8 @@ run_persistence_test_suite!(
             allow_read_only: false,
             version: PersistenceVersion::V5,
             schema: None,
-        }
+        },
+        ShutdownSignal::panic()
     )
     .await?,
     PostgresPersistence::new(
@@ -59,7 +61,8 @@ run_persistence_test_suite!(
             allow_read_only: true,
             version: PersistenceVersion::V5,
             schema: None,
-        }
+        },
+        ShutdownSignal::panic()
     )
     .await?
 );
@@ -75,7 +78,8 @@ mod with_non_default_schema {
                 allow_read_only: false,
                 version: PersistenceVersion::V5,
                 schema: Some("foobar".to_owned()),
-            }
+            },
+            ShutdownSignal::panic()
         )
         .await?,
         PostgresPersistence::new(
@@ -84,7 +88,8 @@ mod with_non_default_schema {
                 allow_read_only: true,
                 version: PersistenceVersion::V5,
                 schema: Some("foobar".to_owned()),
-            }
+            },
+            ShutdownSignal::panic()
         )
         .await?
     );
@@ -97,8 +102,12 @@ async fn test_loading_locally() -> anyhow::Result<()> {
         version: PersistenceVersion::V5,
         schema: None,
     };
-    let persistence =
-        PostgresPersistence::new(&crate::itest::new_db_opts().await?, options).await?; // need coverage on false too.
+    let persistence = PostgresPersistence::new(
+        &crate::itest::new_db_opts().await?,
+        options,
+        ShutdownSignal::panic(),
+    )
+    .await?; // need coverage on false too.
 
     let start = Instant::now();
     let reader = persistence.reader();
@@ -135,8 +144,12 @@ async fn test_writing_locally() -> anyhow::Result<()> {
         version: PersistenceVersion::V5,
         schema: None,
     };
-    let persistence =
-        PostgresPersistence::new(&crate::itest::new_db_opts().await?, options).await?;
+    let persistence = PostgresPersistence::new(
+        &crate::itest::new_db_opts().await?,
+        options,
+        ShutdownSignal::panic(),
+    )
+    .await?;
 
     let mut max_ts = None;
     {
@@ -188,7 +201,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         version: PersistenceVersion::default(),
         schema: None,
     };
-    let p1 = Arc::new(PostgresPersistence::new(&url, options).await?);
+    let p1 = Arc::new(PostgresPersistence::new(&url, options, ShutdownSignal::no_op()).await?);
 
     let mut id_generator = TestIdGenerator::new();
     let table: TableName = str::parse("table")?;
@@ -218,7 +231,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         version: PersistenceVersion::V5,
         schema: None,
     };
-    let p2 = PostgresPersistence::new(&url, options).await?;
+    let p2 = PostgresPersistence::new(&url, options, ShutdownSignal::no_op()).await?;
 
     // New Persistence can write.
     p2.write(

@@ -46,7 +46,7 @@ use common::{
         InternalId,
         ResolvedDocument,
     },
-    errors::LeaseLostError,
+    errors::lease_lost_error,
     index::{
         IndexEntry,
         IndexKeyBytes,
@@ -75,6 +75,7 @@ use common::{
     query::Order,
     runtime::assert_send,
     sha256::Sha256,
+    shutdown::ShutdownSignal,
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
@@ -197,17 +198,22 @@ async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
 }
 
 impl PostgresPersistence {
-    pub async fn new(url: &str, options: PostgresOptions) -> Result<Self, ConnectError> {
+    pub async fn new(
+        url: &str,
+        options: PostgresOptions,
+        lease_lost_shutdown: ShutdownSignal,
+    ) -> Result<Self, ConnectError> {
         let mut config: tokio_postgres::Config =
             url.parse().context("invalid postgres connection url")?;
         config.target_session_attrs(TargetSessionAttrs::ReadWrite);
         let pool = Self::create_pool(config)?;
-        Self::with_pool(pool, options).await
+        Self::with_pool(pool, options, lease_lost_shutdown).await
     }
 
     pub async fn with_pool(
         pool: Arc<ConvexPgPool>,
         options: PostgresOptions,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> Result<Self, ConnectError> {
         if !pool.is_leader_only() {
             return Err(anyhow::anyhow!(
@@ -253,7 +259,7 @@ impl PostgresPersistence {
             Self::check_newly_created(&client).await?
         };
 
-        let lease = Lease::acquire(pool.clone(), &schema).await?;
+        let lease = Lease::acquire(pool.clone(), &schema, lease_lost_shutdown).await?;
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
@@ -1341,12 +1347,17 @@ struct Lease {
     pool: Arc<ConvexPgPool>,
     lease_ts: i64,
     schema: SchemaName,
+    lease_lost_shutdown: ShutdownSignal,
 }
 
 impl Lease {
     /// Acquire a lease. Blocks as long as there is another lease holder.
     /// Returns any transient errors encountered.
-    async fn acquire(pool: Arc<ConvexPgPool>, schema: &SchemaName) -> anyhow::Result<Self> {
+    async fn acquire(
+        pool: Arc<ConvexPgPool>,
+        schema: &SchemaName,
+        lease_lost_shutdown: ShutdownSignal,
+    ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer();
         let mut client = pool.get_connection("lease_acquire", schema).await?;
         let ts = SystemTime::now()
@@ -1371,6 +1382,7 @@ impl Lease {
             pool,
             lease_ts: ts,
             schema: schema.clone(),
+            lease_lost_shutdown,
         })
     }
 
@@ -1415,7 +1427,8 @@ impl Lease {
             let stmt = tx.prepare_cached(ADVISORY_LEASE_CHECK).await?;
             let rows = tx.query(&stmt, &[&lease_ts]).await?;
             if rows.len() != 1 {
-                return Err(LeaseLostError {}.into());
+                self.lease_lost_shutdown.signal(lease_lost_error());
+                return Err(lease_lost_error());
             }
             timer.finish();
             Ok(())
@@ -1430,7 +1443,8 @@ impl Lease {
         let stmt = tx.prepare_cached(LEASE_PRECOND).await?;
         let rows = tx.query(&stmt, &[&lease_ts]).await?;
         if rows.len() != 1 {
-            return Err(LeaseLostError {}.into());
+            self.lease_lost_shutdown.signal(lease_lost_error());
+            return Err(lease_lost_error());
         }
         timer.finish();
 
