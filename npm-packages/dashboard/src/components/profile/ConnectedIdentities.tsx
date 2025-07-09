@@ -247,6 +247,7 @@ export function ConnectedIdentities() {
                   }
                 }}
                 confirmText="Confirm"
+                variant="primary"
                 dialogTitle="Change Primary Identity"
                 dialogBody="Changing your primary identity will log you out of the dashboard. You will be logged out of the dashboard and need to log in again after changing your primary identity."
                 error={error}
