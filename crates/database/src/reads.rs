@@ -12,6 +12,10 @@ use common::{
         IndexKeyBuffer,
         PackedDocument,
     },
+    document_index_keys::{
+        DocumentIndexKeyValue,
+        DocumentIndexKeys,
+    },
     interval::{
         Interval,
         IntervalSet,
@@ -30,10 +34,6 @@ use common::{
     value::ResolvedDocumentId,
 };
 use errors::ErrorMetadata;
-use indexing::index_registry::{
-    DocumentIndexKeyValue,
-    DocumentIndexKeys,
-};
 use search::QueryReads as SearchQueryReads;
 use usage_tracking::FunctionUsageTracker;
 use value::{

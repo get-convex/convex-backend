@@ -26,6 +26,7 @@ use std::{
     sync::Arc,
 };
 
+use compact_str::CompactString;
 use imbl::Vector;
 #[cfg(any(test, feature = "testing"))]
 use proptest::{
@@ -543,6 +544,18 @@ impl HeapSize for String {
     }
 }
 
+impl HeapSize for CompactString {
+    fn heap_size(&self) -> usize {
+        if !self.is_heap_allocated() {
+            // CompactString stores short strings inline
+            // https://github.com/ParkMyCar/compact_str?tab=readme-ov-file#how-it-works
+            0
+        } else {
+            self.capacity()
+        }
+    }
+}
+
 impl HeapSize for Cow<'_, str> {
     fn heap_size(&self) -> usize {
         match &self {
@@ -838,6 +851,34 @@ impl<T: HeapSize> From<BTreeSet<T>> for WithHeapSize<BTreeSet<T>> {
 
 impl<T: HeapSize> From<WithHeapSize<BTreeSet<T>>> for BTreeSet<T> {
     fn from(value: WithHeapSize<BTreeSet<T>>) -> Self {
+        value.inner
+    }
+}
+
+impl<T: HeapSize> ElementsHeapSize for Box<[T]> {
+    fn elements_heap_size(&self) -> usize {
+        self.iter().map(|v| v.heap_size()).sum::<usize>()
+    }
+}
+
+impl<T: HeapSize> HeapSize for WithHeapSize<Box<[T]>> {
+    fn heap_size(&self) -> usize {
+        self.len() * mem::size_of::<T>() + self.elements_heap_size
+    }
+}
+
+impl<T: HeapSize> From<Box<[T]>> for WithHeapSize<Box<[T]>> {
+    fn from(value: Box<[T]>) -> Self {
+        let elements_heap_size = value.elements_heap_size();
+        Self {
+            inner: value,
+            elements_heap_size,
+        }
+    }
+}
+
+impl<T: HeapSize> From<WithHeapSize<Box<[T]>>> for Box<[T]> {
+    fn from(value: WithHeapSize<Box<[T]>>) -> Self {
         value.inner
     }
 }

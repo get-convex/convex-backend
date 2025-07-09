@@ -19,6 +19,7 @@ use std::{
 };
 
 use common::{
+    document_index_keys::DocumentIndexKeys,
     testing::TestIdGenerator,
     types::{
         GenericIndexName,
@@ -40,11 +41,11 @@ use humansize::{
     FormatSize,
     BINARY,
 };
-use indexing::index_registry::DocumentIndexKeys;
 use itertools::Itertools;
 use search::{
     convex_en,
     query::{
+        tokenize,
         FuzzyDistance,
         TextQueryTerm,
     },
@@ -140,7 +141,7 @@ fn load_datasets(
                 DocumentIndexKeys::with_search_index_for_test(
                     index_name(table_id.tablet_id),
                     field_path,
-                    ConvexString::try_from(d.text).unwrap(),
+                    tokenize(ConvexString::try_from(d.text).unwrap()),
                 ),
             ));
         }
