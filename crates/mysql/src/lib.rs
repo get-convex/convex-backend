@@ -1574,7 +1574,9 @@ const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO @db_name.persistence_globa
 const GET_PERSISTENCE_GLOBAL: &str =
     "SELECT json_value FROM @db_name.persistence_globals FORCE INDEX (PRIMARY) WHERE `key` = ?";
 
-const MAX_INSERT_SIZE: usize = 16384;
+// Maximum number of writes within a single transaction. This is the sum of
+// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
+const MAX_INSERT_SIZE: usize = 56000;
 
 // Gross: after initialization, the first thing database does is insert metadata
 // documents.

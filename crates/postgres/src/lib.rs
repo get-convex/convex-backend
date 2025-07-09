@@ -1857,7 +1857,9 @@ const GET_PERSISTENCE_GLOBAL: &str =
 const CHUNK_SIZE: usize = 8;
 const NUM_DOCUMENT_PARAMS: usize = 6;
 const NUM_INDEX_PARAMS: usize = 8;
-const MAX_INSERT_SIZE: usize = 16384;
+// Maximum number of writes within a single transaction. This is the sum of
+// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
+const MAX_INSERT_SIZE: usize = 56000;
 static PIPELINE_QUERIES: LazyLock<usize> = LazyLock::new(|| env_config("PIPELINE_QUERIES", 16));
 
 // Gross: after initialization, the first thing database does is insert metadata

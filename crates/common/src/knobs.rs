@@ -195,7 +195,8 @@ pub static HTTP_SERVER_TCP_BACKLOG: LazyLock<u32> =
 pub static HTTP_SERVER_MAX_CONCURRENT_REQUESTS: LazyLock<usize> =
     LazyLock::new(|| env_config("HTTP_SERVER_MAX_CONCURRENT_REQUESTS", 1024));
 
-/// Max number of user writes in a transaction
+/// Max number of user writes in a transaction. Make sure to also increase
+/// `MAX_INSERT_SIZE` in mysql/src/lib.rs and postgres/src/lib.rs.
 pub static TRANSACTION_MAX_NUM_USER_WRITES: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_NUM_USER_WRITES", 16000));
 
@@ -229,7 +230,8 @@ pub static FUNCTION_LIMIT_WARNING_RATIO: LazyLock<f64> = LazyLock::new(|| {
 /// We might generate a number of system documents for each UDF write. For
 /// example, creating 4000 user documents in new tables, might result in adding
 /// an additional 8000 system documents. If we hit this error, this is a system
-/// error, not a developer one.
+/// error, not a developer one. If you increase this value, make sure to also
+/// increase MAX_INSERT_SIZE in mysql/src/lib.rs and postgres/src/lib.rs.
 pub static TRANSACTION_MAX_SYSTEM_NUM_WRITES: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_SYSTEM_NUM_WRITES", 40000));
 
