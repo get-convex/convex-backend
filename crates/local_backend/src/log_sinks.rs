@@ -24,7 +24,10 @@ use model::log_sinks::types::{
         DatadogSiteLocation,
     },
     sentry::SerializedSentryConfig,
-    webhook::WebhookConfig,
+    webhook::{
+        WebhookConfig,
+        WebhookFormat,
+    },
     SinkConfig,
     SinkType,
 };
@@ -88,6 +91,8 @@ pub async fn add_datadog_sink(
 #[serde(rename_all = "camelCase")]
 pub struct WebhookSinkPostArgs {
     url: String,
+    #[serde(default)]
+    format: WebhookFormat,
 }
 
 impl TryFrom<WebhookSinkPostArgs> for WebhookConfig {
@@ -100,7 +105,10 @@ impl TryFrom<WebhookSinkPostArgs> for WebhookConfig {
                 "The URL passed was invalid"
             ))
         })?;
-        Ok(WebhookConfig { url })
+        Ok(WebhookConfig {
+            url,
+            format: value.format,
+        })
     }
 }
 

@@ -5,22 +5,41 @@ use serde::{
     Serialize,
 };
 
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WebhookConfig {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::reqwest_url_strategy()")
+    )]
     pub url: reqwest::Url,
+    pub format: WebhookFormat,
+}
+
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, PartialEq, Default, strum::EnumString, strum::Display,
+)]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
+pub enum WebhookFormat {
+    #[default]
+    Json,
+    Jsonl,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedWebhookConfig {
     pub url: String,
+    pub format: String,
 }
 
 impl From<WebhookConfig> for SerializedWebhookConfig {
     fn from(value: WebhookConfig) -> Self {
         Self {
             url: value.url.to_string(),
+            format: value.format.to_string(),
         }
     }
 }
@@ -31,6 +50,7 @@ impl TryFrom<SerializedWebhookConfig> for WebhookConfig {
     fn try_from(value: SerializedWebhookConfig) -> Result<Self, Self::Error> {
         Ok(WebhookConfig {
             url: value.url.parse()?,
+            format: value.format.parse().unwrap_or(WebhookFormat::Json),
         })
     }
 }
@@ -45,22 +65,10 @@ impl fmt::Display for WebhookConfig {
 mod proptest {
     use proptest::prelude::*;
 
-    use super::WebhookConfig;
-
-    impl Arbitrary for WebhookConfig {
-        type Parameters = ();
-
-        type Strategy = impl Strategy<Value = WebhookConfig>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            any::<proptest_http::ArbitraryUri>().prop_filter_map(
-                "Invalid URL for WebhookConfig",
-                |url| {
-                    reqwest::Url::parse(url.0.to_string().as_str())
-                        .ok()
-                        .map(|url| WebhookConfig { url })
-                },
-            )
-        }
+    pub fn reqwest_url_strategy() -> impl Strategy<Value = reqwest::Url> {
+        any::<proptest_http::ArbitraryUri>()
+            .prop_filter_map("Invalid URL for WebhookConfig", |url| {
+                reqwest::Url::parse(url.0.to_string().as_str()).ok()
+            })
     }
 }

@@ -23,7 +23,10 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use http::header::CONTENT_TYPE;
-use model::log_sinks::types::webhook::WebhookConfig;
+use model::log_sinks::types::webhook::{
+    WebhookConfig,
+    WebhookFormat,
+};
 use parking_lot::Mutex;
 use reqwest::header::HeaderMap;
 use serde::Serialize;
@@ -63,7 +66,7 @@ impl<'a> WebhookLogEvent<'a> {
 
 pub struct WebhookSink<RT: Runtime> {
     runtime: RT,
-    url: reqwest::Url,
+    config: WebhookConfig,
     fetch_client: Arc<dyn FetchClient>,
     events_receiver: mpsc::Receiver<Vec<Arc<LogEvent>>>,
     backoff: Backoff,
@@ -82,7 +85,7 @@ impl<RT: Runtime> WebhookSink<RT> {
 
         let mut sink = Self {
             runtime: runtime.clone(),
-            url: config.url,
+            config,
             fetch_client,
             events_receiver: rx,
             backoff: Backoff::new(
@@ -149,7 +152,14 @@ impl<RT: Runtime> WebhookSink<RT> {
         for ev in batch {
             batch_json.push(serde_json::to_value(ev)?);
         }
-        let payload = JsonValue::Array(batch_json);
+        let payload = match self.config.format {
+            WebhookFormat::Json => serde_json::to_vec(&JsonValue::Array(batch_json))?,
+            WebhookFormat::Jsonl => batch_json
+                .into_iter()
+                .map(|v| Ok(serde_json::to_vec(&v)?))
+                .collect::<anyhow::Result<Vec<Vec<u8>>>>()?
+                .join("\n".as_bytes()),
+        };
 
         // Make request in a loop that retries on transient errors
         let headers = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
@@ -159,10 +169,10 @@ impl<RT: Runtime> WebhookSink<RT> {
                 .fetch_client
                 .fetch(
                     HttpRequest {
-                        url: self.url.clone(),
+                        url: self.config.url.clone(),
                         method: http::Method::POST,
                         headers: headers.clone(),
-                        body: Some(serde_json::to_vec(&payload)?),
+                        body: Some(payload.clone()),
                     }
                     .into(),
                 )
@@ -200,7 +210,7 @@ impl<RT: Runtime> WebhookSink<RT> {
             "WebhookMaxRetriesExceeded",
             format!(
                 "Exceeded max number of retry requests to webhook {}. Please try again later.",
-                self.url.as_str()
+                self.config.url.as_str()
             )
         ))
     }
