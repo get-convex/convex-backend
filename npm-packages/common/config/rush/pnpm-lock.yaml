@@ -946,8 +946,8 @@ importers:
         specifier: ~0.13.0
         version: 0.13.4
       posthog-js:
-        specifier: ~1.241.0
-        version: 1.241.1(@rrweb/types@2.0.0-alpha.17)
+        specifier: ~1.249.0
+        version: 1.249.5(@rrweb/types@2.0.0-alpha.17)
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2998,8 +2998,8 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       posthog-js:
-        specifier: ~1.241.0
-        version: 1.241.1(@rrweb/types@2.0.0-alpha.17)
+        specifier: ~1.249.0
+        version: 1.249.5(@rrweb/types@2.0.0-alpha.17)
       prism-react-renderer:
         specifier: ~2.4.1
         version: 2.4.1(react@18.3.1)
@@ -19423,8 +19423,8 @@ packages:
     resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-js@1.241.1:
-    resolution: {integrity: sha512-FJroX5kcz+twkYB8j/c+gHtuctjjAYX1EyopTG4bVZ+K5pQ/o7RCIlvUcCok1MZgDLiBrP/PnG0FkzUlMs19qQ==}
+  posthog-js@1.249.5:
+    resolution: {integrity: sha512-ynB2bcSZz91xF36Aun2OgAvJ37WPjp8hrUHplZJTdJKhaX7j63CePR+Ved6NVO4YqwhCOVqepxwGGJXG4ROBeA==}
     peerDependencies:
       '@rrweb/types': 2.0.0-alpha.17
       rrweb-snapshot: 2.0.0-alpha.17
@@ -44314,7 +44314,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-js@1.241.1(@rrweb/types@2.0.0-alpha.17):
+  posthog-js@1.249.5(@rrweb/types@2.0.0-alpha.17):
     dependencies:
       core-js: 3.40.0
       fflate: 0.4.8
