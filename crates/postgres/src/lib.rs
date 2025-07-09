@@ -1567,8 +1567,14 @@ const CREATE_SCHEMA_SQL: &str = r"CREATE SCHEMA IF NOT EXISTS @db_name;";
 // This runs (currently) every time a PostgresPersistence is created, so it
 // needs to not only be idempotent but not to affect any already-resident data.
 // IF NOT EXISTS and ON CONFLICT are helpful.
+// Despite the idempotence of IF NOT EXISTS, we still use a conditional check to
+// see if we can avoid running that statement, as it acquires an `ACCESS
+// EXCLUSIVE` lock across the database.
 const INIT_SQL: &[&str] = &[
     r#"
+DO $$
+BEGIN
+    IF to_regclass('@db_name.documents') IS NULL THEN
         CREATE TABLE IF NOT EXISTS @db_name.documents (
             id BYTEA NOT NULL,
             ts BIGINT NOT NULL,
@@ -1582,16 +1588,28 @@ const INIT_SQL: &[&str] = &[
 
             PRIMARY KEY (ts, table_id, id)
         );
+    END IF;
+END $$;
 "#,
     r#"
+DO $$
+BEGIN
+    IF to_regclass('@db_name.documents_by_table_and_id') IS NULL THEN
         CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON @db_name.documents (
             table_id, id, ts
         );
+    END IF;
+    IF to_regclass('@db_name.documents_by_table_ts_and_id') IS NULL THEN
         CREATE INDEX IF NOT EXISTS documents_by_table_ts_and_id ON @db_name.documents (
             table_id, ts, id
         );
+    END IF;
+END $$;
 "#,
     r#"
+DO $$
+BEGIN
+    IF to_regclass('@db_name.indexes') IS NULL THEN
         CREATE TABLE IF NOT EXISTS @db_name.indexes (
             /* ids should be serialized as bytes but we keep it compatible with documents */
             index_id BYTEA NOT NULL,
@@ -1618,40 +1636,62 @@ const INIT_SQL: &[&str] = &[
             document_id BYTEA NULL,
             PRIMARY KEY (index_id, key_prefix, key_sha256, ts)
         );
+    END IF;
+END $$;
 "#,
     r#"
-        /* This index with `ts DESC` enables our "loose index scan" queries
-         * (i.e. `DISTINCT ON`) to run in both directions, complementing the
-         * primary key's ts ASC ordering */
+DO $$
+BEGIN
+    /* This index with `ts DESC` enables our "loose index scan" queries
+     * (i.e. `DISTINCT ON`) to run in both directions, complementing the
+     * primary key's ts ASC ordering */
+    IF to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256_ts') IS NULL THEN
         CREATE UNIQUE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256_ts ON @db_name.indexes (
             index_id,
             key_prefix,
             key_sha256,
             ts DESC
         );
+    END IF;
+END $$;
 "#,
     r#"
+DO $$
+BEGIN
+    IF to_regclass('@db_name.leases') IS NULL THEN
         CREATE TABLE IF NOT EXISTS @db_name.leases (
             id BIGINT NOT NULL,
             ts BIGINT NOT NULL,
 
             PRIMARY KEY (id)
         );
+    END IF;
+END $$;
 "#,
     r#"
+DO $$
+BEGIN
+    IF to_regclass('@db_name.read_only') IS NULL THEN
         CREATE TABLE IF NOT EXISTS @db_name.read_only (
             id BIGINT NOT NULL,
 
             PRIMARY KEY (id)
         );
+    END IF;
+END $$;
 "#,
     r#"
+DO $$
+BEGIN
+    IF to_regclass('@db_name.persistence_globals') IS NULL THEN
         CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
             key TEXT NOT NULL,
             json_value BYTEA NOT NULL,
             PRIMARY KEY (key)
             );
-        "#,
+    END IF;
+END $$;
+"#,
     r#"
         INSERT INTO @db_name.leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;
     "#,
