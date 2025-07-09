@@ -111,6 +111,7 @@ use common::{
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
+        AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
         CursorMs,
@@ -2750,17 +2751,31 @@ impl<RT: Runtime> Application<RT> {
                 let mut tx = self.begin(Identity::system()).await?;
                 let auth_infos = AuthInfoModel::new(&mut tx).get().await?;
 
-                let identity = validate_id_token(
-                    Auth0IdToken(id_token),
+                let auth_info_values: Vec<_> = auth_infos
+                    .into_iter()
+                    .map(|auth_info| auth_info.into_value())
+                    .collect();
+
+                let should_redact_errors = self
+                    .log_visibility
+                    .should_redact_logs_and_error(
+                        &mut tx,
+                        Identity::Unknown(None),
+                        AllowedVisibility::PublicOnly,
+                    )
+                    .await?;
+
+                let identity_result = validate_id_token(
+                    // This isn't necessarily an ID token or from Auth0, it's any JWT.
+                    Auth0IdToken(id_token.clone()),
                     cached_http_client_for(ClientPurpose::ProviderMetadata),
-                    auth_infos
-                        .into_iter()
-                        .map(|auth_info| auth_info.into_value())
-                        .collect(),
+                    auth_info_values.clone(),
                     system_time,
+                    should_redact_errors,
                 )
-                .await?;
-                Identity::user(identity)
+                .await;
+
+                Identity::user(identity_result?)
             },
             AuthenticationToken::None => Identity::Unknown(None),
         };

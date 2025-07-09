@@ -48,6 +48,63 @@ pub mod access_token_auth;
 pub mod application_auth;
 pub mod metrics;
 
+fn redact_jwt_error_if_needed(error_msg: &str) -> String {
+    if error_msg.contains("Could not decode token. The JWT's 'kid'") {
+        // Remove specific kid value details in prod
+        "Could not decode token. The JWT's 'kid' (key ID) header doesn't match any key in the \
+         provider's JWKS, or the JWT signature is invalid."
+            .to_string()
+    } else if error_msg.contains("Could not decode token. The JWT is missing a 'kid'") {
+        // Remove detailed kid guidance but keep helpful info
+        "Could not decode token. The JWT is missing a 'kid' (key ID) header, or the JWT signature \
+         is invalid."
+            .to_string()
+    } else {
+        error_msg.to_string()
+    }
+}
+
+fn enhance_no_provider_error(auth_infos: &[AuthInfo], should_redact: bool) -> String {
+    if should_redact {
+        return "No auth provider found matching the given token".to_string();
+    }
+
+    let configured_providers: Vec<String> = auth_infos
+        .iter()
+        .map(|info| match info {
+            AuthInfo::Oidc {
+                domain,
+                application_id,
+                ..
+            } => format!("OIDC(domain={}, app_id={})", domain, application_id),
+            AuthInfo::CustomJwt {
+                issuer,
+                application_id,
+                ..
+            } => format!(
+                "CustomJWT(issuer={}, app_id={})",
+                issuer,
+                application_id
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("none")
+            ),
+        })
+        .collect();
+
+    if configured_providers.is_empty() {
+        "No auth provider found matching the given token (no providers configured). Check \
+         convex/auth.config.ts."
+            .to_string()
+    } else {
+        format!(
+            "No auth provider found matching the given token. Check that your JWT's issuer and \
+             audience match one of your configured providers: [{}]",
+            configured_providers.join(", ")
+        )
+    }
+}
+
 /// Issuer for API access tokens
 pub static CONVEX_AUTH_URL: LazyLock<Url> =
     LazyLock::new(|| Url::parse("https://auth.convex.dev/").unwrap());
@@ -105,6 +162,7 @@ pub async fn validate_id_token<F, E>(
     http_client: impl Fn(HttpRequest) -> F + 'static,
     auth_infos: Vec<AuthInfo>,
     system_time: SystemTime,
+    should_redact_errors: bool,
 ) -> anyhow::Result<UserIdentity>
 where
     F: Future<Output = Result<HttpResponse, E>>,
@@ -128,18 +186,21 @@ where
                 .unverified_payload()
                 .context(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
-                    "Could not parse JWT payload",
+                    "Could not parse JWT payload. Check that the token is a valid JWT format with \
+                     three base64-encoded parts separated by dots.",
                 ))?;
         let Some(issuer) = payload.registered.issuer else {
             anyhow::bail!(ErrorMetadata::unauthenticated(
                 "InvalidAuthHeader",
-                "Missing issuer in JWT payload"
+                "Missing issuer claim ('iss') in JWT payload. The JWT must include an 'iss' claim \
+                 that matches one of your configured auth providers."
             ));
         };
         let Some(audiences) = payload.registered.audience else {
             anyhow::bail!(ErrorMetadata::unauthenticated(
                 "InvalidAuthHeader",
-                "Missing audience in JWT payload"
+                "Missing audience claim ('aud') in JWT payload. The JWT must include an 'aud' \
+                 claim that matches your configured application ID."
             ));
         };
         let audiences = match audiences {
@@ -148,11 +209,12 @@ where
         };
         // Find the provider matching this token
         let auth_info = auth_infos
-            .into_iter()
+            .iter()
             .find(|info| info.matches_token(&audiences, &issuer))
+            .cloned()
             .context(ErrorMetadata::unauthenticated(
                 "NoAuthProvider",
-                "No auth provider found matching the given token",
+                enhance_no_provider_error(&auth_infos, should_redact_errors),
             ))?;
         (auth_info, issuer)
     };
@@ -219,11 +281,15 @@ where
             .require_audience_match(true)
             .set_time_fn(|| chrono_utc);
             let token = CoreIdTokenWithCustomClaims::from_str(&token_str.0).context(
-                ErrorMetadata::unauthenticated("InvalidAuthHeader", "Could not parse as id token"),
+                ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Could not parse as OIDC ID token. Token might not be an OIDC-compliant JWT.",
+                ),
             )?;
             UserIdentity::from_token(token, verifier).context(ErrorMetadata::unauthenticated(
                 "Unauthenticated",
-                "Could not verify token claim",
+                "Could not verify OIDC token claim. Check that the token signature is valid and \
+                 the token hasn't expired.",
             ))
         },
         AuthInfo::CustomJwt {
@@ -237,21 +303,47 @@ where
                 .with_context(|| {
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
-                        "Invalid auth jwks response body",
+                        format!(
+                            "Invalid JWKS response body from '{}'. The response is not valid JSON \
+                             or doesn't match the expected JWKS format.",
+                            jwks_uri
+                        ),
                     )
                 })?;
             let token = JWT::<serde_json::Value, biscuit::Empty>::new_encoded(&token_str.0);
             let decoded_token = token
                 .decode_with_jwks(&jwks, Some(algorithm.into()))
-                .context(ErrorMetadata::unauthenticated(
-                    "InvalidAuthHeader",
-                    "Could not decode token",
-                ))?;
+                .with_context(|| {
+                    // Try to extract more specific error information
+                    let unverified_header = token.unverified_header().ok();
+                    let kid = unverified_header.and_then(|h| h.registered.key_id.clone());
+
+                    let detailed_msg = if let Some(kid) = kid {
+                        format!(
+                            "Could not decode token. The JWT's 'kid' (key ID) header is '{}' but \
+                             this doesn't match any key in the provider's JWKS.",
+                            kid
+                        )
+                    } else {
+                        "Could not decode token. The JWT is missing a 'kid' (key ID) header, or \
+                         the JWT signature is invalid."
+                            .to_string()
+                    };
+
+                    let final_msg = if should_redact_errors {
+                        redact_jwt_error_if_needed(&detailed_msg)
+                    } else {
+                        detailed_msg
+                    };
+
+                    ErrorMetadata::unauthenticated("InvalidAuthHeader", final_msg)
+                })?;
             let payload = decoded_token.payload()?;
             let Some(ref token_issuer) = payload.registered.issuer else {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
-                    "Missing issuer in JWT payload"
+                    "Missing issuer claim ('iss') in JWT payload. The JWT must include an 'iss' \
+                     claim that matches one of your configured auth providers."
                 ));
             };
             let token_issuer_with_protocol =
@@ -272,7 +364,8 @@ where
             let Some(ref token_audience) = payload.registered.audience else {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
-                    "Missing audience in JWT payload"
+                    "Missing audience claim ('aud') in JWT payload. The JWT must include an 'aud' \
+                     claim that matches your configured application ID."
                 ));
             };
             if let Some(application_id) = application_id {
@@ -293,18 +386,26 @@ where
             let validation_options = ValidationOptions {
                 temporal_options: TemporalOptions {
                     now: Some(chrono_utc),
-                    ..Default::default()
+                    epsilon: chrono::Duration::seconds(5),
                 },
                 ..Default::default()
             };
             decoded_token
                 .validate(validation_options)
-                .context(ErrorMetadata::unauthenticated(
-                    "InvalidAuthHeader",
-                    "Could not validate token",
-                ))?;
+                .with_context(|| {
+                    ErrorMetadata::unauthenticated(
+                        "InvalidAuthHeader",
+                        "Could not validate token. This often happens due to timing issues: check \
+                         that your JWT's 'iat' (issued at) and 'exp' (expires) claims are valid \
+                         for the current time.",
+                    )
+                })?;
             UserIdentity::from_custom_jwt(decoded_token, token_str.0).context(
-                ErrorMetadata::unauthenticated("InvalidAuthHeader", "Could not verify token claim"),
+                ErrorMetadata::unauthenticated(
+                    "InvalidAuthHeader",
+                    "Could not verify token claim. Check that the JWT contains valid claims and \
+                     matches your auth provider configuration.",
+                ),
             )
         },
     }
@@ -330,7 +431,11 @@ where
     if let Ok(data_url) = DataUrl::process(jwks_uri) {
         // Don't bother checking the MIME type for data: URLs
         let (data, _fragment) = data_url.decode_to_vec().with_context(|| {
-            ErrorMetadata::unauthenticated("InvalidAuthHeader", "Invalid JWKS URL")
+            ErrorMetadata::unauthenticated(
+                "InvalidAuthHeader",
+                "Invalid JWKS data URL. Check that the data URL is properly formatted and \
+                 contains valid base64-encoded JSON.",
+            )
         })?;
         return Ok(data);
     }
@@ -341,12 +446,25 @@ where
         .header(http::header::ACCEPT, APPLICATION_JSON)
         .body(vec![])?;
     let response = http_client(request).await.map_err(|e| {
-        ErrorMetadata::unauthenticated("InvalidAuthHeader", format!("Could not fetch JWKS: {e}"))
+        ErrorMetadata::unauthenticated(
+            "InvalidAuthHeader",
+            format!(
+                "Could not fetch JWKS from URL '{}': {}. Check that the URL is correct and \
+                 accessible.",
+                jwks_uri, e
+            ),
+        )
     })?;
     if response.status() != http::StatusCode::OK {
         anyhow::bail!(ErrorMetadata::unauthenticated(
             "InvalidAuthHeader",
-            "Could not fetch JWKS"
+            format!(
+                "Could not fetch JWKS from URL '{}': HTTP {} {}. Check that the URL is correct \
+                 and accessible.",
+                jwks_uri,
+                response.status().as_u16(),
+                response.status().canonical_reason().unwrap_or("Unknown")
+            )
         ));
     }
     if !response
@@ -364,9 +482,18 @@ where
                 })
         })
     {
+        let content_type = response
+            .headers()
+            .get(http::header::CONTENT_TYPE)
+            .and_then(|ct| ct.to_str().ok())
+            .unwrap_or("unknown");
         anyhow::bail!(ErrorMetadata::unauthenticated(
             "InvalidAuthHeader",
-            "Invalid Content-Type when fetching JWKS"
+            format!(
+                "Invalid Content-Type '{}' when fetching JWKS from '{}'. Expected \
+                 'application/json' or 'application/jwk-set+json'.",
+                content_type, jwks_uri
+            )
         ));
     }
 
@@ -589,7 +716,7 @@ where
             ..Default::default()
         },
         temporal_options: TemporalOptions {
-            epsilon: chrono::Duration::zero(),
+            epsilon: chrono::Duration::seconds(5),
             now: Some(chrono::DateTime::from(system_time)),
         },
         issuer: Validation::Validate(auth_url.to_string()),
@@ -806,6 +933,7 @@ mod tests {
                 domain: issuer_url,
             }],
             SystemTime::now(),
+            false, // Don't redact errors in tests
         )
         .await
         .unwrap();

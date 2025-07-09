@@ -6,6 +6,5 @@ import { ConvexReactClient } from "convex/react";
 // https://github.com/kulshekhar/ts-jest/issues/4639
 
 test("Warming up jest / ts-jest cache", async () => {
-  console.log(ConvexHttpClient);
-  console.log(ConvexReactClient);
+  const _ = ConvexHttpClient.toString() + ConvexReactClient.toString();
 });
