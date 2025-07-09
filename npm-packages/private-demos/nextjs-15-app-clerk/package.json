@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.20.0",
-    "@clerk/nextjs": "^6.9.2",
+    "@clerk/nextjs": "^6.23.3",
     "convex": "workspace:*",
     "next": "15.2.3",
     "react": "^19",
