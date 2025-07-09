@@ -19,6 +19,10 @@ use std::{
 use ::metrics::Timer;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
+    document_index_keys::{
+        DocumentIndexKeyValue,
+        DocumentIndexKeys,
+    },
     errors::report_error,
     knobs::SUBSCRIPTIONS_WORKER_QUEUE_SIZE,
     runtime::{
@@ -39,13 +43,7 @@ use futures::{
     FutureExt as _,
     StreamExt as _,
 };
-use indexing::{
-    index_registry::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
-    },
-    interval::IntervalMap,
-};
+use indexing::interval::IntervalMap;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
@@ -501,6 +499,7 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
+        document_index_keys::DocumentIndexKeys,
         runtime::testing::TestDriver,
         testing::TestIdGenerator,
         types::{
@@ -511,7 +510,6 @@ mod tests {
         },
     };
     use convex_macro::test_runtime;
-    use indexing::index_registry::DocumentIndexKeys;
     use itertools::Itertools;
     use maplit::btreeset;
     use proptest::{
@@ -527,6 +525,7 @@ mod tests {
     use runtime::testing::TestRuntime;
     use search::{
         query::{
+            tokenize,
             FuzzyDistance,
             TextQueryTerm,
         },
@@ -958,7 +957,7 @@ mod tests {
                     &DocumentIndexKeys::with_search_index_for_test(
                         create_index_name(doc.id().tablet_id),
                         search_field,
-                        search_field_value,
+                        tokenize(search_field_value),
                     ),
                     &mut to_notify,
                 );

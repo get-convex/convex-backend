@@ -82,6 +82,7 @@ vector = { path = "../vector" }
 [dev-dependencies]
 async-channel = { workspace = true }
 common = { path = "../common", features = ["testing"] }
+compact_str = { workspace = true }
 criterion = { workspace = true, features = ["async_tokio"] }
 errors = { path = "../errors", features = ["testing"] }
 events = { path = "../events", features = ["testing"] }
