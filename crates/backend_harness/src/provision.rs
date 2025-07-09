@@ -383,10 +383,6 @@ async fn provision(
     package_dir: &Path,
     metric_label: StaticMetricLabel,
 ) -> anyhow::Result<Provision> {
-    // Skip backend build if the proper env variable is set.
-    let skip_build = option_env!("CONVEX_SKIP_BACKEND_BUILD")
-        .map(|v| !v.is_empty())
-        .unwrap_or(false);
     let (admin_key, handle, deployment_url) = match backend_provisioner {
         BackendProvisioner::Production | BackendProvisioner::LocalBigBrain => {
             let provision_host_credentials = backend_provisioner
@@ -430,25 +426,18 @@ async fn provision(
                 BackendProvisioner::ConductorRelease { .. }
             );
             let mut build_cmd = Command::new("cargo");
-            build_cmd
-                .arg("build")
-                .arg("-p")
-                .arg("conductor")
-                .arg("--bin")
-                .arg("conductor");
+            build_cmd.arg("build").arg("--bin").arg("conductor");
             let udf_use_funrun = env_config("UDF_USE_FUNRUN", true);
             if udf_use_funrun {
-                build_cmd.arg("-p").arg("funrun").arg("--bin").arg("funrun");
+                build_cmd.arg("--bin").arg("funrun");
             }
             if release {
                 build_cmd.arg("--release");
             }
-            if !skip_build {
-                logs.spawn_with_prefixed_logs("cargo build".into(), &mut build_cmd)?
-                    .wait()
-                    .map(|result| anyhow::Ok(result?.exit_ok()?))
-                    .await?;
-            }
+            logs.spawn_with_prefixed_logs("cargo build".into(), &mut build_cmd)?
+                .wait()
+                .map(|result| anyhow::Ok(result?.exit_ok()?))
+                .await?;
             let conductor_binary = if release {
                 REPO_ROOT.join("target/release/conductor")
             } else {
@@ -520,21 +509,15 @@ async fn provision(
                 BackendProvisioner::OpenSourceRelease { .. }
             );
             let mut cmd = Command::new("cargo");
-            cmd.arg("build")
-                .arg("-p")
-                .arg("local_backend")
-                .arg("--bin")
-                .arg("convex-local-backend");
+            cmd.arg("build").arg("--bin").arg("convex-local-backend");
             if release {
                 cmd.arg("--release");
             }
 
-            if !skip_build {
-                logs.spawn_with_prefixed_logs("cargo build".into(), &mut cmd)?
-                    .wait()
-                    .await?
-                    .exit_ok()?;
-            }
+            logs.spawn_with_prefixed_logs("cargo build".into(), &mut cmd)?
+                .wait()
+                .await?
+                .exit_ok()?;
 
             let backend_binary = if release {
                 REPO_ROOT.join("target/release/convex-local-backend")

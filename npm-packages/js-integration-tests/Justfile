@@ -13,17 +13,13 @@ test *ARGS:
 test-open-source *ARGS:
     #!/usr/bin/env bash
     just rush build -t .
-    cargo build -p backend_harness --bin backend-harness
-    cargo build -p local_backend --bin convex-local-backend
+    cargo build --bin backend-harness --bin convex-local-backend
     just _test open-source-debug "$@"
 
 test-conductor *ARGS:
     #!/usr/bin/env bash
     just rush build -t .
-    cargo build -p backend_harness --bin backend-harness \
-    -p usher --bin usher \
-    -p conductor --bin conductor \
-    -p funrun --bin funrun
+    cargo build --bin backend-harness --bin usher --bin conductor --bin funrun
     just _test-conductor "$@"
 
 _test-conductor *ARGS:
@@ -35,7 +31,7 @@ _test-conductor *ARGS:
 test-self-hosted *ARGS:
     #!/usr/bin/env bash
     just rush build -t .
-    cargo build -p backend_harness --bin backend-harness
+    cargo build backend-harness
     just _test self-hosted-backend "$@"
     docker compose -f ../../self-hosted/docker/docker-compose.yml down
 
