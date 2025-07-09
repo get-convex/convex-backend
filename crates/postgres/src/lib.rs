@@ -1324,7 +1324,7 @@ impl PersistenceReader for PostgresReader {
                 table_name: table.to_owned(),
                 data_bytes: row.try_get::<_, i64>(0)? as u64,
                 index_bytes: row.try_get::<_, i64>(1)? as u64,
-                row_count: 0, // not supported easily
+                row_count: row.try_get::<_, i64>(2)? as u64,
             });
         }
         Ok(stats)
@@ -2117,8 +2117,10 @@ WHERE
 "#;
 
 // N.B.: tokio-postgres doesn't know how to create regclass values
-const TABLE_SIZE_QUERY: &str =
-    r"SELECT pg_table_size($1::text::regclass), pg_indexes_size($1::text::regclass)";
+const TABLE_SIZE_QUERY: &str = r"SELECT
+pg_table_size($1::text::regclass),
+pg_indexes_size($1::text::regclass),
+(SELECT reltuples::bigint FROM pg_class WHERE oid = $1::text::regclass)";
 
 static MIN_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; 32]);
 static MAX_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![255; 32]);
