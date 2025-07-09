@@ -163,10 +163,10 @@ export function useFunctionResult({
           tip={
             disabled
               ? "Fix the errors above to continue."
-              : isProd && !prodEditsEnabled
-                ? `You are about to run a ${udfType.toLowerCase()} in Production. Unlock Production to continue.`
-                : !canRunFunction
-                  ? "You do not have permission to run this function in production."
+              : !canRunFunction
+                ? "You do not have permission to run this function in production."
+                : isProd && !prodEditsEnabled
+                  ? `You are about to run a ${udfType.toLowerCase()} in Production. Unlock Production to continue.`
                   : undefined
           }
           size="sm"
