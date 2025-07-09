@@ -8,6 +8,7 @@
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
+#![feature(ptr_metadata)]
 
 mod array_buffer_allocator;
 pub mod bundled_js;

@@ -956,7 +956,7 @@ impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ModuleJson {
     pub path: String,
-    pub source: ModuleSource,
+    pub source: String,
     pub source_map: Option<SourceMap>,
     pub environment: Option<String>,
 }
@@ -972,7 +972,7 @@ impl From<ModuleConfig> for ModuleJson {
     ) -> ModuleJson {
         ModuleJson {
             path: path.into(),
-            source,
+            source: source.to_string(),
             source_map,
             environment: Some(environment.to_string()),
         }
@@ -997,7 +997,7 @@ impl TryFrom<ModuleJson> for ModuleConfig {
         };
         Ok(ModuleConfig {
             path: parse_module_path(&path)?,
-            source,
+            source: ModuleSource::new(&source),
             source_map,
             environment,
         })

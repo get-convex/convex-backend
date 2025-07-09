@@ -52,7 +52,7 @@ export default new SchemaDefinition()
     let schema = application
         .evaluate_schema(ModuleConfig {
             path: "schema".parse()?,
-            source: source.to_owned(),
+            source: source.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         })
@@ -109,7 +109,7 @@ export default new SchemaDefinition()
     let err = application
         .evaluate_schema(ModuleConfig {
             path: "schema".parse()?,
-            source: source.to_owned(),
+            source: source.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         })
@@ -155,7 +155,7 @@ export default new SchemaDefinition()
     let err = application
         .evaluate_schema(ModuleConfig {
             path: "schema".parse()?,
-            source: source.to_owned(),
+            source: source.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         })
@@ -201,7 +201,7 @@ export default new SchemaDefinition()
     let err = application
         .evaluate_schema(ModuleConfig {
             path: "schema".parse()?,
-            source: source.to_owned(),
+            source: source.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         })

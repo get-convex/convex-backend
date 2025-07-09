@@ -1,10 +1,14 @@
 use std::{
     collections::HashMap,
+    ffi::c_char,
     marker::PhantomData,
+    mem,
     ops::{
         Deref,
         DerefMut,
     },
+    ptr,
+    str,
     sync::Arc,
 };
 
@@ -27,7 +31,10 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use model::modules::{
-    module_versions::FullModuleSource,
+    module_versions::{
+        FullModuleSource,
+        ModuleSource,
+    },
     user_error::{
         ModuleNotFoundError,
         SystemModuleNotFoundError,
@@ -342,8 +349,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
             let name_str = v8::String::new(&mut scope, name.as_str())
                 .ok_or_else(|| anyhow!("Failed to create name string"))?;
-            let source_str = v8::String::new(&mut scope, &module_source.source)
-                .ok_or_else(|| anyhow!("Failed to create source string"))?;
+            let source_str = make_source_string(&mut scope, &module_source.source)?;
 
             let origin = helpers::module_origin(&mut scope, name_str);
             let (mut v8_source, options) = match &code_cache {
@@ -476,7 +482,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             let (source, source_map) = system_udf_file(system_path)
                 .ok_or_else(|| SystemModuleNotFoundError::new(system_path))?;
             let result = FullModuleSource {
-                source: source.to_string(),
+                source: source.into(),
                 source_map: source_map.as_ref().map(|s| s.to_string()),
             };
             timer.finish();
@@ -670,4 +676,39 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         rv.set(promise.into());
         Ok(())
     }
+}
+
+fn make_source_string<'s>(
+    scope: &mut v8::HandleScope<'s, ()>,
+    module_source: &ModuleSource,
+) -> anyhow::Result<v8::Local<'s, v8::String>> {
+    if module_source.is_ascii() {
+        // Common case: we can use an external string and skip copying the
+        // module to the V8 heap
+        let owned_source: Arc<str> = module_source.source_arc().clone();
+        // SAFETY: we know that `module_source` is ASCII and we have bumped the
+        // refcount, so the string will not be mutated or freed until we call
+        // the destructor
+        let ptr = owned_source.as_ptr();
+        let len = owned_source.len();
+        mem::forget(owned_source);
+        unsafe extern "C" fn destroy(ptr: *mut c_char, len: usize) {
+            drop(Arc::from_raw(ptr::from_raw_parts::<str>(
+                ptr.cast::<u8>().cast_const(),
+                len,
+            )));
+        }
+        // N.B.: new_external_onebyte_raw takes a mut pointer but it does not mutate it
+        unsafe {
+            v8::String::new_external_onebyte_raw(
+                scope,
+                ptr.cast::<c_char>().cast_mut(),
+                len,
+                destroy,
+            )
+        }
+    } else {
+        v8::String::new(scope, module_source)
+    }
+    .ok_or_else(|| anyhow!("Failed to create source string"))
 }

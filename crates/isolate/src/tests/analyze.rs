@@ -394,7 +394,7 @@ async fn test_analyze_developer_errors(rt: TestRuntime) -> anyhow::Result<()> {
         async move {
             let module = ModuleConfig {
                 path: "broken.js".parse()?,
-                source: source.to_owned(),
+                source: source.into(),
                 source_map: None,
                 environment: ModuleEnvironment::Isolate,
             };

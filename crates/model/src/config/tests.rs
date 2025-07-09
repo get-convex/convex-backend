@@ -36,7 +36,10 @@ use crate::{
         },
         ConfigModel,
     },
-    modules::module_versions::AnalyzedModule,
+    modules::module_versions::{
+        AnalyzedModule,
+        ModuleSource,
+    },
     source_packages::{
         types::SourcePackage,
         upload_download::upload_package,
@@ -55,13 +58,13 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
     let config_metadata = ConfigMetadata::test_example();
     let module1 = ModuleConfig {
         path: "a/b/c.js".parse()?,
-        source: "// some js".to_string(),
+        source: "// some js".into(),
         source_map: None,
         environment: ModuleEnvironment::Isolate,
     };
     let module2 = ModuleConfig {
         path: "d/e/f.js".parse()?,
-        source: "// some other js".to_string(),
+        source: "// some other js".into(),
         source_map: Some("// source map".to_string()),
         environment: ModuleEnvironment::Isolate,
     };
@@ -133,7 +136,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
         .map(|i| {
             ModuleConfig {
                 path: format!("mod_{i}.js").parse().unwrap(),
-                source: "// some js".to_string() + &"a".repeat(1 << 21), // 2MB
+                source: ModuleSource::new(&("// some js".to_owned() + &"a".repeat(1 << 21))), // 2MB
                 source_map: None,
                 environment: ModuleEnvironment::Isolate,
             }

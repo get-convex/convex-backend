@@ -49,6 +49,7 @@ use crate::{
         deprecated_extract_environment_from_path,
         ModuleConfig,
     },
+    modules::module_versions::ModuleSource,
     source_packages::types::PackageSize,
 };
 
@@ -238,7 +239,7 @@ pub async fn download_package(
         }?;
         let config = ModuleConfig {
             path: path.clone().into(),
-            source,
+            source: ModuleSource::new(&source),
             source_map: source_maps.remove(&path),
             environment,
         };

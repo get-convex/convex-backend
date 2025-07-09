@@ -520,7 +520,7 @@ async fn run_request<RT: Runtime>(
             let requests = client
                 .register_module(
                     module_specifier,
-                    module_metadata.source.clone(),
+                    module_metadata.source.to_string(),
                     module_metadata.source_map.clone(),
                 )
                 .await?;

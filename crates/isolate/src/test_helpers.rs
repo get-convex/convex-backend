@@ -98,6 +98,7 @@ use model::{
         types::FileStorageEntry,
         FileStorageId,
     },
+    modules::module_versions::ModuleSource,
     scheduled_jobs::VirtualSchedulerModel,
     source_packages::{
         types::SourcePackage,
@@ -204,7 +205,7 @@ fn load_test_source() -> anyhow::Result<Vec<ModuleConfig>> {
     for module in output.modules {
         let config = ModuleConfig {
             path: module.path.parse()?,
-            source: module.source,
+            source: ModuleSource::new(&module.source),
             source_map: module.source_map,
             environment: module.environment,
         };

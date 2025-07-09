@@ -44,7 +44,10 @@ use deno_core::{
 use errors::ErrorMetadata;
 use model::{
     config::types::ModuleConfig,
-    modules::module_versions::FullModuleSource,
+    modules::module_versions::{
+        FullModuleSource,
+        ModuleSource,
+    },
 };
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -537,13 +540,13 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             };
 
             let synthetic_module = FullModuleSource {
-                source: format!(
+                source: ModuleSource::new(&format!(
                     "export default {{ export: () => {{ return {} }}, componentDefinitionPath: \
                      \"{}\", defaultName: \"{}\"}}",
                     serde_json::to_string(&serialized_def)?,
                     String::from(def_path.clone()),
                     default_name_string
-                ),
+                )),
                 source_map: None,
             };
             return Ok(Some((

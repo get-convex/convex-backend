@@ -35,7 +35,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
     let path: CanonicalizedModulePath = "b.js".parse()?;
     let config = ModuleConfig {
         path: path.clone().into(),
-        source: NODE_SOURCE.to_owned(),
+        source: NODE_SOURCE.into(),
         source_map: Some(SOURCE_MAP.to_owned()),
         environment: ModuleEnvironment::Node,
     };
@@ -54,7 +54,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
         download_package(application.modules_storage().clone(), storage_key, sha256).await?;
 
     assert_eq!(result.len(), 1);
-    assert_eq!(&result[&path].source, NODE_SOURCE);
+    assert_eq!(&*result[&path].source, NODE_SOURCE);
     assert_eq!(
         result[&path].source_map.as_ref().map(|s| &s[..]),
         Some(SOURCE_MAP)

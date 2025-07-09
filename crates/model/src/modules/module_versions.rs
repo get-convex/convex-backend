@@ -3,6 +3,7 @@ use std::{
     mem,
     ops::Deref,
     str::FromStr,
+    sync::Arc,
 };
 
 use async_lru::async_lru::SizedValue;
@@ -45,7 +46,48 @@ use crate::cron_jobs::types::{
 pub type ModuleVersion = i64;
 
 /// User-specified JavaScript source code for a module.
-pub type ModuleSource = String;
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ModuleSource {
+    source: Arc<str>,
+    is_ascii: bool,
+}
+
+impl ModuleSource {
+    pub fn new(source: &str) -> Self {
+        Self {
+            is_ascii: source.is_ascii(),
+            source: source.into(),
+        }
+    }
+
+    pub fn is_ascii(&self) -> bool {
+        self.is_ascii
+    }
+
+    pub fn source_arc(&self) -> &Arc<str> {
+        &self.source
+    }
+}
+
+impl Deref for ModuleSource {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.source
+    }
+}
+
+impl HeapSize for ModuleSource {
+    fn heap_size(&self) -> usize {
+        self.source.len()
+    }
+}
+
+impl From<&str> for ModuleSource {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
 
 /// Bundler-generated source map for a `ModuleSource`.
 pub type SourceMap = String;

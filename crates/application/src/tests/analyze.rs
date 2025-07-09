@@ -74,13 +74,13 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
     let modules = vec![
         ModuleConfig {
             path: "a.js".parse()?,
-            source: ISOLATE_SOURCE.to_owned(),
+            source: ISOLATE_SOURCE.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         },
         ModuleConfig {
             path: "b.js".parse()?,
-            source: NODE_SOURCE.to_owned(),
+            source: NODE_SOURCE.into(),
             source_map: None,
             environment: ModuleEnvironment::Node,
         },
@@ -186,13 +186,13 @@ export { hello, internalHello };
     let modules = vec![
         ModuleConfig {
             path: "isolate_source.js".parse()?,
-            source: SAMPLE_SOURCE.to_string(),
+            source: SAMPLE_SOURCE.into(),
             source_map: Some(ISOLATE_SOURCE_MAP.to_string()),
             environment: ModuleEnvironment::Isolate,
         },
         ModuleConfig {
             path: "node_source.js".parse()?,
-            source: SAMPLE_SOURCE.to_string(),
+            source: SAMPLE_SOURCE.into(),
             source_map: Some(NODE_SOURCE_MAP.to_string()),
             environment: ModuleEnvironment::Node,
         },
@@ -248,19 +248,19 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     let modules = vec![
         ModuleConfig {
             path: "a.js".parse()?,
-            source: ISOLATE_SOURCE.to_owned(),
+            source: ISOLATE_SOURCE.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         },
         ModuleConfig {
             path: "b.js".parse()?,
-            source: NODE_SOURCE.to_owned(),
+            source: NODE_SOURCE.into(),
             source_map: None,
             environment: ModuleEnvironment::Node,
         },
         ModuleConfig {
             path: "crons.js".parse()?,
-            source: CRONS_SOURCE_A.to_owned(),
+            source: CRONS_SOURCE_A.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         },
@@ -295,7 +295,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     let modules = vec![ModuleConfig {
         path: "crons.js".parse()?,
-        source: CRONS_SOURCE_A.to_owned(),
+        source: CRONS_SOURCE_A.into(),
         source_map: None,
         environment: ModuleEnvironment::Isolate,
     }];
@@ -321,7 +321,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     let modules = vec![ModuleConfig {
         path: "crons.js".parse()?,
-        source: CRONS_SOURCE_B.to_owned(),
+        source: CRONS_SOURCE_B.into(),
         source_map: None,
         environment: ModuleEnvironment::Isolate,
     }];

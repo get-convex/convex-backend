@@ -933,7 +933,7 @@ export {
             storage.clone(),
             vec![ModuleConfig {
                 path: path.clone(),
-                source: MODULE_ANALYZE.to_owned(),
+                source: MODULE_ANALYZE.into(),
                 source_map: Some(SOURCE_MAP.to_string()),
                 environment: ModuleEnvironment::Node,
             }],
@@ -1032,7 +1032,7 @@ export { hello };
             storage.clone(),
             vec![ModuleConfig {
                 path: "actions/test.js".parse()?,
-                source: MODULE_ANALYZE_QUERY.to_owned(),
+                source: MODULE_ANALYZE_QUERY.into(),
                 source_map: None,
                 environment: ModuleEnvironment::Node,
             }],
@@ -1076,7 +1076,7 @@ export const test = {
             storage.clone(),
             vec![ModuleConfig {
                 path: "actions/test.js".parse()?,
-                source: MODULE_ANALYZE_INVALID.to_owned(),
+                source: MODULE_ANALYZE_INVALID.into(),
                 source_map: None,
                 environment: ModuleEnvironment::Node,
             }],

@@ -43,7 +43,7 @@ export default {
         system_env_var_overrides,
         Some(ModuleConfig {
             path: "auth.config.js".parse().unwrap(),
-            source: source.to_owned(),
+            source: source.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         }),
@@ -94,7 +94,7 @@ export default {
         system_env_var_overrides,
         Some(ModuleConfig {
             path: "auth.config.js".parse().unwrap(),
-            source: source.to_owned(),
+            source: source.into(),
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         }),

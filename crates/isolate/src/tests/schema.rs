@@ -229,7 +229,7 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
     let schema = t
         .isolate
         .evaluate_schema(
-            source.to_string(),
+            source.into(),
             None,
             rng_seed,
             unix_timestamp,
