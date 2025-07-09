@@ -124,6 +124,20 @@ class Headers {
     }
     return `Headers ${inspect(headers)}`;
   }
+
+  getSetCookie() {
+    const normalizedName = this._normalizeName(
+      "set-cookie",
+      "Failed to execute 'getSetCookie' on 'Headers",
+    );
+    const values: string[] = [];
+    for (const [key, value] of this._headersList) {
+      if (key === normalizedName) {
+        values.push(value);
+      }
+    }
+    return values;
+  }
 }
 
 export const setupHeaders = (global: any) => {
