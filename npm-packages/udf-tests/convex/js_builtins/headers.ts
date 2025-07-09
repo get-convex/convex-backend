@@ -241,6 +241,18 @@ function toStringShouldBeWebCompatibility() {
   assert.strictEqual(headers.toString(), "[object Headers]");
 }
 
+function headerGetSetCookieSuccess() {
+  const headers = new Headers();
+
+  assert.deepEqual(headers.getSetCookie(), []);
+
+  headers.append("set-cookie", "name1=value1");
+  assert.deepEqual(headers.getSetCookie(), ["name1=value1"]);
+
+  headers.append("set-cookie", "name2=value2");
+  assert.deepEqual(headers.getSetCookie(), ["name1=value1", "name2=value2"]);
+}
+
 // function invalidHeadersFlaky() {
 //   assertThrows(
 //     () => new Headers([["x", "\u0000x"]]),
@@ -277,6 +289,7 @@ export default query(async () => {
     // headerParamsArgumentsCheck,
 
     toStringShouldBeWebCompatibility,
+    headerGetSetCookieSuccess,
 
     // TODO: our bundler sometimes changes the class name, which we could
     // configure differently
