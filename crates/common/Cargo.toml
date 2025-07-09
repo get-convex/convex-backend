@@ -38,7 +38,6 @@ bitvec = { workspace = true }
 byteorder = { workspace = true }
 bytes = { workspace = true }
 cmd_util = { path = "../cmd_util" }
-compact_str = { workspace = true }
 crossbeam-channel = { workspace = true }
 csf = { workspace = true }
 cstr = { workspace = true }

@@ -30,12 +30,6 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    document_index_keys::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
-        SearchIndexKeyValue,
-        SearchValueTokens,
-    },
     index::{
         IndexKey,
         IndexKeyBytes,
@@ -61,6 +55,10 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
     ConvexString,
     ConvexValue,
     FieldPath,
@@ -246,14 +244,7 @@ impl IndexRegistry {
         updates.into_values().collect()
     }
 
-    pub fn document_index_keys<F>(
-        &self,
-        document: PackedDocument,
-        search_tokenizer: F,
-    ) -> DocumentIndexKeys
-    where
-        F: Fn(ConvexString) -> SearchValueTokens,
-    {
+    pub fn document_index_keys(&self, document: PackedDocument) -> DocumentIndexKeys {
         let map: BTreeMap<_, _> = self
             .indexes_by_table(document.id().tablet_id)
             .flat_map(|index| {
@@ -282,7 +273,7 @@ impl IndexRegistry {
                             .collect();
 
                         let search_field_value = match document.value().get_path(search_field) {
-                            Some(ConvexValue::String(string)) => Some(search_tokenizer(string)),
+                            Some(ConvexValue::String(string)) => Some(string),
                             _ => None,
                         };
 
@@ -302,7 +293,7 @@ impl IndexRegistry {
             })
             .collect();
 
-        DocumentIndexKeys::from(map)
+        DocumentIndexKeys(map.into())
     }
 
     // Verifies if an update is valid.
@@ -766,12 +757,120 @@ pub fn index_not_found_error(name: &IndexName) -> ErrorMetadata {
     ErrorMetadata::bad_request("IndexNotFoundError", format!("Index {name} not found."))
 }
 
+/// For a given document, contains all the index keys for the indexes on the
+/// document’s table.
+///
+/// This is used in lieu of the full document in the write log. This is most of
+/// the time more memory efficient (because we don’t need to store the full
+/// document) and faster (because we don’t need to reconstruct the index keys
+/// every time we need them).
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct DocumentIndexKeys(WithHeapSize<BTreeMap<TabletIndexName, DocumentIndexKeyValue>>);
+
+impl DocumentIndexKeys {
+    pub fn get(&self, index_name: &TabletIndexName) -> Option<&DocumentIndexKeyValue> {
+        self.0.get(index_name)
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn empty_for_test() -> Self {
+        Self(Default::default())
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_standard_index_for_test(
+        index_name: TabletIndexName,
+        index_value: IndexKey,
+    ) -> Self {
+        let mut keys = BTreeMap::new();
+        keys.insert(
+            index_name,
+            DocumentIndexKeyValue::Standard(index_value.to_bytes()),
+        );
+        Self(keys.into())
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_search_index_for_test(
+        index_name: TabletIndexName,
+        search_field: FieldPath,
+        search_field_value: ConvexString,
+    ) -> Self {
+        let mut keys = BTreeMap::new();
+        keys.insert(
+            index_name,
+            DocumentIndexKeyValue::Search(SearchIndexKeyValue {
+                filter_values: Default::default(),
+                search_field,
+                search_field_value: Some(search_field_value),
+            }),
+        );
+        Self(keys.into())
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_search_index_for_test_with_filters(
+        index_name: TabletIndexName,
+        search_field: FieldPath,
+        search_field_value: ConvexString,
+        filter_values: BTreeMap<FieldPath, SearchFilterValue>,
+    ) -> Self {
+        let mut keys = BTreeMap::new();
+        keys.insert(
+            index_name,
+            DocumentIndexKeyValue::Search(SearchIndexKeyValue {
+                filter_values: filter_values.into(),
+                search_field,
+                search_field_value: Some(search_field_value),
+            }),
+        );
+        Self(keys.into())
+    }
+}
+
+impl HeapSize for DocumentIndexKeys {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DocumentIndexKeyValue {
+    Standard(IndexKeyBytes),
+    Search(SearchIndexKeyValue),
+    // We don’t store index key values for vector indexes because they don’t
+    // support subscriptions.
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SearchIndexKeyValue {
+    /// These are values for the fields present in the must
+    /// clauses of the search index.
+    pub filter_values: WithHeapSize<BTreeMap<FieldPath, SearchFilterValue>>,
+    pub search_field: FieldPath,
+    pub search_field_value: Option<ConvexString>,
+}
+
+impl HeapSize for DocumentIndexKeyValue {
+    fn heap_size(&self) -> usize {
+        match self {
+            DocumentIndexKeyValue::Standard(index_key) => index_key.heap_size(),
+            DocumentIndexKeyValue::Search(SearchIndexKeyValue {
+                filter_values,
+                search_field,
+                search_field_value,
+            }) => {
+                filter_values.heap_size()
+                    + search_field.heap_size()
+                    + search_field_value.heap_size()
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashSet,
-        str::FromStr,
-    };
+    use std::str::FromStr;
 
     use common::{
         bootstrap_model::index::{
@@ -846,13 +945,9 @@ mod tests {
             ),
         )?;
 
-        let index_keys = index_registry.document_index_keys(PackedDocument::pack(&doc), |string| {
-            let tokens: HashSet<String> =
-                string.split_whitespace().map(|s| s.to_string()).collect();
-            SearchValueTokens::from_iter_for_test(tokens)
-        });
+        let index_keys = index_registry.document_index_keys(PackedDocument::pack(&doc));
 
-        let expected = DocumentIndexKeys::from(btreemap! {
+        let expected = DocumentIndexKeys(btreemap! {
             by_name.clone() => DocumentIndexKeyValue::Standard(
                 doc.index_key_bytes(&[FieldPath::from_str("name")?], PersistenceVersion::default()).to_bytes()
             ),
@@ -863,14 +958,12 @@ mod tests {
                     )
                 }.into(),
                 search_field: FieldPath::from_str("content")?,
-                search_field_value: Some(
-                    SearchValueTokens::from_iter_for_test(vec!["hello".to_string(), "world".to_string()])
-                ),
+                search_field_value: Some("hello world".try_into()?),
             }),
             by_id.clone() => DocumentIndexKeyValue::Standard(
                 doc.index_key_bytes(&[], PersistenceVersion::default()).to_bytes()
             ),
-        });
+        }.into());
 
         assert_eq!(index_keys, expected);
         Ok(())

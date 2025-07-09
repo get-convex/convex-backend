@@ -1,16 +1,9 @@
 // Run with: `cargo bench -p database --bench is_stale --features testing`
 
-use std::{
-    collections::HashSet,
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use anyhow::Result;
 use common::{
-    document_index_keys::{
-        DocumentIndexKeys,
-        SearchValueTokens,
-    },
     index::IndexKey,
     interval::{
         End,
@@ -32,7 +25,6 @@ use common::{
         TabletIdAndTableNumber,
     },
 };
-use compact_str::CompactString;
 use criterion::{
     criterion_group,
     criterion_main,
@@ -49,6 +41,7 @@ use database::{
     ReadSet,
     TransactionReadSet,
 };
+use indexing::index_registry::DocumentIndexKeys;
 use maplit::btreemap;
 use search::{
     query::TextQueryTerm,
@@ -229,12 +222,10 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
             "active".parse()? => FilterValue::from_search_value(Some(&ConvexValue::Boolean(i % 2 == 0))),
         };
 
-        let text_words_unique: HashSet<CompactString> =
-            text_words.into_iter().map(|a| a.into()).collect();
         let document_keys = DocumentIndexKeys::with_search_index_for_test_with_filters(
             index_name.clone(),
             search_field,
-            SearchValueTokens::from(text_words_unique),
+            text_words.join(" ").try_into()?,
             filter_values,
         );
 

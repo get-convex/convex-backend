@@ -13,7 +13,6 @@ use common::{
         DocumentUpdateRef,
         PackedDocument,
     },
-    document_index_keys::DocumentIndexKeys,
     knobs::{
         WRITE_LOG_MAX_RETENTION_SECS,
         WRITE_LOG_MIN_RETENTION_SECS,
@@ -32,9 +31,11 @@ use errors::{
 };
 use futures::Future;
 use imbl::Vector;
-use indexing::index_registry::IndexRegistry;
+use indexing::index_registry::{
+    DocumentIndexKeys,
+    IndexRegistry,
+};
 use parking_lot::Mutex;
-use search::query::tokenize;
 use tokio::sync::oneshot;
 use value::heap_size::{
     HeapSize,
@@ -100,10 +101,10 @@ impl DocumentIndexKeysUpdate {
             id: full.id,
             old_document_keys: full
                 .old_document
-                .map(|old_doc| index_registry.document_index_keys(old_doc, tokenize)),
+                .map(|old_doc| index_registry.document_index_keys(old_doc)),
             new_document_keys: full
                 .new_document
-                .map(|new_doc| index_registry.document_index_keys(new_doc, tokenize)),
+                .map(|new_doc| index_registry.document_index_keys(new_doc)),
         }
     }
 }
@@ -581,7 +582,6 @@ impl PendingWriteHandle {
 mod tests {
     use common::{
         self,
-        document_index_keys::DocumentIndexKeys,
         index::IndexKey,
         interval::{
             BinaryKey,
@@ -599,6 +599,7 @@ mod tests {
         value::FieldPath,
     };
     use convex_macro::test_runtime;
+    use indexing::index_registry::DocumentIndexKeys;
     use runtime::testing::TestRuntime;
     use value::val;
 
