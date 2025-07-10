@@ -267,6 +267,7 @@ fn main() -> anyhow::Result<()> {
     write_bundles(out_dir, "node_executor_js_data.rs", bundles)?;
 
     // Step 5: Build and bundle the udf test project.
+    eprintln!("Building udf test bundle");
     write_udf_test_bundle(out_dir)?;
 
     // Step 6: Build and bundle component-test projects.
@@ -274,6 +275,7 @@ fn main() -> anyhow::Result<()> {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
+            eprintln!("Building component test bundle {path:?}");
             let out_path = &out_dir.join(&path);
             if Path::exists(out_path) {
                 fs::remove_dir_all(out_path)?;
