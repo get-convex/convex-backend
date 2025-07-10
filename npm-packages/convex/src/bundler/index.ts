@@ -207,7 +207,8 @@ export async function bundle(
       continue;
     }
     const posixRelPath = relPath.split(path.sep).join(path.posix.sep);
-    modules.push({ path: posixRelPath, source: outputFile.text, environment });
+    const normalizedPath = normalizeModulePath(posixRelPath);
+    modules.push({ path: normalizedPath, source: outputFile.text, environment });
   }
   for (const module of modules) {
     const sourceMapPath = module.path + ".map";
@@ -436,6 +437,13 @@ export async function entryPoints(
 
 // A fallback regex in case we fail to parse the AST.
 export const useNodeDirectiveRegex = /^\s*("|')use node("|');?\s*$/;
+
+export function normalizeModulePath(posixRelPath: string): string {
+  // Remove Windows drive letter (e.g., "C:/" or "D:/") if present
+  let noDrive = posixRelPath.replace(/^[A-Za-z]:\\|^[A-Za-z]:\//, "");
+  // Convert all backslashes to forward slashes
+  return noDrive.replace(/\\/g, "/");
+}
 
 function hasUseNodeDirective(ctx: Context, fpath: string): boolean {
   // Do a quick check for the exact string. If it doesn't exist, don't
