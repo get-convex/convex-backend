@@ -1,6 +1,7 @@
 ---
 title: "Local Deployments for Development"
 slug: "local-deployments"
+sidebar_position: 10
 sidebar_label: "Local Deployments"
 ---
 
@@ -119,7 +120,7 @@ data to keep using it.
   - Go to `brave://flags/`
   - Enable the `#brave-localhost-access-permission` flag
   - Go back to the Convex dashboard
-  - Click on **View Site Information** 
+  - Click on **View Site Information**
     (<img src="/screenshots/brave-site-information.png" alt="View Site Information icon" width={24} style={{ verticalAlign: "middle" }} />)
     in the URL bar, then on **Site settings**
   - Change the setting for **Localhost access** to **Allow**

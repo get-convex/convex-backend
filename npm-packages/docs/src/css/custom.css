@@ -940,7 +940,7 @@ html[data-theme="dark"] .convex-menu-header {
   margin-left: 0.85em;
 }
 
-.convex-sidebar-cli .menu__list .menu__link:after {
+.convex-sidebar-cli .menu__list li:first-child .menu__link:after {
   font-weight: 400;
   font-size: 0.6em;
   margin-left: 1em;
@@ -951,7 +951,7 @@ html[data-theme="dark"] .convex-menu-header {
   float: right;
 }
 
-.convex-sidebar-cli .menu__list .menu__link--active:after {
+.convex-sidebar-cli .menu__list li:first-child .menu__link--active:after {
   /* shift left to compensate for text to the left being bold */
   margin-left: 0.7em;
 }
