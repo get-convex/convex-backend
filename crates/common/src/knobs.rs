@@ -126,10 +126,6 @@ pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
 pub static SNAPSHOT_LIST_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SNAPSHOT_LIST_LIMIT", 1024));
 
-/// Enables the log streaming worker.
-pub static ENABLE_LOG_STREAMING: LazyLock<bool> =
-    LazyLock::new(|| env_config("ENABLE_LOG_STREAMING", true));
-
 /// The size of the log manager's event receive buffer.
 pub static LOG_MANAGER_EVENT_RECV_BUFFER_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("LOG_MANAGER_EVENT_RECV_BUFFER_SIZE", 4096));

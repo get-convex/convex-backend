@@ -40,10 +40,8 @@ use crate::{
     Application,
 };
 
-#[ignore]
 #[convex_macro::test_runtime]
 async fn test_udf_logs(rt: TestRuntime) -> anyhow::Result<()> {
-    std::env::set_var("ENABLE_LOG_STREAMING", "true");
     let application = Application::new_for_tests(&rt).await?;
     // Note that this loads CRONs which we should unit tests for as well
     application.load_udf_tests_modules().await?;
@@ -92,21 +90,23 @@ async fn test_udf_logs(rt: TestRuntime) -> anyhow::Result<()> {
         *knobs::LOG_MANAGER_AGGREGATION_INTERVAL_MILLIS,
     ))
     .await;
-    {
-        let buf = MOCK_SINK_EVENTS_BUFFER.read();
-        assert_eq!(buf.len(), 4);
-        // The first 2 are CRON execution records
-        assert_matches!(buf[0].event, StructuredLogEvent::FunctionExecution { .. });
-        assert_matches!(buf[1].event, StructuredLogEvent::FunctionExecution { .. });
 
-        must_let!(let StructuredLogEvent::Console { log_line, .. } = &buf[2].event);
-        assert_eq!(log_line.clone().to_pretty_string(), "[LOG] 'myString'");
+    let buf = MOCK_SINK_EVENTS_BUFFER
+        .read()
+        .iter()
+        .map(|e| e.event.clone())
+        .collect::<Vec<_>>();
+    tracing::info!("buf: {buf:#?}");
 
-        must_let!(let StructuredLogEvent::FunctionExecution { source, .. } = &buf[3].event);
-        assert_eq!(source.udf_path, "logging.js:logString");
-        assert_eq!(source.udf_type, UdfType::Query);
-        assert_eq!(source.cached, Some(false));
-    }
+    must_let!(let StructuredLogEvent::Console { log_line, .. } = &buf[0]);
+    assert_eq!(log_line.clone().to_pretty_string(), "[LOG] 'myString'");
+
+    must_let!(let StructuredLogEvent::FunctionExecution { source, .. } = &buf[1]);
+    assert_eq!(source.udf_path, "logging:logString");
+    assert_eq!(source.udf_type, UdfType::Query);
+    assert_eq!(source.cached, Some(false));
+
+    assert_eq!(buf.len(), 2);
 
     Ok(())
 }

@@ -463,7 +463,6 @@ async fn provision(
                 .arg("--instance")
                 .arg(format!("carnitas={DEV_SECRET}"))
                 .env("UDF_USE_FUNRUN", udf_use_funrun.to_string())
-                .env("ENABLE_LOG_STREAMING", "true")
                 .env("CONVEX_RELEASE_VERSION_DEV", "0.0.0-backendharness");
             if udf_use_funrun {
                 run_conductor_cmd
