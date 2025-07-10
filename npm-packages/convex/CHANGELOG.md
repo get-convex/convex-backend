@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.25.3
+
+- Experimental `convex dev --once --debug-node-apis` debug flag for tracing
+  through imports to find Node.js APIs imported from non-"use node" convex
+  endpoint files.
+
+- Experimental `CONVEX_AGENT_MODE=anonymous npx convex dev` for a
+  non-interactive anonymous development flow when not logged in.
+
+- Simplify the `Logger` interface of Convex clients making it easier to replace.
+
+- Reactive `ConnectionState` via `useConvexConnectionState` hook. How often this
+  value updates may change in the future if more information is added to
+  `ConnectionState`.
+
+- Escape JavaScript keywords in codegen, fixing issues with files in the convex
+  folder named things like convex/delete.ts.
+
+- Warn when the explicit value `undefined` is passed to Next.js server-side
+  helpers, indicating the issue may have been an unset environment variable.
+  This may become an error in the future.
+
+- Error closer to the call site when invalid validators are contructed.
+
 ## 1.25.2
 
 - Increase a network timeout that was causing Node.js v20+ issues on slow
