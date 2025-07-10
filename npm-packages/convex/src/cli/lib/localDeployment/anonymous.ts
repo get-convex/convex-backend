@@ -71,7 +71,10 @@ export async function handleAnonymousDeployment(
     deploymentName: options.deploymentName,
     chosenConfiguration: options.chosenConfiguration,
   });
-  if (deployment.kind === "first") {
+  if (
+    deployment.kind === "first" &&
+    process.env.CONVEX_AGENT_MODE !== "anonymous"
+  ) {
     logMessage(
       ctx,
       "This command, `npx convex dev`, will run your Convex backend locally and update it with the function you write in the `convex/` directory.",
@@ -266,6 +269,21 @@ async function chooseDeployment(
   if (deployments.length === 0) {
     logMessage(ctx, "Let's set up your first project.");
     return await promptForNewDeployment(ctx, []);
+  }
+
+  if (process.env.CONVEX_AGENT_MODE === "anonymous") {
+    const deploymentName = "anonymous-agent";
+    logVerbose(ctx, `Deployment name: ${deploymentName}`);
+    const uniqueName = await getUniqueName(
+      ctx,
+      deploymentName,
+      deployments.map((d) => d.deploymentName),
+    );
+    logVerbose(ctx, `Deployment name: ${uniqueName}`);
+    return {
+      kind: "new",
+      deploymentName: uniqueName,
+    };
   }
 
   if (options.chosenConfiguration === "new") {

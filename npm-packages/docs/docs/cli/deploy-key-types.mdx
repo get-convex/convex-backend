@@ -1,7 +1,7 @@
 ---
 title: "Deploy keys"
 slug: "deploy-key-types"
-sidebar_position: 20
+sidebar_position: 30
 sidebar_label: "Deploy keys"
 ---
 
