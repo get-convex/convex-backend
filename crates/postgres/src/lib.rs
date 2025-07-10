@@ -1634,7 +1634,7 @@ BEGIN
             table_id BYTEA NULL,
             /* document_id should be populated iff deleted is false. */
             document_id BYTEA NULL,
-            PRIMARY KEY (index_id, key_prefix, key_sha256, ts)
+            PRIMARY KEY (index_id, key_sha256, ts)
         );
     END IF;
 END $$;
@@ -1642,15 +1642,12 @@ END $$;
     r#"
 DO $$
 BEGIN
-    /* This index with `ts DESC` enables our "loose index scan" queries
-     * (i.e. `DISTINCT ON`) to run in both directions, complementing the
-     * primary key's ts ASC ordering */
-    IF to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256_ts') IS NULL THEN
-        CREATE UNIQUE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256_ts ON @db_name.indexes (
+    /* We only want this index created for new instances; existing ones already have `indexes_by_index_id_key_prefix_key_sha256_ts` */
+    IF to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256_ts') IS NULL AND to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256') IS NULL THEN
+        CREATE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256 ON @db_name.indexes (
             index_id,
             key_prefix,
-            key_sha256,
-            ts DESC
+            key_sha256
         );
     END IF;
 END $$;
@@ -1816,7 +1813,7 @@ const INSERT_INDEX: &str = r#"INSERT INTO @db_name.indexes
 const INSERT_OVERWRITE_INDEX: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    ON CONFLICT (index_id, ts, key_prefix, key_sha256) DO UPDATE
+    ON CONFLICT ON CONSTRAINT indexes_pkey DO UPDATE
     SET deleted = excluded.deleted, table_id = excluded.table_id, document_id = excluded.document_id
 "#;
 
@@ -1862,7 +1859,7 @@ const INSERT_OVERWRITE_INDEX_CHUNK: &str = r#"INSERT INTO @db_name.indexes
         ($41, $42, $43, $44, $45, $46, $47, $48),
         ($49, $50, $51, $52, $53, $54, $55, $56),
         ($57, $58, $59, $60, $61, $62, $63, $64)
-        ON CONFLICT (index_id, ts, key_prefix, key_sha256) DO UPDATE
+        ON CONFLICT ON CONSTRAINT indexes_pkey DO UPDATE
         SET deleted = excluded.deleted, table_id = excluded.table_id, document_id = excluded.document_id
 "#;
 
