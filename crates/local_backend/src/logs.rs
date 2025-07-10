@@ -56,6 +56,11 @@ pub enum FunctionExecutionJson {
         error: Option<String>,
         request_id: String,
         execution_id: String,
+        usage_stats: JsonValue,
+        occ_info: Option<JsonValue>,
+        execution_timestamp: f64,
+        identity_type: String,
+        environment: String,
     },
     #[serde(rename_all = "camelCase")]
     Progress {
@@ -230,10 +235,44 @@ pub async fn stream_function_logs(
     }
 }
 
+fn usage_stats_to_json(
+    stats: &usage_tracking::AggregatedFunctionUsageStats,
+    action_memory_used_mb: Option<u64>,
+) -> JsonValue {
+    serde_json::json!({
+        "databaseReadBytes": stats.database_read_bytes,
+        "databaseWriteBytes": stats.database_write_bytes,
+        "databaseReadDocuments": stats.database_read_documents,
+        "storageReadBytes": stats.storage_read_bytes,
+        "storageWriteBytes": stats.storage_write_bytes,
+        "vectorIndexReadBytes": stats.vector_index_read_bytes,
+        "vectorIndexWriteBytes": stats.vector_index_write_bytes,
+        "actionMemoryUsedMb": action_memory_used_mb,
+    })
+}
+
 fn execution_to_json(
     execution: FunctionExecution,
     supports_structured_log_lines: bool,
 ) -> anyhow::Result<FunctionExecutionJson> {
+    let usage_stats_json =
+        usage_stats_to_json(&execution.usage_stats, execution.action_memory_used_mb);
+    let occ_info_json = execution
+        .occ_info
+        .as_ref()
+        .map(|occ| {
+            let log_occ_info = common::log_streaming::OccInfo {
+                table_name: occ.table_name.clone(),
+                document_id: occ.document_id.clone(),
+                write_source: occ.write_source.clone(),
+                retry_count: occ.retry_count,
+            };
+            serde_json::to_value(log_occ_info)
+        })
+        .transpose()?;
+    let identity_type = execution.identity.tag().value.to_string();
+    let environment = execution.environment.to_string();
+    let execution_timestamp = execution.execution_timestamp.as_secs_f64();
     let json = match execution.params {
         UdfParams::Function { error, identifier } => {
             let component_path = identifier.component.serialize();
@@ -252,6 +291,11 @@ fn execution_to_json(
                 error: error.map(|e| e.to_string()),
                 request_id: execution.context.request_id.to_string(),
                 execution_id: execution.context.execution_id.to_string(),
+                usage_stats: usage_stats_json,
+                occ_info: occ_info_json,
+                execution_timestamp,
+                identity_type,
+                environment,
             }
         },
         UdfParams::Http { result, identifier } => {
@@ -274,6 +318,11 @@ fn execution_to_json(
                 error: error.map(|e| e.to_string()),
                 request_id: execution.context.request_id.to_string(),
                 execution_id: execution.context.execution_id.to_string(),
+                usage_stats: usage_stats_json,
+                occ_info: occ_info_json,
+                execution_timestamp,
+                identity_type,
+                environment,
             }
         },
     };
