@@ -284,7 +284,7 @@
     "@types/semver": "^7.3.13",
     "@types/serve-handler": "~6.1.4",
     "@types/ws": "^8.5.13",
-    "@vitest/eslint-plugin": "~1.1.15",
+    "@vitest/eslint-plugin": "~1.2.0",
     "adm-zip": "^0.5.10",
     "bufferutil": "^4.0.7",
     "chalk": "5",
