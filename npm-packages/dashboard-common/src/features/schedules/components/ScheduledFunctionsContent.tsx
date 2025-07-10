@@ -32,27 +32,29 @@ export function ScheduledFunctionsContent({
     <div className="relative flex h-full max-w-6xl grow flex-col gap-4">
       <ScheduledFunctionsContentToolbar reload={reload} />
       <Sheet
-        className="flex min-w-[40rem] max-w-full grow flex-col"
+        className="min-w-[40rem] max-w-full grow overflow-hidden"
         padding={false}
       >
-        <ScheduledFunctionsListHeader
-          isPaused={isPaused}
-          isLoadingPausedData={isLoadingPausedData}
-          togglePaused={togglePaused}
-          isRateLimited={isRateLimited}
-          reload={reload}
-        />
-        {isDataLoaded && (
-          <ScheduledFunctionsList
-            hasScheduledJobs={hasScheduledJobs}
-            currentOpenFunction={currentOpenFunction ?? undefined}
-            jobs={jobs}
-            outerRef={outerRef}
-            status={status}
-            loadMore={loadMore}
+        <div className="overflow-auto h-full flex flex-col">
+          <ScheduledFunctionsListHeader
             isPaused={isPaused}
+            isLoadingPausedData={isLoadingPausedData}
+            togglePaused={togglePaused}
+            isRateLimited={isRateLimited}
+            reload={reload}
           />
-        )}
+          {isDataLoaded && (
+            <ScheduledFunctionsList
+              hasScheduledJobs={hasScheduledJobs}
+              currentOpenFunction={currentOpenFunction ?? undefined}
+              jobs={jobs}
+              outerRef={outerRef}
+              status={status}
+              loadMore={loadMore}
+              isPaused={isPaused}
+            />
+          )}
+        </div>
       </Sheet>
     </div>
   );

@@ -166,9 +166,9 @@ export function FilesList({
     >
       <Sheet
         padding={false}
-        className="flex grow animate-fadeInFromLoading flex-col scrollbar"
+        className="flex grow animate-fadeInFromLoading flex-col overflow-hidden"
       >
-        <div className="flex max-h-full grow flex-col">
+        <div className="flex max-h-full grow flex-col overflow-auto scrollbar">
           <FileStorageListHeader
             isPaused={isPaused}
             isLoadingPausedData={isLoadingPausedData}

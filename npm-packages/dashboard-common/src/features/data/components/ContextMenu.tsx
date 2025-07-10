@@ -451,12 +451,14 @@ function ContextMenuSubmenu({
             <FloatingPortal>
               {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
               <div
-                className="z-40 flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-md outline-hidden"
+                className="z-40 rounded-lg border bg-background-secondary shadow-md outline-hidden overflow-hidden"
                 ref={refs.setFloating}
                 style={floatingStyles}
                 {...getFloatingProps()}
               >
-                {children}
+                <div className="flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap py-2 text-xs">
+                  {children}
+                </div>
               </div>
             </FloatingPortal>
           )}

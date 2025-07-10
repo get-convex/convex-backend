@@ -230,12 +230,15 @@ export function Table({
       className="w-full"
       autoSaveId="documentViewer"
     >
-      <Panel defaultSize={100} className="relative w-full">
+      <Panel
+        defaultSize={100}
+        className="relative w-full overflow-x-hidden rounded-sm"
+      >
         <DndProvider backend={HTML5Backend}>
           <ScrollingComponent
             {...getTableProps()}
             className={classNames(
-              "flex rounded-sm w-full h-full overflow-y-hidden",
+              "flex w-full h-full overflow-y-hidden",
               "scrollbar",
             )}
           >

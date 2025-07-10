@@ -162,9 +162,9 @@ configure a log stream."
           <p className="animate-blink">Waiting for new logs...</p>
         </div>
       ) : (
-        <div className="grow">
+        <div className="grow rounded-b overflow-hidden">
           <InfiniteScrollList
-            className="rounded-b bg-background-secondary scrollbar"
+            className="bg-background-secondary scrollbar"
             overscanCount={25}
             onScroll={onScroll}
             outerRef={outerRef}
