@@ -328,7 +328,7 @@
     "tsx": "^4.19.4",
     "typedoc": "^0.24.6",
     "typescript": "~5.0.3",
-    "typescript-eslint": "~8.17.0",
+    "typescript-eslint": "~8.34.0",
     "utf-8-validate": "^5.0.10",
     "vitest": "^3.1.4",
     "wait-for-expect": "~3.0.2",
