@@ -2016,6 +2016,9 @@ static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> =
     Set(enable_seqscan OFF)
     Set(enable_bitmapscan OFF)
     Set(plan_cache_mode force_generic_plan)
+    IndexScan(indexes indexes_index_id_key_prefix_key_sha256)
+    NestLoop(a d)
+    IndexScan(d documents_pkey)
 */
 SELECT
     A.index_id,
