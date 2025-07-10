@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use bytes::Bytes;
 use common::{
     backoff::Backoff,
     errors::report_error,
@@ -205,6 +206,7 @@ impl<RT: Runtime> DatadogSink<RT> {
             ),
             (CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE),
         ]);
+        let payload = Bytes::from(serde_json::to_vec(&payload)?);
 
         // Make request in a loop that retries on transient errors
         for _ in 0..consts::DD_SINK_MAX_REQUEST_ATTEMPTS {
@@ -215,7 +217,7 @@ impl<RT: Runtime> DatadogSink<RT> {
                         url: self.dd_url.clone(),
                         method: http::Method::POST,
                         headers: header_map.clone(),
-                        body: Some(serde_json::to_vec(&payload)?),
+                        body: Some(payload.clone()),
                     }
                     .into(),
                 )

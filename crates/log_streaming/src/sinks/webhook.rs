@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use bytes::Bytes;
 use common::{
     backoff::Backoff,
     errors::report_error,
@@ -160,6 +161,7 @@ impl<RT: Runtime> WebhookSink<RT> {
                 .collect::<anyhow::Result<Vec<Vec<u8>>>>()?
                 .join("\n".as_bytes()),
         };
+        let payload = Bytes::from(payload);
 
         // Make request in a loop that retries on transient errors
         let headers = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);

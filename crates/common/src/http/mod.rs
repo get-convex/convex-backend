@@ -48,6 +48,7 @@ use axum::{
     ServiceExt,
 };
 use axum_extra::extract::Host;
+use bytes::Bytes;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -176,7 +177,7 @@ pub struct HttpRequest {
     pub headers: HeaderMap,
     pub url: Url,
     pub method: Method,
-    pub body: Option<Vec<u8>>,
+    pub body: Option<Bytes>,
 }
 
 impl From<HttpRequest> for HttpRequestStream {
@@ -184,9 +185,9 @@ impl From<HttpRequest> for HttpRequestStream {
         let body: Pin<
             Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send + 'static>,
         > = if let Some(b) = value.body {
-            Box::pin(futures::stream::once(async move {
-                Ok::<_, anyhow::Error>(bytes::Bytes::from(b))
-            }))
+            Box::pin(futures::stream::once(
+                async move { Ok::<_, anyhow::Error>(b) },
+            ))
         } else {
             Box::pin(futures::stream::empty())
         };
@@ -216,7 +217,7 @@ impl HttpRequestStream {
             headers: self.headers,
             url: self.url,
             method: self.method,
-            body: Some(body),
+            body: Some(body.into()),
         })
     }
 }
@@ -247,15 +248,17 @@ impl Arbitrary for HttpRequest {
                 ArbitraryHeaderMap(headers) in any::<ArbitraryHeaderMap>(),
                 ArbitraryMethod(method) in any::<ArbitraryMethod>(),
                 ArbitraryUri(uri) in any::<ArbitraryUri>(),
-                body in any::<Option<Vec<u8>>>()) -> anyhow::Result<HttpRequest> {
-                    let origin: String = "http://example-deployment.convex.site/".to_string();
-                    let path_and_query: String =  uri.path_and_query().ok_or_else(|| anyhow::anyhow!("No path and query"))?.to_string();
-                    let url: Url = Url::parse(&(origin + &path_and_query))?;
+                body in any::<Option<Vec<u8>>>()
+            ) -> anyhow::Result<HttpRequest> {
+                let origin: String = "http://example-deployment.convex.site/".to_string();
+                let path_and_query: String =  uri.path_and_query().ok_or_else(|| anyhow::anyhow!("No path and query"))?.to_string();
+                let url: Url = Url::parse(&(origin + &path_and_query))?;
+                let body = body.map(Bytes::from);
                 Ok(HttpRequest {
                     headers,
                     method,
                     url,
-                    body
+                    body,
                 })
             }
         };
