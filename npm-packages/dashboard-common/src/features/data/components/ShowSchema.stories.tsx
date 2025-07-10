@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { Shape } from "shapes";
 import { ShowSchema } from "@common/features/data/components/ShowSchema";
 import { SchemaJson } from "@common/lib/format";

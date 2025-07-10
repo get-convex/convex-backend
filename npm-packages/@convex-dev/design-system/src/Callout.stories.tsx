@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { Callout } from "@ui/Callout";
 
 export default { component: Callout };

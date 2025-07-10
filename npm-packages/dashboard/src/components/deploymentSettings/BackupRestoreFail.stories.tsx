@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { DeploymentResponse, Team } from "generatedApi";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupResponse } from "api/backups";

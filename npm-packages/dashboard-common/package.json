@@ -68,7 +68,6 @@
   },
   "devDependencies": {
     "@jest/types": "^29.6.0",
-    "@storybook/react": "^7.6.16",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4.1.5",
     "@testing-library/dom": "~10.4.0",
@@ -91,6 +90,7 @@
     "@types/testing-library__jest-dom": "~5.14.5",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
+    "@storybook/nextjs": "^9.0.16",
     "eslint": "^8.29.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^18.0.0",

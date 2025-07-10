@@ -1,8 +1,11 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import { ReferralsBanner } from "./ReferralsBanner";
 
 const meta = {
   component: ReferralsBanner,
+  args: {
+    onHide() {},
+  },
 } satisfies Meta<typeof ReferralsBanner>;
 
 export default meta;

@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { DeploymentEventContent } from "@common/elements/DeploymentEventContent";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";

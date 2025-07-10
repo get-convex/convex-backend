@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { ReadonlyCodeDiff } from "@common/elements/ReadonlyCode";
 
 export default {

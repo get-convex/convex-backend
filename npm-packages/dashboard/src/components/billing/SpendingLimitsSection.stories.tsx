@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { Sheet } from "@ui/Sheet";
 import { SpendingLimitsSection } from "./SubscriptionOverview";
 

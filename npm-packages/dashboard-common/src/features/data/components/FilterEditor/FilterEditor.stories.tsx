@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { ConvexProvider } from "convex/react";
 import udfs from "@common/udfs";
 import { FilterEditor } from "@common/features/data/components/FilterEditor/FilterEditor";

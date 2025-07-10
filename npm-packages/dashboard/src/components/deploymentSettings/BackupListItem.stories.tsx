@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { DeploymentResponse, Team } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { useAccessToken } from "hooks/useServerSideData";

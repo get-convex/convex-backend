@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { IndexesList as IndexList } from "@common/features/data/components/IndexList";
 
 export default { component: IndexList };

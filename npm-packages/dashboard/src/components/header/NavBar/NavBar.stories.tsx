@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { NavBar } from "./NavBar";
 
 export default { component: NavBar };

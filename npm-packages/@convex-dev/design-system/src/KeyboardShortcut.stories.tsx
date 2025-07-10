@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 
 const meta: Meta<typeof KeyboardShortcut> = {

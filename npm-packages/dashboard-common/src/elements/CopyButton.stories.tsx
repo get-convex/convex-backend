@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { CopyButton } from "@common/elements/CopyButton";
 
 export default { component: CopyButton };

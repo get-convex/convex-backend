@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { DailyPerTagMetrics } from "hooks/usageMetrics";
 import { Sheet } from "@ui/Sheet";
 import { UsageStackedBarChart } from "./UsageBarChart";

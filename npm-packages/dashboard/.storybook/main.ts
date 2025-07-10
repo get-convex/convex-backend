@@ -1,4 +1,4 @@
-import { StorybookConfig } from "@storybook/types";
+import { StorybookConfig } from "@storybook/nextjs";
 import path from "path";
 
 const config: StorybookConfig = {
@@ -9,15 +9,14 @@ const config: StorybookConfig = {
   ],
   addons: [
     "@storybook/addon-links",
-    "@storybook/addon-essentials",
-    "@storybook/addon-interactions",
     "@storybook/addon-themes",
     {
-      name: "@storybook/addon-styling",
+      name: "@storybook/addon-styling-webpack",
       options: {
         postCss: true,
       },
     },
+    "@storybook/addon-docs",
   ],
   framework: {
     name: "@storybook/nextjs",

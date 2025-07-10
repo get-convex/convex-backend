@@ -1,5 +1,5 @@
 import "../src/styles/global.css";
-import { Preview } from "@storybook/react";
+import { Preview } from "@storybook/nextjs";
 import themeDecorator from "./themeDecorator";
 import { RouterContext } from "next/dist/shared/lib/router-context.shared-runtime";
 

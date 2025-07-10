@@ -1,4 +1,4 @@
-import { StoryFn, StoryObj } from "@storybook/react";
+import { StoryFn, StoryObj } from "@storybook/nextjs";
 import { Calendar } from "@common/elements/Calendar";
 
 export const Single: StoryObj<typeof Calendar> = {

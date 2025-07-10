@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { DeploymentResponse, ProjectDetails } from "generatedApi";
 import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";

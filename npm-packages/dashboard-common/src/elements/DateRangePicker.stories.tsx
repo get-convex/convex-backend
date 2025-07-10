@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { DateRangePicker } from "@common/elements/DateRangePicker";
 
 export const Primary: StoryObj<typeof DateRangePicker> = {

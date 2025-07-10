@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { UserProfile, UserProvider } from "@auth0/nextjs-auth0/client";
 import { BreadcrumbLink } from "../BreadcrumbLink/BreadcrumbLink";
 import { Breadcrumbs } from "../Breadcrumbs/Breadcrumbs";

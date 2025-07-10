@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { useRef, useState } from "react";
 import { ExternalLinkIcon, StarIcon, TrashIcon } from "@radix-ui/react-icons";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";

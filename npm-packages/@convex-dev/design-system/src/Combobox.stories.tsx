@@ -1,4 +1,4 @@
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { ComponentProps, useState } from "react";
 import { Combobox } from "@ui/Combobox";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Meta, StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { Callout } from "@ui/Callout";
 import { Formik } from "formik";
 import { Sheet } from "@ui/Sheet";

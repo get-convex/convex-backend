@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { useEffect, useState } from "react";
 import { ProgressBar } from "@ui/ProgressBar";
 

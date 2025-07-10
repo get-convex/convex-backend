@@ -1,14 +1,15 @@
 import React, { ReactNode } from "react";
 import { DecoratorHelpers } from "@storybook/addon-themes";
-import type { DecoratorFunction, Renderer } from "@storybook/types";
+import type { DecoratorFunction } from "storybook/internal/types";
 import { ThemeProvider } from "next-themes";
+import { ReactRenderer } from "@storybook/nextjs";
 const { initializeThemeState, pluckThemeFromContext, useThemeParameters } =
   DecoratorHelpers;
 
-const themeDecorator: <TRenderer extends Renderer = any>(args: {
+const themeDecorator: (args: {
   themes: Record<string, string>;
   defaultTheme: string;
-}) => DecoratorFunction<TRenderer> = ({ themes, defaultTheme }) => {
+}) => DecoratorFunction<ReactRenderer> = ({ themes, defaultTheme }) => {
   initializeThemeState(Object.keys(themes), defaultTheme);
 
   return (storyFn, context) => {

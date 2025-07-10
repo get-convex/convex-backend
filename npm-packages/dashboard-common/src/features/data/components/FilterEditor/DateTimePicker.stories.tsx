@@ -1,4 +1,4 @@
-import { StoryObj } from "@storybook/react";
+import { StoryObj } from "@storybook/nextjs";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
 
 export const Primary: StoryObj<typeof DateTimePicker> = {

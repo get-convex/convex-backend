@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/nextjs";
 import { useState } from "react";
 import { ToastContainer } from "@common/elements/ToastContainer";
 import { toast } from "@common/lib/utils";
