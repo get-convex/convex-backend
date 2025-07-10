@@ -3,7 +3,7 @@ import classNames from "classnames";
 import { GenericDocument } from "convex/server";
 import { HeaderGroup } from "react-table";
 import { useDrop, useDrag } from "react-dnd";
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useRef } from "react";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
@@ -88,7 +88,7 @@ export function ColumnHeader({
       className={classNames(
         canDragOrDrop && "cursor-grab hover:bg-background-primary",
         isDragging && "bg-background-tertiary cursor-grabbing",
-        "font-semibold group/headerCell text-left text-xs bg-background-secondary text-content-secondary tracking-wider",
+        "font-semibold text-left text-xs bg-background-secondary text-content-secondary tracking-wider",
         "select-none duration-300 transition-colors",
         !isLastColumn && "border-r",
         isResizingColumn === columnName && "border-r-util-accent",
@@ -135,18 +135,6 @@ export function ColumnHeader({
           ) : (
             <div>{column.render("Header")}</div>
           )}
-          {!column.disableResizing && (
-            <div
-              {...column.getResizerProps()}
-              className="absolute top-0 z-20 inline-block h-full"
-              style={{
-                // @ts-expect-error bad typing in react-table
-                ...column.getResizerProps().style,
-                width: densityValues.paddingX * (isLastColumn ? 1 : 2),
-                right: isLastColumn ? 0 : -densityValues.paddingX,
-              }}
-            />
-          )}
           {column.Header !== "_creationTime" &&
             (column as unknown as { isDate: boolean }).isDate && (
               <Tooltip
@@ -170,6 +158,18 @@ export function ColumnHeader({
           )}
         </div>
       </ValidatorTooltip>
+      {!isHovering && !column.disableResizing && (
+        <div
+          {...column.getResizerProps()}
+          className="absolute top-0 z-20 inline-block h-full"
+          style={{
+            // @ts-expect-error bad typing in react-table
+            ...column.getResizerProps().style,
+            width: densityValues.paddingX * (isLastColumn ? 1 : 2),
+            right: isLastColumn ? 0 : -densityValues.paddingX,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -196,7 +196,7 @@ export function useColumnDragAndDrop(
 
   const direction = offset?.x ? (offset.x > 0 ? "right" : "left") : undefined;
 
-  const [{ isDragging }, drag, preview] = useDrag({
+  const [{ isDragging }, drag] = useDrag({
     type: "column",
     canDrag: canDragOrDrop,
     item: () => ({
@@ -207,10 +207,6 @@ export function useColumnDragAndDrop(
       isDragging: monitor.isDragging(),
     }),
   });
-
-  useEffect(() => {
-    preview(ref);
-  }, [preview]);
 
   drag(drop(ref));
 
