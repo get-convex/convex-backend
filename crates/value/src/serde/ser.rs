@@ -51,12 +51,6 @@ enum Error {
     StructVariantsUnsupported,
 
     #[error(
-        "Unit enum variants unsupported. Set #[serde(tag = \"type\")] to serialize as a regular \
-         object."
-    )]
-    EnumVariantsUnsupported,
-
-    #[error(
         "Newtype enum variants unsupported. Set #[serde(tag = \"type\")] to serialize as a \
          regular object."
     )]
@@ -195,9 +189,9 @@ impl serde::Serializer for Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
     ) -> Result<ConvexValue> {
-        Err(Error::EnumVariantsUnsupported)
+        Ok(ConvexValue::String(variant.try_into()?))
     }
 
     #[inline]
