@@ -1,31 +1,53 @@
 import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { useCurrentProject } from "api/projects";
-import { useState } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Team, ProjectDetails } from "generatedApi";
 import classNames from "classnames";
 import { SelectorItem } from "elements/SelectorItem";
 import { useDeploymentUris } from "hooks/useDeploymentUris";
 import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
+import { InfiniteScrollList } from "dashboard-common/src/elements/InfiniteScrollList";
+
+const PROJECT_SELECTOR_ITEM_SIZE = 44;
 
 export function ProjectMenuOptions({
-  projectsForHoveredTeam,
+  projectsForCurrentTeam,
   team,
   onCreateProjectClick,
-  optionRef,
-  scrollRef,
   close,
 }: {
-  projectsForHoveredTeam?: ProjectDetails[];
+  projectsForCurrentTeam?: ProjectDetails[];
   team: Team;
   onCreateProjectClick: (team: Team) => void;
-  optionRef: React.RefObject<HTMLDivElement>;
-  scrollRef: React.RefObject<HTMLDivElement>;
   close(): void;
 }) {
   const currentProject = useCurrentProject();
-
   const [projectQuery, setProjectQuery] = useState("");
+
+  const items = useMemo(() => {
+    if (!projectsForCurrentTeam) return [];
+
+    const matchingProjects = projectsForCurrentTeam
+      .filter((p) => p.name?.toLowerCase().includes(projectQuery.toLowerCase()))
+      .reverse();
+
+    const result = [];
+
+    if (
+      currentProject?.name.toLowerCase().includes(projectQuery.toLowerCase())
+    ) {
+      result.push({ ...currentProject, _isCurrent: true });
+    }
+
+    result.push(
+      ...matchingProjects.filter((p) => p.slug !== currentProject?.slug),
+    );
+
+    return result;
+  }, [projectsForCurrentTeam, projectQuery, currentProject]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
@@ -50,44 +72,31 @@ export function ProjectMenuOptions({
       >
         Projects
       </label>
-      {projectsForHoveredTeam && (
-        <div
-          id="project-menu-options"
-          className="flex w-full grow flex-col items-start overflow-y-auto p-0.5 scrollbar"
-          role="menu"
-          ref={scrollRef}
-        >
-          {currentProject &&
-            currentProject.name
-              .toLowerCase()
-              .includes(projectQuery.toLowerCase()) && (
-              <ProjectSelectorItem
-                optionRef={optionRef}
-                selected={currentProject.slug === currentProject?.slug}
-                close={close}
-                project={currentProject}
-                key={currentProject.id}
-                teamSlug={team.slug}
-              />
-            )}
-          {projectsForHoveredTeam
-            .filter(
-              (p) =>
-                p.name?.toLowerCase().includes(projectQuery.toLowerCase()) &&
-                p.slug !== currentProject?.slug,
-            )
-            .reverse()
-            .map((project) => (
-              <ProjectSelectorItem
-                optionRef={optionRef}
-                close={close}
-                project={project}
-                key={project.id}
-                teamSlug={team.slug}
-              />
-            ))}
-        </div>
-      )}
+      <div
+        id="project-menu-options"
+        className="w-full"
+        style={{
+          height: Math.min(items.length * PROJECT_SELECTOR_ITEM_SIZE, 22 * 16),
+        }}
+        role="menu"
+      >
+        <InfiniteScrollList
+          outerRef={scrollRef}
+          items={items}
+          totalNumItems={items.length}
+          itemSize={PROJECT_SELECTOR_ITEM_SIZE}
+          itemData={{
+            items,
+            team,
+            close,
+          }}
+          RowOrLoading={ProjectSelectorListItem}
+          overscanCount={25}
+          itemKey={(idx, data) =>
+            data.items[idx]?.id?.toString() || `loading-${idx}`
+          }
+        />
+      </div>
       <Button
         inline
         onClick={() => {
@@ -101,6 +110,36 @@ export function ProjectMenuOptions({
         Create Project
       </Button>
     </>
+  );
+}
+
+function ProjectSelectorListItem({
+  index,
+  style,
+  data,
+}: {
+  index: number;
+  style: React.CSSProperties;
+  data: {
+    items: (ProjectDetails & { _isCurrent?: boolean })[];
+    team: Team;
+    close: () => void;
+  };
+}) {
+  const { items, team, close } = data;
+  const project = items[index];
+  // _isCurrent is only set for the current project
+  const selected = Boolean(project._isCurrent);
+  return (
+    <div style={style}>
+      <ProjectSelectorItem
+        selected={selected}
+        close={close}
+        project={project}
+        key={project.id}
+        teamSlug={team.slug}
+      />
+    </div>
   );
 }
 
@@ -131,7 +170,10 @@ function ProjectSelectorItem({
   );
   return (
     <div
-      className={classNames("flex w-full gap-0.5 p-0.5")}
+      className="flex w-full gap-0.5 p-0.5"
+      style={{
+        height: PROJECT_SELECTOR_ITEM_SIZE,
+      }}
       ref={active ? optionRef : undefined}
     >
       <SelectorItem

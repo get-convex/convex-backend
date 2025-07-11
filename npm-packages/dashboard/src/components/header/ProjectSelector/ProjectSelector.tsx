@@ -1,7 +1,7 @@
 import { ProjectDetails, Team } from "generatedApi";
 
 import classNames from "classnames";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { useProjects } from "api/projects";
 import { Button } from "@ui/Button";
 import { CaretSortIcon, GearIcon, ResetIcon } from "@radix-ui/react-icons";
@@ -31,7 +31,7 @@ export function ProjectSelector({
 }) {
   const team = teams?.find((t) => t.slug === selectedTeamSlug) ?? null;
 
-  const projectsForHoveredTeam = useProjects(team?.id);
+  const projectsForCurrentTeam = useProjects(team?.id);
 
   const { width } = useWindowSize();
 
@@ -104,7 +104,7 @@ export function ProjectSelector({
           onCreateTeamClick={onCreateTeamClick}
           onCreateProjectClick={onCreateProjectClick}
           team={team}
-          projectsForHoveredTeam={projectsForHoveredTeam}
+          projectsForCurrentTeam={projectsForCurrentTeam}
         />
       )}
     </Popover>
@@ -117,24 +117,20 @@ function ProjectSelectorPanel({
   onCreateProjectClick,
   close,
   team,
-  projectsForHoveredTeam,
+  projectsForCurrentTeam,
 }: {
   teams?: Team[];
   onCreateTeamClick: () => void;
   onCreateProjectClick: (team: Team) => void;
   close: () => void;
   team: Team | null;
-  projectsForHoveredTeam: ProjectDetails[] | undefined;
+  projectsForCurrentTeam: ProjectDetails[] | undefined;
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const optionsRef = useRef<HTMLDivElement>(null);
-
   const [switchingTeams, setSwitchingTeams] = useState(false);
 
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div ref={menuRef} role="dialog">
+    <div role="dialog">
       {team && (
         <div className="flex max-h-[calc(100vh-3.625rem)] w-[12rem] flex-col py-2 sm:h-fit sm:w-[21.5rem]">
           <div className="my-0.5 flex w-full items-center justify-between gap-2 px-0.5">
@@ -185,7 +181,7 @@ function ProjectSelectorPanel({
               />
             )}
           </div>
-          <div className="flex flex-col items-start gap-0.5 overflow-y-auto overflow-x-hidden scrollbar sm:max-h-[22rem]">
+          <div className="flex flex-col items-start gap-0.5 overflow-x-hidden">
             {switchingTeams ? (
               <TeamMenuOptions
                 teams={teams}
@@ -196,10 +192,8 @@ function ProjectSelectorPanel({
             ) : (
               <ProjectMenuOptions
                 onCreateProjectClick={onCreateProjectClick}
-                projectsForHoveredTeam={projectsForHoveredTeam}
+                projectsForCurrentTeam={projectsForCurrentTeam}
                 team={team}
-                optionRef={optionsRef}
-                scrollRef={scrollRef}
                 close={close}
               />
             )}
