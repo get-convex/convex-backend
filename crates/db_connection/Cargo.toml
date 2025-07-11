@@ -21,6 +21,7 @@ common = { path = "../common" }
 mysql = { path = "../mysql" }
 postgres = { path = "../postgres" }
 sqlite = { path = "../sqlite" }
+tokio-postgres = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

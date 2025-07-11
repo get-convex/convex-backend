@@ -129,14 +129,22 @@ pub async fn connect_persistence_reader<RT: Runtime>(
             match args {
                 PersistenceArgs::Postgres { url, schema } => {
                     let options = PostgresReaderOptions { version, schema };
+                    let mut tokio_postgres_config: tokio_postgres::Config = url
+                        .as_str()
+                        .parse()
+                        .context("Invalid postgres cluster url")?;
+                    if !db_should_be_leader {
+                        let mut pg_options = tokio_postgres_config
+                            .get_options()
+                            .unwrap_or_default()
+                            .to_owned();
+                        pg_options.push_str(" -c pg_hint_plan.enable_hint=off");
+                        tokio_postgres_config.options(pg_options);
+                    }
                     Arc::new(
                         PostgresPersistence::new_reader(
-                            PostgresPersistence::create_pool(
-                                url.as_str()
-                                    .parse()
-                                    .context("Invalid postgres cluster url")?,
-                            )
-                            .context("failed to create postgres pool")?,
+                            PostgresPersistence::create_pool(tokio_postgres_config)
+                                .context("failed to create postgres pool")?,
                             options,
                         )
                         .await?,
