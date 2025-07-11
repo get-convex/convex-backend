@@ -2,6 +2,7 @@ use std::{
     collections::{
         btree_map::Entry,
         BTreeMap,
+        VecDeque,
     },
     path::Path,
     str::FromStr,
@@ -132,14 +133,22 @@ pub struct AnalyzeEnvironment {
     rng: ChaCha12Rng,
     unix_timestamp: UnixTimestamp,
     environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    // Collect logs during analysis for push failure reporting (max 100 entries)
+    collected_logs: VecDeque<String>,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
-        tracing::warn!(
-            "Unexpected Console access at import time: {}",
-            messages.join(" ")
-        );
+        // These logs are only shown to the pusher on error.
+        let log_message = messages.join(" ");
+
+        // Keep only the last 100 log entries
+        if self.collected_logs.len() >= 100 {
+            self.collected_logs.pop_front();
+        }
+        self.collected_logs.push_back(log_message.clone());
+
+        tracing::warn!("Console access at import time: {}", log_message);
         Ok(())
     }
 
@@ -279,6 +288,7 @@ impl AnalyzeEnvironment {
             rng,
             unix_timestamp,
             environment_variables,
+            collected_logs: VecDeque::new(),
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate.start_request(client_id, environment).await?;
@@ -296,6 +306,13 @@ impl AnalyzeEnvironment {
         isolate_context.checkpoint();
         *isolate_clean = true;
 
+        let error_logs = if let Ok(Err(_)) = result {
+            let state = isolate_context.take_state().expect("Lost RequestState?");
+            state.environment.collected_logs.clone()
+        } else {
+            VecDeque::new()
+        };
+
         // Unlink the request from the isolate.
         // After this point, it's unsafe to run js code in the isolate that
         // expects the current request's environment.
@@ -307,6 +324,15 @@ impl AnalyzeEnvironment {
         if let Err(e) = handle.take_termination_error(None, "analyze")? {
             return Ok(Err(e));
         }
+
+        if let Ok(Err(mut js_error)) = result {
+            if !error_logs.is_empty() {
+                let logs_text = error_logs.iter().cloned().collect::<Vec<_>>().join("\n");
+                js_error.message = format!("{}\n\n{}", js_error.message, logs_text);
+            }
+            return Ok(Err(js_error));
+        }
+
         result
     }
 
