@@ -108,6 +108,7 @@ use common::{
         DatabaseSchema,
         TableDefinition,
     },
+    shutdown::ShutdownSignal,
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
@@ -684,6 +685,7 @@ impl<RT: Runtime> Application<RT> {
         cache: QueryCache,
         fetch_client: Arc<dyn FetchClient>,
         local_log_sink: Option<String>,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -717,8 +719,12 @@ impl<RT: Runtime> Application<RT> {
         let search_worker = Arc::new(Mutex::new(search_worker));
         let search_and_vector_bootstrap_worker =
             Arc::new(Mutex::new(database.start_search_and_vector_bootstrap()));
-        let table_summary_worker =
-            TableSummaryWorker::start(runtime.clone(), database.clone(), persistence.clone());
+        let table_summary_worker = TableSummaryWorker::start(
+            runtime.clone(),
+            database.clone(),
+            persistence.clone(),
+            lease_lost_shutdown,
+        );
         let schema_worker = Arc::new(Mutex::new(runtime.spawn(
             "schema_worker",
             SchemaWorker::start(runtime.clone(), database.clone()),

@@ -4,7 +4,11 @@ use std::{
 };
 
 use common::{
-    errors::report_error,
+    errors::{
+        lease_lost_error,
+        report_error,
+        LeaseLostError,
+    },
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DATABASE_WORKERS_MIN_COMMITS,
@@ -17,6 +21,7 @@ use common::{
         SpawnHandle,
         UnixTimestamp,
     },
+    shutdown::ShutdownSignal,
 };
 use database::{
     table_summary::write_snapshot,
@@ -64,6 +69,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         runtime: RT,
         database: Database<RT>,
         persistence: Arc<dyn Persistence>,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> TableSummaryClient {
         let table_summary_worker = Self {
             runtime: runtime.clone(),
@@ -73,7 +79,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         let (cancel_sender, cancel_receiver) = oneshot::channel();
         let handle = runtime.spawn(
             "table_summary_worker",
-            table_summary_worker.go(cancel_receiver),
+            table_summary_worker.go(cancel_receiver, lease_lost_shutdown),
         );
         let inner = Inner {
             handle,
@@ -127,7 +133,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         Ok(())
     }
 
-    async fn go(self, cancel_receiver: oneshot::Receiver<()>) {
+    async fn go(self, cancel_receiver: oneshot::Receiver<()>, lease_lost_shutdown: ShutdownSignal) {
         tracing::info!("Starting background table summary worker");
         let mut timer = Some(table_summary_bootstrap_timer());
         let cancel_fut = cancel_receiver.fuse();
@@ -166,6 +172,11 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
             }
             if let Err(mut err) = result {
                 report_error(&mut err).await;
+                if let Some(LeaseLostError) = err.downcast_ref() {
+                    lease_lost_shutdown.signal(
+                        lease_lost_error().context("Failed to write table summary checkpoint"),
+                    );
+                }
             }
             let wait_fut = self.runtime.wait(Duration::from_secs(10)).fuse();
             pin_mut!(wait_fut);

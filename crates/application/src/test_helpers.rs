@@ -273,6 +273,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             QueryCache::new(*UDF_CACHE_MAX_SIZE),
             fetch_client,
             None, // local_log_sink
+            ShutdownSignal::panic(),
         )
         .await?;
 

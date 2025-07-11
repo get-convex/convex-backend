@@ -149,7 +149,7 @@ pub async fn make_app(
         persistence.clone(),
         runtime.clone(),
         searcher.clone(),
-        preempt_tx,
+        preempt_tx.clone(),
         virtual_system_mapping().clone(),
         Arc::new(NoOpUsageEventLogger),
     )
@@ -231,6 +231,7 @@ pub async fn make_app(
         QueryCache::new(*UDF_CACHE_MAX_SIZE),
         fetch_client,
         config.local_log_sink.clone(),
+        preempt_tx.clone(),
     )
     .await?;
 
