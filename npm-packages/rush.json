@@ -655,6 +655,10 @@
     {
       "packageName": "local-store",
       "projectFolder": "local-store"
+    },
+    {
+      "packageName": "version",
+      "projectFolder": "version"
     }
     // {
     //   /**

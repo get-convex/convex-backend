@@ -1,0 +1,25 @@
+{
+  "name": "version",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "convex dev",
+    "predev": "convex dev --until-success && convex dashboard",
+    "logs": "convex logs",
+    "test": "vitest run --typecheck",
+    "dev:test": "vitest --typecheck",
+    "build": "convex typecheck 2>&1"
+  },
+  "dependencies": {
+    "arktype": "^2.1.20",
+    "chalk": "5",
+    "convex": "workspace:*",
+    "semver": "^7.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "@types/semver": "^7.3.13",
+    "typescript": "~5.0.3",
+    "vitest": "^3.1.4"
+  }
+}

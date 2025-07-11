@@ -4812,6 +4812,34 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
 
+  ../../version:
+    dependencies:
+      arktype:
+        specifier: ^2.1.20
+        version: 2.1.20
+      chalk:
+        specifier: '5'
+        version: 5.4.1
+      convex:
+        specifier: workspace:*
+        version: link:../convex
+      semver:
+        specifier: ^7.6.0
+        version: 7.7.2
+    devDependencies:
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.70
+      '@types/semver':
+        specifier: ^7.3.13
+        version: 7.5.8
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+      vitest:
+        specifier: ^3.1.4
+        version: 3.1.4(@edge-runtime/vm@3.2.0)(@types/debug@4.1.12)(@types/node@18.19.70)(happy-dom@17.4.4)(jiti@2.4.2)(jsdom@26.1.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(lightningcss@1.30.1)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
+
 packages:
 
   '@adobe/css-tools@4.4.1':
@@ -4944,6 +4972,12 @@ packages:
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
     engines: {node: '>=6.0.0'}
+
+  '@ark/schema@0.46.0':
+    resolution: {integrity: sha512-c2UQdKgP2eqqDArfBqQIJppxJHvNNXuQPeuSPlDML4rjw+f1cu0qAlzOG4b8ujgm9ctIDWwhpyw6gjG5ledIVQ==}
+
+  '@ark/util@0.46.0':
+    resolution: {integrity: sha512-JPy/NGWn/lvf1WmGCPw2VGpBg5utZraE84I7wli18EDF3p3zc/e9WolT35tINeZO3l7C77SjqRJeAUoT0CvMRg==}
 
   '@arr/every@1.0.1':
     resolution: {integrity: sha512-UQFQ6SgyJ6LX42W8rHCs8KVc0JS0tzVL9ct4XYedJukskYVWTo49tNiMEK9C2HTyarbNiT/RVIRSY82vH+6sTg==}
@@ -11691,6 +11725,9 @@ packages:
   aria-query@5.3.2:
     resolution: {integrity: sha512-COROpnaoap1E2F000S62r6A60uHZnmlvomhfyT2DlTcrY1OrBKn2UhH7qn5wTC9zMvD0AY7csdPSNwKP+7WiQw==}
     engines: {node: '>= 0.4'}
+
+  arktype@2.1.20:
+    resolution: {integrity: sha512-IZCEEXaJ8g+Ijd59WtSYwtjnqXiwM8sWQ5EjGamcto7+HVN9eK0C4p0zDlCuAwWhpqr6fIBkxPuYDl4/Mcj/+Q==}
 
   array-buffer-byte-length@1.0.2:
     resolution: {integrity: sha512-LHE+8BuR7RYGDKvnrmcuSq3tDcKv9OFEXQt/HpbZhY7V6h0zlUXutnAD82GiFx9rdieCMjkvtcsPqBwgUl1Iiw==}
@@ -22316,6 +22353,12 @@ snapshots:
     dependencies:
       '@jridgewell/gen-mapping': 0.3.8
       '@jridgewell/trace-mapping': 0.3.25
+
+  '@ark/schema@0.46.0':
+    dependencies:
+      '@ark/util': 0.46.0
+
+  '@ark/util@0.46.0': {}
 
   '@arr/every@1.0.1': {}
 
@@ -33460,6 +33503,11 @@ snapshots:
       dequal: 2.0.3
 
   aria-query@5.3.2: {}
+
+  arktype@2.1.20:
+    dependencies:
+      '@ark/schema': 0.46.0
+      '@ark/util': 0.46.0
 
   array-buffer-byte-length@1.0.2:
     dependencies:
