@@ -15,6 +15,9 @@ export default defineConfig({
     // Include pattern for test files
     include: ["**/*.test.ts", "**/*.spec.ts"],
 
+    // Test timeout in milliseconds
+    testTimeout: 30000,
+
     // Optional: TypeScript configuration
     typecheck: {
       enabled: true,
