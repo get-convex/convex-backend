@@ -77,6 +77,7 @@ export function ProjectSelector({
           ? [className]
           : ["text-content-primary", "hover:bg-background-tertiary"]),
         "rounded-full",
+        "cursor-pointer",
       )}
       onClick={() => {
         logEvent("click project selector");
