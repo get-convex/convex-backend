@@ -200,7 +200,7 @@ function getConvexUrl(
    *
    * Defaults to `process.env.NEXT_PUBLIC_CONVEX_URL` if not provided.
    *
-   * Explicity passing undefined here (such as in broken ENV variables) will throw an error in the future
+   * Explicitly passing undefined here (such as in broken ENV variables) will throw an error in the future
    */
   deploymentUrl: string | undefined,
   skipConvexDeploymentUrlCheck: boolean,
