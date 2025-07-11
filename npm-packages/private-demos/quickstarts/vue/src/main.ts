@@ -1,13 +1,11 @@
-import "./assets/main.css";
+import { convexVue } from 'convex-vue'
+import { createApp } from 'vue'
+import App from './App.vue'
 
-import { createApp } from "vue";
-import App from "./App.vue";
-import { createConvexVue } from "@convex-vue/core";
+const app = createApp(App)
 
-const app = createApp(App);
+app.use(convexVue, {
+  url: import.meta.env.VITE_CONVEX_URL,
+})
 
-const convexVue = createConvexVue({
-  convexUrl: import.meta.env.VITE_CONVEX_URL,
-});
-
-app.use(convexVue).mount("#app");
+app.mount('#app')

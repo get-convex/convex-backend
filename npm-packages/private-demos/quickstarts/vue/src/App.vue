@@ -1,18 +1,15 @@
 <script setup lang="ts">
-
-import { useConvexQuery } from "@convex-vue/core";
+import { useConvexQuery } from "convex-vue";
 import { api } from "../convex/_generated/api";
 
-const { data, isLoading } = useConvexQuery(api.tasks.get, {});
+const { data, isPending } = useConvexQuery(api.tasks.get);
 </script>
 
 <template>
-  <div class="wrapper">
-    <ul v-if="!isLoading">
-      <li v-for="todo in data">
-        {{ todo.text }} {{ todo.isCompleted ? "☑" : "☐" }}
-      </li>
-    </ul>
-    <span v-else> loading... </span>
-  </div>
+  <span v-if="isPending"> Loading... </span>
+  <ul v-else>
+    <li v-for="todo in data">
+      {{ todo.text }} {{ todo.isCompleted ? "☑" : "☐" }}
+    </li>
+  </ul>
 </template>

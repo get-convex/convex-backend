@@ -4,7 +4,7 @@ sidebar_position: 250
 ---
 
 The community-maintained
-[`@crbroughton/nuxt-convex` npm package](https://www.npmjs.com/package/@crbroughton/nuxt-convex)
+[`@chris-visser/convex-nuxt` npm package](https://www.npmjs.com/package/convex-nuxt)
 provides deep integration of Convex with the Nuxt ecosystem.
 
 See the [Nuxt Quickstart](/quickstart/nuxt.mdx) to get started or the
@@ -13,7 +13,7 @@ for more documentation.
 
 <Admonition type="info">
 
-The [`@crbroughton/nuxt-convex` library](https://www.npmjs.com/package/@crbroughton/nuxt-convex)
+The [`@chris-visser/convex-nuxt` library](https://github.com/chris-visser/convex-nuxt/tree/main)
 is community-maintained. Thank you to the maintainer
 [Chris Visser](https://github.com/chris-visser) for his work on this project!
 
