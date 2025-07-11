@@ -1347,3 +1347,14 @@ pub static SUBSCRIPTIONS_WORKER_QUEUE_SIZE: LazyLock<usize> =
 /// search query fails because indexes are bootstrapping.
 pub static SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY", 3)));
+
+/// The maximum number of subscriptions that can be invalidated immediately. If
+/// there are more, they will be splayed out.
+pub static SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD: LazyLock<usize> =
+    LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD", 200));
+
+/// How much to splay subscription invalidations. More precisely, this is the
+/// number used to multiply by the number of subscriptions that need to be
+/// invalidated to determine the delay before invalidating them.
+pub static SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER: LazyLock<u64> =
+    LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER", 5));

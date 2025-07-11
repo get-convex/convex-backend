@@ -1078,3 +1078,11 @@ register_convex_histogram!(
 pub fn log_list_snapshot_page_documents(num_docs: usize) {
     log_distribution(&LIST_SNAPSHOT_PAGE_DOCUMENTS, num_docs as f64);
 }
+
+register_convex_histogram!(
+    SUBSCRIPTION_INVALIDATION_UPDATES,
+    "Number of subscriptions invalidated when advancing the log",
+);
+pub fn log_subscriptions_invalidated(num: usize) {
+    log_distribution(&SUBSCRIPTION_INVALIDATION_UPDATES, num as f64);
+}

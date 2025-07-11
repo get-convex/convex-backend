@@ -14,6 +14,7 @@ use std::{
         },
         Arc,
     },
+    time::Duration,
 };
 
 use ::metrics::Timer;
@@ -24,7 +25,11 @@ use common::{
         DocumentIndexKeys,
     },
     errors::report_error,
-    knobs::SUBSCRIPTIONS_WORKER_QUEUE_SIZE,
+    knobs::{
+        SUBSCRIPTIONS_WORKER_QUEUE_SIZE,
+        SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
+        SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD,
+    },
     runtime::{
         block_in_place,
         Runtime,
@@ -58,7 +63,10 @@ use tokio::sync::{
 use value::ResolvedDocumentId;
 
 use crate::{
-    metrics,
+    metrics::{
+        self,
+        log_subscriptions_invalidated,
+    },
     reads::ReadSet,
     write_log::{
         LogOwner,
@@ -113,6 +121,20 @@ impl Drop for SubscriptionSender {
     fn drop(&mut self) {
         self.valid_ts.store(-1, Ordering::SeqCst);
         _ = self.valid_tx.send(SubscriptionState::Invalid);
+    }
+}
+
+impl SubscriptionSender {
+    fn drop_with_delay(self, delay: Option<Duration>) {
+        self.valid_ts.store(-1, Ordering::SeqCst);
+        if let Some(delay) = delay {
+            tokio::spawn(async move {
+                tokio::time::sleep(delay).await;
+                _ = self.valid_tx.send(SubscriptionState::Invalid);
+            });
+        } else {
+            _ = self.valid_tx.send(SubscriptionState::Invalid);
+        }
     }
 }
 
@@ -314,9 +336,27 @@ impl SubscriptionManager {
                 }
             }
             // Then, invalidate all the remaining subscriptions.
-            for subscriber_id in to_notify {
-                self._remove(subscriber_id);
+            let num_subscriptions_invalidated = to_notify.len();
+            let should_splay_invalidations =
+                num_subscriptions_invalidated > *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD;
+            if should_splay_invalidations {
+                tracing::info!(
+                    "Splaying subscription invalidations since there are {} subscriptions to \
+                     invalidate. The threshold is {}",
+                    num_subscriptions_invalidated,
+                    *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD
+                );
             }
+            for subscriber_id in to_notify {
+                let delay = should_splay_invalidations.then(|| {
+                    Duration::from_millis(rand::random_range(
+                        0..=num_subscriptions_invalidated as u64
+                            * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
+                    ))
+                });
+                self._remove(subscriber_id, delay);
+            }
+            log_subscriptions_invalidated(num_subscriptions_invalidated);
 
             assert!(self.processed_ts <= next_ts);
             self.processed_ts = next_ts;
@@ -369,13 +409,14 @@ impl SubscriptionManager {
         if self.get_subscriber(key).is_none() {
             return;
         }
-        self._remove(key.id);
+        self._remove(key.id, None);
     }
 
-    fn _remove(&mut self, id: SubscriberId) {
+    fn _remove(&mut self, id: SubscriberId, delay: Option<Duration>) {
         let entry = self.subscribers.remove(id);
         self.subscriptions.remove(id, &entry.reads);
         // dropping `entry.sender` will invalidate the subscription
+        entry.sender.drop_with_delay(delay);
     }
 }
 
@@ -779,7 +820,7 @@ mod tests {
                 .subscribe_for_testing(token.clone())
                 .unwrap();
             subscriptions.push(subscriber);
-            subscription_manager._remove(id);
+            subscription_manager._remove(id, None);
         }
 
         assert!(
@@ -817,7 +858,7 @@ mod tests {
         let (_subscription, id) = subscription_manager
             .subscribe_for_testing(token.clone())
             .unwrap();
-        subscription_manager._remove(id);
+        subscription_manager._remove(id, None);
 
         assert!(notify_subscribed_tokens(
             &mut id_generator,
@@ -891,7 +932,7 @@ mod tests {
                     );
                 }
                 for (_, id) in &subscriptions {
-                    subscription_manager._remove(*id);
+                    subscription_manager._remove(*id, None);
                 }
                 let notifications = notify_subscribed_tokens(
                     &mut id_generator,
@@ -916,7 +957,7 @@ mod tests {
                 for token in &tokens {
                     let (_subscription, id) = subscription_manager
                         .subscribe_for_testing(token.clone()).unwrap();
-                    subscription_manager._remove(id);
+                    subscription_manager._remove(id, None);
                 }
                 let notifications = notify_subscribed_tokens(
                     &mut id_generator,
