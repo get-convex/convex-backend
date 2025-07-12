@@ -65,7 +65,7 @@ function ThemeRadioInput({
           aria-label="System Theme"
           htmlFor={`${theme}-theme`}
           className={cn(
-            "p-1.5 cursor-pointer",
+            "cursor-pointer p-1.5",
             currentTheme === theme
               ? "bg-util-accent text-white"
               : "hover:bg-background-tertiary",

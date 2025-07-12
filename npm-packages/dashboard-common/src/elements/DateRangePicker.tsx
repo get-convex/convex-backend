@@ -108,7 +108,7 @@ export function DateRangePicker({
       {({ close }) => (
         <div className="flex flex-col gap-4 md:flex-row">
           {shortcuts && (
-            <div className="flex w-[13rem] flex-col gap-2 border-b pb-4 md:border-b-0 md:border-r md:pb-0">
+            <div className="flex w-[13rem] flex-col gap-2 border-b pb-4 md:border-r md:border-b-0 md:pb-0">
               {shortcuts.map((s) => (
                 <Button
                   key={s.label}

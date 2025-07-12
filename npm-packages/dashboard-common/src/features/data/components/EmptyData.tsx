@@ -77,7 +77,7 @@ export function EmptyDataContent({
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex max-w-full items-center gap-4">
                   <div className="flex max-w-full flex-col gap-1">
-                    <h3 className="flex select-none items-start gap-0.5 font-mono text-content-secondary">
+                    <h3 className="flex items-start gap-0.5 font-mono text-content-secondary select-none">
                       example_table
                     </h3>
                   </div>
@@ -118,7 +118,7 @@ export function EmptyDataContent({
                 </div>
               </div>
               <div className="flex gap-2">
-                <div className="flex items-center gap-1 whitespace-nowrap text-xs">
+                <div className="flex items-center gap-1 text-xs whitespace-nowrap">
                   <span className="h-3 w-24 bg-content-secondary/30" />
                 </div>
               </div>
@@ -136,7 +136,7 @@ export function EmptyDataContent({
                   {EXAMPLE_COLUMNS.map((col) => (
                     <th
                       key={col}
-                      className="select-none border-r p-3 text-left text-xs font-semibold text-content-secondary last:border-r-0"
+                      className="border-r p-3 text-left text-xs font-semibold text-content-secondary select-none last:border-r-0"
                     >
                       {col}
                     </th>
@@ -150,7 +150,7 @@ export function EmptyDataContent({
                       // eslint-disable-next-line jsx-a11y/control-has-associated-label
                       <td
                         key={col}
-                        className="border-r p-3 last:border-r-0 group-last:border-b-0"
+                        className="border-r p-3 group-last:border-b-0 last:border-r-0"
                       >
                         <div className="h-3 w-full max-w-64 bg-content-secondary/30" />
                       </td>
@@ -169,7 +169,7 @@ export function EmptyDataContent({
           padding={false}
           className={cn(
             "h-fit w-fit bg-background-secondary/90 backdrop-blur-[2px]",
-            width > 320 ? "p-2 m-6" : "m-0 p-0",
+            width > 320 ? "m-6 p-2" : "m-0 p-0",
           )}
         >
           <EmptySection

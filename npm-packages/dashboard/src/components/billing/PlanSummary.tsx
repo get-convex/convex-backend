@@ -153,7 +153,7 @@ export function PlanSummaryForTeam({
       <div className="flex flex-col gap-1 overflow-x-auto">
         <div
           className={cn(
-            "grid items-center gap-2 rounded-t text-content-secondary text-sm px-4 py-2 border-b",
+            "grid items-center gap-2 rounded-t border-b px-4 py-2 text-sm text-content-secondary",
             hasSubscription
               ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
               : "grid-cols-[5fr_4fr]",
@@ -327,7 +327,7 @@ function UsageSection({
   isNotSubjectToFilter: boolean;
 }) {
   const className = cn(
-    "px-4 py-2 grid items-center gap-2 rounded-sm group min-h-10 transition-colors",
+    "group grid min-h-10 items-center gap-2 rounded-sm px-4 py-2 transition-colors",
     hasSubscription
       ? "grid-cols-[4fr_3fr_2fr] sm:grid-cols-[4fr_3fr_3fr]"
       : "grid-cols-[5fr_4fr]",

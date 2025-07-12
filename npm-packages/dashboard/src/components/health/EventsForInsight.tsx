@@ -428,8 +428,8 @@ function EventsTable<T, I extends Insight>({
   const { nents } = useNents();
   const nentId = nents?.find((nent) => nent.path === insight.componentPath)?.id;
   return (
-    <div className="flex max-h-full w-full flex-col overflow-y-auto rounded-sm border scrollbar">
-      <div className="sticky top-0 z-20 flex min-w-fit gap-2 border-b bg-background-secondary px-2 pb-1 pt-2 text-xs text-content-secondary">
+    <div className="scrollbar flex max-h-full w-full flex-col overflow-y-auto rounded-sm border">
+      <div className="sticky top-0 z-20 flex min-w-fit gap-2 border-b bg-background-secondary px-2 pt-2 pb-1 text-xs text-content-secondary">
         {columns.map((col) => (
           <div
             key={col.key}

@@ -42,7 +42,7 @@ export function FilterButton({
     <div className="flex items-center gap-2">
       <span>{enableIndexFilters ? "Filter & Sort" : "Filter"}</span>
       {hasAnyEnabledFilters && (
-        <span className="rounded-full border border-content-primary px-1 py-0 text-xs tabular-nums leading-[14px]">
+        <span className="rounded-full border border-content-primary px-1 py-0 text-xs leading-[14px] tabular-nums">
           {(indexFilters?.length || 0) + (regularFilters?.length || 0)}
         </span>
       )}
@@ -61,9 +61,9 @@ export function FilterButton({
       icon={<MixerHorizontalIcon className="size-3.5" />}
       focused={open}
       className={cn(
-        "w-fit rounded-l-none text-xs border-0 border-l",
+        "w-fit rounded-l-none border-0 border-l text-xs",
         hasAnyEnabledFilters &&
-          "bg-blue-100/50 dark:bg-blue-700/50 hover:bg-blue-100/70 dark:hover:bg-blue-700/70",
+          "bg-blue-100/50 hover:bg-blue-100/70 dark:bg-blue-700/50 dark:hover:bg-blue-700/70",
         open && "rounded-b-none",
       )}
       inline

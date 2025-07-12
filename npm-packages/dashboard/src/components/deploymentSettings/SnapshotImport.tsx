@@ -98,7 +98,7 @@ function ImportStateBody({
         <div>
           {(snapshotImport.checkpoints === null ||
             snapshotImport.checkpoints === undefined) && (
-            <div className="whitespace-pre-wrap font-mono">
+            <div className="font-mono whitespace-pre-wrap">
               {snapshotImport.state.message_to_confirm}
             </div>
           )}

@@ -114,7 +114,7 @@ export function FileStorageListItemInner({
       </div>
 
       {/* Size column */}
-      <div className="min-w-0 overflow-hidden text-ellipsis font-mono">
+      <div className="min-w-0 overflow-hidden font-mono text-ellipsis">
         {formatBytes(Number(file.size))}
       </div>
 

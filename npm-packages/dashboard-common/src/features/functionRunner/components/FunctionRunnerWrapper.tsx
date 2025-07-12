@@ -117,7 +117,7 @@ export function FunctionRunnerWrapper({
             <FunctionIcon className="h-8 w-8" />
           </div>
 
-          <div className="ml-1 select-none flex-col items-center gap-1 whitespace-nowrap transition-all">
+          <div className="ml-1 flex-col items-center gap-1 whitespace-nowrap transition-all select-none">
             Run functions
             <div className="flex w-full items-center gap-0.5 text-xs">
               Shortcut:

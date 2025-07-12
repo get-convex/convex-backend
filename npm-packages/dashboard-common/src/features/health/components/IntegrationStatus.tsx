@@ -133,7 +133,7 @@ function IntegrationStatusCard({
         </>
       }
     >
-      <div className="flex h-full w-full items-center text-pretty px-2 pb-2">
+      <div className="flex h-full w-full items-center px-2 pb-2 text-pretty">
         {integrationStatus === undefined ? (
           <Loading className="h-5 w-32" />
         ) : integrationStatus === "notConfigured" ? (

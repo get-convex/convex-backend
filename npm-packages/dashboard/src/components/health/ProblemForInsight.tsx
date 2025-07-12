@@ -113,7 +113,7 @@ function OCCProblem({
         </span>
       )}
       {explain && (
-        <div className="my-2 flex max-w-prose items-start gap-2 text-pretty rounded-sm border p-2 text-sm">
+        <div className="my-2 flex max-w-prose items-start gap-2 rounded-sm border p-2 text-sm text-pretty">
           <InfoCircledIcon className="mt-[3px] shrink-0" />
           <div className="space-y-2">
             <p>
@@ -190,7 +190,7 @@ function ReadLimitProblem({
         )}
       </span>
       {explain && (
-        <div className="my-2 flex max-w-prose items-start gap-2 text-pretty rounded-sm border p-2 text-sm">
+        <div className="my-2 flex max-w-prose items-start gap-2 rounded-sm border p-2 text-sm text-pretty">
           <InfoCircledIcon className="mt-[3px] shrink-0" />
           <div className="space-y-2">
             <p>

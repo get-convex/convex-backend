@@ -178,11 +178,11 @@ export function MultiSelectCombobox({
                   >
                     <Combobox.Options
                       static
-                      className="max-h-60 w-fit min-w-full max-w-80 overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm scrollbar focus:outline-hidden"
+                      className="scrollbar max-h-60 w-fit max-w-80 min-w-full overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm focus:outline-hidden"
                     >
                       <div className="min-w-fit">
                         {!disableSearch && (
-                          <div className="sticky left-0 top-0 z-20 flex w-full items-center gap-1 border-b bg-background-secondary px-2 pt-1">
+                          <div className="sticky top-0 left-0 z-20 flex w-full items-center gap-1 border-b bg-background-secondary px-2 pt-1">
                             <MagnifyingGlassIcon className="h-4 w-4 text-content-secondary" />
                             <Combobox.Input
                               onChange={(event) => setQuery(event.target.value)}

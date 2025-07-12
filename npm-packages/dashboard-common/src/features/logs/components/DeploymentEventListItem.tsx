@@ -35,7 +35,7 @@ export function DeploymentEventListItem({
       onClick={() => setShowDetails(true)}
       variant="unstyled"
     >
-      <div className="min-w-[9.25rem] whitespace-nowrap text-left font-mono text-content-primary">
+      <div className="min-w-[9.25rem] text-left font-mono whitespace-nowrap text-content-primary">
         {timestamp}
         <span className="text-content-secondary">
           .

@@ -251,7 +251,7 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
   });
 
   return (
-    <Sheet padding={false} className="overflow-x-auto scrollbar">
+    <Sheet padding={false} className="scrollbar overflow-x-auto">
       <div {...getTableProps()} className="mx-4 block min-w-[42rem]">
         <div {...getTableBodyProps()} className="divide-y">
           {rows.map((row) => {

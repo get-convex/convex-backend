@@ -65,7 +65,7 @@ export function usePrettyReadonlyCode(
     loading: isFormattingCode,
     // Don't render code that's too large in monaco.
     component: isTooBig ? (
-      <pre className="max-w-full overflow-x-auto text-xs scrollbar">
+      <pre className="scrollbar max-w-full overflow-x-auto text-xs">
         <code>{prettyCode}</code>
       </pre>
     ) : (

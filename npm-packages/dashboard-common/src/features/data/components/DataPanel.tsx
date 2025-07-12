@@ -20,7 +20,7 @@ export function DataPanel({
     <>
       <ResizeHandle direction="left" collapsed={false} className="ml-6" />
       <Panel
-        className="z-40 flex h-full min-w-[14rem] max-w-[42rem] shrink overflow-x-auto"
+        className="z-40 flex h-full max-w-[42rem] min-w-[14rem] shrink overflow-x-auto"
         defaultSize={20}
       >
         <div

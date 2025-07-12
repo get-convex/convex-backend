@@ -88,7 +88,7 @@ export function ProjectAdminFormModal({
           }
         }}
       >
-        <div className="max-h-[60vh] overflow-auto scrollbar">
+        <div className="scrollbar max-h-[60vh] overflow-auto">
           {sortBy(members, (member) =>
             (member.name || member.email).toLocaleLowerCase(),
           ).map((member) => (

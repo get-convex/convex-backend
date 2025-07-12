@@ -143,7 +143,7 @@ export function DeploymentDashboardLayout({
               className={
                 isRunnerExpanded && isGlobalRunnerShown
                   ? "h-0 w-0"
-                  : "h-full w-full overflow-x-auto scrollbar"
+                  : "scrollbar h-full w-full overflow-x-auto"
               }
             >
               {children}

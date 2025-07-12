@@ -198,7 +198,7 @@ function DeploymentLabel({
     }) {
   return href === null ? (
     <Tooltip tip={tip}>
-      <div className="select-none text-xs text-content-secondary">{title}</div>
+      <div className="text-xs text-content-secondary select-none">{title}</div>
     </Tooltip>
   ) : (
     <Link

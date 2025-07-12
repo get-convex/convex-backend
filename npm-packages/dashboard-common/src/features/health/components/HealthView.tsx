@@ -60,7 +60,7 @@ export function HealthView({
         {sizedHeader}
         <PagesWrapper>
           <PageWrapper>
-            <div className={cn(gridClasses, "gap-4 max-w-[88rem]")}>
+            <div className={cn(gridClasses, "max-w-[88rem] gap-4")}>
               <MetricCards />
               <SchedulerStatus />
               {width <= 1280 ? (

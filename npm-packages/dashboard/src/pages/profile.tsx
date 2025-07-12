@@ -39,7 +39,7 @@ function Profile() {
     string | undefined
   >();
   const deleteAccountBody = (
-    <p className="max-w-prose text-pretty text-sm">
+    <p className="max-w-prose text-sm text-pretty">
       To delete your account, your account must match the following criteria:
       <ul className="mt-2 list-inside list-disc">
         <li>You must not be the only admin in teams with other members.</li>
@@ -61,8 +61,8 @@ function Profile() {
         <title>Profile | Convex Dashboard</title>
       </Head>
       {emails && profile && user && (
-        <div className="w-full overflow-auto scrollbar">
-          <div className="mx-auto flex min-w-[22rem] max-w-prose flex-col justify-center gap-4 p-4">
+        <div className="scrollbar w-full overflow-auto">
+          <div className="mx-auto flex max-w-prose min-w-[22rem] flex-col justify-center gap-4 p-4">
             <Sheet className="flex w-full flex-col gap-4">
               <h3>Profile information</h3>
               <ProfileForm profile={profile} />

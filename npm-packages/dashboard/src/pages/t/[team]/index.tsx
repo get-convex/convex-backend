@@ -171,7 +171,7 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
         </div>
       )}
       {projects.length === 0 && (
-        <div className="mb-24 mt-8 flex w-full animate-fadeInFromLoading flex-col items-center justify-center gap-6">
+        <div className="mt-8 mb-24 flex w-full animate-fadeInFromLoading flex-col items-center justify-center gap-6">
           <h3>Welcome to Convex!</h3>
           <p>Get started by following the tutorial.</p>
 

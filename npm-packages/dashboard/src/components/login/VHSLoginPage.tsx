@@ -92,7 +92,7 @@ function TVPanel({ isVHSAnimationDone }: { isVHSAnimationDone: boolean }) {
       {isVHSAnimationDone ? (
         <>
           {/* eslint-disable-next-line no-restricted-syntax */}
-          <div className="absolute left-[80px] top-[32px] z-50 font-mono text-xl font-semibold text-white">
+          <div className="absolute top-[32px] left-[80px] z-50 font-mono text-xl font-semibold text-white">
             Logging in...
           </div>
           <Image
@@ -109,7 +109,7 @@ function TVPanel({ isVHSAnimationDone }: { isVHSAnimationDone: boolean }) {
           <Logo
             width={225}
             height={75}
-            className="absolute left-[40px] top-[80px] z-50 fill-black dark:fill-black"
+            className="absolute top-[80px] left-[40px] z-50 fill-black dark:fill-black"
             alt="Convex Logo"
           />
           <Image

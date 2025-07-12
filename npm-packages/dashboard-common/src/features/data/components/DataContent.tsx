@@ -191,7 +191,7 @@ export function DataContent({
     <PanelGroup
       direction="horizontal"
       className={cn(
-        "flex w-full h-full overflow-x-auto scrollbar pl-6 min-w-[20rem]",
+        "scrollbar flex h-full w-full min-w-[20rem] overflow-x-auto pl-6",
         popupEl ? "pr-0" : "pr-6",
       )}
       autoSaveId="data-content"

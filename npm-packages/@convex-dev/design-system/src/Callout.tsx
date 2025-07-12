@@ -22,7 +22,7 @@ export function Callout({
   return (
     <div
       className={cn(
-        `flex mt-2 px-3 py-2 rounded-sm text-sm ${classes[variant]}`,
+        `mt-2 flex rounded-sm px-3 py-2 text-sm ${classes[variant]}`,
         className,
       )}
       role="alert"

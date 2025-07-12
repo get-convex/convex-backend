@@ -51,7 +51,7 @@ export function BackupList({
           targetDeployment={targetDeployment}
         />
       </div>
-      <div className="grow overflow-auto scrollbar">
+      <div className="scrollbar grow overflow-auto">
         {backups === undefined ? (
           <Loading />
         ) : (

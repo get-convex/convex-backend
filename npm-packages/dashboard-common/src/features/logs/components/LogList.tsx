@@ -147,7 +147,7 @@ function WindowedLogList({
         outerRef={outerRef}
       />
       {interleavedLogs.length === 0 ? (
-        <div className="ml-2 mt-2 animate-fadeInFromLoading text-sm text-content-secondary">
+        <div className="mt-2 ml-2 animate-fadeInFromLoading text-sm text-content-secondary">
           {hasFilters && (
             <p className="mb-2 flex items-center gap-1">
               No logs match your filters{" "}
@@ -162,9 +162,9 @@ configure a log stream."
           <p className="animate-blink">Waiting for new logs...</p>
         </div>
       ) : (
-        <div className="grow rounded-b overflow-hidden">
+        <div className="grow overflow-hidden rounded-b">
           <InfiniteScrollList
-            className="bg-background-secondary scrollbar"
+            className="scrollbar bg-background-secondary"
             overscanCount={25}
             onScroll={onScroll}
             outerRef={outerRef}
@@ -398,7 +398,7 @@ function RequestIdLogs({
                   {filteredLogs && filteredLogs.length > 0 ? (
                     <div className="mx-6 my-4 flex grow flex-col overflow-y-hidden rounded-sm border text-xs">
                       <RequestIdLogsHeader />
-                      <div className="flex grow flex-col divide-y overflow-y-auto font-mono scrollbar">
+                      <div className="scrollbar flex grow flex-col divide-y overflow-y-auto font-mono">
                         {filteredLogs.map((log, idx) => (
                           <LogListItem
                             key={idx}

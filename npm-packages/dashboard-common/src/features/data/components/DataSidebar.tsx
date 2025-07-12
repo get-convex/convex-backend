@@ -64,7 +64,7 @@ export function DataSidebar({
           />
         </div>
       )}
-      <div className={cn("flex-1 overflow-auto scrollbar px-3 pt-1")}>
+      <div className={cn("scrollbar flex-1 overflow-auto px-3 pt-1")}>
         <div className="flex flex-col gap-0.5">
           {Array.from(tables.keys())
             .filter(

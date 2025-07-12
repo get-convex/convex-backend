@@ -86,7 +86,7 @@ export default function ReferralLandingPage() {
         <ConvexLogo />
       </div>
 
-      <div className="absolute left-1/2 top-36 hidden -translate-x-1/2 lg:block">
+      <div className="absolute top-36 left-1/2 hidden -translate-x-1/2 lg:block">
         <Background className="stroke-[#D7D7D7] dark:hidden" />
       </div>
 

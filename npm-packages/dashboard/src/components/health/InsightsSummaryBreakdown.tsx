@@ -36,7 +36,7 @@ export function InsightSummaryBreakdown({
   }
 
   return (
-    <Sheet className="flex max-h-full min-h-[40rem] max-w-full flex-col gap-4 overflow-y-auto scrollbar">
+    <Sheet className="scrollbar flex max-h-full min-h-[40rem] max-w-full flex-col gap-4 overflow-y-auto">
       <h4 className="flex items-center gap-1">
         Insight Breakdown for{" "}
         <Link

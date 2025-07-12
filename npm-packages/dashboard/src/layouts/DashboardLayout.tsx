@@ -9,7 +9,7 @@ export function DashboardLayout({ children }: LayoutProps) {
   return (
     <>
       <GoogleAnalytics />
-      <div className="flex h-screen flex-col overflow-y-auto scrollbar">
+      <div className="scrollbar flex h-screen flex-col overflow-y-auto">
         {children}
       </div>
     </>

@@ -17,7 +17,7 @@ export function Loading({
       aria-live="polite"
       className={cn(
         "animate-fadeInFromLoading",
-        "relative rounded-sm isolate overflow-hidden transition-opacity",
+        "relative isolate overflow-hidden rounded-sm transition-opacity",
         "before:absolute before:inset-0",
         "before:-translate-x-full",
         shimmer && "before:animate-loading",
@@ -43,7 +43,7 @@ export function LoadingTransition({
   children?: React.ReactNode;
 }) {
   return children ? (
-    <div className="flex h-full max-h-full grow animate-fadeInFromLoading overflow-y-auto scrollbar">
+    <div className="scrollbar flex h-full max-h-full grow animate-fadeInFromLoading overflow-y-auto">
       {children}
     </div>
   ) : (

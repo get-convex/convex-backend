@@ -124,7 +124,7 @@ function Details({
         </div>
       </div>
       <Sheet className="h-full overflow-auto" padding={false}>
-        <h4 className="sticky top-0 mb-4 flex items-center gap-2 whitespace-nowrap border-b bg-background-secondary px-6 py-4">
+        <h4 className="sticky top-0 mb-4 flex items-center gap-2 border-b bg-background-secondary px-6 py-4 whitespace-nowrap">
           <ReloadIcon /> Executions
           <Tooltip
             tip="The logs and results of the last 5 executions of a cron job are available here, as well as any that run while this view is open."
@@ -161,7 +161,7 @@ function CronJobLogListItem({ cronJobLog }: { cronJobLog: CronJobLog }) {
           <div className="whitespace-nowrap text-content-primary">
             {formatDateTime(new Date(Number(cronJobLog.ts / BigInt(1000000))))}
           </div>
-          <div className="w-14 whitespace-nowrap text-right text-content-secondary">
+          <div className="w-14 text-right whitespace-nowrap text-content-secondary">
             {cronJobLog.status.type !== "canceled" && cronJobLog.executionTime
               ? msFormat(cronJobLog.executionTime * 1000)
               : ""}
@@ -236,7 +236,7 @@ export function TopCronJobLogListItem({
             {timestamp ?? "unknown"}
           </div>
           <div
-            className={`${textColor} w-14 whitespace-nowrap text-right text-content-secondary`}
+            className={`${textColor} w-14 text-right whitespace-nowrap text-content-secondary`}
           >
             {currentlyRunning ? <span ref={estRuntimeRef}>0ms</span> : ""}
           </div>

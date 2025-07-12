@@ -28,7 +28,7 @@ export function BigMetric({
       >
         {metric}
       </div>
-      <div className="max-h-10 min-h-10 truncate text-pretty text-center text-content-secondary">
+      <div className="max-h-10 min-h-10 truncate text-center text-pretty text-content-secondary">
         {children}
       </div>
     </div>

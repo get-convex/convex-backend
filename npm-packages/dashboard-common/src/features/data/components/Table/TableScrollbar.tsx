@@ -208,7 +208,7 @@ export function TableScrollbar({
   const { densityValues } = useTableDensity();
   return scrollbarHeight > 0 ? (
     <div
-      className="absolute -right-px -mt-0.5 w-3 border-l border-t bg-macosScrollbar-track/75 py-0.5"
+      className="absolute -right-px -mt-0.5 w-3 border-t border-l bg-macosScrollbar-track/75 py-0.5"
       role="scrollbar"
       aria-controls="dataTable"
       aria-valuenow={scrollbarTop}

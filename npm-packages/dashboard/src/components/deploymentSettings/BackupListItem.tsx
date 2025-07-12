@@ -531,7 +531,7 @@ function BackupSummary({
       {sourceDeploymentAppearance === "inline" && sourceDeployment}
       {sourceDeploymentAppearance === "differentDeploymentWarning" && (
         <div className="relative mt-4 rounded-md border border-util-warning px-6 py-3">
-          <p className="absolute left-0 top-0 w-full -translate-y-1/2 text-center text-xs text-yellow-700 dark:text-util-warning">
+          <p className="absolute top-0 left-0 w-full -translate-y-1/2 text-center text-xs text-yellow-700 dark:text-util-warning">
             <span className="inline-flex items-center justify-center gap-1 bg-background-secondary px-2 py-1">
               <ExclamationTriangleIcon className="size-4" />
               From a different deployment

@@ -36,7 +36,7 @@ export function HealthCard({
         size === "xs" && "h-fit",
         size === "sm" && "min-h-fit",
         size === "md" && "max-h-72 min-h-36",
-        size === "lg" && "w-full max-h-[21rem] min-h-fit",
+        size === "lg" && "max-h-[21rem] min-h-fit w-full",
       )}
     >
       <div className="relative flex grow flex-col transition-all">

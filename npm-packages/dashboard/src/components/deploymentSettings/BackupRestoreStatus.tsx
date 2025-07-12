@@ -110,7 +110,7 @@ export function BackupRestoreFail({
       <div className="flex min-h-16 flex-wrap items-center gap-2 rounded-sm border bg-background-secondary px-4 py-2">
         <div className="flex grow gap-2">
           <CrossCircledIcon className="size-5 shrink-0 text-content-errorSecondary" />
-          <p className="grow text-balance text-sm leading-tight text-content-secondary">
+          <p className="grow text-sm leading-tight text-balance text-content-secondary">
             The restore started{" "}
             <TimestampDistance
               date={restoreStartTime}
@@ -178,7 +178,7 @@ export function BackupRestoreSuccess({
       <div className="flex min-h-16 flex-wrap items-center gap-2 rounded-sm border bg-background-secondary px-4 py-2">
         <div className="flex grow items-center gap-2">
           <CheckCircledIcon className="shrink-0 text-content-success" />
-          <p className="grow text-balance text-sm leading-tight text-content-secondary">
+          <p className="grow text-sm leading-tight text-balance text-content-secondary">
             <strong>{`${formatNumberCompact(restoredRowsCount)} ${restoredRowsCount === BigInt(1) ? "document" : "documents"}`}</strong>{" "}
             {restoredRowsCount === BigInt(1) ? "was" : "were"} restored from a
             backup{" "}

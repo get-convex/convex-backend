@@ -138,7 +138,7 @@ export function DataFilters({
           <div className="flex items-center">
             <div
               className={cn(
-                "flex w-full rounded-lg bg-background-secondary border",
+                "flex w-full rounded-lg border bg-background-secondary",
                 showFilters && "rounded-b-none border-b-0",
               )}
             >
@@ -214,7 +214,7 @@ export function DataFilters({
         </div>
         {indexes && showFilters && (
           <div className="w-full animate-fadeInFromLoading">
-            <div className="flex w-full flex-col gap-2 overflow-x-auto rounded-sm rounded-tl-none border bg-background-secondary p-2 pb-2.5 scrollbar">
+            <div className="scrollbar flex w-full flex-col gap-2 overflow-x-auto rounded-sm rounded-tl-none border bg-background-secondary p-2 pb-2.5">
               {enableIndexFilters && (
                 <IndexFilters
                   shownFilters={shownFilters}
@@ -357,7 +357,7 @@ export function DataFilters({
                 )}
                 {dataFetchErrors && dataFetchErrors.length > 0 && (
                   <p
-                    className="h-4 break-words text-xs text-content-errorSecondary"
+                    className="h-4 text-xs break-words text-content-errorSecondary"
                     role="alert"
                   >
                     {dataFetchErrors[0].error}

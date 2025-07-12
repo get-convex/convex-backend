@@ -18,7 +18,7 @@ export function CodeLine({
           className,
         )}
       >
-        <span className="mr-2 select-none text-content-secondary">$ </span>
+        <span className="mr-2 text-content-secondary select-none">$ </span>
         <div
           className="text-content-primary"
           style={{
@@ -28,7 +28,7 @@ export function CodeLine({
           {code}
         </div>
       </code>
-      <div className="absolute right-0 top-0 h-10">
+      <div className="absolute top-0 right-0 h-10">
         <CopyButton text={code} />
       </div>
     </div>

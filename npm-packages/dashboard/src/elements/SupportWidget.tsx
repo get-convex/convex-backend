@@ -39,7 +39,7 @@ export function SupportWidget() {
 
   return (
     <Sheet
-      className="absolute bottom-0 z-50 w-screen animate-fadeInFromLoading p-4 shadow-2xl transition-all sm:bottom-8 sm:right-8 sm:w-[24rem]"
+      className="absolute bottom-0 z-50 w-screen animate-fadeInFromLoading p-4 shadow-2xl transition-all sm:right-8 sm:bottom-8 sm:w-[24rem]"
       padding={false}
     >
       {openState === true ? (
@@ -91,7 +91,7 @@ export function SupportWidget() {
               File a support ticket{" "}
               {!canSubmitTicket && (
                 <span
-                  className="w-fit rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+                  className="w-fit rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
                   title="Only available on the Pro plan"
                 >
                   Pro

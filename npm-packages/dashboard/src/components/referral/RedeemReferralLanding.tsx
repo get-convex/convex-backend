@@ -39,7 +39,7 @@ function DisplayH1({ children }: React.PropsWithChildren) {
   return (
     <h1
       // eslint-disable-next-line no-restricted-syntax
-      className="mb-6 font-display text-3xl font-black leading-[1.1] tracking-tight text-content-primary sm:text-5xl"
+      className="mb-6 font-display text-3xl leading-[1.1] font-black tracking-tight text-content-primary sm:text-5xl"
     >
       {children}
     </h1>
@@ -50,7 +50,7 @@ function DisplayP({ children }: React.PropsWithChildren) {
   return (
     <p
       // eslint-disable-next-line no-restricted-syntax
-      className="mb-4 text-xl font-medium leading-snug text-content-primary"
+      className="mb-4 text-xl leading-snug font-medium text-content-primary"
     >
       {children}
     </p>
@@ -65,9 +65,9 @@ function LogInButton({ code, isChef }: { code: string; isChef: boolean }) {
     // to GitHub when following the link.
     <a
       className={cn(
-        "group z-10 inline-flex rounded-full bg-gradient-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-display shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow my-2",
+        "group z-10 my-2 inline-flex rounded-full bg-gradient-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-display shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow",
         !clicked && "hover:shadow-[rgba(111,0,255,0.5)]",
-        clicked && "opacity-80 cursor-progress",
+        clicked && "cursor-progress opacity-80",
       )}
       href={`/api/auth/login?returnTo=${encodeURIComponent(isChef ? `/try-chef/${code}/apply` : `/referral/${code}/apply`)}`}
       onClick={() => {

@@ -241,7 +241,7 @@ export function GlobalFunctionTester({
             )}
           >
             <div className="sticky top-0 z-10 flex w-full items-center gap-4 border-y bg-background-primary px-4 py-2">
-              <h4 className="whitespace-nowrap text-xs text-content-secondary">
+              <h4 className="text-xs whitespace-nowrap text-content-secondary">
                 Function Input
               </h4>
             </div>
@@ -385,12 +385,12 @@ export function GlobalFunctionTester({
           {isVertical && (
             <>
               {selectedItem?.fn.type === "customQuery" ? (
-                <div className="flex h-full w-full flex-col gap-4 px-4 pb-6 pt-4">
+                <div className="flex h-full w-full flex-col gap-4 px-4 pt-4 pb-6">
                   {queryEditor}
                   {runCustomQueryButton}
                 </div>
               ) : selectedItem !== null ? (
-                <div className="flex h-fit w-full flex-col gap-2 pb-6 pt-4">
+                <div className="flex h-fit w-full flex-col gap-2 pt-4 pb-6">
                   {args}
                   {button}
                 </div>
@@ -582,7 +582,7 @@ export function useFunctionTester({
   const log = useLogDeploymentEvent();
 
   const args = (
-    <div className="flex h-full flex-col gap-2 overflow-y-auto scrollbar">
+    <div className="scrollbar flex h-full flex-col gap-2 overflow-y-auto">
       <div className="px-4">
         <div className="flex max-w-[48rem] items-end justify-between">
           <h5 className="text-xs text-content-secondary">Arguments</h5>
@@ -622,7 +622,7 @@ export function useFunctionTester({
         <div className="flex items-start gap-4 px-4">
           <label
             htmlFor="actAsUser"
-            className="flex h-9 items-center gap-2 whitespace-nowrap pt-0.5 text-xs accent-util-accent"
+            className="flex h-9 items-center gap-2 pt-0.5 text-xs whitespace-nowrap accent-util-accent"
           >
             <input
               data-testid="actAsUser"
@@ -643,7 +643,7 @@ export function useFunctionTester({
                 });
               }}
             />
-            <span className="flex select-none gap-1">
+            <span className="flex gap-1 select-none">
               Act as a user{" "}
               <Tooltip
                 tip={
@@ -684,7 +684,7 @@ export function useFunctionTester({
             )}
             {impersonatedUserError && (
               <p
-                className="mt-1 h-4 break-words text-xs text-content-errorSecondary"
+                className="mt-1 h-4 text-xs break-words text-content-errorSecondary"
                 role="alert"
               >
                 {impersonatedUserError}

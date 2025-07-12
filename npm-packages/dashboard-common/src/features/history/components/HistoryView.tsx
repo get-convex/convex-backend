@@ -126,7 +126,7 @@ function HistoryList({ filters }: { filters: DeploymentAuditLogFilters }) {
     <Sheet
       ref={handleParent}
       padding={false}
-      className="flex h-full min-w-[600px] max-w-[1200px] flex-col overflow-y-auto py-4 scrollbar"
+      className="scrollbar flex h-full max-w-[1200px] min-w-[600px] flex-col overflow-y-auto py-4"
     >
       {results.length === 0 && status !== "LoadingMore" ? (
         <EmptyHistory />

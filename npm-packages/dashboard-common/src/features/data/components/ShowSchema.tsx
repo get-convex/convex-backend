@@ -66,7 +66,7 @@ export function ShowSchema({
                   . It is equivalent to your <ConvexSchemaFilePath />.
                 </p>
                 <div
-                  className="block whitespace-pre-wrap break-words rounded-sm border p-4 text-sm"
+                  className="block rounded-sm border p-4 text-sm break-words whitespace-pre-wrap"
                   aria-hidden="true"
                 >
                   <ReadonlyCode

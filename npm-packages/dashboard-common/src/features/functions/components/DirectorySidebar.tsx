@@ -46,7 +46,7 @@ export function DirectorySidebar({
           )}
         />
       </div>
-      <div className="w-full overflow-x-hidden pt-1 scrollbar">
+      <div className="scrollbar w-full overflow-x-hidden pt-1">
         <FileTree
           tree={rootEntries}
           onChangeFunction={onChangeFunction}

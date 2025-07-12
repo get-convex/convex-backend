@@ -86,7 +86,7 @@ export function GenerateSchema({
       </div>
       {displayedSchema && (
         <div
-          className="relative block whitespace-pre-wrap break-words rounded-sm border p-4 text-sm"
+          className="relative block rounded-sm border p-4 text-sm break-words whitespace-pre-wrap"
           aria-hidden="true"
         >
           <ReadonlyCode
@@ -99,7 +99,7 @@ export function GenerateSchema({
             disableLineNumbers
             height={{ type: "content", maxHeightRem: 52 }}
           />
-          <div className="absolute right-0 top-0 h-10">
+          <div className="absolute top-0 right-0 h-10">
             <CopyButton text={displayedSchema} />
           </div>
         </div>

@@ -578,7 +578,7 @@ function DisplayVanityDomain({
       </div>
       {!vanityDomain.verificationTs && (
         <>
-          <Callout className="mb-4 mt-0 w-72 gap-2 align-middle">
+          <Callout className="mt-0 mb-4 w-72 gap-2 align-middle">
             <div className="ml-1 flex w-full gap-3">
               <ExclamationTriangleIcon className="mt-1" />
               <span className="font-semibold">
@@ -599,7 +599,7 @@ function DisplayVanityDomain({
               ))}
 
               {/* Records */}
-              <code className="truncate break-words font-bold md:font-normal">
+              <code className="truncate font-bold break-words md:font-normal">
                 CNAME
               </code>
               <code className="truncate break-words">
@@ -607,7 +607,7 @@ function DisplayVanityDomain({
               </code>
               <code className="truncate break-words">convex.domains</code>
 
-              <code className="truncate break-words font-bold md:font-normal">
+              <code className="truncate font-bold break-words md:font-normal">
                 TXT
               </code>
               <code className="truncate break-words">

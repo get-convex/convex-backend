@@ -174,7 +174,7 @@ export function FileStorageHeader({
   ]);
 
   return (
-    <div className="flex min-w-fit max-w-[60rem] flex-col gap-3">
+    <div className="flex max-w-[60rem] min-w-fit flex-col gap-3">
       <div className="flex w-full flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-4">
           <div className="flex flex-1 flex-col gap-1">

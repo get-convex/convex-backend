@@ -118,9 +118,9 @@ export function BackupDeploymentSelector({
                 }
                 variant="unstyled"
                 className={cn(
-                  "relative flex gap-1 items-center group",
-                  "truncate text-left text-content-primary rounded-sm disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-                  "border focus:border-border-selected focus:outline-hidden bg-background-secondary text-sm py-2 px-3",
+                  "group relative flex items-center gap-1",
+                  "truncate rounded-sm text-left text-content-primary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
+                  "border bg-background-secondary px-3 py-2 text-sm focus:border-border-selected focus:outline-hidden",
                   "hover:bg-background-tertiary",
                   open && "border-border-selected",
                   "cursor-pointer",
@@ -138,7 +138,7 @@ export function BackupDeploymentSelector({
                 )}
                 <span className="pointer-events-none flex items-center">
                   <CaretSortIcon
-                    className={cn("text-content-primary", "h-5 w-5 ml-auto")}
+                    className={cn("text-content-primary", "ml-auto h-5 w-5")}
                     aria-hidden="true"
                   />
                 </span>
@@ -176,7 +176,7 @@ export function BackupDeploymentSelector({
                     >
                       <div
                         className={cn(
-                          "flex transition-transform duration-200 motion-reduce:transition-none h-full",
+                          "flex h-full transition-transform duration-200 motion-reduce:transition-none",
                           currentPage === "deployments" && "-translate-x-full",
                         )}
                       >
@@ -196,12 +196,12 @@ export function BackupDeploymentSelector({
                         >
                           <div className="flex h-full flex-col">
                             <header className="flex min-h-12 items-center border-b">
-                              <span className="flex-1 truncate text-nowrap px-2 text-center font-semibold">
+                              <span className="flex-1 truncate px-2 text-center font-semibold text-nowrap">
                                 {team.name}
                               </span>
                             </header>
 
-                            <div className="grow overflow-y-auto overflow-x-hidden">
+                            <div className="grow overflow-x-hidden overflow-y-auto">
                               {projects === undefined ? (
                                 <Loading />
                               ) : (
@@ -212,7 +212,7 @@ export function BackupDeploymentSelector({
                                       value={project.id}
                                       className={({ active, selected }) =>
                                         cn(
-                                          "w-full flex text-sm items-center p-2 rounded-sm text-left text-content-primary hover:bg-background-tertiary cursor-pointer",
+                                          "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
                                           active && "bg-background-tertiary",
                                           selected &&
                                             "bg-background-tertiary/60",
@@ -252,7 +252,7 @@ export function BackupDeploymentSelector({
                               </Button>
 
                               {selectedProject ? (
-                                <span className="mr-10 w-full truncate text-nowrap text-center font-semibold">
+                                <span className="mr-10 w-full truncate text-center font-semibold text-nowrap">
                                   {selectedProject.name}
                                 </span>
                               ) : (
@@ -264,7 +264,7 @@ export function BackupDeploymentSelector({
                               )}
                             </header>
 
-                            <div className="grow overflow-y-auto overflow-x-hidden">
+                            <div className="grow overflow-x-hidden overflow-y-auto">
                               {selectedProjectDeployments === undefined ? (
                                 <Loading />
                               ) : selectedProjectDeployments.length === 0 ? (
@@ -286,7 +286,7 @@ export function BackupDeploymentSelector({
                                           value={deployment.id}
                                           className={({ active, selected }) =>
                                             cn(
-                                              "w-full flex text-sm items-center p-2 rounded-sm text-left text-content-primary hover:bg-background-tertiary cursor-pointer",
+                                              "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
                                               active &&
                                                 "bg-background-tertiary",
                                               selected &&

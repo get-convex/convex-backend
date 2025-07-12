@@ -30,7 +30,7 @@ export function Invoices({ invoices }: { invoices: InvoiceResponse[] }) {
 
 function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
   return (
-    <div className="max-h-[30rem] overflow-y-auto rounded-sm border scrollbar">
+    <div className="scrollbar max-h-[30rem] overflow-y-auto rounded-sm border">
       <table className="w-full">
         <thead className="sticky top-0 z-10 border-b bg-background-secondary">
           <tr>

@@ -247,7 +247,7 @@ function DeleteProjectsPage({ onClose }: { onClose: () => void }) {
         <Command.Item
           className={cn(
             buttonClasses({ size: "xs", variant: "neutral" }),
-            "absolute bottom-four right-4 z-20 flex items-center gap-4 text-xs",
+            "bottom-four absolute right-4 z-20 flex items-center gap-4 text-xs",
           )}
           data-button
           onSelect={handleDeleteProjects}

@@ -158,20 +158,20 @@ export function Combobox<T>({
             <div className={cn("relative", className)}>
               <div
                 ref={setReferenceElement}
-                className={cn("relative flex items-center w-60", buttonClasses)}
+                className={cn("relative flex w-60 items-center", buttonClasses)}
               >
                 <HeadlessCombobox.Button
                   as={Button}
                   variant="unstyled"
                   data-testid={`combobox-button-${label}`}
                   className={cn(
-                    "flex gap-1 w-full items-center group",
-                    "truncate relative text-left text-content-primary rounded-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background-secondary",
-                    "border focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-hidden bg-background-secondary text-sm",
+                    "group flex w-full items-center gap-1",
+                    "relative truncate rounded-md text-left text-content-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background-secondary",
+                    "border bg-background-secondary text-sm focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-hidden",
                     "hover:bg-background-tertiary",
                     "cursor-pointer",
-                    open && "border-border-selected z-10",
-                    size === "sm" && "py-1 px-1.5 text-xs",
+                    open && "z-10 border-border-selected",
+                    size === "sm" && "px-1.5 py-1 text-xs",
                     size === "md" && "p-1.5",
                     innerButtonClasses,
                   )}
@@ -202,7 +202,7 @@ export function Combobox<T>({
                   {size === "md" && (
                     <ChevronDownIcon
                       className={cn(
-                        "text-content-primary ml-auto size-4 transition-all",
+                        "ml-auto size-4 text-content-primary transition-all",
                         open && "rotate-180",
                       )}
                     />
@@ -223,7 +223,7 @@ export function Combobox<T>({
                     <HeadlessCombobox.Options
                       static
                       className={cn(
-                        "mt-1 max-h-[14.75rem] overflow-auto rounded-md bg-background-secondary pb-1 text-xs shadow-sm scrollbar border",
+                        "mt-1 scrollbar max-h-[14.75rem] overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm",
                       )}
                       ref={(el) => {
                         el && "scrollTo" in el && el.scrollTo(0, 0);
@@ -241,8 +241,8 @@ export function Combobox<T>({
                               value={query}
                               autoFocus
                               className={cn(
-                                "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-                                "focus:outline-hidden bg-background-secondary",
+                                "relative w-full truncate py-1.5 text-left text-xs text-content-primary placeholder:text-content-tertiary disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
+                                "bg-background-secondary focus:outline-hidden",
                               )}
                               placeholder={searchPlaceholder}
                             />
@@ -255,7 +255,7 @@ export function Combobox<T>({
                             disabled={option.disabled}
                             className={({ active }) =>
                               cn(
-                                "w-fit min-w-full relative cursor-pointer select-none py-1.5 px-3 text-content-primary",
+                                "relative w-fit min-w-full cursor-pointer px-3 py-1.5 text-content-primary select-none",
                                 active && "bg-background-tertiary",
                                 option.disabled &&
                                   "cursor-not-allowed text-content-secondary opacity-75",
@@ -300,7 +300,7 @@ export function Combobox<T>({
                           )}
 
                         {filtered.length === 0 && !allowCustomValue && (
-                          <div className="overflow-hidden text-ellipsis py-1 pl-4 text-content-primary">
+                          <div className="overflow-hidden py-1 pl-4 text-ellipsis text-content-primary">
                             No options matching "{query}".
                           </div>
                         )}

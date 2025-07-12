@@ -40,7 +40,7 @@ function DiscordAccountDetail({
 
   return (
     <>
-      <span className="inline-flex h-9 w-9 select-none items-center justify-center overflow-hidden rounded-full bg-background-tertiary">
+      <span className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-background-tertiary select-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatarUrl} alt="" />
       </span>

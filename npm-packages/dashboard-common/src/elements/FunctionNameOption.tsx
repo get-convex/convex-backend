@@ -88,10 +88,10 @@ export function FunctionNameOption({
       <div className="group/overlay relative" role="tooltip">
         <span
           className={cn(
-            "hidden border p-0.5 rounded-sm absolute bg-background-secondary top-[-3px]",
+            "absolute top-[-3px] hidden rounded-sm border bg-background-secondary p-0.5",
             oneLine
               ? "right-[-3px]"
-              : "whitespace-normal break-words max-w-full",
+              : "max-w-full break-words whitespace-normal",
             showHover && "block",
             !disableTruncation &&
               "group-focus/overlay:block group-focus/overlay:ring-3",

@@ -26,7 +26,7 @@ export function AuthorizedApplications({
         These 3rd-party applications have been authorized to access this project
         on your behalf.
       </p>
-      <p className="mb-2 mt-1 text-sm text-content-primary">
+      <p className="mt-1 mb-2 text-sm text-content-primary">
         You cannot see applications that other members of your team have
         authorized.
       </p>

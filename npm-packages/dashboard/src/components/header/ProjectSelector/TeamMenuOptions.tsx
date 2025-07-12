@@ -23,7 +23,7 @@ export function TeamMenuOptions({
     <>
       {teams && (
         <div
-          className="flex w-full grow flex-col items-start gap-0.5 overflow-y-auto p-0.5 scrollbar"
+          className="scrollbar flex w-full grow flex-col items-start gap-0.5 overflow-y-auto p-0.5"
           role="menu"
         >
           {currentTeam && (

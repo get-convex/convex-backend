@@ -62,7 +62,7 @@ function Functions() {
           className="flex grow flex-col"
           as="div"
         >
-          <div className="sticky top-0 z-10 mb-6 overflow-x-auto bg-background-secondary scrollbar">
+          <div className="sticky top-0 z-10 mb-6 scrollbar overflow-x-auto bg-background-secondary">
             <div className="flex-none px-6 pt-4">
               <FunctionSummary currentOpenFunction={currentOpenFunction} />
             </div>
@@ -73,7 +73,7 @@ function Functions() {
             </div>
           </div>
 
-          <HeadlessTab.Panels className="flex w-full grow overflow-x-auto px-6 pb-4 scrollbar">
+          <HeadlessTab.Panels className="scrollbar flex w-full grow overflow-x-auto px-6 pb-4">
             <HeadlessTab.Panel className="grow">
               <PerformanceGraphs />
             </HeadlessTab.Panel>

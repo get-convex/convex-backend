@@ -250,7 +250,7 @@ async function provideDecoration({
             },
           ],
       afterContentClassName: cn(
-        "ml-1 mr-1 hover-decoration",
+        "hover-decoration mr-1 ml-1",
         doc ? "codicon-link mtk23" : "codicon-warning mtk11",
       ),
       after: {

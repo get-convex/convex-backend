@@ -111,7 +111,7 @@ function NpmConvexServerVersionBanner() {
   const isProd = deployment?.deploymentType === "prod";
 
   return isProd && newVersionAvailable ? (
-    <div className="absolute bottom-0 right-0 flex w-full items-center justify-between border-b bg-background-warning px-5 py-2 text-sm text-content-primary">
+    <div className="absolute right-0 bottom-0 flex w-full items-center justify-between border-b bg-background-warning px-5 py-2 text-sm text-content-primary">
       <div>
         This deployment's{" "}
         <Link
@@ -168,8 +168,8 @@ export function ResizeHandle({
     >
       <div
         className={cn(
-          "w-0 h-full transition-all duration-300",
-          !collapsed && dragging && "bg-util-accent w-1",
+          "h-full w-0 transition-all duration-300",
+          !collapsed && dragging && "w-1 bg-util-accent",
         )}
       />
       <Button
@@ -177,11 +177,11 @@ export function ResizeHandle({
         onClick={() => panelRef?.current?.expand()}
         disabled={!collapsed}
         className={cn(
-          "absolute flex flex-col items-center gap-1 text-xs top-1/2 -translate-y-1/2 left-0 z-20 bg-background-secondary py-2 px-0.5 border transition-all",
-          dragging && "text-content-primary border-util-accent border-4",
+          "absolute top-1/2 left-0 z-20 flex -translate-y-1/2 flex-col items-center gap-1 border bg-background-secondary px-0.5 py-2 text-xs transition-all",
+          dragging && "border-4 border-util-accent text-content-primary",
           direction === "right"
             ? "rounded-r-md border-l-0"
-            : "rounded-l-md ml-[-1.25rem] border-r-0",
+            : "ml-[-1.25rem] rounded-l-md border-r-0",
         )}
         icon={<DragHandleDots2Icon className="text-content-secondary" />}
       >

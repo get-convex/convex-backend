@@ -67,7 +67,7 @@ export function Backups({
           </Link>
         </span>
       </div>
-      <div className="flex grow flex-col gap-8 overflow-auto pl-1 pt-1 scrollbar lg:flex-row lg:overflow-hidden">
+      <div className="scrollbar flex grow flex-col gap-8 overflow-auto pt-1 pl-1 lg:flex-row lg:overflow-hidden">
         <div className="flex shrink-0 flex-col lg:w-60">
           {periodicBackupsEnabled ? (
             <AutomaticBackupSelector
@@ -84,7 +84,7 @@ export function Backups({
                 Backup automatically
               </label>
               <span
-                className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+                className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
                 title="Only available on the Pro plan"
               >
                 Pro
@@ -269,7 +269,7 @@ export function BackupScheduleSelector({
       button={
         <Button
           variant="neutral"
-          className="relative w-full pl-3 pr-10 font-normal"
+          className="relative w-full pr-10 pl-3 font-normal"
           disabled={disabled}
         >
           <span className="flex flex-col truncate">

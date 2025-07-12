@@ -28,7 +28,7 @@ export function EmptySection({
       <div className="flex h-full animate-fadeInFromLoading flex-col items-center justify-center p-4 text-center">
         <div
           className={cn(
-            "mb-4 rounded-lg bg-util-accent bg-gradient-to-tr h-[2.625rem] aspect-square flex items-center justify-center shadow-md shrink-0",
+            "mb-4 flex aspect-square h-[2.625rem] shrink-0 items-center justify-center rounded-lg bg-util-accent bg-gradient-to-tr shadow-md",
             color === "yellow" && "from-yellow-200 to-util-brand-yellow",
             color === "red" &&
               // eslint-disable-next-line no-restricted-syntax

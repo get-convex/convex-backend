@@ -101,7 +101,7 @@ export function MemberProjectRolesModal({
           }
         }}
       >
-        <div className="max-h-[60vh] overflow-auto scrollbar">
+        <div className="scrollbar max-h-[60vh] overflow-auto">
           {sortBy(projects, (project) => project.name.toLocaleLowerCase()).map(
             (project) => (
               <ProjectRoleItem

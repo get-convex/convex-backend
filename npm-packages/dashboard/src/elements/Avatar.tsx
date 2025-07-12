@@ -152,7 +152,7 @@ export function Avatar({
         <Image src="/convex-logo-only.svg" width="14" height="14" alt="" />
       ) : (
         <span
-          className="relative z-20 text-sm font-medium leading-none text-white"
+          className="relative z-20 text-sm leading-none font-medium text-white"
           style={{
             textShadow: "0 0 3px rgba(0, 0, 0, 0.5)",
           }}

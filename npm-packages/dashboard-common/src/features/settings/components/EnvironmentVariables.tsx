@@ -656,7 +656,7 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
             ))}
           </div>
 
-          <p className="pb-4 pt-2 text-content-secondary">
+          <p className="pt-2 pb-4 text-content-secondary">
             Tip: Paste your .env file directly into here!
           </p>
         </>

@@ -67,7 +67,7 @@ export function EditDocumentField({
     >
       {/* Monaco editor cannot show a placeholder, so render our own. */}
       {!innerText && editedValue === UNDEFINED_PLACEHOLDER && (
-        <div className="absolute left-2.5 top-2.5 z-50 select-none font-mono text-xs italic text-content-secondary">
+        <div className="absolute top-2.5 left-2.5 z-50 font-mono text-xs text-content-secondary italic select-none">
           {value.length > 1 ? "enter a value to save" : "unset"}
         </div>
       )}
@@ -90,7 +90,7 @@ export function EditDocumentField({
       />
       {editError && (
         <p
-          className="overflow-y-auto truncate font-mono text-xs text-content-errorSecondary"
+          className="truncate overflow-y-auto font-mono text-xs text-content-errorSecondary"
           role="alert"
         >
           {editError}

@@ -36,7 +36,7 @@ export function LogLinesOutput({ output }: { output: Output[] }) {
               </span>
             )}
           </div>
-          <div className="max-w-5xl whitespace-pre-wrap p-1 text-content-primary">
+          <div className="max-w-5xl p-1 whitespace-pre-wrap text-content-primary">
             {`${messagesToString(out)}${out.isTruncated ? " (truncated due to length)" : ""}`}
           </div>
         </div>

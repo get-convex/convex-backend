@@ -32,10 +32,10 @@ export function ScheduledFunctionsContent({
     <div className="relative flex h-full max-w-6xl grow flex-col gap-4">
       <ScheduledFunctionsContentToolbar reload={reload} />
       <Sheet
-        className="min-w-[40rem] max-w-full grow overflow-hidden"
+        className="max-w-full min-w-[40rem] grow overflow-hidden"
         padding={false}
       >
-        <div className="overflow-auto h-full flex flex-col">
+        <div className="flex h-full flex-col overflow-auto">
           <ScheduledFunctionsListHeader
             isPaused={isPaused}
             isLoadingPausedData={isLoadingPausedData}

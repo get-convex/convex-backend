@@ -51,7 +51,7 @@ export function LogListItem({
             setShownLog ? "p-0.5 ml-2" : "w-full",
           )}
         >
-          <div className="min-w-[9.25rem] whitespace-nowrap text-left">
+          <div className="min-w-[9.25rem] text-left whitespace-nowrap">
             {log.localizedTimestamp}
             <span
               className={classNames(
@@ -71,7 +71,7 @@ export function LogListItem({
           {log.kind === "outcome" ? (
             <div className="flex min-w-[7rem] items-center gap-2">
               <LogStatusLine outcome={log.outcome} />{" "}
-              <div className="w-8 min-w-[2rem] whitespace-nowrap text-right">
+              <div className="w-8 min-w-[2rem] text-right whitespace-nowrap">
                 {log.cachedResult ? (
                   <span className="text-xs font-medium text-content-success">
                     (cached)

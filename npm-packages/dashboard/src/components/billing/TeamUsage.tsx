@@ -328,7 +328,7 @@ function FunctionUsageBreakdown({
   }
 
   return (
-    <div className="animate-fadeInFromLoading overflow-y-auto scrollbar">
+    <div className="scrollbar animate-fadeInFromLoading overflow-y-auto">
       {usageByProject.map(({ key, project, rows, total }) => (
         <FunctionUsageBreakdownByProject
           key={key}

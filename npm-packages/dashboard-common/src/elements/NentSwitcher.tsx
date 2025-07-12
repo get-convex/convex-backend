@@ -76,7 +76,7 @@ export function NentNameOption({
       }
       side="right"
       className={cn(
-        "w-full flex items-center",
+        "flex w-full items-center",
         value && value.state !== "active" && "text-content-tertiary",
       )}
     >

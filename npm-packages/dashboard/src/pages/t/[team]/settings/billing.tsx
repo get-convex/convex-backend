@@ -77,7 +77,7 @@ function Billing({ team }: { team: Team }) {
           {!isOrbSubLoading && orbSub !== undefined ? (
             <div
               className={cn(
-                "flex gap-6 min-h-0 w-full h-full transition-transform duration-500 motion-reduce:transition-none",
+                "flex h-full min-h-0 w-full gap-6 transition-transform duration-500 motion-reduce:transition-none",
                 showUpgrade
                   ? "-translate-x-[calc(100%+1.5rem)]"
                   : "translate-x-0",
@@ -85,7 +85,7 @@ function Billing({ team }: { team: Team }) {
             >
               <div
                 className={cn(
-                  "flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto pr-2 scrollbar px-6",
+                  "scrollbar flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pr-2",
                   showUpgrade ? "pointer-events-none select-none" : "",
                 )}
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
@@ -125,14 +125,14 @@ function Billing({ team }: { team: Team }) {
               </div>
               <div
                 className={cn(
-                  "flex w-full shrink-0 grow flex-col gap-4 overflow-auto scrollbar px-6",
+                  "scrollbar flex w-full shrink-0 grow flex-col gap-4 overflow-auto px-6",
                   !showUpgrade ? "pointer-events-none select-none" : "",
                 )}
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
                 inert={!showUpgrade ? "inert" : undefined}
               >
                 {showUpgrade && selectedPlan && (
-                  <Sheet className="max-h-full overflow-y-auto scrollbar">
+                  <Sheet className="scrollbar max-h-full overflow-y-auto">
                     <h3 className="mb-4">Upgrade to {newPlanName}</h3>
                     <UpgradePlanContentContainer
                       name={myProfile?.name}

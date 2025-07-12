@@ -57,7 +57,7 @@ export function FileStorageView() {
     <PageContent>
       <DeploymentPageTitle title="Files" />
       <div
-        className="relative flex h-full min-w-[36.25rem] flex-col gap-4 p-6 py-4 scrollbar"
+        className="relative scrollbar flex h-full min-w-[36.25rem] flex-col gap-4 p-6 py-4"
         onDragOver={(e) => {
           e.preventDefault();
           if (e.dataTransfer.types.includes("Files")) {

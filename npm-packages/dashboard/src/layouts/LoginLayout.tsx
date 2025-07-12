@@ -35,20 +35,20 @@ export function LoginLayout({ children }: LayoutProps) {
 export function Flourish() {
   const { height } = useWindowSize();
   return height > 500 ? (
-    <div className="hidden dark:hidden md:block">
-      <div className="absolute left-1/2 top-0 -translate-x-1/2 translate-y-[-20%]">
+    <div className="hidden md:block dark:hidden">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 translate-y-[-20%]">
         <FlourishTop />
       </div>
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2">
         <FlourishBottom />
       </div>
-      <div className="absolute bottom-[35%] right-0">
+      <div className="absolute right-0 bottom-[35%]">
         <FlourishRight />
       </div>
       <div className="absolute bottom-[20%] left-0 -translate-y-1/2">
         <FlourishLeft />
       </div>
-      <div className="absolute bottom-0 right-[8%]">
+      <div className="absolute right-[8%] bottom-0">
         <FlourishBottomRight />
       </div>
     </div>

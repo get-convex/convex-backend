@@ -18,7 +18,7 @@ export function NavBar({ items, activeLabel }: NavBarProps) {
 
   return (
     <div>
-      <div className="flex select-none gap-1 truncate">
+      <div className="flex gap-1 truncate select-none">
         {items.map(({ label, href }) => (
           <div className="flex flex-col" key={label}>
             <Link

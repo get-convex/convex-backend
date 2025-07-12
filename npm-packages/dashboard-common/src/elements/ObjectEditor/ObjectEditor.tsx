@@ -203,9 +203,9 @@ export function ObjectEditor(props: ObjectEditorProps) {
       className={cn(
         // Setting a min-h makes sure the editor is able to properly resize when the
         // parent is resized.
-        "border rounded-sm min-h-4 w-full h-full max-w-full relative",
+        "relative h-full min-h-4 w-full max-w-full rounded-sm border",
         className,
-        disabled && "bg-background-tertiary cursor-not-allowed",
+        disabled && "cursor-not-allowed bg-background-tertiary",
         numLines > 2 && multilineClasses,
       )}
       style={{
@@ -226,7 +226,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
           editorClassname,
           size === "sm" && "mt-[1px]",
           disabled &&
-            "disabled bg-background-tertiary text-content-secondary cursor-not-allowed",
+            "disabled cursor-not-allowed bg-background-tertiary text-content-secondary",
         )}
         defaultLanguage="javascript"
         defaultValue={defaultValueString}

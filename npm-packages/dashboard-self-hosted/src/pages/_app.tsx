@@ -378,7 +378,7 @@ function Header({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <header className="-ml-1 flex min-h-[56px] items-center justify-between gap-1 overflow-x-auto border-b bg-background-secondary pr-4 scrollbar-none sm:gap-6">
+    <header className="-ml-1 scrollbar-none flex min-h-[56px] items-center justify-between gap-1 overflow-x-auto border-b bg-background-secondary pr-4 sm:gap-6">
       <ConvexLogo height={64} width={192} />
       <Menu
         buttonProps={{

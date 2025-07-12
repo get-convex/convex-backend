@@ -51,7 +51,7 @@ export function FunctionBreakdownSelector({
         </Transition>
       </Listbox>
 
-      <div className="pointer-events-none absolute right-0 top-0 z-50 flex h-full place-items-center pr-2">
+      <div className="pointer-events-none absolute top-0 right-0 z-50 flex h-full place-items-center pr-2">
         <ChevronDownIcon
           className="h-5 w-5 text-content-tertiary"
           aria-hidden="true"

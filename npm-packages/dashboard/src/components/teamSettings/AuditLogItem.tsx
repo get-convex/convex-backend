@@ -928,7 +928,7 @@ function SpendingLimitLine({
 
 function SpendingValue({ valueCents }: { valueCents: number | null }) {
   return (
-    <div className="text-right font-medium tabular-nums text-content-primary">
+    <div className="text-right font-medium text-content-primary tabular-nums">
       {valueCents === null ? "None" : formatUsd(valueCents / 100)}
     </div>
   );

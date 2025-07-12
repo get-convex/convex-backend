@@ -46,7 +46,7 @@ export function LoginPage({ returnTo }: { returnTo?: string }) {
             </div>
           </UIProvider>
         )}
-        <p className="mt-6 max-w-prose text-pretty text-xs text-content-secondary">
+        <p className="mt-6 max-w-prose text-xs text-pretty text-content-secondary">
           Don't have an account? Clicking one of the buttons above will create
           one for you.
         </p>

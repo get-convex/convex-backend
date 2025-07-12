@@ -224,7 +224,7 @@ function ProjectSettings() {
           <SettingsNavigation />
           <div
             data-settings-content
-            className="flex h-full grow flex-col gap-6 overflow-y-auto pb-6 pr-2 scrollbar"
+            className="scrollbar flex h-full grow flex-col gap-6 overflow-y-auto pr-2 pb-6"
           >
             {team && project ? (
               <div id={SECTION_IDS.projectForm}>

@@ -88,7 +88,7 @@ export function TeamSettingsLayout({
               Audit Log
             </SidebarLink>
           </aside>
-          <div className="w-full overflow-y-auto scrollbar">
+          <div className="scrollbar w-full overflow-y-auto">
             <div className="flex h-full max-w-[65rem] flex-col gap-6 p-6">
               {selectedTeam ? (
                 <Component team={selectedTeam} key={selectedTeam.id} />

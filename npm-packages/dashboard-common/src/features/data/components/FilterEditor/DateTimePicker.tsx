@@ -154,7 +154,7 @@ export function DateTimePicker({
       <div
         ref={popoverRef}
         className={cn(
-          "z-50 bg-background-secondary shadow-md border rounded-lg p-2 flex flex-col",
+          "z-50 flex flex-col rounded-lg border bg-background-secondary p-2 shadow-md",
           open && !disabled ? "block" : "hidden",
         )}
         {...attributes.popper}

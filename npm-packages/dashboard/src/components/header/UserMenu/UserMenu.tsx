@@ -39,7 +39,7 @@ export function UserMenu() {
       placement="bottom-end"
     >
       {profile ? (
-        <div className="flex min-w-[20rem] max-w-[20rem] flex-col gap-1 border-b px-3 pb-2">
+        <div className="flex max-w-[20rem] min-w-[20rem] flex-col gap-1 border-b px-3 pb-2">
           {profile.name && (
             <div className="text-sm font-semibold text-content-primary">
               {profile.name}

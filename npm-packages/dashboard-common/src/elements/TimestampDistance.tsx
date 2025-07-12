@@ -35,7 +35,7 @@ export function LiveTimestampDistance({
 }) {
   return (
     <Tooltip tip={date.toLocaleString()} className="truncate">
-      <div className={cn("text-xs text-content-secondary truncate", className)}>
+      <div className={cn("truncate text-xs text-content-secondary", className)}>
         {prefix} <LiveTimestampDistanceInner date={date} />
       </div>
     </Tooltip>

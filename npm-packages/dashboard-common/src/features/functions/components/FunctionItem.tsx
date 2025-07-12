@@ -90,12 +90,12 @@ export function DirectoryItem({
       font: "mono",
       small: true,
     }),
-    "px-0 py-0 w-full min-w-full max-w-full truncate h-[30px] pr-2",
+    "h-[30px] w-full max-w-full min-w-full truncate px-0 py-0 pr-2",
     "rounded-none",
     isActive &&
-      "outline outline-util-accent/40 bg-util-accent/30 hover:bg-util-accent/30 font-normal",
+      "bg-util-accent/30 font-normal outline outline-util-accent/40 hover:bg-util-accent/30",
     !isActive && "hover:bg-util-accent/20",
-    "focus-visible:outline-hidden focus-visible:ring-0 focus-visible:bg-util-accent/20",
+    "focus-visible:bg-util-accent/20 focus-visible:ring-0 focus-visible:outline-hidden",
   );
 
   const buttonChildren = (

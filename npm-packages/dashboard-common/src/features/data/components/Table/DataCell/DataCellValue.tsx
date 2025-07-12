@@ -55,7 +55,7 @@ export const DataCellValue = forwardRef<HTMLSpanElement, DataCellValueProps>(
             {stringValue}
           </span>
         ) : value === undefined ? (
-          <span className="italic text-content-secondary">unset</span>
+          <span className="text-content-secondary italic">unset</span>
         ) : (
           <span>{stringValue}</span>
         )}

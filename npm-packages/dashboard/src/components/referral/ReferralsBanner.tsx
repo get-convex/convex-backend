@@ -23,13 +23,13 @@ export function ReferralsBanner({
   return (
     <div
       className={cn(
-        "border rounded-md flex items-center gap-2 bg-background-secondary pl-4 pr-2 overflow-x-auto",
+        "flex items-center gap-2 overflow-x-auto rounded-md border bg-background-secondary pr-2 pl-4",
         className,
       )}
     >
       <div className="flex grow items-center gap-2 py-2 md:justify-between">
         <div className="flex max-w-prose grow flex-col flex-wrap gap-2 xl:flex-row xl:items-center">
-          <span className="text-balance text-sm font-medium">
+          <span className="text-sm font-medium text-balance">
             Boost your resource usage limits by up to 5 times by sharing your
             referral code{" "}
           </span>

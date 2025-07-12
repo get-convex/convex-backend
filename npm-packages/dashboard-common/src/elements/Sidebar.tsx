@@ -170,7 +170,7 @@ export function SidebarLink({
       </span>
       {proBadge && (
         <span
-          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
           title="Only available on the Pro plan"
         >
           Pro

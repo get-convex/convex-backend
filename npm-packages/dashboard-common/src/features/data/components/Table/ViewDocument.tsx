@@ -107,7 +107,7 @@ export function ViewDocument({
           className="w-full"
         />
       </div>
-      <div className="mt-2 flex w-full flex-col gap-2 overflow-y-auto overflow-x-hidden p-2 scrollbar">
+      <div className="mt-2 scrollbar flex w-full flex-col gap-2 overflow-x-hidden overflow-y-auto p-2">
         {columns
           .filter(
             (c) =>
@@ -190,7 +190,7 @@ export function ViewDocument({
                           </span>
                         )
                       ) : (
-                        <span className="truncate font-mono text-xs italic text-content-secondary">
+                        <span className="truncate font-mono text-xs text-content-secondary italic">
                           multiple values
                         </span>
                       )}

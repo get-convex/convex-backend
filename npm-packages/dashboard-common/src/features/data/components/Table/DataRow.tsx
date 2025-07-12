@@ -89,7 +89,7 @@ function DataRowImpl(props: DataRowProps) {
           </div>
         ))
       ) : (
-        <div className="ml-4 mt-4 h-4 w-full rounded-sm bg-neutral-8/20 dark:bg-neutral-3/20" />
+        <div className="mt-4 ml-4 h-4 w-full rounded-sm bg-neutral-8/20 dark:bg-neutral-3/20" />
       )}
     </div>
   ) : (

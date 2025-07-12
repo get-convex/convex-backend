@@ -18,7 +18,7 @@ function Verify() {
       {error ? (
         <span
           role="alert"
-          className="max-w-prose text-balance text-center text-content-primary"
+          className="max-w-prose text-center text-balance text-content-primary"
         >
           {error}
         </span>

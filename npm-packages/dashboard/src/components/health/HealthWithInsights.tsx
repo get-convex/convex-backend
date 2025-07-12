@@ -71,7 +71,7 @@ export function HealthWithInsights() {
   const header = (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 sticky top-0 flex-wrap mx-6 pt-2",
+        "sticky top-0 mx-6 flex flex-wrap items-center justify-between gap-4 pt-2",
         page === "insights" ? "max-w-[70rem]" : "",
       )}
     >
@@ -214,7 +214,7 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "flex transition-transform duration-500 motion-reduce:transition-none grow gap-6 min-h-0",
+        "flex min-h-0 grow gap-6 transition-transform duration-500 motion-reduce:transition-none",
         page === "home" && "translate-x-0",
         page === "insights" && "-translate-x-[calc(100%+1.5rem)]",
         page?.startsWith("insight:") && "-translate-x-[calc(200%+3rem)]",
@@ -228,7 +228,7 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
       >
         <Sheet
           padding={false}
-          className="h-fit max-h-full w-full min-w-0 max-w-[70rem] overflow-auto scrollbar"
+          className="scrollbar h-fit max-h-full w-full max-w-[70rem] min-w-0 overflow-auto"
         >
           <InsightsSummary
             insights={insights?.filter((insight) => {
@@ -250,7 +250,7 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
       <div
         // @ts-expect-error https://github.com/facebook/react/issues/17157
         inert={!page.startsWith("insight:") ? "inert" : undefined}
-        className="flex w-full shrink-0 overflow-y-auto px-6 scrollbar"
+        className="scrollbar flex w-full shrink-0 overflow-y-auto px-6"
       >
         <InsightSummaryBreakdown
           insight={
@@ -289,7 +289,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   const { page } = useContext(InsightsContext) || {};
   return (
     <div
-      className="flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pb-4 scrollbar"
+      className="scrollbar flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pb-4"
       // @ts-expect-error https://github.com/facebook/react/issues/17157
       inert={page !== "home" ? "inert" : undefined}
     >

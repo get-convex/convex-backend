@@ -25,7 +25,7 @@ export function TeamMemberInviteListItem({
       <div className="flex flex-col">
         <div className="text-sm text-content-secondary">{invite.email}</div>
       </div>
-      <div className="ml-auto mr-2 flex items-center gap-2">
+      <div className="mr-2 ml-auto flex items-center gap-2">
         {invite.expired && (
           <span className="text-sm font-semibold text-content-error">
             Invitation expired

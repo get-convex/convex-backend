@@ -258,7 +258,7 @@ export function AuthorizeProject() {
                 )}
               </div>
             )}
-            <div className="ml-auto mt-4 flex items-center gap-2">
+            <div className="mt-4 ml-auto flex items-center gap-2">
               <Button
                 variant="neutral"
                 onClick={() => {

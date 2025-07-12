@@ -249,7 +249,7 @@ function ValueEditor({
         <>
           {innerText === "" && state.value === UNDEFINED_PLACEHOLDER && (
             <div
-              className="pointer-events-none absolute z-50 font-mono text-xs italic text-content-secondary"
+              className="pointer-events-none absolute z-50 font-mono text-xs text-content-secondary italic"
               data-testid="undefined-placeholder"
               style={{
                 marginTop: "5px",

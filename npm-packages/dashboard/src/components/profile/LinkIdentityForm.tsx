@@ -148,7 +148,7 @@ export function LinkIdentityForm({
               </UIProvider>
             </>
           )}
-          <p className="mt-6 text-pretty text-xs text-content-secondary">
+          <p className="mt-6 text-xs text-pretty text-content-secondary">
             Having trouble logging in? Contact us at{" "}
             <a
               className="text-content-link hover:underline"

@@ -40,7 +40,7 @@ export function SchedulerStatus({ small = false }: { small?: boolean }) {
         >
           Overdue
         </p>
-        <div className="truncate text-pretty text-center text-content-secondary">
+        <div className="truncate text-center text-pretty text-content-secondary">
           <div className="flex gap-1">
             <p className="text-content-secondary">
               Scheduling is behind by{" "}
@@ -79,7 +79,7 @@ export function SchedulerStatus({ small = false }: { small?: boolean }) {
           </BigMetric>
         ) : (
           <BigMetric metric="On time">
-            <p className="min-h-10 text-pretty text-center text-content-secondary">
+            <p className="min-h-10 text-center text-pretty text-content-secondary">
               Scheduled functions are running on time.
             </p>
           </BigMetric>

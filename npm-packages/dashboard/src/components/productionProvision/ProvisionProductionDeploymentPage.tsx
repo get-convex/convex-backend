@@ -18,7 +18,7 @@ export function ProvisionProductionDeploymentPage() {
       <Sheet className="mb-2 h-full overflow-hidden">
         <div className="flex flex-1 flex-col items-center justify-center">
           <div className="flex max-w-lg animate-fadeIn flex-col items-center">
-            <h1 className="mx-2 mb-8 mt-10">
+            <h1 className="mx-2 mt-10 mb-8">
               Provisioning your{" "}
               <span className="font-semibold">production</span> deployment...
               {projectId !== null ? (

@@ -69,7 +69,7 @@ export function LastDeployed() {
     ) : !lastPushEvent ? (
       <span
         className={cn(
-          "text-content-secondary text-sm animate-fadeInFromLoading",
+          "animate-fadeInFromLoading text-sm text-content-secondary",
         )}
       >
         Never

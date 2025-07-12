@@ -545,7 +545,7 @@ export function IndexFilterEditor({
                 onChangeHandler={handleLowerValueChange}
                 path={`indexFilterLower${idx}-${field}-${filter.type}`}
                 autoFocus={autoFocusValueEditor}
-                className="rounded-l-none rounded-br-none rounded-tr"
+                className="rounded-l-none rounded-tr rounded-br-none"
                 filter={filter}
                 onApplyFilters={onApplyFilters}
                 handleError={handleError}
@@ -568,7 +568,7 @@ export function IndexFilterEditor({
                 value={filter.upperValue}
                 onChangeHandler={handleUpperValueChange}
                 path={`indexFilterUpper${idx}-${field}-${filter.type}`}
-                className="rounded-l-none rounded-br rounded-tr-none border-t-0"
+                className="rounded-l-none rounded-tr-none rounded-br border-t-0"
                 filter={filter}
                 onApplyFilters={onApplyFilters}
                 handleError={handleError}
@@ -618,7 +618,7 @@ export function IndexFilterEditor({
         >
           <div
             className={cn(
-              "flex h-full min-w-[1rem] max-w-[7rem] items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs cursor-not-allowed",
+              "flex h-full max-w-[7rem] min-w-[1rem] cursor-not-allowed items-center truncate rounded-l border bg-background-secondary px-2 py-1 text-xs",
               filter.enabled
                 ? "bg-background-secondary"
                 : "bg-background-tertiary text-content-secondary",
@@ -650,7 +650,7 @@ export function IndexFilterEditor({
           >
             <div
               className={cn(
-                "ml-[-1px] flex w-fit items-center border px-1.5 py-1 text-xs cursor-not-allowed",
+                "ml-[-1px] flex w-fit cursor-not-allowed items-center border px-1.5 py-1 text-xs",
                 filter.enabled
                   ? "bg-background-secondary"
                   : "bg-background-tertiary text-content-secondary",
@@ -718,7 +718,7 @@ function ObjectEditorWithPlaceholder({
         innerText === "" &&
         value === UNDEFINED_PLACEHOLDER && (
           <div
-            className="pointer-events-none absolute z-50 font-mono text-xs italic text-content-secondary"
+            className="pointer-events-none absolute z-50 font-mono text-xs text-content-secondary italic"
             data-testid="undefined-placeholder"
             style={{
               marginTop: "5px",
@@ -736,7 +736,7 @@ function ObjectEditorWithPlaceholder({
           className,
         )}
         editorClassname={cn(
-          "px-2 py-1 mt-0 rounded-sm bg-background-secondary text-xs",
+          "mt-0 rounded-sm bg-background-secondary px-2 py-1 text-xs",
           className,
         )}
         allowTopLevelUndefined

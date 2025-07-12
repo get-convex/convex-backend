@@ -84,11 +84,11 @@ export const TextInput = forwardRef<
           name={id}
           className={cn(
             error && "focus:border-content-error",
-            !error && "focus:border-border-selected text-content-primary",
+            !error && "text-content-primary focus:border-border-selected",
             "block rounded-md bg-background-secondary",
             size === "sm" ? "px-1.5 py-1 text-xs" : "p-1.5 px-2 text-sm",
-            "disabled:text-content-secondary disabled:bg-background-tertiary placeholder-content-tertiary border focus:outline-hidden",
-            "shrink grow disabled:cursor-not-allowed truncate",
+            "border placeholder-content-tertiary focus:outline-hidden disabled:bg-background-tertiary disabled:text-content-secondary",
+            "shrink grow truncate disabled:cursor-not-allowed",
             "min-w-0",
             (type === "search" || leftAddon !== undefined) && "pl-6",
             rightAddon !== undefined && "pr-6",
@@ -106,7 +106,7 @@ export const TextInput = forwardRef<
           <Button
             size="sm"
             onClick={action}
-            className="float-right ml-[-2.375rem] mr-1.5"
+            className="float-right mr-1.5 ml-[-2.375rem]"
             variant={error ? "danger" : "neutral"}
             inline
             icon={<Icon className="h-3.5 w-3.5" />}
@@ -116,7 +116,7 @@ export const TextInput = forwardRef<
       </div>
       {error && (
         <p
-          className="flex max-w-full animate-fadeInFromLoading gap-1 break-words text-xs text-content-errorSecondary"
+          className="flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words text-content-errorSecondary"
           role="alert"
         >
           {error}

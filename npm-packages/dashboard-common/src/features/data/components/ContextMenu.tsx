@@ -186,7 +186,7 @@ function ContextMenuInner({ target, onClose, children }: ContextMenuProps) {
                 >
                   {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
                   <div
-                    className="flex max-h-[calc(100vh-20px)] animate-fadeInFromLoading flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-xs shadow-xs outline-hidden dark:border"
+                    className="flex max-h-[calc(100vh-20px)] animate-fadeInFromLoading flex-col overflow-x-hidden overflow-y-auto rounded-lg border bg-background-secondary py-2 text-xs whitespace-nowrap shadow-xs outline-hidden dark:border"
                     ref={refs.setFloating}
                     style={floatingStyles}
                     {...getFloatingProps()}
@@ -282,7 +282,7 @@ function ContextMenuItem({
       tipSide={tipSide}
     >
       {icon ?? null}
-      <span className="flex-1 overflow-hidden truncate" ref={labelRef}>
+      <span className="flex-1 truncate overflow-hidden" ref={labelRef}>
         {label}
       </span>
       {shortcut && (
@@ -293,7 +293,7 @@ function ContextMenuItem({
       )}
       {proBadge && (
         <span
-          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
           title="Only available on the Pro plan"
         >
           Pro
@@ -435,7 +435,7 @@ function ContextMenuSubmenu({
         }
       >
         {icon ?? null}
-        <span className="flex-1 overflow-hidden truncate" ref={labelRef}>
+        <span className="flex-1 truncate overflow-hidden" ref={labelRef}>
           {label}
         </span>
         {!disabled && (
@@ -451,12 +451,12 @@ function ContextMenuSubmenu({
             <FloatingPortal>
               {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
               <div
-                className="z-40 rounded-lg border bg-background-secondary shadow-md outline-hidden overflow-hidden"
+                className="z-40 overflow-hidden rounded-lg border bg-background-secondary shadow-md outline-hidden"
                 ref={refs.setFloating}
                 style={floatingStyles}
                 {...getFloatingProps()}
               >
-                <div className="flex max-h-[calc(100vh-20px)] flex-col overflow-y-auto overflow-x-hidden whitespace-nowrap py-2 text-xs">
+                <div className="flex max-h-[calc(100vh-20px)] flex-col overflow-x-hidden overflow-y-auto py-2 text-xs whitespace-nowrap">
                   {children}
                 </div>
               </div>
