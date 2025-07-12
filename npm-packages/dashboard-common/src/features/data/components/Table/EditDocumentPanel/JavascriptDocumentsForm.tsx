@@ -126,7 +126,7 @@ export function JavascriptDocumentsForm({
           mode={mode}
         />
       </div>
-      <div className="flex max-h-40 w-full grow  bg-background-secondary px-4 py-2 sm:px-6">
+      <div className="flex max-h-40 w-full grow bg-background-secondary px-4 py-2 sm:px-6">
         <div className="float-right flex w-full grow items-center justify-end gap-4 whitespace-pre-line">
           {validationMessage && (
             <p

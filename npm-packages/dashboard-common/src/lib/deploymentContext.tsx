@@ -621,7 +621,7 @@ function SelfHostedDisconnectOverlay({
 }) {
   return (
     <div
-      className="absolute z-50  mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
+      className="absolute z-50 mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
       style={{
         backdropFilter: "blur(0.5rem)",
       }}

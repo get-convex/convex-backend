@@ -94,7 +94,7 @@ export function TransferProject() {
   return (
     <Sheet>
       <h3 className="mb-4">Transfer Project</h3>
-      <p className="mb-5  max-w-prose text-sm text-content-primary">
+      <p className="mb-5 max-w-prose text-sm text-content-primary">
         Transfer this project to another team.
       </p>
       {teams && teams.length > 1 && (

@@ -337,7 +337,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
             icon={showValue ? <EyeNoneIcon /> : <EyeOpenIcon />}
           />
           {showValue ? (
-            <span className=" truncate text-content-primary">
+            <span className="truncate text-content-primary">
               {environmentVariable.value}
             </span>
           ) : (

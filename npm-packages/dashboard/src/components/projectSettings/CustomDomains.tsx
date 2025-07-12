@@ -547,7 +547,7 @@ function DisplayVanityDomain({
         </div>
 
         <div className="flex h-[2.375rem] items-center gap-1">
-          <span className=" truncate text-content-primary">
+          <span className="truncate text-content-primary">
             {vanityDomain.requestDestination === "convexCloud"
               ? "Convex API"
               : "HTTP Actions"}

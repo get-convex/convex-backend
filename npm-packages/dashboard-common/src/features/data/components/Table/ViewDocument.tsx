@@ -130,7 +130,7 @@ export function ViewDocument({
                       fieldSchema={documentValidator.value[column]}
                       columnName={column}
                     >
-                      <code className="ml-auto  truncate text-right text-xs text-content-tertiary">
+                      <code className="ml-auto truncate text-right text-xs text-content-tertiary">
                         {displayObjectFieldSchema(
                           documentValidator.value[column],
                         )}

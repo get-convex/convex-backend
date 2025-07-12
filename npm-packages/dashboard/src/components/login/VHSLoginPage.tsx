@@ -35,7 +35,7 @@ export function VHSLoginPage({ returnTo }: { returnTo?: string }) {
 
 function VHSTape({ isLoggingIn }: { isLoggingIn: boolean }) {
   return (
-    <div className="z-20 flex w-full flex-col items-center rounded-b-md px-16 pb-8 ">
+    <div className="z-20 flex w-full flex-col items-center rounded-b-md px-16 pb-8">
       <div
         className={classNames(
           "relative transition-all duration-150 ease-in-out",

@@ -284,7 +284,7 @@ const statusTypes: {
 function LogStatusLine({ status }: { status: CronJobLog["status"] }) {
   const { textColor, Icon } = statusTypes[status.type];
   return (
-    <div className={`flex items-center gap-1 ${textColor} `}>
+    <div className={`flex items-center gap-1 ${textColor}`}>
       <Icon className="h-3.5 w-3.5" />
       <span className={`w-16 ${textColor}`}>
         {status.type === "success" ? (

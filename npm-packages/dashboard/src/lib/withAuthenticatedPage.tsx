@@ -123,7 +123,7 @@ function OptinRedirect({ children }: { children: JSX.Element }) {
   }
 
   return isLoading || (!hasOptedIn && router.pathname !== "/accept") ? (
-    <div className=" flex h-full w-full items-center justify-center">
+    <div className="flex h-full w-full items-center justify-center">
       <LoadingLogo />
     </div>
   ) : (

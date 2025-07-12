@@ -185,8 +185,6 @@ module.exports = {
     "better-tailwindcss/enforce-consistent-line-wrapping": "off",
     // Disable enforce-consistent-class-order temporarily (will enable later + blame-ignore diff)
     "better-tailwindcss/enforce-consistent-class-order": "off",
-    // Disable no-unnecessary-whitespace temporarily (will enable later + blame-ignore diff)
-    "better-tailwindcss/no-unnecessary-whitespace": "off",
     "better-tailwindcss/no-unregistered-classes": [
       "error",
       {

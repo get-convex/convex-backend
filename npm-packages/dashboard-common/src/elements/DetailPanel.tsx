@@ -70,7 +70,7 @@ export function DetailPanel({
                   </div>
 
                   <div className="relative flex-1 px-4 py-6 sm:px-6">
-                    <div className="absolute inset-6 ">{detailContent}</div>
+                    <div className="absolute inset-6">{detailContent}</div>
                   </div>
                 </div>
               </div>
