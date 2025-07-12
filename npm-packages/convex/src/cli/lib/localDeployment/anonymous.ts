@@ -266,14 +266,8 @@ async function chooseDeployment(
       };
     }
   }
-  if (deployments.length === 0) {
-    logMessage(ctx, "Let's set up your first project.");
-    return await promptForNewDeployment(ctx, []);
-  }
-
   if (process.env.CONVEX_AGENT_MODE === "anonymous") {
     const deploymentName = "anonymous-agent";
-    logVerbose(ctx, `Deployment name: ${deploymentName}`);
     const uniqueName = await getUniqueName(
       ctx,
       deploymentName,
@@ -284,6 +278,11 @@ async function chooseDeployment(
       kind: "new",
       deploymentName: uniqueName,
     };
+  }
+
+  if (deployments.length === 0) {
+    logMessage(ctx, "Let's set up your first project.");
+    return await promptForNewDeployment(ctx, []);
   }
 
   if (options.chosenConfiguration === "new") {

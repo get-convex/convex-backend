@@ -87,7 +87,7 @@ export async function runLocalBackend(
         ),
       });
     } else if (result.status !== 0) {
-      const message = `Failed to run backend binary, exit code ${result.status}, error: ${result.stderr.toString()}`;
+      const message = `Failed to run backend binary, exit code ${result.status}, error: ${result.stderr === null ? "null" : result.stderr.toString()}`;
       return ctx.crash({
         exitCode: 1,
         errorType: "fatal",

@@ -13,7 +13,7 @@ description: "How to use AI code generation effectively with Convex"
 />
 
 Convex is designed around a small set of composable abstractions with strong
-guarantees that result in code that is not only faster to write, it’s easier to
+guarantees that result in code that is not only faster to write, but easier to
 read and maintain, whether written by a team member or an LLM. Key features make
 sure you get bug-free AI generated code:
 
@@ -56,6 +56,30 @@ when prompting for changes:
 We're constantly working on improving the quality of these rules for Convex by
 using rigorous evals. You can help by
 [contributing to our evals repo](https://github.com/get-convex/convex-evals).
+
+## Using Convex with Background Agents
+
+Remote cloud-based coding agents like Jules, Devin, Codex, and Cursor background
+agents can use Convex deployments when the CLI is in
+[Agent Mode](/docs/cli/background-agents.mdx). This limits the permissions
+necessary for these remote dev environments while letting agents run codegen,
+iterate on code, run tests, run one-off functions.
+
+A good setup script for e.g. ChatGPT Codex might include
+
+```
+npm i
+CONVEX_AGENT_MODE=anonymous npx convex dev --once
+```
+
+or
+
+```
+bun i
+CONVEX_AGENT_MODE=anonymous bun x convex dev --once
+```
+
+This command requires "full" internet access to download the binary.
 
 ## Convex MCP Server
 
