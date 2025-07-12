@@ -40,6 +40,28 @@ import { performAsyncSyscall } from "./syscall.js";
 import { asObjectValidator } from "../../values/validator.js";
 import { getFunctionAddress } from "../components/paths.js";
 
+// Declare the global Convex object
+declare const Convex: {
+  syscall: (op: string, jsonArgs: string) => string;
+  asyncSyscall: (op: string, jsonArgs: string) => Promise<string>;
+  jsSyscall: (op: string, args: Record<string, any>) => any;
+  op: (opName: string, ...args: any[]) => any;
+};
+
+// Get remote IP address for the current request (lazy loaded)
+function getRemoteIp(): string | null {
+  try {
+    if (typeof Convex === "undefined" || Convex.op === undefined) {
+      return null;
+    }
+    // Use synchronous op call - fast and only called when needed
+    const remoteIp = Convex.op("getRemoteIp");
+    return remoteIp;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
 >(func: F, argsStr: string) {
@@ -56,6 +78,9 @@ async function invokeMutation<
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
     runMutation: (reference: any, args?: any) =>
       runUdf("mutation", reference, args),
+    
+    // Lazy-loaded remote IP access
+    getRemoteIp,
   };
   const result = await invokeFunction(func, mutationCtx, args as any);
   validateReturnValue(result);
@@ -268,6 +293,9 @@ async function invokeQuery<
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
     runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
+    
+    // Lazy-loaded remote IP access
+    getRemoteIp,
   };
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);

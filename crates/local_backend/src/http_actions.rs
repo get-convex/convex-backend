@@ -155,6 +155,7 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
 #[debug_handler]
 pub async fn http_any_method(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     TryExtractIdentity(identity_result): TryExtractIdentity,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -172,6 +173,7 @@ pub async fn http_any_method(
         http_request_metadata,
         identity,
         st.api.clone(),
+        remote_addr.0,
     );
     let head = http_response_stream.try_next().await?;
     let Some(HttpActionResponsePart::Head(response_head)) = head else {
@@ -212,6 +214,7 @@ async fn stream_http_response(
     http_request_metadata: HttpActionRequest,
     identity: Identity,
     application: Arc<dyn ApplicationApi>,
+    remote_addr: std::net::SocketAddr,
 ) {
     let (http_response_sender, http_response_receiver) = mpsc::unbounded_channel();
 
@@ -222,7 +225,7 @@ async fn stream_http_response(
                 request_id,
                 http_request_metadata,
                 identity,
-                FunctionCaller::HttpEndpoint,
+                FunctionCaller::HttpEndpoint(Some(remote_addr)),
                 HttpActionResponseStreamer::new(http_response_sender),
             )
             .fuse();
