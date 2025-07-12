@@ -56,7 +56,7 @@ jobs:
       - name: Node setup
         uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc"
+          node-version-file: ".nvmrc.20"
 
       - name: NPM install globals
         run: npm ci --prefix scripts
