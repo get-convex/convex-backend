@@ -270,10 +270,25 @@ export async function bundleSchema(
   dir: string,
   extraConditions: string[],
 ) {
-  let target = path.resolve(dir, "schema.ts");
-  if (!ctx.fs.exists(target)) {
-    target = path.resolve(dir, "schema.js");
+      const candidates = [
+      "schema.ts",
+      "schema.mjs",
+      "schema.js",
+    ];
+  
+  let target = "";
+  for (const filename of candidates) {
+    const candidatePath = path.resolve(dir, filename);
+    if (ctx.fs.exists(candidatePath)) {
+      target = candidatePath;
+      break;
+    }
   }
+  
+  if (!target) {
+    return [];
+  }
+  
   const result = await bundle(
     ctx,
     dir,
@@ -392,10 +407,10 @@ export async function entryPoints(
       logVerbose(ctx, chalk.yellow(`Skipping dotfile ${fpath}`));
     } else if (base.startsWith("#")) {
       logVerbose(ctx, chalk.yellow(`Skipping likely emacs tempfile ${fpath}`));
-    } else if (base === "schema.ts" || base === "schema.js") {
+    } else if (base === "schema.mjs" || base === "schema.js" || base === "schema.ts") {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if ((base.match(/\./g) || []).length > 1) {
-      // `auth.config.ts` and `convex.config.ts` are important not to bundle.
+      // `auth.config.*` and `convex.config.*` files are important not to bundle.
       // `*.test.ts` `*.spec.ts` are common in developer code.
       logVerbose(
         ctx,
