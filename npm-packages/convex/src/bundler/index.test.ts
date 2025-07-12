@@ -1,5 +1,6 @@
 import { expect, test, afterEach, vi } from "vitest";
 import { oneoffContext } from "./context.js";
+import { normalizeModulePath } from "./index.js";
 
 // Although these tests are run as ESM by ts-lint, this file is built as both
 // CJS and ESM by TypeScript so normal recipes like `__dirname` for getting the
@@ -179,4 +180,15 @@ test("must use isolate", () => {
   expect(mustBeIsolate("https.js")).not.toBeTruthy();
   expect(mustBeIsolate("schema2.js")).not.toBeTruthy();
   expect(mustBeIsolate("schema/http.js")).not.toBeTruthy();
+});
+
+test("normalizeModulePath removes Windows drive letter and normalizes slashes", () => {
+  // Windows drive letter with forward slashes
+  expect(normalizeModulePath("C:/Users/test/out/convex/foo.js")).toBe("Users/test/out/convex/foo.js");
+  // Windows drive letter with backslashes
+  expect(normalizeModulePath("D:\\project\\out\\convex\\bar.js")).toBe("project/out/convex/bar.js");
+  // Already relative path
+  expect(normalizeModulePath("convex/foo.js")).toBe("convex/foo.js");
+  // No drive letter, just slashes
+  expect(normalizeModulePath("/convex/foo.js")).toBe("/convex/foo.js");
 });
