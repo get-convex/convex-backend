@@ -7,7 +7,11 @@ use std::{
     },
 };
 
-use common::runtime::Runtime;
+use common::{
+    fastrace_helpers::FutureExt as _,
+    runtime::Runtime,
+};
+use fastrace::func_path;
 use futures::Future;
 use parking_lot::Mutex;
 
@@ -70,6 +74,7 @@ impl ConcurrencyLimiter {
         let timer = concurrency_permit_acquire_timer();
         self.tx
             .send(())
+            .trace_if_pending(func_path!())
             .await
             .expect("Failed to send a message while holding reader");
         let permit_id = self.tracker.lock().register(client_id.clone());
