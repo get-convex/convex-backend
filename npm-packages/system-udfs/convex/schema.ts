@@ -262,7 +262,78 @@ export default defineSchema({
         id: v.string(),
       }),
     ),
+  }).index("by_name", ["name"]),
+  _index: defineTable({
+    table_id: v.string(),
+    descriptor: v.string(),
+    config: v.union(
+      v.object({
+        type: v.literal("database"),
+        fields: v.array(v.string()),
+        onDiskState: v.union(
+          v.object({
+            type: v.literal("Backfilling"),
+            backfill_state: v.object({
+              index_created_lower_bound: v.optional(v.int64()),
+              retention_started: v.optional(v.boolean()),
+            }),
+          }),
+          v.object({
+            type: v.literal("Backfilled2"),
+          }),
+          v.object({
+            type: v.literal("Enabled"),
+          }),
+          v.object({
+            type: v.literal("Disabled"),
+          }),
+        ),
+      }),
+      v.object({
+        type: v.literal("search"),
+        searchField: v.string(),
+        filterFields: v.array(v.string()),
+        onDiskState: v.union(
+          v.object({
+            type: v.literal("Backfilling"),
+            segments: v.optional(v.array(v.any())),
+            cursor: v.optional(v.any()),
+          }),
+          v.object({
+            type: v.literal("Backfilled"),
+          }),
+          v.object({
+            type: v.literal("SnapshottedAt"),
+          }),
+        ),
+      }),
+      v.object({
+        type: v.literal("vector"),
+        vectorField: v.string(),
+        dimensions: v.int64(),
+        filterFields: v.array(v.string()),
+        onDiskState: v.union(
+          v.object({
+            type: v.literal("Backfilling"),
+            segments: v.optional(v.array(v.any())),
+            document_cursor: v.optional(v.string()),
+            backfill_snapshot_ts: v.optional(v.int64()),
+          }),
+          v.object({
+            type: v.literal("Backfilled"),
+          }),
+          v.object({
+            type: v.literal("SnapshottedAt"),
+          }),
+        ),
+      }),
+    ),
   }),
+  _index_backfills: defineTable({
+    indexId: v.id("_index"),
+    numDocsIndexed: v.int64(),
+    totalDocs: v.int64(),
+  }).index("by_index_id", ["indexId"]),
   _components: defineTable({
     definitionId: v.id("_component_definitions"),
     parent: v.union(v.id("_components"), v.null()),

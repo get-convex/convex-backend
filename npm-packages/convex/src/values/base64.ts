@@ -154,3 +154,10 @@ export function fromByteArray(uint8: Uint8Array): string {
 
   return parts.join("");
 }
+
+export function fromByteArrayUrlSafeNoPadding(uint8: Uint8Array): string {
+  return fromByteArray(uint8)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}

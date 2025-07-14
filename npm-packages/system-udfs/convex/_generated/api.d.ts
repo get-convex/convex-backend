@@ -37,6 +37,7 @@ import type * as _system_frontend_getById from "../_system/frontend/getById.js";
 import type * as _system_frontend_getSchemas from "../_system/frontend/getSchemas.js";
 import type * as _system_frontend_getTableMapping from "../_system/frontend/getTableMapping.js";
 import type * as _system_frontend_getVersion from "../_system/frontend/getVersion.js";
+import type * as _system_frontend_indexes from "../_system/frontend/indexes.js";
 import type * as _system_frontend_latestExport from "../_system/frontend/latestExport.js";
 import type * as _system_frontend_lib_filters from "../_system/frontend/lib/filters.js";
 import type * as _system_frontend_lib_values from "../_system/frontend/lib/values.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/getSchemas": typeof _system_frontend_getSchemas;
   "_system/frontend/getTableMapping": typeof _system_frontend_getTableMapping;
   "_system/frontend/getVersion": typeof _system_frontend_getVersion;
+  "_system/frontend/indexes": typeof _system_frontend_indexes;
   "_system/frontend/latestExport": typeof _system_frontend_latestExport;
   "_system/frontend/lib/filters": typeof _system_frontend_lib_filters;
   "_system/frontend/lib/values": typeof _system_frontend_lib_values;
