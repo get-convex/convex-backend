@@ -1556,8 +1556,9 @@ export interface components {
             clientId: string;
             codeChallenge?: string | null;
             mode: components["schemas"]["AuthorizeAppMode"];
-            projectId: components["schemas"]["ProjectId"];
+            projectId?: null | components["schemas"]["ProjectId"];
             redirectUri: string;
+            teamId?: null | components["schemas"]["TeamId"];
         };
         /** @enum {string} */
         AuthorizeAppMode: "AuthorizationCode";

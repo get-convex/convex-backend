@@ -2809,7 +2809,6 @@
           "authnToken",
           "mode",
           "clientId",
-          "projectId",
           "redirectUri"
         ],
         "properties": {
@@ -2830,10 +2829,27 @@
             "$ref": "#/components/schemas/AuthorizeAppMode"
           },
           "projectId": {
-            "$ref": "#/components/schemas/ProjectId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectId"
+              }
+            ]
           },
           "redirectUri": {
             "type": "string"
+          },
+          "teamId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamId"
+              }
+            ]
           }
         },
         "additionalProperties": false
