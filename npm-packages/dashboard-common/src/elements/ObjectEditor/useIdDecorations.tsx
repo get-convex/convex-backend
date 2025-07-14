@@ -18,6 +18,8 @@ import {
 import { useNents } from "@common/lib/useNents";
 import { LiteralNode } from "@common/elements/ObjectEditor/ast/types";
 
+const MAX_IDS_TO_DECORATE = 100;
+
 export function useIdDecorations(
   monaco: Parameters<BeforeMount>[0] | undefined,
   path: string,
@@ -44,9 +46,9 @@ export function useIdDecorations(
     );
 
   // Dedupe ids found in the document.
-  const uniqueIdsArg = Array.from(new Set(idsArg.map((id) => id.id))).map(
-    (id) => idsArg.find((arg) => arg.id === id)!,
-  );
+  const uniqueIdsArg = Array.from(
+    new Set(idsArg.slice(0, MAX_IDS_TO_DECORATE).map((id) => id.id)),
+  ).map((id) => idsArg.find((arg) => arg.id === id)!);
 
   // Lookup all documents by their ids.
   const docs = useQuery(
