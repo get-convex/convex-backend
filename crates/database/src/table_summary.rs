@@ -546,15 +546,11 @@ fn add_revision(
         }
     }
     let id = &revision_pair.id;
-    let summary = match tables.get_mut(&id.table()) {
-        Some(i) => i,
-        None => {
-            // In historical instances, some rows were created before their corresponding
-            // `_table` row.
-            tables.insert(id.table(), TableSummary::empty());
-            tables.get_mut(&id.table()).unwrap()
-        },
-    };
+    let summary = tables.entry(id.table()).or_insert_with(
+        // In historical instances, some rows were created before their corresponding
+        // `_table` row.
+        TableSummary::empty,
+    );
     if let Some(old_document) = revision_pair.prev_document() {
         *summary = summary.remove(old_document.value())?;
     }
