@@ -90,7 +90,11 @@ use common::{
         TabletId,
     },
 };
-use fastrace::func_path;
+use fastrace::{
+    func_path,
+    future::FutureExt as _,
+    Span,
+};
 use futures::{
     future::{
         self,
@@ -103,7 +107,7 @@ use futures::{
         TryStreamExt,
     },
     try_join,
-    FutureExt,
+    FutureExt as _,
 };
 use futures_async_stream::try_stream;
 use itertools::{
@@ -782,15 +786,22 @@ impl PostgresReader {
         let (tx, mut rx) = mpsc::channel(batch_size);
         let task = AbortOnDropHandle::new(common::runtime::tokio_spawn(
             func_path!(),
-            self.clone()._index_scan_inner(
-                index_id,
-                read_timestamp,
-                interval,
-                order,
-                batch_size,
-                retention_validator,
-                tx,
-            ),
+            self.clone()
+                ._index_scan_inner(
+                    index_id,
+                    read_timestamp,
+                    interval,
+                    order,
+                    batch_size,
+                    retention_validator,
+                    tx,
+                )
+                .in_span(Span::enter_with_local_parent(
+                    // For some reason #[fastrace::trace] on _index_scan_inner
+                    // causes the compiler to blow up in memory usage, so do
+                    // this here instead
+                    "postgres::PostgresReader::_index_scan_inner",
+                )),
         ));
         while let Some(result) = rx.recv().await {
             match result {
