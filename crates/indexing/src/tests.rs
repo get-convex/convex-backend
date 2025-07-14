@@ -19,6 +19,7 @@ use common::{
     document::{
         CreationTime,
         PackedDocument,
+        ParseDocument as _,
         ResolvedDocument,
     },
     index::IndexKey,
@@ -614,8 +615,8 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     // Load the index.
     in_memory_indexes
         .load_enabled(
-            &index_registry,
-            &by_author,
+            table.tablet_id,
+            vec![(&index_doc).parse()?],
             &RepeatablePersistence::new(
                 ps.clone(),
                 unchecked_repeatable_ts(Timestamp::must(2)),

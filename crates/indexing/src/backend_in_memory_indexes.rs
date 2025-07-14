@@ -13,6 +13,7 @@ use std::{
         BTreeSet,
     },
     fmt::Debug,
+    iter,
     sync::{
         Arc,
         OnceLock,
@@ -25,6 +26,7 @@ use common::{
     bootstrap_model::index::{
         database_index::DatabaseIndexState,
         IndexConfig,
+        TabletIndexMetadata,
     },
     document::{
         PackedDocument,
@@ -163,7 +165,8 @@ impl BackendInMemoryIndexes {
         tables: &BTreeSet<TableName>,
     ) -> anyhow::Result<()> {
         let enabled_indexes = index_registry.all_enabled_indexes();
-        tracing::info!("Loading {} enabled indexes", enabled_indexes.len());
+        let mut indexes_by_table: BTreeMap<TabletId, Vec<_>> = BTreeMap::new();
+        let mut indexes_to_load = 0;
         for index_metadata in enabled_indexes {
             let table_name = table_mapping.tablet_name(*index_metadata.name.table())?;
             if tables.contains(&table_name) {
@@ -184,11 +187,23 @@ impl BackendInMemoryIndexes {
                     "Loading {table_name}.{} ...",
                     index_metadata.name.descriptor()
                 );
-                let (num_keys, total_bytes) = self
-                    .load_enabled(index_registry, &index_metadata.name, snapshot)
-                    .await?;
-                tracing::debug!("Loaded {num_keys} keys, {total_bytes} bytes.");
+                indexes_by_table
+                    .entry(*index_metadata.name.table())
+                    .or_default()
+                    .push(index_metadata);
+                indexes_to_load += 1;
             }
+        }
+        tracing::info!(
+            "Loading {} tables with {} indexes...",
+            indexes_by_table.len(),
+            indexes_to_load
+        );
+        for (tablet_id, index_metadatas) in indexes_by_table {
+            let (num_keys, total_bytes) = self
+                .load_enabled(tablet_id, index_metadatas, snapshot)
+                .await?;
+            tracing::debug!("Loaded {num_keys} keys, {total_bytes} bytes.");
         }
         Ok(())
     }
@@ -196,36 +211,46 @@ impl BackendInMemoryIndexes {
     #[fastrace::trace]
     pub async fn load_enabled(
         &mut self,
-        index_registry: &IndexRegistry,
-        index_name: &TabletIndexName,
+        tablet_id: TabletId,
+        mut indexes: Vec<ParsedDocument<TabletIndexMetadata>>,
         snapshot: &PersistenceSnapshot,
     ) -> anyhow::Result<(usize, usize)> {
-        let index = index_registry
-            .get_enabled(index_name)
-            .ok_or_else(|| anyhow::anyhow!("Attempting to load missing index {}", index_name))?;
-        if self.in_memory_indexes.contains_key(&index.id()) {
+        indexes.retain(|index| {
+            !self
+                .in_memory_indexes
+                .contains_key(&index.id().internal_id())
+        });
+        if indexes.is_empty() {
             // Already loaded in memory.
             return Ok((0, 0));
         }
-        if let IndexConfig::Database { on_disk_state, .. } = &index.metadata.config {
+        for index in &indexes {
             anyhow::ensure!(
-                *on_disk_state == DatabaseIndexState::Enabled,
-                "Attempting to load index {} that is not backfilled yet {:?}",
-                index.name(),
-                index.metadata,
+                *index.name.table() == tablet_id,
+                "Index is for wrong table {:?}",
+                index.name.table()
             );
-        } else {
-            anyhow::bail!(
-                "Attempted to load index {} that isn't a database index {:?}",
-                index.name(),
-                index.metadata
-            )
+            if let IndexConfig::Database { on_disk_state, .. } = &index.config {
+                anyhow::ensure!(
+                    *on_disk_state == DatabaseIndexState::Enabled,
+                    "Attempting to load index {} that is not backfilled yet {:?}",
+                    index.name,
+                    index,
+                );
+            } else {
+                anyhow::bail!(
+                    "Attempted to load index {} that isn't a database index {:?}",
+                    index.name,
+                    index,
+                )
+            }
         }
 
+        // Read the table using an arbitrary index from the list
         let entries: Vec<_> = snapshot
             .index_scan(
-                index.id(),
-                *index_name.table(),
+                indexes[0].id().internal_id(),
+                tablet_id,
                 &Interval::all(),
                 Order::Asc,
                 usize::MAX,
@@ -234,14 +259,34 @@ impl BackendInMemoryIndexes {
             .await?;
         let mut num_keys: usize = 0;
         let mut total_size: usize = 0;
-        let mut index_map = DatabaseIndexMap::new_at(*snapshot.timestamp());
-        for (key, rev) in entries.into_iter() {
+        let mut index_maps = vec![DatabaseIndexMap::new_at(*snapshot.timestamp()); indexes.len()];
+        for (_, rev) in entries.into_iter() {
             num_keys += 1;
             total_size += rev.value.value().size();
-            index_map.insert(key, rev.ts, PackedDocument::pack(&rev.value));
+            let doc = PackedDocument::pack(&rev.value);
+            // Calculate all the index keys. For simplicity we throw away the
+            // index key that we read from persistence and recalculate it.
+            for ((index, index_map), doc) in indexes
+                .iter()
+                .zip(&mut index_maps)
+                .zip(iter::repeat_n(doc, indexes.len()))
+            {
+                let IndexConfig::Database {
+                    developer_config, ..
+                } = &index.config
+                else {
+                    unreachable!()
+                };
+                let key =
+                    doc.index_key_owned(&developer_config.fields, snapshot.persistence().version());
+                index_map.insert(key, rev.ts, doc);
+            }
         }
 
-        self.in_memory_indexes.insert(index.id(), index_map);
+        for (index, index_map) in indexes.iter().zip(index_maps) {
+            self.in_memory_indexes
+                .insert(index.id().internal_id(), index_map);
+        }
         Ok((num_keys, total_size))
     }
 
