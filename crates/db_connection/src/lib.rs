@@ -133,7 +133,12 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                         .as_str()
                         .parse()
                         .context("Invalid postgres cluster url")?;
-                    if !db_should_be_leader {
+                    // PlanetScale replicas don't support hint plans
+                    if tokio_postgres_config
+                        .get_user()
+                        .unwrap_or_default()
+                        .ends_with("|replica")
+                    {
                         let mut pg_options = tokio_postgres_config
                             .get_options()
                             .unwrap_or_default()
