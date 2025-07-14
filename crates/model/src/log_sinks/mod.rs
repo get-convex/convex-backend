@@ -1,19 +1,12 @@
 use std::sync::LazyLock;
 
 use common::{
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
-    query::{
-        Order,
-        Query,
-    },
+    self,
+    document::ParsedDocument,
     runtime::Runtime,
 };
 use database::{
     patch_value,
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -99,15 +92,17 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
     }
 
     pub async fn get_all(&mut self) -> anyhow::Result<Vec<ParsedDocument<LogSinksRow>>> {
-        let mut result: Vec<_> = vec![];
-
-        let value_query = Query::full_table_scan(LOG_SINKS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
-        while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<LogSinksRow> = doc.parse()?;
-            result.push(row);
-        }
-
+        let result = self
+            .tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<LogSinksTable>::by_id(),
+            )?
+            .all()
+            .await?
+            .into_iter()
+            .map(|arc_row| (*arc_row).clone())
+            .collect();
         Ok(result)
     }
 
