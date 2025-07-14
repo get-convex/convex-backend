@@ -1,9 +1,13 @@
-import { CaretUpIcon, QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import {
+  CaretUpIcon,
+  QuestionMarkCircledIcon,
+  DragHandleDots2Icon,
+} from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { GenericDocument } from "convex/server";
 import { HeaderGroup } from "react-table";
 import { useDrop, useDrag } from "react-dnd";
-import { useContext, useRef } from "react";
+import { useRef, useContext, useState } from "react";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
@@ -16,6 +20,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { documentValidatorForTable } from "@common/features/data/components/Table/utils/validators";
+import { Button } from "@ui/Button";
 import { ValidatorTooltip } from "./ValidatorTooltip";
 
 type ColumnHeaderProps = {
@@ -51,15 +56,13 @@ export function ColumnHeader({
 }: ColumnHeaderProps) {
   const canDragOrDrop = columnIndex !== 0 && !isResizingColumn;
 
-  const { ref, isDragging, isHovering, direction } = useColumnDragAndDrop(
-    column,
-    columnIndex,
-    reorder,
-    canDragOrDrop,
-  );
+  const headerNode = useRef<HTMLDivElement | null>(null);
+
+  const { isDragging, isHovering, direction, drop, drag, dragPreview } =
+    useColumnDragAndDrop(column, columnIndex, reorder, canDragOrDrop);
   const columnName = column.Header as string;
   useContextMenuTrigger(
-    ref,
+    headerNode,
     (pos) =>
       openContextMenu(pos, null, {
         column: columnName,
@@ -81,24 +84,28 @@ export function ColumnHeader({
       ? documentValidator.value[columnName]
       : undefined;
 
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <div
       key={column.getHeaderProps().key}
       {...omit(column.getHeaderProps({ style: { width } }), "key")}
       className={classNames(
-        canDragOrDrop && "cursor-grab hover:bg-background-primary",
-        isDragging && "bg-background-tertiary cursor-grabbing",
+        isDragging && "cursor-grabbing",
         "font-semibold text-left text-xs bg-background-secondary text-content-secondary tracking-wider",
         "select-none duration-300 transition-colors",
         !isLastColumn && "border-r",
         isResizingColumn === columnName && "border-r-util-accent",
+        "relative",
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Show a border on the side the column will be dropped */}
       {!isDragging && isHovering && direction && (
         <div
           className={classNames(
-            "absolute top-[1px] h-full w-[2px] bg-border-selected",
+            "absolute top-px h-full w-px bg-util-accent",
             direction === "left" ? "left-0" : "right-0",
           )}
         />
@@ -109,52 +116,85 @@ export function ColumnHeader({
         disableTooltip={!!isResizingColumn}
       >
         <div
-          className="flex items-center space-x-2"
-          ref={ref}
+          ref={(node) => {
+            headerNode.current = node;
+            if (node) {
+              drop(node);
+              dragPreview(node);
+            }
+          }}
+          className={cn(
+            "flex w-full items-center justify-between space-x-2",
+            isDragging && "cursor-grabbing",
+          )}
           style={{
             padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
             width,
           }}
         >
-          {columnIndex === 0 ? (
-            // Disable the "Select all" checkbox when filtering
-            allRowsSelected === false &&
-            hasFilters &&
-            !isSelectionExhaustive ? null : (
-              <Checkbox checked={allRowsSelected} onChange={toggleAll} />
-            )
-          ) : column.Header === emptyColumnName ? (
-            <i>empty</i>
-          ) : typeof column.Header === "string" &&
-            identifierNeedsEscape(column.Header) ? (
-            <span
-              className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
-            >
-              {column.render("Header")}
-            </span>
-          ) : (
-            <div>{column.render("Header")}</div>
-          )}
-          {column.Header !== "_creationTime" &&
-            (column as unknown as { isDate: boolean }).isDate && (
-              <Tooltip
-                tip="Displaying numbers as dates. Hover or edit the cell by double-clicking see the unformatted value."
-                side="top"
-                align="start"
-                className="flex items-center"
+          <div className="flex items-center space-x-2">
+            {columnIndex === 0 ? (
+              // Disable the "Select all" checkbox when filtering
+              allRowsSelected === false &&
+              hasFilters &&
+              !isSelectionExhaustive ? null : (
+                <Checkbox checked={allRowsSelected} onChange={toggleAll} />
+              )
+            ) : column.Header === emptyColumnName ? (
+              <i>empty</i>
+            ) : typeof column.Header === "string" &&
+              identifierNeedsEscape(column.Header) ? (
+              <span
+                className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
               >
-                <QuestionMarkCircledIcon />
+                {column.render("Header")}
+              </span>
+            ) : (
+              <div>{column.render("Header")}</div>
+            )}
+            {column.Header !== "_creationTime" &&
+              (column as unknown as { isDate: boolean }).isDate && (
+                <Tooltip
+                  tip="Displaying numbers as dates. Hover or edit the cell by double-clicking see the unformatted value."
+                  side="top"
+                  align="start"
+                  className="flex items-center"
+                >
+                  <QuestionMarkCircledIcon />
+                </Tooltip>
+              )}
+            {sort && enableIndexFilters && (
+              <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
+                <CaretUpIcon
+                  className={cn(
+                    "transition-all",
+                    sort === "asc" ? "" : "rotate-180",
+                  )}
+                />
               </Tooltip>
             )}
-          {sort && enableIndexFilters && (
-            <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
-              <CaretUpIcon
-                className={cn(
-                  "transition-all",
-                  sort === "asc" ? "" : "rotate-180",
-                )}
-              />
-            </Tooltip>
+          </div>
+          {canDragOrDrop && isHovered && (
+            <Button
+              ref={(node) => {
+                node && drag(node);
+              }}
+              className={cn(
+                "absolute right-1.5 animate-fadeInFromLoading cursor-grab items-center bg-background-secondary/50 text-content-secondary backdrop-blur-[2px]",
+                isDragging && "cursor-grabbing",
+              )}
+              aria-label="Drag column"
+              variant="neutral"
+              inline
+              size="xs"
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  // Optionally, trigger drag start here if needed for keyboard users
+                }
+              }}
+              icon={<DragHandleDots2Icon />}
+            />
           )}
         </div>
       </ValidatorTooltip>
@@ -180,7 +220,6 @@ export function useColumnDragAndDrop(
   reorder: (item: { index: number }, newIndex: number) => void,
   canDragOrDrop: boolean,
 ) {
-  const ref = useRef<HTMLDivElement>(null);
   const { id } = column;
   const [{ isHovering, offset }, drop] = useDrop({
     accept: "column",
@@ -196,7 +235,7 @@ export function useColumnDragAndDrop(
 
   const direction = offset?.x ? (offset.x > 0 ? "right" : "left") : undefined;
 
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, drag, dragPreview] = useDrag({
     type: "column",
     canDrag: canDragOrDrop,
     item: () => ({
@@ -208,7 +247,5 @@ export function useColumnDragAndDrop(
     }),
   });
 
-  drag(drop(ref));
-
-  return { ref, direction, isDragging, isHovering };
+  return { isDragging, isHovering, direction, drop, drag, dragPreview };
 }

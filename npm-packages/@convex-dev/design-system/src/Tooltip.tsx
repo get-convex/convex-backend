@@ -34,7 +34,10 @@ export function Tooltip({
       <RadixTooltip.Root>
         <RadixTooltip.Trigger
           asChild={wrapsButton}
-          className={classNames("focus-visible:outline-0", className)}
+          className={classNames(
+            "focus-visible:outline-0 cursor-default",
+            className,
+          )}
         >
           {children}
         </RadixTooltip.Trigger>

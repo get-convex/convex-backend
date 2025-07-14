@@ -293,7 +293,7 @@ function DataCellImpl({
             }
             className={cn(
               buttonClasses({ size: "xs", variant: "neutral" }),
-              "absolute z-20 shadow-xs",
+              "absolute z-20 shadow-xs hover:bg-background-tertiary",
               isFocused && "focused",
               "animate-none",
             )}

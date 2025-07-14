@@ -300,7 +300,7 @@ export function DeploymentLabel({
     <div
       ref={containerRef}
       className={cn(
-        "my-2 mr-px flex min-w-24 grow overflow-visible rounded-full",
+        "my-2 flex min-w-24 grow overflow-visible p-px",
         "overflow-auto",
       )}
     >
@@ -308,7 +308,7 @@ export function DeploymentLabel({
         variant="unstyled"
         id="select-deployment"
         className={cn(
-          "flex items-center gap-2 truncate rounded-full border border-b-0 text-sm font-medium transition-opacity hover:opacity-80",
+          "flex h-10 items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",
           "focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden",
           getBackgroundColor(deployment.deploymentType),

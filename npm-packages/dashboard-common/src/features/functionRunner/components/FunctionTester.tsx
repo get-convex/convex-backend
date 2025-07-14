@@ -197,7 +197,7 @@ export function GlobalFunctionTester({
             setIsExpanded(!isExpanded);
           }}
           inline
-          className="bg-background-primary"
+          className="bg-background-primary/50 backdrop-blur-[2px]"
           variant="neutral"
           icon={isExpanded ? <ExitFullScreenIcon /> : <EnterFullScreenIcon />}
           tip={isExpanded ? "Collapse" : "Expand"}
@@ -210,7 +210,7 @@ export function GlobalFunctionTester({
           size="xs"
           onClick={() => setIsVertical(!isVertical)}
           inline
-          className="bg-background-primary"
+          className="bg-background-primary/50 backdrop-blur-[2px]"
           variant="neutral"
           icon={isVertical ? <ViewHorizontalIcon /> : <ViewVerticalIcon />}
         />
@@ -222,7 +222,7 @@ export function GlobalFunctionTester({
         >
           <ClosePanelButton
             onClose={() => hideGlobalRunner("click")}
-            className="bg-background-primary"
+            className="bg-background-primary/50 backdrop-blur-[2px]"
           />
         </Tooltip>
       </div>
