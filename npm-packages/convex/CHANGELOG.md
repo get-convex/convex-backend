@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.25.3
+## 1.25.4
 
 - Experimental `convex dev --once --debug-node-apis` debug flag for tracing
   through imports to find Node.js APIs imported from non-"use node" convex
