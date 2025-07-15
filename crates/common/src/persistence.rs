@@ -815,7 +815,7 @@ pub struct PersistenceTableSize {
     pub table_name: String,
     pub data_bytes: u64,
     pub index_bytes: u64,
-    pub row_count: u64,
+    pub row_count: Option<u64>,
 }
 
 #[cfg(test)]

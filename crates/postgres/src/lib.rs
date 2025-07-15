@@ -1335,7 +1335,7 @@ impl PersistenceReader for PostgresReader {
                 table_name: table.to_owned(),
                 data_bytes: row.try_get::<_, i64>(0)? as u64,
                 index_bytes: row.try_get::<_, i64>(1)? as u64,
-                row_count: row.try_get::<_, i64>(2)? as u64,
+                row_count: row.try_get::<_, i64>(2)?.try_into().ok(),
             });
         }
         Ok(stats)
