@@ -1,46 +1,36 @@
-import { AppAccessTokenResponse, ProjectDetails } from "generatedApi";
-
+import { AppAccessTokenResponse } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
-import {
-  useDeleteAppAccessTokenByName,
-  useProjectAppAccessTokens,
-} from "api/accessTokens";
 import { LoadingTransition } from "@ui/Loading";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { Button } from "@ui/Button";
 import { Cross2Icon } from "@radix-ui/react-icons";
-import { useState } from "react";
+import React, { useState } from "react";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 export function AuthorizedApplications({
-  project,
+  accessTokens,
+  explainer,
+  onRevoke,
 }: {
-  project: ProjectDetails;
+  accessTokens: AppAccessTokenResponse[] | undefined;
+  explainer: React.ReactNode;
+  onRevoke: (token: AppAccessTokenResponse) => Promise<void>;
 }) {
-  const projectAccessTokens = useProjectAppAccessTokens(project.id);
-
   return (
     <Sheet>
       <h3 className="mb-2">Authorized Applications</h3>
-      <p className="text-sm text-content-primary">
-        These 3rd-party applications have been authorized to access this project
-        on your behalf.
-      </p>
-      <p className="mt-1 mb-2 text-sm text-content-primary">
-        You cannot see applications that other members of your team have
-        authorized.
-      </p>
+      {explainer}
       <LoadingTransition
         loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
       >
-        {projectAccessTokens !== undefined && (
+        {accessTokens !== undefined && (
           <div className="flex w-full flex-col gap-2">
-            {projectAccessTokens.length ? (
-              projectAccessTokens.map((token, idx) => (
+            {accessTokens.length ? (
+              accessTokens.map((token, idx) => (
                 <AuthorizedApplicationListItem
                   key={idx}
                   token={token}
-                  project={project}
+                  onRevoke={onRevoke}
                 />
               ))
             ) : (
@@ -55,16 +45,15 @@ export function AuthorizedApplications({
   );
 }
 
-function AuthorizedApplicationListItem({
-  project,
+export function AuthorizedApplicationListItem({
   token,
+  onRevoke,
 }: {
-  project: ProjectDetails;
   token: AppAccessTokenResponse;
+  onRevoke: (token: AppAccessTokenResponse) => Promise<void>;
 }) {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const deleteAppAccessTokenByName = useDeleteAppAccessTokenByName(project.id);
   return (
     <div className="flex w-full flex-col">
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -103,7 +92,7 @@ function AuthorizedApplicationListItem({
           onConfirm={async () => {
             setIsDeleting(true);
             try {
-              await deleteAppAccessTokenByName({ name: token.name });
+              await onRevoke(token);
             } finally {
               setIsDeleting(false);
             }

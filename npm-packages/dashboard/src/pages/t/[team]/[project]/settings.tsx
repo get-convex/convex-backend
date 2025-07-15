@@ -13,12 +13,14 @@ import {
   useCreateTeamAccessToken,
   useInstanceAccessTokens,
   useProjectAccessTokens,
+  useProjectAppAccessTokens,
+  useDeleteAppAccessTokenByName,
 } from "api/accessTokens";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useRouter } from "next/router";
 import { useState, useEffect, useMemo } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
-import { TrashIcon } from "@radix-ui/react-icons";
+import { TrashIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import {
   LostAccessCommand,
   LostAccessDescription,
@@ -40,6 +42,8 @@ import { CustomDomains } from "components/projectSettings/CustomDomains";
 import { TransferProject } from "components/projects/TransferProject";
 import { cn } from "@ui/cn";
 import { AuthorizedApplications } from "components/projectSettings/AuthorizedApplications";
+import { Tooltip } from "@ui/Tooltip";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 const SECTION_IDS = {
   projectForm: "project-form",
@@ -191,6 +195,55 @@ function ProjectSettings() {
   const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
   const router = useRouter();
 
+  const projectAppAccessTokens = useProjectAppAccessTokens(project?.id);
+  const deleteAppAccessTokenByName = useDeleteAppAccessTokenByName(
+    project?.id!,
+  );
+
+  const { showTeamOauthTokens } = useLaunchDarkly();
+
+  const authorizedAppsExplainer = (
+    <>
+      <p className="text-sm text-content-primary">
+        These 3rd-party applications have been authorized to access this project
+        on your behalf.
+      </p>
+      <div className="mt-2 mb-2 text-sm text-content-primary">
+        <span className="font-semibold">
+          What can authorized applications do?
+        </span>
+        <ul className="mt-1 list-disc pl-4">
+          <li>Create new projects</li>
+          <li>Create new deployments</li>
+          <li>
+            <span className="flex items-center gap-1">
+              Read and write data in any deployment in this project
+              <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
+                <InfoCircledIcon />
+              </Tooltip>
+            </span>
+          </li>
+        </ul>
+      </div>
+      <p className="mt-1 mb-2 text-sm text-content-primary">
+        You cannot see applications that other members of your team have
+        authorized.
+      </p>
+      {team && showTeamOauthTokens && (
+        <p className="mt-1 mb-2 text-xs text-content-secondary">
+          There may also be <b>team-wide authorized applications</b> that can
+          access all projects in this team. You can view them in{" "}
+          <Link
+            href={`/t/${team.slug}/settings/authorized-applications`}
+            className="text-content-link hover:underline"
+          >
+            Team Settings
+          </Link>{" "}
+        </p>
+      )}
+    </>
+  );
+
   useEffect(() => {
     // Handle initial scroll based on hash
     if (typeof window !== "undefined" && window.location.hash) {
@@ -273,7 +326,13 @@ function ProjectSettings() {
             )}
             {project && (
               <div id={SECTION_IDS.authorizedApplications}>
-                <AuthorizedApplications project={project} />
+                <AuthorizedApplications
+                  accessTokens={projectAppAccessTokens}
+                  explainer={authorizedAppsExplainer}
+                  onRevoke={async (token) => {
+                    await deleteAppAccessTokenByName({ name: token.name });
+                  }}
+                />
               </div>
             )}
             <div id={SECTION_IDS.envVars}>

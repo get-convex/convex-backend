@@ -13,6 +13,17 @@ export function useTeamAccessTokens(teamId?: number) {
   return accessTokens;
 }
 
+export function useTeamAppAccessTokens(teamId?: number) {
+  const { data: accessTokens } = useBBQuery({
+    path: "/teams/{team_id}/app_access_tokens",
+    pathParams: {
+      team_id: teamId?.toString() || "",
+    },
+  });
+
+  return accessTokens;
+}
+
 export function useInstanceAccessTokens(deploymentName?: string) {
   const { data: accessTokens } = useBBQuery({
     path: "/instances/{deployment_name}/access_tokens",

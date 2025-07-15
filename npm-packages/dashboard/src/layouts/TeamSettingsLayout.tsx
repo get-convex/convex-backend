@@ -21,12 +21,13 @@ export function TeamSettingsLayout({
     | "usage"
     | "audit-log"
     | "access-tokens"
-    | "referrals";
+    | "referrals"
+    | "authorized-applications";
   Component: React.FunctionComponent<{ team: Team }>;
   title: string;
 }) {
   const selectedTeam = useCurrentTeam();
-  const { referralsPage } = useLaunchDarkly();
+  const { referralsPage, showTeamOauthTokens } = useLaunchDarkly();
 
   const auditLogsEnabled = useTeamEntitlements(
     selectedTeam?.id,
@@ -38,6 +39,7 @@ export function TeamSettingsLayout({
     "billing",
     "usage",
     ...(referralsPage ? ["referrals"] : []),
+    ...(showTeamOauthTokens ? ["authorized-applications"] : []),
   ];
 
   return (
@@ -59,7 +61,7 @@ export function TeamSettingsLayout({
           <aside
             className={classNames(
               "flex sm:flex-col gap-1",
-              "min-w-40 sm:w-fit",
+              "min-w-52 sm:w-fit",
               "min-h-fit",
               "px-3 py-2",
               "overflow-x-auto scrollbar-none",

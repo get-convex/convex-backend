@@ -98,6 +98,7 @@ export function AuditLogToolbar({
             [(option) => option.label.toLowerCase()],
           ),
         ]}
+        optionsWidth="fit"
         allowCustomValue
         selectedOption={selectedMember}
         setSelectedOption={(o) =>
