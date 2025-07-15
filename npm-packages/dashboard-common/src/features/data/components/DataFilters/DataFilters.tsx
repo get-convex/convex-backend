@@ -37,8 +37,10 @@ import {
 } from "@common/features/data/components/Table/utils/validators";
 import { useFilterHistory } from "@common/features/data/lib/useTableFilters";
 import { cn } from "@ui/cn";
-import { useTableIndexes } from "@common/features/data/lib/api";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useNents } from "@common/lib/useNents";
+import { useQuery } from "convex/react";
+import { api } from "system-udfs/convex/_generated/api";
 import { IndexFilterState } from "./IndexFilterEditor";
 import { IndexFilters, getDefaultIndex } from "./IndexFilters";
 
@@ -75,7 +77,12 @@ export function DataFilters({
   showFilters: boolean;
   setShowFilters: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-  const { indexes } = useTableIndexes(tableName);
+  const { selectedNent } = useNents();
+  const indexes =
+    useQuery(api._system.frontend.indexes.default, {
+      tableName,
+      componentId: selectedNent?.id ? selectedNent.id : null,
+    }) ?? undefined;
   const {
     isDirty,
     hasInvalidFilters,
