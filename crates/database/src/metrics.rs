@@ -70,6 +70,14 @@ pub fn index_backfill_timer() -> CancelableTimer {
 }
 
 register_convex_histogram!(
+    TABLET_DB_INDEX_BACKFILL_SECONDS,
+    "Time for database indexes to backfill",
+);
+pub fn tablet_index_backfill_timer() -> Timer<VMHistogram> {
+    Timer::new(&TABLET_DB_INDEX_BACKFILL_SECONDS)
+}
+
+register_convex_histogram!(
     DATABASE_WRITE_TX_READ_INTERVALS_TOTAL,
     "Number of read intervals in a write transaction"
 );

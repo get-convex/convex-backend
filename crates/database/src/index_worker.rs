@@ -103,6 +103,7 @@ use crate::{
         index_backfill_timer,
         log_index_backfilled,
         log_num_indexes_to_backfill,
+        tablet_index_backfill_timer,
     },
     retention::LeaderRetentionManager,
     Database,
@@ -377,6 +378,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         table_mapping: &TableMapping,
         index_documents: BTreeMap<ResolvedDocumentId, ResolvedDocument>,
     ) -> anyhow::Result<()> {
+        let _timer = tablet_index_backfill_timer();
         let index_registry = IndexRegistry::bootstrap(
             table_mapping,
             index_documents.into_values(),
