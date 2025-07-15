@@ -716,6 +716,7 @@ impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
             request_id,
             execution_id,
             parent_job_id.map(|id| (parent_component_id, id)),
+            None, // remote_ip not available in node action callbacks
             is_root,
         )))
     }

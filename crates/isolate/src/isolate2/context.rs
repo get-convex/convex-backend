@@ -83,6 +83,7 @@ impl Context {
             let op_key = strings::op.create(&mut scope)?;
             convex_value.set(&mut scope, op_key.into(), op_value.into());
 
+
             let async_op_template =
                 v8::FunctionTemplate::new(&mut scope, CallbackContext::start_async_op);
             let async_op_value = async_op_template

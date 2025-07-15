@@ -130,8 +130,11 @@ impl Drop for DebugSyncSocketDropToken {
 // on a close frame and close the WebSocket. They can also signal clean shutdown
 // by returning `Ok(())`, and once all of them have cleanly exited, we'll
 // gracefully close the socket.
-async fn run_sync_socket(
+
+
+async fn run_sync_socket_with_remote_ip(
     st: RouterState,
+    remote_ip: Option<std::net::SocketAddr>,
     host: ResolvedHostname,
     config: SyncWorkerConfig,
     socket: WebSocket,
@@ -232,10 +235,11 @@ async fn run_sync_socket(
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
         let _sync_worker_drop_token = DebugSyncSocketDropToken::new("sync_worker");
-        let mut sync_worker = SyncWorker::new(
+        let mut sync_worker = SyncWorker::new_with_remote_ip(
             st.api.clone(),
             st.runtime.clone(),
             host,
+            remote_ip,
             config.clone(),
             client_rx,
             server_tx,
@@ -349,6 +353,17 @@ pub async fn sync_handler(
     ws: WebSocketUpgrade,
     on_connect: Box<dyn FnOnce(SessionId) + Send>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    sync_handler_with_remote_ip(st, None, host, client_version, ws, on_connect).await
+}
+
+pub async fn sync_handler_with_remote_ip(
+    st: RouterState,
+    remote_ip: Option<std::net::SocketAddr>,
+    host: ResolvedHostname,
+    client_version: ClientVersion,
+    ws: WebSocketUpgrade,
+    on_connect: Box<dyn FnOnce(SessionId) + Send>,
+) -> Result<impl IntoResponse, HttpResponseError> {
     let config = new_sync_worker_config(client_version)?;
     // Make a copy of the Sentry scope, which contains the request metadata.
     let sentry_scope = sentry::configure_scope(move |s| s.clone());
@@ -359,18 +374,19 @@ pub async fn sync_handler(
         upgrade_timer.finish();
         let monitor = ProdRuntime::task_monitor("sync_socket");
         monitor.instrument(
-            run_sync_socket(st, host, config, ws, sentry_scope, on_connect).bind_hub(hub),
+            run_sync_socket_with_remote_ip(st, remote_ip, host, config, ws, sentry_scope, on_connect).bind_hub(hub),
         )
     }))
 }
 
 pub async fn sync(
     State(st): State<RouterState>,
+    remote_addr: axum::extract::ConnectInfo<std::net::SocketAddr>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    sync_handler(st, host, client_version, ws, Box::new(|_session_id| ())).await
+    sync_handler_with_remote_ip(st, Some(remote_addr.0), host, client_version, ws, Box::new(|_session_id| ())).await
 }
 
 #[cfg(test)]

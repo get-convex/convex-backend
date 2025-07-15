@@ -219,6 +219,7 @@ pub struct SyncWorker<RT: Runtime> {
     rt: RT,
     state: SyncState,
     host: ResolvedHostname,
+    remote_ip: Option<std::net::SocketAddr>,
 
     rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
     tx: SingleFlightSender,
@@ -277,6 +278,19 @@ impl<RT: Runtime> SyncWorker<RT> {
         tx: SingleFlightSender,
         on_connect: Box<dyn FnOnce(SessionId) + Send>,
     ) -> Self {
+        Self::new_with_remote_ip(api, rt, host, None, config, rx, tx, on_connect)
+    }
+
+    pub fn new_with_remote_ip(
+        api: Arc<dyn ApplicationApi>,
+        rt: RT,
+        host: ResolvedHostname,
+        remote_ip: Option<std::net::SocketAddr>,
+        config: SyncWorkerConfig,
+        rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
+        tx: SingleFlightSender,
+        on_connect: Box<dyn FnOnce(SessionId) + Send>,
+    ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = ReceiverStream::new(receiver).buffered(1); // Execute at most one operation at a time.
         SyncWorker {
@@ -285,6 +299,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             rt,
             state: SyncState::new(),
             host,
+            remote_ip,
             rx,
             tx,
             mutation_futures,
@@ -533,7 +548,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let timer = mutation_queue_timer();
                 let api = self.api.clone();
                 let host = self.host.clone();
-                let caller = FunctionCaller::SyncWorker(client_version);
+                let remote_ip = self.remote_ip;
+                let caller = FunctionCaller::SyncWorker(client_version, remote_ip);
 
                 let mutation_queue_size =
                     self.mutation_sender.max_capacity() - self.mutation_sender.capacity();
@@ -621,6 +637,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let api = self.api.clone();
                 let host = self.host.clone();
                 let client_version = self.config.client_version.clone();
+                let remote_ip = self.remote_ip;
                 let server_request_id = match self.state.session_id() {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
@@ -635,7 +652,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     },
                 );
                 let future = async move {
-                    let caller = FunctionCaller::SyncWorker(client_version);
+                    let caller = FunctionCaller::SyncWorker(client_version, remote_ip);
                     let result = match component_path {
                         None => {
                             api.execute_public_action(
@@ -798,6 +815,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         let need_fetch: Vec<_> = self.state.need_fetch().collect();
         let host = self.host.clone();
         let client_version = self.config.client_version.clone();
+        let remote_ip = self.remote_ip;
         Ok(async move {
             let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
                 "update_query",
@@ -825,7 +843,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             None => {
                                 // We failed to refresh the subscription or it was invalid to start
                                 // with. Rerun the query.
-                                let caller = FunctionCaller::SyncWorker(client_version);
+                                let caller = FunctionCaller::SyncWorker(client_version, remote_ip);
                                 let ts = ExecuteQueryTimestamp::At(new_ts);
 
                                 // This query run might have been triggered due to invalidation

@@ -77,7 +77,7 @@ async fn test_http_action_basic(rt: TestRuntime) -> anyhow::Result<()> {
             common::RequestId::new(),
             http_request,
             Identity::system(),
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
             response_streamer,
         )
         .await?;
@@ -134,7 +134,7 @@ async fn test_http_action_error(rt: TestRuntime) -> anyhow::Result<()> {
             common::RequestId::new(),
             http_request,
             Identity::system(),
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
             response_streamer,
         )
         .await?;
@@ -191,7 +191,7 @@ async fn test_http_action_not_found(rt: TestRuntime) -> anyhow::Result<()> {
             common::RequestId::new(),
             http_request,
             Identity::system(),
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
             response_streamer,
         )
         .await?;
@@ -243,7 +243,7 @@ async fn test_http_action_disconnect_before_head(
         common::RequestId::new(),
         http_request,
         Identity::system(),
-        FunctionCaller::HttpEndpoint,
+        FunctionCaller::HttpEndpoint(None),
         response_streamer,
     ));
     select! {
@@ -307,7 +307,7 @@ async fn test_http_action_disconnect_while_streaming(
                 common::RequestId::new(),
                 http_request,
                 Identity::system(),
-                FunctionCaller::HttpEndpoint,
+                FunctionCaller::HttpEndpoint(None),
                 response_streamer,
             )
             .await
@@ -382,7 +382,7 @@ async fn test_http_action_continues_after_client_disconnects(
                 common::RequestId::new(),
                 http_request,
                 Identity::system(),
-                FunctionCaller::HttpEndpoint,
+                FunctionCaller::HttpEndpoint(None),
                 response_streamer,
             )
             .await
@@ -414,7 +414,7 @@ async fn test_http_action_continues_after_client_disconnects(
                 udf_path: "functions:didWrite".parse()?,
             },
             vec![json!({})],
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::HttpEndpoint(None),
             ExecuteQueryTimestamp::Latest,
             None,
         )

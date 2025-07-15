@@ -873,7 +873,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::Unknown(None),
             ts2,
             None,
-            FunctionCaller::SyncWorker(ClientVersion::unknown()),
+            FunctionCaller::SyncWorker(ClientVersion::unknown(), None),
         )
         .await?;
     assert_eq!(result1.result?.unpack(), ConvexValue::from(5.0));
@@ -887,7 +887,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::Unknown(None),
             ts1,
             None,
-            FunctionCaller::SyncWorker(ClientVersion::unknown()),
+            FunctionCaller::SyncWorker(ClientVersion::unknown(), None),
         )
         .await?;
     assert_eq!(result2.result?.unpack(), ConvexValue::from(0.0));

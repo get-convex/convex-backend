@@ -3,6 +3,7 @@ use std::{
         self,
         Debug,
     },
+    net::SocketAddr,
     str::FromStr,
 };
 
@@ -145,13 +146,13 @@ pub enum AllowedVisibility {
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FunctionCaller {
-    SyncWorker(ClientVersion),
-    HttpApi(ClientVersion),
+    SyncWorker(ClientVersion, Option<SocketAddr>),
+    HttpApi(ClientVersion, Option<SocketAddr>),
     /// Used by function tester in the dashboard
     Tester(ClientVersion),
     // This is a user defined http actions called externally. If the http action
     // calls other functions, their caller would be `Action`.
-    HttpEndpoint,
+    HttpEndpoint(Option<SocketAddr>),
     Cron,
     Scheduler {
         job_id: DeveloperDocumentId,
@@ -168,10 +169,10 @@ pub enum FunctionCaller {
 impl FunctionCaller {
     pub fn client_version(&self) -> Option<ClientVersion> {
         match self {
-            FunctionCaller::SyncWorker(c) => Some(c),
-            FunctionCaller::HttpApi(c) => Some(c),
+            FunctionCaller::SyncWorker(c, _) => Some(c),
+            FunctionCaller::HttpApi(c, _) => Some(c),
             FunctionCaller::Tester(c) => Some(c),
-            FunctionCaller::HttpEndpoint
+            FunctionCaller::HttpEndpoint(_)
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => None,
@@ -183,10 +184,10 @@ impl FunctionCaller {
 
     pub fn parent_scheduled_job(&self) -> Option<(ComponentId, DeveloperDocumentId)> {
         match self {
-            FunctionCaller::SyncWorker(_)
-            | FunctionCaller::HttpApi(_)
+            FunctionCaller::SyncWorker(_, _)
+            | FunctionCaller::HttpApi(_, _)
             | FunctionCaller::Tester(_)
-            | FunctionCaller::HttpEndpoint
+            | FunctionCaller::HttpEndpoint(_)
             | FunctionCaller::Cron => None,
             #[cfg(any(test, feature = "testing"))]
             FunctionCaller::Test => None,
@@ -200,12 +201,27 @@ impl FunctionCaller {
         }
     }
 
+    pub fn remote_ip(&self) -> Option<SocketAddr> {
+        let remote_ip = match self {
+            FunctionCaller::SyncWorker(_, remote_ip) 
+            | FunctionCaller::HttpApi(_, remote_ip) 
+            | FunctionCaller::HttpEndpoint(remote_ip) => *remote_ip,
+            FunctionCaller::Tester(_)
+            | FunctionCaller::Cron
+            | FunctionCaller::Scheduler { .. }
+            | FunctionCaller::Action { .. } => None,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => None,
+        };
+        remote_ip
+    }
+
     pub fn is_root(&self) -> bool {
         match self {
-            FunctionCaller::SyncWorker(_)
-            | FunctionCaller::HttpApi(_)
+            FunctionCaller::SyncWorker(_, _)
+            | FunctionCaller::HttpApi(_, _)
             | FunctionCaller::Tester(_)
-            | FunctionCaller::HttpEndpoint
+            | FunctionCaller::HttpEndpoint(_)
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. } => true,
             FunctionCaller::Action { .. } => false,
@@ -219,9 +235,9 @@ impl FunctionCaller {
         // to run it even if the client goes away. However, we preserve the right
         // to interrupt actions if the backend restarts.
         match self {
-            FunctionCaller::SyncWorker(_)
-            | FunctionCaller::HttpApi(_)
-            | FunctionCaller::HttpEndpoint
+            FunctionCaller::SyncWorker(_, _)
+            | FunctionCaller::HttpApi(_, _)
+            | FunctionCaller::HttpEndpoint(_)
             | FunctionCaller::Tester(_) => true,
             FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
@@ -233,13 +249,13 @@ impl FunctionCaller {
 
     pub fn allowed_visibility(&self) -> AllowedVisibility {
         match self {
-            FunctionCaller::SyncWorker(_) | FunctionCaller::HttpApi(_) => {
+            FunctionCaller::SyncWorker(_, _) | FunctionCaller::HttpApi(_, _) => {
                 AllowedVisibility::PublicOnly
             },
             // NOTE: Allowed visibility doesn't make sense in the context of an
             // user defined http action since all http actions are public, and
             // we shouldn't be checking visibility. We define this for completeness.
-            FunctionCaller::HttpEndpoint => AllowedVisibility::PublicOnly,
+            FunctionCaller::HttpEndpoint(_) => AllowedVisibility::PublicOnly,
             FunctionCaller::Tester(_)
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
@@ -253,10 +269,10 @@ impl FunctionCaller {
 impl fmt::Display for FunctionCaller {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            FunctionCaller::SyncWorker(_) => "SyncWorker",
-            FunctionCaller::HttpApi(_) => "HttpApi",
+            FunctionCaller::SyncWorker(_, _) => "SyncWorker",
+            FunctionCaller::HttpApi(_, _) => "HttpApi",
             FunctionCaller::Tester(_) => "Tester",
-            FunctionCaller::HttpEndpoint => "HttpEndpoint",
+            FunctionCaller::HttpEndpoint(_) => "HttpEndpoint",
             FunctionCaller::Cron => "Cron",
             FunctionCaller::Scheduler { .. } => "Scheduler",
             FunctionCaller::Action { .. } => "Action",
@@ -270,16 +286,16 @@ impl fmt::Display for FunctionCaller {
 impl From<FunctionCaller> for pb::common::FunctionCaller {
     fn from(caller: FunctionCaller) -> Self {
         let caller = match caller {
-            FunctionCaller::SyncWorker(client_version) => {
+            FunctionCaller::SyncWorker(client_version, _) => {
                 pb::common::function_caller::Caller::SyncWorker(client_version.into())
             },
-            FunctionCaller::HttpApi(client_version) => {
+            FunctionCaller::HttpApi(client_version, _) => {
                 pb::common::function_caller::Caller::HttpApi(client_version.into())
             },
             FunctionCaller::Tester(client_version) => {
                 pb::common::function_caller::Caller::Tester(client_version.into())
             },
-            FunctionCaller::HttpEndpoint => pb::common::function_caller::Caller::HttpEndpoint(()),
+            FunctionCaller::HttpEndpoint(_) => pb::common::function_caller::Caller::HttpEndpoint(()),
             FunctionCaller::Cron => pb::common::function_caller::Caller::Cron(()),
             FunctionCaller::Scheduler {
                 job_id,
@@ -318,16 +334,16 @@ impl TryFrom<pb::common::FunctionCaller> for FunctionCaller {
     fn try_from(msg: pb::common::FunctionCaller) -> anyhow::Result<Self> {
         let caller = match msg.caller {
             Some(pb::common::function_caller::Caller::SyncWorker(client_version)) => {
-                FunctionCaller::SyncWorker(client_version.try_into()?)
+                FunctionCaller::SyncWorker(client_version.try_into()?, None)
             },
             Some(pb::common::function_caller::Caller::HttpApi(client_version)) => {
-                FunctionCaller::HttpApi(client_version.try_into()?)
+                FunctionCaller::HttpApi(client_version.try_into()?, None)
             },
             Some(pb::common::function_caller::Caller::Tester(client_version)) => {
                 FunctionCaller::Tester(client_version.try_into()?)
             },
             Some(pb::common::function_caller::Caller::HttpEndpoint(())) => {
-                FunctionCaller::HttpEndpoint
+                FunctionCaller::HttpEndpoint(None)
             },
             Some(pb::common::function_caller::Caller::Cron(())) => FunctionCaller::Cron,
             Some(pb::common::function_caller::Caller::Scheduler(caller)) => {
