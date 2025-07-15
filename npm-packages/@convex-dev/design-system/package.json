@@ -9,8 +9,8 @@
   ],
   "scripts": {
     "build": "tsc && tsc-alias && mkdir -p dist/styles && cp src/styles/shared.css dist/styles/shared.css",
-    "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'",
-    "lint:fix": "eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'"
+    "lint": "bash ../../dashboard-common/scripts/checkNode20.sh && eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'",
+    "lint:fix": "bash ../../dashboard-common/scripts/checkNode20.sh && eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'"
   },
   "peerDependencies": {
     "@radix-ui/react-icons": "~1.3.0",

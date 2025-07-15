@@ -8,8 +8,8 @@
     "build:generated": "python3 ../dashboard-common/scripts/build-convexServerTypes.py",
     "build:export": "BUILD_TYPE=export NEXT_PUBLIC_DEFAULT_LIST_DEPLOYMENTS_API_PORT=6791 npm run build",
     "start": "next start -p 6791",
-    "lint": "next lint --max-warnings 0 --dir src/ && tsc",
-    "lint:fix": "next lint --fix --max-warnings 0 --dir src/"
+    "lint": "bash ../dashboard-common/scripts/checkNode20.sh && next lint --max-warnings 0 --dir src/ && tsc",
+    "lint:fix": "bash ../dashboard-common/scripts/checkNode20.sh && next lint --fix --max-warnings 0 --dir src/"
   },
   "dependencies": {
     "@convex-dev/design-system": "workspace:*",

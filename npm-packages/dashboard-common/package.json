@@ -7,8 +7,8 @@
   "scripts": {
     "build": "npm run build:generated && tsc --noEmit",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
-    "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'",
-    "lint:fix": "eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'"
+    "lint": "bash scripts/checkNode20.sh && eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'",
+    "lint:fix": "bash scripts/checkNode20.sh && eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'"
   },
   "peerDependencies": {
     "@radix-ui/react-icons": "~1.3.0",
