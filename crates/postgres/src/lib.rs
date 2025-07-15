@@ -47,6 +47,7 @@ use common::{
         ResolvedDocument,
     },
     errors::lease_lost_error,
+    heap_size::HeapSize as _,
     index::{
         IndexEntry,
         IndexKeyBytes,
@@ -93,6 +94,7 @@ use common::{
 use fastrace::{
     func_path,
     future::FutureExt as _,
+    local::LocalSpan,
     Span,
 };
 use futures::{
@@ -342,6 +344,7 @@ impl Persistence for PostgresPersistence {
         })
     }
 
+    #[fastrace::trace]
     async fn write(
         &self,
         documents: Vec<DocumentLogEntry>,
@@ -349,12 +352,24 @@ impl Persistence for PostgresPersistence {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
-        anyhow::ensure!(documents.iter().all(|update| {
+        let mut write_size = 0;
+        for update in &documents {
             match &update.value {
-                Some(doc) => update.id == doc.id_with_table_id(),
-                None => true,
+                Some(doc) => {
+                    anyhow::ensure!(update.id == doc.id_with_table_id());
+                    write_size += doc.heap_size();
+                },
+                None => {},
             }
-        }));
+        }
+        metrics::log_write_bytes(write_size);
+        metrics::log_write_documents(documents.len());
+        LocalSpan::add_properties(|| {
+            [
+                ("num_documents", documents.len().to_string()),
+                ("write_size", write_size.to_string()),
+            ]
+        });
 
         // True, the below might end up failing and not changing anything.
         self.newly_created.store(false, SeqCst);

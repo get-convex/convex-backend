@@ -285,6 +285,22 @@ pub fn insert_one_index_timer() -> StatusTimer {
 }
 
 register_convex_histogram!(
+    POSTGRES_WRITE_BYTES,
+    "Number of bytes written in Postgres writes"
+);
+pub fn log_write_bytes(size: usize) {
+    log_distribution(&POSTGRES_WRITE_BYTES, size as f64);
+}
+
+register_convex_histogram!(
+    POSTGRES_WRITE_DOCUMENTS,
+    "Number of documents written in Postgres writes",
+);
+pub fn log_write_documents(size: usize) {
+    log_distribution(&POSTGRES_WRITE_DOCUMENTS, size as f64);
+}
+
+register_convex_histogram!(
     POSTGRES_LEASE_ACQUIRE_SECONDS,
     "Time to acquire a lease",
     &STATUS_LABEL
