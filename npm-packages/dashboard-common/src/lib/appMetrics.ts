@@ -134,7 +134,7 @@ export function useSchedulerLag() {
   return {
     data,
     xAxisKey: "time",
-    lineKeys: [{ key: "lag", name: "Lag", color: "rgb(var(--brand-yellow))" }],
+    lineKeys: [{ key: "lag", name: "Lag", color: "var(--brand-yellow)" }],
   };
 }
 
@@ -272,14 +272,14 @@ export function useTopKFunctionMetrics(
   };
 }
 
-const restColor = "rgb(var(--chart-line-1))";
+const restColor = "var(--chart-line-1)";
 const lineColors = [
-  "rgb(var(--chart-line-2))",
-  "rgb(var(--chart-line-3))",
-  "rgb(var(--chart-line-4))",
-  "rgb(var(--chart-line-5))",
-  "rgb(var(--chart-line-6))",
-  "rgb(var(--chart-line-7))",
+  "var(--chart-line-2)",
+  "var(--chart-line-3)",
+  "var(--chart-line-4)",
+  "var(--chart-line-5)",
+  "var(--chart-line-6)",
+  "var(--chart-line-7)",
 ];
 
 function identifierForMetricName(metric: string) {

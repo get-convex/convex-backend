@@ -70,7 +70,7 @@ export function InsightsSummaryListItem({ insight }: { insight: Insight }) {
       <div className="w-60">
         <ProblemForInsight insight={insight} />
       </div>
-      <div className="w-60">
+      <div className="h-full w-60">
         <SparklineForInsight insight={insight} />
       </div>
     </Button>
