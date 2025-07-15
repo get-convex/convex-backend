@@ -3,7 +3,6 @@ import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
 import udfs from "@common/udfs";
-import { cn } from "@ui/cn";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { TextInput } from "@ui/TextInput";
 import {
@@ -64,7 +63,7 @@ export function DataSidebar({
           />
         </div>
       )}
-      <div className={cn("scrollbar flex-1 overflow-auto px-3 pt-1")}>
+      <div className="scrollbar flex-1 overflow-auto px-3 py-1">
         <div className="flex flex-col gap-0.5">
           {Array.from(tables.keys())
             .filter(
@@ -86,7 +85,7 @@ export function DataSidebar({
         </div>
         <CreateNewTable tableData={tableData} />
       </div>
-      <div className="mt-2 flex justify-around border-t pt-4">
+      <div className="flex justify-around border-t pt-4">
         {showSchema === undefined ? (
           <Loading className="h-[2.25rem]" fullHeight={false} />
         ) : (
