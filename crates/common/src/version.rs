@@ -171,6 +171,8 @@ impl TryFrom<pb::common::ClientVersionIdent> for ClientVersionIdent {
 pub enum ClientType {
     Python,
     CLI,
+    // `npm create convex` CLI tool https://github.com/get-convex/templates/tree/main/create-convex
+    CreateConvex,
     NPM,
     // Actions running in node call into queries/mutations/etc. with this client.
     Actions,
@@ -202,6 +204,7 @@ impl FromStr for ClientType {
             "python" => Self::Python,
             "npm-cli" => Self::CLI,
             "npm" => Self::NPM,
+            "create-convex" => Self::CreateConvex,
             "actions" => Self::Actions,
             "rust" => Self::Rust,
             "streaming-import" => Self::StreamingImport,
@@ -222,6 +225,7 @@ impl Display for ClientType {
         match self {
             Self::Python => write!(f, "python"),
             Self::CLI => write!(f, "npm-cli"),
+            Self::CreateConvex => write!(f, "create-convex"),
             Self::NPM => write!(f, "npm"),
             Self::Actions => write!(f, "actions"),
             Self::Rust => write!(f, "rust"),
@@ -244,7 +248,8 @@ impl ClientType {
             Self::NPM | Self::CLI | Self::Actions => Some(npm.upgrade_required.clone()),
             Self::Python => Some(python.upgrade_required.clone()),
             Self::Rust => Some(rust.upgrade_required.clone()),
-            Self::StreamingImport
+            Self::CreateConvex
+            | Self::StreamingImport
             | Self::AirbyteExport
             | Self::FivetranImport
             | Self::FivetranExport
@@ -261,7 +266,8 @@ impl ClientType {
             Self::NPM | Self::CLI | Self::Actions => Some(npm.unsupported.clone()),
             Self::Python => Some(python.unsupported.clone()),
             Self::Rust => Some(rust.unsupported.clone()),
-            Self::StreamingImport
+            Self::CreateConvex
+            | Self::StreamingImport
             | Self::AirbyteExport
             | Self::FivetranImport
             | Self::FivetranExport
@@ -284,7 +290,8 @@ impl ClientType {
                 "Update your Convex rust version with `cargo update -p convex` or by updating \
                  `Cargo.toml`."
             },
-            Self::StreamingImport
+            Self::CreateConvex
+            | Self::StreamingImport
             | Self::AirbyteExport
             | Self::FivetranImport
             | Self::FivetranExport
@@ -400,6 +407,7 @@ impl ClientVersion {
             },
             ClientType::Python => self.version().above_threshold(&Version::new(0, 5, 0)),
             ClientType::Rust
+            | ClientType::CreateConvex
             | ClientType::StreamingImport
             | ClientType::AirbyteExport
             | ClientType::FivetranImport

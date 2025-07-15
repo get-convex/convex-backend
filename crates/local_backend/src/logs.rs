@@ -164,6 +164,7 @@ pub async fn stream_function_logs(
         | ClientType::Actions
         | ClientType::Python
         | ClientType::Rust
+        | ClientType::CreateConvex
         | ClientType::StreamingImport
         | ClientType::AirbyteExport
         | ClientType::FivetranImport
