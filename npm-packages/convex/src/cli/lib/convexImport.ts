@@ -432,7 +432,9 @@ export async function uploadForImport(
   if (chunkSize < minChunkSize) {
     chunkSize = minChunkSize;
   }
-  const data = ctx.fs.createReadStream(filePath, {
+  const data: AsyncIterable<Buffer> & {
+    bytesRead: number;
+  } = ctx.fs.createReadStream(filePath, {
     highWaterMark: chunkSize,
   });
 
@@ -448,6 +450,13 @@ export async function uploadForImport(
     let partNumber = 1;
 
     for await (const chunk of data) {
+      // Strip BOM markers from the first chunk.
+      // Note that we don’t have to worry about the BOM marker being split in multiple chunks:
+      // the chunk size is controlled by `highWaterMark`, so the first chunk will always be larger
+      // than 3 bytes (except for smaller files).
+      const chunkWithoutBom =
+        partNumber === 1 && hasBomMarker(chunk) ? chunk.subarray(3) : chunk;
+
       const partUrl = `/api/import/upload_part?uploadToken=${encodeURIComponent(
         uploadToken,
       )}&partNumber=${partNumber}`;
@@ -455,7 +464,7 @@ export async function uploadForImport(
         headers: {
           "Content-Type": "application/octet-stream",
         },
-        body: chunk,
+        body: chunkWithoutBom,
         method: "POST",
       });
       partTokens.push(await partResp.json());
@@ -483,4 +492,13 @@ export async function uploadForImport(
     return await logAndHandleFetchError(ctx, e);
   }
   return importId;
+}
+
+function hasBomMarker(chunk: Buffer) {
+  return (
+    chunk.length >= 3 &&
+    chunk[0] === 0xef &&
+    chunk[1] === 0xbb &&
+    chunk[2] === 0xbf
+  );
 }
