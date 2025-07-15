@@ -17,6 +17,7 @@ import { subscribe } from "./run.js";
 import { nodeFs } from "../../bundler/fs.js";
 import path from "path";
 import { Readable } from "stream";
+import { stringifyValueForError } from "../../values/value.js";
 
 export async function exportFromDeployment(
   ctx: Context,
@@ -69,12 +70,19 @@ export async function exportFromDeployment(
         printedMessage: `WARNING: Export is continuing to run on the server.`,
       });
     }
+    case "failed": {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Export failed. Please try again later or contact support@convex.dev for help.`,
+      });
+    }
     default: {
       const _: never = snapshotExportState;
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `unknown error: unexpected state ${snapshotExportState as any}`,
+        printedMessage: `unknown error: unexpected state ${stringifyValueForError(snapshotExportState as any)}`,
         errForSentry: `unexpected snapshot export state ${(snapshotExportState as any).state}`,
       });
     }
@@ -94,6 +102,7 @@ export async function exportFromDeployment(
 type SnapshotExportState =
   | { state: "requested" }
   | { state: "in_progress" }
+  | { state: "failed" }
   | {
       state: "completed";
       complete_ts: bigint;
@@ -126,6 +135,7 @@ async function waitForStableExportState(
             // Not a stable state.
             break;
           case "completed":
+          case "failed":
             onDone();
             break;
           default: {
