@@ -165,6 +165,13 @@ mod worker;
 
 pub use worker::SnapshotImportWorker;
 
+// NB: This is a bandaid. In general, we want to retry forever on system
+// failures, because all system failures should be transient. If we have
+// nontransient system errors, those are bugs and we should fix them. However,
+// while we are in the process, use this as a bandaid to limit the damage. Once
+// nontransient system errors are fixed, we can remove this.
+const SNAPSHOT_IMPORT_MAX_SYSTEM_FAILURES: u32 = 3;
+
 struct SnapshotImportExecutor<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
@@ -210,7 +217,9 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             },
             Err(e) => {
                 let mut e = wrap_import_err(e);
-                if e.is_bad_request() {
+                if e.is_bad_request()
+                    || self.backoff.failures() >= SNAPSHOT_IMPORT_MAX_SYSTEM_FAILURES
+                {
                     report_error(&mut e).await;
                     self.database
                         .execute_with_overloaded_retries(
@@ -268,7 +277,9 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             },
             Err(e) => {
                 let mut e = wrap_import_err(e);
-                if e.is_bad_request() {
+                if e.is_bad_request()
+                    || self.backoff.failures() >= SNAPSHOT_IMPORT_MAX_SYSTEM_FAILURES
+                {
                     report_error(&mut e).await;
                     self.database
                         .execute_with_overloaded_retries(
