@@ -128,12 +128,16 @@ impl SubscriptionSender {
     fn drop_with_delay(self, delay: Option<Duration>) {
         self.valid_ts.store(-1, Ordering::SeqCst);
         if let Some(delay) = delay {
+            // Wait to invalidate the subscription by moving it into a new task
             tokio::spawn(async move {
-                tokio::time::sleep(delay).await;
-                _ = self.valid_tx.send(SubscriptionState::Invalid);
+                tokio::select! {
+                    _ = self.valid_tx.closed() => (),
+                    _ = tokio::time::sleep(delay) => (),
+                }
+                drop(self);
             });
         } else {
-            _ = self.valid_tx.send(SubscriptionState::Invalid);
+            drop(self);
         }
     }
 }
