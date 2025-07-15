@@ -139,7 +139,6 @@ Same format as .env.local or .env files, and overrides them.`,
   .addOption(new Option("--local-site-port <port>").hideHelp())
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
-  .addOption(new Option("--partition-id <id>").hideHelp())
   .addOption(
     new Option(
       "--local",
