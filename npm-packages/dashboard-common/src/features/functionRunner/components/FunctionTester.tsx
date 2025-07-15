@@ -582,7 +582,7 @@ export function useFunctionTester({
   const log = useLogDeploymentEvent();
 
   const args = (
-    <div className="scrollbar flex h-full flex-col gap-2 overflow-y-auto">
+    <div className="scrollbar grid h-full gap-2 overflow-y-auto">
       <div className="px-4">
         <div className="flex max-w-[48rem] items-end justify-between">
           <h5 className="text-xs text-content-secondary">Arguments</h5>
@@ -599,7 +599,7 @@ export function useFunctionTester({
           )}
         </div>
       </div>
-      <div className="relative min-h-32 grow overflow-y-auto px-4">
+      <div className="relative min-h-28 grow overflow-y-auto px-4">
         <ObjectEditor
           className="max-w-[48rem] animate-fadeInFromLoading"
           key={
