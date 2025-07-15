@@ -1297,6 +1297,34 @@
         }
       }
     },
+    "/teams/{team_id}/app_access_tokens": {
+      "get": {
+        "operationId": "get_team_app_access_tokens",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/apply_referral_code": {
       "post": {
         "operationId": "apply_referral_code",
