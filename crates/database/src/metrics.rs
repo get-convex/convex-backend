@@ -16,6 +16,7 @@ use metrics::{
     log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
+    CancelableTimer,
     IntoLabel,
     StaticMetricLabel,
     StatusTimer,
@@ -57,6 +58,15 @@ pub fn log_num_indexes_to_backfill(num_indexes: usize) {
 register_convex_counter!(INDEXES_BACKFILLED_TOTAL, "Number of indexes backfilled");
 pub fn log_index_backfilled() {
     log_counter(&INDEXES_BACKFILLED_TOTAL, 1);
+}
+
+register_convex_histogram!(
+    DB_INDEX_BACKFILL_SECONDS,
+    "Time for database indexes to backfill",
+    &STATUS_LABEL
+);
+pub fn index_backfill_timer() -> CancelableTimer {
+    CancelableTimer::new(&DB_INDEX_BACKFILL_SECONDS)
 }
 
 register_convex_histogram!(

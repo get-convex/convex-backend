@@ -100,6 +100,7 @@ use value::{
 
 use crate::{
     metrics::{
+        index_backfill_timer,
         log_index_backfilled,
         log_num_indexes_to_backfill,
     },
@@ -297,6 +298,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     async fn run(&mut self) -> anyhow::Result<()> {
         tracing::info!("Starting IndexWorker");
         loop {
+            let timer = index_backfill_timer();
             // Get all the documents from the `_index` table.
             let mut tx = self.database.begin(Identity::system()).await?;
             // Index doesn't have `by_creation_time` index, and thus can't be queried via
@@ -346,6 +348,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             }
             drop(index_documents);
             if num_to_backfill > 0 {
+                timer.finish(true);
                 // We backfilled at least one index during this loop iteration.
                 // There's no point in subscribing, as we'd immediately be woken by our own
                 // changes.
