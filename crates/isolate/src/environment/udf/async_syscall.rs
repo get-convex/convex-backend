@@ -21,6 +21,7 @@ use common::{
     knobs::{
         MAX_REACTOR_CALL_DEPTH,
         MAX_SYSCALL_BATCH_SIZE,
+        TRANSACTION_MAX_READ_SIZE_ROWS,
     },
     query::{
         Cursor,
@@ -1526,6 +1527,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDocumentsForPagination",
                 "Must request at least 1 document while paginating"
+            ));
+        }
+        if page_size > *TRANSACTION_MAX_READ_SIZE_ROWS {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "PageSizeTooLarge",
+                format!("Requested too many items: {page_size}")
             ));
         }
         if args.maximum_rows_read == Some(0) || args.maximum_bytes_read == Some(0) {

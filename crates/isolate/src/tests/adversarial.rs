@@ -1023,3 +1023,13 @@ async fn test_array_buffer_size_limit(rt: TestRuntime) -> anyhow::Result<()> {
     assert_contains(&e, "RangeError: Array buffer allocation failed");
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_paginate_page_size_limit(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let e = t
+        .query_js_error("adversarial:paginateTooManyItems", assert_obj!())
+        .await?;
+    assert_contains(&e, "Requested too many items");
+    Ok(())
+}

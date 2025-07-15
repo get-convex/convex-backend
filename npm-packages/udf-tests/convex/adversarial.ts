@@ -420,3 +420,9 @@ export const recursiveSubfunction = query(
     }
   },
 );
+
+export const paginateTooManyItems = query(async ({ db }) => {
+  await db
+    .query("test")
+    .paginate({ cursor: null, numItems: Number.MAX_SAFE_INTEGER });
+});
