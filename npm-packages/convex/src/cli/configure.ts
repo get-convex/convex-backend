@@ -110,7 +110,6 @@ export async function deploymentCredentialsOrConfigure(
   deploymentSelection: DeploymentSelection,
   chosenConfiguration: ChosenConfiguration,
   cmdOptions: ConfigureCmdOptions,
-  partitionId?: number | undefined,
 ): Promise<
   DeploymentCredentials & {
     deploymentFields: {
@@ -126,7 +125,6 @@ export async function deploymentCredentialsOrConfigure(
     deploymentSelection,
     chosenConfiguration,
     cmdOptions,
-    partitionId,
   );
 
   if (selectedDeployment.deploymentFields !== null) {
@@ -161,7 +159,6 @@ export async function _deploymentCredentialsOrConfigure(
   deploymentSelection: DeploymentSelection,
   chosenConfiguration: ChosenConfiguration,
   cmdOptions: ConfigureCmdOptions,
-  partitionId?: number | undefined,
 ): Promise<
   DeploymentCredentials & {
     deploymentFields: {
@@ -215,7 +212,6 @@ export async function _deploymentCredentialsOrConfigure(
         chosenConfiguration,
         {
           globallyForceCloud,
-          partitionId,
         },
         cmdOptions,
       );
@@ -232,7 +228,6 @@ export async function _deploymentCredentialsOrConfigure(
         targetProject: deploymentSelection.targetProject,
         cmdOptions,
         globallyForceCloud,
-        partitionId,
       });
     }
     case "anonymous": {
@@ -255,7 +250,6 @@ export async function _deploymentCredentialsOrConfigure(
           chosenConfiguration,
           {
             globallyForceCloud,
-            partitionId,
           },
           cmdOptions,
         );
@@ -311,7 +305,6 @@ export async function _deploymentCredentialsOrConfigure(
         chosenConfiguration,
         {
           globallyForceCloud,
-          partitionId,
         },
         cmdOptions,
       );
@@ -326,13 +319,11 @@ async function handleDeploymentWithinProject(
     targetProject,
     cmdOptions,
     globallyForceCloud,
-    partitionId,
   }: {
     chosenConfiguration: ChosenConfiguration;
     targetProject: ProjectSelection;
     cmdOptions: ConfigureCmdOptions;
     globallyForceCloud: boolean;
-    partitionId?: number | undefined;
   },
 ) {
   const hasAuth = ctx.bigBrainAuth() !== null;
@@ -353,7 +344,6 @@ async function handleDeploymentWithinProject(
       chosenConfiguration,
       {
         globallyForceCloud,
-        partitionId,
       },
       cmdOptions,
     );
@@ -368,7 +358,6 @@ async function handleDeploymentWithinProject(
       chosenConfiguration,
       {
         globallyForceCloud,
-        partitionId,
       },
       cmdOptions,
     );
@@ -410,7 +399,6 @@ async function handleChooseProject(
   chosenConfiguration: ChosenConfiguration,
   args: {
     globallyForceCloud: boolean;
-    partitionId?: number | undefined;
   },
   cmdOptions: ConfigureCmdOptions,
 ): Promise<
@@ -435,7 +423,6 @@ async function handleChooseProject(
     devDeployment: cmdOptions.devDeployment,
     local: args.globallyForceCloud ? false : cmdOptions.local,
     cloud: args.globallyForceCloud ? true : cmdOptions.cloud,
-    partitionId: args.partitionId,
   });
   // TODO complain about any non-default cmdOptions.localOptions here
   // because we're ignoring them if this isn't a local development.
@@ -454,7 +441,6 @@ async function handleChooseProject(
     teamSlug: project.teamSlug,
     projectSlug: project.projectSlug,
     deploymentOptions,
-    partitionId: args.partitionId,
   });
   return {
     url,
@@ -503,7 +489,6 @@ export async function selectProject(
     devDeployment?: "cloud" | "local" | undefined;
     local?: boolean | undefined;
     cloud?: boolean | undefined;
-    partitionId?: number;
     defaultProjectName?: string | undefined;
   },
 ): Promise<{
@@ -540,7 +525,6 @@ async function selectNewProject(
     devDeployment?: "cloud" | "local" | undefined;
     cloud?: boolean | undefined;
     local?: boolean | undefined;
-    partitionId?: number | undefined;
     defaultProjectName?: string | undefined;
   },
 ) {
@@ -578,7 +562,6 @@ async function selectNewProject(
     ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
       teamSlug: selectedTeam,
       projectName,
-      partitionId: config.partitionId,
       // We have to create some deployment initially for a project.
       deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
     }));
@@ -712,7 +695,6 @@ async function ensureDeploymentProvisioned(
     teamSlug: string;
     projectSlug: string;
     deploymentOptions: DeploymentOptions;
-    partitionId: number | undefined;
   },
 ): Promise<DeploymentDetails> {
   switch (options.deploymentOptions.kind) {
@@ -727,7 +709,6 @@ async function ensureDeploymentProvisioned(
             projectSlug: options.projectSlug,
           },
           options.deploymentOptions.kind,
-          options.partitionId,
         );
       return {
         ...credentials,

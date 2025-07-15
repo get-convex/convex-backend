@@ -224,9 +224,6 @@ Same format as .env.local or .env files, and overrides them.`,
       localOptions["forceUpgrade"] = cmdOptions.localForceUpgrade;
     }
 
-    const partitionId = cmdOptions.partitionId
-      ? parseInt(cmdOptions.partitionId)
-      : undefined;
     const configure =
       cmdOptions.configure === true ? "ask" : (cmdOptions.configure ?? null);
     const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
@@ -239,7 +236,6 @@ Same format as .env.local or .env files, and overrides them.`,
         localOptions,
         selectionWithinProject,
       },
-      partitionId,
     );
 
     if (credentials.deploymentFields !== null) {

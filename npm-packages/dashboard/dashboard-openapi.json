@@ -3127,16 +3127,6 @@
               }
             ]
           },
-          "partitionId": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/PartitionId"
-              }
-            ]
-          },
           "projectName": {
             "$ref": "#/components/schemas/ProjectName"
           },
@@ -4011,11 +4001,6 @@
             "type": "string"
           }
         }
-      },
-      "PartitionId": {
-        "type": "integer",
-        "format": "int64",
-        "minimum": 0
       },
       "PaymentMethodResponse": {
         "type": "object",

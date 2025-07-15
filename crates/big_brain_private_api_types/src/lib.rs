@@ -70,7 +70,6 @@ impl DeploymentAuthArgs {
 #[serde(deny_unknown_fields)]
 pub struct DeploymentAuthProdArgs {
     pub deployment_name: String,
-    pub partition_id: Option<PartitionId>,
 }
 
 #[derive(Deserialize, Serialize)]

@@ -174,7 +174,6 @@ async function deployToNewPreviewDeployment(
 
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
-    partitionId?: string | undefined;
   },
 ) {
   const previewName = options.previewCreate ?? gitBranchFromEnvironment();
@@ -215,9 +214,6 @@ async function deployToNewPreviewDeployment(
     data: {
       projectSelection: deploymentSelection.projectSelection,
       identifier: previewName,
-      partitionId: options.partitionId
-        ? parseInt(options.partitionId)
-        : undefined,
     },
   });
 
@@ -285,7 +281,6 @@ async function deployToExistingDeployment(
     url?: string | undefined;
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
-    partitionId?: string | undefined;
     envFile?: string | undefined;
   },
 ) {

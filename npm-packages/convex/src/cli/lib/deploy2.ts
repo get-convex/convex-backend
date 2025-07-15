@@ -299,7 +299,6 @@ export async function deployToDeployment(
     debug?: boolean | undefined;
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
-    partitionId?: string | undefined;
   },
 ) {
   const { url, adminKey } = credentials;

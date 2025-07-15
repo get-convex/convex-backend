@@ -37,12 +37,10 @@ export async function createProject(
   {
     teamSlug: selectedTeamSlug,
     projectName,
-    partitionId,
     deploymentTypeToProvision,
   }: {
     teamSlug: string;
     projectName: string;
-    partitionId?: number;
     deploymentTypeToProvision: "prod" | "dev";
   },
 ): Promise<{
@@ -56,7 +54,6 @@ export async function createProject(
     // TODO: Consider allowing projects with no deployments, or consider switching
     // to provisioning prod on creation.
     deploymentType: deploymentTypeToProvision,
-    partitionId,
   };
   const data = await bigBrainAPI({
     ctx,
@@ -95,12 +92,9 @@ export const deploymentSelectionWithinProjectSchema = z.discriminatedUnion(
   [
     z.object({ kind: z.literal("previewName"), previewName: z.string() }),
     z.object({ kind: z.literal("deploymentName"), deploymentName: z.string() }),
-    z.object({ kind: z.literal("prod"), partitionId: z.number().optional() }),
-    z.object({
-      kind: z.literal("implicitProd"),
-      partitionId: z.number().optional(),
-    }),
-    z.object({ kind: z.literal("ownDev"), partitionId: z.number().optional() }),
+    z.object({ kind: z.literal("prod") }),
+    z.object({ kind: z.literal("implicitProd") }),
+    z.object({ kind: z.literal("ownDev") }),
   ],
 );
 
@@ -116,7 +110,6 @@ type DeploymentSelectionOptionsWithinProject = {
 
   previewName?: string | undefined;
   deploymentName?: string | undefined;
-  partitionId?: string | undefined;
 };
 
 export type DeploymentSelectionOptions =
@@ -136,16 +129,13 @@ export async function deploymentSelectionWithinProjectFromOptions(
   if (options.deploymentName !== undefined) {
     return { kind: "deploymentName", deploymentName: options.deploymentName };
   }
-  const partitionId = options.partitionId
-    ? parseInt(options.partitionId)
-    : undefined;
   if (options.prod) {
-    return { kind: "prod", partitionId };
+    return { kind: "prod" };
   }
   if (options.implicitProd) {
-    return { kind: "implicitProd", partitionId };
+    return { kind: "implicitProd" };
   }
-  return { kind: "ownDev", partitionId };
+  return { kind: "ownDev" };
 }
 
 export async function validateDeploymentSelectionForExistingDeployment(
@@ -295,7 +285,6 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
     | { kind: "teamAndProjectSlugs"; teamSlug: string; projectSlug: string }
     | { kind: "projectDeployKey"; projectDeployKey: string },
   deploymentType: "prod" | "dev",
-  partitionId: number | undefined,
 ): Promise<{
   deploymentName: string;
   deploymentUrl: string;
@@ -334,7 +323,6 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
             ? projectSelection.projectSlug
             : null,
         deploymentType: deploymentType === "prod" ? "prod" : "dev",
-        partitionId,
       },
     });
   } catch (error) {
@@ -380,7 +368,6 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
         projectSlug: slugs.project,
       },
       "dev",
-      undefined,
     );
   return {
     deploymentName: credentials.deploymentName,
@@ -397,7 +384,6 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
 async function handleOwnDev(
   ctx: Context,
   projectSelection: ProjectSelection,
-  partitionId: number | undefined,
 ): Promise<{
   deploymentName: string;
   adminKey: string;
@@ -431,7 +417,6 @@ async function handleOwnDev(
           ctx,
           projectSelection,
           "dev",
-          partitionId,
         );
       return {
         url: credentials.deploymentUrl,
@@ -456,7 +441,6 @@ async function handleOwnDev(
 async function handleProd(
   ctx: Context,
   projectSelection: ProjectSelection,
-  partitionId: number | undefined,
 ): Promise<{
   deploymentName: string;
   adminKey: string;
@@ -471,7 +455,6 @@ async function handleProd(
         url: "deployment/authorize_prod",
         data: {
           deploymentName: projectSelection.deploymentName,
-          partitionId: partitionId,
         },
       });
       return credentials;
@@ -483,7 +466,6 @@ async function handleProd(
           ctx,
           projectSelection,
           "prod",
-          partitionId,
         );
       return {
         url: credentials.deploymentUrl,
@@ -574,19 +556,11 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
 }> {
   switch (deploymentSelection.kind) {
     case "ownDev": {
-      return await handleOwnDev(
-        ctx,
-        projectSelection,
-        deploymentSelection.partitionId,
-      );
+      return await handleOwnDev(ctx, projectSelection);
     }
     case "implicitProd":
     case "prod": {
-      return await handleProd(
-        ctx,
-        projectSelection,
-        deploymentSelection.partitionId,
-      );
+      return await handleProd(ctx, projectSelection);
     }
     case "previewName":
       return await handlePreview(
