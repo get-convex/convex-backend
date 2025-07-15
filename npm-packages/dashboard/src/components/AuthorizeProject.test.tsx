@@ -178,7 +178,6 @@ describe("AuthorizeProject", () => {
       expect(screen.getAllByText(/Test App/)[0]).toBeInTheDocument();
       expect(screen.getByText("Select a team")).toBeInTheDocument();
       expect(screen.getByText("Select a project")).toBeInTheDocument();
-      expect(screen.getByText("Authorize Test App")).toBeInTheDocument();
     },
   );
 
@@ -232,7 +231,7 @@ describe("AuthorizeProject", () => {
       await userEvent.click(screen.getByText("Test Project"));
 
       // Click the authorize button and wait for async operations
-      const authorizeButton = getByText("Authorize Test App");
+      const authorizeButton = getByText("Authorize");
       expect(authorizeButton).toBeEnabled();
       await act(async () => {
         await authorizeButton.click();
@@ -284,7 +283,7 @@ describe("AuthorizeProject", () => {
       });
       await userEvent.click(screen.getByText("Test Project"));
       // Click the authorize button and wait for async operations
-      const authorizeButton = getByText("Authorize Test App");
+      const authorizeButton = getByText("Authorize");
       expect(authorizeButton).toBeEnabled();
       await act(async () => {
         await authorizeButton.click();

@@ -284,7 +284,7 @@ export function AuthorizeProject() {
                 disabled={!selectedProjectId || isRedirecting}
                 loading={formState.isSubmitting}
               >
-                Authorize {callingApplication.name}
+                Authorize
               </Button>
             </div>
           </div>
@@ -304,7 +304,7 @@ type OAuthError =
   | "server_error"
   | "temporarily_unavailable";
 
-interface OAuthConfig {
+export interface OAuthConfig {
   clientId: string;
   redirectUri: string;
   state?: string;
@@ -313,7 +313,7 @@ interface OAuthConfig {
   codeChallengeMethod?: string;
 }
 
-interface ValidatedOAuthConfig {
+export interface ValidatedOAuthConfig {
   clientId: string;
   redirectUri?: string; // Optional since it may be invalid
   state?: string;
@@ -321,7 +321,7 @@ interface ValidatedOAuthConfig {
   codeChallenge?: string;
 }
 
-function validateOAuthConfig(
+export function validateOAuthConfig(
   config: OAuthConfig,
   oauthProviderConfiguration: Record<
     string,
@@ -417,7 +417,7 @@ function validateOAuthConfig(
   };
 }
 
-function redirectUriAllowed(
+export function redirectUriAllowed(
   callingApplication: {
     allowedRedirectsAnySubdomain?: string[];
     allowedRedirects: string[];
@@ -460,7 +460,7 @@ function redirectUriAllowed(
   );
 }
 
-function buildOAuthRedirectUrl(
+export function buildOAuthRedirectUrl(
   validatedConfig: ValidatedOAuthConfig | undefined,
   params: {
     error?: OAuthError;
