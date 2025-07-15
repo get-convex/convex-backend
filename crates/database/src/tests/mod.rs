@@ -1916,6 +1916,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
             unchecked_repeatable_ts(ts),
             &index_metadata,
             IndexSelector::All(index_metadata.clone()),
+            20,
         )
         .await?;
 

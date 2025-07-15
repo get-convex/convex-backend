@@ -57,6 +57,7 @@ use common::{
     },
     runtime::{
         new_rate_limiter,
+        try_join,
         RateLimiter,
         Runtime,
     },
@@ -77,7 +78,10 @@ use common::{
 };
 use futures::{
     pin_mut,
-    stream::FusedStream,
+    stream::{
+        self,
+        FusedStream,
+    },
     Future,
     Stream,
     StreamExt,
@@ -405,6 +409,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     self.database.now_ts_for_reads(),
                     &index_registry,
                     index_selector,
+                    1,
                 )
                 .await?;
         }
@@ -645,39 +650,28 @@ impl<RT: Runtime> IndexWriter<RT> {
         snapshot_ts: RepeatableTimestamp,
         index_metadata: &IndexRegistry,
         index_selector: IndexSelector,
+        concurrency: usize,
     ) -> anyhow::Result<()> {
         // Backfill in two steps: first create index entries for all latest documents,
         // then create index entries for all documents in the retention range.
 
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let handles: Vec<_> = index_selector
-            .iterate_tables()
-            .map(|table_id| {
+        stream::iter(index_selector.iterate_tables().map(Ok))
+            .try_for_each_concurrent(concurrency, |table_id| {
                 let index_metadata = index_metadata.clone();
                 let index_selector = index_selector.clone();
                 let self_ = (*self).clone();
-                let tx = tx.clone();
-                self.runtime
-                    .spawn("index_backfill_table_snapshot", async move {
-                        tokio::select! {
-                            _ = tx.closed() => { /* cancelled */ },
-                            result = self_.backfill_exact_snapshot_of_table(
-                                snapshot_ts,
-                                &index_selector,
-                                &index_metadata,
-                                table_id,
-                            ) => { _ = tx.send(result) },
-                        }
-                    })
+                try_join("index_backfill_table_snapshot", async move {
+                    self_
+                        .backfill_exact_snapshot_of_table(
+                            snapshot_ts,
+                            &index_selector,
+                            &index_metadata,
+                            table_id,
+                        )
+                        .await
+                })
             })
-            .collect();
-        for handle in handles {
-            handle.join().await?;
-        }
-        rx.close();
-        while let Some(result) = rx.recv().await {
-            result?;
-        }
+            .await?;
 
         let mut min_backfilled_ts = snapshot_ts;
 
