@@ -23,7 +23,7 @@ use crate::{
     metrics::log_worker_starting,
     snapshot_import::{
         metrics::{
-            log_snapshot_import_worker_died,
+            log_snapshot_import_failed,
             snapshot_import_timer,
         },
         SnapshotImportExecutor,
@@ -54,7 +54,7 @@ impl SnapshotImportWorker {
         async move {
             loop {
                 if let Err(e) = Self::run_once(&mut worker).await {
-                    log_snapshot_import_worker_died();
+                    log_snapshot_import_failed(&e);
                     report_error(&mut e.context("SnapshotImportWorker died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     worker.runtime.wait(delay).await;

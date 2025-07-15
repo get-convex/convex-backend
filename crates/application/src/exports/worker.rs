@@ -183,7 +183,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         tracing::info!("Export {} canceled", export.id());
                         return Ok(());
                     }
-                    log_export_failed();
+                    log_export_failed(&e);
                     report_error(&mut e).await;
                     let delay = self.backoff.fail(&mut self.runtime.rng());
                     tracing::error!("Export failed, retrying in {delay:?}");

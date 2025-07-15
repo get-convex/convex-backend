@@ -1,10 +1,12 @@
 use std::time::Duration;
 
+use errors::ErrorMetadataAnyhowExt;
 use metrics::{
-    log_counter,
+    log_counter_with_labels,
     log_distribution,
     register_convex_counter,
     register_convex_histogram,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -27,9 +29,15 @@ pub fn log_snapshot_import_age(age: Duration) {
 }
 
 register_convex_counter!(
-    SNAPSHOT_IMPORT_WORKER_DIED_TOTAL,
+    SNAPSHOT_IMPORT_FAILED_TOTAL,
     "Number of times the snapshot import worker died",
+    &["status"]
 );
-pub fn log_snapshot_import_worker_died() {
-    log_counter(&SNAPSHOT_IMPORT_WORKER_DIED_TOTAL, 1);
+pub fn log_snapshot_import_failed(e: &anyhow::Error) {
+    let status = e.metric_status_label_value();
+    log_counter_with_labels(
+        &SNAPSHOT_IMPORT_FAILED_TOTAL,
+        1,
+        vec![StaticMetricLabel::new("status", status)],
+    );
 }
