@@ -131,13 +131,18 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
     }
 
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<Export>>> {
-        let value_query = Query::full_table_scan(EXPORTS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
-        let mut result = vec![];
-        while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<Export> = doc.parse()?;
-            result.push(row);
-        }
+        let result = self
+            .tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<ExportsTable>::by_id(),
+            )?
+            .order(Order::Asc)
+            .all()
+            .await?
+            .into_iter()
+            .map(|doc| (*doc).clone())
+            .collect();
         Ok(result)
     }
 
@@ -183,58 +188,41 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         &mut self,
         export_state: &str,
     ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
-        let index_range = IndexRange {
-            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.name(),
-            range: vec![IndexRangeExpression::Eq(
-                EXPORTS_STATE_FIELD.clone(),
-                maybe_val!(export_state),
-            )],
-            order: Order::Asc,
-        };
-        let query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        query_stream
-            .expect_at_most_one(self.tx)
+        let export = self
+            .tx
+            .query_system(TableNamespace::Global, &*EXPORTS_BY_STATE_AND_TS_INDEX)?
+            .eq(&[export_state])?
+            .unique()
             .await?
-            .map(|doc| doc.parse())
-            .transpose()
+            .map(|doc| (*doc).clone());
+        Ok(export)
     }
 
     pub async fn completed_export_at_ts(
         &mut self,
         snapshot_ts: Timestamp,
     ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
-        let index_range = IndexRange {
-            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.name(),
-            range: vec![
-                IndexRangeExpression::Eq(EXPORTS_STATE_FIELD.clone(), maybe_val!("completed")),
-                IndexRangeExpression::Eq(
-                    EXPORTS_TS_FIELD.clone(),
-                    maybe_val!(i64::from(snapshot_ts)),
-                ),
-            ],
-            order: Order::Desc,
-        };
-        let query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        query_stream
-            .expect_at_most_one(self.tx)
+        let export = self
+            .tx
+            .query_system(TableNamespace::Global, &*EXPORTS_BY_STATE_AND_TS_INDEX)?
+            .eq(&["completed"])?
+            .eq(&[i64::from(snapshot_ts)])?
+            .unique()
             .await?
-            .map(|doc| doc.parse())
-            .transpose()
+            .map(|doc| (*doc).clone());
+        Ok(export)
     }
 
     pub async fn get(
         &mut self,
         snapshot_id: DeveloperDocumentId,
     ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
-        let query = Query::get(EXPORTS_TABLE.clone(), snapshot_id);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        query_stream
-            .expect_at_most_one(self.tx)
+        let export = self
+            .tx
+            .get_system::<ExportsTable>(TableNamespace::Global, snapshot_id)
             .await?
-            .map(|doc| doc.parse())
-            .transpose()
+            .map(|doc| (*doc).clone());
+        Ok(export)
     }
 
     pub async fn set_expiration(
