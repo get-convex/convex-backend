@@ -1,15 +1,13 @@
 // Run with: `cargo bench -p database --bench is_stale --features testing`
 
-use std::{
-    collections::HashSet,
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use anyhow::Result;
 use common::{
-    document_index_keys::{
-        DocumentIndexKeys,
-        SearchValueTokens,
+    document::{
+        CreationTime,
+        PackedDocument,
+        ResolvedDocument,
     },
     index::IndexKey,
     interval::{
@@ -22,17 +20,19 @@ use common::{
     testing::TestIdGenerator,
     types::{
         IndexDescriptor,
+        PersistenceVersion,
         TableName,
         TabletIndexName,
         Timestamp,
     },
     value::{
         id_v6::DeveloperDocumentId,
+        ConvexObject,
         ConvexValue,
+        FieldName,
         TabletIdAndTableNumber,
     },
 };
-use compact_str::CompactString;
 use criterion::{
     criterion_group,
     criterion_main,
@@ -42,14 +42,13 @@ use criterion::{
 use database::{
     write_log::{
         new_write_log,
-        DocumentIndexKeysUpdate,
         LogWriter,
+        PackedDocumentUpdate,
         WriteSource,
     },
     ReadSet,
     TransactionReadSet,
 };
-use maplit::btreemap;
 use search::{
     query::TextQueryTerm,
     FilterConditionRead,
@@ -69,7 +68,8 @@ fn create_test_setup() -> Result<(
     let table_name: TableName = "test_table".parse()?;
     let table_id_and_number = id_generator.user_table_id(&table_name);
 
-    let (_log_owner, _log_reader, log_writer) = new_write_log(Timestamp::must(1000));
+    let (_log_owner, _log_reader, log_writer) =
+        new_write_log(Timestamp::must(1000), PersistenceVersion::default());
 
     Ok((log_writer, id_generator, table_id_and_number, table_name))
 }
@@ -97,22 +97,26 @@ fn create_write_log_with_standard_index_writes(num_writes: usize) -> Result<(Log
             26 + ((i * 7) % 75)
         };
 
-        let index_key = IndexKey::new(vec![val!(value as i64)], id.into());
-        let document_keys =
-            DocumentIndexKeys::with_standard_index_for_test(index_name.clone(), index_key);
-
-        let writes = vec![(
+        let document_update = PackedDocumentUpdate {
             id,
-            DocumentIndexKeysUpdate {
+            old_document: None,
+            new_document: Some(PackedDocument::pack(&ResolvedDocument::new(
                 id,
-                old_document_keys: None,
-                new_document_keys: Some(document_keys),
-            },
-        )];
+                CreationTime::try_from(1.)?,
+                ConvexObject::try_from(
+                    [(
+                        FieldName::from_str("value").unwrap(),
+                        ConvexValue::Int64(value as i64),
+                    )]
+                    .into_iter()
+                    .collect::<std::collections::BTreeMap<_, _>>(),
+                )?,
+            )?)),
+        };
 
         log_writer.append(
             Timestamp::must((1001 + i) as i32),
-            writes.into(),
+            vec![(id, document_update)].into(),
             WriteSource::unknown(),
         );
     }
@@ -199,7 +203,6 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
     // Add writes to the log
     for i in 0..num_writes {
         let id = id_generator.user_generate(&table_name);
-        let search_field: FieldPath = "content".parse()?;
 
         // Generate random text content - some will contain "target" word, but not all
         // documents that match filter conditions
@@ -219,37 +222,45 @@ fn create_write_log_with_search_index_writes(num_writes: usize) -> Result<(LogWr
             text_words.insert(insert_pos, "target");
         }
 
-        let filter_values = btreemap! {
-            "category".parse()? => FilterValue::from_search_value(Some(&ConvexValue::String(
+        let search_value = text_words.join(" ");
+
+        // Create document with search content and filterable fields
+        let mut document_content = std::collections::BTreeMap::<FieldName, ConvexValue>::new();
+        document_content.insert(
+            FieldName::from_str("content")?,
+            ConvexValue::String(search_value.try_into()?),
+        );
+        document_content.insert(
+            FieldName::from_str("category")?,
+            ConvexValue::String(
                 if i % 3 == 0 { "important" } else { "normal" }
                     .to_string()
                     .try_into()?,
-            ))),
-            "priority".parse()? => FilterValue::from_search_value(Some(&ConvexValue::Int64((i % 5 + 1) as i64))),
-            "active".parse()? => FilterValue::from_search_value(Some(&ConvexValue::Boolean(i % 2 == 0))),
-        };
-
-        let text_words_unique: HashSet<CompactString> =
-            text_words.into_iter().map(|a| a.into()).collect();
-        let document_keys = DocumentIndexKeys::with_search_index_for_test_with_filters(
-            index_name.clone(),
-            search_field,
-            SearchValueTokens::from(text_words_unique),
-            filter_values,
+            ),
+        );
+        document_content.insert(
+            FieldName::from_str("priority")?,
+            ConvexValue::Int64((i % 5 + 1) as i64),
+        );
+        document_content.insert(
+            FieldName::from_str("active")?,
+            ConvexValue::Boolean(i % 2 == 0),
         );
 
-        let writes = vec![(
+        let value = ConvexObject::try_from(document_content)?;
+        let creation_time = CreationTime::try_from(1.)?;
+        let document = ResolvedDocument::new(id, creation_time, value)?;
+        let packed_document = PackedDocument::pack(&document);
+
+        let document_update = PackedDocumentUpdate {
             id,
-            DocumentIndexKeysUpdate {
-                id,
-                old_document_keys: None,
-                new_document_keys: Some(document_keys),
-            },
-        )];
+            old_document: None,
+            new_document: Some(packed_document),
+        };
 
         log_writer.append(
             Timestamp::must((1001 + i) as i32),
-            writes.into(),
+            vec![(id, document_update)].into(),
             WriteSource::unknown(),
         );
     }

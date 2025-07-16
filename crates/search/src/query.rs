@@ -14,12 +14,6 @@ use common::{
         CreationTime,
         PackedDocument,
     },
-    document_index_keys::{
-        DocumentIndexKeyValue,
-        DocumentIndexKeys,
-        SearchIndexKeyValue,
-        SearchValueTokens,
-    },
     index::IndexKeyBytes,
     query::FilterValue,
     types::{
@@ -28,7 +22,6 @@ use common::{
         WriteTimestamp,
     },
 };
-use compact_str::CompactString;
 use itertools::{
     Either,
     Itertools,
@@ -43,6 +36,7 @@ use proptest::arbitrary::{
 use proptest::strategy::Strategy;
 use tantivy::{
     schema::Field,
+    tokenizer::TextAnalyzer,
     Score,
     Term,
 };
@@ -55,7 +49,6 @@ use value::{
     ConvexValue,
     FieldPath,
     InternalId,
-    ResolvedDocumentId,
 };
 
 use crate::{
@@ -808,7 +801,11 @@ impl<T: Clone + Ord> SearchTermTries<T> {
     }
 
     #[fastrace::trace]
-    fn overlaps_document<'a>(&'a self, document: &'a PackedDocument) -> bool {
+    fn overlaps_document<'a>(
+        &'a self,
+        document: &'a PackedDocument,
+        analyzer: &'a TextAnalyzer,
+    ) -> bool {
         let mut result = BTreeSet::new();
 
         for (path, tries) in self.terms.iter() {
@@ -816,27 +813,14 @@ impl<T: Clone + Ord> SearchTermTries<T> {
                 continue;
             };
 
-            let tokens = tokenize(document_text);
-            tries.matching_values(&tokens, &mut result);
+            let mut tokens = ValueTokens::new(analyzer, &document_text);
+            tries.matching_values(&mut tokens, &mut result);
             if !result.is_empty() {
                 return true;
             }
         }
 
         false
-    }
-
-    #[fastrace::trace]
-    fn overlaps_index_key_value(&self, index_key_value: &SearchIndexKeyValue) -> bool {
-        let Some(tokens) = &index_key_value.search_field_value else {
-            return false;
-        };
-        let Some(tries) = self.terms.get(&index_key_value.search_field) else {
-            return false;
-        };
-        let mut result = BTreeSet::new();
-        tries.matching_values(tokens, &mut result);
-        !result.is_empty()
     }
 
     fn extend(&mut self, value: T, queries: &WithHeapSize<Vec<TextQueryTermRead>>) {
@@ -910,7 +894,7 @@ impl<T: Clone> Tries<T> {
 }
 
 impl<T: Clone + Ord> Tries<T> {
-    fn matching_values(&self, tokens: &SearchValueTokens, result: &mut BTreeSet<T>) {
+    fn matching_values(&self, tokens: &mut ValueTokens, result: &mut BTreeSet<T>) {
         for ((prefix, _max_distance), trie) in self.tries.iter() {
             // Prefixing is handled by constructing prefix tokens in ValueTokens (see the
             // notes there), so we can get away with a symmetric search where the dfa's
@@ -955,7 +939,6 @@ impl QueryReads {
                 return false;
             }
         }
-
         // If there are no text queries and all filters match, this counts as an
         // overlap.
         if self.text_queries.is_empty() {
@@ -964,42 +947,8 @@ impl QueryReads {
         }
         // If all the filter conditions match and there are text queries, we then check
         // for fuzzy matches.
-        let is_fuzzy_match = self.fuzzy_terms.overlaps_document(document);
-        metrics::log_query_reads_outcome(is_fuzzy_match);
-        is_fuzzy_match
-    }
-
-    #[fastrace::trace]
-    pub fn overlaps_search_index_key_value(&self, index_key_value: &SearchIndexKeyValue) -> bool {
-        let _timer = metrics::query_reads_overlaps_search_value_timer();
-
-        // Filter out documents that don’t match the filter
-        for filter_condition in &self.filter_conditions {
-            let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
-
-            let Some(document_value) = index_key_value.filter_values.get(field_path) else {
-                // This shouldn’t happen because even if the field doesn’t exist in the
-                // document, there is a special `FilterValue` value for
-                // undefined. This could happen if the write log entry was created concurrently
-                // with index definition changes, but it shouldn’t be a problem.
-                metrics::log_missing_filter_value();
-                return false;
-            };
-
-            if *document_value != *filter_value {
-                return false;
-            }
-        }
-
-        // If there are no text queries and all filters match, this counts as an
-        // overlap.
-        if self.text_queries.is_empty() {
-            metrics::log_query_reads_outcome(true);
-            return true;
-        }
-        // If all the filter conditions match and there are text queries, we then check
-        // for fuzzy matches.
-        let is_fuzzy_match = self.fuzzy_terms.overlaps_index_key_value(index_key_value);
+        let analyzer = convex_en();
+        let is_fuzzy_match = self.fuzzy_terms.overlaps_document(document, &analyzer);
         metrics::log_query_reads_outcome(is_fuzzy_match);
         is_fuzzy_match
     }
@@ -1049,42 +998,28 @@ impl TextSearchSubscriptions {
         terms.remove(id, &reads.text_queries);
     }
 
-    pub fn add_matches(
-        &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
-        to_notify: &mut BTreeSet<SubscriberId>,
-    ) {
-        self.add_filter_conditions_matches(document_id, document_index_keys, to_notify);
-        self.add_fuzzy_matches(document_id, document_index_keys, to_notify);
+    pub fn add_matches(&self, document: &PackedDocument, to_notify: &mut BTreeSet<SubscriberId>) {
+        self.add_filter_conditions_matches(document, to_notify);
+        self.add_fuzzy_matches(document, to_notify);
     }
 
     fn add_filter_conditions_matches(
         &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
+        document: &PackedDocument,
         to_notify: &mut BTreeSet<SubscriberId>,
     ) {
         for (index, filter_conditions_map) in &self.filter_conditions {
-            if *index.table() != document_id.tablet_id {
+            if *index.table() != document.id().tablet_id {
                 continue;
             }
 
-            let Some(DocumentIndexKeyValue::Search(SearchIndexKeyValue { filter_values, .. })) =
-                document_index_keys.get(index)
-            else {
-                metrics::log_missing_index_key();
-                continue;
-            };
-
             for (subscriber_id, filter_conditions) in filter_conditions_map {
-                for FilterConditionRead::Must(field_path, filter_value) in filter_conditions {
-                    let Some(document_value) = filter_values.get(field_path) else {
-                        metrics::log_missing_filter_value();
-                        continue;
-                    };
+                for filter_condition in filter_conditions {
+                    let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
+                    let document_value = document.value().get_path(field_path);
+                    let document_value = FilterValue::from_search_value(document_value.as_ref());
 
-                    if document_value == filter_value {
+                    if document_value == *filter_value {
                         metrics::log_query_reads_outcome(true);
                         to_notify.insert(*subscriber_id);
                     }
@@ -1100,51 +1035,90 @@ impl TextSearchSubscriptions {
     /// This inverse looking search optimizes for cases where the number of
     /// reads/subscriptions is significantly larger than the number of
     /// tokens in the document.
-    fn add_fuzzy_matches(
-        &self,
-        document_id: &ResolvedDocumentId,
-        document_index_keys: &DocumentIndexKeys,
-        matches: &mut BTreeSet<SubscriberId>,
-    ) {
-        for (index, fuzzy_terms) in self
+    fn add_fuzzy_matches(&self, document: &PackedDocument, matches: &mut BTreeSet<SubscriberId>) {
+        let analyzer = convex_en();
+        for (_, fuzzy_terms) in self
             .fuzzy_searches
             .iter()
-            .filter(|(index, _)| *index.table() == document_id.tablet_id)
+            .filter(|(index, _)| *index.table() == document.id().tablet_id)
         {
-            let Some(DocumentIndexKeyValue::Search(index_key_value)) =
-                document_index_keys.get(index)
-            else {
-                continue;
-            };
-
-            let Some(tokens) = &index_key_value.search_field_value else {
-                continue;
-            };
-
-            let Some(tries) = fuzzy_terms.terms.get(&index_key_value.search_field) else {
-                continue;
-            };
-
-            tries.matching_values(tokens, matches);
+            for (field, tries) in fuzzy_terms.terms.iter() {
+                let Some(ConvexValue::String(value)) = document.value().get_path(field) else {
+                    continue;
+                };
+                let mut tokens = ValueTokens::new(&analyzer, &value);
+                tries.matching_values(&mut tokens, matches);
+            }
         }
     }
 }
 
-pub fn tokenize(value: ConvexString) -> SearchValueTokens {
-    let analyzer = convex_en();
+struct ValueTokens {
+    tokens: HashSet<String>,
+}
 
-    // Tokenizing the value is expensive, but so is constructing a prefix for
-    // every token. So we always keep track of the list of tokens, but we
-    // only construct the prefixes for each token if we have at least one search in
-    // the read set that uses prefixes.
-    let mut token_stream = analyzer.token_stream(&value);
-    let mut tokens: HashSet<CompactString> = HashSet::new();
-    while token_stream.advance() {
-        let text = &token_stream.token().text;
-        tokens.insert(text.into());
+impl ValueTokens {
+    fn new(analyzer: &TextAnalyzer, value: &ConvexString) -> Self {
+        // Tokenizing the value is expensive, but so is constructing a prefix for
+        // every token. So we always keep track of the list of tokens, but we
+        // only construct the prefixes for each token if we have at least one search in
+        // the read set that uses prefixes.
+        let mut token_stream = analyzer.token_stream(value);
+        let mut tokens = HashSet::new();
+        while token_stream.advance() {
+            let text = &token_stream.token().text;
+            tokens.insert(text.clone());
+        }
+
+        ValueTokens { tokens }
     }
 
-    SearchValueTokens::from(tokens)
+    fn for_each_token<F>(&mut self, prefix: bool, mut for_each: F)
+    where
+        F: FnMut(&str),
+    {
+        if prefix {
+            // We're inverting prefix match here by constructing all possible prefixes for
+            // each term in the document if at least one prefix search exists in
+            // the readset (resulting in this method being called with prefix:
+            // true).
+            //
+            // This lets callers search into tries containing the actual search term with
+            // dfa prefixes set to false and still match based on prefix.
+            // Searching a trie with the document tokens is bounded by the size
+            // of the document, which is expected to be significantly smaller
+            // than the total number of subscriptions for busy backends.
+            for token in self.calculate_prefixes() {
+                for_each(token);
+            }
+        } else {
+            for token in self.tokens.iter() {
+                for_each(token);
+            }
+        }
+    }
+
+    fn calculate_prefixes(&self) -> impl Iterator<Item = &str> + '_ {
+        let mut set: HashSet<&str> = HashSet::new();
+
+        for token in self.tokens.iter() {
+            if !set.insert(token) {
+                continue;
+            }
+            for (i, _) in token.char_indices()
+                // Skip the first index because 0 up to but not including the
+                // first character index is either the empty String or includes
+                // a partial character, neither of which is a valid prefix.
+                .skip(1)
+            {
+                // After that we get all prefixes except for the complete
+                // token (because `..i` always skips the last character
+                // bytes).
+                set.insert(&token[..i]);
+            }
+        }
+        set.into_iter()
+    }
 }
 
 #[cfg(test)]
@@ -1162,6 +1136,7 @@ mod tests {
         ConvexObject,
         ConvexString,
         ConvexValue,
+        FieldName,
         ResolvedDocumentId,
         TabletId,
     };
@@ -1170,6 +1145,7 @@ mod tests {
 
     #[test]
     fn test_search_term_tries_overlaps() -> anyhow::Result<()> {
+        let analyzer = convex_en();
         let mut tries = SearchTermTries::new();
 
         // Create a document with a text field
@@ -1194,7 +1170,7 @@ mod tests {
         tries.extend((), &text_queries);
 
         // Test that the document matches
-        assert!(tries.overlaps_document(&doc));
+        assert!(tries.overlaps_document(&doc, &analyzer));
 
         // Add a non-matching term
         let text_query = TextQueryTermRead::new(
@@ -1205,7 +1181,7 @@ mod tests {
         tries.extend((), &text_queries);
 
         // Document should still match because it matches at least one term
-        assert!(tries.overlaps_document(&doc));
+        assert!(tries.overlaps_document(&doc, &analyzer));
 
         // Create a document that doesn't match any terms
         let mut map = BTreeMap::new();
@@ -1221,13 +1197,14 @@ mod tests {
         )?);
 
         // Document should not match
-        assert!(!tries.overlaps_document(&doc));
+        assert!(!tries.overlaps_document(&doc, &analyzer));
         Ok(())
     }
 
     #[test]
     fn test_search_term_tries_overlaps_returns_false_if_the_field_does_not_exist(
     ) -> anyhow::Result<()> {
+        let analyzer = convex_en();
         let mut tries = SearchTermTries::new();
         let text_query = TextQueryTermRead::new(
             FieldPath::from_str("title")?,
@@ -1242,7 +1219,7 @@ mod tests {
             ConvexObject::try_from(btreemap! {})?,
         )?);
 
-        assert!(!tries.overlaps_document(&doc));
+        assert!(!tries.overlaps_document(&doc, &analyzer));
         Ok(())
     }
 
@@ -1253,7 +1230,16 @@ mod tests {
         let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
         let subscriber_id = SubscriberId::MIN;
 
-        // Query that matches the document
+        // Create a document with a text field
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {
+                FieldName::from_str("text")? => ConvexValue::String(ConvexString::try_from("hello world")?)
+            })?,
+        )?);
+
+        // Create a query that matches the document
         let query_reads = QueryReads::new(
             WithHeapSize::from(vec![TextQueryTermRead::new(
                 FieldPath::from_str("text")?,
@@ -1261,28 +1247,26 @@ mod tests {
             )]),
             WithHeapSize::default(),
         );
-        subscriptions.insert(subscriber_id, &index, &query_reads);
 
-        let keys_matching = DocumentIndexKeys::with_search_index_for_test(
-            index.clone(),
-            FieldPath::from_str("text")?,
-            tokenize(ConvexString::try_from("hello world")?),
-        );
+        // Add the subscription
+        subscriptions.insert(subscriber_id, &index, &query_reads);
 
         // Test matching
         let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &keys_matching, &mut matches);
+        subscriptions.add_fuzzy_matches(&doc, &mut matches);
         assert!(matches.contains(&subscriber_id));
 
         // Test non-matching
-        let keys_non_matching = DocumentIndexKeys::with_search_index_for_test(
-            index.clone(),
-            FieldPath::from_str("text")?,
-            tokenize(ConvexString::try_from("different text")?),
-        );
+        let non_matching_doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {
+                FieldName::from_str("text")? => ConvexValue::String(ConvexString::try_from("different text")?)
+            })?,
+        )?);
 
         let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &keys_non_matching, &mut matches);
+        subscriptions.add_fuzzy_matches(&non_matching_doc, &mut matches);
         assert!(matches.is_empty());
 
         Ok(())
@@ -1295,6 +1279,12 @@ mod tests {
         let index = TabletIndexName::new(tablet_id, IndexDescriptor::new("test_index")?)?;
         let subscriber_id = SubscriberId::MIN;
 
+        let doc = PackedDocument::pack(&ResolvedDocument::new(
+            ResolvedDocumentId::MIN,
+            CreationTime::ONE,
+            ConvexObject::try_from(btreemap! {})?,
+        )?);
+
         let query_reads = QueryReads::new(
             WithHeapSize::from(vec![TextQueryTermRead::new(
                 FieldPath::from_str("text")?,
@@ -1305,25 +1295,10 @@ mod tests {
 
         subscriptions.insert(subscriber_id, &index, &query_reads);
 
-        let index_keys = DocumentIndexKeys::empty_for_test();
-
         let mut matches = BTreeSet::new();
-        subscriptions.add_fuzzy_matches(&ResolvedDocumentId::MIN, &index_keys, &mut matches);
+        subscriptions.add_fuzzy_matches(&doc, &mut matches);
         assert!(matches.is_empty());
 
         Ok(())
-    }
-
-    #[test]
-    fn test_tokenize() {
-        let tokens = tokenize(ConvexString::try_from("Hello world! Hello again!").unwrap());
-        assert!(
-            tokens
-                == SearchValueTokens::from_iter_for_test(vec![
-                    "hello".to_string(),
-                    "world".to_string(),
-                    "again".to_string(),
-                ]),
-        );
     }
 }

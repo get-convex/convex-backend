@@ -13,7 +13,6 @@ use common::{
         DocumentUpdateRef,
         PackedDocument,
     },
-    document_index_keys::DocumentIndexKeys,
     knobs::{
         WRITE_LOG_MAX_RETENTION_SECS,
         WRITE_LOG_MIN_RETENTION_SECS,
@@ -32,9 +31,11 @@ use errors::{
 };
 use futures::Future;
 use imbl::Vector;
-use indexing::index_registry::IndexRegistry;
+use indexing::index_registry::{
+    DocumentIndexKeys,
+    IndexRegistry,
+};
 use parking_lot::Mutex;
-use search::query::tokenize;
 use tokio::sync::oneshot;
 use value::heap_size::{
     HeapSize,
@@ -82,9 +83,10 @@ impl PackedDocumentUpdate {
     }
 }
 
-pub type IterWrites<'a> = std::slice::Iter<'a, (ResolvedDocumentId, DocumentIndexKeysUpdate)>;
+pub type IterWrites<'a> = std::slice::Iter<'a, (ResolvedDocumentId, PackedDocumentUpdate)>;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct DocumentIndexKeysUpdate {
     pub id: ResolvedDocumentId,
     pub old_document_keys: Option<DocumentIndexKeys>,
@@ -92,6 +94,7 @@ pub struct DocumentIndexKeysUpdate {
 }
 
 impl DocumentIndexKeysUpdate {
+    #[allow(dead_code)]
     pub fn from_document_update(
         full: PackedDocumentUpdate,
         index_registry: &IndexRegistry,
@@ -100,10 +103,10 @@ impl DocumentIndexKeysUpdate {
             id: full.id,
             old_document_keys: full
                 .old_document
-                .map(|old_doc| index_registry.document_index_keys(old_doc, tokenize)),
+                .map(|old_doc| index_registry.document_index_keys(old_doc)),
             new_document_keys: full
                 .new_document
-                .map(|new_doc| index_registry.document_index_keys(new_doc, tokenize)),
+                .map(|new_doc| index_registry.document_index_keys(new_doc)),
         }
     }
 }
@@ -114,15 +117,17 @@ impl HeapSize for DocumentIndexKeysUpdate {
     }
 }
 
-type OrderedIndexKeyWrites = WithHeapSize<Vec<(ResolvedDocumentId, DocumentIndexKeysUpdate)>>;
+#[allow(dead_code)]
+type OrderedIndexKeysWrites = WithHeapSize<Vec<(ResolvedDocumentId, DocumentIndexKeysUpdate)>>;
 
 /// Converts [OrderedDocumentWrites] (the log used in `PendingWrites` that
-/// contains full documents) to [OrderedIndexKeyWrites] (the log used
+/// contains full documents) to [OrderedIndexKeysWrites] (the log used
 /// in `WriteLog` that contains only index keys).
+#[allow(dead_code)]
 pub fn index_keys_from_full_documents(
     ordered_writes: OrderedDocumentWrites,
     index_registry: &IndexRegistry,
-) -> OrderedIndexKeyWrites {
+) -> OrderedIndexKeysWrites {
     let elements: Vec<_> = ordered_writes
         .into_iter()
         .map(|(id, update)| {
@@ -181,8 +186,8 @@ struct WriteLogManager {
 }
 
 impl WriteLogManager {
-    fn new(initial_timestamp: Timestamp) -> Self {
-        let log = WriteLog::new(initial_timestamp);
+    fn new(initial_timestamp: Timestamp, persistence_version: PersistenceVersion) -> Self {
+        let log = WriteLog::new(initial_timestamp, persistence_version);
         let waiters = VecDeque::new();
         Self { log, waiters }
     }
@@ -205,7 +210,7 @@ impl WriteLogManager {
         }
     }
 
-    fn append(&mut self, ts: Timestamp, writes: OrderedIndexKeyWrites, write_source: WriteSource) {
+    fn append(&mut self, ts: Timestamp, writes: OrderedDocumentWrites, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
         self.log
@@ -268,15 +273,17 @@ impl WriteLogManager {
 /// they may trigger subscriptions.
 #[derive(Clone)]
 struct WriteLog {
-    by_ts: WithHeapSize<Vector<Arc<(Timestamp, OrderedIndexKeyWrites, WriteSource)>>>,
+    by_ts: WithHeapSize<Vector<Arc<(Timestamp, OrderedDocumentWrites, WriteSource)>>>,
     purged_ts: Timestamp,
+    persistence_version: PersistenceVersion,
 }
 
 impl WriteLog {
-    fn new(initial_timestamp: Timestamp) -> Self {
+    fn new(initial_timestamp: Timestamp, persistence_version: PersistenceVersion) -> Self {
         Self {
             by_ts: WithHeapSize::default(),
             purged_ts: initial_timestamp,
+            persistence_version,
         }
     }
 
@@ -322,7 +329,7 @@ impl WriteLog {
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
         block_in_place(|| {
             let log_range = self.iter(reads_ts.succ()?, ts)?;
-            Ok(reads.writes_overlap_index_keys(log_range))
+            Ok(reads.writes_overlap(log_range, self.persistence_version))
         })
     }
 
@@ -346,8 +353,14 @@ impl WriteLog {
     }
 }
 
-pub fn new_write_log(initial_timestamp: Timestamp) -> (LogOwner, LogReader, LogWriter) {
-    let log_manager = Arc::new(Mutex::new(WriteLogManager::new(initial_timestamp)));
+pub fn new_write_log(
+    initial_timestamp: Timestamp,
+    persistence_version: PersistenceVersion,
+) -> (LogOwner, LogReader, LogWriter) {
+    let log_manager = Arc::new(Mutex::new(WriteLogManager::new(
+        initial_timestamp,
+        persistence_version,
+    )));
     (
         LogOwner {
             inner: log_manager.clone(),
@@ -452,7 +465,7 @@ impl LogWriter {
     pub fn append(
         &mut self,
         ts: Timestamp,
-        writes: OrderedIndexKeyWrites,
+        writes: OrderedDocumentWrites,
         write_source: WriteSource,
     ) {
         block_in_place(|| self.inner.lock().append(ts, writes, write_source));
@@ -544,7 +557,7 @@ impl PendingWrites {
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        Ok(reads.writes_overlap_docs(self.iter(reads_ts.succ()?, ts), self.persistence_version))
+        Ok(reads.writes_overlap(self.iter(reads_ts.succ()?, ts), self.persistence_version))
     }
 
     pub fn pop_first(
@@ -580,8 +593,12 @@ impl PendingWriteHandle {
 #[cfg(test)]
 mod tests {
     use common::{
-        self,
-        document_index_keys::DocumentIndexKeys,
+        assert_obj,
+        document::{
+            CreationTime,
+            DocumentUpdate,
+            ResolvedDocument,
+        },
         index::IndexKey,
         interval::{
             BinaryKey,
@@ -593,6 +610,7 @@ mod tests {
         testing::TestIdGenerator,
         types::{
             IndexDescriptor,
+            PersistenceVersion,
             TabletIndexName,
             Timestamp,
         },
@@ -608,7 +626,7 @@ mod tests {
             TransactionReadSet,
         },
         write_log::{
-            DocumentIndexKeysUpdate,
+            PackedDocumentUpdate,
             WriteLogManager,
             WriteSource,
         },
@@ -616,7 +634,8 @@ mod tests {
 
     #[test]
     fn test_write_log() -> anyhow::Result<()> {
-        let mut log_manager = WriteLogManager::new(Timestamp::must(1000));
+        let mut log_manager =
+            WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
         assert_eq!(log_manager.log.purged_ts, Timestamp::must(1000));
         assert_eq!(log_manager.log.max_ts(), Timestamp::must(1000));
 
@@ -694,25 +713,24 @@ mod tests {
     #[test_runtime]
     async fn test_is_stale(_rt: TestRuntime) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let mut log_manager = WriteLogManager::new(Timestamp::must(1000));
+        let mut log_manager =
+            WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
         let table_id = id_generator.user_table_id(&"t".parse()?).tablet_id;
         let id = id_generator.user_generate(&"t".parse()?);
         let index_key = IndexKey::new(vec![val!(5)], id.into());
         let index_key_binary: BinaryKey = index_key.to_bytes().into();
         let index_name =
             TabletIndexName::new(table_id, IndexDescriptor::new("by_k").unwrap()).unwrap();
+        let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("k" => 5))?;
         log_manager.append(
             Timestamp::must(1003),
             vec![(
                 id,
-                DocumentIndexKeysUpdate {
+                PackedDocumentUpdate::pack(&DocumentUpdate {
                     id,
-                    old_document_keys: None,
-                    new_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
-                        index_name.clone(),
-                        index_key.clone(),
-                    )),
-                },
+                    old_document: None,
+                    new_document: Some(doc.clone()),
+                }),
             )]
             .into(),
             WriteSource::unknown(),
@@ -816,19 +834,17 @@ mod tests {
             index_name.clone()
         );
 
-        let mut delete_log_manager = WriteLogManager::new(Timestamp::must(1000));
+        let mut delete_log_manager =
+            WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
         delete_log_manager.append(
             Timestamp::must(1003),
             vec![(
                 id,
-                DocumentIndexKeysUpdate {
+                PackedDocumentUpdate::pack(&DocumentUpdate {
                     id,
-                    old_document_keys: Some(DocumentIndexKeys::with_standard_index_for_test(
-                        index_name.clone(),
-                        index_key,
-                    )),
-                    new_document_keys: None,
-                },
+                    old_document: Some(doc),
+                    new_document: None,
+                }),
             )]
             .into(),
             WriteSource::unknown(),
