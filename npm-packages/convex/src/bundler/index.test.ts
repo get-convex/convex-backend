@@ -182,13 +182,16 @@ test("must use isolate", () => {
   expect(mustBeIsolate("schema/http.js")).not.toBeTruthy();
 });
 
-test("normalizeModulePath removes Windows drive letter and normalizes slashes", () => {
-  // Windows drive letter with forward slashes
-  expect(normalizeModulePath("C:/Users/test/out/convex/foo.js")).toBe("Users/test/out/convex/foo.js");
-  // Windows drive letter with backslashes
-  expect(normalizeModulePath("D:\\project\\out\\convex\\bar.js")).toBe("project/out/convex/bar.js");
-  // Already relative path
-  expect(normalizeModulePath("convex/foo.js")).toBe("convex/foo.js");
-  // No drive letter, just slashes
-  expect(normalizeModulePath("/convex/foo.js")).toBe("/convex/foo.js");
+test("normalizeModulePath creates valid module identifiers from output paths", () => {
+  // Test typical case: esbuild output in out/ directory
+  expect(normalizeModulePath("out/convex/myFunction.js")).toBe("convex/myFunction.js");
+  expect(normalizeModulePath("out\\actions\\myAction.js")).toBe("actions/myAction.js");
+  
+  // Test Windows absolute paths (typical Windows scenario)
+  expect(normalizeModulePath("C:\\project\\out\\convex\\foo.js")).toBe("convex/foo.js");
+  expect(normalizeModulePath("D:/Users/dev/myapp/out/convex/bar.js")).toBe("convex/bar.js");
+  
+  // Test custom base directory
+  expect(normalizeModulePath("build/convex/test.js", "build")).toBe("convex/test.js");
+  expect(normalizeModulePath("C:/project/dist/actions/upload.js", "dist")).toBe("actions/upload.js");
 });

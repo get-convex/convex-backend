@@ -206,8 +206,7 @@ export async function bundle(
       sourceMaps.set(relPath, outputFile.text);
       continue;
     }
-    const posixRelPath = relPath.split(path.sep).join(path.posix.sep);
-    const normalizedPath = normalizeModulePath(posixRelPath);
+    const normalizedPath = normalizeModulePath(outputFile.path);
     modules.push({ path: normalizedPath, source: outputFile.text, environment });
   }
   for (const module of modules) {
@@ -438,11 +437,37 @@ export async function entryPoints(
 // A fallback regex in case we fail to parse the AST.
 export const useNodeDirectiveRegex = /^\s*("|')use node("|');?\s*$/;
 
-export function normalizeModulePath(posixRelPath: string): string {
-  // Remove Windows drive letter (e.g., "C:/" or "D:/") if present
-  let noDrive = posixRelPath.replace(/^[A-Za-z]:\\|^[A-Za-z]:\//, "");
-  // Convert all backslashes to forward slashes
-  return noDrive.replace(/\\/g, "/");
+export function normalizeModulePath(outputPath: string, baseDir: string = "out"): string {
+  // Normalize both paths to handle mixed separators (Windows/POSIX)
+  const normalizedOutput = outputPath.replace(/\\/g, '/');
+  const normalizedBase = baseDir.replace(/\\/g, '/');
+  
+  // Extract the relative path from the esbuild output directory
+  const relativePath = path.posix.relative(normalizedBase, normalizedOutput);
+  
+  // Ensure we don't have upward traversal in module identifiers
+  if (relativePath.startsWith('../')) {
+    // For absolute paths or paths outside the base, extract just the meaningful part
+    const outputParts = normalizedOutput.split('/');
+    const baseParts = normalizedBase.split('/');
+    
+    // Find where the base directory appears in the output path
+    const baseIndex = outputParts.findIndex((part, index) => {
+      return baseParts.every((basePart, bIndex) => 
+        outputParts[index + bIndex] === basePart
+      );
+    });
+    
+    if (baseIndex >= 0) {
+      // Extract everything after the base directory
+      return outputParts.slice(baseIndex + baseParts.length).join('/');
+    }
+    
+    // Fallback: if we can't find the base, return the filename part
+    return outputParts[outputParts.length - 1];
+  }
+  
+  return relativePath;
 }
 
 function hasUseNodeDirective(ctx: Context, fpath: string): boolean {
