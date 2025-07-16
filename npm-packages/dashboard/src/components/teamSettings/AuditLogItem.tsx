@@ -561,6 +561,18 @@ function EntryAction({
         </>
       );
     }
+    case "verifyOAuthApplication": {
+      return <span>verified an OAuth application</span>;
+    }
+    case "deleteOAuthApplication": {
+      return <span>deleted an OAuth application</span>;
+    }
+    case "createOAuthApplication": {
+      return <span>created an OAuth application</span>;
+    }
+    case "updateOAuthApplication": {
+      return <span>updated an OAuth application</span>;
+    }
     default:
       // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
       const notAllowed: never = action;

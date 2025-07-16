@@ -1177,6 +1177,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/oauth_apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_oauth_apps_for_team"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/oauth_apps/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["check_oauth_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/oauth_apps/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["register_oauth_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/oauth_apps/{client_id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete_oauth_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/oauth_apps/{client_id}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["update_oauth_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/projects": {
         parameters: {
             query?: never;
@@ -1529,7 +1609,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1614,6 +1694,10 @@ export interface components {
         };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
+        };
+        CheckOauthAppArgs: {
+            clientId: string;
+            redirectUri: string;
         };
         /** Format: int64 */
         CloudBackupId: number;
@@ -1842,6 +1926,13 @@ export interface components {
             id: components["schemas"]["MemberId"];
             name?: string | null;
         };
+        OauthAppResponse: {
+            appName: components["schemas"]["AppName"];
+            clientId: string;
+            clientSecret?: string | null;
+            redirectUris: string[];
+            verified: boolean;
+        };
         OptIn: {
             tos: string;
         };
@@ -1938,6 +2029,10 @@ export interface components {
         ReferralState: {
             referrals: components["schemas"]["TeamName"][];
             referredBy?: null | components["schemas"]["TeamName"];
+        };
+        RegisterOauthAppArgs: {
+            appName: components["schemas"]["AppName"];
+            redirectUris: string[];
         };
         RemoveMemberArgs: {
             memberId: components["schemas"]["MemberId"];
@@ -2084,6 +2179,10 @@ export interface components {
             memberId: components["schemas"]["MemberId"];
             role: components["schemas"]["Role"];
         };
+        UpdateOauthAppArgs: {
+            appName?: null | components["schemas"]["AppName"];
+            redirectUris?: string[] | null;
+        };
         UpdatePaymentMethodArgs: {
             paymentMethod: string;
         };
@@ -2155,6 +2254,7 @@ export type BillingContactResponse = components['schemas']['BillingContactRespon
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
 export type ChangePrimaryIdentityRequest = components['schemas']['ChangePrimaryIdentityRequest'];
 export type ChangeSubscriptionPlanArgs = components['schemas']['ChangeSubscriptionPlanArgs'];
+export type CheckOauthAppArgs = components['schemas']['CheckOauthAppArgs'];
 export type CloudBackupId = components['schemas']['CloudBackupId'];
 export type CloudBackupResponse = components['schemas']['CloudBackupResponse'];
 export type ConfigurePeriodicBackupArgs = components['schemas']['ConfigurePeriodicBackupArgs'];
@@ -2195,6 +2295,7 @@ export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type MemberResponse = components['schemas']['MemberResponse'];
+export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
 export type OrbSubscriptionResponse = components['schemas']['OrbSubscriptionResponse'];
@@ -2218,6 +2319,7 @@ export type ProvisionDeploymentDashboardResponse = components['schemas']['Provis
 export type RecordTokensArgs = components['schemas']['RecordTokensArgs'];
 export type ReferralCode = components['schemas']['ReferralCode'];
 export type ReferralState = components['schemas']['ReferralState'];
+export type RegisterOauthAppArgs = components['schemas']['RegisterOauthAppArgs'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs'];
 export type RequestDestination = components['schemas']['RequestDestination'];
@@ -2244,6 +2346,7 @@ export type UpdateBillingContactArgs = components['schemas']['UpdateBillingConta
 export type UpdateEnvironmentVariable = components['schemas']['UpdateEnvironmentVariable'];
 export type UpdateEnvironmentVariables = components['schemas']['UpdateEnvironmentVariables'];
 export type UpdateMemberRoleArgs = components['schemas']['UpdateMemberRoleArgs'];
+export type UpdateOauthAppArgs = components['schemas']['UpdateOauthAppArgs'];
 export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethodArgs'];
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
 export type UpdateProjectArgs = components['schemas']['UpdateProjectArgs'];
@@ -3872,6 +3975,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamMemberResponse"][];
+                };
+            };
+        };
+    };
+    list_oauth_apps_for_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppResponse"][];
+                };
+            };
+        };
+    };
+    check_oauth_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckOauthAppArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppResponse"];
+                };
+            };
+        };
+    };
+    register_oauth_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterOauthAppArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppResponse"];
+                };
+            };
+        };
+    };
+    delete_oauth_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: components["schemas"]["TeamId"];
+                /** @description The client ID of the OAuth app to delete */
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_oauth_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: components["schemas"]["TeamId"];
+                /** @description The client ID of the OAuth app to update */
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOauthAppArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OauthAppResponse"];
                 };
             };
         };

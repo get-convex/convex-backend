@@ -1950,6 +1950,181 @@
         }
       }
     },
+    "/teams/{team_id}/oauth_apps": {
+      "get": {
+        "operationId": "list_oauth_apps_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OauthAppResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/check": {
+      "post": {
+        "operationId": "check_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckOauthAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/register": {
+      "post": {
+        "operationId": "register_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterOauthAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/{client_id}/delete": {
+      "post": {
+        "operationId": "delete_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "The client ID of the OAuth app to delete",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/{client_id}/update": {
+      "post": {
+        "operationId": "update_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "The client ID of the OAuth app to update",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOauthAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/projects": {
       "get": {
         "operationId": "get_projects_for_team",
@@ -2688,7 +2863,11 @@
           "deleteCloudBackup",
           "disableTeamExceedingSpendingLimits",
           "setSpendingLimit",
-          "applyReferralCode"
+          "applyReferralCode",
+          "createOAuthApplication",
+          "updateOAuthApplication",
+          "deleteOAuthApplication",
+          "verifyOAuthApplication"
         ]
       },
       "AuditLogActor": {
@@ -3055,6 +3234,22 @@
         ],
         "properties": {
           "newPlanId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CheckOauthAppArgs": {
+        "type": "object",
+        "required": [
+          "clientId",
+          "redirectUri"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "redirectUri": {
             "type": "string"
           }
         },
@@ -3950,6 +4145,38 @@
           }
         }
       },
+      "OauthAppResponse": {
+        "type": "object",
+        "required": [
+          "clientId",
+          "appName",
+          "redirectUris",
+          "verified"
+        ],
+        "properties": {
+          "appName": {
+            "$ref": "#/components/schemas/AppName"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "redirectUris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      },
       "OptIn": {
         "oneOf": [
           {
@@ -4344,6 +4571,25 @@
             ]
           }
         }
+      },
+      "RegisterOauthAppArgs": {
+        "type": "object",
+        "required": [
+          "appName",
+          "redirectUris"
+        ],
+        "properties": {
+          "appName": {
+            "$ref": "#/components/schemas/AppName"
+          },
+          "redirectUris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "RemoveMemberArgs": {
         "type": "object",
@@ -4830,6 +5076,31 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateOauthAppArgs": {
+        "type": "object",
+        "properties": {
+          "appName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AppName"
+              }
+            ]
+          },
+          "redirectUris": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
