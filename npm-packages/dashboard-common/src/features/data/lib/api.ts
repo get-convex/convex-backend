@@ -1,10 +1,14 @@
 import { useCallback, useContext } from "react";
-import { useSWRConfig } from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import {
   useDeploymentUrl,
   useAdminKey,
   useDeploymentAuthHeader,
+  deploymentAuthMiddleware,
+  useDeploymentIsDisconnected,
 } from "@common/lib/deploymentApi";
+import { deploymentFetch } from "@common/lib/fetching";
+import { useNents } from "@common/lib/useNents";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useDeleteTables(): (
@@ -46,7 +50,7 @@ export const useInvalidateShapes = () => {
 };
 
 export type Index = {
-  table?: string;
+  table: string;
   name: string;
   fields:
     | string[]
@@ -61,9 +65,27 @@ export type Index = {
       };
   backfill: {
     state: "in_progress" | "done";
-    stats?: {
-      numDocsIndexed: number;
-      totalDocs: number;
-    };
   };
 };
+
+export function useTableIndexes(tableName: string): {
+  indexes?: Index[];
+  hadError: boolean;
+} {
+  const { selectedNent } = useNents();
+  const query = selectedNent ? `?componentId=${selectedNent.id}` : "";
+  const isDisconnected = useDeploymentIsDisconnected();
+  const { data, error } = useSWR<{ indexes: Index[] }>(
+    isDisconnected ? null : `/api/get_indexes${query}`,
+    deploymentFetch,
+    {
+      use: [deploymentAuthMiddleware],
+      shouldRetryOnError: false,
+    },
+  );
+
+  return {
+    hadError: !!error,
+    indexes: data?.indexes.filter((index) => index.table === tableName),
+  };
+}

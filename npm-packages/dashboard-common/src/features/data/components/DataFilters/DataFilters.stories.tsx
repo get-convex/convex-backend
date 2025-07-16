@@ -16,11 +16,7 @@ const deployment: ConnectedDeployment = {};
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
   .registerQueryFake(udfs.getVersion.default, () => "0.19.0")
-  .registerQueryFake(udfs.components.list, () => [])
-  .registerQueryFake(
-    udfs.indexes.default,
-    ({ tableName: _tableName, componentId: _componentId }) => [],
-  );
+  .registerQueryFake(udfs.components.list, () => []);
 
 export default {
   component: DataFilters,
