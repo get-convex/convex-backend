@@ -1073,3 +1073,43 @@ register_convex_histogram!(
 pub fn log_subscriptions_invalidated(num: usize) {
     log_distribution(&SUBSCRIPTION_INVALIDATION_UPDATES, num as f64);
 }
+
+register_convex_histogram!(
+    SUBSCRIPTION_LOG_ITERATE_SECONDS,
+    "Time to iterate over the write log when advancing subscriptions",
+);
+pub fn subscriptions_log_iterate_timer() -> Timer<VMHistogram> {
+    Timer::new(&SUBSCRIPTION_LOG_ITERATE_SECONDS)
+}
+
+register_convex_histogram!(
+    SUBSCRIPTION_LOG_INVALIDATE_SECONDS,
+    "Time to invalidate segsstiptions when edvancing rh_ log",
+);
+pub fn subscriptions_invalidate_timer() -> Timer<VMHistogram> {
+    Timer::new(&SUBSCRIPTION_LOG_INVALIDATE_SECONDS)
+}
+
+register_convex_histogram!(
+    SUBSCRIPTION_LOG_ENFORCE_RETENTION_SECONDS,
+    "Time to enforce retention policy when advancing subscriptions",
+);
+pub fn subscriptions_log_enforce_retention_timer() -> Timer<VMHistogram> {
+    Timer::new(&SUBSCRIPTION_LOG_ENFORCE_RETENTION_SECONDS)
+}
+
+register_convex_counter!(
+    SUBSCRIPTION_LOG_ITERATE_TOTAL,
+    "Total number of entries in the write log when advancing subscriptions",
+);
+pub fn log_subscriptions_log_length(log_len: usize) {
+    log_counter(&SUBSCRIPTION_LOG_ITERATE_TOTAL, log_len as u64);
+}
+
+register_convex_counter!(
+    SUBSCRIPTION_LOG_WRITES,
+    "Number of writes in the write log when advancing subscriptions",
+);
+pub fn log_subscriptions_log_writes(num_writes: usize) {
+    log_counter(&SUBSCRIPTION_LOG_WRITES, num_writes as u64);
+}
