@@ -330,7 +330,9 @@ This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and
   </Step>
 
   <Step title="Add authentication routes">
-    Create the required authentication routes for WorkOS AuthKit to handle sign-in, sign-up, and callback flows:
+    Create the required authentication routes for WorkOS AuthKit to handle sign-in, sign-up, and callback flows.
+
+    These routes enable the authentication flow by providing endpoints for users to sign in, sign up, and return after authentication.
 
     **Create the callback route** to handle OAuth callbacks:
 
@@ -339,8 +341,9 @@ This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and
 
     export const GET = handleAuth();
     ```
+  </Step>
 
-    **Create the sign-in route** to redirect users to WorkOS sign-in:
+  <Step title="Create the sign-in route">
 
     ```tsx title="app/sign-in/route.ts"
     import { redirect } from 'next/navigation';
@@ -351,8 +354,10 @@ This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and
       return redirect(authorizationUrl);
     }
     ```
+  </Step>
 
-    **Create the sign-up route** to redirect users to WorkOS sign-up:
+  <Step title="Create the sign-up route">
+    To redirect users to WorkOS sign-up:
 
     ```tsx title="app/sign-up/route.ts"
     import { redirect } from 'next/navigation';
@@ -363,8 +368,6 @@ This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and
       return redirect(authorizationUrl);
     }
     ```
-
-    These routes enable the authentication flow by providing endpoints for users to sign in, sign up, and return after authentication.
   </Step>
 
   <Step title="Configure ConvexProviderWithAuthKit">
