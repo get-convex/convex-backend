@@ -7,7 +7,7 @@ import { GenericDatabaseReader } from "convex/server";
 async function getTableId(
   db: GenericDatabaseReader<DataModel>,
   tableName: string,
-  componentId: string | null,
+  tableNamespace: string | null,
 ): Promise<string> {
   // Get the table id for the tablename
   const tablesWithName = await db
@@ -16,7 +16,7 @@ async function getTableId(
     .filter((q) => q.eq(q.field("state"), "active"))
     .collect();
   let tableId;
-  if (componentId === null) {
+  if (tableNamespace === null) {
     const tables = tablesWithName.filter(
       (table) => table.namespace === undefined,
     );
@@ -28,14 +28,14 @@ async function getTableId(
     tableId = tables[0]._id;
   } else {
     const tables = tablesWithName.filter(
-      (table) => table.namespace && table.namespace.id === componentId,
+      (table) => table.namespace && table.namespace.id === tableNamespace,
     );
     if (tables.length !== 1) {
       throw new Error(
         "Table not found for tableName" +
           tableName +
           " in the componentId " +
-          componentId,
+          tableNamespace,
       );
     }
     tableId = tables[0]._id;
@@ -50,13 +50,18 @@ async function getTableId(
 export default queryPrivateSystem({
   args: {
     tableName: v.optional(v.union(v.string(), v.null())),
-    componentId: v.union(v.string(), v.null()),
+    // Pass the `componentId` for this arg.
+    // Note that this arg is named `tableNamespace` not `componentId` because if it is `componentId`,
+    // the queries will be executed within the component's table namespace,
+    // which doesn't have the `_index` or `_index_backfills` tables
+    // We only need this argument to get the correct tableId.
+    tableNamespace: v.union(v.string(), v.null()),
   },
-  handler: async ({ db }, { tableName, componentId }) => {
+  handler: async ({ db }, { tableName, tableNamespace }) => {
     if (!tableName) {
       return undefined;
     }
-    const tableId = await getTableId(db, tableName, componentId);
+    const tableId = await getTableId(db, tableName, tableNamespace);
     const indexes = await db
       .query("_index")
       .withIndex("by_id", (q) => q)
