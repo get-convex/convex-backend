@@ -68,6 +68,7 @@ use common::{
         LatestDocument,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         PersistenceReader,
         PersistenceTableSize,
         RetentionValidator,
@@ -78,8 +79,6 @@ use common::{
     sha256::Sha256,
     shutdown::ShutdownSignal,
     types::{
-        DatabaseIndexUpdate,
-        DatabaseIndexValue,
         IndexId,
         PersistenceVersion,
         Timestamp,
@@ -87,7 +86,6 @@ use common::{
     value::{
         ConvexValue,
         InternalDocumentId,
-        ResolvedDocumentId,
         TabletId,
     },
 };
@@ -348,7 +346,7 @@ impl Persistence for PostgresPersistence {
     async fn write(
         &self,
         documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        indexes: BTreeSet<PersistenceIndexEntry>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
@@ -457,8 +455,8 @@ impl Persistence for PostgresPersistence {
                         let mut index_chunks = index_vec.chunks_exact(CHUNK_SIZE);
                         for chunk in &mut index_chunks {
                             let mut params = Vec::with_capacity(chunk.len() * NUM_INDEX_PARAMS);
-                            for (ts, update) in chunk {
-                                params.extend(index_params(&(*ts, update.clone())));
+                            for update in chunk {
+                                params.extend(index_params(update));
                             }
                             let future = async {
                                 let timer = metrics::insert_index_chunk_timer();
@@ -470,8 +468,8 @@ impl Persistence for PostgresPersistence {
                         }
 
                         // After we've inserted all the full index chunks, drain the remainder.
-                        for (ts, update) in index_chunks.remainder() {
-                            let params = index_params(&(*ts, update.clone()));
+                        for update in index_chunks.remainder() {
+                            let params = index_params(update);
                             let future = async {
                                 let timer = metrics::insert_one_index_timer();
                                 tx.execute_raw(&insert_index, params).await?;
@@ -1513,26 +1511,23 @@ fn internal_id_param(id: InternalId) -> Param {
 fn internal_doc_id_param(id: InternalDocumentId) -> Param {
     internal_id_param(id.internal_id())
 }
-fn resolved_id_param(id: &ResolvedDocumentId) -> Param {
-    internal_id_param(id.internal_id())
-}
 
-fn index_params((ts, update): &(Timestamp, DatabaseIndexUpdate)) -> [Param; NUM_INDEX_PARAMS] {
-    let key: Vec<u8> = update.key.to_bytes().0;
+fn index_params(update: &PersistenceIndexEntry) -> [Param; NUM_INDEX_PARAMS] {
+    let key: Vec<u8> = update.key.to_vec();
     let key_sha256 = Sha256::hash(&key);
     let key = SplitKey::new(key);
 
     let (deleted, tablet_id, doc_id) = match &update.value {
-        DatabaseIndexValue::Deleted => (Param::Deleted(true), Param::None, Param::None),
-        DatabaseIndexValue::NonClustered(doc_id) => (
+        None => (Param::Deleted(true), Param::None, Param::None),
+        Some(doc_id) => (
             Param::Deleted(false),
-            Param::TableId(doc_id.tablet_id),
-            resolved_id_param(doc_id),
+            Param::TableId(doc_id.table()),
+            internal_doc_id_param(*doc_id),
         ),
     };
     [
         internal_id_param(update.index_id),
-        Param::Ts(i64::from(*ts)),
+        Param::Ts(i64::from(update.ts)),
         Param::Bytes(key.prefix),
         match key.suffix {
             Some(key_suffix) => Param::Bytes(key_suffix),

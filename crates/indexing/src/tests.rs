@@ -28,6 +28,7 @@ use common::{
         DocumentLogEntry,
         NoopRetentionValidator,
         Persistence,
+        PersistenceIndexEntry,
         RepeatablePersistence,
     },
     testing::{
@@ -604,7 +605,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
         ],
         index_updates
             .into_iter()
-            .map(|u| (Timestamp::must(2), u))
+            .map(|u| PersistenceIndexEntry::from_index_update(Timestamp::must(2), u))
             .collect(),
         ConflictStrategy::Error,
     )

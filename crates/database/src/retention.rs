@@ -1710,6 +1710,7 @@ mod tests {
             ConflictStrategy,
             NoopRetentionValidator,
             Persistence,
+            PersistenceIndexEntry,
             RepeatablePersistence,
         },
         query::Order,
@@ -1722,8 +1723,6 @@ mod tests {
         try_chunks::TryChunksExt,
         types::{
             unchecked_repeatable_ts,
-            DatabaseIndexUpdate,
-            DatabaseIndexValue,
             GenericIndexName,
             IndexDescriptor,
             RepeatableTimestamp,
@@ -1787,42 +1786,28 @@ mod tests {
         let by_id = |id: ResolvedDocumentId,
                      ts: i32,
                      deleted: bool|
-         -> anyhow::Result<(Timestamp, DatabaseIndexUpdate)> {
-            let key = IndexKey::new(vec![], id.into());
-            Ok((
-                Timestamp::must(ts),
-                DatabaseIndexUpdate {
-                    index_id: by_id_index_id,
-                    key,
-                    value: if deleted {
-                        DatabaseIndexValue::Deleted
-                    } else {
-                        DatabaseIndexValue::NonClustered(id)
-                    },
-                    is_system_index: false,
-                },
-            ))
+         -> anyhow::Result<PersistenceIndexEntry> {
+            let key = IndexKey::new(vec![], id.into()).to_bytes();
+            Ok(PersistenceIndexEntry {
+                ts: Timestamp::must(ts),
+                index_id: by_id_index_id,
+                key,
+                value: if deleted { None } else { Some(id.into()) },
+            })
         };
 
         let by_val = |id: ResolvedDocumentId,
                       ts: i32,
                       val: i64,
                       deleted: bool|
-         -> anyhow::Result<(Timestamp, DatabaseIndexUpdate)> {
-            let key = IndexKey::new(vec![ConvexValue::from(val)], id.into());
-            Ok((
-                Timestamp::must(ts),
-                DatabaseIndexUpdate {
-                    index_id: by_val_index_id,
-                    key,
-                    value: if deleted {
-                        DatabaseIndexValue::Deleted
-                    } else {
-                        DatabaseIndexValue::NonClustered(id)
-                    },
-                    is_system_index: false,
-                },
-            ))
+         -> anyhow::Result<PersistenceIndexEntry> {
+            let key = IndexKey::new(vec![ConvexValue::from(val)], id.into()).to_bytes();
+            Ok(PersistenceIndexEntry {
+                ts: Timestamp::must(ts),
+                index_id: by_val_index_id,
+                key,
+                value: if deleted { None } else { Some(id.into()) },
+            })
         };
 
         let id1 = id_generator.user_generate(&table);

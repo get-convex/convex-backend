@@ -790,6 +790,7 @@ mod tests {
             ConflictStrategy,
             DocumentLogEntry,
             Persistence,
+            PersistenceIndexEntry,
             RepeatablePersistence,
         },
         query::{
@@ -1182,7 +1183,10 @@ mod tests {
                         prev_ts: None,
                     }),
                 ],
-                index_updates.into_iter().map(|u| (ts, u)).collect(),
+                index_updates
+                    .into_iter()
+                    .map(|u| PersistenceIndexEntry::from_index_update(ts, u))
+                    .collect(),
                 ConflictStrategy::Error,
             )
             .await?;

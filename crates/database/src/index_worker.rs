@@ -41,6 +41,7 @@ use common::{
         ConflictStrategy,
         LatestDocument,
         Persistence,
+        PersistenceIndexEntry,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -751,7 +752,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                     index_updates
                         .into_iter()
                         .filter(|update| index_selector.filter_index_update(update))
-                        .map(|update| (ts, update)),
+                        .map(|update| PersistenceIndexEntry::from_index_update(ts, update)),
                 );
             }
             if !chunk.is_empty() {
@@ -982,7 +983,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 if !index_selector.filter_index_update(&update) {
                     continue;
                 }
-                chunk.insert((ts, update));
+                chunk.insert(PersistenceIndexEntry::from_index_update(ts, update));
             }
             if !chunk.is_empty() {
                 num_entries_written += chunk.len();

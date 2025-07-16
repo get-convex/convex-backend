@@ -37,14 +37,13 @@ use common::{
         LatestDocument,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         PersistenceReader,
         RetentionValidator,
         TimestampRange,
     },
     query::Order,
     types::{
-        DatabaseIndexUpdate,
-        DatabaseIndexValue,
         IndexId,
         PersistenceVersion,
         Timestamp,
@@ -264,7 +263,7 @@ impl Persistence for SqlitePersistence {
     async fn write(
         &self,
         documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        indexes: BTreeSet<PersistenceIndexEntry>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         let mut inner = self.inner.lock();
@@ -298,27 +297,27 @@ impl Persistence for SqlitePersistence {
         } else {
             tx.prepare_cached(INSERT_INDEX)?
         };
-        for (ts, update) in indexes {
+        for update in indexes {
             let index_id = update.index_id;
-            let key: Vec<u8> = update.key.to_bytes().0;
+            let key: Vec<u8> = update.key.0;
             match update.value {
-                DatabaseIndexValue::Deleted => {
+                None => {
                     insert_index_query.execute(params![
                         &index_id[..],
-                        &u64::from(ts),
+                        &u64::from(update.ts),
                         key,
                         &1,
                         &Null,
                         &Null,
                     ])?;
                 },
-                DatabaseIndexValue::NonClustered(doc_id) => {
+                Some(doc_id) => {
                     insert_index_query.execute(params![
                         &index_id[..],
-                        &u64::from(ts),
+                        &u64::from(update.ts),
                         key,
                         &0,
-                        &doc_id.tablet_id.0[..],
+                        &doc_id.table().0[..],
                         &doc_id.internal_id()[..],
                     ])?;
                 },

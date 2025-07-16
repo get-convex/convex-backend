@@ -74,6 +74,7 @@ use common::{
         LatestDocument,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         PersistenceReader,
         PersistenceTableSize,
         RetentionValidator,
@@ -84,8 +85,6 @@ use common::{
     sha256::Sha256,
     shutdown::ShutdownSignal,
     types::{
-        DatabaseIndexUpdate,
-        DatabaseIndexValue,
         IndexId,
         PersistenceVersion,
         Timestamp,
@@ -93,7 +92,6 @@ use common::{
     value::{
         ConvexValue,
         InternalDocumentId,
-        ResolvedDocumentId,
         TabletId,
     },
 };
@@ -268,7 +266,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
     async fn write(
         &self,
         documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        indexes: BTreeSet<PersistenceIndexEntry>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
@@ -356,9 +354,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                                 ConflictStrategy::Overwrite => &insert_overwrite_chunk_query,
                             };
                             let mut insert_index_chunk_params = vec![];
-                            for (ts, update) in chunk {
-                                let update = update.clone();
-                                index_params(&mut insert_index_chunk_params, *ts, update);
+                            for update in chunk {
+                                index_params(&mut insert_index_chunk_params, update);
                             }
                             let future = async {
                                 let timer =
@@ -1288,25 +1285,22 @@ fn internal_id_param(id: InternalId) -> Vec<u8> {
 fn internal_doc_id_param(id: InternalDocumentId) -> Vec<u8> {
     internal_id_param(id.internal_id())
 }
-fn resolved_id_param(id: &ResolvedDocumentId) -> Vec<u8> {
-    internal_id_param(id.internal_id())
-}
 
-fn index_params(query: &mut Vec<mysql_async::Value>, ts: Timestamp, update: DatabaseIndexUpdate) {
-    let key: Vec<u8> = update.key.to_bytes().0;
+fn index_params(query: &mut Vec<mysql_async::Value>, update: &PersistenceIndexEntry) {
+    let key: Vec<u8> = update.key.to_vec();
     let key_sha256 = Sha256::hash(&key);
     let key = SplitKey::new(key);
 
     let (deleted, tablet_id, doc_id) = match &update.value {
-        DatabaseIndexValue::Deleted => (true, None, None),
-        DatabaseIndexValue::NonClustered(doc_id) => (
+        None => (true, None, None),
+        Some(doc_id) => (
             false,
-            Some(internal_id_param(doc_id.tablet_id.0)),
-            Some(resolved_id_param(doc_id)),
+            Some(internal_id_param(doc_id.table().0)),
+            Some(internal_doc_id_param(*doc_id)),
         ),
     };
     query.push(internal_id_param(update.index_id).into());
-    query.push(i64::from(ts).into());
+    query.push(i64::from(update.ts).into());
     query.push(key.prefix.into());
     query.push(
         match key.suffix {

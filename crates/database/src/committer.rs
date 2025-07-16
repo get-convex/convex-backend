@@ -48,6 +48,7 @@ use common::{
         DocumentLogEntry,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -806,6 +807,10 @@ impl<RT: Runtime> Committer<RT> {
                 value: write.write.document,
                 prev_ts: write.prev_ts,
             })
+            .collect();
+        let index_writes = index_writes
+            .into_iter()
+            .map(|(ts, update)| PersistenceIndexEntry::from_index_update(ts, update))
             .collect();
         persistence
             .write(document_writes, index_writes, ConflictStrategy::Error)

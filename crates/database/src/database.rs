@@ -69,6 +69,7 @@ use common::{
         LatestDocumentStream,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         PersistenceReader,
         PersistenceSnapshot,
         RepeatablePersistence,
@@ -1254,7 +1255,7 @@ impl<RT: Runtime> Database<RT> {
             .collect();
         let index_writes = index_writes
             .into_iter()
-            .map(|update| (ts, update))
+            .map(|update| PersistenceIndexEntry::from_index_update(ts, update))
             .collect();
 
         // Write _tables.by_id and _index.by_id to persistence globals for

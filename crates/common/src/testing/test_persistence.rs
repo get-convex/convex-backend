@@ -19,7 +19,6 @@ use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use value::{
     InternalDocumentId,
-    ResolvedDocumentId,
     TabletId,
 };
 
@@ -45,6 +44,7 @@ use crate::{
         LatestDocument,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         PersistenceReader,
         RetentionValidator,
         TimestampRange,
@@ -52,8 +52,6 @@ use crate::{
     query::Order,
     run_persistence_test_suite,
     types::{
-        DatabaseIndexUpdate,
-        DatabaseIndexValue,
         IndexId,
         PersistenceVersion,
         Timestamp,
@@ -98,7 +96,7 @@ impl Persistence for TestPersistence {
     async fn write(
         &self,
         documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        indexes: BTreeSet<PersistenceIndexEntry>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         let mut inner = self.inner.lock();
@@ -116,26 +114,26 @@ impl Persistence for TestPersistence {
                 .insert((update.ts, update.id), (update.value, update.prev_ts));
         }
         inner.is_fresh = false;
-        for (ts, update) in indexes {
-            let index_key_bytes = update.key.to_bytes();
+        for update in indexes {
+            let index_key_bytes = update.key;
             anyhow::ensure!(
                 conflict_strategy == ConflictStrategy::Overwrite
                     || !inner
                         .index
                         .get(&update.index_id)
-                        .map(|idx| idx.contains_key(&(index_key_bytes.clone(), ts)))
+                        .map(|idx| idx.contains_key(&(index_key_bytes.clone(), update.ts)))
                         .unwrap_or(false),
                 "Unique constraint not satisfied. Failed to write to index {} at ts {} with key \
                  {:?}: (key, ts) pair already exists",
                 update.index_id,
-                ts,
-                update.key
+                update.ts,
+                index_key_bytes
             );
             inner
                 .index
                 .entry(update.index_id)
                 .or_default()
-                .insert((index_key_bytes, ts), update.value);
+                .insert((index_key_bytes, update.ts), update.value);
         }
         Ok(())
     }
@@ -166,7 +164,7 @@ impl Persistence for TestPersistence {
             .flat_map(|(index_id, tree)| {
                 tree.iter().map(|((key, ts), v)| IndexEntry {
                     index_id: *index_id,
-                    deleted: v.is_delete(),
+                    deleted: v.is_none(),
                     key_prefix: key.0.clone(),
                     key_suffix: None,
                     key_sha256: key.0.clone(),
@@ -363,19 +361,17 @@ impl PersistenceReader for TestPersistence {
             None => Box::new(iter::empty()),
         };
 
-        let mut results: Vec<(IndexKeyBytes, Timestamp, ResolvedDocumentId)> = Vec::new();
+        let mut results: Vec<(IndexKeyBytes, Timestamp, InternalDocumentId)> = Vec::new();
         let mut maybe_add_value =
-            |entry: Option<(&(IndexKeyBytes, Timestamp), &DatabaseIndexValue)>| match entry {
-                Some(((k, ts), value)) => match value {
-                    DatabaseIndexValue::Deleted => {},
-                    DatabaseIndexValue::NonClustered(doc_id) => {
-                        // Lookup the document by id and timestamp.
-                        results.push((k.clone(), *ts, *doc_id));
-                    },
+            |entry: Option<(&(IndexKeyBytes, Timestamp), &Option<InternalDocumentId>)>| match entry
+            {
+                None | Some((_, None)) => {},
+                Some(((k, ts), Some(doc_id))) => {
+                    // Lookup the document by id and timestamp.
+                    results.push((k.clone(), *ts, *doc_id));
                 },
-                None => {},
             };
-        let mut previous: Option<(&(IndexKeyBytes, Timestamp), &DatabaseIndexValue)> = None;
+        let mut previous: Option<(&(IndexKeyBytes, Timestamp), &Option<InternalDocumentId>)> = None;
         for current in it {
             if current.0 .1 > read_timestamp {
                 // Outside of read snapshot.
@@ -402,7 +398,7 @@ impl PersistenceReader for TestPersistence {
         let results: Vec<anyhow::Result<(IndexKeyBytes, LatestDocument)>> = results
             .into_iter()
             .map(|(k, ts, doc_id)| -> anyhow::Result<_> {
-                let (value, prev_ts) = lock.lookup(doc_id.into(), ts)?;
+                let (value, prev_ts) = lock.lookup(doc_id, ts)?;
                 Ok((k, LatestDocument { ts, value, prev_ts }))
             })
             .collect();
@@ -426,7 +422,7 @@ struct Inner {
     is_fresh: bool,
     is_read_only: bool,
     log: BTreeMap<(Timestamp, InternalDocumentId), (Option<ResolvedDocument>, Option<Timestamp>)>,
-    index: BTreeMap<IndexId, BTreeMap<(IndexKeyBytes, Timestamp), DatabaseIndexValue>>,
+    index: BTreeMap<IndexId, BTreeMap<(IndexKeyBytes, Timestamp), Option<InternalDocumentId>>>,
     persistence_globals: BTreeMap<PersistenceGlobalKey, JsonValue>,
 }
 

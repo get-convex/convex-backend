@@ -36,10 +36,9 @@ use crate::{
         DocumentLogEntry,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
     },
     types::{
-        DatabaseIndexUpdate,
-        DatabaseIndexValue,
         TableName,
         Timestamp,
     },
@@ -191,11 +190,11 @@ impl TestIdGenerator {
                 DeveloperDocumentId::new(tables_table_id.table_number, table_id.0),
             );
             let doc = ResolvedDocument::new(id, CreationTime::ONE, table_metadata.try_into()?)?;
-            let index_update = DatabaseIndexUpdate {
+            let index_update = PersistenceIndexEntry {
+                ts,
                 index_id: tables_by_id,
-                key: IndexKey::new(vec![], id.into()),
-                value: DatabaseIndexValue::NonClustered(id),
-                is_system_index: false,
+                key: IndexKey::new(vec![], id.into()).to_bytes(),
+                value: Some(doc.id_with_table_id()),
             };
             documents.push(DocumentLogEntry {
                 ts,
@@ -203,7 +202,7 @@ impl TestIdGenerator {
                 value: Some(doc),
                 prev_ts: None,
             });
-            indexes.insert((ts, index_update));
+            indexes.insert(index_update);
         }
         p.write(documents, indexes, ConflictStrategy::Error).await?;
         Ok(())

@@ -58,6 +58,7 @@ use crate::{
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
+        PersistenceIndexEntry,
         TimestampRange,
     },
     query::Order,
@@ -66,8 +67,6 @@ use crate::{
         test_id_generator::TestIdGenerator,
     },
     types::{
-        DatabaseIndexUpdate,
-        DatabaseIndexValue,
         TableName,
         Timestamp,
     },
@@ -646,11 +645,11 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     )?;
     let fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let key = doc.index_key(&fields, p.reader().version());
-    let index_update = DatabaseIndexUpdate {
+    let index_update = PersistenceIndexEntry {
+        ts,
         index_id: index_id.internal_id(),
-        key: key.clone(),
-        value: DatabaseIndexValue::NonClustered(doc.id()),
-        is_system_index: false,
+        key: key.to_bytes(),
+        value: Some(doc.id_with_table_id()),
     };
     p.write(
         vec![DocumentLogEntry {
@@ -659,7 +658,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
             value: Some(doc.clone()),
             prev_ts: None,
         }],
-        btreeset!((ts, index_update.clone())),
+        btreeset!(index_update.clone()),
         ConflictStrategy::Error,
     )
     .await?;
@@ -667,7 +666,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let err = p
         .write(
             vec![],
-            btreeset!((ts, index_update.clone())),
+            btreeset!(index_update.clone()),
             ConflictStrategy::Error,
         )
         .await
@@ -677,15 +676,12 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     // Writing with `ConflictStrategy::Overwrite` should succeed.
     p.write(
         vec![],
-        btreeset!((
+        btreeset!(PersistenceIndexEntry {
             ts,
-            DatabaseIndexUpdate {
-                index_id: index_id.internal_id(),
-                key: key.clone(),
-                value: DatabaseIndexValue::Deleted,
-                is_system_index: false,
-            },
-        )),
+            index_id: index_id.internal_id(),
+            key: key.to_bytes(),
+            value: None,
+        }),
         ConflictStrategy::Overwrite,
     )
     .await?;
@@ -863,24 +859,22 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
             },
         ],
         btreeset!(
-            (
+            PersistenceIndexEntry {
                 ts,
-                DatabaseIndexUpdate {
-                    index_id: index1_id,
-                    key: doc1.index_key(&index_fields, p.reader().version()),
-                    value: DatabaseIndexValue::NonClustered(doc1.id()),
-                    is_system_index: false,
-                }
-            ),
-            (
+                index_id: index1_id,
+                key: doc1
+                    .index_key(&index_fields, p.reader().version())
+                    .to_bytes(),
+                value: Some(doc1.id_with_table_id()),
+            },
+            PersistenceIndexEntry {
                 ts,
-                DatabaseIndexUpdate {
-                    index_id: index2_id,
-                    key: doc1.index_key(&index_fields, p.reader().version()),
-                    value: DatabaseIndexValue::NonClustered(doc2.id()),
-                    is_system_index: false,
-                }
-            )
+                index_id: index2_id,
+                key: doc1
+                    .index_key(&index_fields, p.reader().version())
+                    .to_bytes(),
+                value: Some(doc2.id_with_table_id()),
+            }
         ),
         ConflictStrategy::Error,
     )
@@ -954,19 +948,19 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             assert_obj!("value" => value.clone()),
         )?;
         let key = doc.index_key(&fields, p.reader().version());
-        let mut index_updates = vec![DatabaseIndexUpdate {
+        let mut index_updates = vec![PersistenceIndexEntry {
+            ts: *ts,
             index_id,
-            key: key.clone(),
-            value: DatabaseIndexValue::NonClustered(doc_id),
-            is_system_index: false,
+            key: key.to_bytes(),
+            value: Some(doc.id_with_table_id()),
         }];
         if let Some(old_key) = old_key {
             if old_key != key {
-                index_updates.push(DatabaseIndexUpdate {
+                index_updates.push(PersistenceIndexEntry {
+                    ts: *ts,
                     index_id,
-                    key: old_key,
-                    value: DatabaseIndexValue::Deleted,
-                    is_system_index: false,
+                    key: old_key.to_bytes(),
+                    value: None,
                 })
             }
         }
@@ -977,7 +971,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
                 value: Some(doc),
                 prev_ts: None,
             }],
-            index_updates.into_iter().map(|u| (*ts, u)).collect(),
+            index_updates.into_iter().collect(),
             ConflictStrategy::Error,
         )
         .await?;
@@ -1059,15 +1053,12 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
         let key = doc.index_key(&fields, p.reader().version());
         keys.push(key.clone());
         keys_to_doc.insert(key.clone(), doc.clone());
-        indexes.insert((
+        indexes.insert(PersistenceIndexEntry {
             ts,
-            DatabaseIndexUpdate {
-                index_id,
-                key,
-                value: DatabaseIndexValue::NonClustered(doc_id),
-                is_system_index: false,
-            },
-        ));
+            index_id,
+            key: key.to_bytes(),
+            value: Some(doc.id_with_table_id()),
+        });
     }
 
     p.write(documents, indexes, ConflictStrategy::Error).await?;
@@ -1167,15 +1158,12 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
                 value: Some(doc.clone()),
                 prev_ts: None,
             });
-            indexes.insert((
+            indexes.insert(PersistenceIndexEntry {
                 ts,
-                DatabaseIndexUpdate {
-                    index_id,
-                    key: key.clone(),
-                    value: DatabaseIndexValue::NonClustered(doc_id),
-                    is_system_index: false,
-                },
-            ));
+                index_id,
+                key: key.to_bytes(),
+                value: Some(doc.id_with_table_id()),
+            });
             index_to_results.entry(index_id).or_default().push((
                 key.to_bytes(),
                 LatestDocument {
@@ -1228,20 +1216,18 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let doc_id = id_generator.user_generate(&table);
     let document = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => 20))?;
-    let index_update = DatabaseIndexUpdate {
+    let index_update = PersistenceIndexEntry {
+        ts,
         index_id,
-        key: document.index_key(&index_fields, p.reader().version()),
-        value: DatabaseIndexValue::NonClustered(document.id()),
-        is_system_index: false,
+        key: document
+            .index_key(&index_fields, p.reader().version())
+            .to_bytes(),
+        value: Some(document.id_with_table_id()),
     };
 
     // Note we don't write the document!
-    p.write(
-        vec![],
-        btreeset!((ts, index_update)),
-        ConflictStrategy::Error,
-    )
-    .await?;
+    p.write(vec![], btreeset!(index_update), ConflictStrategy::Error)
+        .await?;
 
     let results: Vec<_> = p
         .reader()
@@ -1277,11 +1263,13 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let doc_id = id_generator.user_generate(&table);
     let document = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => 20))?;
-    let index_update = DatabaseIndexUpdate {
+    let index_update = PersistenceIndexEntry {
+        ts,
         index_id,
-        key: document.index_key(&index_fields, p.reader().version()),
-        value: DatabaseIndexValue::NonClustered(document.id()),
-        is_system_index: false,
+        key: document
+            .index_key(&index_fields, p.reader().version())
+            .to_bytes(),
+        value: Some(document.id_with_table_id()),
     };
 
     // Note that we write a deleted document.
@@ -1294,7 +1282,7 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
                 prev_ts: None,
             }),
         ],
-        btreeset!((ts, index_update)),
+        btreeset!(index_update),
         ConflictStrategy::Error,
     )
     .await?;
@@ -1341,11 +1329,13 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
 
         let document =
             ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => value))?;
-        let index_update = DatabaseIndexUpdate {
+        let index_update = PersistenceIndexEntry {
+            ts,
             index_id,
-            key: document.index_key(&index_fields, p.reader().version()),
-            value: DatabaseIndexValue::NonClustered(document.id()),
-            is_system_index: false,
+            key: document
+                .index_key(&index_fields, p.reader().version())
+                .to_bytes(),
+            value: Some(document.id_with_table_id()),
         };
         p.write(
             vec![
@@ -1356,7 +1346,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
                     prev_ts: None,
                 }),
             ],
-            btreeset!((ts, index_update)),
+            btreeset!(index_update),
             ConflictStrategy::Error,
         )
         .await?;
@@ -1566,45 +1556,29 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
     let table: TableName = str::parse("table")?;
     let tablet_id = id_generator.user_table_id(&table).tablet_id;
 
-    let by_id = |id: ResolvedDocumentId,
-                 ts: i32,
-                 deleted: bool|
-     -> anyhow::Result<(Timestamp, DatabaseIndexUpdate)> {
-        let key = IndexKey::new(vec![], id.into());
-        Ok((
-            Timestamp::must(ts),
-            DatabaseIndexUpdate {
+    let by_id =
+        |id: ResolvedDocumentId, ts: i32, deleted: bool| -> anyhow::Result<PersistenceIndexEntry> {
+            let key = IndexKey::new(vec![], id.into()).to_bytes();
+            Ok(PersistenceIndexEntry {
+                ts: Timestamp::must(ts),
                 index_id: by_id_index_id,
                 key,
-                value: if deleted {
-                    DatabaseIndexValue::Deleted
-                } else {
-                    DatabaseIndexValue::NonClustered(id)
-                },
-                is_system_index: false,
-            },
-        ))
-    };
+                value: if deleted { None } else { Some(id.into()) },
+            })
+        };
 
     let by_val = |id: ResolvedDocumentId,
                   ts: i32,
                   val: i64,
                   deleted: bool|
-     -> anyhow::Result<(Timestamp, DatabaseIndexUpdate)> {
-        let key = IndexKey::new(vec![assert_val!(val)], id.into());
-        Ok((
-            Timestamp::must(ts),
-            DatabaseIndexUpdate {
-                index_id: by_val_index_id,
-                key,
-                value: if deleted {
-                    DatabaseIndexValue::Deleted
-                } else {
-                    DatabaseIndexValue::NonClustered(id)
-                },
-                is_system_index: false,
-            },
-        ))
+     -> anyhow::Result<PersistenceIndexEntry> {
+        let key = IndexKey::new(vec![assert_val!(val)], id.into()).to_bytes();
+        Ok(PersistenceIndexEntry {
+            ts: Timestamp::must(ts),
+            index_id: by_val_index_id,
+            key,
+            value: if deleted { None } else { Some(id.into()) },
+        })
     };
 
     let id1 = id_generator.user_generate(&table);

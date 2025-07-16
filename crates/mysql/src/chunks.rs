@@ -11,15 +11,10 @@ use common::{
     persistence::{
         DocumentLogEntry,
         DocumentPrevTsQuery,
+        PersistenceIndexEntry,
     },
-    types::{
-        DatabaseIndexUpdate,
-        Timestamp,
-    },
-    value::{
-        InternalDocumentId,
-        ResolvedDocumentId,
-    },
+    types::Timestamp,
+    value::InternalDocumentId,
 };
 
 pub trait ApproxSize {
@@ -77,9 +72,9 @@ impl ApproxSize for DocumentLogEntry {
     }
 }
 
-impl ApproxSize for DatabaseIndexUpdate {
+impl ApproxSize for PersistenceIndexEntry {
     fn approx_size(&self) -> usize {
-        self.index_id.size() + self.key.to_bytes().len() + ResolvedDocumentId::MIN.size()
+        self.index_id.size() + self.key.len() + InternalDocumentId::MIN.size()
     }
 }
 
