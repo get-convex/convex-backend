@@ -63,7 +63,7 @@ export type Index = {
     state: "in_progress" | "done";
     stats?: {
       numDocsIndexed: number;
-      totalDocs: number;
+      totalDocs: number | null;
     };
   };
 };

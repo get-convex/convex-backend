@@ -293,46 +293,34 @@ export default defineSchema({
         type: v.literal("search"),
         searchField: v.string(),
         filterFields: v.array(v.string()),
-        onDiskState: v.union(
-          v.object({
-            type: v.literal("Backfilling"),
-            segments: v.optional(v.array(v.any())),
-            cursor: v.optional(v.any()),
-          }),
-          v.object({
-            type: v.literal("Backfilled"),
-          }),
-          v.object({
-            type: v.literal("SnapshottedAt"),
-          }),
-        ),
+        onDiskState: v.object({
+          state: v.union(
+            v.literal("backfilling"),
+            v.literal("backfilling2"),
+            v.literal("backfilled"),
+            v.literal("snapshotted"),
+          ),
+        }),
       }),
       v.object({
         type: v.literal("vector"),
         vectorField: v.string(),
         dimensions: v.int64(),
         filterFields: v.array(v.string()),
-        onDiskState: v.union(
-          v.object({
-            type: v.literal("Backfilling"),
-            segments: v.optional(v.array(v.any())),
-            document_cursor: v.optional(v.string()),
-            backfill_snapshot_ts: v.optional(v.int64()),
-          }),
-          v.object({
-            type: v.literal("Backfilled"),
-          }),
-          v.object({
-            type: v.literal("SnapshottedAt"),
-          }),
-        ),
+        onDiskState: v.object({
+          state: v.union(
+            v.literal("backfilling"),
+            v.literal("backfilled"),
+            v.literal("snapshotted"),
+          ),
+        }),
       }),
     ),
   }),
   _index_backfills: defineTable({
     indexId: v.id("_index"),
     numDocsIndexed: v.int64(),
-    totalDocs: v.int64(),
+    totalDocs: v.union(v.int64(), v.null()),
   }).index("by_index_id", ["indexId"]),
   _components: defineTable({
     definitionId: v.id("_component_definitions"),

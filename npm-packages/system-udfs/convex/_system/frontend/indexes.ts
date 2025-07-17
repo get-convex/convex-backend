@@ -73,21 +73,57 @@ export default queryPrivateSystem({
     );
     return Promise.all(
       userIndexes.map(async (index) => {
-        function getIndexFields(config: typeof index.config) {
+        // TODO: Return backfilled state for asynchronous index progress instead of representing backfilled as in_progress
+        function getIndexFieldsAndState(config: typeof index.config): [
+          (
+            | string[]
+            | { searchField: string; filterFields: string[] }
+            | {
+                vectorField: string;
+                filterFields: string[];
+                dimensions: number;
+              }
+          ),
+          "in_progress" | "done",
+        ] {
           switch (config.type) {
-            case "database":
-              return config.fields;
-            case "search":
-              return {
+            case "database": {
+              const stateType = config.onDiskState.type;
+              const state =
+                stateType === "Backfilling" || stateType === "Backfilled2"
+                  ? ("in_progress" as const)
+                  : ("done" as const);
+              return [config.fields, state];
+            }
+            case "search": {
+              const stateType = config.onDiskState.state;
+              const state =
+                stateType === "backfilling" ||
+                stateType === "backfilling2" ||
+                stateType === "backfilled"
+                  ? ("in_progress" as const)
+                  : ("done" as const);
+              const fields = {
                 searchField: config.searchField,
                 filterFields: config.filterFields,
               };
-            case "vector":
-              return {
-                vectorField: config.vectorField,
-                filterFields: config.filterFields,
-                dimensions: Number(config.dimensions),
-              };
+              return [fields, state];
+            }
+            case "vector": {
+              const stateType = config.onDiskState.state;
+              const state =
+                stateType === "backfilling" || stateType === "backfilled"
+                  ? ("in_progress" as const)
+                  : ("done" as const);
+              return [
+                {
+                  vectorField: config.vectorField,
+                  filterFields: config.filterFields,
+                  dimensions: Number(config.dimensions),
+                },
+                state,
+              ];
+            }
             default: {
               const _typecheck: never = config;
               throw new Error(`Unknown index type`);
@@ -95,11 +131,7 @@ export default queryPrivateSystem({
           }
         }
 
-        const fields = getIndexFields(index.config);
-        const state =
-          index.config.onDiskState.type === "Backfilling"
-            ? ("in_progress" as const)
-            : ("done" as const);
+        const [fields, state] = getIndexFieldsAndState(index.config);
         if (state === "in_progress") {
           const indexBackfill = await db
             .query("_index_backfills")
@@ -108,7 +140,9 @@ export default queryPrivateSystem({
           const stats = indexBackfill
             ? {
                 numDocsIndexed: Number(indexBackfill.numDocsIndexed),
-                totalDocs: Number(indexBackfill.totalDocs),
+                totalDocs: indexBackfill.totalDocs
+                  ? Number(indexBackfill.totalDocs)
+                  : null,
               }
             : undefined;
           return {
