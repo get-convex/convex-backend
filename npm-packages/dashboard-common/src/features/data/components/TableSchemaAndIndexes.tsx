@@ -33,10 +33,7 @@ export function TableSchemaAndIndexes({
 
 function SchemaAndIndexBody({ tableName }: { tableName: string }) {
   const tableSchemaStatus = useSingleTableSchemaStatus(tableName);
-  if (
-    tableSchemaStatus === undefined ||
-    tableSchemaStatus.isValidationRunning
-  ) {
+  if (tableSchemaStatus === undefined) {
     return <Loading />;
   }
   return (

@@ -79,7 +79,7 @@ export function useTableMetadataAndUpdateURL(): TableMetadata | undefined {
   return tableMetadata;
 }
 
-function shallowNavigate(
+export function shallowNavigate(
   router: NextRouter,
   newQuery: Record<string, string | undefined>,
 ) {

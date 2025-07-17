@@ -1,7 +1,7 @@
 import React from "react";
 import { Index } from "@common/features/data/lib/api";
-import { Spinner } from "@ui/Spinner";
 import { Tooltip } from "@ui/Tooltip";
+import { ProgressBar } from "@ui/ProgressBar";
 import { useQuery } from "convex/react";
 import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
@@ -18,16 +18,46 @@ function IndexRow({ index }: { index: Index }) {
       </td>
       <td className="ml-auto w-full py-2 text-sm text-content-secondary">
         {index.backfill.state !== "done" ? (
-          <Tooltip tip="This index is currently backfilling, and is not yet ready to use.">
-            <span className="h-5 w-5">
-              <Spinner />
-            </span>
-          </Tooltip>
+          <div className="flex items-center gap-2">
+            <Tooltip tip="This index is currently backfilling, and is not yet ready to use.">
+              {index.backfill.stats?.totalDocs !== null &&
+                index.backfill.stats?.totalDocs !== undefined &&
+                index.backfill.stats?.totalDocs > 0 &&
+                index.backfill.stats?.numDocsIndexed !== undefined && (
+                  <IndexBackfillProgress
+                    numDocsIndexed={index.backfill.stats.numDocsIndexed}
+                    totalDocs={index.backfill.stats.totalDocs}
+                  />
+                )}
+            </Tooltip>
+          </div>
         ) : (
           type
         )}
       </td>
     </tr>
+  );
+}
+
+function IndexBackfillProgress({
+  numDocsIndexed,
+  totalDocs,
+}: {
+  numDocsIndexed: number;
+  totalDocs: number;
+}) {
+  const fraction = Math.min(numDocsIndexed / totalDocs, 0.99);
+  const percent = Math.round(fraction * 100);
+  return (
+    <div className="flex items-center gap-2">
+      <ProgressBar
+        fraction={fraction}
+        ariaLabel={`Index backfill progress: ${percent}%  of documents`}
+        variant="stripes"
+        className="w-24"
+      />
+      <span className="text-xs text-content-tertiary">{percent}%</span>
+    </div>
   );
 }
 
@@ -42,9 +72,11 @@ function getIndexDescription(index: Index) {
 }
 
 export function IndexesList({ indexes }: { indexes?: Index[] }) {
-  return !indexes || indexes.length === 0 ? (
-    <>This table has no indexes</>
-  ) : (
+  if (!indexes || indexes.length === 0) {
+    return <>This table has no indexes</>;
+  }
+
+  return (
     <table className="table-auto">
       <thead>
         <tr className="border-b">
@@ -59,8 +91,8 @@ export function IndexesList({ indexes }: { indexes?: Index[] }) {
       </thead>
 
       <tbody>
-        {indexes.map((index) => (
-          <IndexRow key={index.name} index={index} />
+        {indexes.map((index, i) => (
+          <IndexRow key={`${index.name}-${i}`} index={index} />
         ))}
       </tbody>
     </table>
@@ -72,7 +104,7 @@ export function IndexList({ tableName }: { tableName: string }) {
   const indexes =
     useQuery(api._system.frontend.indexes.default, {
       tableName,
-      tableNamespace: selectedNent?.id ? selectedNent.id : null,
+      tableNamespace: selectedNent?.id ?? null,
     }) ?? undefined;
 
   return <IndexesList indexes={indexes} />;

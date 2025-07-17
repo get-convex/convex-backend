@@ -185,7 +185,7 @@ export function DataContent({
   const indexes =
     useQuery(api._system.frontend.indexes.default, {
       tableName,
-      tableNamespace: selectedNent?.id ? selectedNent.id : null,
+      tableNamespace: selectedNent?.id ?? null,
     }) ?? undefined;
   const sortField =
     (
