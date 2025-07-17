@@ -26,7 +26,10 @@ pub use self::{
 };
 use crate::{
     paths::FieldPath,
-    types::TableName,
+    types::{
+        IndexDescriptor,
+        TableName,
+    },
 };
 
 /// Table name for Index data.
@@ -37,6 +40,10 @@ pub static TABLE_ID_FIELD_NAME: LazyLock<IdentifierFieldName> =
     LazyLock::new(|| "table_id".parse().expect("Invalid built-in field"));
 pub static TABLE_ID_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| FieldPath::new(vec![TABLE_ID_FIELD_NAME.clone()]).unwrap());
+
+/// See `record_reads_for_writes` in `database::writes`
+pub static INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
+    LazyLock::new(|| IndexDescriptor::new("by_table_id").expect("Invalid virtual index name"));
 
 pub const MAX_INDEX_FIELDS_SIZE: usize = 16;
 pub const MAX_TEXT_INDEX_FILTER_FIELDS_SIZE: usize = 16;

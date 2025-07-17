@@ -135,6 +135,7 @@ use crate::{
     },
     transaction::FinalTransaction,
     write_log::{
+        index_keys_from_full_documents,
         LogWriter,
         PackedDocumentUpdate,
         PendingWriteHandle,
@@ -839,11 +840,18 @@ impl<RT: Runtime> Committer<RT> {
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
-        let timer = metrics::write_log_append_timer();
-        let size = ordered_updates.heap_size();
-        self.log.append(commit_ts, ordered_updates, write_source);
+
+        let timer = metrics::pending_writes_to_write_log_timer();
+        // See the comment in `overlaps_index_keys` for why it’s safe
+        // to use indexes from the current snapshot.
+        let writes = index_keys_from_full_documents(ordered_updates, &new_snapshot.index_registry);
+        let size = writes.heap_size();
         drop(timer);
         metrics::write_log_commit_bytes(size);
+
+        let timer = metrics::write_log_append_timer();
+        self.log.append(commit_ts, writes, write_source);
+        drop(timer);
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
             metrics::log_num_keys(table_summaries.num_user_documents);

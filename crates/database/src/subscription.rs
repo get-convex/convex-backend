@@ -20,9 +20,9 @@ use std::{
 use ::metrics::Timer;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
-    document::{
-        IndexKeyBuffer,
-        PackedDocument,
+    document_index_keys::{
+        DocumentIndexKeyValue,
+        DocumentIndexKeys,
     },
     errors::report_error,
     knobs::{
@@ -39,7 +39,6 @@ use common::{
     },
     types::{
         GenericIndexName,
-        PersistenceVersion,
         SubscriberId,
         TabletIndexName,
         Timestamp,
@@ -64,6 +63,7 @@ use tokio::sync::{
     },
     watch,
 };
+use value::ResolvedDocumentId;
 
 use crate::{
     metrics::{
@@ -155,15 +155,11 @@ enum SubscriptionRequest {
 pub enum SubscriptionsWorker {}
 
 impl SubscriptionsWorker {
-    pub(crate) fn start<RT: Runtime>(
-        log: LogOwner,
-        runtime: RT,
-        persistence_version: PersistenceVersion,
-    ) -> SubscriptionsClient {
+    pub(crate) fn start<RT: Runtime>(log: LogOwner, runtime: RT) -> SubscriptionsClient {
         let (tx, rx) = mpsc::channel(*SUBSCRIPTIONS_WORKER_QUEUE_SIZE);
 
         let log_reader = log.reader();
-        let mut manager = SubscriptionManager::new(log, persistence_version);
+        let mut manager = SubscriptionManager::new(log);
         let handle = runtime.spawn("subscription_worker", async move {
             manager.run_worker(rx).await
         });
@@ -225,8 +221,6 @@ pub struct SubscriptionManager {
     // Invariant: All `ReadSet` in `subscribers` have a timestamp greater than or equal to
     // `processed_ts`.
     processed_ts: Timestamp,
-
-    persistence_version: PersistenceVersion,
 }
 
 struct Subscriber {
@@ -241,11 +235,11 @@ impl SubscriptionManager {
     pub fn new_for_testing() -> Self {
         use crate::write_log::new_write_log;
 
-        let (log_owner, ..) = new_write_log(Timestamp::MIN, PersistenceVersion::V5);
-        Self::new(log_owner, PersistenceVersion::V5)
+        let (log_owner, ..) = new_write_log(Timestamp::MIN);
+        Self::new(log_owner)
     }
 
-    fn new(log: LogOwner, persistence_version: PersistenceVersion) -> Self {
+    fn new(log: LogOwner) -> Self {
         let processed_ts = log.max_ts();
         Self {
             subscribers: Slab::new(),
@@ -254,7 +248,6 @@ impl SubscriptionManager {
             closed_subscriptions: FuturesUnordered::new(),
             log,
             processed_ts,
-            persistence_version,
         }
     }
 
@@ -327,7 +320,6 @@ impl SubscriptionManager {
             let mut to_notify = BTreeSet::new();
             {
                 let _timer = metrics::subscriptions_log_iterate_timer();
-                let mut buffer = IndexKeyBuffer::new();
                 let mut log_len = 0;
                 let mut num_writes = 0;
                 self.log.for_each(from_ts, next_ts, |_, writes| {
@@ -339,23 +331,13 @@ impl SubscriptionManager {
                         tablet_ids.insert(resolved_id.tablet_id);
                         // We're applying a mutation to the document so if it already exists
                         // we need to remove it before writing the new version.
-                        if let Some(ref old_document) = document_change.old_document {
-                            self.overlapping(
-                                old_document,
-                                &mut to_notify,
-                                self.persistence_version,
-                                &mut buffer,
-                            );
+                        if let Some(ref old_document_keys) = document_change.old_document_keys {
+                            self.overlapping(resolved_id, old_document_keys, &mut to_notify);
                         }
                         // If we're doing anything other than deleting the document then
                         // we'll also need to insert a new value.
-                        if let Some(ref new_document) = document_change.new_document {
-                            self.overlapping(
-                                new_document,
-                                &mut to_notify,
-                                self.persistence_version,
-                                &mut buffer,
-                            );
+                        if let Some(ref new_document_keys) = document_change.new_document_keys {
+                            self.overlapping(resolved_id, new_document_keys, &mut to_notify);
                         }
                     }
 
@@ -448,40 +430,30 @@ impl SubscriptionManager {
         })
     }
 
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    pub fn overlapping_for_testing(
+    pub fn overlapping(
         &self,
-        document: &PackedDocument,
+        document_id: &ResolvedDocumentId,
+        document_index_keys: &DocumentIndexKeys,
         to_notify: &mut BTreeSet<SubscriberId>,
-        persistence_version: PersistenceVersion,
     ) {
-        use common::document::IndexKeyBuffer;
+        for (index, (_, range_map)) in &self.subscriptions.indexed {
+            if *index.table() == document_id.tablet_id {
+                let Some(DocumentIndexKeyValue::Standard(index_key)) =
+                    document_index_keys.get(index)
+                else {
+                    metrics::log_missing_index_key_subscriptions();
+                    continue;
+                };
 
-        self.overlapping(
-            document,
-            to_notify,
-            persistence_version,
-            &mut IndexKeyBuffer::new(),
-        );
-    }
-
-    fn overlapping(
-        &self,
-        document: &PackedDocument,
-        to_notify: &mut BTreeSet<SubscriberId>,
-        persistence_version: PersistenceVersion,
-        buffer: &mut IndexKeyBuffer,
-    ) {
-        for (index, (fields, range_map)) in &self.subscriptions.indexed {
-            if *index.table() == document.id().tablet_id {
-                let index_key = document.index_key(fields, persistence_version, buffer);
                 for subscriber_id in range_map.query(index_key) {
                     to_notify.insert(subscriber_id);
                 }
             }
         }
-        self.subscriptions.search.add_matches(document, to_notify);
+
+        self.subscriptions
+            .search
+            .add_matches(document_id, document_index_keys, to_notify);
     }
 
     fn get_subscriber(&self, key: SubscriptionKey) -> Option<&Subscriber> {
@@ -630,12 +602,12 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
+        document_index_keys::DocumentIndexKeys,
         runtime::testing::TestDriver,
         testing::TestIdGenerator,
         types::{
             GenericIndexName,
             IndexDescriptor,
-            PersistenceVersion,
             SubscriberId,
             TabletIndexName,
         },
@@ -656,6 +628,7 @@ mod tests {
     use runtime::testing::TestRuntime;
     use search::{
         query::{
+            tokenize,
             FuzzyDistance,
             TextQueryTerm,
         },
@@ -696,11 +669,12 @@ mod tests {
     prop_compose! {
         fn search_token(num_tokens: impl Into<SizeRange>, num_chars: Range<usize>) (
             tokens in tokens_only(num_tokens, num_chars),
-            index_name in any::<TabletIndexName>(),
+            tablet_id in any::<TabletId>(),
             field_path in any::<FieldPath>(),
             max_distance in any::<FuzzyDistance>(),
             prefix in any::<bool>(),
         ) -> Token {
+            let index_name = create_index_name(tablet_id);
             Token::text_search_token(
                 index_name,
                 field_path,
@@ -741,17 +715,18 @@ mod tests {
     prop_compose! {
         fn token_and_mismatch(num_chars: Range<usize>) (
             tokens in tokens_only(1, num_chars),
-            index_name in any::<TabletIndexName>(),
+            tablet_id in any::<TabletId>(),
             field_path in any::<FieldPath>(),
             prefix in any::<bool>(),
         ) (
             token in Just(tokens[0].clone()),
-            index_name in Just(index_name),
+            tablet_id in Just(tablet_id),
             field_path in Just(field_path),
             prefix in Just(prefix),
             mismatch_token in mismatch(tokens[0].clone())
         ) -> (Token, Token) {
             let max_distance = max_distance(&token);
+            let index_name = create_index_name(tablet_id);
             (
                 Token::text_search_token(
                     index_name.clone(),
@@ -799,8 +774,8 @@ mod tests {
     fn create_matching_documents(
         read_set: &ReadSet,
         id_generator: &mut TestIdGenerator,
-    ) -> Vec<PackedDocument> {
-        let mut result: Vec<PackedDocument> = vec![];
+    ) -> Vec<(PackedDocument, FieldPath)> {
+        let mut result = Vec::new();
         for (index_name, reads) in read_set.iter_search() {
             for query in &reads.text_queries {
                 // All we need is the table id of the index to match the table id of the doc.
@@ -820,7 +795,7 @@ mod tests {
                     id,
                 ));
                 assert_eq!(*index_name.table(), document.id().tablet_id);
-                result.push(document)
+                result.push((document, query.field_path.clone()));
             }
         }
         result
@@ -858,15 +833,21 @@ mod tests {
         object
     }
 
+    fn create_index_name(tablet_id: TabletId) -> TabletIndexName {
+        GenericIndexName::new(tablet_id, IndexDescriptor::new("index").unwrap()).unwrap()
+    }
+
     fn create_search_token(
         table_id: TabletIdAndTableNumber,
         terms: Vec<TextQueryTerm>,
     ) -> anyhow::Result<Token> {
-        let index_name: GenericIndexName<TabletId> =
-            GenericIndexName::new(table_id.tablet_id, IndexDescriptor::new("index").unwrap())?;
         let field_path = FieldPath::from_str("path")?;
 
-        Ok(Token::text_search_token(index_name, field_path, terms))
+        Ok(Token::text_search_token(
+            create_index_name(table_id.tablet_id),
+            field_path,
+            terms,
+        ))
     }
 
     #[test_runtime]
@@ -1067,11 +1048,21 @@ mod tests {
         let mut to_notify = BTreeSet::new();
         for token in tokens {
             let documents = create_matching_documents(token.reads(), id_generator);
-            for doc in &documents {
-                subscription_manager.overlapping_for_testing(
-                    doc,
+
+            for (doc, search_field) in documents {
+                let search_field_value = match doc.value().get_path(&search_field) {
+                    Some(ConvexValue::String(s)) => s.clone(),
+                    _ => panic!("Expected string value in {:?}", doc.value()),
+                };
+
+                subscription_manager.overlapping(
+                    &doc.id(),
+                    &DocumentIndexKeys::with_search_index_for_test(
+                        create_index_name(doc.id().tablet_id),
+                        search_field,
+                        tokenize(search_field_value),
+                    ),
                     &mut to_notify,
-                    PersistenceVersion::V5,
                 );
             }
         }

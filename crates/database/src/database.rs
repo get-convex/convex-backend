@@ -825,9 +825,8 @@ impl<RT: Runtime> Database<RT> {
         .await?;
 
         let persistence_reader = persistence.reader();
-        let (log_owner, log_reader, log_writer) = new_write_log(*ts, persistence_reader.version());
-        let subscriptions =
-            SubscriptionsWorker::start(log_owner, runtime.clone(), persistence_reader.version());
+        let (log_owner, log_reader, log_writer) = new_write_log(*ts);
+        let subscriptions = SubscriptionsWorker::start(log_owner, runtime.clone());
         let usage_counter = UsageCounter::new(usage_events);
         let committer = Committer::start(
             log_writer,

@@ -264,6 +264,50 @@ pub fn commit_is_stale_timer() -> StatusTimer {
     StatusTimer::new(&DATABASE_COMMIT_IS_STALE_SECONDS)
 }
 
+register_convex_counter!(
+    DATABASE_MISSING_INDEX_KEY_STALENESS_TOTAL,
+    "Number of times a database index was not found in DocumentIndexKeys when determining commit \
+     staleness"
+);
+pub fn log_missing_index_key_staleness() {
+    // This record cases where some index was expected to be present in the
+    // DocumentIndexKeys, but was not.
+    //
+    // This shouldn’t be a problem, because:
+    // - When creating a new index:
+    //   - If the write is committed _before_ the index is created, then
+    //     subscriptions that use this new index will not need to be invalidated
+    //     because of the write (since they were created after the index was
+    //     created, thus after the write was committed)
+    //   - If the write is committed _after_ the index is created, then the entry in
+    //     the write log will be created with a snapshot that includes the index.
+    // - When deleting an index, reaching this means that the query is trying to
+    //   read from an index that has been deleted. Hence, the conflict will be
+    //   detected over the read on the system document.
+
+    log_counter(&DATABASE_MISSING_INDEX_KEY_STALENESS_TOTAL, 1);
+}
+
+register_convex_counter!(
+    DATABASE_MISSING_SEARCH_INDEX_KEY_STALENESS_TOTAL,
+    "Number of times a search index was not found in DocumentIndexKeys when determining commit \
+     staleness"
+);
+pub fn log_missing_search_index_key_staleness() {
+    // See comment in log_missing_index_key_staleness
+    log_counter(&DATABASE_MISSING_SEARCH_INDEX_KEY_STALENESS_TOTAL, 1);
+}
+
+register_convex_counter!(
+    DATABASE_MISSING_INDEX_KEY_SUBSCRIPTIONS_TOTAL,
+    "Number of times a database index was not found in DocumentIndexKeys when updating \
+     subscriptions"
+);
+pub fn log_missing_index_key_subscriptions() {
+    // See comment in log_missing_index_key_staleness
+    log_counter(&DATABASE_MISSING_INDEX_KEY_SUBSCRIPTIONS_TOTAL, 1);
+}
+
 register_convex_histogram!(
     DATABASE_COMMIT_PREPARE_WRITES_SECONDS,
     "Time to prepare writes",
@@ -305,6 +349,14 @@ register_convex_histogram!(
 );
 pub fn write_log_append_timer() -> Timer<VMHistogram> {
     Timer::new(&DATABASE_APPLY_DOCUMENT_STORE_APPEND_SECONDS)
+}
+
+register_convex_histogram!(
+    DATABASE_PENDING_WRITES_TO_WRITE_LOG_SECONDS,
+    "Time to convert writes from PendingWrites to WriteLog"
+);
+pub fn pending_writes_to_write_log_timer() -> Timer<VMHistogram> {
+    Timer::new(&DATABASE_PENDING_WRITES_TO_WRITE_LOG_SECONDS)
 }
 
 register_convex_histogram!(

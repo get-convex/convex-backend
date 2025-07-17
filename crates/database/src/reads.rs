@@ -12,6 +12,10 @@ use common::{
         IndexKeyBuffer,
         PackedDocument,
     },
+    document_index_keys::{
+        DocumentIndexKeyValue,
+        DocumentIndexKeys,
+    },
     interval::{
         Interval,
         IntervalSet,
@@ -48,8 +52,10 @@ use crate::{
         ConflictingRead,
         ConflictingReadWithWriteSource,
     },
+    metrics,
     stack_traces::StackTrace,
     write_log::{
+        DocumentIndexKeysUpdate,
         PackedDocumentUpdate,
         WriteSource,
     },
@@ -146,16 +152,6 @@ impl ReadSet {
         persistence_version: PersistenceVersion,
         reusable_buffer: &mut IndexKeyBuffer,
     ) -> Option<ConflictingRead> {
-        /// Iterates just those pairs in `map` whose table matches `tablet_id`
-        fn iter_indexes_for_table<T>(
-            map: &BTreeMap<TabletIndexName, T>,
-            tablet_id: TabletId,
-        ) -> impl Iterator<Item = (&TabletIndexName, &T)> {
-            // uses the fact that TabletIndexName is ordered by TabletId first,
-            // then descriptor
-            map.range(TabletIndexName::min_for_table(tablet_id)..)
-                .take_while(move |(index, _)| *index.table() == tablet_id)
-        }
         for (
             index,
             IndexReads {
@@ -207,13 +203,75 @@ impl ReadSet {
         self.overlaps_document(document, persistence_version, &mut IndexKeyBuffer::new())
     }
 
-    /// writes_overlap is the core logic for
+    /// Determine whether a mutation to a document overlaps with the read set.
+    /// Similar to `overlaps_document` but takes the index keys instead of the
+    /// full document.
+    pub fn overlaps_index_keys(
+        &self,
+        id: ResolvedDocumentId,
+        index_keys: &DocumentIndexKeys,
+    ) -> Option<ConflictingRead> {
+        // Standard indexes
+        for (
+            index,
+            IndexReads {
+                intervals,
+                stack_traces,
+                ..
+            },
+        ) in iter_indexes_for_table(&self.indexed, id.tablet_id)
+        {
+            let Some(DocumentIndexKeyValue::Standard(index_key)) = index_keys.get(index) else {
+                metrics::log_missing_index_key_staleness();
+                continue;
+            };
+
+            if intervals.contains(index_key) {
+                let stack_traces = stack_traces.as_ref().map(|st| {
+                    st.iter()
+                        .filter_map(|(interval, trace)| {
+                            if interval.contains(index_key) {
+                                Some(trace.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                });
+                return Some(ConflictingRead {
+                    index: index.clone(),
+                    id,
+                    stack_traces,
+                });
+            }
+        }
+
+        // Search indexes
+        for (index, search_reads) in iter_indexes_for_table(&self.search, id.tablet_id) {
+            let Some(DocumentIndexKeyValue::Search(value)) = index_keys.get(index) else {
+                metrics::log_missing_search_index_key_staleness();
+                continue;
+            };
+
+            if search_reads.overlaps_search_index_key_value(value) {
+                return Some(ConflictingRead {
+                    index: index.clone(),
+                    id,
+                    stack_traces: None,
+                });
+            }
+        }
+
+        None
+    }
+
+    /// writes_overlap_docs is the core logic for
     /// detecting whether a transaction or subscription intersects a commit.
     /// If a write transaction intersects, it will be retried to maintain
     /// serializability. If a subscription intersects, it will be rerun and the
     /// result sent to all clients.
     #[fastrace::trace]
-    pub fn writes_overlap<'a>(
+    pub fn writes_overlap_docs<'a>(
         &self,
         updates: impl Iterator<
             Item = (
@@ -251,6 +309,53 @@ impl ReadSet {
         }
         None
     }
+
+    /// Equivalent to `writes_overlap_docs` but does not need to read the full
+    /// docs
+    #[fastrace::trace]
+    pub fn writes_overlap_index_keys<'a>(
+        &self,
+        updates: impl Iterator<
+            Item = (
+                &'a Timestamp,
+                impl Iterator<Item = &'a (ResolvedDocumentId, DocumentIndexKeysUpdate)>,
+                &'a WriteSource,
+            ),
+        >,
+    ) -> Option<ConflictingReadWithWriteSource> {
+        for (_ts, updates, write_source) in updates {
+            for (id, update) in updates {
+                if let Some(ref document) = update.new_document_keys {
+                    if let Some(conflicting_read) = self.overlaps_index_keys(*id, document) {
+                        return Some(ConflictingReadWithWriteSource {
+                            read: conflicting_read,
+                            write_source: write_source.clone(),
+                        });
+                    }
+                }
+                if let Some(ref document) = update.old_document_keys {
+                    if let Some(conflicting_read) = self.overlaps_index_keys(*id, document) {
+                        return Some(ConflictingReadWithWriteSource {
+                            read: conflicting_read,
+                            write_source: write_source.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+/// Iterates just those pairs in `map` whose table matches `tablet_id`
+fn iter_indexes_for_table<T>(
+    map: &BTreeMap<TabletIndexName, T>,
+    tablet_id: TabletId,
+) -> impl Iterator<Item = (&TabletIndexName, &T)> {
+    // uses the fact that TabletIndexName is ordered by TabletId first,
+    // then descriptor
+    map.range(TabletIndexName::min_for_table(tablet_id)..)
+        .take_while(move |(index, _)| *index.table() == tablet_id)
 }
 
 /// Tracks the read set for the current transaction. Records successful reads as

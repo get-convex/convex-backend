@@ -32,6 +32,7 @@ bytes = { workspace = true }
 bytesize = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
+compact_str = { workspace = true }
 errors = { path = "../errors" }
 fastrace = { workspace = true }
 futures = { workspace = true }
