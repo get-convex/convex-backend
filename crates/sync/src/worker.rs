@@ -15,6 +15,7 @@ use application::{
     api::{
         ApplicationApi,
         ExecuteQueryTimestamp,
+        ExtendValidityResult,
         SubscriptionClient,
         SubscriptionTrait,
     },
@@ -804,6 +805,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         let need_fetch: Vec<_> = self.state.need_fetch().collect();
         let host = self.host.clone();
         let client_version = self.config.client_version.clone();
+        let partition_id = self.partition_id;
         Ok(async move {
             let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
                 "update_query",
@@ -818,10 +820,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                         LocalSpan::add_property(|| ("udf_path", query.udf_path.to_string()));
                         let new_subscription = match current_subscription {
                             Some(subscription) => {
-                                if subscription.extend_validity(new_ts).await? {
-                                    Some(subscription)
-                                } else {
-                                    None
+                                match subscription.extend_validity(new_ts).await? {
+                                    ExtendValidityResult::Extended => Some(subscription),
+                                    ExtendValidityResult::Invalid { invalid_ts } => {
+                                        metrics::log_query_invalidated(
+                                            partition_id,
+                                            invalid_ts,
+                                            new_ts,
+                                        );
+                                        None
+                                    },
                                 }
                             },
                             None => None,

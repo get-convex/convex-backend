@@ -2478,20 +2478,20 @@ async fn test_schema_registry_takes_read_dependency(rt: TestRuntime) -> anyhow::
 
     // Now create a pending schema
     let schema_id;
-    {
+    let pending_ts = {
         let mut tx = db.begin_system().await?;
         schema_id = SchemaModel::new(&mut tx, TableNamespace::Global)
             .submit_pending(db_schema!())
             .await?
             .0;
-        db.commit(tx).await?;
-    }
+        db.commit(tx).await?
+    };
 
     // The earlier read should be invalidated.
     assert_eq!(
         db.refresh_token(read_pending_token, *db.now_ts_for_reads())
             .await?,
-        None
+        Err(Some(pending_ts))
     );
 
     // Now test the converse: create a transaction that observes the presence of
@@ -2504,18 +2504,18 @@ async fn test_schema_registry_takes_read_dependency(rt: TestRuntime) -> anyhow::
             .is_some()
     );
     let read_pending_again_token = read_pending_again_tx.into_token()?;
-    {
+    let validated_ts = {
         let mut tx = db.begin_system().await?;
         SchemaModel::new(&mut tx, TableNamespace::Global)
             .mark_validated(schema_id)
             .await?;
-        db.commit(tx).await?;
-    }
+        db.commit(tx).await?
+    };
     // The read should again be invalidated as the schema is no longer pending.
     assert_eq!(
         db.refresh_token(read_pending_again_token, *db.now_ts_for_reads())
             .await?,
-        None
+        Err(Some(validated_ts))
     );
     Ok(())
 }

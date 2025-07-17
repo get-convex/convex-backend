@@ -326,20 +326,26 @@ impl WriteLog {
         })
     }
 
-    fn refresh_token(&self, mut token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
+    /// Returns Err(write_ts) if the token could not be refreshed, where
+    /// write_ts is the timestamp of a conflicting write (if known)
+    fn refresh_token(
+        &self,
+        mut token: Token,
+        ts: Timestamp,
+    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
         metrics::log_read_set_age(ts.secs_since_f64(token.ts()).max(0.0));
         let result = match self.is_stale(token.reads(), token.ts(), ts) {
-            Ok(Some(_)) => None,
+            Ok(Some(conflict)) => Err(Some(conflict.write_ts)),
             Err(e) if e.is_out_of_retention() => {
                 metrics::log_reads_refresh_miss();
-                None
+                Err(None)
             },
             Err(e) => return Err(e),
             Ok(None) => {
                 if token.ts() < ts {
                     token.advance_ts(ts);
                 }
-                Some(token)
+                Ok(token)
             },
         };
         Ok(result)
@@ -380,7 +386,11 @@ impl LogOwner {
         block_in_place(|| snapshot.max_ts())
     }
 
-    pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
+    pub fn refresh_token(
+        &self,
+        token: Token,
+        ts: Timestamp,
+    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| snapshot.refresh_token(token, ts))
     }
@@ -415,11 +425,15 @@ pub struct LogReader {
 
 impl LogReader {
     #[fastrace::trace]
-    pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
+    pub fn refresh_token(
+        &self,
+        token: Token,
+        ts: Timestamp,
+    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
         if token.ts() == ts {
-            // Nothing to do. We can return Some even if `token.ts()` has fallen
+            // Nothing to do. We can return Ok even if `token.ts()` has fallen
             // out of the write log retention window.
-            return Ok(Some(token));
+            return Ok(Ok(token));
         }
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
@@ -432,7 +446,10 @@ impl LogReader {
         })
     }
 
-    pub fn refresh_reads_until_max_ts(&self, token: Token) -> anyhow::Result<Option<Token>> {
+    pub fn refresh_reads_until_max_ts(
+        &self,
+        token: Token,
+    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
             let max_ts = snapshot.max_ts();

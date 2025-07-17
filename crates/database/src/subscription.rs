@@ -96,8 +96,8 @@ pub struct SubscriptionsClient {
 impl SubscriptionsClient {
     pub fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
         let token = match self.log.refresh_reads_until_max_ts(token)? {
-            Some(t) => t,
-            None => return Ok(Subscription::invalid()),
+            Ok(t) => t,
+            Err(invalid_ts) => return Ok(Subscription::invalid(invalid_ts)),
         };
         let (subscription, sender) = Subscription::new(&token);
         let request = SubscriptionRequest::Subscribe { token, sender };
@@ -116,20 +116,23 @@ impl SubscriptionsClient {
 /// The other half of a `Subscription`, owned by the subscription worker.
 /// On drop, this will invalidate the subscription.
 pub struct SubscriptionSender {
-    valid_ts: Arc<AtomicI64>,
+    validity: Arc<Validity>,
     valid_tx: watch::Sender<SubscriptionState>,
 }
 
 impl Drop for SubscriptionSender {
     fn drop(&mut self) {
-        self.valid_ts.store(-1, Ordering::SeqCst);
+        self.validity.valid_ts.store(-1, Ordering::SeqCst);
         _ = self.valid_tx.send(SubscriptionState::Invalid);
     }
 }
 
 impl SubscriptionSender {
-    fn drop_with_delay(self, delay: Option<Duration>) {
-        self.valid_ts.store(-1, Ordering::SeqCst);
+    fn drop_with_delay(self, delay: Option<Duration>, invalid_ts: Option<Timestamp>) {
+        if let Some(invalid_ts) = invalid_ts {
+            self.validity.set_invalid_ts(invalid_ts);
+        }
+        self.validity.valid_ts.store(-1, Ordering::SeqCst);
         if let Some(delay) = delay {
             // Wait to invalidate the subscription by moving it into a new task
             tokio::spawn(async move {
@@ -265,8 +268,11 @@ impl SubscriptionManager {
         // processing some log entries from `(self.processed_ts, token.ts()]`.
         if token.ts() < self.processed_ts {
             token = match self.log.refresh_token(token, self.processed_ts)? {
-                Some(t) => t,
-                None => {
+                Ok(t) => t,
+                Err(invalid_ts) => {
+                    if let Some(invalid_ts) = invalid_ts {
+                        sender.validity.set_invalid_ts(invalid_ts);
+                    }
                     // N.B.: we only use the returned value for tests which
                     // don't encounter this case
                     return Ok(usize::MAX);
@@ -317,27 +323,31 @@ impl SubscriptionManager {
         block_in_place(|| {
             let from_ts = self.processed_ts.succ()?;
 
-            let mut to_notify = BTreeSet::new();
+            let mut to_notify = BTreeMap::new();
             {
                 let _timer = metrics::subscriptions_log_iterate_timer();
                 let mut log_len = 0;
                 let mut num_writes = 0;
-                self.log.for_each(from_ts, next_ts, |_, writes| {
+                self.log.for_each(from_ts, next_ts, |write_ts, writes| {
                     let process_log_timer = metrics::subscription_process_write_log_entry_timer();
                     log_len += 1;
                     num_writes += writes.len();
                     let mut tablet_ids = BTreeSet::new();
+                    let mut notify = |subscriber_id| {
+                        // Always take the earliest matching write_ts
+                        to_notify.entry(subscriber_id).or_insert(write_ts);
+                    };
                     for (resolved_id, document_change) in writes {
                         tablet_ids.insert(resolved_id.tablet_id);
                         // We're applying a mutation to the document so if it already exists
                         // we need to remove it before writing the new version.
                         if let Some(ref old_document_keys) = document_change.old_document_keys {
-                            self.overlapping(resolved_id, old_document_keys, &mut to_notify);
+                            self.overlapping(resolved_id, old_document_keys, &mut notify);
                         }
                         // If we're doing anything other than deleting the document then
                         // we'll also need to insert a new value.
                         if let Some(ref new_document_keys) = document_change.new_document_keys {
-                            self.overlapping(resolved_id, new_document_keys, &mut to_notify);
+                            self.overlapping(resolved_id, new_document_keys, &mut notify);
                         }
                     }
 
@@ -386,11 +396,8 @@ impl SubscriptionManager {
                 let _timer = metrics::subscriptions_invalidate_timer();
                 // First, do a pass where we advance all of the valid subscriptions.
                 for (subscriber_id, subscriber) in &mut self.subscribers {
-                    if !to_notify.contains(&subscriber_id) {
-                        subscriber
-                            .sender
-                            .valid_ts
-                            .store(i64::from(next_ts), Ordering::SeqCst);
+                    if !to_notify.contains_key(&subscriber_id) {
+                        subscriber.sender.validity.set_valid_ts(next_ts)
                     }
                 }
                 // Then, invalidate all the remaining subscriptions.
@@ -405,14 +412,14 @@ impl SubscriptionManager {
                         *SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD
                     );
                 }
-                for subscriber_id in to_notify {
+                for (subscriber_id, invalid_ts) in to_notify {
                     let delay = should_splay_invalidations.then(|| {
                         Duration::from_millis(rand::random_range(
                             0..=num_subscriptions_invalidated as u64
                                 * *SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
                         ))
                     });
-                    self._remove(subscriber_id, delay);
+                    self._remove(subscriber_id, delay, Some(invalid_ts));
                 }
                 log_subscriptions_invalidated(num_subscriptions_invalidated);
 
@@ -434,7 +441,7 @@ impl SubscriptionManager {
         &self,
         document_id: &ResolvedDocumentId,
         document_index_keys: &DocumentIndexKeys,
-        to_notify: &mut BTreeSet<SubscriberId>,
+        notify: &mut impl FnMut(SubscriberId),
     ) {
         for (index, (_, range_map)) in &self.subscriptions.indexed {
             if *index.table() == document_id.tablet_id {
@@ -446,14 +453,14 @@ impl SubscriptionManager {
                 };
 
                 for subscriber_id in range_map.query(index_key) {
-                    to_notify.insert(subscriber_id);
+                    notify(subscriber_id);
                 }
             }
         }
 
         self.subscriptions
             .search
-            .add_matches(document_id, document_index_keys, to_notify);
+            .add_matches(document_id, document_index_keys, notify);
     }
 
     fn get_subscriber(&self, key: SubscriptionKey) -> Option<&Subscriber> {
@@ -471,14 +478,19 @@ impl SubscriptionManager {
         if self.get_subscriber(key).is_none() {
             return;
         }
-        self._remove(key.id, None);
+        self._remove(key.id, None, None);
     }
 
-    fn _remove(&mut self, id: SubscriberId, delay: Option<Duration>) {
+    fn _remove(
+        &mut self,
+        id: SubscriberId,
+        delay: Option<Duration>,
+        invalid_ts: Option<Timestamp>,
+    ) {
         let entry = self.subscribers.remove(id);
         self.subscriptions.remove(id, &entry.reads);
         // dropping `entry.sender` will invalidate the subscription
-        entry.sender.drop_with_delay(delay);
+        entry.sender.drop_with_delay(delay, invalid_ts);
     }
 }
 
@@ -488,36 +500,29 @@ enum SubscriptionState {
     Invalid,
 }
 
-/// A subscription on a set of read keys from a prior read-only transaction.
-#[must_use]
-pub struct Subscription {
-    valid_ts: Arc<AtomicI64>, // -1 means invalid
-    valid: watch::Receiver<SubscriptionState>,
-    _timer: Timer<VMHistogram>,
+struct Validity {
+    /// -1 means invalid, in which case `invalid_ts` may be populated
+    valid_ts: AtomicI64,
+    /// -1 means unknown
+    invalid_ts: AtomicI64,
 }
 
-impl Subscription {
-    fn new(token: &Token) -> (Self, SubscriptionSender) {
-        let valid_ts = Arc::new(AtomicI64::new(i64::from(token.ts())));
-        let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
-        let subscription = Subscription {
-            valid_ts: valid_ts.clone(),
-            valid: valid_rx,
-            _timer: metrics::subscription_timer(),
-        };
-        (subscription, SubscriptionSender { valid_ts, valid_tx })
-    }
-
-    fn invalid() -> Self {
-        let (_, receiver) = watch::channel(SubscriptionState::Invalid);
-        Subscription {
-            valid_ts: Arc::new(AtomicI64::new(-1)),
-            valid: receiver,
-            _timer: metrics::subscription_timer(),
+impl Validity {
+    fn valid(ts: Timestamp) -> Self {
+        Self {
+            valid_ts: AtomicI64::new(ts.into()),
+            invalid_ts: AtomicI64::new(-1),
         }
     }
 
-    pub fn current_ts(&self) -> Option<Timestamp> {
+    fn invalid(invalid_ts: Option<Timestamp>) -> Validity {
+        Self {
+            valid_ts: AtomicI64::new(-1),
+            invalid_ts: AtomicI64::new(invalid_ts.map_or(-1, i64::from)),
+        }
+    }
+
+    fn valid_ts(&self) -> Option<Timestamp> {
         match self.valid_ts.load(Ordering::SeqCst) {
             -1 => None,
             ts => Some(
@@ -525,6 +530,63 @@ impl Subscription {
                     .expect("only legal timestamp values can be written to valid_ts"),
             ),
         }
+    }
+
+    fn set_valid_ts(&self, ts: Timestamp) {
+        self.valid_ts.store(ts.into(), Ordering::SeqCst);
+    }
+
+    fn invalid_ts(&self) -> Option<Timestamp> {
+        match self.invalid_ts.load(Ordering::SeqCst) {
+            -1 => None,
+            ts => Some(
+                ts.try_into()
+                    .expect("only legal timestamp values can be written to invalid_ts"),
+            ),
+        }
+    }
+
+    fn set_invalid_ts(&self, ts: Timestamp) {
+        self.invalid_ts.store(ts.into(), Ordering::SeqCst);
+    }
+}
+
+/// A subscription on a set of read keys from a prior read-only transaction.
+#[must_use]
+pub struct Subscription {
+    validity: Arc<Validity>,
+    // May lag behind `validity` in case of subscription splaying
+    valid: watch::Receiver<SubscriptionState>,
+    _timer: Timer<VMHistogram>,
+}
+
+impl Subscription {
+    fn new(token: &Token) -> (Self, SubscriptionSender) {
+        let validity = Arc::new(Validity::valid(token.ts()));
+        let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
+        let subscription = Subscription {
+            validity: validity.clone(),
+            valid: valid_rx,
+            _timer: metrics::subscription_timer(),
+        };
+        (subscription, SubscriptionSender { validity, valid_tx })
+    }
+
+    fn invalid(invalid_ts: Option<Timestamp>) -> Self {
+        let (_, receiver) = watch::channel(SubscriptionState::Invalid);
+        Subscription {
+            validity: Arc::new(Validity::invalid(invalid_ts)),
+            valid: receiver,
+            _timer: metrics::subscription_timer(),
+        }
+    }
+
+    pub fn current_ts(&self) -> Option<Timestamp> {
+        self.validity.valid_ts()
+    }
+
+    pub fn invalid_ts(&self) -> Option<Timestamp> {
+        self.validity.invalid_ts()
     }
 
     pub fn wait_for_invalidation(&self) -> impl Future<Output = ()> {
@@ -882,7 +944,7 @@ mod tests {
                 .subscribe_for_testing(token.clone())
                 .unwrap();
             subscriptions.push(subscriber);
-            subscription_manager._remove(id, None);
+            subscription_manager._remove(id, None, None);
         }
 
         assert!(
@@ -920,7 +982,7 @@ mod tests {
         let (_subscription, id) = subscription_manager
             .subscribe_for_testing(token.clone())
             .unwrap();
-        subscription_manager._remove(id, None);
+        subscription_manager._remove(id, None, None);
 
         assert!(notify_subscribed_tokens(
             &mut id_generator,
@@ -994,7 +1056,7 @@ mod tests {
                     );
                 }
                 for (_, id) in &subscriptions {
-                    subscription_manager._remove(*id, None);
+                    subscription_manager._remove(*id, None, None);
                 }
                 let notifications = notify_subscribed_tokens(
                     &mut id_generator,
@@ -1019,7 +1081,7 @@ mod tests {
                 for token in &tokens {
                     let (_subscription, id) = subscription_manager
                         .subscribe_for_testing(token.clone()).unwrap();
-                    subscription_manager._remove(id, None);
+                    subscription_manager._remove(id, None, None);
                 }
                 let notifications = notify_subscribed_tokens(
                     &mut id_generator,
@@ -1062,7 +1124,9 @@ mod tests {
                         search_field,
                         tokenize(search_field_value),
                     ),
-                    &mut to_notify,
+                    &mut |id| {
+                        to_notify.insert(id);
+                    },
                 );
             }
         }

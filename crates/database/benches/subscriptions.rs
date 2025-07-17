@@ -267,11 +267,9 @@ fn bench_query(c: &mut Criterion) {
                     b.to_async(&rt).iter(|| async {
                         for (doc_id, doc_index_keys) in documents {
                             let mut to_notify = BTreeSet::new();
-                            subscription_manager.overlapping(
-                                doc_id,
-                                doc_index_keys,
-                                &mut to_notify,
-                            );
+                            subscription_manager.overlapping(doc_id, doc_index_keys, &mut |id| {
+                                to_notify.insert(id);
+                            });
                         }
                     })
                 },

@@ -1883,14 +1883,14 @@ impl<RT: Runtime> Database<RT> {
             .collect())
     }
 
-    /// Attempt to pull a token forward to a given timestamp, returning `None`
+    /// Attempt to pull a token forward to a given timestamp, returning `Err`
     /// if there have been overlapping writes between the token's original
     /// timestamp and `ts`.
     pub async fn refresh_token(
         &self,
         token: Token,
         ts: Timestamp,
-    ) -> anyhow::Result<Option<Token>> {
+    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
         let _timer = metrics::refresh_token_timer();
         self.log.refresh_token(token, ts)
     }
@@ -2195,6 +2195,11 @@ fn occ_write_source_string(
 pub struct ConflictingReadWithWriteSource {
     pub(crate) read: ConflictingRead,
     pub(crate) write_source: WriteSource,
+    /// The timestamp of the conflicting write.
+    ///
+    /// N.B.: this may be a non-repeatable timestamp, if this conflict occurred
+    /// against a pending write!
+    pub(crate) write_ts: Timestamp,
 }
 
 impl ConflictingReadWithWriteSource {

@@ -17,6 +17,7 @@ use serde_json::Value as JsonValue;
 use sync_types::{
     types::ClientEvent,
     ClientMessage,
+    Timestamp,
 };
 register_convex_histogram!(
     SYNC_CONNECT_SECONDS,
@@ -372,4 +373,41 @@ enum ClientMarkNameJson {
 struct ClientMarkJson {
     name: ClientMarkNameJson,
     start_time: f64,
+}
+
+register_convex_histogram!(
+    SYNC_QUERY_INVALIDATION_LAG_SECONDS,
+    "Time between an invalidating write and a query being rerun",
+    &["partition_id"]
+);
+register_convex_counter!(
+    SYNC_QUERY_INVALIDATION_LAG_UNKNOWN_TOTAL,
+    "Count of query subscriptions invalidated where the correspoding invalidating write timestamp \
+     was unknown",
+    &["partition_id"]
+);
+pub fn log_query_invalidated(
+    partition_id: u64,
+    invalid_ts: Option<Timestamp>,
+    current_ts: Timestamp,
+) {
+    if let Some(invalid_ts) = invalid_ts {
+        log_distribution_with_labels(
+            &SYNC_QUERY_INVALIDATION_LAG_SECONDS,
+            current_ts.secs_since_f64(invalid_ts),
+            vec![StaticMetricLabel::new(
+                "partition_id",
+                partition_id.to_string(),
+            )],
+        );
+    } else {
+        log_counter_with_labels(
+            &SYNC_QUERY_INVALIDATION_LAG_UNKNOWN_TOTAL,
+            1,
+            vec![StaticMetricLabel::new(
+                "partition_id",
+                partition_id.to_string(),
+            )],
+        );
+    }
 }

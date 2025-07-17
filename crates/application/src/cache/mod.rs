@@ -665,8 +665,8 @@ impl<RT: Runtime> CacheManager<RT> {
             return Ok(None);
         }
         result.token = match self.database.refresh_token(result.token, ts).await? {
-            Some(t) => t,
-            None => {
+            Ok(t) => t,
+            Err(_invalid_ts) => {
                 tracing::debug!(
                     "Couldn't refresh cache entry from {} to {}, retrying...",
                     result.original_ts,

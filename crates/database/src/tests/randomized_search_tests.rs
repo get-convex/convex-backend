@@ -1447,7 +1447,7 @@ async fn test_flushing_does_not_invalidate_subscriptions(rt: TestRuntime) -> any
         .database
         .refresh_token(token.clone(), ts)
         .await?
-        .is_some());
+        .is_ok());
 
     // TODO(ENG-9324): deleting the index *should* invalidate the transaction, but
     // it currently does not.
@@ -1458,6 +1458,6 @@ async fn test_flushing_does_not_invalidate_subscriptions(rt: TestRuntime) -> any
     scenario.database.commit(tx).await?;
     let ts = *scenario.database.now_ts_for_reads();
     // this *should* return None, but for now it doesn't.
-    assert!(scenario.database.refresh_token(token, ts).await?.is_some());
+    assert!(scenario.database.refresh_token(token, ts).await?.is_ok());
     Ok(())
 }

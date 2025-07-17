@@ -283,7 +283,7 @@ impl ReadSet {
         persistence_version: PersistenceVersion,
     ) -> Option<ConflictingReadWithWriteSource> {
         let mut buffer = IndexKeyBuffer::new();
-        for (_ts, updates, write_source) in updates {
+        for (update_ts, updates, write_source) in updates {
             for (_, update) in updates {
                 if let Some(ref document) = update.new_document {
                     if let Some(conflicting_read) =
@@ -292,6 +292,7 @@ impl ReadSet {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
                             write_source: write_source.clone(),
+                            write_ts: *update_ts,
                         });
                     }
                 }
@@ -302,6 +303,7 @@ impl ReadSet {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
                             write_source: write_source.clone(),
+                            write_ts: *update_ts,
                         });
                     }
                 }
@@ -323,13 +325,14 @@ impl ReadSet {
             ),
         >,
     ) -> Option<ConflictingReadWithWriteSource> {
-        for (_ts, updates, write_source) in updates {
+        for (update_ts, updates, write_source) in updates {
             for (id, update) in updates {
                 if let Some(ref document) = update.new_document_keys {
                     if let Some(conflicting_read) = self.overlaps_index_keys(*id, document) {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
                             write_source: write_source.clone(),
+                            write_ts: *update_ts,
                         });
                     }
                 }
@@ -338,6 +341,7 @@ impl ReadSet {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
                             write_source: write_source.clone(),
+                            write_ts: *update_ts,
                         });
                     }
                 }

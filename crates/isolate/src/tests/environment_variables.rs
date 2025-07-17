@@ -141,7 +141,7 @@ async fn test_environment_variable_reads_recorded(
             .await?;
         let new_ts = t.database.commit(tx).await?;
         assert!(
-            t.database.log().refresh_token(token, new_ts)?.is_none(),
+            t.database.log().refresh_token(token, new_ts)?.is_err(),
             "Should be invalidated by creating a used environment variable"
         );
 
@@ -161,7 +161,7 @@ async fn test_environment_variable_reads_recorded(
             .await?;
         let new_ts = t.database.commit(tx).await?;
         assert!(
-            t.database.log().refresh_token(token, new_ts)?.is_none(),
+            t.database.log().refresh_token(token, new_ts)?.is_err(),
             "Should be invalidated by editing a used environment variable"
         );
         Ok(())
