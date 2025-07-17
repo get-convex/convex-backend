@@ -55,19 +55,25 @@ import { Reporter, Span } from "./tracing.js";
 import {
   DEFINITION_FILENAME_JS,
   DEFINITION_FILENAME_TS,
+  DEFINITION_FILENAME_MJS,
 } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
-  // Default to `.ts` but fallback to `.js` if not present.
-  let componentRootPath = path.resolve(
-    path.join(functionsDir, DEFINITION_FILENAME_TS),
-  );
-  if (!ctx.fs.exists(componentRootPath)) {
-    componentRootPath = path.resolve(
-      path.join(functionsDir, DEFINITION_FILENAME_JS),
-    );
+  const candidates = [
+    DEFINITION_FILENAME_MJS,
+    DEFINITION_FILENAME_JS,
+    DEFINITION_FILENAME_TS,
+  ];
+  
+  for (const filename of candidates) {
+    const componentRootPath = path.resolve(path.join(functionsDir, filename));
+    if (ctx.fs.exists(componentRootPath)) {
+      return componentRootPath;
+    }
   }
-  return componentRootPath;
+  
+  // Default fallback to .js for backward compatibility
+  return path.resolve(path.join(functionsDir, DEFINITION_FILENAME_JS));
 }
 
 export async function runCodegen(
