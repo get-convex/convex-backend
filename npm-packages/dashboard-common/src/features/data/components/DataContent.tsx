@@ -50,9 +50,11 @@ import {
   PanelGroup,
 } from "react-resizable-panels";
 import { cn } from "@ui/cn";
-import { useTableIndexes } from "@common/features/data/lib/api";
+
 import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
 import { useMount } from "react-use";
+import { api } from "system-udfs/convex/_generated/api";
+import { useNents } from "@common/lib/useNents";
 
 export function DataContent({
   tableName,
@@ -179,7 +181,12 @@ export function DataContent({
   const selectedDocumentId = rowsThatAreSelected.values().next().value;
   const selectedDocument = data.find((row) => row._id === selectedDocumentId);
   const defaultDocument = useDefaultDocument(tableName);
-  const { indexes } = useTableIndexes(tableName);
+  const { selectedNent } = useNents();
+  const indexes =
+    useQuery(api._system.frontend.indexes.default, {
+      tableName,
+      tableNamespace: selectedNent?.id ? selectedNent.id : null,
+    }) ?? undefined;
   const sortField =
     (
       indexes?.find((index) => index.name === filters?.index?.name)?.fields as

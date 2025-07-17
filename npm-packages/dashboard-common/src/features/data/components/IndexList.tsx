@@ -1,8 +1,10 @@
 import React from "react";
-import { Index, useTableIndexes } from "@common/features/data/lib/api";
-import { Callout } from "@ui/Callout";
+import { Index } from "@common/features/data/lib/api";
 import { Spinner } from "@ui/Spinner";
 import { Tooltip } from "@ui/Tooltip";
+import { useQuery } from "convex/react";
+import { api } from "system-udfs/convex/_generated/api";
+import { useNents } from "@common/lib/useNents";
 
 function IndexRow({ index }: { index: Index }) {
   const { type, fields } = getIndexDescription(index);
@@ -66,11 +68,12 @@ export function IndexesList({ indexes }: { indexes?: Index[] }) {
 }
 
 export function IndexList({ tableName }: { tableName: string }) {
-  const { indexes, hadError } = useTableIndexes(tableName);
+  const { selectedNent } = useNents();
+  const indexes =
+    useQuery(api._system.frontend.indexes.default, {
+      tableName,
+      tableNamespace: selectedNent?.id ? selectedNent.id : null,
+    }) ?? undefined;
 
-  return hadError ? (
-    <Callout variant="error">Encountered an error loading indexes.</Callout>
-  ) : (
-    <IndexesList indexes={indexes} />
-  );
+  return <IndexesList indexes={indexes} />;
 }
