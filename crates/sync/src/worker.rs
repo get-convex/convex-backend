@@ -244,6 +244,7 @@ pub struct SyncWorker<RT: Runtime> {
     modify_query_to_transition_timers: BTreeMap<QuerySetVersion, StatusTimer>,
 
     on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
+    partition_id: u64,
 }
 
 enum QueryResult {
@@ -276,6 +277,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
         tx: SingleFlightSender,
         on_connect: Box<dyn FnOnce(SessionId) + Send>,
+        partition_id: u64,
     ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = ReceiverStream::new(receiver).buffered(1); // Execute at most one operation at a time.
@@ -283,7 +285,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             api,
             config,
             rt,
-            state: SyncState::new(),
+            state: SyncState::new(partition_id),
             host,
             rx,
             tx,
@@ -294,7 +296,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             update_scheduled: false,
             search_query_retry_future: None,
             modify_query_to_transition_timers: BTreeMap::new(),
-            on_connect: Some((connect_timer(), on_connect)),
+            on_connect: Some((connect_timer(partition_id), on_connect)),
+            partition_id,
         }
     }
 
@@ -341,7 +344,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     };
                     self.handle_message(message).await?;
                     let delay = self.rt.monotonic_now() - received_time;
-                    metrics::log_process_client_message_delay(delay);
+                    metrics::log_process_client_message_delay(self.partition_id, delay);
                     None
                 },
                 // TODO(presley): If I swap this with futures below, tests break.
@@ -456,7 +459,7 @@ impl<RT: Runtime> SyncWorker<RT> {
     }
 
     async fn handle_message(&mut self, message: ClientMessage) -> anyhow::Result<()> {
-        let timer = metrics::handle_message_timer(&message);
+        let timer = metrics::handle_message_timer(self.partition_id, &message);
         match message {
             ClientMessage::Connect {
                 session_id,
@@ -482,6 +485,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         // into a client error if there are bogus custom client implementations
                         // but lets keep it as server one for now.
                         metrics::log_linearizability_violation(
+                            self.partition_id,
                             max_observed_timestamp.secs_since_f64(latest_timestamp),
                         );
                         anyhow::bail!(
@@ -490,7 +494,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         );
                     }
                 }
-                metrics::log_connect(last_close_reason, connection_count)
+                metrics::log_connect(self.partition_id, last_close_reason, connection_count)
             },
             ClientMessage::ModifyQuerySet {
                 base_version,
@@ -500,8 +504,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                 self.state
                     .modify_query_set(base_version, new_version, modifications)?;
                 self.schedule_update();
-                self.modify_query_to_transition_timers
-                    .insert(new_version, modify_query_to_transition_timer());
+                self.modify_query_to_transition_timers.insert(
+                    new_version,
+                    modify_query_to_transition_timer(self.partition_id),
+                );
             },
             ClientMessage::Mutation {
                 request_id,
@@ -530,7 +536,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 );
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
-                let timer = mutation_queue_timer();
+                let timer = mutation_queue_timer(self.partition_id);
                 let api = self.api.clone();
                 let host = self.host.clone();
                 let caller = FunctionCaller::SyncWorker(client_version);
@@ -717,7 +723,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 match TypedClientEvent::try_from(client_event) {
                     Ok(typed_client_event) => match typed_client_event {
                         TypedClientEvent::ClientConnect { marks } => {
-                            metrics::log_client_connect_timings(marks)
+                            metrics::log_client_connect_timings(self.partition_id, marks)
                         },
                     },
                     Err(_) => (),
@@ -743,7 +749,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             },
         );
         let _guard = root.set_local_parent();
-        let timer = metrics::update_queries_timer();
+        let timer = metrics::update_queries_timer(self.partition_id);
         let current_version = self.state.current_version();
 
         let (modifications, new_query_version, pending_identity, new_identity_version) =
@@ -980,7 +986,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             modifications: state_modifications.into_values().collect(),
         };
         timer.finish();
-        metrics::log_query_set_size(self.state.num_queries());
+        metrics::log_query_set_size(self.partition_id, self.state.num_queries());
         // Only retain timers for queries that haven't been updated yet. Finish the
         // timers for everything up through the new version.
         let finished_timers = self

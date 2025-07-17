@@ -259,6 +259,9 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &ResolvedHostname,
     ) -> anyhow::Result<Box<dyn SubscriptionClient>>;
+
+    /// To be used for metrics only.
+    async fn partition_id(&self, host: &ResolvedHostname) -> anyhow::Result<u64>;
 }
 
 // Implements ApplicationApi via Application.
@@ -542,6 +545,11 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         Ok(Box::new(ApplicationSubscriptionClient {
             database: self.database.clone(),
         }))
+    }
+
+    async fn partition_id(&self, _host: &ResolvedHostname) -> anyhow::Result<u64> {
+        // Not relevant; just return something
+        Ok(0)
     }
 }
 

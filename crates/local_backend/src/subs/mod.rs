@@ -232,6 +232,8 @@ async fn run_sync_socket(
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
         let _sync_worker_drop_token = DebugSyncSocketDropToken::new("sync_worker");
+        // For segmenting metrics
+        let partition_id = st.api.partition_id(&host).await?;
         let mut sync_worker = SyncWorker::new(
             st.api.clone(),
             st.runtime.clone(),
@@ -240,6 +242,7 @@ async fn run_sync_socket(
             client_rx,
             server_tx,
             on_connect,
+            partition_id,
         );
         let r = sync_worker.go().await;
         identity_version = Some(sync_worker.identity_version());

@@ -200,6 +200,7 @@ impl ServerThread {
                                 incoming,
                                 outgoing,
                                 Box::new(|_session_id| ()),
+                                0,
                             );
                             join_set.spawn("sync_worker", async move { w.go().await });
                         },

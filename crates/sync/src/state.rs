@@ -143,10 +143,12 @@ pub struct SyncState {
     pending_identity: Option<Identity>,
     /// These are the query set version and identity according to the client.
     received_client_version: ClientVersion,
+
+    partition_id: u64,
 }
 
 impl SyncState {
-    pub fn new() -> Self {
+    pub fn new(partition_id: u64) -> Self {
         Self {
             session_id: None,
             current_version: StateVersion::initial(),
@@ -160,6 +162,8 @@ impl SyncState {
             pending_query_updates: vec![],
             pending_identity: None,
             received_client_version: ClientVersion::initial(),
+
+            partition_id,
         }
     }
 
@@ -184,7 +188,7 @@ impl SyncState {
             new_version
         );
         if self.current_version == new_version {
-            metrics::log_empty_transition();
+            metrics::log_empty_transition(self.partition_id);
         }
         self.current_version = new_version;
         Ok(())
@@ -416,7 +420,7 @@ impl SyncState {
 
         let new_hash = hash_result(&result, &log_lines);
         let same_result = query.result_hash.as_ref() == Some(&new_hash);
-        metrics::log_query_result_dedup(same_result);
+        metrics::log_query_result_dedup(self.partition_id, same_result);
 
         query.result_hash = Some(new_hash);
         query.subscription = Some(subscription);
@@ -432,7 +436,7 @@ impl SyncState {
                     journal,
                 },
                 Err(error) => {
-                    metrics::log_query_failed();
+                    metrics::log_query_failed(self.partition_id);
                     StateModification::QueryFailed {
                         query_id,
                         error_message: error.to_string(),

@@ -1,9 +1,8 @@
 use std::time::Duration;
 
 use metrics::{
-    log_counter,
     log_counter_with_labels,
-    log_distribution,
+    log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
     StaticMetricLabel,
@@ -22,19 +21,24 @@ use sync_types::{
 register_convex_histogram!(
     SYNC_CONNECT_SECONDS,
     "Time between SyncWorker creation and receiving Connect message",
-    &STATUS_LABEL
+    &[STATUS_LABEL[0], "partition_id"]
 );
 /// Measuring time between SyncWorker creation and receiving Connect message.
-pub fn connect_timer() -> StatusTimer {
-    StatusTimer::new(&SYNC_CONNECT_SECONDS)
+pub fn connect_timer(partition_id: u64) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SYNC_CONNECT_SECONDS);
+    timer.add_label(StaticMetricLabel::new(
+        "partition_id",
+        partition_id.to_string(),
+    ));
+    timer
 }
 
 register_convex_histogram!(
     SYNC_HANDLE_MESSAGE_SECONDS,
     "Time to handle a websocket message",
-    &["status", "endpoint"]
+    &[STATUS_LABEL[0], "partition_id", "endpoint"]
 );
-pub fn handle_message_timer(message: &ClientMessage) -> StatusTimer {
+pub fn handle_message_timer(partition_id: u64, message: &ClientMessage) -> StatusTimer {
     let mut timer = StatusTimer::new(&SYNC_HANDLE_MESSAGE_SECONDS);
     let request_name = match message {
         ClientMessage::Authenticate { .. } => "Authenticate",
@@ -45,119 +49,226 @@ pub fn handle_message_timer(message: &ClientMessage) -> StatusTimer {
         ClientMessage::Event { .. } => "Event",
     };
     timer.add_label(StaticMetricLabel::new("endpoint", request_name.to_owned()));
+    timer.add_label(StaticMetricLabel::new(
+        "partition_id",
+        partition_id.to_string(),
+    ));
     timer
 }
 
 register_convex_histogram!(
     SYNC_UPDATE_QUERIES_SECONDS,
     "Time to update queries",
-    &STATUS_LABEL
+    &[STATUS_LABEL[0], "partition_id"]
 );
-pub fn update_queries_timer() -> StatusTimer {
-    StatusTimer::new(&SYNC_UPDATE_QUERIES_SECONDS)
+pub fn update_queries_timer(partition_id: u64) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SYNC_UPDATE_QUERIES_SECONDS);
+    timer.add_label(StaticMetricLabel::new(
+        "partition_id",
+        partition_id.to_string(),
+    ));
+    timer
 }
 
 register_convex_histogram!(
     MODIFY_QUERY_TO_TRANSITION_SECONDS,
     "Time between getting a ModifyQuerySet message and sending the Transition",
-    &STATUS_LABEL
+    &[STATUS_LABEL[0], "partition_id"]
 );
-pub fn modify_query_to_transition_timer() -> StatusTimer {
-    StatusTimer::new(&MODIFY_QUERY_TO_TRANSITION_SECONDS)
+pub fn modify_query_to_transition_timer(partition_id: u64) -> StatusTimer {
+    let mut timer = StatusTimer::new(&MODIFY_QUERY_TO_TRANSITION_SECONDS);
+    timer.add_label(StaticMetricLabel::new(
+        "partition_id",
+        partition_id.to_string(),
+    ));
+    timer
 }
 
 register_convex_histogram!(
     SYNC_MUTATION_QUEUE_SECONDS,
     "Time between a mutation entering and exiting the single threaded sync worker queue",
-    &STATUS_LABEL
+    &[STATUS_LABEL[0], "partition_id"]
 );
-pub fn mutation_queue_timer() -> StatusTimer {
-    StatusTimer::new(&SYNC_MUTATION_QUEUE_SECONDS)
+pub fn mutation_queue_timer(partition_id: u64) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SYNC_MUTATION_QUEUE_SECONDS);
+    timer.add_label(StaticMetricLabel::new(
+        "partition_id",
+        partition_id.to_string(),
+    ));
+    timer
 }
 
-register_convex_counter!(SYNC_QUERY_FAILED_TOTAL, "Number of query failures");
-pub fn log_query_failed() {
-    log_counter(&SYNC_QUERY_FAILED_TOTAL, 1);
+register_convex_counter!(
+    SYNC_QUERY_FAILED_TOTAL,
+    "Number of query failures",
+    &["partition_id"]
+);
+pub fn log_query_failed(partition_id: u64) {
+    log_counter_with_labels(
+        &SYNC_QUERY_FAILED_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
-register_convex_histogram!(SYNC_QUERY_SET_TOTAL, "Size of query set");
-pub fn log_query_set_size(num_queries: usize) {
-    log_distribution(&SYNC_QUERY_SET_TOTAL, num_queries as f64);
+register_convex_histogram!(SYNC_QUERY_SET_TOTAL, "Size of query set", &["partition_id"]);
+pub fn log_query_set_size(partition_id: u64, num_queries: usize) {
+    log_distribution_with_labels(
+        &SYNC_QUERY_SET_TOTAL,
+        num_queries as f64,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 register_convex_counter!(
     SYNC_QUERY_RESULT_DEDUP_TOTAL,
-    "Number of deduplicated query results"
+    "Number of deduplicated query results",
+    &["partition_id"]
 );
-pub fn log_query_result_dedup(same_value: bool) {
+pub fn log_query_result_dedup(partition_id: u64, same_value: bool) {
     let sample = if same_value { 1 } else { 0 };
-    log_counter(&SYNC_QUERY_RESULT_DEDUP_TOTAL, sample);
+    log_counter_with_labels(
+        &SYNC_QUERY_RESULT_DEDUP_TOTAL,
+        sample,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
-register_convex_counter!(SYNC_EMPTY_TRANSITION_TOTAL, "Number of empty transitions");
-pub fn log_empty_transition() {
-    log_counter(&SYNC_EMPTY_TRANSITION_TOTAL, 1);
+register_convex_counter!(
+    SYNC_EMPTY_TRANSITION_TOTAL,
+    "Number of empty transitions",
+    &["partition_id"]
+);
+pub fn log_empty_transition(partition_id: u64) {
+    log_counter_with_labels(
+        &SYNC_EMPTY_TRANSITION_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 register_convex_counter!(
     SYNC_CONNECT_TOTAL,
     "Number of new WS connections",
-    &["reason"]
+    &["partition_id", "reason"]
 );
 register_convex_histogram!(
     SYNC_RECONNECT_PREV_CONNECTIONS,
     "How many previous connections happened on a given reconnect",
+    &["partition_id"]
 );
-pub fn log_connect(last_close_reason: String, connection_count: u32) {
-    let labels = vec![StaticMetricLabel::new("reason", last_close_reason)];
-    log_counter_with_labels(&SYNC_CONNECT_TOTAL, 1, labels);
-    log_distribution(&SYNC_RECONNECT_PREV_CONNECTIONS, connection_count.into());
+pub fn log_connect(partition_id: u64, last_close_reason: String, connection_count: u32) {
+    log_counter_with_labels(
+        &SYNC_CONNECT_TOTAL,
+        1,
+        vec![
+            StaticMetricLabel::new("reason", last_close_reason),
+            StaticMetricLabel::new("partition_id", partition_id.to_string()),
+        ],
+    );
+    log_distribution_with_labels(
+        &SYNC_RECONNECT_PREV_CONNECTIONS,
+        connection_count.into(),
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 register_convex_histogram!(
     SYNC_LINEARIZABILITY_DELAY_SECONDS,
     "How far behind the current backend is behind what the client has observed",
+    &["partition_id"]
 );
-pub fn log_linearizability_violation(delay_secs: f64) {
-    log_distribution(&SYNC_LINEARIZABILITY_DELAY_SECONDS, delay_secs);
+pub fn log_linearizability_violation(partition_id: u64, delay_secs: f64) {
+    log_distribution_with_labels(
+        &SYNC_LINEARIZABILITY_DELAY_SECONDS,
+        delay_secs,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 register_convex_histogram!(
     SYNC_PROCESS_CLIENT_MESSAGE_SECONDS,
     "Delay between receiving a client message over the web socket and processing it",
+    &["partition_id"],
 );
-pub fn log_process_client_message_delay(delay: Duration) {
-    log_distribution(&SYNC_PROCESS_CLIENT_MESSAGE_SECONDS, delay.as_secs_f64());
+pub fn log_process_client_message_delay(partition_id: u64, delay: Duration) {
+    log_distribution_with_labels(
+        &SYNC_PROCESS_CLIENT_MESSAGE_SECONDS,
+        delay.as_secs_f64(),
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 register_convex_histogram!(
     SYNC_CLIENT_CONSTRUCT_TO_FIRST_MESSAGE_SECONDS,
-    "Time from client construction to first message"
+    "Time from client construction to first message",
+    &["partition_id"],
 );
-pub fn log_client_construct_to_first_message_millis(ms: f64) {
-    log_distribution(&SYNC_CLIENT_CONSTRUCT_TO_FIRST_MESSAGE_SECONDS, ms / 1000.0);
+pub fn log_client_construct_to_first_message_millis(partition_id: u64, ms: f64) {
+    log_distribution_with_labels(
+        &SYNC_CLIENT_CONSTRUCT_TO_FIRST_MESSAGE_SECONDS,
+        ms / 1000.0,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 register_convex_histogram!(
     SYNC_CLIENT_CONSTRUCT_TO_WEBSOCKET_OPENED_SECONDS,
-    "Time from client construction to websocket open"
+    "Time from client construction to websocket open",
+    &["partition_id"]
 );
-pub fn log_client_construct_to_websocket_opened_millis(ms: f64) {
-    log_distribution(
+pub fn log_client_construct_to_websocket_opened_millis(partition_id: u64, ms: f64) {
+    log_distribution_with_labels(
         &SYNC_CLIENT_CONSTRUCT_TO_WEBSOCKET_OPENED_SECONDS,
         ms / 1000.0,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
     );
 }
 
 register_convex_counter!(
     SYNC_CLIENT_METRICS_INCOMPLETE_TOTAL,
-    "Number of incomplete metric reports from the client"
+    "Number of incomplete metric reports from the client",
+    &["partition_id"]
 );
-pub fn log_client_metrics_incomplete() {
-    log_counter(&SYNC_CLIENT_METRICS_INCOMPLETE_TOTAL, 1);
+pub fn log_client_metrics_incomplete(partition_id: u64) {
+    log_counter_with_labels(
+        &SYNC_CLIENT_METRICS_INCOMPLETE_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
-pub fn log_client_connect_timings(marks: Vec<ClientMark>) {
+pub fn log_client_connect_timings(partition_id: u64, marks: Vec<ClientMark>) {
     let mut client_constructed: Option<f64> = None;
     let mut websocket_opened: Option<f64> = None;
     let mut first_message_received: Option<f64> = None;
@@ -170,11 +281,11 @@ pub fn log_client_connect_timings(marks: Vec<ClientMark>) {
     }
     match (client_constructed, websocket_opened, first_message_received) {
         (Some(construct), Some(opened), Some(first)) => {
-            log_client_construct_to_first_message_millis(first - construct);
-            log_client_construct_to_websocket_opened_millis(opened - construct);
+            log_client_construct_to_first_message_millis(partition_id, first - construct);
+            log_client_construct_to_websocket_opened_millis(partition_id, opened - construct);
         },
         _ => {
-            log_client_metrics_incomplete();
+            log_client_metrics_incomplete(partition_id);
         },
     }
 }
