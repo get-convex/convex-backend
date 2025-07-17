@@ -855,7 +855,7 @@ mod tests {
             .pending_index_metadata(TableNamespace::test_user(), &index_metadata.name)?
             .expect("Missing index metadata!");
         IndexModel::new(&mut tx)
-            .enable_backfilled_indexes(vec![resolved_index.clone().into_value()])
+            .enable_backfilled_indexes(vec![resolved_index.clone()])
             .await?;
         db.commit(tx).await?;
         assert_enabled(

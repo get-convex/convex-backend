@@ -1460,7 +1460,7 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
                     let mut backfilled_indexes = vec![];
                     for index in index_model.all_indexes_on_table(tablet_id).await? {
                         if !index.config.is_enabled() {
-                            backfilled_indexes.push(index.into_value());
+                            backfilled_indexes.push(index);
                         }
                     }
                     index_model

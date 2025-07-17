@@ -252,9 +252,7 @@ mod tests {
         let index = model
             .pending_index_metadata(namespace, index_name)?
             .context(format!("Missing pending index for {index_name:?}"))?;
-        model
-            .enable_backfilled_indexes(vec![index.into_value()])
-            .await?;
+        model.enable_backfilled_indexes(vec![index]).await?;
         database.commit(tx).await?;
         Ok(())
     }

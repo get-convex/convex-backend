@@ -561,10 +561,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         &mut self,
         namespace: TableNamespace,
         table: &TableName,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<TabletIdAndTableNumber> {
         self._insert_table_metadata(namespace, table, None, TableState::Active)
-            .await?;
-        Ok(())
+            .await
     }
 }
 #[cfg(test)]

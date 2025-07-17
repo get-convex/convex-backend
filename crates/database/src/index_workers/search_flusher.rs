@@ -55,7 +55,10 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::index_workers::IndexWorkerMetadataModel,
+    bootstrap_model::{
+        index_backfills::IndexBackfillModel,
+        index_workers::IndexWorkerMetadataModel,
+    },
     index_workers::{
         index_meta::{
             SearchIndex,
@@ -332,11 +335,26 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let mut new_ts = tx.begin_timestamp();
         let (previous_segments, build_type) = match job.index_config.on_disk_state {
             SearchOnDiskState::Backfilling(ref backfill_state) => {
-                let backfill_snapshot_ts = backfill_state
+                let maybe_backfill_snapshot_ts = backfill_state
                     .backfill_snapshot_ts
                     .map(|ts| new_ts.prior_ts(ts))
-                    .transpose()?
-                    .unwrap_or(new_ts);
+                    .transpose()?;
+                let backfill_snapshot_ts = if let Some(ts) = maybe_backfill_snapshot_ts {
+                    ts
+                } else {
+                    // This is the beginning of a backfill!
+                    // We need to initialize the backfill with the size of the table at this
+                    // snapshot.
+                    let tablet = job.index_name.table();
+                    let table_name = tx.table_mapping().tablet_name(*tablet)?;
+                    let table_namespace = tx.table_mapping().tablet_namespace(*tablet)?;
+                    let total_docs = tx.count(table_namespace, &table_name).await?;
+                    let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+                    index_backfill_model
+                        .initialize_backfill(job.index_id, total_docs)
+                        .await?;
+                    new_ts
+                };
                 // For backfilling indexes, the snapshot timestamp we return is the backfill
                 // snapshot timestamp
                 new_ts = backfill_snapshot_ts;
@@ -376,6 +394,9 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 }
             },
         };
+        self.database
+            .commit_with_write_source(tx, "search_flusher_initialize_backfill")
+            .await?;
 
         let MultiSegmentBuildResult {
             new_segment,

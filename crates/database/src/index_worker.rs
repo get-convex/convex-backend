@@ -100,6 +100,7 @@ use value::{
 };
 
 use crate::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
     metrics::{
         index_backfill_timer,
         log_index_backfilled,
@@ -198,6 +199,19 @@ impl IndexSelector {
             Self::ManyIndexes { tablet_id, .. } => btreeset! { *tablet_id },
         };
         tables.into_iter()
+    }
+
+    fn index_ids(&self) -> impl Iterator<Item = IndexId> {
+        let indexes = match self {
+            Self::All(index_registry) => index_registry
+                .all_indexes()
+                .map(|doc| doc.id().internal_id())
+                .collect(),
+
+            Self::Index { id, .. } => btreeset! { *id },
+            Self::ManyIndexes { indexes, .. } => indexes.keys().copied().collect(),
+        };
+        indexes.into_iter()
     }
 
     fn tablet_id(&self) -> Option<TabletId> {
@@ -406,16 +420,33 @@ impl<RT: Runtime> IndexWorker<RT> {
                 "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
                 needs_backfill.len()
             );
+            let ts = self.database.now_ts_for_reads();
+            let table_summary = self
+                .database
+                .snapshot(ts)?
+                .table_summary(table_mapping.tablet_namespace(tablet_id)?, &table_name);
+            let total_docs = table_summary.map(|summary| summary.num_values());
+            let mut tx = self.database.begin_system().await?;
+            let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+            for index_id in needs_backfill.keys() {
+                index_backfill_model
+                    .initialize_backfill(*index_id, total_docs)
+                    .await?;
+            }
+            self.database
+                .commit_with_write_source(tx, "index_worker_backfill_initialization")
+                .await?;
             let index_selector = IndexSelector::ManyIndexes {
                 tablet_id,
                 indexes: needs_backfill,
             };
             self.index_writer
                 .perform_backfill(
-                    self.database.now_ts_for_reads(),
+                    ts,
                     &index_registry,
                     index_selector,
                     1,
+                    Some(self.database.clone()),
                 )
                 .await?;
         }
@@ -651,12 +682,15 @@ impl<RT: Runtime> IndexWriter<RT> {
     ///    writes, assuming `snapshot_ts` is after the index was created. If
     ///    there are no active writes, then `backfill_forwards` must be called
     ///    with a timestamp <= `snapshot_ts`.
+    ///
+    /// Takes a an optional database to update progress on the index backfill
     pub async fn perform_backfill(
         &self,
         snapshot_ts: RepeatableTimestamp,
         index_metadata: &IndexRegistry,
         index_selector: IndexSelector,
         concurrency: usize,
+        database: Option<Database<RT>>,
     ) -> anyhow::Result<()> {
         // Backfill in two steps: first create index entries for all latest documents,
         // then create index entries for all documents in the retention range.
@@ -665,6 +699,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             .try_for_each_concurrent(concurrency, |table_id| {
                 let index_metadata = index_metadata.clone();
                 let index_selector = index_selector.clone();
+                let database = database.clone();
                 let self_ = (*self).clone();
                 try_join("index_backfill_table_snapshot", async move {
                     self_
@@ -673,6 +708,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                             &index_selector,
                             &index_metadata,
                             table_id,
+                            database,
                         )
                         .await
                 })
@@ -719,6 +755,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &IndexSelector,
         index_registry: &IndexRegistry,
         tablet_id: TabletId,
+        database: Option<Database<RT>>,
     ) -> anyhow::Result<()> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
@@ -737,6 +774,8 @@ impl<RT: Runtime> IndexWriter<RT> {
         let mut last_logged = self.runtime.system_time();
         let mut last_logged_count = 0;
         while !stream.is_done() {
+            // Number of documents in the table that have been indexed in this iteration
+            let mut num_docs_indexed = 0u64;
             let mut chunk = BTreeSet::new();
             while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
                 let LatestDocument {
@@ -747,6 +786,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                     Some(d) => d,
                     None => break,
                 };
+                num_docs_indexed += 1;
                 let index_updates = index_registry.index_updates(None, Some(&document));
                 chunk.extend(
                     index_updates
@@ -760,6 +800,17 @@ impl<RT: Runtime> IndexWriter<RT> {
                 self.persistence
                     .write(vec![], chunk, ConflictStrategy::Overwrite)
                     .await?;
+                if let Some(db) = &database {
+                    let mut tx = db.begin_system().await?;
+                    let mut model = IndexBackfillModel::new(&mut tx);
+                    for index_id in index_selector.index_ids() {
+                        model
+                            .update_index_backfill_progress(index_id, tablet_id, num_docs_indexed)
+                            .await?;
+                    }
+                    db.commit_with_write_source(tx, "index_worker_backfill_progress")
+                        .await?;
+                }
             }
             if last_logged.elapsed()? >= Duration::from_secs(60) {
                 tracing::info!(

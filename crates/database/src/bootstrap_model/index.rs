@@ -63,6 +63,7 @@ use value::{
 };
 
 use crate::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
     query::TableFilter,
     reads::TransactionReadSet,
     system_tables::{
@@ -356,7 +357,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         let indexes_to_enable = identical
             .iter()
             .filter(|index| !index.config.is_enabled())
-            .map(|doc| doc.clone().into_value())
+            .cloned()
             .collect();
         self.enable_backfilled_indexes(indexes_to_enable).await?;
 
@@ -364,14 +365,15 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     }
 
     // Enables the given set of indexes if they're backfilled.
-    // Asserts that the given indexes are database indexes (not search indexes)
-    // and that they are in the Backfilled state.
     pub async fn enable_backfilled_indexes(
         &mut self,
-        indexes: Vec<TabletIndexMetadata>,
+        indexes: Vec<ParsedDocument<TabletIndexMetadata>>,
     ) -> anyhow::Result<()> {
         for index in indexes {
             self.enable_index(&index).await?;
+            IndexBackfillModel::new(self.tx)
+                .delete_index_backfill(index.id())
+                .await?;
         }
         Ok(())
     }

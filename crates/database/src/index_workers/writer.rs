@@ -43,6 +43,7 @@ use sync_types::Timestamp;
 use value::ResolvedDocumentId;
 
 use crate::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
     index_workers::{
         index_meta::{
             BackfillState,
@@ -431,10 +432,22 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     .context("Missing new segment in segments list!")
             })
             .transpose()?;
+        let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+        index_backfill_model
+            .update_index_backfill_progress(
+                job.index_id,
+                *job.index_name.table(),
+                new_segment
+                    .as_ref()
+                    .map(|segment| anyhow::Ok::<u64>(segment.statistics()?.num_documents()))
+                    .transpose()?
+                    .unwrap_or_default(),
+            )
+            .await?;
         new_and_modified_segments = state
             .segments()
             .into_iter()
-            .chain(new_segment.into_iter())
+            .chain(new_segment)
             .collect_vec();
 
         self.write_metadata(
