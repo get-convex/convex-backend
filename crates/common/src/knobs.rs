@@ -1358,3 +1358,13 @@ pub static SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD: LazyLock<usize> =
 /// invalidated to determine the delay before invalidating them.
 pub static SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER: LazyLock<u64> =
     LazyLock::new(|| env_config("SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER", 5));
+
+/// When processing a single write log entry takes longer than that time, log
+/// extra detail.
+pub static SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD: LazyLock<u64> =
+    LazyLock::new(|| env_config("SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD", 2));
+
+/// When advancing the write log takes longer than this amount, log extra
+/// details.
+pub static SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD: LazyLock<u64> =
+    LazyLock::new(|| env_config("SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD", 10));

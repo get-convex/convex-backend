@@ -27,6 +27,10 @@ impl<ID: Clone + Ord> IntervalMap<ID> {
         self.sets.is_empty()
     }
 
+    pub fn len(&self) -> usize {
+        self.sets.len()
+    }
+
     /// Insert the IntervalSet for the given ID.
     pub fn insert(&mut self, id: ID, set: IntervalSet) -> Option<IntervalSet> {
         self.sets.insert(id, set)

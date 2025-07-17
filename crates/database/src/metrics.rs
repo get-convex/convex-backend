@@ -1083,6 +1083,14 @@ pub fn subscriptions_log_iterate_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
+    SUBSCRIPTION_PROCESS_WRITE_LOG_ENTRY_SECONDS,
+    "Time to process one write log entry when advancing subscriptions",
+);
+pub fn subscription_process_write_log_entry_timer() -> Timer<VMHistogram> {
+    Timer::new(&SUBSCRIPTION_PROCESS_WRITE_LOG_ENTRY_SECONDS)
+}
+
+register_convex_histogram!(
     SUBSCRIPTION_LOG_INVALIDATE_SECONDS,
     "Time to invalidate segsstiptions when edvancing rh_ log",
 );

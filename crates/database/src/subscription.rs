@@ -27,8 +27,10 @@ use common::{
     errors::report_error,
     knobs::{
         SUBSCRIPTIONS_WORKER_QUEUE_SIZE,
+        SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD,
         SUBSCRIPTION_INVALIDATION_DELAY_MULTIPLIER,
         SUBSCRIPTION_INVALIDATION_DELAY_THRESHOLD,
+        SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD,
     },
     runtime::{
         block_in_place,
@@ -36,6 +38,7 @@ use common::{
         SpawnHandle,
     },
     types::{
+        GenericIndexName,
         PersistenceVersion,
         SubscriberId,
         TabletIndexName,
@@ -328,9 +331,12 @@ impl SubscriptionManager {
                 let mut log_len = 0;
                 let mut num_writes = 0;
                 self.log.for_each(from_ts, next_ts, |_, writes| {
+                    let process_log_timer = metrics::subscription_process_write_log_entry_timer();
                     log_len += 1;
                     num_writes += writes.len();
-                    for (_, document_change) in writes {
+                    let mut tablet_ids = BTreeSet::new();
+                    for (resolved_id, document_change) in writes {
+                        tablet_ids.insert(resolved_id.tablet_id);
                         // We're applying a mutation to the document so if it already exists
                         // we need to remove it before writing the new version.
                         if let Some(ref old_document) = document_change.old_document {
@@ -352,9 +358,46 @@ impl SubscriptionManager {
                             );
                         }
                     }
+
+                    if process_log_timer.elapsed()
+                        > Duration::from_secs(*SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD)
+                    {
+                        tracing::info!(
+                            "[{next_ts}: advance_log] simple commit took {:?}, affected tables: \
+                             {tablet_ids:?}",
+                            process_log_timer.elapsed()
+                        );
+                    }
                 })?;
                 metrics::log_subscriptions_log_length(log_len);
                 metrics::log_subscriptions_log_writes(num_writes);
+                if _timer.elapsed()
+                    > Duration::from_secs(*SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD)
+                {
+                    let subscribers_by_index: BTreeMap<&GenericIndexName<_>, usize> = self
+                        .subscriptions
+                        .indexed
+                        .iter()
+                        .map(|(key, (_fields, range_map))| (key, range_map.len()))
+                        .collect();
+                    let total_subscribers: usize = subscribers_by_index.values().sum();
+                    let search_len = self.subscriptions.search.filter_len();
+                    let fuzzy_len = self.subscriptions.search.fuzzy_len();
+                    tracing::info!(
+                        "[{next_ts} advance_log] Duration {}ms, indexes: {}, search filters: {}, \
+                         fuzzy search: {}",
+                        _timer.elapsed().as_millis(),
+                        self.subscriptions.indexed.len(),
+                        search_len,
+                        fuzzy_len
+                    );
+                    tracing::info!(
+                        "`[{next_ts} advance_log] Subscription map size: {total_subscribers}"
+                    );
+                    tracing::info!(
+                        "[{next_ts} advance_log] Subscribers by index {subscribers_by_index:?}"
+                    );
+                }
             }
 
             {

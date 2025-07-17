@@ -969,6 +969,14 @@ impl TextSearchSubscriptions {
         }
     }
 
+    pub fn filter_len(&self) -> usize {
+        self.filter_conditions.values().map(|m| m.len()).sum()
+    }
+
+    pub fn fuzzy_len(&self) -> usize {
+        self.fuzzy_searches.len()
+    }
+
     pub fn insert(&mut self, id: SubscriberId, index: &TabletIndexName, reads: &QueryReads) {
         self.filter_conditions
             .entry(index.clone())
