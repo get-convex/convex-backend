@@ -356,7 +356,7 @@ impl Writes {
             // Pretend it does since evaluating read dependencies do not actually
             // need to read the index. We only care about the name always mapping
             // to the same fields.
-            let table_name_bytes =
+            let tablet_id_bytes =
                 values_to_bytes(&[Some(index_metadata_serialize_tablet_id(&tablet_id)?)]);
             reads.record_indexed_derived(
                 TabletIndexName::new(
@@ -366,7 +366,7 @@ impl Writes {
                 vec![TABLE_ID_FIELD_PATH.clone()].try_into()?,
                 // Note that should really be exact point instead of a prefix,
                 // but our read set interval does not support this.
-                Interval::prefix(BinaryKey::from(table_name_bytes)),
+                Interval::prefix(BinaryKey::from(tablet_id_bytes)),
             );
         };
 
