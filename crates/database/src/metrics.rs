@@ -1106,18 +1106,18 @@ pub fn subscriptions_log_enforce_retention_timer() -> Timer<VMHistogram> {
     Timer::new(&SUBSCRIPTION_LOG_ENFORCE_RETENTION_SECONDS)
 }
 
-register_convex_counter!(
-    SUBSCRIPTION_LOG_ITERATE_TOTAL,
-    "Total number of entries in the write log when advancing subscriptions",
+register_convex_histogram!(
+    SUBSCRIPTION_LOG_PROCESSED_COMMITS,
+    "Total number of commits in the write log processed during one advance_log",
 );
-pub fn log_subscriptions_log_length(log_len: usize) {
-    log_counter(&SUBSCRIPTION_LOG_ITERATE_TOTAL, log_len as u64);
+pub fn log_subscriptions_log_processed_commits(log_len: usize) {
+    log_distribution(&SUBSCRIPTION_LOG_PROCESSED_COMMITS, log_len as f64);
 }
 
-register_convex_counter!(
-    SUBSCRIPTION_LOG_WRITES,
-    "Number of writes in the write log when advancing subscriptions",
+register_convex_histogram!(
+    SUBSCRIPTION_LOG_PROCESSED_WRITES,
+    "Total number of writes in the write log processed during one advance_log",
 );
-pub fn log_subscriptions_log_writes(num_writes: usize) {
-    log_counter(&SUBSCRIPTION_LOG_WRITES, num_writes as u64);
+pub fn log_subscriptions_log_processed_writes(num_writes: usize) {
+    log_distribution(&SUBSCRIPTION_LOG_PROCESSED_WRITES, num_writes as f64);
 }

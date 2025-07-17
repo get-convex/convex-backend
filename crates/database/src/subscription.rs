@@ -369,8 +369,8 @@ impl SubscriptionManager {
                         );
                     }
                 })?;
-                metrics::log_subscriptions_log_length(log_len);
-                metrics::log_subscriptions_log_writes(num_writes);
+                metrics::log_subscriptions_log_processed_commits(log_len);
+                metrics::log_subscriptions_log_processed_writes(num_writes);
                 if _timer.elapsed()
                     > Duration::from_secs(*SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD)
                 {
