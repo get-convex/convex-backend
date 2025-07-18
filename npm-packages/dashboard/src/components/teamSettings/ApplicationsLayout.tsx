@@ -54,7 +54,7 @@ export function ApplicationsLayout({ team }: { team: Team }) {
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-fit flex-col">
       <h2 className="mb-4">Applications</h2>
       <HeadlessTab.Group
         selectedIndex={selectedIndex}

@@ -34,6 +34,7 @@ import { captureException, captureMessage } from "@sentry/nextjs";
 import { useAuth0 } from "hooks/useAuth0";
 import { useProfile } from "api/profile";
 import Link from "next/link";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
 
 // Utility function to validate URLs without side effects
 function isValidOauthRedirectUri(uri: string): boolean {
@@ -546,40 +547,45 @@ function OauthAppListItem({
             </div>
           </Tooltip>
         </div>
-        <Menu
-          placement="bottom-start"
-          buttonProps={{
-            variant: "neutral",
-            icon: <DotsVerticalIcon />,
-            "aria-label": "App options",
-            size: "xs",
-          }}
-        >
-          {!app.verified ? (
-            <MenuItem action={() => setVerificationModalOpen(true)}>
-              Request Verification
+        <div className="flex items-center gap-2">
+          <TimestampDistance date={new Date(app.createTime)} prefix="Created" />
+          <Menu
+            placement="bottom-start"
+            buttonProps={{
+              variant: "neutral",
+              icon: <DotsVerticalIcon />,
+              "aria-label": "App options",
+              size: "xs",
+            }}
+          >
+            {!app.verified ? (
+              <MenuItem action={() => setVerificationModalOpen(true)}>
+                Request Verification
+              </MenuItem>
+            ) : null}
+            <MenuItem
+              action={() => setEditModalOpen(true)}
+              disabled={!isAdmin}
+              tip={
+                !isAdmin ? "Only team admins can edit OAuth apps." : undefined
+              }
+              tipSide="right"
+            >
+              Edit Application
             </MenuItem>
-          ) : null}
-          <MenuItem
-            action={() => setEditModalOpen(true)}
-            disabled={!isAdmin}
-            tip={!isAdmin ? "Only team admins can edit OAuth apps." : undefined}
-            tipSide="right"
-          >
-            Edit Application
-          </MenuItem>
-          <MenuItem
-            action={() => setShowDelete(true)}
-            variant="danger"
-            disabled={!isAdmin}
-            tip={
-              !isAdmin ? "Only team admins can delete OAuth apps." : undefined
-            }
-            tipSide="right"
-          >
-            Delete Application
-          </MenuItem>
-        </Menu>
+            <MenuItem
+              action={() => setShowDelete(true)}
+              variant="danger"
+              disabled={!isAdmin}
+              tip={
+                !isAdmin ? "Only team admins can delete OAuth apps." : undefined
+              }
+              tipSide="right"
+            >
+              Delete Application
+            </MenuItem>
+          </Menu>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <div className="text-xs break-all">
