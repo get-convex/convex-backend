@@ -193,7 +193,11 @@ export class WebSocketManager {
     this.maxBackoff = 16000;
     this.retries = 0;
 
-    this.serverInactivityThreshold = 30000;
+    // Ping messages (sync protocol Pings, not WebSocket protocol Pings) are
+    // sent every 15s in the absence of other messages. But a single large
+    // Transition or other downstream message can hog the line so this
+    // threshold is set higher to prevent clients from giving up.
+    this.serverInactivityThreshold = 60000;
     this.reconnectDueToServerInactivityTimeout = null;
 
     this.uri = uri;
