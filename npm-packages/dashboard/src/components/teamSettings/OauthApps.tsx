@@ -411,9 +411,7 @@ export function OauthApps({ teamId }: { teamId: number }) {
           />
         </Modal>
       )}
-      <LoadingTransition
-        loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
-      >
+      <LoadingTransition loadingProps={{ className: "w-[28.125rem] h-80" }}>
         {isLoading ? null : oauthApps && oauthApps.length ? (
           <div className="flex flex-col gap-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
@@ -423,6 +421,12 @@ export function OauthApps({ teamId }: { teamId: number }) {
               <Button
                 size="xs"
                 icon={<PlusIcon />}
+                disabled={!isAdmin}
+                tip={
+                  !isAdmin
+                    ? "Only team admins can create OAuth apps."
+                    : undefined
+                }
                 onClick={() => setCreateModalOpen(true)}
               >
                 Create Application
@@ -568,7 +572,16 @@ function OauthAppListItem({
             }}
           >
             {!app.verified ? (
-              <MenuItem action={() => setVerificationModalOpen(true)}>
+              <MenuItem
+                action={() => setVerificationModalOpen(true)}
+                disabled={!isAdmin}
+                tip={
+                  !isAdmin
+                    ? "Only team admins can request verification."
+                    : undefined
+                }
+                tipSide="right"
+              >
                 Request Verification
               </MenuItem>
             ) : null}
