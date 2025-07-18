@@ -14,6 +14,7 @@ module.exports = {
     "prettier",
     "plugin:better-tailwindcss/recommended-warn",
     "plugin:better-tailwindcss/recommended-error",
+    "plugin:storybook/recommended",
   ],
   plugins: ["prettier"],
   settings: {
