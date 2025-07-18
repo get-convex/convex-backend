@@ -328,7 +328,7 @@ function VerificationRequestForm({
           <div className="rounded border bg-blue-50 p-3 dark:bg-blue-900/20">
             <p className="text-sm text-content-secondary">
               <strong>Note:</strong> The Convex team will review your request
-              and respond via to{" "}
+              and respond to you at{" "}
               <span className="font-mono text-content-primary">
                 {userEmail || "your email"}
               </span>
