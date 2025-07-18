@@ -18,7 +18,7 @@ import {
 } from "api/accessTokens";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useRouter } from "next/router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { ProjectForm } from "components/projects/ProjectForm";
 import { TrashIcon, InfoCircledIcon } from "@radix-ui/react-icons";
 import {
@@ -45,6 +45,16 @@ import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { Tooltip } from "@ui/Tooltip";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
+export { getServerSideProps } from "lib/ssr";
+
+export default withAuthenticatedPage(function ProjectSettingsPage() {
+  return (
+    <PageContent>
+      <ProjectSettings />
+    </PageContent>
+  );
+});
+
 const SECTION_IDS = {
   projectForm: "project-form",
   projectRoles: "project-roles",
@@ -58,111 +68,42 @@ const SECTION_IDS = {
   deleteProject: "delete-project",
 } as const;
 
-export { getServerSideProps } from "lib/ssr";
-
-export default withAuthenticatedPage(function SettingsPage() {
-  return (
-    <PageContent>
-      <ProjectSettings />
-    </PageContent>
-  );
-});
+const sections = [
+  { id: SECTION_IDS.projectForm, label: "Edit Project" },
+  { id: SECTION_IDS.projectRoles, label: "Project Admins" },
+  { id: SECTION_IDS.projectUsage, label: "Project Usage" },
+  { id: SECTION_IDS.customDomains, label: "Custom Domains" },
+  { id: SECTION_IDS.deployKeys, label: "Deploy Keys" },
+  {
+    id: SECTION_IDS.authorizedApps,
+    label: "Authorized Applications",
+  },
+  { id: SECTION_IDS.envVars, label: "Environment Variables" },
+  { id: SECTION_IDS.lostAccess, label: "Lost Access" },
+  { id: SECTION_IDS.transferProject, label: "Transfer Project" },
+  { id: SECTION_IDS.deleteProject, label: "Delete Project" },
+];
 
 function SettingsNavigation() {
-  const sections = useMemo(
-    () => [
-      { id: SECTION_IDS.projectForm, label: "Edit Project" },
-      { id: SECTION_IDS.projectRoles, label: "Project Admins" },
-      { id: SECTION_IDS.projectUsage, label: "Project Usage" },
-      { id: SECTION_IDS.customDomains, label: "Custom Domains" },
-      { id: SECTION_IDS.deployKeys, label: "Deploy Keys" },
-      {
-        id: SECTION_IDS.authorizedApps,
-        label: "Authorized Applications",
-      },
-      { id: SECTION_IDS.envVars, label: "Environment Variables" },
-      { id: SECTION_IDS.lostAccess, label: "Lost Access" },
-      { id: SECTION_IDS.transferProject, label: "Transfer Project" },
-      { id: SECTION_IDS.deleteProject, label: "Delete Project" },
-    ],
-    [],
-  );
-
-  const [scrollPercentage, setScrollPercentage] = useState(0);
-  const [visibleSections, setVisibleSections] = useState<Set<string>>(
-    new Set(),
-  );
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const contentContainer = document.querySelector(
-        "[data-settings-content]",
-      );
-      if (!contentContainer) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = contentContainer;
-      const percentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
-      setScrollPercentage(Math.min(100, Math.max(0, percentage)));
-
-      // Check which sections are visible
-      const visibleIds = new Set<string>();
-      sections.forEach(({ id }) => {
-        const element = document.getElementById(id);
-        if (!element) return;
-
-        const rect = element.getBoundingClientRect();
-        const containerRect = contentContainer.getBoundingClientRect();
-
-        // Calculate visibility percentage
-        const elementHeight = rect.height;
-        const visibleHeight =
-          Math.min(rect.bottom, containerRect.bottom) -
-          Math.max(rect.top, containerRect.top);
-        const visibilityPercentage = (visibleHeight / elementHeight) * 100;
-
-        // If at least 10% of the element is visible
-        if (visibilityPercentage >= 10) {
-          visibleIds.add(id);
-        }
-      });
-
-      setVisibleSections(visibleIds);
-    };
-
-    const contentContainer = document.querySelector("[data-settings-content]");
-    if (contentContainer) {
-      contentContainer.addEventListener("scroll", handleScroll);
-      handleScroll(); // Initial calculation
-      return () => contentContainer.removeEventListener("scroll", handleScroll);
-    }
-  }, [sections]);
-
   return (
     <nav
       data-settings-nav
-      className="sticky top-0 hidden h-fit w-[14rem] shrink-0 overflow-visible pr-8 md:block"
+      className="relative"
       aria-label="Settings navigation"
     >
       <div
         className="absolute left-0 h-full w-0.5 rounded-sm bg-background-tertiary"
         aria-hidden="true"
       />
-      <div
-        className="absolute left-0 h-8 w-0.5 rounded-sm bg-content-primary transition-transform duration-75"
-        style={{
-          top: `max(0%, calc(${scrollPercentage}% - 2rem))`,
-        }}
-        aria-hidden="true"
-      />
-      <ul className="space-y-1 pl-1 text-sm">
+      <SettingsNavigationScrollProgress />
+      <ul className="pl-1 text-sm">
         {sections.map(({ id, label }) => (
-          <li key={id}>
+          <li key={id} className="py-px">
             <a
               href={`#${id}`}
               className={cn(
-                "block rounded-sm px-2 py-1.5 transition-all duration-200",
-                "text-content-secondary hover:bg-background-secondary hover:text-content-primary",
-                visibleSections.has(id) && "text-content-primary",
+                "block rounded-sm px-2 py-2 transition-all duration-200",
+                "text-content-primary hover:bg-background-secondary",
               )}
               onClick={(e) => {
                 e.preventDefault();
@@ -176,6 +117,8 @@ function SettingsNavigation() {
                     block: isInView ? "start" : "nearest",
                     inline: "nearest",
                   });
+
+                  window.history.pushState(null, "", `#${id}`);
                 }
               }}
             >
@@ -186,6 +129,99 @@ function SettingsNavigation() {
       </ul>
     </nav>
   );
+}
+
+function SettingsNavigationScrollProgress() {
+  const [transform, setTransform] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const contentContainer = document.querySelector("[data-settings-content]");
+    if (!contentContainer) return undefined;
+
+    const forceUpdate = () => {
+      const containerRect = contentContainer.getBoundingClientRect();
+
+      const elementHeight = 1 / sections.length;
+
+      const firstBoundary = findScrollBoundary("first", containerRect);
+      const lastBoundary = findScrollBoundary("last", containerRect);
+
+      const y =
+        (firstBoundary.index + (1 - firstBoundary.visibilityFraction)) *
+        elementHeight;
+      const height =
+        firstBoundary.index === lastBoundary.index
+          ? firstBoundary.visibilityFraction * elementHeight
+          : (firstBoundary.visibilityFraction +
+              lastBoundary.visibilityFraction +
+              lastBoundary.index -
+              firstBoundary.index -
+              1) *
+            elementHeight;
+
+      setTransform(`translateY(${y * 100}%) scaleY(${height})`);
+    };
+
+    forceUpdate(); // Initial calculation
+
+    const update = () => {
+      window.requestAnimationFrame(forceUpdate);
+    };
+    contentContainer.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      contentContainer.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  if (transform === undefined) return null;
+
+  return (
+    <div
+      className="absolute left-0 h-full w-0.5 origin-top rounded-sm bg-content-primary"
+      style={{
+        transform,
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function findScrollBoundary(
+  boundary: "first" | "last",
+  containerRect: DOMRect,
+) {
+  for (
+    let i = boundary === "first" ? 0 : sections.length - 1;
+    boundary === "first" ? i < sections.length : i >= 0;
+    boundary === "first" ? i++ : i--
+  ) {
+    const section = sections[i];
+    const element = document.getElementById(section.id);
+    if (!element) {
+      continue;
+    }
+
+    const rect = element.getBoundingClientRect();
+
+    const visibleHeight =
+      Math.min(rect.bottom, containerRect.bottom) -
+      Math.max(rect.top, containerRect.top);
+
+    if (visibleHeight > 0) {
+      const elementHeight = rect.height;
+      return {
+        index: i,
+        visibilityFraction: visibleHeight / elementHeight,
+      };
+    }
+  }
+
+  return {
+    index: 0,
+    visibilityFraction: 0,
+  };
 }
 
 function ProjectSettings() {
@@ -264,6 +300,8 @@ function ProjectSettings() {
     }
   }, [team, project, router]); // Only run when team/project load since that's when content becomes available
 
+  const title = <h2 className="pointer-events-auto py-6">Project Settings</h2>;
+
   return (
     <>
       <Head>
@@ -271,85 +309,106 @@ function ProjectSettings() {
           <title>Project Settings | {project.name} | Convex Dashboard</title>
         )}
       </Head>
-      <div className="m-auto flex h-full max-w-[80rem] grow flex-col gap-6 px-6">
-        <h2 className="sticky top-0 z-10 bg-background-primary pt-6">
-          Project Settings
-        </h2>
-        <div className="flex grow flex-col items-start gap-6 overflow-y-hidden md:flex-row">
-          <SettingsNavigation />
-          <div
-            data-settings-content
-            className="scrollbar flex h-full grow flex-col gap-6 overflow-y-auto pr-2 pb-6"
-          >
-            {team && project ? (
-              <div id={SECTION_IDS.projectForm}>
-                <ProjectForm
-                  team={team}
-                  project={project}
-                  hasAdminPermissions={hasAdminPermissions}
-                />
+      <div className="relative h-full [--container-px:--spacing(6)] [--container-width:80rem] [--sidebar-gap:--spacing(8)] [--sidebar-width:12rem]">
+        <div className="pointer-events-none absolute inset-0 top-0 z-10 hidden md:block">
+          <div className="mx-auto flex h-full max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
+            <div className="h-full w-(--sidebar-width)">
+              <div className="grid h-full grid-rows-[auto_1fr]">
+                {title}
+                <div className="scrollbar overflow-y-auto">
+                  <div className="pointer-events-auto pb-8">
+                    <SettingsNavigation />
+                  </div>
+                </div>
               </div>
-            ) : (
-              <Loading className="h-[50rem]" fullHeight={false} />
-            )}
-            <div id={SECTION_IDS.projectRoles}>
-              <MemberProjectRoles />
             </div>
-            {team && project && (
-              <Sheet id={SECTION_IDS.projectUsage}>
-                <h3 className="mb-4">Project Usage</h3>
-                <p className="text-sm">
-                  View this project's usage and limits on{" "}
-                  <Link
-                    className="text-content-link hover:underline"
-                    href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
-                  >
-                    this team's usage page
-                  </Link>
-                  .
-                </p>
-              </Sheet>
-            )}
-            {team && entitlements && (
-              <div id={SECTION_IDS.customDomains}>
-                <CustomDomains
-                  team={team}
-                  hasEntitlement={entitlements.customDomainsEnabled ?? false}
-                />
+            <div className="grow" />
+          </div>
+        </div>
+        <div className="scrollbar h-full overflow-y-auto" data-settings-content>
+          <div className="m-auto flex min-h-0 max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
+            <div className="hidden w-(--sidebar-width) shrink-0 md:block" />
+
+            <div className="flex flex-col items-start">
+              <div className="md:hidden">{title}</div>
+
+              <div className="flex grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3">
+                {team && project ? (
+                  <div id={SECTION_IDS.projectForm}>
+                    <ProjectForm
+                      team={team}
+                      project={project}
+                      hasAdminPermissions={hasAdminPermissions}
+                    />
+                  </div>
+                ) : (
+                  <Loading className="h-[50rem]" fullHeight={false} />
+                )}
+                <div id={SECTION_IDS.projectRoles}>
+                  <MemberProjectRoles />
+                </div>
+                {team && project && (
+                  <Sheet id={SECTION_IDS.projectUsage}>
+                    <h3 className="mb-4">Project Usage</h3>
+                    <p className="text-sm">
+                      View this project's usage and limits on{" "}
+                      <Link
+                        className="text-content-link hover:underline"
+                        href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
+                      >
+                        this team's usage page
+                      </Link>
+                      .
+                    </p>
+                  </Sheet>
+                )}
+                {team && entitlements && (
+                  <div id={SECTION_IDS.customDomains}>
+                    <CustomDomains
+                      team={team}
+                      hasEntitlement={
+                        entitlements.customDomainsEnabled ?? false
+                      }
+                    />
+                  </div>
+                )}
+                {project && (
+                  <div id={SECTION_IDS.deployKeys}>
+                    <GenerateDeployKey
+                      project={project}
+                      hasAdminPermissions={hasAdminPermissions}
+                    />
+                  </div>
+                )}
+                {project && (
+                  <div id={SECTION_IDS.authorizedApps}>
+                    <AuthorizedApplications
+                      accessTokens={projectAppAccessTokens}
+                      explainer={authorizedAppsExplainer}
+                      onRevoke={async (token) => {
+                        await deleteAppAccessTokenByName({ name: token.name });
+                      }}
+                    />
+                  </div>
+                )}
+                <div id={SECTION_IDS.envVars}>
+                  <DefaultEnvironmentVariables />
+                </div>
+                {team && project && !project?.isDemo && (
+                  <div id={SECTION_IDS.lostAccess}>
+                    <LostAccess
+                      teamSlug={team.slug}
+                      projectSlug={project.slug}
+                    />
+                  </div>
+                )}
+                <div id={SECTION_IDS.transferProject}>
+                  <TransferProject />
+                </div>
+                <div id={SECTION_IDS.deleteProject}>
+                  <DeleteProject />
+                </div>
               </div>
-            )}
-            {project && (
-              <div id={SECTION_IDS.deployKeys}>
-                <GenerateDeployKey
-                  project={project}
-                  hasAdminPermissions={hasAdminPermissions}
-                />
-              </div>
-            )}
-            {project && (
-              <div id={SECTION_IDS.authorizedApps}>
-                <AuthorizedApplications
-                  accessTokens={projectAppAccessTokens}
-                  explainer={authorizedAppsExplainer}
-                  onRevoke={async (token) => {
-                    await deleteAppAccessTokenByName({ name: token.name });
-                  }}
-                />
-              </div>
-            )}
-            <div id={SECTION_IDS.envVars}>
-              <DefaultEnvironmentVariables />
-            </div>
-            {team && project && !project?.isDemo && (
-              <div id={SECTION_IDS.lostAccess}>
-                <LostAccess teamSlug={team.slug} projectSlug={project.slug} />
-              </div>
-            )}
-            <div id={SECTION_IDS.transferProject}>
-              <TransferProject />
-            </div>
-            <div id={SECTION_IDS.deleteProject}>
-              <DeleteProject />
             </div>
           </div>
         </div>
