@@ -243,6 +243,10 @@ pub trait Persistence: Sync + Send + 'static {
     async fn shutdown(&self) -> anyhow::Result<()> {
         Ok(())
     }
+
+    async fn finish_loading(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -11,7 +11,10 @@ use common::{
     shutdown::ShutdownSignal,
     version::SERVER_VERSION_STR,
 };
-use db_connection::connect_persistence;
+use db_connection::{
+    connect_persistence,
+    ConnectPersistenceFlags,
+};
 use futures::{
     future::{
         self,
@@ -106,8 +109,11 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
     let persistence = connect_persistence(
         config.db,
         &config.db_spec,
-        !config.do_not_require_ssl,
-        false, /* allow_read_only */
+        ConnectPersistenceFlags {
+            require_ssl: !config.do_not_require_ssl,
+            allow_read_only: false,
+            skip_index_creation: false,
+        },
         &config.name(),
         runtime.clone(),
         preempt_signal.clone(),

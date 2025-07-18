@@ -51,6 +51,7 @@ run_persistence_test_suite!(
             allow_read_only: false,
             version: PersistenceVersion::V5,
             schema: None,
+            skip_index_creation: false,
         },
         ShutdownSignal::panic()
     )
@@ -61,6 +62,7 @@ run_persistence_test_suite!(
             allow_read_only: true,
             version: PersistenceVersion::V5,
             schema: None,
+            skip_index_creation: false,
         },
         ShutdownSignal::panic()
     )
@@ -78,6 +80,7 @@ mod with_non_default_schema {
                 allow_read_only: false,
                 version: PersistenceVersion::V5,
                 schema: Some("foobar".to_owned()),
+                skip_index_creation: false,
             },
             ShutdownSignal::panic()
         )
@@ -88,6 +91,7 @@ mod with_non_default_schema {
                 allow_read_only: true,
                 version: PersistenceVersion::V5,
                 schema: Some("foobar".to_owned()),
+                skip_index_creation: false,
             },
             ShutdownSignal::panic()
         )
@@ -101,6 +105,7 @@ async fn test_loading_locally() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         schema: None,
+        skip_index_creation: false,
     };
     let persistence = PostgresPersistence::new(
         &crate::itest::new_db_opts().await?,
@@ -143,6 +148,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         schema: None,
+        skip_index_creation: false,
     };
     let persistence = PostgresPersistence::new(
         &crate::itest::new_db_opts().await?,
@@ -200,6 +206,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::default(),
         schema: None,
+        skip_index_creation: false,
     };
     let p1 = Arc::new(PostgresPersistence::new(&url, options, ShutdownSignal::no_op()).await?);
 
@@ -230,6 +237,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         schema: None,
+        skip_index_creation: false,
     };
     let p2 = PostgresPersistence::new(&url, options, ShutdownSignal::no_op()).await?;
 

@@ -177,6 +177,12 @@ pub struct PostgresOptions {
     pub version: PersistenceVersion,
     /// If `None` uses the default schema (usually `public`)
     pub schema: Option<String>,
+    /// If true, the schema is only partially initialized - enough to call
+    /// `write`, but read queries will be slow or broken.
+    ///
+    /// Indexes will be created the next time the persistence is initialized
+    /// with `skip_index_creation: false`.
+    pub skip_index_creation: bool,
 }
 
 pub struct PostgresReaderOptions {
@@ -249,9 +255,13 @@ impl PostgresPersistence {
                     .await
                     .map_err(anyhow::Error::from)?;
             }
+            let skip_index_creation = options.skip_index_creation;
             client
-                .with_retry(async |client| {
-                    for stmt in INIT_SQL {
+                .with_retry(async move |client| {
+                    for &(stmt, is_create_index) in INIT_SQL {
+                        if is_create_index && skip_index_creation {
+                            continue;
+                        }
                         client.batch_execute(stmt).await?;
                     }
                     Ok(())
@@ -613,6 +623,26 @@ impl Persistence for PostgresPersistence {
                 .boxed()
             })
             .await
+    }
+
+    /// Runs CREATE INDEX statements that were skipped by `skip_index_creation`.
+    async fn finish_loading(&self) -> anyhow::Result<()> {
+        let mut client = self
+            .lease
+            .pool
+            .get_connection("finish_loading", &self.schema)
+            .await?;
+        for &(stmt, is_create_index) in INIT_SQL {
+            if is_create_index {
+                tracing::info!("Running: {stmt}");
+                assert_send(client.with_retry(async move |client| {
+                    client.batch_execute_no_timeout(stmt).await?;
+                    Ok(())
+                }))
+                .await?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1591,8 +1621,9 @@ const CREATE_SCHEMA_SQL: &str = r"CREATE SCHEMA IF NOT EXISTS @db_name;";
 // Despite the idempotence of IF NOT EXISTS, we still use a conditional check to
 // see if we can avoid running that statement, as it acquires an `ACCESS
 // EXCLUSIVE` lock across the database.
-const INIT_SQL: &[&str] = &[
-    r#"
+const INIT_SQL: &[(&str, bool /* is CREATE INDEX */)] = &[
+    (
+        r#"
 DO $$
 BEGIN
     IF to_regclass('@db_name.documents') IS NULL THEN
@@ -1605,16 +1636,20 @@ BEGIN
             json_value BYTEA NOT NULL,
             deleted BOOLEAN DEFAULT false,
 
-            prev_ts BIGINT,
-
-            PRIMARY KEY (ts, table_id, id)
+            prev_ts BIGINT
         );
     END IF;
 END $$;
 "#,
-    r#"
+        false,
+    ),
+    (
+        r#"
 DO $$
 BEGIN
+    IF to_regclass('@db_name.documents_pkey') IS NULL THEN
+        ALTER TABLE @db_name.documents ADD PRIMARY KEY (ts, table_id, id);
+    END IF;
     IF to_regclass('@db_name.documents_by_table_and_id') IS NULL THEN
         CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON @db_name.documents (
             table_id, id, ts
@@ -1627,7 +1662,10 @@ BEGIN
     END IF;
 END $$;
 "#,
-    r#"
+        true,
+    ),
+    (
+        r#"
 DO $$
 BEGIN
     IF to_regclass('@db_name.indexes') IS NULL THEN
@@ -1654,15 +1692,20 @@ BEGIN
             /* table_id should be populated iff deleted is false. */
             table_id BYTEA NULL,
             /* document_id should be populated iff deleted is false. */
-            document_id BYTEA NULL,
-            PRIMARY KEY (index_id, key_sha256, ts)
+            document_id BYTEA NULL
         );
     END IF;
 END $$;
 "#,
-    r#"
+        false,
+    ),
+    (
+        r#"
 DO $$
 BEGIN
+    IF to_regclass('@db_name.indexes_pkey') IS NULL THEN
+        ALTER TABLE @db_name.indexes ADD PRIMARY KEY (index_id, key_sha256, ts);
+    END IF;
     /* We only want this index created for new instances; existing ones already have `indexes_by_index_id_key_prefix_key_sha256_ts` */
     IF to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256_ts') IS NULL AND to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256') IS NULL THEN
         CREATE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256 ON @db_name.indexes (
@@ -1673,7 +1716,10 @@ BEGIN
     END IF;
 END $$;
 "#,
-    r#"
+        true,
+    ),
+    (
+        r#"
 DO $$
 BEGIN
     IF to_regclass('@db_name.leases') IS NULL THEN
@@ -1686,7 +1732,10 @@ BEGIN
     END IF;
 END $$;
 "#,
-    r#"
+        false,
+    ),
+    (
+        r#"
 DO $$
 BEGIN
     IF to_regclass('@db_name.read_only') IS NULL THEN
@@ -1698,7 +1747,10 @@ BEGIN
     END IF;
 END $$;
 "#,
-    r#"
+        false,
+    ),
+    (
+        r#"
 DO $$
 BEGIN
     IF to_regclass('@db_name.persistence_globals') IS NULL THEN
@@ -1710,9 +1762,14 @@ BEGIN
     END IF;
 END $$;
 "#,
-    r#"
+        false,
+    ),
+    (
+        r#"
         INSERT INTO @db_name.leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;
     "#,
+        false,
+    ),
 ];
 const TABLES: &[&str] = &[
     "documents",

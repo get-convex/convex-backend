@@ -28,11 +28,17 @@ use postgres::{
 };
 use sqlite::SqlitePersistence;
 
+#[derive(Copy, Clone, Debug)]
+pub struct ConnectPersistenceFlags {
+    pub require_ssl: bool,
+    pub allow_read_only: bool,
+    pub skip_index_creation: bool,
+}
+
 pub async fn connect_persistence<RT: Runtime>(
     db: DbDriverTag,
     db_spec: &str,
-    require_ssl: bool,
-    allow_read_only: bool,
+    flags: ConnectPersistenceFlags,
     instance_name: &str,
     runtime: RT,
     shutdown_signal: ShutdownSignal,
@@ -52,15 +58,16 @@ pub async fn connect_persistence<RT: Runtime>(
                 instance_name,
                 db_spec.parse()?,
                 db,
-                require_ssl,
+                flags.require_ssl,
                 true, /* require_leader */
             )?;
             match args {
                 PersistenceArgs::Postgres { url, schema } => {
                     let options = PostgresOptions {
-                        allow_read_only,
+                        allow_read_only: flags.allow_read_only,
                         version,
                         schema,
+                        skip_index_creation: flags.skip_index_creation,
                     };
                     let persistence = Arc::new(
                         PostgresPersistence::new(url.as_str(), options, shutdown_signal).await?,
@@ -70,7 +77,7 @@ pub async fn connect_persistence<RT: Runtime>(
                 },
                 PersistenceArgs::MySql { url, db_name } => {
                     let options = MySqlOptions {
-                        allow_read_only,
+                        allow_read_only: flags.allow_read_only,
                         version,
                         use_prepared_statements: *DATABASE_USE_PREPARED_STATEMENTS,
                     };

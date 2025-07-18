@@ -263,6 +263,16 @@ impl PostgresConnection<'_> {
             .map_err(|e| handle_error(&self.poisoned, e))
     }
 
+    pub async fn batch_execute_no_timeout(&self, query: &'static str) -> anyhow::Result<()> {
+        log_execute(self.labels.clone());
+        let query = self.substitute_db_name(query);
+        self.conn()
+            .client
+            .batch_execute(&query)
+            .await
+            .map_err(|e| handle_error(&self.poisoned, e))
+    }
+
     pub async fn query_opt(
         &self,
         statement: &'static str,
