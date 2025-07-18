@@ -1930,6 +1930,8 @@ export interface components {
             appName: components["schemas"]["AppName"];
             clientId: string;
             clientSecret?: string | null;
+            /** Format: int64 */
+            createTime: number;
             redirectUris: string[];
             verified: boolean;
         };
