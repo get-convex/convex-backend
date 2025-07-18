@@ -3,9 +3,9 @@ import { cn } from "@ui/cn";
 type CalloutVariant = "instructions" | "error" | "localDev" | "upsell";
 
 const classes = {
-  error: "bg-background-error border text-content-error",
-  instructions: "border bg-background-warning text-content-warning",
-  upsell: "border border-util-accent bg-util-accent/10",
+  error: "bg-background-error text-content-error",
+  instructions: "bg-background-warning text-content-warning",
+  upsell: "bg-util-accent/10",
   localDev:
     "bg-teal-100 border border-teal-500 dark:bg-teal-900 text-content-primary",
 };
@@ -22,7 +22,7 @@ export function Callout({
   return (
     <div
       className={cn(
-        `mt-2 flex rounded-sm px-3 py-2 text-sm ${classes[variant]}`,
+        `mt-2 flex rounded-sm p-3 text-sm ${classes[variant]}`,
         className,
       )}
       role="alert"
