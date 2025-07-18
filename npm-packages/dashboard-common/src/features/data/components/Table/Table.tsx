@@ -232,7 +232,7 @@ export function Table({
     >
       <Panel
         defaultSize={100}
-        className="relative w-full overflow-x-hidden rounded-sm"
+        className="relative w-full overflow-x-hidden rounded-lg"
       >
         <DndProvider backend={HTML5Backend}>
           <ScrollingComponent

@@ -116,7 +116,7 @@ export function DataFilters({
 
   return (
     <form
-      className="flex w-full flex-col gap-2 rounded-t border border-b-0 bg-background-secondary/50 p-2"
+      className="flex w-full flex-col gap-2 rounded-t-lg border border-b-0 bg-background-secondary/50 p-2"
       id={filterMenuId}
       data-testid="filterMenu"
       onSubmit={(e) => {

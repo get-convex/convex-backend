@@ -13,7 +13,7 @@ export const Sheet = forwardRef<HTMLDivElement, SheetProps>(function Sheet(
   return (
     <div
       className={classNames(
-        "bg-background-secondary rounded-sm border text-sm",
+        "bg-background-secondary rounded-lg border text-sm",
         padding && "p-6",
         className,
       )}
