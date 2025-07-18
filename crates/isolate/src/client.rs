@@ -748,15 +748,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        let outcome = Self::receive_response(rx).await?.map_err(|e| {
-            if e.is_overloaded() {
-                recapture_stacktrace(e)
-            } else {
-                e
-            }
-        })?;
-
-        Ok(outcome)
+        match Self::receive_response(rx).await? {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => Err(recapture_stacktrace(e).await),
+        }
     }
 
     /// Execute an HTTP action.
@@ -803,15 +798,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        let outcome = Self::receive_response(rx).await?.map_err(|e| {
-            if e.is_overloaded() {
-                recapture_stacktrace(e)
-            } else {
-                e
-            }
-        })?;
-
-        Ok(outcome)
+        match Self::receive_response(rx).await? {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => Err(recapture_stacktrace(e).await),
+        }
     }
 
     /// Analyze a set of user-defined modules.
@@ -841,15 +831,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        IsolateClient::<RT>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        match IsolateClient::<RT>::receive_response(rx).await? {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => Err(recapture_stacktrace(e).await),
+        }
     }
 
     #[fastrace::trace]
@@ -886,15 +871,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        IsolateClient::<RT>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        match IsolateClient::<RT>::receive_response(rx).await? {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => Err(recapture_stacktrace(e).await),
+        }
     }
 
     #[fastrace::trace]
@@ -921,15 +901,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        IsolateClient::<RT>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        match IsolateClient::<RT>::receive_response(rx).await? {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => Err(recapture_stacktrace(e).await),
+        }
     }
 
     #[fastrace::trace]
@@ -954,15 +929,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        IsolateClient::<RT>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        match IsolateClient::<RT>::receive_response(rx).await? {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => Err(recapture_stacktrace(e).await),
+        }
     }
 
     #[fastrace::trace]
@@ -986,37 +956,34 @@ impl<RT: Runtime> IsolateClient<RT> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        let auth_config = IsolateClient::<RT>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if let Some(e) = e.downcast_ref::<ErrorMetadata>()
-                    && e.is_rejected_before_execution()
-                {
-                    return e.clone();
+        let result = IsolateClient::<RT>::receive_response(rx).await?;
+        match result {
+            Ok(outcome) => Ok(outcome),
+            Err(e) => {
+                let is_env_var_error = e
+                    .to_string()
+                    .starts_with("Uncaught Error: Environment variable");
+                let err = recapture_stacktrace(e).await;
+                if err.is_rejected_before_execution() {
+                    return Err(err);
                 }
-                let err = if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                };
                 let error = err.to_string();
-                if error.starts_with("Uncaught Error: Environment variable") {
+                if is_env_var_error {
                     // Reformatting the underlying message to be nicer
                     // here. Since we lost the underlying ErrorMetadata into the JSError,
                     // we do some string matching instead. CX-4531
-                    ErrorMetadata::bad_request(
+                    Err(anyhow::anyhow!(ErrorMetadata::bad_request(
                         "AuthConfigMissingEnvironmentVariable",
                         error.trim_start_matches("Uncaught Error: ").to_string(),
-                    )
+                    )))
                 } else {
-                    ErrorMetadata::bad_request(
+                    Err(anyhow::anyhow!(ErrorMetadata::bad_request(
                         "InvalidAuthConfig",
                         format!("{explanation}: {error}"),
-                    )
+                    )))
                 }
-            })?;
-
-        Ok(auth_config)
+            },
+        }
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {

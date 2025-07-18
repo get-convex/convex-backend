@@ -217,9 +217,9 @@ fn event_from_error(err: &anyhow::Error) -> sentry::protocol::Event<'static> {
 /// be part of the new error.
 ///
 /// See https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations
-pub fn recapture_stacktrace(mut err: anyhow::Error) -> anyhow::Error {
+pub async fn recapture_stacktrace(mut err: anyhow::Error) -> anyhow::Error {
     let new_error = recapture_stacktrace_noreport(&err);
-    report_error_sync(&mut err); // report original error, mutating it to strip pii
+    report_error(&mut err).await; // report original error, mutating it to strip pii
     new_error
 }
 

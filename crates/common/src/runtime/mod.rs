@@ -262,7 +262,10 @@ pub async fn try_join<T: Send + 'static>(
         name,
         fut.in_span(Span::enter_with_local_parent(name)),
     ));
-    handle.await?.map_err(recapture_stacktrace)
+    match handle.await? {
+        Ok(result) => Ok(result),
+        Err(e) => Err(recapture_stacktrace(e).await),
+    }
 }
 
 /// A Runtime can be considered somewhat like an operating system abstraction

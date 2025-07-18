@@ -74,10 +74,7 @@ use common::{
     },
     value::ResolvedDocumentId,
 };
-use errors::{
-    ErrorMetadata,
-    ErrorMetadataAnyhowExt,
-};
+use errors::ErrorMetadata;
 use fastrace::prelude::*;
 use futures::{
     future::{
@@ -1148,13 +1145,7 @@ impl CommitterClient {
             anyhow::bail!(metrics::shutdown_error());
         };
         if let Err(e) = result {
-            // For OCC and other known commit failure error types,
-            // replace the committer's stacktrace with the caller's stack trace as
-            // that will be more helpful
-            if e.is_occ() {
-                return Err(recapture_stacktrace(e));
-            }
-            return Err(e);
+            return Err(recapture_stacktrace(e).await);
         }
         result
     }
