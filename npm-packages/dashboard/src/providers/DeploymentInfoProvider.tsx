@@ -5,6 +5,7 @@ import {
   captureMessage,
   addBreadcrumb,
   ErrorBoundary,
+  FallbackRender,
 } from "@sentry/nextjs";
 import { reportHttpError } from "hooks/fetching";
 import {
@@ -30,8 +31,16 @@ import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-function DeploymentErrorBoundary({ children }: { children: React.ReactNode }) {
-  return <ErrorBoundary fallback={Fallback}>{children}</ErrorBoundary>;
+function DeploymentErrorBoundary({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactElement | FallbackRender;
+}) {
+  return (
+    <ErrorBoundary fallback={fallback ?? Fallback}>{children}</ErrorBoundary>
+  );
 }
 
 export function DeploymentInfoProvider({

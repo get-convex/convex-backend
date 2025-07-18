@@ -19,6 +19,13 @@ import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 
+type FallbackRender = (errorData: {
+  error: Error;
+  componentStack: string;
+  eventId: string;
+  resetError(): void;
+}) => React.ReactElement;
+
 export type DeploymentInfo = (
   | {
       ok: true;
@@ -88,7 +95,10 @@ export type DeploymentInfo = (
     memberId?: number | null;
     name: string;
   }): JSX.Element;
-  ErrorBoundary(props: { children: ReactNode }): JSX.Element;
+  ErrorBoundary(props: {
+    children: ReactNode;
+    fallback?: FallbackRender;
+  }): JSX.Element;
   teamsURI: string;
   projectsURI: string;
   deploymentsURI: string;
