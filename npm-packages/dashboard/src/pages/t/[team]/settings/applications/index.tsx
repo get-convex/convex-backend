@@ -3,6 +3,8 @@ import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import React from "react";
 import { ApplicationsLayout } from "components/teamSettings/ApplicationsLayout";
 
+export { getServerSideProps } from "lib/ssr";
+
 function Applications() {
   return (
     <TeamSettingsLayout
