@@ -1363,3 +1363,243 @@ a,b
 
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_utf8_bom_jsonarray(rt: TestRuntime) -> anyhow::Result<()> {
+    // UTF-8 BOM is the byte sequence: EF BB BF
+    let utf8_bom = [0xEF, 0xBB, 0xBF];
+
+    // Test JsonArray format with UTF-8 BOM
+    let json_content = r#"[{"name": "test", "value": 42}, {"name": "hello", "value": 123}]"#;
+    let mut content_with_bom = Vec::new();
+    content_with_bom.extend_from_slice(&utf8_bom);
+    content_with_bom.extend_from_slice(json_content.as_bytes());
+
+    let storage_dir = tempfile::TempDir::new()?;
+    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+        rt.clone(),
+        &storage_dir.path().to_string_lossy(),
+        StorageUseCase::SnapshotImports,
+    )?);
+
+    let mut upload = storage.start_upload().await?;
+    upload.write(Bytes::from(content_with_bom)).await?;
+    let object_key = upload.complete().await?;
+
+    let stream = || async { storage.get(&object_key).await?.context("missing object") };
+    let objects = parse_objects(
+        ImportFormat::JsonArray("test_table".parse()?),
+        ComponentPath::root(),
+        stream,
+    )
+    .filter_map(|line| async move {
+        match line {
+            Ok(ImportUnit::Object(object)) => Some(Ok(object)),
+            Ok(ImportUnit::NewTable(..)) => None,
+            Ok(ImportUnit::GeneratedSchema(..)) => None,
+            Ok(ImportUnit::StorageFileChunk(..)) => None,
+            Err(e) => Some(Err(e)),
+        }
+    })
+    .try_collect::<Vec<_>>()
+    .await?;
+
+    let expected = vec![
+        json!({"name": "test", "value": 42}),
+        json!({"name": "hello", "value": 123}),
+    ];
+    assert_eq!(objects, expected);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_utf8_bom_jsonlines(rt: TestRuntime) -> anyhow::Result<()> {
+    // UTF-8 BOM is the byte sequence: EF BB BF
+    let utf8_bom = [0xEF, 0xBB, 0xBF];
+
+    // Test JsonLines format with UTF-8 BOM
+    let jsonl_content = r#"{"name": "test", "value": 42}
+{"name": "hello", "value": 123}
+{"name": "world", "value": 456}"#;
+    let mut content_with_bom = Vec::new();
+    content_with_bom.extend_from_slice(&utf8_bom);
+    content_with_bom.extend_from_slice(jsonl_content.as_bytes());
+
+    let storage_dir = tempfile::TempDir::new()?;
+    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+        rt.clone(),
+        &storage_dir.path().to_string_lossy(),
+        StorageUseCase::SnapshotImports,
+    )?);
+
+    let mut upload = storage.start_upload().await?;
+    upload.write(Bytes::from(content_with_bom)).await?;
+    let object_key = upload.complete().await?;
+
+    let stream = || async { storage.get(&object_key).await?.context("missing object") };
+    let objects = parse_objects(
+        ImportFormat::JsonLines("test_table".parse()?),
+        ComponentPath::root(),
+        stream,
+    )
+    .filter_map(|line| async move {
+        match line {
+            Ok(ImportUnit::Object(object)) => Some(Ok(object)),
+            Ok(ImportUnit::NewTable(..)) => None,
+            Ok(ImportUnit::GeneratedSchema(..)) => None,
+            Ok(ImportUnit::StorageFileChunk(..)) => None,
+            Err(e) => Some(Err(e)),
+        }
+    })
+    .try_collect::<Vec<_>>()
+    .await?;
+
+    let expected = vec![
+        json!({"name": "test", "value": 42}),
+        json!({"name": "hello", "value": 123}),
+        json!({"name": "world", "value": 456}),
+    ];
+    assert_eq!(objects, expected);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_utf8_bom_jsonarray_without_bom(rt: TestRuntime) -> anyhow::Result<()> {
+    // Test JsonArray format without UTF-8 BOM (should still work)
+    let json_content = r#"[{"name": "test", "value": 42}]"#;
+
+    let objects = run_parse_objects(
+        rt,
+        ImportFormat::JsonArray("test_table".parse()?),
+        json_content,
+    )
+    .await?;
+
+    let expected = vec![json!({"name": "test", "value": 42})];
+    assert_eq!(objects, expected);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_utf8_bom_jsonlines_without_bom(rt: TestRuntime) -> anyhow::Result<()> {
+    // Test JsonLines format without UTF-8 BOM (should still work)
+    let jsonl_content = r#"{"name": "test", "value": 42}
+{"name": "hello", "value": 123}"#;
+
+    let objects = run_parse_objects(
+        rt,
+        ImportFormat::JsonLines("test_table".parse()?),
+        jsonl_content,
+    )
+    .await?;
+
+    let expected = vec![
+        json!({"name": "test", "value": 42}),
+        json!({"name": "hello", "value": 123}),
+    ];
+    assert_eq!(objects, expected);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_utf8_bom_csv(rt: TestRuntime) -> anyhow::Result<()> {
+    // UTF-8 BOM is the byte sequence: EF BB BF
+    let utf8_bom = [0xEF, 0xBB, 0xBF];
+
+    // Test CSV format with UTF-8 BOM
+    let csv_content = r#"name,value
+test,42
+hello,123"#;
+    let mut content_with_bom = Vec::new();
+    content_with_bom.extend_from_slice(&utf8_bom);
+    content_with_bom.extend_from_slice(csv_content.as_bytes());
+
+    let storage_dir = tempfile::TempDir::new()?;
+    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+        rt.clone(),
+        &storage_dir.path().to_string_lossy(),
+        StorageUseCase::SnapshotImports,
+    )?);
+
+    let mut upload = storage.start_upload().await?;
+    upload.write(Bytes::from(content_with_bom)).await?;
+    let object_key = upload.complete().await?;
+
+    let stream = || async { storage.get(&object_key).await?.context("missing object") };
+    let objects = parse_objects(
+        ImportFormat::Csv("test_table".parse()?),
+        ComponentPath::root(),
+        stream,
+    )
+    .filter_map(|line| async move {
+        match line {
+            Ok(ImportUnit::Object(object)) => Some(Ok(object)),
+            Ok(ImportUnit::NewTable(..)) => None,
+            Ok(ImportUnit::GeneratedSchema(..)) => None,
+            Ok(ImportUnit::StorageFileChunk(..)) => None,
+            Err(e) => Some(Err(e)),
+        }
+    })
+    .try_collect::<Vec<_>>()
+    .await?;
+
+    let expected = vec![
+        json!({"name": "test", "value": 42.0}),
+        json!({"name": "hello", "value": 123.0}),
+    ];
+    assert_eq!(objects, expected);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_utf8_bom_jsonlines_empty_lines(rt: TestRuntime) -> anyhow::Result<()> {
+    // UTF-8 BOM is the byte sequence: EF BB BF
+    let utf8_bom = [0xEF, 0xBB, 0xBF];
+
+    // Test JsonLines format with UTF-8 BOM and empty lines
+    let jsonl_content = r#"{"name": "test", "value": 42}
+
+{"name": "hello", "value": 123}
+
+{"name": "world", "value": 456}"#;
+    let mut content_with_bom = Vec::new();
+    content_with_bom.extend_from_slice(&utf8_bom);
+    content_with_bom.extend_from_slice(jsonl_content.as_bytes());
+
+    let storage_dir = tempfile::TempDir::new()?;
+    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+        rt.clone(),
+        &storage_dir.path().to_string_lossy(),
+        StorageUseCase::SnapshotImports,
+    )?);
+
+    let mut upload = storage.start_upload().await?;
+    upload.write(Bytes::from(content_with_bom)).await?;
+    let object_key = upload.complete().await?;
+
+    let stream = || async { storage.get(&object_key).await?.context("missing object") };
+    let objects = parse_objects(
+        ImportFormat::JsonLines("test_table".parse()?),
+        ComponentPath::root(),
+        stream,
+    )
+    .filter_map(|line| async move {
+        match line {
+            Ok(ImportUnit::Object(object)) => Some(Ok(object)),
+            Ok(ImportUnit::NewTable(..)) => None,
+            Ok(ImportUnit::GeneratedSchema(..)) => None,
+            Ok(ImportUnit::StorageFileChunk(..)) => None,
+            Err(e) => Some(Err(e)),
+        }
+    })
+    .try_collect::<Vec<_>>()
+    .await?;
+
+    let expected = vec![
+        json!({"name": "test", "value": 42}),
+        json!({"name": "hello", "value": 123}),
+        json!({"name": "world", "value": 456}),
+    ];
+    assert_eq!(objects, expected);
+    Ok(())
+}

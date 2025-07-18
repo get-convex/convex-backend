@@ -24,7 +24,6 @@ use common::{
 use errors::ErrorMetadata;
 use futures::{
     pin_mut,
-    AsyncBufReadExt,
     AsyncReadExt,
     Future,
     StreamExt,
@@ -120,6 +119,15 @@ fn map_csv_error(e: csv_async::Error) -> anyhow::Error {
     }
 }
 
+fn strip_utf8_bom(buf: &[u8]) -> &[u8] {
+    // UTF-8 BOM is the byte sequence: EF BB BF
+    if buf.len() >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF {
+        &buf[3..]
+    } else {
+        buf
+    }
+}
+
 /// Parse and stream units from the imported file, starting with a NewTable
 /// for each table and then Objects for each object to import into the table.
 /// stream_body returns the file as streamed bytes. stream_body() can be called
@@ -182,21 +190,26 @@ pub async fn parse_objects<'a, Fut>(
             }
         },
         ImportFormat::JsonLines(table_name) => {
-            let mut reader = stream_body().await?.into_reader();
+            let reader = stream_body().await?;
             yield ImportUnit::NewTable(component_path, table_name);
-            let mut line = String::new();
-            let mut lineno = 1;
-            while reader
-                .read_line(&mut line)
-                .await
-                .map_err(ImportError::NotUtf8)?
-                > 0
-            {
-                let v: serde_json::Value = serde_json::from_str(&line)
+            let mut buf = Vec::new();
+            let mut reader = reader.into_reader();
+            reader.read_to_end(&mut buf).await?;
+
+            // Strip UTF-8 BOM from the entire buffer if present
+            let buf_without_bom = strip_utf8_bom(&buf);
+            let content = std::str::from_utf8(buf_without_bom).map_err(|e| {
+                ImportError::NotUtf8(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+            })?;
+
+            for (lineno, line) in content.lines().enumerate() {
+                let lineno = lineno + 1;
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let v: serde_json::Value = serde_json::from_str(line)
                     .map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
                 yield ImportUnit::Object(v);
-                line.clear();
-                lineno += 1;
             }
         },
         ImportFormat::JsonArray(table_name) => {
@@ -210,8 +223,10 @@ pub async fn parse_objects<'a, Fut>(
             if buf.len() > *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES {
                 anyhow::bail!(ImportError::JsonArrayTooLarge(buf.len()));
             }
-            let v: serde_json::Value =
-                serde_json::from_slice(&buf).map_err(ImportError::NotJson)?;
+            let v: serde_json::Value = {
+                let buf_without_bom = strip_utf8_bom(&buf);
+                serde_json::from_slice(buf_without_bom).map_err(ImportError::NotJson)?
+            };
             let array = v.as_array().ok_or(ImportError::NotJsonArray)?;
             for value in array.iter() {
                 yield ImportUnit::Object(value.clone());
