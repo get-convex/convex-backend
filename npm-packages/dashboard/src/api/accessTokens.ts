@@ -138,5 +138,6 @@ export function useAuthorizeApp() {
   return useBBMutation({
     path: "/authorize_app",
     pathParams: undefined,
+    toastOnError: false,
   });
 }

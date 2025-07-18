@@ -43,5 +43,6 @@ export function useCheckOauthApp(teamId?: number) {
   return useBBMutation({
     path: "/teams/{team_id}/oauth_apps/check",
     pathParams: { team_id: teamId?.toString() || "" },
+    toastOnError: false,
   });
 }

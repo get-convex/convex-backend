@@ -1,6 +1,8 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { AuthorizeProject } from "components/AuthorizeProject";
+import { AuthorizeApp } from "components/AuthorizeApp";
 
 export { getServerSideProps } from "lib/ssr";
 
-export default withAuthenticatedPage(AuthorizeProject);
+export default withAuthenticatedPage(() => (
+  <AuthorizeApp authorizationScope="project" />
+));
