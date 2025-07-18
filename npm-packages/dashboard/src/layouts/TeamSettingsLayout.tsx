@@ -22,7 +22,7 @@ export function TeamSettingsLayout({
     | "audit-log"
     | "access-tokens"
     | "referrals"
-    | "authorized-applications";
+    | "applications";
   Component: React.FunctionComponent<{ team: Team }>;
   title: string;
 }) {
@@ -39,7 +39,7 @@ export function TeamSettingsLayout({
     "billing",
     "usage",
     ...(referralsPage ? ["referrals"] : []),
-    ...(showTeamOauthTokens ? ["authorized-applications"] : []),
+    ...(showTeamOauthTokens ? ["applications"] : []),
   ];
 
   return (
@@ -61,7 +61,7 @@ export function TeamSettingsLayout({
           <aside
             className={classNames(
               "flex sm:flex-col gap-1",
-              "min-w-52 sm:w-fit",
+              "min-w-40 sm:w-fit",
               "min-h-fit",
               "px-3 py-2",
               "overflow-x-auto scrollbar-none",
@@ -91,7 +91,7 @@ export function TeamSettingsLayout({
             </SidebarLink>
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
-            <div className="flex h-full max-w-[65rem] flex-col gap-6 p-6">
+            <div className="flex max-w-[65rem] flex-col gap-6 p-6">
               {selectedTeam ? (
                 <Component team={selectedTeam} key={selectedTeam.id} />
               ) : (

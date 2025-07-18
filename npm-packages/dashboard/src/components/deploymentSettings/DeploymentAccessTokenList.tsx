@@ -66,7 +66,7 @@ export function DeploymentAccessTokenList({
                     />
                   ))
               ) : (
-                <div className="my-2 text-content-secondary">
+                <div className="my-6 flex w-full justify-center text-content-secondary">
                   There are no tokens here yet.
                 </div>
               )}

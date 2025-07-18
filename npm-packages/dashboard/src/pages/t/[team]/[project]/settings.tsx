@@ -41,7 +41,7 @@ import { DeploymentAccessTokenList } from "components/deploymentSettings/Deploym
 import { CustomDomains } from "components/projectSettings/CustomDomains";
 import { TransferProject } from "components/projects/TransferProject";
 import { cn } from "@ui/cn";
-import { AuthorizedApplications } from "components/projectSettings/AuthorizedApplications";
+import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { Tooltip } from "@ui/Tooltip";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
@@ -51,7 +51,7 @@ const SECTION_IDS = {
   projectUsage: "project-usage",
   customDomains: "custom-domains",
   deployKeys: "deploy-keys",
-  authorizedApplications: "authorized-applications",
+  authorizedApps: "applications",
   envVars: "env-vars",
   lostAccess: "lost-access",
   transferProject: "transfer-project",
@@ -77,7 +77,7 @@ function SettingsNavigation() {
       { id: SECTION_IDS.customDomains, label: "Custom Domains" },
       { id: SECTION_IDS.deployKeys, label: "Deploy Keys" },
       {
-        id: SECTION_IDS.authorizedApplications,
+        id: SECTION_IDS.authorizedApps,
         label: "Authorized Applications",
       },
       { id: SECTION_IDS.envVars, label: "Environment Variables" },
@@ -196,14 +196,15 @@ function ProjectSettings() {
   const router = useRouter();
 
   const projectAppAccessTokens = useProjectAppAccessTokens(project?.id);
-  const deleteAppAccessTokenByName = useDeleteAppAccessTokenByName(
-    project?.id!,
-  );
+  const deleteAppAccessTokenByName = useDeleteAppAccessTokenByName({
+    projectId: project?.id!,
+  });
 
   const { showTeamOauthTokens } = useLaunchDarkly();
 
   const authorizedAppsExplainer = (
     <>
+      <h3 className="mb-2">Authorized Applications</h3>
       <p className="text-sm text-content-primary">
         These 3rd-party applications have been authorized to access this project
         on your behalf.
@@ -234,11 +235,12 @@ function ProjectSettings() {
           There may also be <b>team-wide authorized applications</b> that can
           access all projects in this team. You can view them in{" "}
           <Link
-            href={`/t/${team.slug}/settings/authorized-applications`}
+            href={`/t/${team.slug}/settings/applications`}
             className="text-content-link hover:underline"
           >
             Team Settings
-          </Link>{" "}
+          </Link>
+          .
         </p>
       )}
     </>
@@ -325,7 +327,7 @@ function ProjectSettings() {
               </div>
             )}
             {project && (
-              <div id={SECTION_IDS.authorizedApplications}>
+              <div id={SECTION_IDS.authorizedApps}>
                 <AuthorizedApplications
                   accessTokens={projectAppAccessTokens}
                   explainer={authorizedAppsExplainer}

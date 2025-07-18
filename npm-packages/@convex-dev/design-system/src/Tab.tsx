@@ -21,6 +21,7 @@ export function Tab({
           variant="unstyled"
           className={cn(
             "cursor-pointer px-3 py-2 text-sm whitespace-nowrap",
+            "focus-visible:outline-border-selected",
             !disabled && selected
               ? "border-b-2 border-content-primary text-content-primary"
               : "text-content-secondary",

@@ -171,7 +171,7 @@ export function TeamUsage({ team }: { team: Team }) {
               }}
             />
 
-            <div className="mb-6 flex flex-col gap-6">
+            <div className="flex flex-col gap-6">
               <PlanSummary
                 hasFilter={projectId !== null || !!componentPrefix}
                 chefTokenUsage={chefTokenUsage}

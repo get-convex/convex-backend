@@ -7,9 +7,11 @@ import { Button } from "@ui/Button";
 export function CopyTextButton({
   text,
   className,
+  textHidden,
 }: {
   text: string;
   className?: string;
+  textHidden?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const copyText = () => {
@@ -32,22 +34,18 @@ export function CopyTextButton({
   };
 
   return (
-    <div className="group flex items-center gap-1">
+    <div className="group relative flex items-center gap-1">
       <Button
         variant="neutral"
         size="xs"
         className={classNames("text-xs transition-all", className)}
         onClick={copyText}
       >
-        <span>{text}</span>
+        <span>{textHidden ? "•".repeat(text.length) : text}</span>
+        <span className="absolute right-1 hidden items-center justify-center rounded bg-background-primary/20 backdrop-blur-[2px] group-hover:flex">
+          {!copied ? <CopyIcon /> : "Copied!"}
+        </span>
       </Button>
-      {!copied ? (
-        <Button variant="unstyled" onClick={copyText}>
-          <CopyIcon className={classNames("hidden group-hover:block")} />
-        </Button>
-      ) : (
-        <span className="text-xs">Copied!</span>
-      )}
     </div>
   );
 }

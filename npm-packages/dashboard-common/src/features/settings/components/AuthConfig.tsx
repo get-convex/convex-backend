@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { Sheet } from "@ui/Sheet";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
+import { ExternalLinkIcon } from "@radix-ui/react-icons";
 
 export function AuthConfig() {
   const authProviders = useQuery(udfs.listAuthProviders.default);
@@ -12,15 +13,16 @@ export function AuthConfig() {
       <div>
         <h3 className="mb-4">Authentication Configuration</h3>
         {!authProviders || authProviders.length === 0 ? (
-          <p className="text-sm">
-            This deployment has no configured authentication providers.{" "}
+          <p className="my-6 flex w-full flex-col items-center gap-2 text-sm text-content-secondary">
+            This deployment has no authentication providers yet.
             <Link
               passHref
               href="https://docs.convex.dev/auth"
-              className="text-content-link"
+              className="flex items-center gap-1 text-content-link hover:underline"
               target="_blank"
             >
-              Learn more
+              <ExternalLinkIcon />
+              Learn more about authentication
             </Link>
           </p>
         ) : (

@@ -18,23 +18,22 @@ export function AuthorizedApplications({
 }) {
   return (
     <Sheet>
-      <h3 className="mb-2">Authorized Applications</h3>
       {explainer}
       <LoadingTransition
         loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
       >
         {accessTokens !== undefined && (
-          <div className="flex w-full flex-col gap-2">
+          <div className="mt-2 flex w-full flex-col gap-2 divide-y">
             {accessTokens.length ? (
-              accessTokens.map((token, idx) => (
+              accessTokens.map((token) => (
                 <AuthorizedApplicationListItem
-                  key={idx}
+                  key={token.name}
                   token={token}
                   onRevoke={onRevoke}
                 />
               ))
             ) : (
-              <div className="my-2 text-content-secondary">
+              <div className="my-6 flex w-full justify-center text-content-secondary">
                 You have not authorized any applications yet.
               </div>
             )}
@@ -45,7 +44,7 @@ export function AuthorizedApplications({
   );
 }
 
-export function AuthorizedApplicationListItem({
+function AuthorizedApplicationListItem({
   token,
   onRevoke,
 }: {
@@ -55,8 +54,8 @@ export function AuthorizedApplicationListItem({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   return (
-    <div className="flex w-full flex-col">
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+    <div className="flex w-full flex-col pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>{token.appName}</div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex flex-col items-end">

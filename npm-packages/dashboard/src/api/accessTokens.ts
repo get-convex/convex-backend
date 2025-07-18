@@ -86,12 +86,20 @@ export function useDeleteTeamAccessToken(teamId: number) {
   });
 }
 
-export function useDeleteAppAccessTokenByName(projectId: number) {
+export function useDeleteAppAccessTokenByName(
+  args: { projectId: number } | { teamId: number },
+) {
   return useBBMutation({
     path: "/delete_access_token",
     pathParams: undefined,
-    mutateKey: "/projects/{project_id}/app_access_tokens",
-    mutatePathParams: { project_id: projectId.toString() },
+    mutateKey:
+      "projectId" in args
+        ? "/projects/{project_id}/app_access_tokens"
+        : "/teams/{team_id}/app_access_tokens",
+    mutatePathParams:
+      "projectId" in args
+        ? { project_id: args.projectId.toString() }
+        : { team_id: args.teamId.toString() },
     successToast: "Application access revoked.",
   });
 }

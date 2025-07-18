@@ -73,7 +73,7 @@ function Billing({ team }: { team: Team }) {
         <h2>Billing</h2>
       </div>
       <ErrorBoundary fallback={BillingErrorFallback}>
-        <div className="relative mb-6 min-h-0 flex-1 overflow-x-hidden">
+        <div className="relative min-h-0 flex-1 overflow-x-hidden">
           {!isOrbSubLoading && orbSub !== undefined ? (
             <div
               className={cn(
