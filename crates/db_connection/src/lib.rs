@@ -136,23 +136,10 @@ pub async fn connect_persistence_reader<RT: Runtime>(
             match args {
                 PersistenceArgs::Postgres { url, schema } => {
                     let options = PostgresReaderOptions { version, schema };
-                    let mut tokio_postgres_config: tokio_postgres::Config = url
+                    let tokio_postgres_config: tokio_postgres::Config = url
                         .as_str()
                         .parse()
                         .context("Invalid postgres cluster url")?;
-                    // PlanetScale replicas don't support hint plans
-                    if tokio_postgres_config
-                        .get_user()
-                        .unwrap_or_default()
-                        .ends_with("|replica")
-                    {
-                        let mut pg_options = tokio_postgres_config
-                            .get_options()
-                            .unwrap_or_default()
-                            .to_owned();
-                        pg_options.push_str(" -c pg_hint_plan.enable_hint=off");
-                        tokio_postgres_config.options(pg_options);
-                    }
                     Arc::new(
                         PostgresPersistence::new_reader(
                             PostgresPersistence::create_pool(tokio_postgres_config)
