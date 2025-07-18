@@ -2078,6 +2078,36 @@
         }
       }
     },
+    "/teams/{team_id}/oauth_apps/{client_id}/regenerate_secret": {
+      "post": {
+        "operationId": "regenerate_oauth_client_secret",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "The client ID of the OAuth app to regenerate the secret for",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/teams/{team_id}/oauth_apps/{client_id}/update": {
       "post": {
         "operationId": "update_oauth_app",
@@ -2867,7 +2897,8 @@
           "createOAuthApplication",
           "updateOAuthApplication",
           "deleteOAuthApplication",
-          "verifyOAuthApplication"
+          "verifyOAuthApplication",
+          "generateOAuthClientSecret"
         ]
       },
       "AuditLogActor": {

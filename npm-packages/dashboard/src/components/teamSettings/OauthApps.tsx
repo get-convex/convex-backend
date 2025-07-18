@@ -19,6 +19,7 @@ import {
   useUpdateOauthApp,
   useRegisterOauthApp,
   useDeleteOauthApp,
+  useRegenerateOauthClientSecret,
 } from "api/oauth";
 import { Modal } from "@ui/Modal";
 import { Formik } from "formik";
@@ -511,6 +512,10 @@ function OauthAppListItem({
   const [editLoading, setEditLoading] = useState(false);
   const updateOauthApp = useUpdateOauthApp(teamId, app.clientId);
   const deleteOauthApp = useDeleteOauthApp(teamId, app.clientId);
+  const regenerateOauthClientSecret = useRegenerateOauthClientSecret(
+    teamId,
+    app.clientId,
+  );
   // Local state for delete confirmation
   const [showDelete, setShowDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -521,6 +526,10 @@ function OauthAppListItem({
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [verificationError, setVerificationError] = useState("");
   const [verificationLoading, setVerificationLoading] = useState(false);
+
+  // Local state for regenerate secret confirmation
+  const [showRegenerateSecret, setShowRegenerateSecret] = useState(false);
+  const [regenerateSecretError, setRegenerateSecretError] = useState("");
 
   return (
     <div className="scrollbar flex w-full flex-col gap-2 overflow-x-auto rounded border bg-background-secondary p-3">
@@ -572,6 +581,18 @@ function OauthAppListItem({
               tipSide="right"
             >
               Edit Application
+            </MenuItem>
+            <MenuItem
+              action={() => setShowRegenerateSecret(true)}
+              disabled={!isAdmin}
+              tip={
+                !isAdmin
+                  ? "Only team admins can regenerate the client secret."
+                  : undefined
+              }
+              tipSide="right"
+            >
+              Regenerate Client Secret
             </MenuItem>
             <MenuItem
               action={() => setShowDelete(true)}
@@ -697,6 +718,26 @@ function OauthAppListItem({
               setShowDelete(false);
             } catch (err: any) {
               setDeleteError(err?.message || "Failed to delete app");
+            }
+          }}
+        />
+      )}
+      {showRegenerateSecret && (
+        <ConfirmationDialog
+          dialogTitle="Regenerate Client Secret"
+          dialogBody="Regenerating the client secret will immediately invalidate the old client secret."
+          validationText={app.appName}
+          confirmText="Regenerate"
+          error={regenerateSecretError}
+          onClose={() => setShowRegenerateSecret(false)}
+          onConfirm={async () => {
+            try {
+              await regenerateOauthClientSecret();
+              setShowRegenerateSecret(false);
+            } catch (err: any) {
+              setRegenerateSecretError(
+                err?.message || "Failed to regenerate client secret",
+              );
             }
           }}
         />

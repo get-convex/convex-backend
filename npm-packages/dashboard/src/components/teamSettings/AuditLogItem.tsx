@@ -573,6 +573,9 @@ function EntryAction({
     case "updateOAuthApplication": {
       return <span>updated an OAuth application</span>;
     }
+    case "generateOAuthClientSecret": {
+      return <span>generated a client secret for an OAuth application</span>;
+    }
     default:
       // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
       const notAllowed: never = action;

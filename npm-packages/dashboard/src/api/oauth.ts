@@ -36,6 +36,21 @@ export function useDeleteOauthApp(teamId: number, clientId: string) {
     successToast: "OAuth app deleted.",
     mutateKey: "/teams/{team_id}/oauth_apps",
     mutatePathParams: { team_id: teamId.toString() },
+    toastOnError: false,
+  });
+}
+
+export function useRegenerateOauthClientSecret(
+  teamId: number,
+  clientId: string,
+) {
+  return useBBMutation({
+    path: "/teams/{team_id}/oauth_apps/{client_id}/regenerate_secret",
+    pathParams: { team_id: teamId, client_id: clientId },
+    successToast: "Client secret regenerated.",
+    mutateKey: "/teams/{team_id}/oauth_apps",
+    mutatePathParams: { team_id: teamId.toString() },
+    toastOnError: false,
   });
 }
 
