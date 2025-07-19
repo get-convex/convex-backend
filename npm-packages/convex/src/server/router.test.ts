@@ -58,6 +58,19 @@ test("HttpRouter", () => {
     });
   }).toThrow();
 
+  expect(() => {
+    http.route({ pathPrefix: "/.files/", method: "GET", handler: action1 });
+  }).toThrow("pathPrefix '/.files/' is reserved");
+  expect(() => {
+    http.route({ path: "/.files", method: "GET", handler: action1 });
+  }).toThrow("is reserved");
+  expect(() => {
+    http.route({ path: "/.files/", method: "GET", handler: action1 });
+  }).toThrow("is reserved");
+  expect(() => {
+    http.route({ path: "/.files/foo/bar", method: "GET", handler: action1 });
+  }).toThrow("is reserved");
+
   expect(http.getRoutes()).toEqual([
     ["/path1", "GET", action1],
     ["/path1", "POST", action2],

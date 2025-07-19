@@ -177,6 +177,9 @@ export class HttpRouter {
       if (!spec.path.startsWith("/")) {
         throw new Error(`path '${spec.path}' does not start with a /`);
       }
+      if (spec.path.startsWith("/.files/") || spec.path === "/.files") {
+        throw new Error(`path '${spec.path}' is reserved`);
+      }
       const methods: Map<RoutableMethod, PublicHttpAction> =
         this.exactRoutes.has(spec.path)
           ? this.exactRoutes.get(spec.path)!
@@ -196,6 +199,9 @@ export class HttpRouter {
       }
       if (!spec.pathPrefix.endsWith("/")) {
         throw new Error(`pathPrefix ${spec.pathPrefix} must end with a /`);
+      }
+      if (spec.pathPrefix.startsWith("/.files/")) {
+        throw new Error(`pathPrefix '${spec.pathPrefix}' is reserved`);
       }
       const prefixes =
         this.prefixRoutes.get(method) || new Map<string, PublicHttpAction>();
