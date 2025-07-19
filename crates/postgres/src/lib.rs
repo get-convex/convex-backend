@@ -100,8 +100,10 @@ use futures::{
         self,
         Either,
     },
+    pin_mut,
     stream::{
         self,
+        BoxStream,
         FuturesUnordered,
         StreamExt,
         TryStreamExt,
@@ -131,6 +133,7 @@ use tokio::sync::{
     oneshot,
 };
 use tokio_postgres::{
+    binary_copy::BinaryCopyInWriter,
     config::TargetSessionAttrs,
     types::{
         to_sql_checked,
@@ -623,6 +626,85 @@ impl Persistence for PostgresPersistence {
                 .boxed()
             })
             .await
+    }
+
+    async fn import_documents_batch(
+        &self,
+        mut documents: BoxStream<'_, Vec<DocumentLogEntry>>,
+    ) -> anyhow::Result<()> {
+        let conn = self
+            .lease
+            .pool
+            .get_connection("import_documents_batch", &self.schema)
+            .await?;
+        let stmt = conn
+            .prepare_cached(
+                "COPY @db_name.documents (id, ts, table_id, json_value, deleted, prev_ts) FROM \
+                 STDIN BINARY",
+            )
+            .await?;
+        let sink = conn.copy_in(&stmt).await?;
+        let writer = BinaryCopyInWriter::new(
+            sink,
+            &[
+                Type::BYTEA,
+                Type::INT8,
+                Type::BYTEA,
+                Type::BYTEA,
+                Type::BOOL,
+                Type::INT8,
+            ],
+        );
+        pin_mut!(writer);
+        while let Some(chunk) = documents.next().await {
+            for document in chunk {
+                let params =
+                    document_params(document.ts, document.id, &document.value, document.prev_ts)?;
+                writer.as_mut().write_raw(params).await?;
+            }
+        }
+        writer.finish().await?;
+        Ok(())
+    }
+
+    async fn import_indexes_batch(
+        &self,
+        mut indexes: BoxStream<'_, BTreeSet<PersistenceIndexEntry>>,
+    ) -> anyhow::Result<()> {
+        let conn = self
+            .lease
+            .pool
+            .get_connection("import_indexes_batch", &self.schema)
+            .await?;
+        let stmt = conn
+            .prepare_cached(
+                "COPY @db_name.indexes (index_id, ts, key_prefix, key_suffix, key_sha256, \
+                 deleted, table_id, document_id) FROM STDIN BINARY",
+            )
+            .await?;
+        let sink = conn.copy_in(&stmt).await?;
+        let writer = BinaryCopyInWriter::new(
+            sink,
+            &[
+                Type::BYTEA,
+                Type::INT8,
+                Type::BYTEA,
+                Type::BYTEA,
+                Type::BYTEA,
+                Type::BOOL,
+                Type::BYTEA,
+                Type::BYTEA,
+            ],
+        );
+        pin_mut!(writer);
+        while let Some(chunk) = indexes.next().await {
+            for index in chunk {
+                let params = index_params(&index);
+                writer.as_mut().write_raw(params).await?;
+            }
+        }
+        writer.finish().await?;
+        Ok(())
     }
 
     /// Runs CREATE INDEX statements that were skipped by `skip_index_creation`.

@@ -244,6 +244,27 @@ pub trait Persistence: Sync + Send + 'static {
         Ok(())
     }
 
+    async fn import_documents_batch(
+        &self,
+        mut documents: BoxStream<'_, Vec<DocumentLogEntry>>,
+    ) -> anyhow::Result<()> {
+        while let Some(chunk) = documents.next().await {
+            self.write(chunk, BTreeSet::new(), ConflictStrategy::Error)
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn import_indexes_batch(
+        &self,
+        mut indexes: BoxStream<'_, BTreeSet<PersistenceIndexEntry>>,
+    ) -> anyhow::Result<()> {
+        while let Some(chunk) = indexes.next().await {
+            self.write(vec![], chunk, ConflictStrategy::Error).await?;
+        }
+        Ok(())
+    }
+
     async fn finish_loading(&self) -> anyhow::Result<()> {
         Ok(())
     }

@@ -26,6 +26,7 @@ use std::{
 
 use ::metrics::StaticMetricLabel;
 use anyhow::Context as _;
+use bytes::Bytes;
 use cmd_util::env::env_config;
 use common::{
     errors::report_error_sync,
@@ -78,6 +79,7 @@ use tokio_postgres::{
         ToSql,
     },
     AsyncMessage,
+    CopyInSink,
     Row,
     RowStream,
     Statement,
@@ -359,6 +361,13 @@ impl PostgresConnection<'_> {
             poisoned: &self.poisoned,
             schema: self.schema,
         })
+    }
+
+    pub async fn copy_in(&self, query: &Statement) -> anyhow::Result<CopyInSink<Bytes>> {
+        let conn = self.conn();
+        with_timeout(conn.client.copy_in(query))
+            .await
+            .map_err(|e| handle_error(&self.poisoned, e))
     }
 }
 
