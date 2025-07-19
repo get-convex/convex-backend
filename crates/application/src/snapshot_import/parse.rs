@@ -183,26 +183,31 @@ pub async fn parse_objects<'a, Fut>(
         ImportFormat::JsonLines(table_name) => {
             let reader = stream_body().await?;
             yield ImportUnit::NewTable(component_path, table_name);
-            let mut buf = Vec::new();
-            let mut reader = reader.into_reader();
-            reader.read_to_end(&mut buf).await?;
-
-            // Check for UTF-8 BOM and reject it
-            if buf.len() >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF {
-                anyhow::bail!(ImportError::Utf8BomNotSupported);
-            }
-            let content = std::str::from_utf8(&buf).map_err(|e| {
-                ImportError::NotUtf8(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
-            })?;
-
-            for (lineno, line) in content.lines().enumerate() {
-                let lineno = lineno + 1;
+            let mut reader = tokio::io::BufReader::new(reader.into_tokio_reader());
+            let mut line = String::new();
+            let mut lineno = 1;
+            // Check for UTF-8 BOM at the start of the first line
+            let mut first_line_checked = false;
+            while reader.read_line(&mut line).await.map_err(|e| {
+                ImportError::NotUtf8(e)
+            })? > 0 {
+                // Check for BOM only on the first line
+                if !first_line_checked {
+                    first_line_checked = true;
+                    if line.len() >= 3 && line.as_bytes()[0] == 0xEF && line.as_bytes()[1] == 0xBB && line.as_bytes()[2] == 0xBF {
+                        anyhow::bail!(ImportError::Utf8BomNotSupported);
+                    }
+                }
                 if line.trim().is_empty() {
+                    line.clear();
+                    lineno += 1;
                     continue;
                 }
-                let v: serde_json::Value = serde_json::from_str(line)
+                let v: serde_json::Value = serde_json::from_str(&line)
                     .map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
                 yield ImportUnit::Object(v);
+                line.clear();
+                lineno += 1;
             }
         },
         ImportFormat::JsonArray(table_name) => {
