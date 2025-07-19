@@ -7,11 +7,11 @@ import { privateKeyPEM, kid as correctKid } from "./authCredentials";
 async function createSignedJWT(
   payload: any,
   options: {
-    issuer?: string;
-    audience?: string;
+    issuer?: string | null;
+    audience?: string | null;
     expiresIn?: string;
     subject?: string;
-    issuedAt?: string;
+    issuedAt?: string | null;
     alg?: "RS256" | "ES256" | (string & { ignore_me?: never });
     useKid?: "wrong kid" | "missing kid" | "correct kid";
   } = {},
@@ -34,18 +34,20 @@ async function createSignedJWT(
         ? "key-2 (oops, this is the wrong kid!)"
         : undefined;
 
-  let jwtBuilder = new SignJWT(payload)
-    .setProtectedHeader({
-      kid,
-      alg,
-    })
-    .setIssuedAt(issuedAt);
+  let jwtBuilder = new SignJWT(payload).setProtectedHeader({
+    kid,
+    alg,
+  });
 
-  if (issuer !== undefined) {
+  if (issuedAt !== null) {
+    jwtBuilder = jwtBuilder.setIssuedAt(issuedAt);
+  }
+
+  if (issuer !== null) {
     jwtBuilder = jwtBuilder.setIssuer(issuer);
   }
 
-  if (audience !== undefined) {
+  if (audience !== null) {
     jwtBuilder = jwtBuilder.setAudience(audience);
   }
 
@@ -119,16 +121,6 @@ describe("auth debugging", () => {
       expect(logger.logs).toEqual([]);
     });
 
-    test("missing kid", async () => {
-      const error = await getErrorFromJwt(
-        await createSignedJWT({ name: "Presley" }, { useKid: "missing kid" }),
-      );
-      // The exact error message may vary, but should be enhanced
-      expect(error.code).toEqual("InvalidAuthHeader");
-      expect(error.message).toContain("JWT");
-      expect(logger.logs).toEqual([]);
-    });
-
     test("no auth provider found - enhanced error message", async () => {
       const error = await getErrorFromJwt(
         await createSignedJWT(
@@ -149,7 +141,7 @@ describe("auth debugging", () => {
         "CustomJWT(issuer=https://issuer.example.com/1, app_id=App 1)",
       );
       expect(error.message).toContain(
-        "CustomJWT(issuer=https://issuer.example.com/2, app_id=none)",
+        "CustomJWT(issuer=https://issuer.example.com/no-aud-specified, app_id=none)",
       );
       expect(error.message).toContain(
         "CustomJWT(issuer=https://issuer.example.com/3, app_id=App 3)",
@@ -158,35 +150,73 @@ describe("auth debugging", () => {
     });
 
     test("missing issuer claim", async () => {
-      // Create a JWT without an issuer claim
-      try {
-        const jwt = await createSignedJWT({ name: "Presley" }, {
-          issuer: undefined,
-        } as any);
-        const error = await getErrorFromJwt(jwt);
-        expect(error.code).toEqual("InvalidAuthHeader");
-        expect(error.message).toContain("issuer");
-        expect(error.message).toContain("iss");
-      } catch (e) {
-        // JWT creation might fail, which is also valid behavior
-        console.log("JWT creation failed for missing issuer");
-      }
+      const jwt = await createSignedJWT(
+        { name: "Presley" },
+        {
+          issuer: null,
+        },
+      );
+      const error = await getErrorFromJwt(jwt);
+      expect(error.code).toEqual("InvalidAuthHeader");
+      expect(error.message).toContain("issuer");
+      expect(error.message).toContain("iss");
     });
 
     test("missing audience claim", async () => {
-      // Create a JWT without an audience claim
-      try {
-        const jwt = await createSignedJWT({ name: "Presley" }, {
-          audience: undefined,
-        } as any);
-        const error = await getErrorFromJwt(jwt);
-        expect(error.code).toEqual("InvalidAuthHeader");
-        expect(error.message).toContain("audience");
-        expect(error.message).toContain("aud");
-      } catch (e) {
-        // JWT creation might fail, which is also valid behavior
-        console.log("JWT creation failed for missing audience");
-      }
+      const jwt = await createSignedJWT(
+        { name: "Presley" },
+        {
+          audience: null,
+        },
+      );
+      const error = await getErrorFromJwt(jwt);
+      expect(error.code).toEqual("NoAuthProvider");
+    });
+
+    test("missing kid", async () => {
+      const error = await getErrorFromJwt(
+        await createSignedJWT({ name: "Presley" }, { useKid: "missing kid" }),
+      );
+      expect(error.code).toEqual("InvalidAuthHeader");
+      expect(error.message).toContain("missing a 'kid'");
+      expect(logger.logs).toEqual([]);
+    });
+
+    test("wrong audience claim", async () => {
+      const jwt = await createSignedJWT(
+        { name: "Presley" },
+        {
+          audience: "asdf",
+        },
+      );
+      const error = await getErrorFromJwt(jwt);
+      expect(error.code).toEqual("NoAuthProvider");
+    });
+
+    test("audience claim allowed when none required", async () => {
+      const jwt = await createSignedJWT(
+        { name: "Presley" },
+        {
+          issuer: "https://issuer.example.com/no-aud-specified",
+          audience: "asdf",
+        },
+      );
+      httpClient.setAuth(jwt);
+      const result = await httpClient.query(api.auth.q);
+      expect(result?.name).toEqual("Presley");
+    });
+
+    test("missing audience claim allowed when none required", async () => {
+      const jwt = await createSignedJWT(
+        { name: "Presley" },
+        {
+          issuer: "https://issuer.example.com/no-aud-specified",
+          audience: null,
+        },
+      );
+      httpClient.setAuth(jwt);
+      const result = await httpClient.query(api.auth.q);
+      expect(result?.name).toEqual("Presley");
     });
 
     test("wrong kid", async () => {
@@ -209,6 +239,7 @@ describe("auth debugging", () => {
       expect(error.message).toContain("three base64-encoded parts");
     });
 
+    // Integration tests that hit real APIs are a bummer, TODO hit something else
     // eslint-disable-next-line jest/no-disabled-tests
     test.skip("unreachable JWKS URL", async () => {
       // Use App 3 which has a non-existent JWKS URL
@@ -244,6 +275,18 @@ describe("auth debugging", () => {
       expect(error.message).toContain("not valid JSON");
     });
 
+    test("token expired 10 seconds ago", async () => {
+      const error = await getErrorFromJwt(
+        await createSignedJWT(
+          { name: "Presley" },
+          { issuedAt: "20 sec ago", expiresIn: "10 sec ago" },
+        ),
+      );
+      expect(error.code).toEqual("InvalidAuthHeader");
+      expect(error.message).toContain("Token expired");
+      expect(error.message).toContain("seconds ago");
+    });
+
     test("token issued 3 seconds in future", async () => {
       // Should succeed with 5-second tolerance
       httpClient.setAuth(
@@ -265,8 +308,17 @@ describe("auth debugging", () => {
         ),
       );
       expect(error.code).toEqual("InvalidAuthHeader");
-      expect(error.message).toContain("timing issues");
-      expect(error.message).toContain("iat");
+      expect(error.message).toContain("will be valid in");
+    });
+
+    // Not recommended (some client logic may expect an iat) but not required.
+    test("missing iat", async () => {
+      httpClient.setAuth(
+        await createSignedJWT({ name: "Presley" }, { issuedAt: null }),
+      );
+      const result = await httpClient.query(api.auth.q);
+      expect(result?.subject).toEqual("The Subject");
+      expect(result?.name).toEqual("Presley");
     });
   });
 });

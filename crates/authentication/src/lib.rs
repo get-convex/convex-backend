@@ -196,18 +196,14 @@ where
                  that matches one of your configured auth providers."
             ));
         };
-        let Some(audiences) = payload.registered.audience else {
-            anyhow::bail!(ErrorMetadata::unauthenticated(
-                "InvalidAuthHeader",
-                "Missing audience claim ('aud') in JWT payload. The JWT must include an 'aud' \
-                 claim that matches your configured application ID."
-            ));
+        let audiences = match payload.registered.audience {
+            Some(biscuit::SingleOrMultiple::Single(audience)) => vec![audience],
+            Some(biscuit::SingleOrMultiple::Multiple(audiences)) => audiences,
+            None => vec![],
         };
-        let audiences = match audiences {
-            biscuit::SingleOrMultiple::Single(audience) => vec![audience],
-            biscuit::SingleOrMultiple::Multiple(audiences) => audiences,
-        };
-        // Find the provider matching this token
+        // Find the first provider matching this token.
+        // `iss` claim must match the provider's issuer but 'aud' claim is only
+        // required to match if the provider has an applicationId specified.
         let auth_info = auth_infos
             .iter()
             .find(|info| info.matches_token(&audiences, &issuer))
@@ -320,13 +316,12 @@ where
 
                     let detailed_msg = if let Some(kid) = kid {
                         format!(
-                            "Could not decode token. The JWT's 'kid' (key ID) header is '{}' but \
-                             this doesn't match any key in the provider's JWKS.",
+                            "Could not decode token. The JWT's 'kid' (key ID) header is '{}', \
+                             does this key match any key in the provider's JWKS?",
                             kid
                         )
                     } else {
-                        "Could not decode token. The JWT is missing a 'kid' (key ID) header, or \
-                         the JWT signature is invalid."
+                        "Could not decode token. JWT may be missing a 'kid' (key ID) header."
                             .to_string()
                     };
 
@@ -361,14 +356,14 @@ where
                     format!("Invalid issuer: {} != {}", token_issuer, issuer)
                 ));
             }
-            let Some(ref token_audience) = payload.registered.audience else {
-                anyhow::bail!(ErrorMetadata::unauthenticated(
-                    "InvalidAuthHeader",
-                    "Missing audience claim ('aud') in JWT payload. The JWT must include an 'aud' \
-                     claim that matches your configured application ID."
-                ));
-            };
             if let Some(application_id) = application_id {
+                let Some(ref token_audience) = payload.registered.audience else {
+                    anyhow::bail!(ErrorMetadata::unauthenticated(
+                        "InvalidAuthHeader",
+                        "Missing audience claim ('aud') in JWT payload. The JWT must include an \
+                         'aud' claim that matches your configured application ID."
+                    ));
+                };
                 if !token_audience
                     .iter()
                     .any(|audience| audience == &application_id)
@@ -392,12 +387,13 @@ where
             };
             decoded_token
                 .validate(validation_options)
-                .with_context(|| {
+                .map_err(|original_error| {
+                    eprintln!("Original validation error: {:?}", original_error);
+                    let msg = original_error.to_string();
+
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
-                        "Could not validate token. This often happens due to timing issues: check \
-                         that your JWT's 'iat' (issued at) and 'exp' (expires) claims are valid \
-                         for the current time.",
+                        format!("Could not validate token: {}", msg),
                     )
                 })?;
             UserIdentity::from_custom_jwt(decoded_token, token_str.0).context(

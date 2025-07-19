@@ -1,5 +1,8 @@
 import { jwksDataUri } from "../authCredentials.js";
 
+// This deploy needs to succeed for these tests to work so these providers
+// all need to be valid. Invalid providers and the error messages they cause
+// are tested in analyze tests.
 export default {
   providers: [
     {
@@ -13,7 +16,7 @@ export default {
       type: "customJwt",
       // application ID (aud) is not required
       //applicationID: "App 2",
-      issuer: "https://issuer.example.com/2",
+      issuer: "https://issuer.example.com/no-aud-specified",
       jwks: jwksDataUri,
       algorithm: "RS256",
     },
