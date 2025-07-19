@@ -133,6 +133,7 @@ enum Scenario {
     Search,
     VectorSearch,
     SnapshotExport,
+    ManyIntersections { num_subscriptions: i32 },
     CloudBackup,
     RunHttpAction { path: String, method: String },
 }
@@ -151,6 +152,7 @@ impl Scenario {
             | Scenario::SnapshotExport
             | Scenario::CloudBackup
             | Scenario::RunHttpAction { .. } => false,
+            Scenario::ManyIntersections { .. } => false,
         }
     }
 

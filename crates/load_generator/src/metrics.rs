@@ -88,6 +88,15 @@ static ERROR_METRICS: LazyLock<BTreeMap<&str, BTreeMap<&str, IntCounterVec>>> =
                     )
                 }
             },
+            "ManyIntersections" => btreemap!{
+                "mutation" => {
+                    register_convex_counter_owned!(
+                        MANY_INTERSECTIONS_INSERT_ERROR_TOTAL,
+                        "Errors on the insert mutation in many intersections scenario",
+                        &["backend_version", "load_description"],
+                    )
+                }
+            },
             "SnapshotExport" => btreemap!{
                 "request_export_failed" => {
                     register_convex_counter_owned!(
@@ -250,6 +259,22 @@ static LATENCY_METRICS: LazyLock<BTreeMap<&str, BTreeMap<&str, VMHistogramVec>>>
                     )
                 }
             },
+            "ManyIntersections" => btreemap!{
+                "mutation_completed" => {
+                    register_convex_histogram_owned!(
+                        OBSERVE_INSERT_WITH_MANY_INTERSECTIONS_COMPLETED_LATENCY_SECONDS,
+                        "Latency on mutation completion for ManyIntersections",
+                        &["backend_version", "load_description"],
+                    )
+                },
+                "mutation_observed" => {
+                    register_convex_histogram_owned!(
+                        OBSERVE_INSERT_WITH_MANY_INTERSECTIONS_OBSERVED_LATENCY_SECONDS,
+                        "Latency on observing mutation for ManyIntersections",
+                        &["backend_version", "load_description"],
+                    )
+                },
+            },
             "Search" => btreemap!{
                 "search" => {
                     register_convex_histogram_owned!(
@@ -327,6 +352,22 @@ static COUNT_METRICS: LazyLock<BTreeMap<&str, BTreeMap<&str, IntCounterVec>>> =
                     register_convex_counter_owned!(
                         OBSERVE_INSERT_OBSERVED_TIMEOUT_TOTAL,
                         "Count of observed timeouts for mutation in ObserveInsert",
+                        &["backend_version", "load_description"],
+                    )
+                }
+            },
+            "ManyIntersections" => btreemap!{
+                "mutation_send_timeout" => {
+                    register_convex_counter_owned!(
+                        OBSERVE_INSERT_WITH_MANY_INTERSECTIONS_SEND_TIMEOUT_TOTAL,
+                        "Count of send timeouts for mutation in ManyIntersections",
+                        &["backend_version", "load_description"],
+                    )
+                },
+                "mutation_observed_timeout" => {
+                    register_convex_counter_owned!(
+                        OBSERVE_INSERT_WITH_MANY_INTERSECTIONS_OBSERVED_TIMEOUT_TOTAL,
+                        "Count of observed timeouts for mutation in ManyIntersections",
                         &["backend_version", "load_description"],
                     )
                 }

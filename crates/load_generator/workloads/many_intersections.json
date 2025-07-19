@@ -1,0 +1,10 @@
+{
+  "name": "many_intersections",
+  "scenarios": [
+    {
+      "name": "ManyIntersections",
+      "benchmark": 1,
+      "num_subscriptions": 20000
+    }
+  ]
+}

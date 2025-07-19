@@ -97,3 +97,31 @@ export const insertMessageWithArgs = mutation({
     );
   },
 });
+
+export const insertMessagesWithArgs = mutation({
+  args: {
+    channel: v.string(),
+    timestamp: v.number(),
+    rand: v.number(),
+    ballastCount: v.number(),
+    count: v.number(),
+    table: v.string(),
+    n: v.number(),
+  },
+  handler: async (
+    ctx,
+    { channel, timestamp, rand, ballastCount, count, table, n },
+  ) => {
+    for (let i = 0; i < n; i++) {
+      await insertMessageHelper(
+        ctx.db,
+        channel,
+        timestamp,
+        rand,
+        ballastCount,
+        count,
+        table as TableNamesInDataModel<DataModel>,
+      );
+    }
+  },
+});

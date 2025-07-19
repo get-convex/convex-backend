@@ -144,13 +144,10 @@ export interface components {
         AdminKey: string;
         CreateProjectArgs: {
             deploymentType?: null | components["schemas"]["DeploymentType"];
-            partitionId?: null | components["schemas"]["PartitionId"];
             projectName: components["schemas"]["ProjectName"];
             team: components["schemas"]["TeamSlug"];
         };
         ProjectName: string;
-        /** Format: int64 */
-        PartitionId: number;
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview";
         InstanceAuthForDashboardInteractionsResponse: {
@@ -259,7 +256,6 @@ export type ProjectId = components['schemas']['ProjectId'];
 export type AdminKey = components['schemas']['AdminKey'];
 export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
 export type ProjectName = components['schemas']['ProjectName'];
-export type PartitionId = components['schemas']['PartitionId'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];

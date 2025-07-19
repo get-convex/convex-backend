@@ -56,6 +56,12 @@ export abstract class Scenario {
     this.cleanUpFunctions = [];
   }
 
+  /**
+   * Subscribe to a query and return a promise for the first result
+   * received for which isReady(result) returns true.
+   *
+   * The subscription will remain active until the scenario ends but
+   */
   waitForQuery<Query extends FunctionReference<"query", "public">>(
     client: ConvexClient,
     query: Query,

@@ -74,6 +74,10 @@ export type ScenarioSpec =
       search_indexes: boolean;
     }
   | {
+      name: "ManyIntersections";
+      num_subscriptions: number;
+    }
+  | {
       name: "Search";
     }
   | {

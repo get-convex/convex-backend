@@ -13,6 +13,7 @@ import { ConvexClient } from "convex/browser";
 import { ScenarioMessage } from "./types.js";
 import { RunHttpAction } from "./scenarios/run_http_action.js";
 import dns from "node:dns";
+import { ManyIntersections } from "./scenarios/many_intersections.js";
 
 Sentry.init({
   tracesSampleRate: 0.1,
@@ -114,6 +115,9 @@ async function runScenario(
       break;
     case "ObserveInsert":
       scenario = new ObserveInsert(config, scenarioSpec.search_indexes);
+      break;
+    case "ManyIntersections":
+      scenario = new ManyIntersections(config, scenarioSpec.num_subscriptions);
       break;
     case "SnapshotExport":
       scenario = new SnapshotExport(config, adminKey);
