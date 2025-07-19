@@ -901,15 +901,23 @@ async fn finalize_import<RT: Runtime>(
                             .count(namespace, &table_name)
                             .await?
                             .unwrap_or(0);
+                        tracing::info!(
+                            "finalize_import({import_id:?}) Deleting table {table_name} in \
+                             namespace {namespace:?}"
+                        );
                         table_model
                             .delete_active_table(namespace, table_name)
                             .await?;
                     }
                     schema_constraints.validate(tx).await?;
                     let mut table_model = TableModel::new(tx);
-                    for (table_id, _, table_number, table_name) in
+                    for (table_id, namespace, table_number, table_name) in
                         table_mapping_for_import.table_mapping_in_import.iter()
                     {
+                        tracing::info!(
+                            "finalize_import({import_id:?}) Activating table {table_name} in \
+                             namespace {namespace:?}"
+                        );
                         documents_deleted += table_model
                             .activate_table(table_id, table_name, table_number, &tables_affected)
                             .await?;
