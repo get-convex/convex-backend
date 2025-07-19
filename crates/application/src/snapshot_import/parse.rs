@@ -119,15 +119,6 @@ fn map_csv_error(e: csv_async::Error) -> anyhow::Error {
     }
 }
 
-fn strip_utf8_bom(buf: &[u8]) -> &[u8] {
-    // UTF-8 BOM is the byte sequence: EF BB BF
-    if buf.len() >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF {
-        &buf[3..]
-    } else {
-        buf
-    }
-}
-
 /// Parse and stream units from the imported file, starting with a NewTable
 /// for each table and then Objects for each object to import into the table.
 /// stream_body returns the file as streamed bytes. stream_body() can be called
@@ -196,9 +187,11 @@ pub async fn parse_objects<'a, Fut>(
             let mut reader = reader.into_reader();
             reader.read_to_end(&mut buf).await?;
 
-            // Strip UTF-8 BOM from the entire buffer if present
-            let buf_without_bom = strip_utf8_bom(&buf);
-            let content = std::str::from_utf8(buf_without_bom).map_err(|e| {
+            // Check for UTF-8 BOM and reject it
+            if buf.len() >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF {
+                anyhow::bail!(ImportError::Utf8BomNotSupported);
+            }
+            let content = std::str::from_utf8(&buf).map_err(|e| {
                 ImportError::NotUtf8(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
             })?;
 
@@ -224,8 +217,11 @@ pub async fn parse_objects<'a, Fut>(
                 anyhow::bail!(ImportError::JsonArrayTooLarge(buf.len()));
             }
             let v: serde_json::Value = {
-                let buf_without_bom = strip_utf8_bom(&buf);
-                serde_json::from_slice(buf_without_bom).map_err(ImportError::NotJson)?
+                // Check for UTF-8 BOM and reject it
+                if buf.len() >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF {
+                    anyhow::bail!(ImportError::Utf8BomNotSupported);
+                }
+                serde_json::from_slice(&buf).map_err(ImportError::NotJson)?
             };
             let array = v.as_array().ok_or(ImportError::NotJsonArray)?;
             for value in array.iter() {
