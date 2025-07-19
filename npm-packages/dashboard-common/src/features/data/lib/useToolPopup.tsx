@@ -15,6 +15,7 @@ import { TableMetrics } from "@common/features/data/components/TableMetrics";
 import { TableSchemaAndIndexes } from "@common/features/data/components/TableSchemaAndIndexes";
 import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useRouter } from "next/router";
 
 type PopupType =
   | { type: "addDocuments"; tableName: string }
@@ -66,7 +67,22 @@ export function useToolPopup({
   // Popover and menu state.
   const [popup, setPopup] = useState<PopupType>();
 
-  const closePopup = () => setPopup(undefined);
+  const router = useRouter();
+  const closePopup = () => {
+    if (router.query.showSchemaAndIndexes === "true") {
+      const { showSchemaAndIndexes: _, ...restOfQuery } = router.query;
+      router.query.showSchemaAndIndexes = "false";
+      void router.push(
+        {
+          pathname: router.pathname,
+          query: restOfQuery,
+        },
+        undefined,
+        { shallow: true },
+      );
+    }
+    setPopup(undefined);
+  };
 
   const defaultDocument = useDefaultDocument(tableName);
 

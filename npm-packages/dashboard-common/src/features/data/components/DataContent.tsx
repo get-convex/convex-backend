@@ -178,6 +178,26 @@ export function DataContent({
   });
   const { popupEl } = popupState;
 
+  // Handle query parameter to open schema popup
+  useEffect(() => {
+    if (router.query.showSchemaAndIndexes === "true" && !popupState.popup) {
+      popupState.setPopup({ type: "viewSchema", tableName });
+    }
+    const isSchemaPopupOpen = popupState.popup?.type === "viewSchema";
+    const hasSchemaParam = router.query.showSchemaAndIndexes === "true";
+    if (isSchemaPopupOpen && !hasSchemaParam) {
+      // Schema popup opened, add query param
+      void router.push(
+        {
+          pathname: router.pathname,
+          query: { ...router.query, showSchemaAndIndexes: "true" },
+        },
+        undefined,
+        { shallow: true },
+      );
+    }
+  }, [router.query.showSchemaAndIndexes, router, popupState, tableName]);
+
   const selectedDocumentId = rowsThatAreSelected.values().next().value;
   const selectedDocument = data.find((row) => row._id === selectedDocumentId);
   const defaultDocument = useDefaultDocument(tableName);
