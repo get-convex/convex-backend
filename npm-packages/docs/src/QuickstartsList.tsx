@@ -15,6 +15,7 @@ import RemixLogo from "@site/static/img/remix-logo.svg";
 import RustLogo from "@site/static/img/rust-logo.svg";
 import SvelteLogo from "@site/static/img/svelte-logo.svg";
 import VueLogo from "@site/static/img/vue-logo.svg";
+import NuxtLogo from "@site/static/img/nuxt-logo.svg";
 import AndroidLogo from "@site/static/img/android-logo.svg";
 import SwiftLogo from "@site/static/img/swift-logo.svg";
 import TanStackLogo from "@site/static/img/tanstack-logo.svg";
@@ -136,6 +137,12 @@ export function QuickFrameworksList() {
           href: "/quickstart/vue",
           docId: "quickstart/vue",
           label: "Vue",
+        },
+        {
+          icon: <NuxtLogo height={40} />,
+          href: "/quickstart/nuxt",
+          docId: "quickstart/nuxt",
+          label: "Nuxt",
         },
         {
           icon: <SvelteLogo height={40} />,
