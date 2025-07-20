@@ -1,4 +1,5 @@
 use std::{
+    io,
     path::{
         Path,
         PathBuf,
@@ -51,16 +52,22 @@ use super::{
 };
 use crate::SearchFileType;
 
-struct IndexMeta {
-    size: u64,
-    path: PathBuf,
+struct IndexTempDir {
+    dir: PathBuf,
     cleaner: CacheCleaner,
 }
 
-impl Drop for IndexMeta {
+impl Drop for IndexTempDir {
     fn drop(&mut self) {
-        let _ = self.cleaner.attempt_cleanup(self.path.clone());
+        let _ = self.cleaner.attempt_cleanup(self.dir.clone());
     }
+}
+
+struct IndexMeta {
+    size: u64,
+    /// A path under `tempdir.dir`; may not be the directory itself
+    path: PathBuf,
+    _tempdir: IndexTempDir,
 }
 
 impl SizedValue for IndexMeta {
@@ -135,7 +142,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         search_storage: Arc<dyn Storage>,
         key: ObjectKey,
         search_file_type: SearchFileType,
-        destination: PathBuf,
+        destination: IndexTempDir,
     ) -> anyhow::Result<IndexMeta> {
         let timer = metrics::archive_fetch_timer();
         let archive = search_storage
@@ -145,27 +152,20 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
             .into_tokio_reader();
         let extract_archive_timer = metrics::extract_archive_timer();
         let extract_archive_result = self
-            .extract_archive(search_file_type, destination.clone(), archive)
+            .extract_archive(search_file_type, destination.dir.clone(), archive)
             .await;
         extract_archive_timer.finish();
 
-        match extract_archive_result {
-            Ok((bytes_used, path)) => {
-                if is_immutable(search_file_type) {
-                    set_readonly(&path, true).await?;
-                }
-                metrics::finish_archive_fetch(timer, bytes_used, search_file_type);
-                Ok(IndexMeta {
-                    path,
-                    size: bytes_used,
-                    cleaner: self.cleaner.clone(),
-                })
-            },
-            Err(e) => {
-                self.cleaner.attempt_cleanup(destination)?;
-                Err(e)
-            },
+        let (bytes_used, path) = extract_archive_result?;
+        if is_immutable(search_file_type) {
+            set_readonly(&path, true).await?;
         }
+        metrics::finish_archive_fetch(timer, bytes_used, search_file_type);
+        Ok(IndexMeta {
+            _tempdir: destination,
+            size: bytes_used,
+            path,
+        })
     }
 
     async fn extract_archive(
@@ -226,7 +226,12 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let mut timeout_fut = self.rt.wait(*ARCHIVE_FETCH_TIMEOUT_SECONDS).fuse();
         let destination = self.cache_path.join(Uuid::new_v4().simple().to_string());
 
-        let new_destination = destination.clone();
+        // Create this right away so its Drop impl (which deletes the path) runs
+        // even on failure
+        let tempdir = IndexTempDir {
+            cleaner: self.cleaner.clone(),
+            dir: destination.clone(),
+        };
         let new_self = self.clone();
         let new_key = key.clone();
         // Many parts of the fetch perform blocking operations. To avoid blocking the
@@ -234,25 +239,19 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let fetch_fut = self
             .blocking_thread_pool
             .execute_async(move || {
-                new_self.fetch(search_storage, new_key, search_file_type, new_destination)
+                new_self.fetch(search_storage, new_key, search_file_type, tempdir)
             })
             .fuse();
         pin_mut!(fetch_fut);
-        let res = select_biased! {
+        select_biased! {
             meta = fetch_fut => {
-                meta
+                meta?
             },
             _ = timeout_fut => {
                 metrics::log_cache_fetch_timeout();
                 tracing::error!("Timed out fetching archive for key {key:?}");
-                Err(anyhow::anyhow!("Timed out")) }
-        };
-
-        if let Ok(Ok(index_meta)) = res {
-            Ok(index_meta)
-        } else {
-            self.cleaner.attempt_cleanup(destination)?;
-            res?
+                Err(anyhow::anyhow!("Timed out"))
+            }
         }
     }
 }
@@ -402,7 +401,7 @@ fn is_immutable(search_file_type: SearchFileType) -> bool {
     }
 }
 
-async fn set_readonly(path: &PathBuf, readonly: bool) -> anyhow::Result<()> {
+async fn set_readonly(path: &PathBuf, readonly: bool) -> io::Result<()> {
     let metadata = fs::metadata(path).await?;
     let mut permissions = metadata.permissions();
     permissions.set_readonly(readonly);
@@ -444,11 +443,16 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<PathBuf>) {
         // production here, we should investigate further but for now, it's simpler
         // to disallow inconsistent filesystem state.
         tracing::debug!("Removing path {} from disk", path.display());
-        let result: anyhow::Result<()> = try {
+        let result: io::Result<()> = try {
             set_readonly(&path, false).await?;
             fs::remove_dir_all(path).await?;
         };
-        result.expect("ArchiveCacheManager failed to clean up archive directory");
+        match result {
+            Ok(()) => (),
+            // Can happen if the path to clean up was never created
+            Err(e) if e.kind() == io::ErrorKind::NotFound => (),
+            Err(e) => panic!("ArchiveCacheManager failed to clean up archive directory: {e:?}"),
+        }
     }
 }
 
