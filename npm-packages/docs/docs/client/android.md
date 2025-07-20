@@ -2,6 +2,8 @@
 title: "Android Kotlin"
 sidebar_label: "Android Kotlin"
 sidebar_position: 600
+description:
+  "Android Kotlin client library for mobile applications using Convex"
 ---
 
 Convex Android client library enables your Android application to interact with

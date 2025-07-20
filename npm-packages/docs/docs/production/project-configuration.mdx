@@ -2,6 +2,9 @@
 title: "Project Configuration"
 sidebar_label: "Project Configuration"
 sidebar_position: 3
+description:
+  "Configure your Convex project for development and production deployment using
+  convex.json, environment variables, and deployment settings."
 ---
 
 ## Local development

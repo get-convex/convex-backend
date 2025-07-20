@@ -2,6 +2,9 @@
 title: "Status and Guarantees"
 id: "state"
 sidebar_position: 1
+description:
+  "Learn about Convex's production guarantees, availability targets, data
+  durability, security features, and upcoming platform enhancements."
 ---
 
 Please [contact us](mailto:support@convex.dev) with any specific requirements or

@@ -1,6 +1,8 @@
 ---
 title: "Script Tag"
 sidebar_position: 100
+description:
+  "Use Convex directly in HTML with script tags, no build tools required"
 ---
 
 Sometimes you just want to get your data on a web page: no installing packages,

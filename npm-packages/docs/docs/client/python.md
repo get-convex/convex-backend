@@ -1,6 +1,7 @@
 ---
 title: "Python"
 sidebar_position: 400
+description: "Python client library for building applications with Convex"
 ---
 
 See the [Python Quickstart](/quickstart/python.mdx) and the

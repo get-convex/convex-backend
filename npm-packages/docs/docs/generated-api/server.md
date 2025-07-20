@@ -1,6 +1,8 @@
 ---
 title: "server.js"
 sidebar_position: 4
+description:
+  "Generated utilities for implementing Convex queries, mutations, and actions"
 ---
 
 <Admonition type="caution" title="This code is generated">

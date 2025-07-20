@@ -2,6 +2,8 @@
 title: "Functions"
 slug: "functions"
 sidebar_position: 10
+description:
+  "Run, test, and monitor Convex functions with metrics and performance data"
 ---
 
 ![Functions Dashboard View](/screenshots/functions.png)

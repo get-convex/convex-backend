@@ -4,6 +4,9 @@ sidebar_label: "2. Calling external services"
 slug: "actions"
 sidebar_position: 200
 hide_table_of_contents: true
+description:
+  "Extend your chat app by calling external APIs using Convex actions and the
+  scheduler to integrate Wikipedia summaries into your application."
 ---
 
 # Convex Tutorial: Calling external services

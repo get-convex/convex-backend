@@ -2,6 +2,8 @@
 title: "Data"
 slug: "data"
 sidebar_position: 5
+description:
+  "View, edit, and manage database tables and documents in the dashboard"
 ---
 
 ![Data Dashboard Page](/screenshots/data.png)

@@ -1,6 +1,8 @@
 ---
 title: "api.js"
 sidebar_position: 2
+description:
+  "Generated API references for your Convex functions and internal calls"
 ---
 
 <Admonition type="caution" title="This code is generated">

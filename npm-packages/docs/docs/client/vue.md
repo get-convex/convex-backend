@@ -1,6 +1,7 @@
 ---
 title: "Vue"
 sidebar_position: 250
+description: "Community-maintained Vue integration for Convex applications"
 ---
 
 The community-maintained

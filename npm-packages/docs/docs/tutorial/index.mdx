@@ -5,6 +5,9 @@ sidebar_position: 100
 hide_table_of_contents: true
 pagination_next: tutorial/actions
 pagination_label: "Convex Tutorial: A chat app"
+description:
+  "Build a real-time chat application with Convex using queries, mutations, and
+  the sync engine for automatic updates across all connected clients."
 ---
 
 # Convex Tutorial: A chat app

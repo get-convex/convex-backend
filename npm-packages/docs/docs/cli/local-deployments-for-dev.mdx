@@ -3,6 +3,7 @@ title: "Local Deployments for Development"
 slug: "local-deployments"
 sidebar_position: 10
 sidebar_label: "Local Deployments"
+description: "Develop with Convex using deployments running locally on your machine"
 ---
 
 Instead of syncing code to a Convex dev deployment hosted in the cloud, you can

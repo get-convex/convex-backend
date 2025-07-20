@@ -2,6 +2,7 @@
 title: "Node.js"
 hidden: false
 sidebar_position: 100
+description: "Use Convex HTTP and subscription clients in Node.js applications"
 ---
 
 Convex supports point-in-time queries (see

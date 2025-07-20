@@ -2,6 +2,7 @@
 title: "iOS & macOS Swift"
 sidebar_label: "Swift"
 sidebar_position: 700
+description: "Swift client library for iOS and macOS applications using Convex"
 ---
 
 The Convex Swift client library enables your iOS or macOS application to

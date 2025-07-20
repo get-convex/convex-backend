@@ -2,6 +2,9 @@
 title: "Custom OIDC Provider"
 sidebar_label: "Custom OIDC Provider"
 sidebar_position: 3
+description:
+  "Integrate Convex with any OpenID Connect identity provider using custom
+  authentication configuration and ConvexProviderWithAuth."
 ---
 
 **Note: This is an advanced feature!** We recommend sticking with the

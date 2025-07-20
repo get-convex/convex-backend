@@ -1,6 +1,7 @@
 ---
 title: "dataModel.d.ts"
 sidebar_position: 1
+description: "Generated TypeScript types for your database schema and documents"
 ---
 
 <Admonition type="caution" title="This code is generated">

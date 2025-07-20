@@ -1,6 +1,7 @@
 ---
 title: "Rust"
 sidebar_position: 500
+description: "Rust client library for building applications with Convex"
 ---
 
 See the [Rust Quickstart](/quickstart/rust.mdx) and

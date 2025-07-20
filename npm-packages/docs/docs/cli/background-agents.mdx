@@ -3,6 +3,8 @@ title: "Agent Mode"
 slug: "agent-mode"
 sidebar_position: 20
 sidebar_label: "Agent Mode"
+description:
+  "Configure anonymous development mode for cloud-based coding agents"
 ---
 
 When logged in on your own machine, agents like Cursor and Claude Code can run

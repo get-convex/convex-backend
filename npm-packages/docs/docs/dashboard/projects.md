@@ -2,6 +2,7 @@
 title: "Projects"
 slug: "projects"
 sidebar_position: 10
+description: "Create and manage Convex projects, settings, and deployments"
 ---
 
 ![Project settings](/screenshots/projects.png)

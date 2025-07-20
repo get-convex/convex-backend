@@ -2,6 +2,7 @@
 title: "Bun"
 hidden: false
 sidebar_position: 200
+description: "Use Convex clients with the Bun JavaScript runtime"
 ---
 
 [Bun](https://bun.sh/) can be used to run scripts and servers that use Convex

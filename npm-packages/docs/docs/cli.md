@@ -2,6 +2,7 @@
 title: "CLI"
 sidebar_position: 110
 slug: "cli"
+description: "Command-line interface for managing Convex projects and functions"
 ---
 
 The Convex command-line interface (CLI) is your interface for managing Convex

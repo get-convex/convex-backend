@@ -2,6 +2,9 @@
 title: "Custom JWT Provider"
 sidebar_label: "Custom JWT Provider"
 sidebar_position: 4
+description:
+  "Configure Convex to work with custom JWT providers that don't implement full
+  OIDC protocol, including setup and client-side integration."
 ---
 
 **Note: This is an advanced feature!** We recommend sticking with the

@@ -2,6 +2,10 @@
 title: "History"
 slug: "history"
 sidebar_position: 50
+description:
+  "View an audit log of configuration-related events in your Convex deployment
+  including function deployments, index changes, and environment variable
+  updates."
 ---
 
 ![History Dashboard Page](/screenshots/history.png)

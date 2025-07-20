@@ -2,6 +2,9 @@
 title: "Health"
 slug: "health"
 sidebar_position: 0
+description:
+  "Monitor your Convex deployment health including failure rates, cache
+  performance, scheduler status, and deployment insights for optimization."
 ---
 
 The [health page](https://dashboard.convex.dev/deployment/) is the landing page

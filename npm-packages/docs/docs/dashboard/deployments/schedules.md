@@ -2,6 +2,8 @@
 title: "Schedules"
 slug: "schedules"
 sidebar_position: 30
+description:
+  "Monitor and manage scheduled functions and cron jobs in your deployment"
 ---
 
 The [schedules page](https://dashboard.convex.dev/deployment/schedules) displays

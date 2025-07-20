@@ -1,6 +1,9 @@
 ---
 title: "Contact Us"
 sidebar_position: 500
+description:
+  "Get support, provide feedback, stay updated with Convex releases, and report
+  security vulnerabilities through our community channels."
 ---
 
 Convex is a rapidly developing platform and we're always eager to hear your

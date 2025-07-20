@@ -2,6 +2,8 @@
 title: "Logs"
 slug: "logs"
 sidebar_position: 40
+description:
+  "View real-time function logs and deployment activity in your dashboard"
 ---
 
 ![Logs Dashboard Page](/screenshots/logs.png)

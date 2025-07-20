@@ -2,6 +2,7 @@
 title: "Pausing a Deployment"
 sidebar_label: "Pausing a Deployment"
 sidebar_position: 4
+description: "Temporarily disable a deployment without deleting data"
 ---
 
 Pausing a deployment is a way to "turn off" a deployment without deleting any

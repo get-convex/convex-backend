@@ -2,6 +2,9 @@
 title: "Deployments"
 id: "deployments"
 sidebar_position: 20
+description:
+  "Understand Convex deployments including production, development, and preview
+  deployments, and how to switch between them in the dashboard."
 ---
 
 Each project in Convex has a main production deployment, and each developer on

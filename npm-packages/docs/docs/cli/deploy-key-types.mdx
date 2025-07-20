@@ -3,6 +3,8 @@ title: "Deploy keys"
 slug: "deploy-key-types"
 sidebar_position: 30
 sidebar_label: "Deploy keys"
+description:
+  "Use deploy keys for authentication in production build environments"
 ---
 
 When you can't log in or use the CLI interactively to specify a project or

@@ -1,6 +1,9 @@
 ---
 title: "System Tables"
 sidebar_position: 1
+description:
+  "Access metadata for Convex built-in features through system tables including
+  scheduled functions and file storage information."
 ---
 
 System tables enable read-only access to metadata for built-in Convex features.

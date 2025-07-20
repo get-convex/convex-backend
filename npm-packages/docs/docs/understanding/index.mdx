@@ -3,6 +3,8 @@ title: "Convex Overview"
 hidden: false
 sidebar_position: 100
 pagination_next: understanding/workflow
+description:
+  "Introduction to Convex - the reactive database with TypeScript queries"
 ---
 
 Convex is the open source, reactive database where queries are TypeScript code

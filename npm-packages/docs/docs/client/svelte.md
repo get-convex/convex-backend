@@ -1,6 +1,7 @@
 ---
 title: "Svelte"
 sidebar_position: 250
+description: "Reactive Svelte client library for Convex applications"
 ---
 
 Convex is a great fit for reactive UI frameworks like Svelte. The

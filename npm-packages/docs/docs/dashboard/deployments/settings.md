@@ -2,6 +2,9 @@
 title: "Settings"
 slug: "deployment-settings"
 sidebar_position: 60
+description:
+  "Configure your Convex deployment settings including URLs, environment
+  variables, authentication, backups, integrations, and deployment management."
 ---
 
 The [deployment settings page](https://dashboard.convex.dev/deployment/settings)

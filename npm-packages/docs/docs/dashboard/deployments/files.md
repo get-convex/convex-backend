@@ -3,6 +3,8 @@ title: "File Storage"
 sidebar_label: "Files"
 slug: "file-storage"
 sidebar_position: 20
+description:
+  "Upload, download, and manage files stored in your Convex deployment"
 ---
 
 The [file storage page](https://dashboard.convex.dev/deployment/files) displays

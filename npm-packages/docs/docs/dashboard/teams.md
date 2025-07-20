@@ -2,6 +2,8 @@
 title: "Teams"
 slug: "teams"
 sidebar_position: 0
+description:
+  "Manage team settings, members, billing, and access control in Convex"
 ---
 
 In Convex, your projects are organized by team. Teams are used to share access

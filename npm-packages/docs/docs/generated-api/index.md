@@ -1,5 +1,7 @@
 ---
 title: Generated Code
+description:
+  "Auto-generated JavaScript and TypeScript code specific to your app's API"
 ---
 
 Convex uses code generation to create code that is specific to your app's data
