@@ -192,7 +192,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         }
 
         if num_to_build > 0 {
-            tracing::info!("built {num_to_build} {index_type} indexes");
+            tracing::info!("SearchIndexFlusher built {num_to_build} {index_type} indexes");
         }
 
         Ok((metrics, token))

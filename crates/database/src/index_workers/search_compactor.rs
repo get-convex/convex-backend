@@ -98,7 +98,10 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         }
 
         if num_to_build > 0 {
-            tracing::info!("built {num_to_build} {:?} indexes", Self::search_type());
+            tracing::info!(
+                "SearchIndexCompactor built {num_to_build} {:?} indexes",
+                Self::search_type()
+            );
         }
 
         Ok((metrics, token))
