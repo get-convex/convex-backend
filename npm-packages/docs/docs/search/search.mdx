@@ -203,9 +203,8 @@ the quality of search results.
 Search queries return results in relevance order. Internally, Convex ranks the
 relevance of a document based on a combination of its
 [BM25 score](https://en.wikipedia.org/wiki/Okapi_BM25) and several other
-criteria such as the number of typos of matched terms in the document, the
-proximity of matches, the number of exact matches, and more. The BM25 score
-takes into account:
+criteria such as the proximity of matches, the number of exact matches, and
+more. The BM25 score takes into account:
 
 - How many words in the search query appear in the field?
 - How many times do they appear?
