@@ -13,6 +13,7 @@
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
+    "pull-agent-docs": "degit github:get-convex/agent/docs ./docs/agents --force && find ./docs/agents -name '*.mdx' -exec sed -i '' 's|\\][(]\\.\\./|](https://github.com/get-convex/agent/blob/main/|g' {} + && npx prettier -w ./docs/agents",
     "spellcheck": "cspell \"docs/**/*.md*\"",
     "typecheck": "tsc",
     "test": "cspell \"docs/**/*.md*\" && node test.js"
@@ -44,7 +45,8 @@
     "posthog-js": "~1.250.0",
     "dotenv": "^16.4.7",
     "@docusaurus/plugin-content-docs": "~3.8.1",
-    "copy-text-to-clipboard": "^3.2.0"
+    "copy-text-to-clipboard": "^3.2.0",
+    "degit": "^2.8.4"
   },
   "devDependencies": {
     "docusaurus-plugin-typedoc": "npm:@convex-dev/docusaurus-plugin-typedoc@0.19.2",

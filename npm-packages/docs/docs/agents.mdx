@@ -4,56 +4,78 @@ sidebar_position: 100
 description: "Building AI Agents with Convex"
 ---
 
-# Building AI Agents with Convex
+## Building AI Agents with Convex
 
-Convex provides a powerful platform for building AI agents through its robust
-set of components.
+Convex provides powerful building blocks for building agentic AI applications,
+leveraging Components and existing Convex features.
 
-## Why Convex for AI Agents?
+With Convex, you can separate your long-running agentic workflows from your UI,
+without the user losing reactivity and interactivity. The message history with
+an LLM is persisted by default, live updating on every client, and easily
+composed with other Convex features using code rather than configuration.
 
-Convex offers several advantages for building AI agents:
+## Agent Component
 
-1. **Durable Execution**: Long-running workflows that survive server restarts
-2. **Real-time State Management**: Reactive state updates for agent progress
-3. **Built-in Persistence**: Store conversation history and agent state
-4. **Parallel Processing**: Run multiple agent tasks concurrently
-5. **Error Handling**: Robust retry mechanisms for API calls
+The Agent component is a core building block for building AI agents. It manages
+threads and messages, around which you Agents can cooperate in static or dynamic
+workflows.
 
-## Core Components
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd"
+    title="Agent Component YouTube Video"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+[Agent Component YouTube
+Video](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
 
-The [Agent](https://www.convex.dev/components/agent) and
-[Workflow](https://www.convex.dev/components/workflow) components can be used
-together to create powerful long running agents with memory.
+- Agents organize LLM prompting with associated models, prompts, and
+  [Tools](/agents/tools). They can generate and stream both text and objects.
+- [Threads](/agents/threads) persist [messages](/agents/messages) and can be
+  shared by multiple users and agents (including
+  [human agents](/agents/human-agents)).
+- [Conversation context](/agents/context) is automatically included in each LLM
+  call, including built-in hybrid vector/text search for messages.
+- [Workflows](/agents/workflows) allow building multi-step operations that can
+  span agents, users, durably and reliably.
+- [RAG](/agents/rag) techniques are also supported for prompt augmentation
+  either up front or as tool calls using the
+  [RAG Component](https://www.convex.dev/components/rag).
+- [Files](/agents/files) can be used in the chat history with automatic saving
+  to [file storage](/file-storage).
+- [Debugging](/agents/debugging) is supported, including the
+  [agent playground](/agents/playground) where you can inspect all metadata and
+  iterate on prompts and context settings.
+- [Usage tracking](/agents/usage-tracking) enables usage billing for users and
+  teams.
+- [Rate limiting](/agents/rate-limiting) helps control the rate at which users
+  can interact with agents and keep you from exceeding your LLM provider's
+  limits.
 
-import { ComponentCardList } from "@site/src/components/ComponentCard";
-
-<ComponentCardList
-  items={[
-    {
-      title: "Agent",
-      description:
-        "Agents organize your AI workflows into units, with message history and vector search built in.",
-      href: "https://www.convex.dev/components/agent",
-    },
-    {
-      title: "Workflow",
-      description:
-        "Simplify programming long running code flows. Workflows execute durably with configurable retries and delays.",
-      href: "https://www.convex.dev/components/workflow",
-    },
-  ]}
-/>
-
-Learn more by reading:
+Learn more about the motivation by reading:
 [AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "/agents/getting-started",
+    label: "Build your first Agent",
+  }}
+/>
 
 Sample code:
 
 ```typescript
-// Define an agent similarly to the AI SDK
+// Define an agent
 const supportAgent = new Agent(components.agent, {
+  name: "Support Agent",
   chat: openai.chat("gpt-4o-mini"),
-  textEmbedding: openai.embedding("text-embedding-3-small"),
   instructions: "You are a helpful assistant.",
   tools: { accountLookup, fileTicket, sendEmail },
 });
@@ -78,56 +100,4 @@ export const continueThread = action({
     return result.text;
   },
 });
-
-// Or use it within a workflow, specific to a user:
-export const supportAgentStep = supportAgent.asAction({ maxSteps: 10 });
-
-const workflow = new WorkflowManager(components.workflow);
-const s = internal.example; // where steps are defined
-
-export const supportAgentWorkflow = workflow.define({
-  args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
-  handler: async (step, { prompt, userId, threadId }) => {
-    const suggestion = await step.runAction(s.supportAgentStep, {
-      threadId,
-      generateText: { prompt },
-    });
-    const polished = await step.runAction(s.adaptSuggestionForUser, {
-      suggestion,
-      userId,
-    });
-    await step.runMutation(s.sendUserMessage, {
-      userId,
-      message: polished.message,
-    });
-  },
-});
 ```
-
-## Other Components
-
-Convex also provides other components to help you build reliable AI
-applications.
-
-<ComponentCardList
-  items={[
-    {
-      title: "Persistent Text Streaming",
-      description:
-        "Stream text from HTTP actions while storing data in the database, enabling access after the stream ends or by other users.",
-      href: "https://www.convex.dev/components/persistent-text-streaming",
-    },
-    {
-      title: "Action Retrier",
-      description:
-        "Add reliability to unreliable external service calls. Retry idempotent calls with exponential backoff until success.",
-      href: "https://www.convex.dev/components/retrier",
-    },
-    {
-      title: "Workpool",
-      description:
-        "Create tiers of parallelism to manage and prioritize large numbers of external requests efficiently.",
-      href: "https://www.convex.dev/components/workpool",
-    },
-  ]}
-/>

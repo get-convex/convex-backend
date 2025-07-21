@@ -1,0 +1,279 @@
+---
+title: Rate Limiting
+sidebar_label: "Rate Limiting"
+sidebar_position: 1200
+description: "Control the rate of requests to your AI agent"
+---
+
+Rate limiting is a way to control the rate of requests to your AI agent,
+preventing abuse and managing API budgets.
+
+To demonstrate using the
+[Rate Limiter component](https://www.convex.dev/components/rate-limiter), there
+is an example implementation you can run yourself.
+
+It rate limits the number of messages a user can send in a given time period, as
+well as the total token usage for a user. When a limit is exceeded, the client
+can reactively tell the user how long to wait (even if they exceeded the limit
+in another browser tab!).
+
+For general usage tracking, see [Usage Tracking](./usage-tracking.mdx).
+
+## Overview
+
+The rate limiting example demonstrates two types of rate limiting:
+
+1. **Message Rate Limiting**: Prevents users from sending messages too
+   frequently
+2. **Token Usage Rate Limiting**: Controls AI model token consumption over time
+
+## Running the Example
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run example
+```
+
+Try sending multiple questions quickly to see the rate limiting in action!
+
+## Rate Limiting Strategy
+
+Below we'll go through each configuration. You can also see the full example
+implementation in
+[rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts).
+
+```ts
+import { MINUTE, RateLimiter, SECOND } from "@convex-dev/rate-limiter";
+import { components } from "./_generated/api";
+
+export const rateLimiter = new RateLimiter(components.rateLimiter, {
+  sendMessage: {
+    kind: "fixed window",
+    period: 5 * SECOND,
+    rate: 1,
+    capacity: 2,
+  },
+  globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+  tokenUsagePerUser: {
+    kind: "token bucket",
+    period: MINUTE,
+    rate: 2000,
+    capacity: 10000,
+  },
+  globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+});
+```
+
+### 1. Fixed Window Rate Limiting for Messages
+
+```ts
+// export const rateLimiter = new RateLimiter(components.rateLimiter, {
+sendMessage: { kind: "fixed window", period: 5 * SECOND, rate: 1, capacity: 2 }
+```
+
+- Allows 1 message every 5 seconds per user.
+- Prevents spam and rapid-fire requests.
+- Allows up to a 2 message burst to be sent within 5 seconds via `capacity`, if
+  they had usage leftover from the previous 5 seconds.
+
+Global limit:
+
+```ts
+globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+```
+
+- Allows 1000 messages per minute globally, to stay under the API limit.
+- As a token bucket, it will continuously accrue tokens at the rate of 1000
+  tokens per minute until it caps out at 1000. All available tokens can be used
+  in quick succession.
+
+### 2. Token Bucket Rate Limiting for Token Usage
+
+```ts
+tokenUsage: { kind: "token bucket", period: MINUTE, rate: 1_000 }
+globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+```
+
+- Allows 1000 tokens per minute per user (a userId is provided as the key), and
+  100k tokens per minute globally.
+- Provides burst capacity while controlling overall usage. If it hasn't been
+  used in a while, you can consume all tokens at once. However, you'd then need
+  need to wait for tokens to gradually accrue before making more requests.
+- Having a per-user limit is useful to prevent single users from hogging all of
+  the token bandwidth you have available with your LLM provider, while a global
+  limit helps stay under the API limit without throwing an error midway through
+  a potentially long multi-step request.
+
+## How It Works
+
+### Step 1: Pre-flight Rate Limit Checks
+
+Before processing a question, the system:
+
+1. Checks if the user can send another message (frequency limit)
+2. Estimates token usage for the question
+3. Verifies the user has sufficient token allowance
+4. Throws an error if either limit would be exceeded
+5. If the rate limits aren't exceeded, the LLM request is made.
+
+See
+[rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)
+for the full implementation.
+
+```ts
+// In the mutation that would start generating a message.
+await rateLimiter.limit(ctx, "sendMessage", { key: userId, throws: true });
+// Also check global limit.
+await rateLimiter.limit(ctx, "globalSendMessage", { throws: true });
+
+// A heuristic based on the previous token usage in the thread + the question.
+const count = await estimateTokens(ctx, args.threadId, args.question);
+// Check token usage, but don't consume the tokens yet.
+await rateLimiter.check(ctx, "tokenUsage", {
+  key: userId,
+  count: estimateTokens(args.question),
+  throws: true,
+});
+// Also check global limit.
+await rateLimiter.check(ctx, "globalTokenUsage", {
+  count,
+  reserve: true,
+  throws: true,
+});
+```
+
+If there is not enough allowance, the rate limiter will throw an error that the
+client can catch and prompt the user to wait a bit before trying again.
+
+The difference between `limit` and `check` is that `limit` will consume the
+tokens immediately, while `check` will only check if the limit would be
+exceeded. We actually mark the tokens as used once the request is complete with
+the total usage.
+
+### Step 2: Post-generation Usage Tracking
+
+While rate limiting message sending frequency is a good way to prevent many
+messages being sent in a short period of time, each message could generate a
+very long response or use a lot of context tokens. For this we also track token
+usage as its own rate limit.
+
+After the AI generates a response, we mark the tokens as used using the total
+usage. We use `reserve: true` to allow a (temporary) negative balance, in case
+the generation used more tokens than estimated. A "reservation" here means
+allocating tokens beyond what is allowed. Typically this is done ahead of time,
+to "reserve" capacity for a big request that can be scheduled in advance. In
+this case, we're marking capacity that has already been consumed. This prevents
+future requests from starting until the "debt" is paid off.
+
+```ts
+await rateLimiter.limit(ctx, "tokenUsage", {
+  key: userId,
+  count: usage.totalTokens,
+  reserve: true, // because of this, it will never fail
+});
+```
+
+The "trick" here is that, while a user can make a request that exceeds the limit
+for a single request, they then have to wait longer to accrue the tokens for
+another request. So averaged over time they can't consume more than the rate
+limit.
+
+This balances pragmatism of trying to prevent requests ahead of time with an
+estimate, while also rate limiting the actual usage.
+
+## Client-side Handling
+
+See
+[RateLimiting.tsx](https://github.com/get-convex/agent/blob/main/example/ui/rate_limiting/RateLimiting.tsx)
+for the client-side code.
+
+While the client isn't the final authority on whether a request should be
+allowed, it can still show a waiting message while the rate limit is being
+checked, and an error message when the rate limit is exceeded. This prevents the
+user from making attempts that are likely to fail.
+
+It makes use of the `useRateLimit` hook to check the rate limits. See the full
+[Rate Limiting docs here](https://www.convex.dev/components/rate-limiter).
+
+```ts
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+//...
+const { status } = useRateLimit(api.example.getRateLimit);
+```
+
+In `convex/example.ts` we expose `getRateLimit`:
+
+```ts
+export const { getRateLimit, getServerTime } = rateLimiter.hookAPI<DataModel>(
+  "sendMessage",
+  { key: (ctx) => getAuthUserId(ctx) },
+);
+```
+
+Showing a waiting message while the rate limit is being checked:
+
+```ts
+{status && !status.ok && (
+    <div className="text-xs text-gray-500 text-center">
+    <p>Message sending rate limit exceeded.</p>
+    <p>
+        Try again after <Countdown ts={status.retryAt} />
+    </p>
+    </div>
+)}
+```
+
+Showing an error message when the rate limit is exceeded:
+
+```ts
+import { isRateLimitError } from "@convex-dev/rate-limiter";
+
+// in a button handler
+await submitQuestion({ question, threadId }).catch((e) => {
+  if (isRateLimitError(e)) {
+    toast({
+      title: "Rate limit exceeded",
+      description: `Rate limit exceeded for ${e.data.name}.
+          Try again after ${getRelativeTime(Date.now() + e.data.retryAfter)}`,
+    });
+  }
+});
+```
+
+## Token Estimation
+
+The example includes a simple token estimation function:
+
+```ts
+import { QueryCtx } from "./_generated/server";
+import { fetchContextMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+// This is a rough estimate of the tokens that will be used.
+// It's not perfect, but it's a good enough estimate for a pre-generation check.
+export async function estimateTokens(
+  ctx: QueryCtx,
+  threadId: string | undefined,
+  question: string,
+) {
+  // Assume roughly 4 characters per token
+  const promptTokens = question.length / 4;
+  // Assume a longer non-zero reply
+  const estimatedOutputTokens = promptTokens * 3 + 1;
+  const latestMessages = await fetchContextMessages(ctx, components.agent, {
+    threadId,
+    messages: [{ role: "user" as const, content: question }],
+    contextOptions: { recentMessages: 2 },
+  });
+  // Our new usage will roughly be the previous tokens + the question.
+  // The previous tokens include the tokens for the full message history and
+  // output tokens, which will be part of our new history.
+  const lastUsageMessage = latestMessages
+    .reverse()
+    .find((message) => message.usage);
+  const lastPromptTokens = lastUsageMessage?.usage?.totalTokens ?? 1;
+  return lastPromptTokens + promptTokens + estimatedOutputTokens;
+}
+```

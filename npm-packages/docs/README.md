@@ -68,6 +68,23 @@ See [here](/ops/services/docs/release.md).
 
 See [here](/ops/services/docs/release.md#preview-deployment).
 
+## Updating the Agent docs
+
+The Agent component docs are in the
+[get-convex/agent repo](https://github.com/get-convex/agent/tree/main/docs). To
+update them, run the following command:
+
+```
+npm run pull-agent-docs
+```
+
+This will pull the latest docs from the `main` branch and update the
+`docs/agents` directory, doing some replacing of relative links back to the
+agent repo for code snippets.
+
+This is a manual process and generally only needs to be done when the agent docs
+change and there is a new release of the agent package.
+
 # Dependency notes
 
 Typedoc plugins don't seem to work in our monorepo with Rush: they only work

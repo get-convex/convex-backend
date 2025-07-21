@@ -1,0 +1,143 @@
+---
+title: Usage Tracking
+sidebar_label: "Usage Tracking"
+sidebar_position: 1300
+description: "Tracking token usage of the Agent component"
+---
+
+You can provide a `usageHandler` to the agent to track token usage. See an
+example in
+[this demo](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/usageHandler.ts)
+that captures usage to a table, then scans it to generate per-user invoices.
+
+You can provide a `usageHandler` to the agent, per-thread, or per-message.
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  usageHandler: async (ctx, args) => {
+    const {
+      // Who used the tokens
+      userId, threadId, agentName,
+      // What LLM was used
+      model, provider,
+      // How many tokens were used (extra info is available in providerMetadata)
+      usage, providerMetadata
+    } = args;
+    // ... log, save usage to your database, etc.
+  },
+});
+```
+
+Tip: Define the `usageHandler` within a function where you have more variables
+available to attribute the usage to a different user, team, project, etc.
+
+## Storing usage in a table
+
+To track usage for e.g. billing, you can define a table in your schema and
+insert usage into it for later processing.
+
+```ts
+export const usageHandler: UsageHandler = async (ctx, args) => {
+  if (!args.userId) {
+    console.debug("Not tracking usage for anonymous user");
+    return;
+  }
+  await ctx.runMutation(internal.example.insertRawUsage, {
+    userId: args.userId,
+    agentName: args.agentName,
+    model: args.model,
+    provider: args.provider,
+    usage: args.usage,
+    providerMetadata: args.providerMetadata,
+  });
+};
+
+export const insertRawUsage = internalMutation({
+  args: {
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+  },
+  handler: async (ctx, args) => {
+    const billingPeriod = getBillingPeriod(Date.now());
+    return await ctx.db.insert("rawUsage", {
+      ...args,
+      billingPeriod,
+    });
+  },
+});
+
+function getBillingPeriod(at: number) {
+  const now = new Date(at);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth());
+  return startOfMonth.toISOString().split("T")[0];
+}
+```
+
+With an associated schema in `convex/schema.ts`:
+
+```ts
+export const schema = defineSchema({
+  rawUsage: defineTable({
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+
+    // stats
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+
+    // In this case, we're setting it to the first day of the current month,
+    // using UTC time for the month boundaries.
+    // You could alternatively store it as a timestamp number.
+    // You can then fetch all the usage at the end of the billing period
+    // and calculate the total cost.
+    billingPeriod: v.string(), // When the usage period ended
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+
+  invoices: defineTable({
+    userId: v.string(),
+    billingPeriod: v.string(),
+    amount: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+    ),
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+  // ... other tables
+});
+```
+
+## Generating invoices via a cron job
+
+You can use a cron job to generate invoices at the end of the billing period.
+
+See
+[usage_tracking/invoicing.ts](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/invoicing.ts)
+for an example of how to generate invoices.
+
+You can then add it to `convex/crons.ts`:
+
+```ts
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+// Generate invoices for the previous month
+crons.monthly(
+  "generateInvoices",
+  // Wait a day after the new month starts to generate invoices
+  { day: 2, hourUTC: 0, minuteUTC: 0 },
+  internal.usage.generateInvoices,
+  {},
+);
+
+export default crons;
+```

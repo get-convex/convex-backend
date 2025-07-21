@@ -7,6 +7,7 @@
     "Alexes",
     "androidx",
     "asynciterable",
+    "autoplay",
     "Authed",
     "bendrucker",
     "birthdate",
@@ -125,5 +126,5 @@
     "zoneinfo"
   ],
   "ignoreRegExpList": ["/#[\\w-]+/", "/\\w+.png/"],
-  "enableFiletypes": ["mdx"]
+  "enableFiletypes": ["mdx", "md"]
 }
