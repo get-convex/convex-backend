@@ -8,7 +8,8 @@ sidebar_position: 325
 
 import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
 import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/tasks.ts";
-import App from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/app.vue";
+import schema from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/schema.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/app/app.vue";
 
 Learn how to query data from Convex in a Nuxt app.
 
@@ -43,12 +44,12 @@ for Convex.
 
     ```ts noDialect title="nuxt.config.ts"
     export default defineNuxtConfig({
-      compatibilityDate: '2025-05-15',
+      compatibilityDate: '2025-07-15',
       devtools: { enabled: true },
       modules: ['convex-nuxt'],
       // highlight-start
       convex: {
-        url: process.env.CONVEX_URL,
+        url: process.env.CONVEX_URL
       },
       // highlight-end
     })
@@ -105,17 +106,10 @@ for Convex.
 
     <br></br>
 
-    ```ts noDialect title="convex/schema.ts"
-    import { defineSchema, defineTable } from "convex/server";
-    import { v } from "convex/values";
-
-    export default defineSchema({
-      tasks: defineTable({
-        text: v.string(),
-        isCompleted: v.boolean(),
-      }),
-    });
-    ```
+    <Snippet
+      source={schema}
+      title="convex/schema.ts"
+    />
 
   </Step>
 
@@ -140,7 +134,7 @@ for Convex.
 
     <Snippet
       source={App}
-      title="src/app.vue"
+      title="app/app.vue"
     />
 
   </Step>
