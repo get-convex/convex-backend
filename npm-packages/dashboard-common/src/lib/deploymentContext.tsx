@@ -185,6 +185,8 @@ const useConnectedDeployment = (
     )
       return;
 
+    setState(undefined);
+
     let canceled = false;
     let client: ConvexReactClient;
     const getClient = async () => {

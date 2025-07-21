@@ -308,7 +308,7 @@ export function DeploymentLabel({
         variant="unstyled"
         id="select-deployment"
         className={cn(
-          "flex h-10 items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
+          "flex h-[2.3125rem] items-center gap-2 truncate rounded-full border text-sm font-medium transition-opacity hover:opacity-80",
           menuTarget && "opacity-80",
           "focus-visible:ring-1 focus-visible:ring-border-selected focus-visible:outline-hidden",
           getBackgroundColor(deployment.deploymentType),

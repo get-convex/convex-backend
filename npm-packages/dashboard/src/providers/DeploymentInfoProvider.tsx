@@ -65,6 +65,7 @@ export function DeploymentInfoProvider({
   const { enableIndexFilters } = useLaunchDarkly();
   useIsomorphicLayoutEffect(() => {
     const f = async () => {
+      setDeploymentInfo(undefined);
       const info = await deploymentAuth(
         deploymentOverride || (deploymentName as string),
         `Bearer ${accessToken}`,
