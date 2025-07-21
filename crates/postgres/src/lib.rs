@@ -156,6 +156,8 @@ use crate::{
     metrics::QueryIndexStats,
 };
 
+const ROWS_PER_COPY_BATCH: usize = 1_000_000;
+
 pub struct PostgresPersistence {
     newly_created: AtomicBool,
     lease: Lease,
@@ -643,27 +645,46 @@ impl Persistence for PostgresPersistence {
                  STDIN BINARY",
             )
             .await?;
-        let sink = conn.copy_in(&stmt).await?;
-        let writer = BinaryCopyInWriter::new(
-            sink,
-            &[
-                Type::BYTEA,
-                Type::INT8,
-                Type::BYTEA,
-                Type::BYTEA,
-                Type::BOOL,
-                Type::INT8,
-            ],
-        );
-        pin_mut!(writer);
-        while let Some(chunk) = documents.next().await {
-            for document in chunk {
-                let params =
-                    document_params(document.ts, document.id, &document.value, document.prev_ts)?;
-                writer.as_mut().write_raw(params).await?;
+
+        'outer: loop {
+            let sink = conn.copy_in(&stmt).await?;
+            let writer = BinaryCopyInWriter::new(
+                sink,
+                &[
+                    Type::BYTEA,
+                    Type::INT8,
+                    Type::BYTEA,
+                    Type::BYTEA,
+                    Type::BOOL,
+                    Type::INT8,
+                ],
+            );
+            pin_mut!(writer);
+
+            let mut batch_count = 0;
+
+            while let Some(chunk) = documents.next().await {
+                for document in chunk {
+                    let params = document_params(
+                        document.ts,
+                        document.id,
+                        &document.value,
+                        document.prev_ts,
+                    )?;
+                    writer.as_mut().write_raw(params).await?;
+                    batch_count += 1;
+                }
+
+                if batch_count >= ROWS_PER_COPY_BATCH {
+                    writer.finish().await?;
+                    continue 'outer;
+                }
             }
+
+            writer.finish().await?;
+            break;
         }
-        writer.finish().await?;
+
         Ok(())
     }
 
@@ -682,28 +703,43 @@ impl Persistence for PostgresPersistence {
                  deleted, table_id, document_id) FROM STDIN BINARY",
             )
             .await?;
-        let sink = conn.copy_in(&stmt).await?;
-        let writer = BinaryCopyInWriter::new(
-            sink,
-            &[
-                Type::BYTEA,
-                Type::INT8,
-                Type::BYTEA,
-                Type::BYTEA,
-                Type::BYTEA,
-                Type::BOOL,
-                Type::BYTEA,
-                Type::BYTEA,
-            ],
-        );
-        pin_mut!(writer);
-        while let Some(chunk) = indexes.next().await {
-            for index in chunk {
-                let params = index_params(&index);
-                writer.as_mut().write_raw(params).await?;
+
+        'outer: loop {
+            let sink = conn.copy_in(&stmt).await?;
+            let writer = BinaryCopyInWriter::new(
+                sink,
+                &[
+                    Type::BYTEA,
+                    Type::INT8,
+                    Type::BYTEA,
+                    Type::BYTEA,
+                    Type::BYTEA,
+                    Type::BOOL,
+                    Type::BYTEA,
+                    Type::BYTEA,
+                ],
+            );
+            pin_mut!(writer);
+
+            let mut batch_count = 0;
+
+            while let Some(chunk) = indexes.next().await {
+                for index in chunk {
+                    let params = index_params(&index);
+                    writer.as_mut().write_raw(params).await?;
+                    batch_count += 1;
+                }
+
+                if batch_count >= ROWS_PER_COPY_BATCH {
+                    writer.finish().await?;
+                    continue 'outer;
+                }
             }
+
+            writer.finish().await?;
+            break;
         }
-        writer.finish().await?;
+
         Ok(())
     }
 
