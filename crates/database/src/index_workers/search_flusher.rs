@@ -177,7 +177,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let num_to_build = to_build.len();
         let index_type = self.index_type_name();
         if num_to_build > 0 {
-            tracing::info!("{num_to_build} {index_type} indexes to build");
+            tracing::info!("SearchIndexFlusher has {num_to_build} {index_type} indexes to build");
         }
 
         let pause_client = self.database.runtime().pause_client();
@@ -294,6 +294,11 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                             index_age
                         );
                     }
+                    tracing::debug!(
+                        "Search index {name} (index id {index_id}) index size is {index_size}, \
+                         soft limit is {}",
+                        self.limits.index_size_soft_limit
+                    );
                     let too_large = (index_size > self.limits.index_size_soft_limit)
                         .then_some(BuildReason::TooLarge);
                     // Order matters! Too large is more urgent than too old.
@@ -318,6 +323,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     build_reason,
                 };
                 to_build.push(job);
+            } else {
+                tracing::info!(
+                    "Search index {name} with id {index_id} does not need segment built"
+                );
             }
         }
         Ok((to_build, tx.into_token()?))

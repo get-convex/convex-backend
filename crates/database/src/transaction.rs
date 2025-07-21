@@ -1247,7 +1247,10 @@ impl FinalTransaction {
                 // modification if we are over the limit.
                 continue;
             }
-
+            tracing::error!(
+                "Index size for index_id {index_id} is {size}, limit for {index_type} is \
+                 {hard_limit}"
+            );
             anyhow::bail!(ErrorMetadata::overloaded(
                 format!("{}IndexTooLarge", index_type),
                 format!(
