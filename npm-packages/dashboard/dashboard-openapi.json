@@ -2818,6 +2818,12 @@
           "creationTime"
         ],
         "properties": {
+          "appClientId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "appName": {
             "$ref": "#/components/schemas/AppName"
           },
@@ -3141,6 +3147,16 @@
               },
               {
                 "$ref": "#/components/schemas/DeviceName"
+              }
+            ]
+          },
+          "oauthApp": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OauthAppMetadata"
               }
             ]
           },
@@ -4175,6 +4191,22 @@
             ]
           }
         }
+      },
+      "OauthAppMetadata": {
+        "type": "object",
+        "required": [
+          "clientId",
+          "clientSecret"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "OauthAppResponse": {
         "type": "object",

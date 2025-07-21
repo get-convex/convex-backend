@@ -1613,6 +1613,7 @@ export interface components {
         /** @description Encrypted admin key */
         AdminKey: string;
         AppAccessTokenResponse: {
+            appClientId?: string | null;
             appName: components["schemas"]["AppName"];
             /** Format: int64 */
             creationTime: number;
@@ -1681,6 +1682,7 @@ export interface components {
             authnToken: string;
             deploymentId?: null | components["schemas"]["DeploymentId"];
             deviceName?: null | components["schemas"]["DeviceName"];
+            oauthApp?: null | components["schemas"]["OauthAppMetadata"];
             permissions?: string[] | null;
             projectId?: null | components["schemas"]["ProjectId"];
             teamId?: null | components["schemas"]["TeamId"];
@@ -1941,6 +1943,10 @@ export interface components {
             email: string;
             id: components["schemas"]["MemberId"];
             name?: string | null;
+        };
+        OauthAppMetadata: {
+            clientId: string;
+            clientSecret: string;
         };
         OauthAppResponse: {
             appName: components["schemas"]["AppName"];
@@ -2313,6 +2319,7 @@ export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type MemberResponse = components['schemas']['MemberResponse'];
+export type OauthAppMetadata = components['schemas']['OauthAppMetadata'];
 export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
