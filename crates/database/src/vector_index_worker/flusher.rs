@@ -33,7 +33,7 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<()> {
-    let mut flusher = new_vector_flusher_for_tests(
+    let flusher = new_vector_flusher_for_tests(
         runtime,
         database,
         reader,
@@ -214,7 +214,7 @@ mod tests {
         add_document_vec(&mut tx, index_name.table(), vec).await?;
         db.commit(tx).await?;
 
-        let mut worker = new_vector_flusher(&rt, &db, tp.reader())?;
+        let worker = new_vector_flusher(&rt, &db, tp.reader())?;
         worker.step().await?;
 
         Ok(())
@@ -242,7 +242,7 @@ mod tests {
         db.commit(tx).await?;
 
         // Use 0 soft limit so that we always reindex documents
-        let mut worker = new_vector_flusher_with_soft_limit(&rt, &db, tp.reader(), 0)?;
+        let worker = new_vector_flusher_with_soft_limit(&rt, &db, tp.reader(), 0)?;
         let (metrics, _) = worker.step().await?;
         // Make sure we advance past the invalid document.
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
@@ -262,7 +262,7 @@ mod tests {
             ..
         } = fixtures.backfilling_vector_index().await?;
 
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -280,7 +280,7 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
         worker.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -306,7 +306,7 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [5f64, 6f64])
             .await?;
-        let mut worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
+        let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
 
         // Should be in backfilling state after step
         worker.step().await?;
@@ -339,7 +339,7 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(1000000)?;
+        let worker = fixtures.new_index_flusher_with_full_scan_threshold(1000000)?;
         worker.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -376,7 +376,7 @@ mod tests {
             .await?;
         fixtures.db.commit(tx).await?;
 
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -414,11 +414,11 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         worker.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -515,7 +515,7 @@ mod tests {
                 .await?;
         }
         // Do every backfill flush step until last one
-        let mut worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
+        let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
         for _ in 0..min_compaction_segments {
             worker.step().await?;
         }
@@ -749,7 +749,7 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -762,7 +762,7 @@ mod tests {
             .await?;
         fixtures.db.commit(tx).await?;
 
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
 
@@ -787,7 +787,7 @@ mod tests {
         let id = fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -808,7 +808,7 @@ mod tests {
 
         // And flush to ensure that we handle the document showing up repeatedly in the
         // document log for the old instance.
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
 
@@ -847,7 +847,7 @@ mod tests {
                 fixtures.db.commit(tx).await?;
             }
         }
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 5});
 
@@ -875,7 +875,7 @@ mod tests {
             resolved_index_name,
             ..
         } = fixtures.backfilling_vector_index().await?;
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -891,7 +891,7 @@ mod tests {
                 fixtures.db.commit(tx).await?;
             }
         }
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 10});
 
@@ -915,7 +915,7 @@ mod tests {
             resolved_index_name,
             ..
         } = fixtures.backfilling_vector_index().await?;
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -935,7 +935,7 @@ mod tests {
                 fixtures.db.commit(tx).await?;
             }
         }
-        let mut worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 10});
 
@@ -964,7 +964,7 @@ mod tests {
             let id = fixtures
                 .add_document_vec_array(index_name.table(), vector)
                 .await?;
-            let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+            let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
             let (metrics, _) = worker.step().await?;
             assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -1012,7 +1012,7 @@ mod tests {
 
         set_fast_forward_time_to_now(&fixtures.db, index_id.internal_id()).await?;
 
-        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -1043,7 +1043,7 @@ mod tests {
             .add_document_vec_array(index_name.table(), vector)
             .await?;
 
-        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 

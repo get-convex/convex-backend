@@ -263,7 +263,7 @@ impl VectorFixtures {
     }
 
     pub async fn run_compaction_during_flush(&self, pause: PauseController) -> anyhow::Result<()> {
-        let mut flusher = new_vector_flusher_for_tests(
+        let flusher = new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
             self.reader.clone(),

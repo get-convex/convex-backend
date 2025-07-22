@@ -768,7 +768,7 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
     scenario.add_vector_index(false).await?;
 
     // Create flusher
-    let mut flusher = new_vector_flusher_for_tests(
+    let flusher = new_vector_flusher_for_tests(
         rt.clone(),
         scenario.database.clone(),
         scenario.reader.clone(),
@@ -852,7 +852,7 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
     scenario.add_vector_index(false).await?;
 
     // Create flusher
-    let mut flusher = new_vector_flusher_for_tests(
+    let flusher = new_vector_flusher_for_tests(
         rt.clone(),
         scenario.database.clone(),
         scenario.reader.clone(),
@@ -1000,7 +1000,7 @@ async fn test_multi_segment_search_obeys_sorted_order(rt: TestRuntime) -> anyhow
             .add_document_vec_array(index_name.table(), vector)
             .await?;
         ids.push(id);
-        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
     }

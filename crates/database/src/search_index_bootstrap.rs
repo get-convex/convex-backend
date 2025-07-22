@@ -1180,7 +1180,7 @@ mod tests {
             .await?;
         db.commit(tx).await?;
 
-        let mut flusher = new_text_flusher_for_tests(
+        let flusher = new_text_flusher_for_tests(
             rt.clone(),
             db.clone(),
             tp.reader(),

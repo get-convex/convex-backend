@@ -254,7 +254,7 @@ impl Scenario {
             self.search_storage.clone(),
             self.build_index_args.clone(),
         );
-        let mut flusher = new_text_flusher(
+        let flusher = new_text_flusher(
             self.rt.clone(),
             self.database.clone(),
             self.tp.reader(),

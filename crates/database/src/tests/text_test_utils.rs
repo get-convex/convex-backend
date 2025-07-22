@@ -354,7 +354,7 @@ impl TextFixtures {
         pause: PauseController,
         label: &'static str,
     ) -> anyhow::Result<()> {
-        let mut flusher = self.new_search_flusher();
+        let flusher = self.new_search_flusher();
         let hold_guard = pause.hold(label);
         let flush = flusher.step();
         let compactor = self.new_compactor();
