@@ -83,7 +83,10 @@ use keybroker::{
     Identity,
     UserIdentityAttributes,
 };
-use search::CandidateRevision;
+use search::{
+    metrics::SearchType,
+    CandidateRevision,
+};
 use sync_types::{
     AuthenticationToken,
     Timestamp,
@@ -106,7 +109,10 @@ use crate::{
     },
     committer::table_dependency_sort_key,
     execution_size::FunctionExecutionSize,
-    metrics,
+    metrics::{
+        self,
+        log_index_too_large_blocking_writes,
+    },
     patch::PatchValue,
     preloaded::PreloadedIndexRange,
     query::{
@@ -1205,7 +1211,7 @@ impl FinalTransaction {
             &modified_tables,
             base_snapshot.text_indexes.in_memory_sizes().into_iter(),
             search_size_limit,
-            "Search",
+            SearchType::Text,
         )?;
         Self::validate_memory_index_size(
             table_mapping,
@@ -1213,7 +1219,7 @@ impl FinalTransaction {
             &modified_tables,
             base_snapshot.vector_indexes.in_memory_sizes().into_iter(),
             vector_size_limit,
-            "Vector",
+            SearchType::Vector,
         )?;
         Ok(())
     }
@@ -1224,7 +1230,7 @@ impl FinalTransaction {
         modified_tables: &BTreeSet<TabletId>,
         iterator: impl Iterator<Item = (IndexId, usize)>,
         hard_limit: usize,
-        index_type: &'static str,
+        index_type: SearchType,
     ) -> anyhow::Result<()> {
         for (index_id, size) in iterator {
             if size < hard_limit {
@@ -1248,11 +1254,12 @@ impl FinalTransaction {
                 continue;
             }
             tracing::error!(
-                "Index size for index_id {index_id} is {size}, limit for {index_type} is \
-                 {hard_limit}"
+                "Index size for index_id {index_id} is {size}, limit for {} is {hard_limit}",
+                index_type.as_ref()
             );
+            log_index_too_large_blocking_writes(index_type);
             anyhow::bail!(ErrorMetadata::overloaded(
-                format!("{}IndexTooLarge", index_type),
+                format!("{}IndexTooLarge", index_type.as_ref()),
                 format!(
                     "Too many writes to {}, backoff and try again",
                     index.map_table(&table_mapping.tablet_to_name())?

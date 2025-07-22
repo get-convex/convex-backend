@@ -53,6 +53,7 @@ ref-cast = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 storage = { path = "../storage" }
+strum = { workspace = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }

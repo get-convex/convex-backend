@@ -543,7 +543,7 @@ pub fn log_text_document_indexed(schema: &TantivySearchIndexSchema, document: &T
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, strum::AsRefStr)]
 pub enum SearchType {
     Vector,
     Text,

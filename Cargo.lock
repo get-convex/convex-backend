@@ -7807,6 +7807,7 @@ dependencies = [
  "serde",
  "serde_json",
  "storage",
+ "strum",
  "sucds",
  "tantivy",
  "tantivy-common",
