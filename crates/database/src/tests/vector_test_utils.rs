@@ -85,6 +85,7 @@ use crate::{
     index_workers::{
         search_compactor::CompactionConfig,
         search_flusher::FLUSH_RUNNING_LABEL,
+        FlusherType,
     },
     test_helpers::DbFixturesArgs,
     vector_index_worker::{
@@ -258,8 +259,18 @@ impl VectorFixtures {
         ))
     }
 
-    pub fn new_index_flusher(&self) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
-        self.new_index_flusher_with_full_scan_threshold(*MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB)
+    pub fn new_backfill_index_flusher(&self) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
+        self.new_index_flusher_with_full_scan_threshold(
+            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            FlusherType::Backfill,
+        )
+    }
+
+    pub fn new_live_index_flusher(&self) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
+        self.new_index_flusher_with_full_scan_threshold(
+            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            FlusherType::LiveFlush,
+        )
     }
 
     pub async fn run_compaction_during_flush(&self, pause: PauseController) -> anyhow::Result<()> {
@@ -272,6 +283,7 @@ impl VectorFixtures {
             0,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             8,
+            FlusherType::LiveFlush,
         );
         let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
         let flush = flusher.step();
@@ -290,6 +302,7 @@ impl VectorFixtures {
     pub fn new_index_flusher_with_full_scan_threshold(
         &self,
         full_scan_threshold_kb: usize,
+        flusher_type: FlusherType,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
         Ok(new_vector_flusher_for_tests(
             self.rt.clone(),
@@ -300,12 +313,14 @@ impl VectorFixtures {
             0,
             full_scan_threshold_kb,
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            flusher_type,
         ))
     }
 
     pub fn new_index_flusher_with_incremental_part_threshold(
         &self,
         incremental_part_threshold: usize,
+        // flusher_type: FlusherType,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
         Ok(new_vector_flusher_for_tests(
             self.rt.clone(),
@@ -316,6 +331,7 @@ impl VectorFixtures {
             0,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             incremental_part_threshold,
+            FlusherType::Backfill,
         ))
     }
 

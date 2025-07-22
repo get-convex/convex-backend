@@ -18,6 +18,7 @@ use crate::{
             SearchIndexLimits,
         },
         writer::SearchIndexMetadataWriter,
+        FlusherType,
     },
     vector_index_worker::vector_meta::VectorSearchIndex,
     Database,
@@ -34,6 +35,17 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<()> {
     let flusher = new_vector_flusher_for_tests(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        /* index_size_soft_limit= */ 0,
+        *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+        *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+        FlusherType::Backfill,
+    );
+    flusher.step().await?;
+    let flusher = new_vector_flusher_for_tests(
         runtime,
         database,
         reader,
@@ -41,6 +53,7 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
         /* index_size_soft_limit= */ 0,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+        FlusherType::LiveFlush,
     );
     flusher.step().await?;
     Ok(())
@@ -56,6 +69,7 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     index_size_soft_limit: usize,
     full_scan_segment_max_kb: usize,
     incremental_multipart_threshold_bytes: usize,
+    flusher_type: FlusherType,
 ) -> VectorIndexFlusher<RT> {
     use search::metrics::SearchType;
     let writer = SearchIndexMetadataWriter::new(
@@ -80,6 +94,7 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: full_scan_segment_max_kb,
         },
+        flusher_type,
     )
 }
 
@@ -89,6 +104,7 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
+    flusher_type: FlusherType,
 ) -> VectorIndexFlusher<RT> {
     SearchFlusher::new(
         runtime,
@@ -103,6 +119,7 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         },
+        flusher_type,
     )
 }
 
@@ -160,7 +177,10 @@ mod tests {
     };
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
-        index_workers::search_compactor::CompactionConfig,
+        index_workers::{
+            search_compactor::CompactionConfig,
+            FlusherType,
+        },
         test_helpers::DbFixtures,
         tests::vector_test_utils::{
             add_document_vec,
@@ -190,6 +210,7 @@ mod tests {
             soft_limit,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            FlusherType::Backfill,
         ))
     }
 
@@ -262,7 +283,7 @@ mod tests {
             ..
         } = fixtures.backfilling_vector_index().await?;
 
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -280,7 +301,8 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker =
+            fixtures.new_index_flusher_with_full_scan_threshold(0, FlusherType::Backfill)?;
         worker.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -339,7 +361,8 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let worker = fixtures.new_index_flusher_with_full_scan_threshold(1000000)?;
+        let worker =
+            fixtures.new_index_flusher_with_full_scan_threshold(1000000, FlusherType::Backfill)?;
         worker.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -376,7 +399,7 @@ mod tests {
             .await?;
         fixtures.db.commit(tx).await?;
 
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -414,11 +437,11 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         worker.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -682,7 +705,7 @@ mod tests {
             ..
         } = backfilling_data;
 
-        fixtures.new_index_flusher()?.step().await?;
+        fixtures.new_backfill_index_flusher()?.step().await?;
 
         let mut tx = fixtures.db.begin_system().await?;
         let new_metadata = IndexModel::new(&mut tx)
@@ -749,7 +772,7 @@ mod tests {
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -762,7 +785,7 @@ mod tests {
             .await?;
         fixtures.db.commit(tx).await?;
 
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_live_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
 
@@ -787,7 +810,7 @@ mod tests {
         let id = fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -808,7 +831,7 @@ mod tests {
 
         // And flush to ensure that we handle the document showing up repeatedly in the
         // document log for the old instance.
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_live_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
 
@@ -847,7 +870,7 @@ mod tests {
                 fixtures.db.commit(tx).await?;
             }
         }
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 5});
 
@@ -875,7 +898,7 @@ mod tests {
             resolved_index_name,
             ..
         } = fixtures.backfilling_vector_index().await?;
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -891,7 +914,7 @@ mod tests {
                 fixtures.db.commit(tx).await?;
             }
         }
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_live_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 10});
 
@@ -915,7 +938,7 @@ mod tests {
             resolved_index_name,
             ..
         } = fixtures.backfilling_vector_index().await?;
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -935,7 +958,7 @@ mod tests {
                 fixtures.db.commit(tx).await?;
             }
         }
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_live_index_flusher()?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 10});
 
@@ -964,7 +987,8 @@ mod tests {
             let id = fixtures
                 .add_document_vec_array(index_name.table(), vector)
                 .await?;
-            let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+            let worker =
+                fixtures.new_index_flusher_with_full_scan_threshold(0, FlusherType::LiveFlush)?;
             let (metrics, _) = worker.step().await?;
             assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
@@ -1012,7 +1036,8 @@ mod tests {
 
         set_fast_forward_time_to_now(&fixtures.db, index_id.internal_id()).await?;
 
-        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker =
+            fixtures.new_index_flusher_with_full_scan_threshold(0, FlusherType::LiveFlush)?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
 
@@ -1043,7 +1068,8 @@ mod tests {
             .add_document_vec_array(index_name.table(), vector)
             .await?;
 
-        let worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let worker =
+            fixtures.new_index_flusher_with_full_scan_threshold(0, FlusherType::LiveFlush)?;
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 

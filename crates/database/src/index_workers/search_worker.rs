@@ -43,6 +43,7 @@ use crate::{
         search_compactor::CompactionConfig,
         timeout_with_jitter,
         writer::SearchIndexMetadataWriter,
+        FlusherType,
     },
     text_index_worker::{
         compactor::{
@@ -122,8 +123,8 @@ impl SearchIndexWorkers {
                 segment_term_metadata_fetcher: segment_term_metadata_fetcher.clone(),
             },
         );
-        let vector_flush = retry_loop_expect_occs_and_overloaded(
-            "VectorFlusher",
+        let vector_live_flush = retry_loop_expect_occs_and_overloaded(
+            "VectorLiveFlusher",
             runtime.clone(),
             database.clone(),
             // Wait a bit since vector needs time to bootstrap. Makes startup logs a bit cleaner.
@@ -136,6 +137,24 @@ impl SearchIndexWorkers {
                 reader.clone(),
                 search_storage.clone(),
                 vector_index_metadata_writer.clone(),
+                FlusherType::LiveFlush,
+            )),
+        );
+        let vector_backfill_flush = retry_loop_expect_occs_and_overloaded(
+            "VectorBackfillFlusher",
+            runtime.clone(),
+            database.clone(),
+            // Wait a bit since vector needs time to bootstrap. Makes startup logs a bit cleaner.
+            Duration::from_secs(5),
+            *INDEX_WORKERS_INITIAL_BACKOFF,
+            *SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
+            SearchIndexWorker::VectorFlusher(new_vector_flusher(
+                runtime.clone(),
+                database.clone(),
+                reader.clone(),
+                search_storage.clone(),
+                vector_index_metadata_writer.clone(),
+                FlusherType::Backfill,
             )),
         );
         let vector_compact = retry_loop_expect_occs_and_overloaded(
@@ -153,22 +172,41 @@ impl SearchIndexWorkers {
                 vector_index_metadata_writer,
             )),
         );
-        let text_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
+        let text_live_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
+            runtime.clone(),
+            database.clone(),
+            reader.clone(),
+            search_storage.clone(),
+            segment_term_metadata_fetcher.clone(),
+            text_index_metadata_writer.clone(),
+            FlusherType::LiveFlush,
+        ));
+        let text_live_flush = retry_loop_expect_occs_and_overloaded(
+            "TextLiveFlusher",
+            runtime.clone(),
+            database.clone(),
+            Duration::ZERO,
+            *INDEX_WORKERS_INITIAL_BACKOFF,
+            *SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
+            text_live_flusher,
+        );
+        let text_backfill_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
             runtime.clone(),
             database.clone(),
             reader,
             search_storage.clone(),
             segment_term_metadata_fetcher,
             text_index_metadata_writer.clone(),
+            FlusherType::Backfill,
         ));
-        let text_flush = retry_loop_expect_occs_and_overloaded(
-            "SearchFlusher",
+        let text_backfill_flush = retry_loop_expect_occs_and_overloaded(
+            "TextBackfillFlusher",
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
             *INDEX_WORKERS_INITIAL_BACKOFF,
             *SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
-            text_flusher,
+            text_backfill_flusher,
         );
 
         let text_compact = retry_loop_expect_occs_and_overloaded(
@@ -187,15 +225,20 @@ impl SearchIndexWorkers {
             )),
         );
 
-        let vector_flush_handle = runtime.spawn("vector_flush", vector_flush);
+        let vector_backfill_flush_handle =
+            runtime.spawn("vector_backfill_flush", vector_backfill_flush);
+        let vector_live_flush_handle = runtime.spawn("vector_live_flush", vector_live_flush);
         let vector_compact_handle = runtime.spawn("vector_compact", vector_compact);
-        let text_flush_handle = runtime.spawn("text_flush", text_flush);
+        let text_live_flush_handle = runtime.spawn("text_live_flush", text_live_flush);
+        let text_backfill_flush_handle = runtime.spawn("text_backfill_flush", text_backfill_flush);
         let text_compact_handle = runtime.spawn("text_compact", text_compact);
         Self {
             handles: vec![
-                vector_flush_handle,
+                vector_backfill_flush_handle,
+                vector_live_flush_handle,
                 vector_compact_handle,
-                text_flush_handle,
+                text_live_flush_handle,
+                text_backfill_flush_handle,
                 text_compact_handle,
             ],
         }

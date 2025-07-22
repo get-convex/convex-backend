@@ -131,7 +131,7 @@ pub mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let worker = fixtures.new_search_flusher();
+        let worker = fixtures.new_backfill_text_flusher();
 
         // Backfill the index
         let (metrics, _) = worker.step().await?;

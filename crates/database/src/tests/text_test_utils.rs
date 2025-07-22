@@ -56,7 +56,10 @@ use value::{
 };
 
 use crate::{
-    index_workers::search_compactor::CompactionConfig,
+    index_workers::{
+        search_compactor::CompactionConfig,
+        FlusherType,
+    },
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,
@@ -151,16 +154,31 @@ impl TextFixtures {
             self.storage.clone(),
             self.segment_term_metadata_fetcher.clone(),
             self.writer.clone(),
+            FlusherType::Backfill,
         )
     }
 
-    pub fn new_search_flusher(&self) -> TextIndexFlusher<TestRuntime> {
+    pub fn new_backfill_text_flusher(&self) -> TextIndexFlusher<TestRuntime> {
         self.new_search_flusher_builder().set_soft_limit(0).build()
     }
 
-    pub fn new_search_flusher_with_soft_limit(&self) -> TextIndexFlusher<TestRuntime> {
+    pub fn new_live_text_flusher(&self) -> TextIndexFlusher<TestRuntime> {
+        self.new_search_flusher_builder()
+            .set_soft_limit(0)
+            .set_live_flush()
+            .build()
+    }
+
+    pub fn new_backfill_flusher_with_soft_limit(&self) -> TextIndexFlusher<TestRuntime> {
         self.new_search_flusher_builder()
             .set_soft_limit(2048)
+            .build()
+    }
+
+    pub fn new_live_flusher_with_soft_limit(&self) -> TextIndexFlusher<TestRuntime> {
+        self.new_search_flusher_builder()
+            .set_soft_limit(2048)
+            .set_live_flush()
             .build()
     }
 
@@ -354,7 +372,7 @@ impl TextFixtures {
         pause: PauseController,
         label: &'static str,
     ) -> anyhow::Result<()> {
-        let flusher = self.new_search_flusher();
+        let flusher = self.new_live_text_flusher();
         let hold_guard = pause.hold(label);
         let flush = flusher.step();
         let compactor = self.new_compactor();

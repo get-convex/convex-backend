@@ -31,6 +31,28 @@ pub(crate) enum BuildReason {
     VersionMismatch,
 }
 
+/// There are two types of search index flushers: live flushers and backfill
+/// flushers. Live flushers are responsible for flushing the in-memory search
+/// index contents when they get too large or old. Backfill flushers are
+/// responsible for backfilling newly added indexes or indexes on the wrong
+/// version. We separate the flushers so that building backfill segments (which
+/// can take a long time) does not block the in-memory index flushes. In-memory
+/// flushes need to happen quickly or else writes fail when the in-memory
+/// index gets too large.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum FlusherType {
+    LiveFlush,
+    Backfill,
+}
+impl From<BuildReason> for FlusherType {
+    fn from(reason: BuildReason) -> Self {
+        match reason {
+            BuildReason::Backfilling | BuildReason::VersionMismatch => FlusherType::Backfill,
+            BuildReason::TooOld | BuildReason::TooLarge => FlusherType::LiveFlush,
+        }
+    }
+}
+
 impl BuildReason {
     pub fn read_max_pages_per_second(&self) -> NonZeroU32 {
         match self {

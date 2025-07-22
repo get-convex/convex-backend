@@ -205,7 +205,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
         )
         .await;
 
-    fixtures.new_index_flusher()?.step().await?;
+    fixtures.new_live_index_flusher()?.step().await?;
 
     let storage = fixtures
         .db
@@ -231,7 +231,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
-    fixtures.new_index_flusher()?.step().await?;
+    fixtures.new_backfill_index_flusher()?.step().await?;
 
     let (_, usage_stats) = fixtures
         .db

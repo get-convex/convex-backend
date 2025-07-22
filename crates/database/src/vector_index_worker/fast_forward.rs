@@ -127,7 +127,7 @@ mod tests {
             namespace,
             ..
         } = backfilling_vector_index_with_doc(&database).await?;
-        let worker = fixtures.new_index_flusher()?;
+        let worker = fixtures.new_backfill_index_flusher()?;
 
         // Backfill
         let (metrics, _) = worker.step().await?;

@@ -15,6 +15,7 @@ use crate::{
             SearchIndexLimits,
         },
         writer::SearchIndexMetadataWriter,
+        FlusherType,
     },
     text_index_worker::text_meta::{
         BuildTextIndexArgs,
@@ -42,12 +43,25 @@ pub async fn backfill_text_indexes<RT: Runtime>(
         },
     );
     let flusher = FlusherBuilder::new(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        segment_term_metadata_fetcher.clone(),
+        writer.clone(),
+        FlusherType::Backfill,
+    )
+    .set_soft_limit(0)
+    .build();
+    flusher.step().await?;
+    let flusher = FlusherBuilder::new(
         runtime,
         database,
         reader,
         storage,
         segment_term_metadata_fetcher,
         writer,
+        FlusherType::LiveFlush,
     )
     .set_soft_limit(0)
     .build();
@@ -63,6 +77,7 @@ pub(crate) struct FlusherBuilder<RT: Runtime> {
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     limits: SearchIndexLimits,
     writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
+    flusher_type: FlusherType,
 }
 
 impl<RT: Runtime> FlusherBuilder<RT> {
@@ -73,6 +88,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         storage: Arc<dyn Storage>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
+        flusher_type: FlusherType,
     ) -> Self {
         Self {
             runtime,
@@ -85,6 +101,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
                 index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
                 incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
             },
+            flusher_type,
         }
     }
 
@@ -111,6 +128,15 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn set_live_flush(self) -> Self {
+        Self {
+            flusher_type: FlusherType::LiveFlush,
+            ..self
+        }
+    }
+
     pub(crate) fn build(self) -> TextIndexFlusher<RT> {
         SearchFlusher::new(
             self.runtime,
@@ -123,6 +149,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
                 search_storage: self.storage.clone(),
                 segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),
             },
+            self.flusher_type,
         )
     }
 }
@@ -155,6 +182,7 @@ pub fn new_text_flusher_for_tests<RT: Runtime>(
         storage,
         segment_metadata_fetcher,
         writer,
+        FlusherType::Backfill,
     )
     .build()
 }
@@ -166,6 +194,7 @@ pub(crate) fn new_text_flusher<RT: Runtime>(
     storage: Arc<dyn Storage>,
     segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
+    flusher_type: FlusherType,
 ) -> TextIndexFlusher<RT> {
     FlusherBuilder::new(
         runtime,
@@ -174,6 +203,7 @@ pub(crate) fn new_text_flusher<RT: Runtime>(
         storage,
         segment_metadata_fetcher,
         writer,
+        flusher_type,
     )
     .build()
 }
@@ -268,7 +298,7 @@ mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let worker = fixtures.new_search_flusher();
+        let worker = fixtures.new_backfill_text_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -294,7 +324,7 @@ mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let worker = fixtures.new_search_flusher();
+        let worker = fixtures.new_backfill_text_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -318,6 +348,7 @@ mod tests {
         }
         database.commit(tx).await?;
 
+        let worker = fixtures.new_live_text_flusher();
         let (metrics, _) = worker.step().await?;
         assert_eq!(
             metrics,
@@ -343,7 +374,7 @@ mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let worker = fixtures.new_search_flusher();
+        let worker = fixtures.new_backfill_text_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -367,6 +398,7 @@ mod tests {
         }
         fixtures.db.commit(tx).await?;
 
+        let worker = fixtures.new_live_text_flusher();
         let (metrics, _) = worker.step().await?;
         assert_eq!(
             metrics,
@@ -384,7 +416,7 @@ mod tests {
     async fn test_advance_old_snapshot(rt: TestRuntime) -> anyhow::Result<()> {
         common::testing::init_test_logging();
         let fixtures = TextFixtures::new(rt.clone()).await?;
-        let worker = fixtures.new_search_flusher_with_soft_limit();
+        let worker = fixtures.new_backfill_flusher_with_soft_limit();
         let database = &fixtures.db;
 
         let IndexData {
@@ -405,6 +437,7 @@ mod tests {
         add_document(&mut tx, index_name.table(), "too small to count").await?;
         database.commit(tx).await?;
 
+        let worker = fixtures.new_live_flusher_with_soft_limit();
         let (metrics, _) = worker.step().await?;
         assert!(metrics.is_empty());
         assert_eq!(
@@ -435,7 +468,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let index_data = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
         fixtures.assert_backfilled(&index_data.index_name).await?;
         Ok(())
@@ -455,7 +488,7 @@ mod tests {
             .tablet_id;
         let resolved_index_name =
             TabletIndexName::new(table_id, index_data.index_name.descriptor().clone())?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         let (metrics, _) = flusher.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
         Ok(())
@@ -469,7 +502,7 @@ mod tests {
         let index_data = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
         fixtures.assert_backfilled(&index_data.index_name).await?;
         Ok(())
@@ -484,7 +517,7 @@ mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         let (metrics, _) = flusher.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 1 });
         Ok(())
@@ -495,7 +528,7 @@ mod tests {
         let fixtures = TextFixtures::new(rt).await?;
         let index_data = fixtures.insert_backfilling_text_index().await?;
         let doc_id = fixtures.add_document("cat").await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
         fixtures.enable_index(&index_data.index_name).await?;
 
@@ -587,7 +620,7 @@ mod tests {
     async fn backfill_with_empty_index_adds_no_segments(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -602,7 +635,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
 
         let doc_id = fixtures.add_document("cat").await?;
@@ -623,7 +656,7 @@ mod tests {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
         fixtures.add_document("dog").await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
 
         let doc_id = fixtures.add_document("cat").await?;
@@ -643,7 +676,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
         fixtures.enable_index(&index_name).await?;
 
@@ -664,7 +697,7 @@ mod tests {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
         fixtures.add_document("dog").await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
         fixtures.enable_index(&index_name).await?;
 
@@ -685,12 +718,13 @@ mod tests {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
         fixtures.add_document("dog").await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
         fixtures.enable_index(&index_name).await?;
 
         fixtures.add_document("cat").await?;
 
+        let flusher = fixtures.new_live_text_flusher();
         flusher.step().await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
@@ -705,11 +739,12 @@ mod tests {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
         fixtures.add_document("dog").await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
 
         fixtures.add_document("cat").await?;
 
+        let flusher = fixtures.new_live_text_flusher();
         flusher.step().await?;
 
         fixtures.enable_index(&index_name).await?;
@@ -725,7 +760,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
         flusher.step().await?;
 
         let doc_id = fixtures.add_document("cat").await?;
@@ -748,7 +783,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
@@ -772,7 +807,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
@@ -794,7 +829,7 @@ mod tests {
     async fn backfill_insert_replace_one_segment(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         fixtures.replace_document(doc_id, "new_text").await?;
@@ -813,7 +848,7 @@ mod tests {
     async fn backfill_insert_replace_delete_one_segment(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         fixtures.replace_document(doc_id, "new_text").await?;
@@ -838,7 +873,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
@@ -863,7 +898,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         fixtures.replace_document(doc_id, "dog").await?;
@@ -888,7 +923,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
@@ -916,7 +951,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
@@ -945,7 +980,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
@@ -972,7 +1007,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
-        let flusher = fixtures.new_search_flusher();
+        let flusher = fixtures.new_backfill_text_flusher();
 
         let doc_id = fixtures.add_document("cat").await?;
         flusher.step().await?;
