@@ -579,9 +579,11 @@ function ProductionDeployKeys({
           kind="deployment"
         />
       ) : (
-        <div>
+        <div className="mb-4">
           <h4 className="mb-2">Production</h4>
-          This project does not have a production deployment yet.
+          <p className="text-sm text-content-primary">
+            This project does not have a Production deployment yet.
+          </p>
         </div>
       )}
     </div>
