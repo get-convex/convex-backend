@@ -55,6 +55,7 @@ import { getDefaultIndex } from "@common/features/data/components/DataFilters/In
 import { useMount } from "react-use";
 import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
+import omit from "lodash/omit";
 
 export function DataContent({
   tableName,
@@ -180,17 +181,12 @@ export function DataContent({
 
   // Handle query parameter to open schema popup
   useEffect(() => {
-    if (router.query.showSchemaAndIndexes === "true" && !popupState.popup) {
+    if (!!router.query.showSchemaAndIndexes && !popupState.popup) {
       popupState.setPopup({ type: "viewSchema", tableName });
-    }
-    const isSchemaPopupOpen = popupState.popup?.type === "viewSchema";
-    const hasSchemaParam = router.query.showSchemaAndIndexes === "true";
-    if (isSchemaPopupOpen && !hasSchemaParam) {
-      // Schema popup opened, add query param
       void router.push(
         {
           pathname: router.pathname,
-          query: { ...router.query, showSchemaAndIndexes: "true" },
+          query: omit(router.query, "showSchemaAndIndexes"),
         },
         undefined,
         { shallow: true },
