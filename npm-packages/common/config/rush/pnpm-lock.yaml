@@ -2949,6 +2949,9 @@ importers:
       '@docusaurus/theme-common':
         specifier: ~3.8.1
         version: 3.8.1(@docusaurus/plugin-content-docs@3.8.1(@mdx-js/react@3.1.0(@types/react@18.3.18)(react@18.3.1))(acorn@8.8.2)(bufferutil@4.0.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4)(utf-8-validate@5.0.10))(acorn@8.8.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@fontsource/inter':
+        specifier: ^5.2.6
+        version: 5.2.6
       '@mdx-js/react':
         specifier: ~3.1.0
         version: 3.1.0(@types/react@18.3.18)(react@18.3.1)
@@ -7467,6 +7470,9 @@ packages:
 
   '@fontsource-variable/inter@5.0.3':
     resolution: {integrity: sha512-AIE1Lm2/cNkCD4oAJ3JVY54tGhlUS7NnAiqGmE045v+7XHqmUhSYjhQNUgnBGcenth4bN75l+KIeTDbcGc7Emw==}
+
+  '@fontsource/inter@5.2.6':
+    resolution: {integrity: sha512-CZs9S1CrjD0jPwsNy9W6j0BhsmRSQrgwlTNkgQXTsAeDRM42LBRLo3eo9gCzfH4GvV7zpyf78Ozfl773826csw==}
 
   '@google-cloud/paginator@5.0.2':
     resolution: {integrity: sha512-DJS3s0OVH4zFDB1PzjxAsHqJT6sKVbRwwML0ZBP9PbU7Yebtu/7SWMRzvO2J3nUi9pRNITCfu4LJeooM2w4pjg==}
@@ -27084,6 +27090,8 @@ snapshots:
   '@floating-ui/utils@0.2.9': {}
 
   '@fontsource-variable/inter@5.0.3': {}
+
+  '@fontsource/inter@5.2.6': {}
 
   '@google-cloud/paginator@5.0.2':
     dependencies:
