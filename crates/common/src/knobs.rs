@@ -499,7 +499,10 @@ pub static SEARCH_INDEX_WORKER_PAGES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock
 /// index's timestamp up-to-date if its table hasn't had any writes. This isn't
 /// perfect since ideally we'd bound the number and total size of log entries
 /// read for bootstrapping, but it's good enough until we have better commit
-/// statistics that aren't reset at restart.
+/// statistics that aren't reset at restart. It's still expensive to walk the
+/// DocumentRevisionStream to build new segments, so this value needs to be low
+/// enough to not block the search index flushers for too long, or else writes
+/// will start failing. This is why we set this value lower for pro users (10m).
 pub static DATABASE_WORKERS_MAX_CHECKPOINT_AGE: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("DATABASE_WORKERS_MAX_CHECKPOINT_AGE", 3600)));
 
