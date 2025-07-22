@@ -407,3 +407,17 @@ register_convex_counter!(
 pub fn log_transaction(labels: Vec<StaticMetricLabel>) {
     log_counter_with_labels(&POSTGRES_TRANSACTION_TOTAL, 1, labels)
 }
+
+register_convex_counter!(
+    POSTGRES_IMPORT_BATCH_ROWS,
+    "Number of rows batch-imported into a Postgres database",
+    &["target"]
+);
+
+pub fn log_import_batch_rows(rows: usize, target: &'static str) {
+    log_counter_with_labels(
+        &POSTGRES_IMPORT_BATCH_ROWS,
+        rows as u64,
+        vec![StaticMetricLabel::new("target", target)],
+    )
+}

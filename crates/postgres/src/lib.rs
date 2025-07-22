@@ -153,7 +153,10 @@ use crate::{
         PostgresTransaction,
         SchemaName,
     },
-    metrics::QueryIndexStats,
+    metrics::{
+        log_import_batch_rows,
+        QueryIndexStats,
+    },
 };
 
 const ROWS_PER_COPY_BATCH: usize = 1_000_000;
@@ -664,6 +667,7 @@ impl Persistence for PostgresPersistence {
             let mut batch_count = 0;
 
             while let Some(chunk) = documents.next().await {
+                let rows = chunk.len();
                 for document in chunk {
                     let params = document_params(
                         document.ts,
@@ -672,8 +676,9 @@ impl Persistence for PostgresPersistence {
                         document.prev_ts,
                     )?;
                     writer.as_mut().write_raw(params).await?;
-                    batch_count += 1;
                 }
+                log_import_batch_rows(rows, "documents");
+                batch_count += rows;
 
                 if batch_count >= ROWS_PER_COPY_BATCH {
                     writer.finish().await?;
@@ -724,11 +729,13 @@ impl Persistence for PostgresPersistence {
             let mut batch_count = 0;
 
             while let Some(chunk) = indexes.next().await {
+                let rows = chunk.len();
                 for index in chunk {
                     let params = index_params(&index);
                     writer.as_mut().write_raw(params).await?;
-                    batch_count += 1;
                 }
+                log_import_batch_rows(rows, "indexes");
+                batch_count += rows;
 
                 if batch_count >= ROWS_PER_COPY_BATCH {
                     writer.finish().await?;
