@@ -336,7 +336,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 };
                 to_build.push(job);
             } else {
-                tracing::info!(
+                tracing::debug!(
                     "Search index {name} with id {index_id} does not need segment built"
                 );
             }
