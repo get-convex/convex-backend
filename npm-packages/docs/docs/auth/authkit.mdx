@@ -61,22 +61,6 @@ import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/worko
       <img src="/screenshots/workos-client-id.png" alt="Getting your WorkOS Client ID" width={400} />
     </p>
   </Step>
-
-  <Step title="Navigate to JWT setup">
-    Navigate to **Authentication** and then **Sessions** and press the **Manage** button under **JWT Template**. Set a new
-    `"aud"` claim that will be added to your JWT.
-
-    ```json
-    {
-      "aud": "<YOUR_CLIENT_ID>"
-    }
-    ```
-
-    <p style={{textAlign: 'center'}}>
-      <img src="/screenshots/workos-jwt-setup.png" alt="Set up an aud claim on your WorkOS JWT with the value of your WORKOS_CLIENT_ID" width={400} />
-    </p>
-
-  </Step>
 </StepByStep>
 
 Convex offers a provider that is specifically for integrating with WorkOS AuthKit called
@@ -120,11 +104,10 @@ This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and
     const authConfig = {
       providers: [
         {
-          // WorkOS JWT configuration
-          // Make sure to configure WORKOS_CLIENT_ID in your
-          // Convex dashboard environment variables
-          domain: `https://api.workos.com/user_management/${clientId}`,
-          applicationID: clientId,
+          type: 'customJwt',
+          issuer: 'https://api.workos.com/',
+          algorithm: 'RS256',
+          jwks: `https://api.workos.com/sso/jwks/${clientId}`,
         },
       ],
     };
@@ -271,11 +254,10 @@ This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and
     const authConfig = {
       providers: [
         {
-          // WorkOS JWT configuration
-          // Make sure to configure WORKOS_CLIENT_ID in your
-          // Convex dashboard environment variables
-          domain: `https://api.workos.com/user_management/${clientId}`,
-          applicationID: clientId,
+          type: 'customJwt',
+          issuer: 'https://api.workos.com/',
+          algorithm: 'RS256',
+          jwks: `https://api.workos.com/sso/jwks/${clientId}`,
         },
       ],
     };
@@ -699,7 +681,6 @@ Common issues with WorkOS AuthKit integration:
 1. **Incorrect Client ID**: Ensure the `WORKOS_CLIENT_ID` in your Convex environment matches your WorkOS application
 2. **Missing Environment Variables**: Verify all required WorkOS environment variables are set in both your local environment and Convex dashboard
 3. **Redirect URI Mismatch**: Ensure the `NEXT_PUBLIC_WORKOS_REDIRECT_URI` matches what's configured in your WorkOS Dashboard
-4. **Missing `aud` claim**: WorkOS JWTs may not include the `aud` (audience) claim by default, which Convex requires for token validation. Check your WorkOS Dashboard JWT configuration to ensure the audience claim is properly set to your Client ID
 
 For more thorough debugging steps, see the WorkOS AuthKit documentation or
 [Debugging Authentication](/auth/debug.mdx).
