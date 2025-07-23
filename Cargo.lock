@@ -2625,6 +2625,7 @@ dependencies = [
  "humansize",
  "imbl",
  "indexing",
+ "interval_map",
  "itertools 0.14.0",
  "keybroker",
  "maplit",
@@ -4602,6 +4603,18 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "interval_map"
+version = "0.1.0"
+dependencies = [
+ "cmd_util",
+ "common",
+ "fastrand",
+ "proptest",
+ "proptest-derive",
+ "slab",
 ]
 
 [[package]]

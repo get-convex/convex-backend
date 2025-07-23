@@ -8,7 +8,6 @@
 
 pub mod backend_in_memory_indexes;
 pub mod index_registry;
-pub mod interval;
 mod metrics;
 
 #[cfg(test)]

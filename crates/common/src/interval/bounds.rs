@@ -60,11 +60,17 @@ impl End {
         }
     }
 
+    #[inline]
     pub const fn as_ref(&self) -> EndRef<'_> {
         match self {
             End::Excluded(binary_key) => EndRef::Excluded(binary_key.as_slice()),
             End::Unbounded => EndRef::Unbounded,
         }
+    }
+
+    #[inline]
+    pub fn greater_than(&self, key: &[u8]) -> bool {
+        self.as_ref().greater_than(key)
     }
 }
 
@@ -88,6 +94,14 @@ impl EndRef<'_> {
         match *self {
             EndRef::Excluded(bytes) => End::Excluded(BinaryKey::from(bytes.to_owned())),
             EndRef::Unbounded => End::Unbounded,
+        }
+    }
+
+    #[inline]
+    pub fn greater_than(&self, key: &[u8]) -> bool {
+        match *self {
+            EndRef::Excluded(end) => key < end,
+            EndRef::Unbounded => true,
         }
     }
 }

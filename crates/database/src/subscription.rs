@@ -51,7 +51,7 @@ use futures::{
     FutureExt as _,
     StreamExt as _,
 };
-use indexing::interval::IntervalMap;
+use interval_map::IntervalMap;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
@@ -390,7 +390,7 @@ impl SubscriptionManager {
                         .subscriptions
                         .indexed
                         .iter()
-                        .map(|(key, (_fields, range_map))| (key, range_map.len()))
+                        .map(|(key, (_fields, range_map))| (key, range_map.subscriber_len()))
                         .collect();
                     let total_subscribers: usize = subscribers_by_index.values().sum();
                     let search_len = self.subscriptions.search.filter_len();
@@ -471,10 +471,7 @@ impl SubscriptionManager {
                     metrics::log_missing_index_key_subscriptions();
                     continue;
                 };
-
-                for subscriber_id in range_map.query(index_key) {
-                    notify(subscriber_id);
-                }
+                range_map.query(index_key, &mut *notify);
             }
         }
 
@@ -623,7 +620,8 @@ impl Subscription {
 
 /// Tracks every subscriber for a given read-set.
 struct SubscriptionMap {
-    indexed: BTreeMap<TabletIndexName, (IndexedFields, IntervalMap<SubscriberId>)>,
+    // TODO: remove nesting, merge all IntervalMaps into one big data structure
+    indexed: BTreeMap<TabletIndexName, (IndexedFields, IntervalMap)>,
     search: TextSearchSubscriptions,
 }
 
@@ -641,7 +639,9 @@ impl SubscriptionMap {
                 .indexed
                 .entry(index.clone())
                 .or_insert_with(|| (index_reads.fields.clone(), IntervalMap::new()));
-            interval_map.insert(id, index_reads.intervals.clone());
+            interval_map
+                .insert(id, index_reads.intervals.iter())
+                .expect("stored more than u32::MAX intervals?");
         }
         for (index, reads) in reads.iter_search() {
             self.search.insert(id, index, reads);
@@ -654,7 +654,7 @@ impl SubscriptionMap {
                 .indexed
                 .get_mut(index)
                 .unwrap_or_else(|| panic!("Missing index entry for {}", index));
-            assert!(range_map.remove(id).is_some());
+            range_map.remove(id);
             if range_map.is_empty() {
                 self.indexed.remove(index);
             }

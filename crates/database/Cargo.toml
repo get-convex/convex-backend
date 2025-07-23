@@ -50,6 +50,7 @@ futures-async-stream = { workspace = true }
 governor = { workspace = true }
 imbl = { workspace = true }
 indexing = { path = "../indexing" }
+interval_map = { path = "../interval_map" }
 itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }

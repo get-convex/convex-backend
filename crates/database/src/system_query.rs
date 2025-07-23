@@ -386,6 +386,7 @@ impl EqFields {
 }
 
 impl From<EqFields> for Interval {
+    #[inline]
     fn from(value: EqFields) -> Self {
         Interval::prefix(value.prefix.into())
     }
