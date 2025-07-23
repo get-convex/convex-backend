@@ -1,4 +1,4 @@
-import { CodeIcon, MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
+import { CubeIcon, MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
@@ -92,7 +92,7 @@ export function DataSidebar({
           <Button
             variant="neutral"
             onClick={showSchema.showSchema}
-            icon={<CodeIcon />}
+            icon={<CubeIcon />}
             className="animate-fadeInFromLoading overflow-hidden"
           >
             <span className="truncate">Schema</span>

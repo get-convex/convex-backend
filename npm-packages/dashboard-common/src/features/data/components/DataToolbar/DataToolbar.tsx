@@ -173,11 +173,17 @@ export function DataToolbar({
                 });
                 setPopup({ type: "clearTable", tableName });
               }}
-              onClickSchemaIndexes={() => {
+              onClickSchema={() => {
                 log("view table schema", {
                   how: "toolbar",
                 });
                 setPopup({ type: "viewSchema", tableName });
+              }}
+              onClickIndexes={() => {
+                log("view table indexes", {
+                  how: "toolbar",
+                });
+                setPopup({ type: "viewIndexes", tableName });
               }}
               onClickMetrics={() => {
                 log("view table metrics", {

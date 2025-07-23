@@ -195,18 +195,32 @@ describe("DataToolbar", () => {
     expect(saveButton).toBeDefined();
   });
 
+  it("should open the schema panel", async () => {
+    setup();
+    const menuButton = await screen.findByLabelText("Open table settings");
+    const user = userEvent.setup();
+    await user.click(menuButton);
+
+    const indexes = await screen.findByText("Schema");
+    expect(indexes).toBeEnabled();
+
+    await user.click(indexes);
+
+    await screen.findByText("Schema for table");
+  });
+
   it("should open the indexes panel", async () => {
     setup();
     const menuButton = await screen.findByLabelText("Open table settings");
     const user = userEvent.setup();
     await user.click(menuButton);
 
-    const indexes = await screen.findByText(`Schema and Indexes`);
+    const indexes = await screen.findByText("Indexes");
     expect(indexes).toBeEnabled();
 
     await user.click(indexes);
 
-    await screen.findByText("Schema for table");
+    await screen.findByText("Indexes for table");
   });
 
   it("should open the metrics chart", async () => {

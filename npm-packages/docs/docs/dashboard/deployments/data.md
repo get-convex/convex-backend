@@ -191,16 +191,22 @@ within this table.
 
 ![Generate Schema button](/screenshots/data_generate_schema.png)
 
-## Table Schema and Indexes
+## View the schema of a table
 
-The "Schema and Indexes" button can be found by clicking on the `⋮` overflow
-menu at the top of the data page.
+The "Schema" button can be found by clicking on the `⋮` overflow menu at the top
+of the data page.
 
-This button will open a panel showing the saved [schema](/database/schemas.mdx)
-and [indexes](/database/reading-data/indexes/indexes.md) associated with the
+This button will open a panel showing the saved and generated
+[schemas](/database/schemas.mdx) associated with the selected table.
+
+## View the indexes of a table
+
+The "Indexes" button can be found by clicking on the `⋮` overflow menu at the
+top of the data page.
+
+This button will open a panel showing the
+[indexes](/database/reading-data/indexes/indexes.md) associated with the
 selected table.
 
 Indexes that have not completed backfilling will be accompanied by a loading
 spinner next to their name.
-
-![Table indexes](/screenshots/data_indexes.png)

@@ -12,10 +12,11 @@ import { ClearTableConfirmation } from "@common/features/data/components/DataToo
 import { EditDocumentPanel } from "@common/features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
 import { EditFieldsPanel } from "@common/features/data/components/Table/EditDocumentPanel/EditFieldsPanel";
 import { TableMetrics } from "@common/features/data/components/TableMetrics";
-import { TableSchemaAndIndexes } from "@common/features/data/components/TableSchemaAndIndexes";
+import { TableSchemaPanel } from "@common/features/data/components/TableSchemaPanel";
 import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useRouter } from "next/router";
+import { TableIndexesPanel } from "../components/TableIndexesPanel";
 
 type PopupType =
   | { type: "addDocuments"; tableName: string }
@@ -25,7 +26,8 @@ type PopupType =
   | { type: "deleteRows"; rowIds: Set<string> }
   | { type: "deleteTable"; tableName: string }
   | { type: "metrics"; tableName: string }
-  | { type: "viewSchema"; tableName: string };
+  | { type: "viewSchema"; tableName: string }
+  | { type: "viewIndexes"; tableName: string };
 
 export type PopupState = ReturnType<typeof useToolPopup>;
 
@@ -69,9 +71,9 @@ export function useToolPopup({
 
   const router = useRouter();
   const closePopup = () => {
-    if (router.query.showSchemaAndIndexes === "true") {
-      const { showSchemaAndIndexes: _, ...restOfQuery } = router.query;
-      router.query.showSchemaAndIndexes = "false";
+    if (router.query.showIndexes === "true") {
+      const { showIndexes: _, ...restOfQuery } = router.query;
+      router.query.showIndexes = "false";
       void router.push(
         {
           pathname: router.pathname,
@@ -187,14 +189,18 @@ export function useToolPopup({
       );
       break;
     case "viewSchema":
+      popupEl = <TableSchemaPanel onClose={closePopup} tableName={tableName} />;
+      break;
+    case "viewIndexes":
       popupEl = (
-        <TableSchemaAndIndexes onClose={closePopup} tableName={tableName} />
+        <TableIndexesPanel onClose={closePopup} tableName={tableName} />
       );
       break;
     case "metrics":
       popupEl = <TableMetrics onClose={closePopup} tableName={tableName} />;
       break;
     default:
+      popup satisfies undefined;
       break;
   }
 

@@ -1,10 +1,10 @@
-import { BackspaceIcon } from "@heroicons/react/24/outline";
+import { BackspaceIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
 import {
   BarChartIcon,
   TrashIcon,
   DotsVerticalIcon,
   CodeIcon,
-  CardStackIcon,
+  CubeIcon,
 } from "@radix-ui/react-icons";
 import { useContext } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -17,7 +17,8 @@ export function DataOverflowMenu({
   numRows,
   onClickCustomQuery,
   onClickClearTable,
-  onClickSchemaIndexes,
+  onClickSchema,
+  onClickIndexes,
   onClickMetrics,
   onClickDeleteTable,
 }: {
@@ -25,7 +26,8 @@ export function DataOverflowMenu({
   numRows: number;
   onClickCustomQuery: () => void;
   onClickClearTable: () => void;
-  onClickSchemaIndexes: () => void;
+  onClickSchema: () => void;
+  onClickIndexes: () => void;
   onClickMetrics: () => void;
   onClickDeleteTable: () => void;
 }) {
@@ -62,9 +64,13 @@ export function DataOverflowMenu({
         <CodeIcon />
         Custom query
       </MenuItem>
-      <MenuItem action={onClickSchemaIndexes}>
-        <CardStackIcon />
-        Schema and Indexes
+      <MenuItem action={onClickSchema}>
+        <CubeIcon />
+        Schema
+      </MenuItem>
+      <MenuItem action={onClickIndexes}>
+        <FingerPrintIcon className="size-4" />
+        Indexes
       </MenuItem>
       <MenuItem action={onClickMetrics}>
         <BarChartIcon />

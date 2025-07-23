@@ -208,7 +208,7 @@ function setSchemaProgressSpinner(
         if (index.backfill.state === "in_progress") {
           const dashboardUrl = deploymentDashboardUrlPage(
             deploymentName,
-            `/data?table=${index.table}&showSchemaAndIndexes=true`,
+            `/data?table=${index.table}&showIndexes=true`,
           );
           msg = `Backfilling index ${index.name} (${indexesCompleted}/${numIndexes} ready), \
 see progress on the dashboard here: ${dashboardUrl}`;

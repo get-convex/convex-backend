@@ -179,20 +179,20 @@ export function DataContent({
   });
   const { popupEl } = popupState;
 
-  // Handle query parameter to open schema popup
+  // Handle query parameter to open the indexes panel
   useEffect(() => {
-    if (!!router.query.showSchemaAndIndexes && !popupState.popup) {
-      popupState.setPopup({ type: "viewSchema", tableName });
+    if (!!router.query.showIndexes && !popupState.popup) {
+      popupState.setPopup({ type: "viewIndexes", tableName });
       void router.push(
         {
           pathname: router.pathname,
-          query: omit(router.query, "showSchemaAndIndexes"),
+          query: omit(router.query, "showIndexes"),
         },
         undefined,
         { shallow: true },
       );
     }
-  }, [router.query.showSchemaAndIndexes, router, popupState, tableName]);
+  }, [router.query.showIndexes, router, popupState, tableName]);
 
   const selectedDocumentId = rowsThatAreSelected.values().next().value;
   const selectedDocument = data.find((row) => row._id === selectedDocumentId);

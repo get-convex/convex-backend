@@ -34,7 +34,7 @@ export function DataPanel({
                 <ClosePanelButton onClose={onClose} className="ml-auto" />
               </div>
             </div>
-            {children}
+            <div className="flex grow flex-col overflow-y-auto">{children}</div>
           </div>
         </div>
       </Panel>
