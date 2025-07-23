@@ -412,6 +412,12 @@ html.dark {
     @apply font-semibold;
   }
 
+  /* Restore the pre-Tailwind 4 cursor style */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   /* Position the toast close button on the top right corner so that it draws less attention */
   html [data-sonner-toaster][dir="ltr"] {
     --toast-close-button-start: unset;
@@ -447,6 +453,7 @@ html.dark {
       dark:text-red-200;
   }
 }
+
 /* Used for elements that need to fade in to a specific opacity
    this can't be defined in the tailwind config because you cannot interpolate 
    variables in tailwind keyframes.
