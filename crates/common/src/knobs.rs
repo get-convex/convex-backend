@@ -1179,6 +1179,9 @@ pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
 /// [`DATABASE_WORKERS_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.
 /// However, to prevent all instances from checkpointing at the same time, we'll
 /// add a jitter of up to ±TABLE_SUMMARY_AGE_JITTER_SECONDS.
+///
+/// Note: the configured value is capped at
+/// `DATABASE_WORKERS_MAX_CHECKPOINT_AGE/2`.
 pub static TABLE_SUMMARY_AGE_JITTER_SECONDS: LazyLock<f32> =
     LazyLock::new(|| env_config("TABLE_SUMMARY_AGE_JITTER_SECONDS", 900.0));
 

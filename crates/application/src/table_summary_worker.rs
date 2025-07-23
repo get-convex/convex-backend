@@ -95,7 +95,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         last_write_info: &mut Option<LastWriteInfo>,
         has_bootstrapped: &mut bool,
         writer: &TableSummaryWriter<RT>,
-        max_age: Duration,
+        jittered_max_age: &mut Duration,
     ) -> anyhow::Result<()> {
         let _status = log_worker_starting("TableSummaryWorker");
         let commits_since_load = self.database.write_commits_since_load();
@@ -103,7 +103,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         if let Some(last_write_info) = last_write_info
             && *has_bootstrapped
             && commits_since_load - last_write_info.observed_commits < *DATABASE_WORKERS_MIN_COMMITS
-            && now - last_write_info.ts < max_age
+            && now - last_write_info.ts < *jittered_max_age
         {
             return Ok(());
         }
@@ -130,7 +130,18 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
             observed_commits: commits_since_load,
             ts: now,
         });
+        *jittered_max_age = self.jittered_max_age();
         Ok(())
+    }
+
+    fn jittered_max_age(&self) -> Duration {
+        let max_age_jitter = (*TABLE_SUMMARY_AGE_JITTER_SECONDS)
+            .min(DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() / 2.0)
+            * self.runtime.rng().random_range(-1.0..=1.0);
+        Duration::try_from_secs_f32(
+            DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() + max_age_jitter,
+        )
+        .unwrap_or_default()
     }
 
     async fn go(self, cancel_receiver: oneshot::Receiver<()>, lease_lost_shutdown: ShutdownSignal) {
@@ -148,18 +159,14 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
 
         let mut last_write_info = None;
         let mut has_bootstrapped = false;
-        let max_age_jitter =
-            *TABLE_SUMMARY_AGE_JITTER_SECONDS * self.runtime.rng().random_range(-1.0..=1.0);
-        let jittered_max_age = Duration::from_secs_f32(
-            DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() + max_age_jitter,
-        );
+        let mut jittered_max_age = self.jittered_max_age();
         loop {
             let result = self
                 .checkpoint_table_summaries(
                     &mut last_write_info,
                     &mut has_bootstrapped,
                     &writer,
-                    jittered_max_age,
+                    &mut jittered_max_age,
                 )
                 .await;
             if timer.is_some() && has_bootstrapped {
