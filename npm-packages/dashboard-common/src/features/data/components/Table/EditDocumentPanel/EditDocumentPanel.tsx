@@ -110,7 +110,7 @@ export function EditDocumentPanel({
       data-testid="editDocumentPanel"
       title={
         editing ? (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-baseline gap-2">
             Edit{" "}
             <code className="text-xs" aria-label="Document ID">
               {defaultDocument._id as undefined | string}
