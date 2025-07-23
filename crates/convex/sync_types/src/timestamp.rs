@@ -64,7 +64,7 @@ impl Timestamp {
     // This is similar to `self - base` but it works if `self` is before `base`.
     // Since Duration is always positive, `self - base` can overflow.
     pub fn secs_since_f64(self, base: Timestamp) -> f64 {
-        if self > base {
+        if self >= base {
             (self - base).as_secs_f64()
         } else {
             -(base - self).as_secs_f64()
@@ -174,4 +174,12 @@ impl Sub for Timestamp {
     fn sub(self, rhs: Self) -> Self::Output {
         Duration::from_nanos(self.0 - rhs.0)
     }
+}
+
+#[test]
+fn test_secs_since_f64_positive_zero() {
+    let ts = Timestamp::must(1234);
+    let zero = ts.secs_since_f64(ts);
+    // should be positive zero, not negative zero
+    assert!(zero.total_cmp(&0.0).is_eq(), "{zero:?}");
 }
