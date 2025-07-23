@@ -14,6 +14,7 @@ import {
   deploymentFetch,
   deprecationCheckWarning,
 } from "./utils/utils.js";
+import { deploymentDashboardUrlPage } from "./dashboard.js";
 
 type IndexMetadata = {
   table: string;
@@ -52,6 +53,7 @@ export async function pushSchema(
   adminKey: string,
   schemaDir: string,
   dryRun: boolean,
+  deploymentName?: string | null,
 ): Promise<{ schemaId?: string; schemaState?: SchemaState }> {
   if (
     !ctx.fs.exists(path.resolve(schemaDir, "schema.ts")) &&
@@ -87,7 +89,13 @@ export async function pushSchema(
 
   const schemaId = data.schemaId;
 
-  const schemaState = await waitForReadySchema(ctx, origin, adminKey, schemaId);
+  const schemaState = await waitForReadySchema(
+    ctx,
+    origin,
+    adminKey,
+    schemaId,
+    deploymentName,
+  );
   logIndexChanges(ctx, data, dryRun);
   return { schemaId, schemaState };
 }
@@ -98,6 +106,7 @@ async function waitForReadySchema(
   origin: string,
   adminKey: string,
   schemaId: string,
+  deploymentName?: string | null,
 ): Promise<SchemaState> {
   const path = `api/schema_state/${schemaId}`;
   const depFetch = deploymentFetch(ctx, {
@@ -119,10 +128,12 @@ async function waitForReadySchema(
   };
 
   // Set the spinner to the default progress message before the first `fetch` call returns.
-  setSchemaProgressSpinner(ctx, null);
+  const start = Date.now();
+
+  setSchemaProgressSpinner(ctx, null, start, deploymentName);
 
   const data = await poll(fetch, (data: SchemaStateResponse) => {
-    setSchemaProgressSpinner(ctx, data);
+    setSchemaProgressSpinner(ctx, data, start, deploymentName);
     return (
       data.indexes.every((index) => index.backfill.state === "done") &&
       data.schemaState.state !== "pending"
@@ -166,6 +177,8 @@ async function waitForReadySchema(
 function setSchemaProgressSpinner(
   ctx: Context,
   data: SchemaStateResponse | null,
+  start: number,
+  deploymentName?: string | null,
 ) {
   if (!data) {
     changeSpinner(
@@ -186,11 +199,25 @@ function setSchemaProgressSpinner(
     return;
   }
 
-  let msg: string;
+  let msg = "Pushing your code to your Convex deployment...";
   if (!indexesDone && !schemaDone) {
     msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready) and checking that documents match your schema...`;
   } else if (!indexesDone) {
-    msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready)...`;
+    if (Date.now() - start > 10_000 && deploymentName) {
+      for (const index of data.indexes) {
+        if (index.backfill.state === "in_progress") {
+          const dashboardUrl = deploymentDashboardUrlPage(
+            deploymentName,
+            `/data?table=${index.table}&showSchemaAndIndexes=true`,
+          );
+          msg = `Backfilling index ${index.name} (${indexesCompleted}/${numIndexes} ready), \
+see progress on the dashboard here: ${dashboardUrl}`;
+          break;
+        }
+      }
+    } else {
+      msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready)...`;
+    }
   } else {
     msg = "Checking that documents match your schema...";
   }

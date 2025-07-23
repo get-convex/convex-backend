@@ -109,6 +109,7 @@ export async function runNonComponentsPush(
     options.adminKey,
     functionsDir(configPath, localConfig.projectConfig),
     options.dryRun,
+    options.deploymentName,
   );
 
   const timeConfigPullStarts = performance.now();
