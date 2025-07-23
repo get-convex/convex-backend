@@ -118,6 +118,7 @@ use itertools::{
 };
 use rustls::{
     ClientConfig,
+    KeyLogFile,
     RootCertStore,
 };
 use rustls_pki_types::{
@@ -333,9 +334,13 @@ impl PostgresPersistence {
                 })?)?;
             }
         }
-        let config = ClientConfig::builder()
+        let mut config = ClientConfig::builder()
             .with_root_certificates(roots)
             .with_no_client_auth();
+        if let Ok(path) = env::var("SSLKEYLOGFILE") {
+            tracing::warn!("SSLKEYLOGFILE is set, TLS secrets will be logged to {path}");
+            config.key_log = Arc::new(KeyLogFile::new());
+        }
         let connector = MakeRustlsConnect::new(config);
 
         Ok(ConvexPgPool::new(pg_config, connector))
