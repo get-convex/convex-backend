@@ -15,6 +15,7 @@ use metrics::{
     log_distribution,
     log_distribution_with_labels,
     register_convex_counter,
+    register_convex_gauge,
     register_convex_histogram,
     CancelableTimer,
     IntoLabel,
@@ -1181,4 +1182,20 @@ register_convex_counter!(
 );
 pub fn log_index_too_large_blocking_writes(index_type: SearchType) {
     log_counter_with_labels(&INDEX_TOO_LARGE_BLOCKING_WRITES, 1, vec![index_type.tag()]);
+}
+
+register_convex_histogram!(
+    SUBSCRIPTION_QUEUE_LAG_SECONDS,
+    "How long subscription requests wait in the subscription worker queue",
+);
+pub fn log_subscription_queue_lag(seconds: f64) {
+    log_distribution(&SUBSCRIPTION_QUEUE_LAG_SECONDS, seconds);
+}
+
+register_convex_gauge!(
+    SUBSCRIPTION_QUEUE_LENGTH_INFO,
+    "The number of items in subscription queues",
+);
+pub fn log_subscription_queue_length_delta(delta: i64) {
+    SUBSCRIPTION_QUEUE_LENGTH_INFO.add(delta as f64);
 }

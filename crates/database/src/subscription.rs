@@ -105,6 +105,7 @@ impl SubscriptionsClient {
             TrySendError::Full(..) => metrics::subscriptions_worker_full_error().into(),
             TrySendError::Closed(..) => metrics::shutdown_error(),
         })?;
+        metrics::log_subscription_queue_length_delta(1);
         Ok(subscription)
     }
 
@@ -160,6 +161,7 @@ pub enum SubscriptionsWorker {}
 impl SubscriptionsWorker {
     pub(crate) fn start<RT: Runtime>(log: LogOwner, runtime: RT) -> SubscriptionsClient {
         let (tx, rx) = mpsc::channel(*SUBSCRIPTIONS_WORKER_QUEUE_SIZE);
+        let rx = CountingReceiver(rx);
 
         let log_reader = log.reader();
         let mut manager = SubscriptionManager::new(log);
@@ -174,8 +176,25 @@ impl SubscriptionsWorker {
     }
 }
 
+struct CountingReceiver(mpsc::Receiver<SubscriptionRequest>);
+impl Drop for CountingReceiver {
+    fn drop(&mut self) {
+        self.0.close();
+        metrics::log_subscription_queue_length_delta(-(self.0.len() as i64));
+    }
+}
+impl CountingReceiver {
+    async fn recv(&mut self) -> Option<SubscriptionRequest> {
+        let r = self.0.recv().await;
+        if r.is_some() {
+            metrics::log_subscription_queue_length_delta(-1);
+        }
+        r
+    }
+}
+
 impl SubscriptionManager {
-    async fn run_worker(&mut self, mut rx: mpsc::Receiver<SubscriptionRequest>) {
+    async fn run_worker(&mut self, mut rx: CountingReceiver) {
         tracing::info!("Starting subscriptions worker");
         loop {
             futures::select_biased! {
@@ -259,6 +278,7 @@ impl SubscriptionManager {
         mut token: Token,
         sender: SubscriptionSender,
     ) -> anyhow::Result<SubscriberId> {
+        metrics::log_subscription_queue_lag(self.log.max_ts().secs_since_f64(token.ts()));
         // The client may not have fully refreshed their token past our
         // processed timestamp, so finish the job for them if needed.
         //
@@ -713,7 +733,10 @@ mod tests {
     };
 
     use crate::{
-        subscription::SubscriptionManager,
+        subscription::{
+            CountingReceiver,
+            SubscriptionManager,
+        },
         ReadSet,
         Token,
     };
@@ -1133,8 +1156,8 @@ mod tests {
         to_notify
     }
 
-    fn disconnected_rx<T>() -> mpsc::Receiver<T> {
-        mpsc::channel(1).1
+    fn disconnected_rx() -> CountingReceiver {
+        CountingReceiver(mpsc::channel(1).1)
     }
 
     #[tokio::test]

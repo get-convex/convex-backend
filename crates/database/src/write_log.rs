@@ -383,7 +383,7 @@ impl LogOwner {
 
     pub fn max_ts(&self) -> Timestamp {
         let snapshot = { self.inner.lock().log.clone() };
-        block_in_place(|| snapshot.max_ts())
+        snapshot.max_ts()
     }
 
     pub fn refresh_token(
