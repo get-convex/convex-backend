@@ -158,9 +158,15 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 },
             )?;
 
-            for table_name in tables_to_check {
-                let table_iterator = self.database.table_iterator(ts, 1000);
-                let tablet_id = table_mapping.name_to_tablet()(table_name.clone())?;
+            let tablet_ids = tables_to_check
+                .into_iter()
+                .map(|table_name| table_mapping.name_to_tablet()(table_name.clone()))
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut table_iterator = self
+                .database
+                .table_iterator(ts, 1000)
+                .multi(tablet_ids.clone());
+            for tablet_id in tablet_ids {
                 let stream = table_iterator.stream_documents_in_table(
                     tablet_id,
                     *by_id_indexes.get(&tablet_id).ok_or_else(|| {
@@ -169,48 +175,52 @@ impl<RT: Runtime> SchemaWorker<RT> {
                     None,
                 );
 
-                pin_mut!(stream);
-                while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-                    let table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
-                    log_document_validated();
-                    log_document_bytes(doc.size());
-                    if let Err(schema_error) = db_schema.check_existing_document(
-                        &doc,
-                        table_name,
-                        &table_mapping,
-                        &virtual_system_mapping,
-                    ) {
-                        let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
-                        while backoff.failures() < MAX_COMMIT_FAILURES {
-                            let mut tx = self.database.begin(Identity::system()).await?;
-                            SchemaModel::new(&mut tx, namespace)
-                                .mark_failed(id, schema_error.clone())
-                                .await?;
-                            if let Err(e) = self
-                                .database
-                                .commit_with_write_source(tx, "schema_worker_mark_failed")
-                                .await
-                            {
-                                if e.is_occ() {
-                                    let delay = backoff.fail(&mut self.runtime.rng());
-                                    tracing::error!(
-                                        "Schema worker failed to commit ({e}), retrying after \
-                                         {delay:?}"
-                                    );
-                                    self.runtime.wait(delay).await;
+                {
+                    pin_mut!(stream);
+                    while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
+                        let table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
+                        log_document_validated();
+                        log_document_bytes(doc.size());
+                        if let Err(schema_error) = db_schema.check_existing_document(
+                            &doc,
+                            table_name,
+                            &table_mapping,
+                            &virtual_system_mapping,
+                        ) {
+                            let mut backoff =
+                                Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
+                            while backoff.failures() < MAX_COMMIT_FAILURES {
+                                let mut tx = self.database.begin(Identity::system()).await?;
+                                SchemaModel::new(&mut tx, namespace)
+                                    .mark_failed(id, schema_error.clone())
+                                    .await?;
+                                if let Err(e) = self
+                                    .database
+                                    .commit_with_write_source(tx, "schema_worker_mark_failed")
+                                    .await
+                                {
+                                    if e.is_occ() {
+                                        let delay = backoff.fail(&mut self.runtime.rng());
+                                        tracing::error!(
+                                            "Schema worker failed to commit ({e}), retrying after \
+                                             {delay:?}"
+                                        );
+                                        self.runtime.wait(delay).await;
+                                    } else {
+                                        return Err(e);
+                                    }
                                 } else {
-                                    return Err(e);
+                                    break;
                                 }
-                            } else {
-                                break;
                             }
-                        }
 
-                        tracing::info!("Schema is invalid");
-                        timer.finish_developer_error();
-                        return Ok(());
+                            tracing::info!("Schema is invalid");
+                            timer.finish_developer_error();
+                            return Ok(());
+                        }
                     }
                 }
+                table_iterator.unregister_table(tablet_id)?;
             }
             let mut tx = self.database.begin(Identity::system()).await?;
             if let Err(error) = SchemaModel::new(&mut tx, namespace)
