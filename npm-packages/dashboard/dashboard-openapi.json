@@ -2815,14 +2815,12 @@
         "required": [
           "name",
           "appName",
+          "appClientId",
           "creationTime"
         ],
         "properties": {
           "appClientId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": "string"
           },
           "appName": {
             "$ref": "#/components/schemas/AppName"
@@ -3114,16 +3112,6 @@
             "type": [
               "string",
               "null"
-            ]
-          },
-          "appName": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/AppName"
-              }
             ]
           },
           "authnToken": {

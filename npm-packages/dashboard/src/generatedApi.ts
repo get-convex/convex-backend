@@ -1613,7 +1613,7 @@ export interface components {
         /** @description Encrypted admin key */
         AdminKey: string;
         AppAccessTokenResponse: {
-            appClientId?: string | null;
+            appClientId: string;
             appName: components["schemas"]["AppName"];
             /** Format: int64 */
             creationTime: number;
@@ -1677,7 +1677,6 @@ export interface components {
         AuthorizeAppMode: "AuthorizationCode";
         AuthorizeArgs: {
             anonymousId?: string | null;
-            appName?: null | components["schemas"]["AppName"];
             /** @description Authentication token is expected to be the access token from auth0 */
             authnToken: string;
             deploymentId?: null | components["schemas"]["DeploymentId"];
