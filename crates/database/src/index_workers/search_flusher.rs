@@ -181,7 +181,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let num_to_build = to_build.len();
         let index_type = self.index_type_name();
         if num_to_build > 0 {
-            tracing::info!("SearchIndexFlusher has {num_to_build} {index_type} indexes to build");
+            tracing::info!(
+                "SearchIndexFlusher ({:?}) has {num_to_build} {index_type} indexes to build",
+                self.flusher_type
+            );
         }
 
         let pause_client = self.database.runtime().pause_client();
@@ -196,7 +199,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         }
 
         if num_to_build > 0 {
-            tracing::info!("SearchIndexFlusher built {num_to_build} {index_type} indexes");
+            tracing::info!(
+                "SearchIndexFlusher ({:?}) built {num_to_build} {index_type} indexes",
+                self.flusher_type
+            );
         }
 
         Ok((metrics, token))

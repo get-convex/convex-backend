@@ -294,6 +294,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                         patch_value!("state" => Some(SchemaState::Validated.try_into()?))?,
                     )
                     .await?;
+                tracing::info!("Marked pending schema as validated");
                 Ok(())
             },
             SchemaState::Validated => Err(anyhow::anyhow!("Schema is already validated.")),

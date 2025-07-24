@@ -280,6 +280,7 @@ impl DatabaseSchema {
         F: Fn(&TableName) -> Option<Shape<C, S>>,
     {
         if !new_schema.schema_validation {
+            tracing::info!("Schema validation is disabled, no tables to check");
             return Ok(BTreeSet::new());
         }
 
@@ -321,6 +322,11 @@ impl DatabaseSchema {
         };
         let enforced_schema_validator: Validator = enforced_schema.into();
         if enforced_schema_validator.is_subset(&next_schema_validator) {
+            tracing::debug!(
+                "Skipping validation for table {} because its schema is a subset of the enforced \
+                 schema",
+                table_name
+            );
             return Ok(false);
         }
 
@@ -332,6 +338,11 @@ impl DatabaseSchema {
                 .filter_top_level_system_fields()
                 .is_subset(&next_schema_validator)
             {
+                tracing::debug!(
+                    "Skipping validation for table {} because its shape matches the schema
+                     ",
+                    table_name
+                );
                 return Ok(false);
             }
         }

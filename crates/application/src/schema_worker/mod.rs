@@ -157,6 +157,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                         .map(|t| t.inferred_type().clone())
                 },
             )?;
+            tracing::info!("SchemaWorker: Tables to check: {:?}", tables_to_check);
 
             let tablet_ids = tables_to_check
                 .into_iter()
