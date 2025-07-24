@@ -35,6 +35,7 @@ use common::{
         ENABLE_INDEX_BACKFILL,
         INDEX_BACKFILL_CHUNK_RATE,
         INDEX_BACKFILL_CHUNK_SIZE,
+        INDEX_BACKFILL_WORKERS,
         INDEX_WORKERS_INITIAL_BACKOFF,
     },
     persistence::{
@@ -648,6 +649,11 @@ impl<RT: Runtime> IndexWriter<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         runtime: RT,
     ) -> Self {
+        debug_assert!(
+            ENTRIES_PER_SECOND.get() >= *INDEX_BACKFILL_CHUNK_SIZE as u32,
+            "Entries per second must be at least {}",
+            *INDEX_BACKFILL_CHUNK_SIZE
+        );
         Self {
             persistence,
             reader,
@@ -1012,45 +1018,58 @@ impl<RT: Runtime> IndexWriter<RT> {
         let mut last_logged = self.runtime.system_time();
         let mut num_entries_written = 0;
 
-        while !updates.is_terminated() {
-            // There are potentially more document revisions, so start a new chunk. First,
-            // check with the rate limiter upfront to ensure we're allowed to
-            // continue.
-            while let Err(not_until) = self.rate_limiter.check() {
-                // NB: We can't use `RateLimiter`'s async API since it internally relies on
-                // `futures-timer`. These timers will never get satisfied under our test
-                // runtime.
-                let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
-                self.runtime.wait(delay).await;
-            }
-
-            // Try to fill up a full chunk until we exhaust the stream or fill the chunk.
-            let mut chunk = BTreeSet::new();
-            while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
-                let (ts, update) = match updates.next().await {
-                    Some(r) => r,
-                    None => break,
+        let updates = updates
+            .filter_map(|(ts, update)| {
+                let result = {
+                    if index_selector.filter_index_update(&update) {
+                        Some(PersistenceIndexEntry::from_index_update(ts, update))
+                    } else {
+                        None
+                    }
                 };
-                if !index_selector.filter_index_update(&update) {
-                    continue;
+                futures::future::ready(result)
+            })
+            .chunks(*INDEX_BACKFILL_CHUNK_SIZE)
+            .map(|chunk| async {
+                let persistence = self.persistence.clone();
+                let rate_limiter = self.rate_limiter.clone();
+                let size = chunk.len();
+                while let Err(not_until) = rate_limiter
+                    .check_n(
+                        (size as u32)
+                            .try_into()
+                            .expect("Chunk size must be nonzero"),
+                    )
+                    .expect("RateLimiter capacity impossibly small")
+                {
+                    let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
+                    self.runtime.wait(delay).await;
                 }
-                chunk.insert(PersistenceIndexEntry::from_index_update(ts, update));
-            }
-            if !chunk.is_empty() {
-                num_entries_written += chunk.len();
-                self.persistence
-                    .write(vec![], chunk, ConflictStrategy::Overwrite)
+                persistence
+                    .write(
+                        vec![],
+                        chunk.into_iter().collect(),
+                        ConflictStrategy::Overwrite,
+                    )
                     .await?;
-                if last_logged.elapsed()? >= Duration::from_secs(60) {
-                    tracing::info!(
-                        "Backfilled {} index entries of index {}",
-                        num_entries_written,
-                        index_selector,
-                    );
-                    last_logged = self.runtime.system_time();
-                }
+                anyhow::Ok(size)
+            })
+            .buffer_unordered(*INDEX_BACKFILL_WORKERS);
+        pin_mut!(updates);
+
+        while let Some(result) = updates.next().await {
+            let entries_written = result?;
+            num_entries_written += entries_written;
+            if last_logged.elapsed()? >= Duration::from_secs(60) {
+                tracing::info!(
+                    "Backfilled {} index entries of index {}",
+                    num_entries_written,
+                    index_selector,
+                );
+                last_logged = self.runtime.system_time();
             }
         }
+
         Ok(())
     }
 

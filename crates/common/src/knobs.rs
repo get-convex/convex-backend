@@ -428,6 +428,10 @@ pub static INDEX_BACKFILL_CHUNK_RATE: LazyLock<usize> =
 pub static INDEX_BACKFILL_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("INDEX_BACKFILL_CHUNK_SIZE", 256));
 
+/// Number of workers to use for index backfill.
+pub static INDEX_BACKFILL_WORKERS: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEX_BACKFILL_WORKERS", 1));
+
 /// Chunk size of index entries when reading from persistence.
 pub static RETENTION_READ_CHUNK: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_READ_CHUNK", 128));
