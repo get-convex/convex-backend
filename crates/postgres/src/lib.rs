@@ -2029,6 +2029,7 @@ const DELETE_INDEX: &str = r#"
 /*+
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
+    IndexScan(indexes indexes_pkey)
 */
 DELETE FROM @db_name.indexes WHERE
     (index_id = $1 AND key_prefix = $2 AND key_sha256 = $3 AND ts <= $4)
@@ -2038,6 +2039,7 @@ const DELETE_DOCUMENT: &str = r#"
 /*+
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
+    IndexScan(documents documents_by_table_and_id)
 */
 DELETE FROM @db_name.documents WHERE
     (table_id = $1 AND id = $2 AND ts <= $3)
@@ -2075,6 +2077,7 @@ const DELETE_INDEX_CHUNK: &str = r#"
 /*+
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
+    IndexScan(indexes indexes_pkey)
 */
 DELETE FROM @db_name.indexes WHERE
     (index_id = $1 AND key_prefix = $2 AND key_sha256 = $3 AND ts <= $4) OR
@@ -2091,6 +2094,7 @@ const DELETE_DOCUMENT_CHUNK: &str = r#"
 /*+
     Set(enable_seqscan OFF)
     Set(plan_cache_mode force_generic_plan)
+    IndexScan(documents documents_by_table_and_id)
 */
 DELETE FROM @db_name.documents WHERE
     (table_id = $1 AND id = $2 AND ts <= $3) OR
