@@ -250,8 +250,7 @@ function ProjectSettings() {
           What can authorized applications do?
         </span>
         <ul className="mt-1 list-disc pl-4">
-          <li>Create new projects</li>
-          <li>Create new deployments</li>
+          <li>Create new deployments in this project</li>
           <li>
             <span className="flex items-center gap-1">
               Read and write data in any deployment in this project
