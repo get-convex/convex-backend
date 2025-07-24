@@ -314,13 +314,11 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
         let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
         log_snapshot_import_age(age);
-        if age > *MAX_IMPORT_AGE / 2 {
-            tracing::warn!(
-                "SnapshotImport {} running too long ({:?})",
-                snapshot_import.id(),
-                age
-            );
-        }
+        tracing::info!(
+            "SnapshotImport attempt of {} starting ({:?}) after its creation.",
+            snapshot_import.id(),
+            age
+        );
         if age > *MAX_IMPORT_AGE {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "ImportFailed",
