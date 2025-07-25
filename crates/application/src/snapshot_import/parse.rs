@@ -198,11 +198,6 @@ pub async fn parse_objects<'a, Fut>(
                         anyhow::bail!(ImportError::Utf8BomNotSupported);
                     }
                 }
-                if line.trim().is_empty() {
-                    line.clear();
-                    lineno += 1;
-                    continue;
-                }
                 let v: serde_json::Value = serde_json::from_str(&line)
                     .map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
                 yield ImportUnit::Object(v);
