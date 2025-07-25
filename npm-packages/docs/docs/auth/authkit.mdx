@@ -83,6 +83,15 @@ See the following sections for the WorkOS SDK that you're using:
 This guide assumes you have [AuthKit setup](#setting-up-your-workos-account) and have a working React app with Convex. If not follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
 <StepByStep>
+  <Step title="Set up CORS in the WorkOS Dashboard">
+
+    In your [WorkOS Dashboard](https://dashboard.workos.com/environment/authentication/sessions), click **Manage** under
+    "Cross-Origin Resource Sharing (CORS)" and add your local development domain (e.g., `http://localhost:5173` for Vite) to the list. You'll also need to add your production domain when you deploy. This enables your application to authenticate users through WorkOS AuthKit.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/workos-cors-setup.png" alt="Setting up CORS" width={400} />
+    </p>
+    </Step>
   <Step title="Set up your environment variables">
     In your `env` file, add your `WORKOS_CLIENT_ID` and `WORKOS_REDIRECT_URI` environment variables. If you're using Vite, you'll need to prefix it with `VITE_`.
 
