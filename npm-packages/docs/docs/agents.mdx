@@ -17,8 +17,8 @@ composed with other Convex features using code rather than configuration.
 ## Agent Component
 
 The Agent component is a core building block for building AI agents. It manages
-threads and messages, around which you Agents can cooperate in static or dynamic
-workflows.
+threads and messages, around which your Agents can cooperate in static or
+dynamic workflows.
 
 <div className="center-image" style={{ maxWidth: "560px" }}>
   <iframe
@@ -35,13 +35,21 @@ workflows.
 [Agent Component YouTube
 Video](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
 
+### Core Concepts
+
 - Agents organize LLM prompting with associated models, prompts, and
   [Tools](/agents/tools). They can generate and stream both text and objects.
+- Agents can be used in any Convex action, letting you write your agentic code
+  alongside your other business logic with all the abstraction benefits of using
+  code rather than static configuration.
 - [Threads](/agents/threads) persist [messages](/agents/messages) and can be
   shared by multiple users and agents (including
   [human agents](/agents/human-agents)).
 - [Conversation context](/agents/context) is automatically included in each LLM
   call, including built-in hybrid vector/text search for messages.
+
+### Advanced Features
+
 - [Workflows](/agents/workflows) allow building multi-step operations that can
   span agents, users, durably and reliably.
 - [RAG](/agents/rag) techniques are also supported for prompt augmentation
@@ -49,6 +57,9 @@ Video](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
   [RAG Component](https://www.convex.dev/components/rag).
 - [Files](/agents/files) can be used in the chat history with automatic saving
   to [file storage](/file-storage).
+
+### Debugging and Tracking
+
 - [Debugging](/agents/debugging) is supported, including the
   [agent playground](/agents/playground) where you can inspect all metadata and
   iterate on prompts and context settings.
@@ -58,9 +69,6 @@ Video](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
   can interact with agents and keep you from exceeding your LLM provider's
   limits.
 
-Learn more about the motivation by reading:
-[AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
-
 <CardLink
   className="convex-hero-card"
   item={{
@@ -69,9 +77,17 @@ Learn more about the motivation by reading:
   }}
 />
 
+Learn more about the motivation by reading:
+[AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
+
 Sample code:
 
 ```typescript
+import { Agent } from "@convex-dev/agents";
+import { openai } from "@ai-sdk/openai";
+import { components } from "./_generated/api";
+import { action } from "./_generated/server";
+
 // Define an agent
 const supportAgent = new Agent(components.agent, {
   name: "Support Agent",

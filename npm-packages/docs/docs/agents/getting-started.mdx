@@ -47,11 +47,18 @@ const agent = new Agent(components.agent, {
   name: "My Agent",
   chat: openai.chat("gpt-4o-mini"),
 });
+```
+
+Using it:
+
+```ts
+import { action } from "./_generated/server";
+import { v } from "convex/values";
 
 export const helloWorld = action({
   args: { prompt: v.string() },
   handler: async (ctx, { prompt }) => {
-    const userId = await getAuthUserId(ctx);
+    // const userId = await getAuthUserId(ctx);
     const { thread } = await agent.createThread(ctx, { userId });
     const result = await thread.generateText({ prompt });
     return result.text;

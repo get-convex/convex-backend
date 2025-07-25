@@ -136,21 +136,78 @@ searchContext: createTool({
 | **Use Case**       | FAQ systems, document search | Dynamic knowledge management           |
 | **Predictability** | Defined by code              | AI may query too much or little        |
 
+## Ingesting content
+
+On the whole, the RAG component works with text. However, you can turn other
+files into text, either using parsing tools or asking an LLM to do it.
+
+### Parsing images
+
+Image parsing does oddly well with LLMs. You can use `generateText` to describe
+and transcribe the image, and then use that description to search for relevant
+context. And by storing the associated image, you can then pass the original
+file around once you've retrieved it via searching.
+
+[See an example here](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L28-L42).
+
+```ts
+const description = await thread.generateText({
+  message: {
+    role: "user",
+    content: [{ type: "image", data: url, mimeType: blob.type }],
+  },
+});
+```
+
+### Parsing PDFs
+
+For PDF parsing, I suggest using Pdf.js in the browser.
+
+**Why not server-side?**
+
+Opening up the pdf can use hundreds of MB of memory, and requires downloading a
+big pdfjs bundle - so big it's usually fetched dynamically in practice. You
+probably wouldn't want to load that bundle on every function call server-side,
+and you're more limited on memory usage in serverless environments. If the
+browser already has the file, it's a pretty good environment to do the heavy
+lifting in (and free!).
+
+There's an example in
+[the RAG demo](https://github.com/get-convex/rag/blob/main/example/src/pdfUtils.ts#L14),
+[used in the UI here](https://github.com/get-convex/rag/blob/main/example/src/components/UploadSection.tsx#L51),
+[with Pdf.js served statically](https://github.com/get-convex/rag/blob/main/example/public/pdf-worker/).
+
+If you really want to do it server-side and don't worry about cost or latency,
+you can pass it to an LLM, but note it takes a long time for big files.
+
+[See an example here](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L50-L65).
+
+### Parsing text files
+
+Generally you can use text files directly, for code or markdown or anything with
+a natural structure an LLM can understand.
+
+However, to get good embeddings, you can once again use an LLM to translate the
+text into a more structured format.
+
+[See an example here](https://github.com/get-convex/rag/blob/main/example/convex/getText.ts#L68-L89).
+
 ## Examples in Action
 
-To see these examples in action, check out the demo UI which provides:
+To see these examples in action, check out the
+[RAG example](https://github.com/get-convex/rag/blob/main/example/convex/example.ts).
 
-- Context management UI
-- Browse the chunks of documents in the RAG component
-- Interactive chat interface
-- Search result visualization
-- Real-time streaming responses
+- Adding text, pdf, and image content to the RAG component
+- Searching and generating text based on the context.
+- Introspecting the context produced by searching.
+- Browsing the chunks of documents produced.
+- Try out searching globally, per-user, or with custom filters.
 
 Run the example with:
 
 ```bash
-git clone https://github.com/get-convex/agent.git
-cd agent
+git clone https://github.com/get-convex/rag.git
+cd rag
 npm run setup
 npm run example
 ```
