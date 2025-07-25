@@ -745,6 +745,10 @@ describe("filters", () => {
           indexDescriptor: "by_creation_time",
           fields: ["_creationTime"],
         },
+        {
+          indexDescriptor: "by_id",
+          fields: ["_id"],
+        },
       ]);
     });
 
@@ -779,6 +783,10 @@ describe("filters", () => {
           indexDescriptor: "by_creation_time",
           fields: ["_creationTime"],
         },
+        {
+          indexDescriptor: "by_id",
+          fields: ["_id"],
+        },
       ]);
     });
 
@@ -808,6 +816,10 @@ describe("filters", () => {
         {
           indexDescriptor: "by_creation_time",
           fields: ["_creationTime"],
+        },
+        {
+          indexDescriptor: "by_id",
+          fields: ["_id"],
         },
       ]);
     });

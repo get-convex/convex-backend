@@ -426,6 +426,18 @@ export function getDefaultIndex(): Index {
 }
 
 /**
+ * Gets the by_id system index.
+ *
+ * @returns The by_id system index
+ */
+export function getByIdIndex(): Index {
+  return {
+    indexDescriptor: "by_id",
+    fields: ["_id"],
+  };
+}
+
+/**
  * Gets all available indexes for a table, including the default creation time index.
  *
  * @param table The table name
@@ -434,13 +446,14 @@ export function getDefaultIndex(): Index {
  */
 export function getAvailableIndexes(table: string, schemaData: any): Index[] {
   if (!schemaData?.schema) {
-    return [getDefaultIndex()];
+    return [getDefaultIndex(), getByIdIndex()];
   }
 
   return [
     ...(parseAndFilterToSingleTable(table, schemaData.schema)?.tables[0]
       ?.indexes || []),
     getDefaultIndex(),
+    getByIdIndex(),
   ];
 }
 
