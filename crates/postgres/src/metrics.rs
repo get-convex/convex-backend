@@ -248,40 +248,15 @@ pub fn retention_validate_timer() -> StatusTimer {
     StatusTimer::new(&POSTGRES_RETENTION_VALIDATE_SECONDS)
 }
 
+// This can't really be split between documents and indexes because of
+// pipelining
 register_convex_histogram!(
-    POSTGRES_INSERT_CHUNK_SECONDS,
-    "Time to insert a chunk of documents",
+    POSTGRES_INSERT_SECONDS,
+    "Time to insert documents & indexes",
     &STATUS_LABEL
 );
-pub fn insert_document_chunk_timer() -> StatusTimer {
-    StatusTimer::new(&POSTGRES_INSERT_CHUNK_SECONDS)
-}
-
-register_convex_histogram!(
-    POSTGRES_INSERT_ONE_SECONDS,
-    "Time to insert one document",
-    &STATUS_LABEL
-);
-pub fn insert_one_document_timer() -> StatusTimer {
-    StatusTimer::new(&POSTGRES_INSERT_ONE_SECONDS)
-}
-
-register_convex_histogram!(
-    POSTGRES_INSERT_INDEX_CHUNK_SECONDS,
-    "Time to insert an index chunk",
-    &STATUS_LABEL
-);
-pub fn insert_index_chunk_timer() -> StatusTimer {
-    StatusTimer::new(&POSTGRES_INSERT_INDEX_CHUNK_SECONDS)
-}
-
-register_convex_histogram!(
-    POSTGRES_INSERT_ONE_INDEX_SECONDS,
-    "Time to insert one index",
-    &STATUS_LABEL
-);
-pub fn insert_one_index_timer() -> StatusTimer {
-    StatusTimer::new(&POSTGRES_INSERT_ONE_INDEX_SECONDS)
+pub fn insert_timer() -> StatusTimer {
+    StatusTimer::new(&POSTGRES_INSERT_SECONDS)
 }
 
 register_convex_histogram!(

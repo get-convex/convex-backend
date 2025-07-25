@@ -9,6 +9,7 @@ mod metrics;
 mod tests;
 
 use std::{
+    array,
     cmp,
     collections::{
         BTreeMap,
@@ -98,13 +99,11 @@ use fastrace::{
 use futures::{
     future::{
         self,
-        Either,
     },
     pin_mut,
     stream::{
         self,
         BoxStream,
-        FuturesUnordered,
         StreamExt,
         TryStreamExt,
     },
@@ -397,116 +396,56 @@ impl Persistence for PostgresPersistence {
         self.lease
             .transact(move |tx| {
                 async move {
-                    let (insert_document, insert_document_chunk, insert_index, insert_index_chunk) =
-                        try_join!(
-                            match conflict_strategy {
-                                ConflictStrategy::Error => tx.prepare_cached(INSERT_DOCUMENT),
-                                ConflictStrategy::Overwrite =>
-                                    tx.prepare_cached(INSERT_OVERWRITE_DOCUMENT),
-                            },
-                            match conflict_strategy {
-                                ConflictStrategy::Error => tx.prepare_cached(INSERT_DOCUMENT_CHUNK),
-                                ConflictStrategy::Overwrite =>
-                                    tx.prepare_cached(INSERT_OVERWRITE_DOCUMENT_CHUNK),
-                            },
-                            match conflict_strategy {
-                                ConflictStrategy::Error => tx.prepare_cached(INSERT_INDEX),
-                                ConflictStrategy::Overwrite =>
-                                    tx.prepare_cached(INSERT_OVERWRITE_INDEX),
-                            },
-                            match conflict_strategy {
-                                ConflictStrategy::Error => tx.prepare_cached(INSERT_INDEX_CHUNK),
-                                ConflictStrategy::Overwrite =>
-                                    tx.prepare_cached(INSERT_OVERWRITE_INDEX_CHUNK),
-                            },
-                        )?;
+                    let (insert_documents, insert_indexes) = try_join!(
+                        match conflict_strategy {
+                            ConflictStrategy::Error => tx.prepare_cached(INSERT_DOCUMENT),
+                            ConflictStrategy::Overwrite =>
+                                tx.prepare_cached(INSERT_OVERWRITE_DOCUMENT),
+                        },
+                        match conflict_strategy {
+                            ConflictStrategy::Error => tx.prepare_cached(INSERT_INDEX),
+                            ConflictStrategy::Overwrite =>
+                                tx.prepare_cached(INSERT_OVERWRITE_INDEX),
+                        },
+                    )?;
 
-                    // Since the documents and indexes already in memory, blast it into the
-                    // Postgres connection as fast as we can with
-                    // unbounded query pipelining. If we hadn't fully
-                    // "hydrated" the inputs to this part of the system already, we
-                    // could use a bounded pipeline here to allow backpressure from Postgres
-                    // (or any intermediate component like TCP, tokio, etc.) to flow up to
-                    // our inputs. But in this case, we just want to get `documents` done as
-                    // quickly as possible.
-                    {
-                        // Use a `FuturesUnordered` to fork off concurrent work.
-                        let mut futures = FuturesUnordered::new();
-
-                        // First, process all of the full document chunks, forking off
-                        // insertions to our `FuturesUnordered` set
-                        // as we encounter them.
-                        let mut document_chunks = documents.chunks_exact(CHUNK_SIZE);
-                        for chunk in &mut document_chunks {
-                            let mut params = Vec::with_capacity(chunk.len() * NUM_DOCUMENT_PARAMS);
-                            for update in chunk {
-                                params.extend(document_params(
-                                    update.ts,
-                                    update.id,
-                                    &update.value,
-                                    update.prev_ts,
-                                )?);
-                            }
-                            let future = async {
-                                let timer = metrics::insert_document_chunk_timer();
-                                tx.execute_raw(&insert_document_chunk, params).await?;
-                                timer.finish();
-                                Ok::<_, anyhow::Error>(())
-                            };
-                            futures.push(Either::Left(Either::Left(future)));
+                    let insert_docs = async {
+                        if documents.is_empty() {
+                            return Ok(0);
                         }
-
-                        // After we've inserted all the full document chunks, drain the
-                        // remainder.
-                        for update in document_chunks.remainder() {
-                            let params = document_params(
+                        let mut doc_params: [Vec<Param>; NUM_DOCUMENT_PARAMS] =
+                            array::from_fn(|_| Vec::with_capacity(documents.len()));
+                        for update in &documents {
+                            for (vec, param) in doc_params.iter_mut().zip(document_params(
                                 update.ts,
                                 update.id,
                                 &update.value,
                                 update.prev_ts,
-                            )?;
-                            let future = async {
-                                let timer = metrics::insert_one_document_timer();
-                                tx.execute_raw(&insert_document, params).await?;
-                                timer.finish();
-                                Ok::<_, anyhow::Error>(())
-                            };
-                            futures.push(Either::Left(Either::Right(future)));
-                        }
-
-                        let index_vec = indexes.into_iter().collect_vec();
-                        let mut index_chunks = index_vec.chunks_exact(CHUNK_SIZE);
-                        for chunk in &mut index_chunks {
-                            let mut params = Vec::with_capacity(chunk.len() * NUM_INDEX_PARAMS);
-                            for update in chunk {
-                                params.extend(index_params(update));
+                            )?) {
+                                vec.push(param);
                             }
-                            let future = async {
-                                let timer = metrics::insert_index_chunk_timer();
-                                tx.execute_raw(&insert_index_chunk, params).await?;
-                                timer.finish();
-                                Ok::<_, anyhow::Error>(())
-                            };
-                            futures.push(Either::Right(Either::Left(future)));
                         }
+                        tx.execute_raw(&insert_documents, doc_params).await
+                    };
 
-                        // After we've inserted all the full index chunks, drain the remainder.
-                        for update in index_chunks.remainder() {
-                            let params = index_params(update);
-                            let future = async {
-                                let timer = metrics::insert_one_index_timer();
-                                tx.execute_raw(&insert_index, params).await?;
-                                timer.finish();
-                                Ok::<_, anyhow::Error>(())
-                            };
-                            futures.push(Either::Right(Either::Right(future)));
+                    let insert_idxs = async {
+                        if indexes.is_empty() {
+                            return Ok(0);
                         }
+                        let mut idx_params: [Vec<Param>; NUM_INDEX_PARAMS] =
+                            array::from_fn(|_| Vec::with_capacity(indexes.len()));
+                        for update in &indexes {
+                            for (vec, param) in idx_params.iter_mut().zip(index_params(update)) {
+                                vec.push(param);
+                            }
+                        }
+                        tx.execute_raw(&insert_indexes, idx_params).await
+                    };
 
-                        // Wait on all of the futures in our `FuturesUnordered` to finish.
-                        while let Some(result) = futures.next().await {
-                            result?;
-                        }
-                    }
+                    let timer = metrics::insert_timer();
+                    try_join!(insert_docs, insert_idxs)?;
+                    timer.finish();
+
                     Ok(())
                 }
                 .boxed()
@@ -1953,40 +1892,26 @@ SELECT id, ts, table_id, json_value, deleted, prev_ts
 
 const INSERT_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
     (id, ts, table_id, json_value, deleted, prev_ts)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    SELECT * FROM UNNEST(
+        $1::BYTEA[],
+        $2::BIGINT[],
+        $3::BYTEA[],
+        $4::BYTEA[],
+        $5::BOOLEAN[],
+        $6::BIGINT[]
+    )
 "#;
 
 const INSERT_OVERWRITE_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
     (id, ts, table_id, json_value, deleted, prev_ts)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    ON CONFLICT (id, ts, table_id) DO UPDATE
-    SET deleted = excluded.deleted, json_value = excluded.json_value
-"#;
-
-const INSERT_DOCUMENT_CHUNK: &str = r#"INSERT INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted, prev_ts)
-    VALUES
-        ($1, $2, $3, $4, $5, $6),
-        ($7, $8, $9, $10, $11, $12),
-        ($13, $14, $15, $16, $17, $18),
-        ($19, $20, $21, $22, $23, $24),
-        ($25, $26, $27, $28, $29, $30),
-        ($31, $32, $33, $34, $35, $36),
-        ($37, $38, $39, $40, $41, $42),
-        ($43, $44, $45, $46, $47, $48)
-"#;
-
-const INSERT_OVERWRITE_DOCUMENT_CHUNK: &str = r#"INSERT INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted, prev_ts)
-    VALUES
-        ($1, $2, $3, $4, $5, $6),
-        ($7, $8, $9, $10, $11, $12),
-        ($13, $14, $15, $16, $17, $18),
-        ($19, $20, $21, $22, $23, $24),
-        ($25, $26, $27, $28, $29, $30),
-        ($31, $32, $33, $34, $35, $36),
-        ($37, $38, $39, $40, $41, $42),
-        ($43, $44, $45, $46, $47, $48)
+    SELECT * FROM UNNEST(
+        $1::BYTEA[],
+        $2::BIGINT[],
+        $3::BYTEA[],
+        $4::BYTEA[],
+        $5::BOOLEAN[],
+        $6::BIGINT[]
+    )
     ON CONFLICT (id, ts, table_id) DO UPDATE
     SET deleted = excluded.deleted, json_value = excluded.json_value
 "#;
@@ -2011,7 +1936,16 @@ SELECT
 
 const INSERT_INDEX: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    SELECT * FROM UNNEST(
+        $1::BYTEA[],
+        $2::BIGINT[],
+        $3::BYTEA[],
+        $4::BYTEA[],
+        $5::BYTEA[],
+        $6::BOOLEAN[],
+        $7::BYTEA[],
+        $8::BYTEA[]
+    )
 "#;
 
 // Note that on conflict, there's no need to update any of the columns that are
@@ -2020,7 +1954,16 @@ const INSERT_INDEX: &str = r#"INSERT INTO @db_name.indexes
 // Only the fields that could have actually changed need to be updated.
 const INSERT_OVERWRITE_INDEX: &str = r#"INSERT INTO @db_name.indexes
     (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    SELECT * FROM UNNEST(
+        $1::BYTEA[],
+        $2::BIGINT[],
+        $3::BYTEA[],
+        $4::BYTEA[],
+        $5::BYTEA[],
+        $6::BOOLEAN[],
+        $7::BYTEA[],
+        $8::BYTEA[]
+    )
     ON CONFLICT ON CONSTRAINT indexes_pkey DO UPDATE
     SET deleted = excluded.deleted, table_id = excluded.table_id, document_id = excluded.document_id
 "#;
@@ -2043,34 +1986,6 @@ const DELETE_DOCUMENT: &str = r#"
 */
 DELETE FROM @db_name.documents WHERE
     (table_id = $1 AND id = $2 AND ts <= $3)
-"#;
-
-const INSERT_INDEX_CHUNK: &str = r#"INSERT INTO @db_name.indexes
-    (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-    VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8),
-        ($9, $10, $11, $12, $13, $14, $15, $16),
-        ($17, $18, $19, $20, $21, $22, $23, $24),
-        ($25, $26, $27, $28, $29, $30, $31, $32),
-        ($33, $34, $35, $36, $37, $38, $39, $40),
-        ($41, $42, $43, $44, $45, $46, $47, $48),
-        ($49, $50, $51, $52, $53, $54, $55, $56),
-        ($57, $58, $59, $60, $61, $62, $63, $64)
-"#;
-
-const INSERT_OVERWRITE_INDEX_CHUNK: &str = r#"INSERT INTO @db_name.indexes
-    (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-    VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8),
-        ($9, $10, $11, $12, $13, $14, $15, $16),
-        ($17, $18, $19, $20, $21, $22, $23, $24),
-        ($25, $26, $27, $28, $29, $30, $31, $32),
-        ($33, $34, $35, $36, $37, $38, $39, $40),
-        ($41, $42, $43, $44, $45, $46, $47, $48),
-        ($49, $50, $51, $52, $53, $54, $55, $56),
-        ($57, $58, $59, $60, $61, $62, $63, $64)
-        ON CONFLICT ON CONSTRAINT indexes_pkey DO UPDATE
-        SET deleted = excluded.deleted, table_id = excluded.table_id, document_id = excluded.document_id
 "#;
 
 const DELETE_INDEX_CHUNK: &str = r#"
