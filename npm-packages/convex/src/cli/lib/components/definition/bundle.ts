@@ -53,7 +53,7 @@ function componentPlugin({
     name: `convex-${mode === "discover" ? "discover-components" : "bundle-components"}`,
     async setup(build) {
       // This regex can't be really precise since developers could import
-      // "convex.config", "convex.config.js", "convex.config.ts", etc.
+      // "convex.config", "convex.config.mjs", "convex.config.js", "convex.config.ts", etc.
       build.onResolve({ filter: /.*convex.config.*/ }, async (args) => {
         verbose && logMessage(ctx, "esbuild resolving import:", args);
         if (args.namespace !== "file") {
@@ -83,12 +83,14 @@ function componentPlugin({
 
         const candidates = [args.path];
         const ext = path.extname(args.path);
-        if (ext === ".js") {
-          candidates.push(args.path.slice(0, -".js".length) + ".ts");
+        
+        if (ext === ".mjs" || ext === ".js") {
+          candidates.push(args.path.slice(0, -ext.length) + ".ts");
         }
-        if (ext !== ".js" && ext !== ".ts") {
-          candidates.push(args.path + ".js");
-          candidates.push(args.path + ".ts");
+        
+        // If no extension or unrecognized extension, try all in priority order
+        if (!ext || ![".mjs", ".js", ".ts"].includes(ext)) {
+          candidates.push(args.path + ".mjs", args.path + ".js", args.path + ".ts");
         }
         let resolvedPath = undefined;
         for (const candidate of candidates) {
@@ -497,11 +499,14 @@ export async function bundleImplementations(
       rootComponentDirectory.path,
       directory.path,
     );
+    // Check for schema files in priority order: .ts, .mjs, .js
+    const schemaCandidates = ["schema.ts", "schema.mjs", "schema.js"];
+    const schemaExists = schemaCandidates.some(filename => 
+      ctx.fs.exists(path.resolve(resolvedPath, filename))
+    );
+    
     let schema;
-    if (ctx.fs.exists(path.resolve(resolvedPath, "schema.ts"))) {
-      schema =
-        (await bundleSchema(ctx, resolvedPath, extraConditions))[0] || null;
-    } else if (ctx.fs.exists(path.resolve(resolvedPath, "schema.js"))) {
+    if (schemaExists) {
       schema =
         (await bundleSchema(ctx, resolvedPath, extraConditions))[0] || null;
     } else {
