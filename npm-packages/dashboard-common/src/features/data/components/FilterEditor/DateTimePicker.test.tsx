@@ -47,4 +47,29 @@ describe("DateTimePicker", () => {
     expect(dateTimeInput).toHaveValue(initialDateString);
     expect(mockOnChange).toBeCalledTimes(0);
   });
+
+  it("should open popup when focused and close when clicking outside", async () => {
+    // Render the component in popup mode (default).
+    const initialDate = new Date();
+    render(<DateTimePicker date={initialDate} onChange={mockOnChange} />);
+
+    const dateTimeInput = screen.getByLabelText("Date and time");
+    const user = userEvent.setup();
+
+    // Initially, the popup should be hidden.
+    const popup = screen.queryByRole("dialog");
+    expect(popup).toHaveClass("hidden");
+
+    // Focus the input to open the popup.
+    await user.click(dateTimeInput);
+
+    // The popup should now be visible (no hidden class).
+    expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
+
+    // Click outside the component to close the popup.
+    await user.click(document.body);
+
+    // The popup should be hidden again.
+    expect(screen.queryByRole("dialog")).toHaveClass("hidden");
+  });
 });
