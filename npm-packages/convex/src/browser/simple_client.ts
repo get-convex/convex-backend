@@ -65,7 +65,7 @@ export type Unsubscribe<T> = {
  *
  * ```ts
  * const client = new ConvexClient("https://happy-otter-123.convex.cloud");
- * const unsubscribe = client.onUpdate(api.messages.list, (messages) => {
+ * const unsubscribe = client.onUpdate(api.messages.list, {}, (messages) => {
  *   console.log(messages[0].body);
  * });
  * ```
