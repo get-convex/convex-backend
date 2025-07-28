@@ -1905,6 +1905,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(())
     }
 
+    #[fastrace::trace]
     pub async fn get_vector_index_storage(
         &self,
         identity: Identity,
@@ -1945,6 +1946,7 @@ impl<RT: Runtime> Database<RT> {
     }
 
     /// Counts the number of documents in each table, including system tables.
+    #[fastrace::trace]
     pub async fn get_document_counts(
         &self,
     ) -> anyhow::Result<Vec<(ComponentPath, TableName, u64)>> {
@@ -1982,6 +1984,7 @@ impl<RT: Runtime> Database<RT> {
             .is_some()
     }
 
+    #[fastrace::trace]
     pub async fn get_document_and_index_storage(
         &self,
         identity: Identity,

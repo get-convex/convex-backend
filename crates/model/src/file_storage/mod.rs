@@ -330,6 +330,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
     }
 }
 
+#[fastrace::trace]
 pub async fn get_total_file_storage_size<RT: Runtime>(db: &Database<RT>) -> anyhow::Result<u64> {
     let (tablet_id_to_by_id_index, snapshot_ts) = {
         let mut tx = db.begin(Identity::system()).await?;
