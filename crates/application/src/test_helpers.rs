@@ -402,7 +402,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 }
 
 impl<RT: Runtime> Application<RT> {
-    fn load_start_push_request(layout_path: &Path) -> anyhow::Result<StartPushRequest> {
+    pub fn load_start_push_request(layout_path: &Path) -> anyhow::Result<StartPushRequest> {
         let path = Path::new(OUT_DIR)
             .join(layout_path)
             .join("start_push_request.json");

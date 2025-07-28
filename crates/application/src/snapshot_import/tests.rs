@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    path::Path,
     str::FromStr,
     sync::Arc,
 };
@@ -1520,5 +1521,34 @@ async fn test_utf8_bom_jsonlines_empty_lines(rt: TestRuntime) -> anyhow::Result<
     assert!(result.is_err());
     let error_message = result.unwrap_err().to_string();
     assert!(error_message.contains("UTF-8 BOM is not supported"));
+    Ok(())
+}
+
+/// Test we can import over a componentless namespace. Componentless namespaces
+/// are created during start_push - the component is only created during
+/// finish_push
+#[convex_macro::test_runtime]
+async fn test_import_over_componentless_namespace(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+
+    // Do just a start_push w/o finish_push
+    let request = Application::<TestRuntime>::load_start_push_request(Path::new("basic"))?;
+    let config = request.into_project_config()?;
+    app.start_push(&config, false).await?;
+
+    let test_csv = r#"
+a,b
+"foo","bar"
+"#;
+    let num_rows_written = do_import(
+        &app,
+        new_admin_id(),
+        ImportFormat::Csv("table1".parse()?),
+        ImportMode::ReplaceAll,
+        ComponentPath::root(),
+        stream_from_str(test_csv),
+    )
+    .await?;
+    assert_eq!(num_rows_written, 1);
     Ok(())
 }
