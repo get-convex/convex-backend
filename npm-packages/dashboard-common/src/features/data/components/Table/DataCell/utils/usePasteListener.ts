@@ -19,6 +19,10 @@ export function usePasteListener(
         return;
       }
 
+      // Stop the event from double-pasting to any text editors that get opened.
+      e.stopPropagation();
+      e.preventDefault();
+
       const clipboardValue = e.clipboardData?.getData("text");
       if (clipboardValue === undefined) {
         return;
