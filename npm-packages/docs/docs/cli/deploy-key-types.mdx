@@ -84,7 +84,7 @@ An admin key provides complete control over a deployment.
 
 An admin key might look like
 
-> bold-hyena-681|01c2...c09c
+> `bold-hyena-681|01c2...c09c`
 
 Unlike other types of deploy key, an admin key does not require a network
 connection to https://convex.dev to be used since it's a irrevocable secret
@@ -106,7 +106,7 @@ A _project token_ grants total control over a project to a convex CLI and
 carries with it the permission to create and use development and production
 deployments in that project.
 
-> project:team-slug:project-slug|eyJ2...0=
+> `project:team-slug:project-slug|eyJ2...0=`
 
 Project tokens are obtained when a user grants an permission to use a project to
 an organization via an Convex OAuth application. Actions made with the token are
