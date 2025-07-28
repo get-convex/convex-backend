@@ -3,12 +3,12 @@ import { TeamAccessTokenResponse } from "generatedApi";
 import { AccessTokenListKind } from "api/accessTokens";
 
 import { LoadingTransition } from "@ui/Loading";
+import { AccessTokenListItem } from "components/AccessTokenListItem";
 import {
   GenerateDeployKeyWithNameButton,
   GenerateDeployKeyWithNameButtonProps,
   DeployKeyGenerationDisabledReason,
 } from "./GenerateDeployKeyButton";
-import { DeploymentAccessTokenListItem } from "./DeploymentAccessTokenListItem";
 
 export function DeploymentAccessTokenList({
   identifier,
@@ -53,7 +53,7 @@ export function DeploymentAccessTokenList({
                 accessTokens
                   ?.sort((a, b) => b.creationTime - a.creationTime)
                   .map((token) => (
-                    <DeploymentAccessTokenListItem
+                    <AccessTokenListItem
                       token={token}
                       identifier={identifier}
                       tokenPrefix={tokenPrefix}
@@ -63,6 +63,8 @@ export function DeploymentAccessTokenList({
                         !!latestToken &&
                         latestToken.endsWith(token.serializedAccessToken)
                       }
+                      showMemberName
+                      showCallout
                     />
                   ))
               ) : (

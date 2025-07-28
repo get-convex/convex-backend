@@ -20,8 +20,8 @@ export function TeamSettingsLayout({
     | "billing"
     | "usage"
     | "audit-log"
-    | "access-tokens"
     | "referrals"
+    | "access-tokens"
     | "applications";
   Component: React.FunctionComponent<{ team: Team }>;
   title: string;
@@ -39,7 +39,7 @@ export function TeamSettingsLayout({
     "billing",
     "usage",
     ...(referralsPage ? ["referrals"] : []),
-    ...(showTeamOauthTokens ? ["applications"] : []),
+    ...(showTeamOauthTokens ? ["access-tokens", "applications"] : []),
   ];
 
   return (
