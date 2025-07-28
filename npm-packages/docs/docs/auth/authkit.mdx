@@ -61,6 +61,20 @@ import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/worko
       <img src="/screenshots/workos-client-id.png" alt="Getting your WorkOS Client ID" width={400} />
     </p>
   </Step>
+
+  <Step title="Set an aud claim in your JWT template">
+    Navigate to the [JWT template editor](https://dashboard.workos.com/environment/authentication/edit-jwt-template) under **Authentication** and then **Sessions** and press the **Manage** button under **JWT Template**. Set a new `"aud"` claim that will be added to your JWT. This claim is used by Convex to validate that the token is intended for your specific application.
+
+    ```json
+    {
+      "aud": "<YOUR_CLIENT_ID>"
+    }
+    ```
+
+  <p style={{textAlign: 'center'}}>
+    <img src="/screenshots/workos-jwt-setup.png" alt="Set up an aud claim on your WorkOS JWT with the value of your WORKOS_CLIENT_ID" width={400} />
+  </p>
+  </Step>
 </StepByStep>
 
 Convex offers a provider that is specifically for integrating with WorkOS AuthKit called
