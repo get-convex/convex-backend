@@ -31,6 +31,9 @@ pub enum ImportError {
     #[error("Import wasn't valid UTF8: {0}")]
     NotUtf8(std::io::Error),
 
+    #[error("UTF-8 BOM is not supported. Please save your file without BOM.")]
+    Utf8BomNotSupported,
+
     #[error(
         "Import is too large for JSON ({0} bytes > maximum {limit}). Consider converting data to JSONLines",
         limit=*IMPORT_SIZE_LIMIT

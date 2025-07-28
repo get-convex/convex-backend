@@ -192,6 +192,10 @@ pub async fn parse_objects<'a, Fut>(
                 .map_err(ImportError::NotUtf8)?
                 > 0
             {
+                // Check for UTF-8 BOM at the start of the first line
+                if lineno == 1 && line.as_bytes().starts_with(&[0xEF, 0xBB, 0xBF]) {
+                    anyhow::bail!(ImportError::Utf8BomNotSupported);
+                }
                 let v: serde_json::Value = serde_json::from_str(&line)
                     .map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
                 yield ImportUnit::Object(v);
@@ -210,8 +214,13 @@ pub async fn parse_objects<'a, Fut>(
             if buf.len() > *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES {
                 anyhow::bail!(ImportError::JsonArrayTooLarge(buf.len()));
             }
-            let v: serde_json::Value =
-                serde_json::from_slice(&buf).map_err(ImportError::NotJson)?;
+            let v: serde_json::Value = {
+                // Check for UTF-8 BOM and reject it
+                if buf.starts_with(&[0xEF, 0xBB, 0xBF]) {
+                    anyhow::bail!(ImportError::Utf8BomNotSupported);
+                }
+                serde_json::from_slice(&buf).map_err(ImportError::NotJson)?
+            };
             let array = v.as_array().ok_or(ImportError::NotJsonArray)?;
             for value in array.iter() {
                 yield ImportUnit::Object(value.clone());
