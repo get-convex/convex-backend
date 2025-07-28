@@ -417,41 +417,41 @@ html.dark {
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+}
 
-  /* Position the toast close button on the top right corner so that it draws less attention */
-  html [data-sonner-toaster][dir="ltr"] {
-    --toast-close-button-start: unset;
-    --toast-close-button-end: 0;
-    --toast-close-button-transform: translate(35%, -35%);
-  }
+/* Position the toast close button on the top right corner so that it draws less attention */
+html [data-sonner-toaster][dir="ltr"] {
+  --toast-close-button-start: unset;
+  --toast-close-button-end: 0;
+  --toast-close-button-transform: translate(35%, -35%);
+}
 
-  /* Use the colors from our custom palette for toasts */
-  [data-sonner-toast],
-  [data-sonner-toast] [data-close-button] {
-    @apply bg-background-secondary
+/* Use the colors from our custom palette for toasts */
+html [data-sonner-toast],
+html [data-sonner-toast] [data-close-button] {
+  @apply bg-background-secondary
       border-background-tertiary
       text-content-primary;
-  }
+}
 
-  [data-sonner-toast][data-type="success"],
-  [data-sonner-toast][data-type="success"] [data-close-button] {
-    @apply bg-green-50
+html [data-sonner-toast][data-type="success"],
+html [data-sonner-toast][data-type="success"] [data-close-button] {
+  @apply bg-green-50
       border-green-100
       text-green-700
       dark:bg-green-950
       dark:border-green-900
       dark:text-green-200;
-  }
+}
 
-  [data-sonner-toast][data-type="error"],
-  [data-sonner-toast][data-type="error"] [data-close-button] {
-    @apply bg-red-50
+html [data-sonner-toast][data-type="error"],
+html [data-sonner-toast][data-type="error"] [data-close-button] {
+  @apply bg-red-50
       border-red-100
       text-red-700
       dark:bg-red-950
       dark:border-red-900
       dark:text-red-200;
-  }
 }
 
 /* Used for elements that need to fade in to a specific opacity
