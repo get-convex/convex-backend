@@ -606,13 +606,15 @@ impl Subscription {
         self.validity.invalid_ts()
     }
 
-    pub fn wait_for_invalidation(&self) -> impl Future<Output = ()> {
+    pub fn wait_for_invalidation(&self) -> impl Future<Output = Option<Timestamp>> {
         let mut valid = self.valid.clone();
+        let validity = self.validity.clone();
         let span = fastrace::Span::enter_with_local_parent("wait_for_invalidation");
         async move {
             let _: Result<_, _> = valid
                 .wait_for(|state| matches!(state, SubscriptionState::Invalid))
                 .await;
+            validity.invalid_ts()
         }
         .in_span(span)
     }

@@ -462,7 +462,7 @@ impl SyncState {
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Missing subscription for {}", query_id))?
                 .wait_for_invalidation()
-                .map(move |r| r.map(move |()| query_id));
+                .map(move |r| r.map(move |_| query_id));
             let (future, handle) = future::abortable(future);
             sq.invalidation_future = Some(handle);
             self.invalidation_futures.push(future.boxed());

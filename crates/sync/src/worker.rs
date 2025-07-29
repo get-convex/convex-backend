@@ -15,9 +15,9 @@ use application::{
     api::{
         ApplicationApi,
         ExecuteQueryTimestamp,
-        ExtendValidityResult,
         SubscriptionClient,
         SubscriptionTrait,
+        SubscriptionValidity,
     },
     redaction::{
         RedactedJsError,
@@ -821,8 +821,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                         let new_subscription = match current_subscription {
                             Some(subscription) => {
                                 match subscription.extend_validity(new_ts).await? {
-                                    ExtendValidityResult::Extended => Some(subscription),
-                                    ExtendValidityResult::Invalid { invalid_ts } => {
+                                    SubscriptionValidity::Valid => Some(subscription),
+                                    SubscriptionValidity::Invalid { invalid_ts } => {
                                         metrics::log_query_invalidated(
                                             partition_id,
                                             invalid_ts,

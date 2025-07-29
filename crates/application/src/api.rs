@@ -575,10 +575,10 @@ impl<RT: Runtime> SubscriptionClient for ApplicationSubscriptionClient<RT> {
     }
 }
 
-pub enum ExtendValidityResult {
-    /// The subscription's validity can be extended to the requested timestamp.
-    Extended,
-    /// The subscription may no longer be valid at the requested timestamp.
+pub enum SubscriptionValidity {
+    /// The subscription is valid.
+    Valid,
+    /// The subscription may no longer be valid.
     /// This result can be returned spuriously even if there were no conflicting
     /// writes.
     Invalid {
@@ -590,10 +590,14 @@ pub enum ExtendValidityResult {
 
 #[async_trait]
 pub trait SubscriptionTrait: Send + Sync {
-    fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<()>>;
+    /// Returns a future that completes after the subscription becomes invalid.
+    /// The future yields the invalidation timestamp, if known; this is the same
+    /// thing as [`SubscriptionValidity`]'s `invalid_ts`.
+    fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<Option<Timestamp>>>;
 
-    /// See comments on [`ExtendValidityResult`]
-    async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<ExtendValidityResult>;
+    /// Checks if the subscription is still valid as of `new_ts`. See comments
+    /// on [`SubscriptionValidity`].
+    async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<SubscriptionValidity>;
 }
 
 struct ApplicationSubscription {
@@ -608,15 +612,15 @@ struct ApplicationSubscription {
 
 #[async_trait]
 impl SubscriptionTrait for ApplicationSubscription {
-    fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<()>> {
+    fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<Option<Timestamp>>> {
         self.inner.wait_for_invalidation().map(Ok).boxed()
     }
 
     #[fastrace::trace]
-    async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<ExtendValidityResult> {
+    async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<SubscriptionValidity> {
         if new_ts < self.initial_ts {
             // new_ts is before the initial subscription timestamp.
-            return Ok(ExtendValidityResult::Invalid { invalid_ts: None });
+            return Ok(SubscriptionValidity::Invalid { invalid_ts: None });
         }
 
         // The inner subscription is periodically updated by the subscription
@@ -625,18 +629,18 @@ impl SubscriptionTrait for ApplicationSubscription {
             // Subscription is no longer valid. We could check validity from end_ts
             // to new_ts, but this is likely to fail and is potentially unbounded amount of
             // work, so we return false here. This is valid per the function contract.
-            return Ok(ExtendValidityResult::Invalid {
+            return Ok(SubscriptionValidity::Invalid {
                 invalid_ts: self.inner.invalid_ts(),
             });
         };
 
         let current_token = Token::new(self.reads.clone(), current_ts);
         Ok(match self.log.refresh_token(current_token, new_ts)? {
-            Ok(_new_token) => ExtendValidityResult::Extended,
+            Ok(_new_token) => SubscriptionValidity::Valid,
             Err(invalid_ts) => {
                 // Subscription validity can't be extended. Note that returning false
                 // here also doesn't mean there is a conflict.
-                ExtendValidityResult::Invalid { invalid_ts }
+                SubscriptionValidity::Invalid { invalid_ts }
             },
         })
     }
