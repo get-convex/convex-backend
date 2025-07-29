@@ -191,7 +191,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     table: NonUnion<TableName>,
     id: GenericId<TableName>,
-    value: Partial<DocumentByName<DataModel, TableName>>,
+    value: PatchValue<DocumentByName<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -207,7 +207,7 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    */
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     id: GenericId<TableName>,
-    value: Partial<DocumentByName<DataModel, TableName>>,
+    value: PatchValue<DocumentByName<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -311,7 +311,7 @@ export interface BaseTableWriter<
    */
   patch(
     id: GenericId<TableName>,
-    value: Partial<DocumentByName<DataModel, TableName>>,
+    value: PatchValue<DocumentByName<DataModel, TableName>>,
   ): Promise<void>;
 
   /**
@@ -341,3 +341,11 @@ export interface BaseTableWriter<
 type NonUnion<T> = T extends never // `never` is the bottom type for TypeScript unions
   ? never
   : T;
+
+/**
+ * This is like Partial, but it also allows undefined to be passed to optional
+ * fields when `exactOptionalPropertyTypes` is enabled in the tsconfig.
+ */
+type PatchValue<T> = {
+  [P in keyof T]?: undefined extends T[P] ? T[P] | undefined : T[P];
+};
