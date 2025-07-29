@@ -253,6 +253,14 @@ function ProjectSettings() {
           <li>Create new deployments in this project</li>
           <li>
             <span className="flex items-center gap-1">
+              Manage this project
+              <Tooltip tip="This includes actions like managing custom domains, managing environment variable defaults, and managing cloud backups and restores.">
+                <InfoCircledIcon />
+              </Tooltip>
+            </span>
+          </li>
+          <li>
+            <span className="flex items-center gap-1">
               Read and write data in any deployment in this project
               <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
                 <InfoCircledIcon />

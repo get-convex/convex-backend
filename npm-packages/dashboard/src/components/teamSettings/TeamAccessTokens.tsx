@@ -37,6 +37,14 @@ export function TeamAccessTokens({
             <li>Create new deployments</li>
             <li>
               <span className="flex items-center gap-1">
+                Manage all projects on the team
+                <Tooltip tip="This includes actions like deleting projects, managing custom domains, managing project environment variable defaults, and managing cloud backups and restores.">
+                  <InfoCircledIcon />
+                </Tooltip>
+              </span>
+            </li>
+            <li>
+              <span className="flex items-center gap-1">
                 Read and write data in all projects
                 <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
                   <InfoCircledIcon />
