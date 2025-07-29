@@ -299,12 +299,12 @@ export async function detectSuspiciousEnvironmentVariables(
   }
 }
 
-export function buildEnvironment(): string | boolean {
+export function getBuildEnvironment(): string | undefined {
   return process.env.VERCEL
     ? "Vercel"
     : process.env.NETLIFY
       ? "Netlify"
-      : false;
+      : undefined;
 }
 
 export function gitBranchFromEnvironment(): string | null {
