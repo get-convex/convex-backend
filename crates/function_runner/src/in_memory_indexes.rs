@@ -93,7 +93,6 @@ use crate::{
 fn make_transaction<RT: Runtime>(
     ts: RepeatableTimestamp,
     identity: Identity,
-    existing_writes: FunctionWrites,
     rt: RT,
     table_registry: TableRegistry,
     schema_registry: SchemaRegistry,
@@ -108,12 +107,11 @@ fn make_transaction<RT: Runtime>(
 ) -> anyhow::Result<Transaction<RT>> {
     let id_generator = TransactionIdGenerator::new(&rt)?;
     // The transaction timestamp might be few minutes behind if the backend
-    // has been idle. Make sure creation time is always recent. Existing writes to
-    // the transaction will advance next_creation_time in `merge_writes` below.
+    // has been idle. Make sure creation time is always recent.
     let creation_time = CreationTime::try_from(cmp::max(*ts, rt.generate_timestamp()?))?;
     let transaction_index =
         TransactionIndex::new(index_registry, database_index_snapshot, text_index_snapshot);
-    let mut tx = Transaction::new(
+    Ok(Transaction::new(
         identity,
         id_generator,
         creation_time,
@@ -126,9 +124,7 @@ fn make_transaction<RT: Runtime>(
         usage_tracker,
         retention_validator,
         virtual_system_mapping,
-    );
-    tx.merge_writes(existing_writes.updates)?;
-    Ok(tx)
+    ))
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
@@ -155,6 +151,9 @@ impl SizedValue for IndexCacheValue {
     }
 }
 
+/// Caches in-memory indexes for many instances.
+/// This object is cheaply cloneable and clones reference the same underlying
+/// cache.
 #[derive(Clone)]
 pub(crate) struct InMemoryIndexCache<RT: Runtime> {
     cache: MultiTypeAsyncLru<RT>,
@@ -240,24 +239,24 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             rt,
         }
     }
+}
 
+impl<RT: Runtime> FunctionRunnerInMemoryIndexes<RT> {
     /// Get the index from the cache or load it from persistence and put it in
     /// the cache. If the index is not in the last_modified map, it is not an
     /// in-memory index and should not be cached.
     #[fastrace::trace]
     async fn get_or_load(
         &self,
-        instance_name: String,
         index_id: IndexId,
-        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
-        persistence_snapshot: PersistenceSnapshot,
         tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<Option<Arc<IndexCacheValue>>> {
-        let Some(key) = in_memory_index_last_modified
+        let Some(key) = self
+            .backend_last_modified
             .get(&index_id)
             .map(|ts| IndexCacheKey {
-                instance_name: instance_name.clone(),
+                instance_name: self.instance_name.clone(),
                 index_id,
                 last_modified: *ts,
             })
@@ -270,9 +269,9 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             .get(
                 key,
                 load_index(
-                    instance_name.clone(),
+                    self.instance_name.clone(),
                     index_id,
-                    persistence_snapshot,
+                    self.persistence_snapshot.clone(),
                     tablet_id,
                     table_name.clone(),
                 )
@@ -280,7 +279,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             )
             .await
             .map(Some);
-        log_funrun_index_cache_get(&table_name, &instance_name);
+        log_funrun_index_cache_get(&table_name, &self.instance_name);
         cache_value_result
     }
 
@@ -288,9 +287,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     #[fastrace::trace]
     async fn load_table_registry(
         &self,
-        instance_name: String,
-        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
-        persistence_snapshot: PersistenceSnapshot,
         &BootstrapMetadata {
             tables_by_id,
             tables_tablet_id,
@@ -305,16 +301,19 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         impl LruKey for Key {
             type Value = WithSize<TableRegistry>;
         }
-        let tables_last_modified = *in_memory_index_last_modified
+        let tables_last_modified = *self
+            .backend_last_modified
             .get(&tables_by_id)
             .context("_tables not configured to be in-memory")?;
         const NAME: &str = "_table_registry";
-        log_funrun_index_cache_get(NAME, &instance_name);
+        log_funrun_index_cache_get(NAME, &self.instance_name);
+        let instance_name = self.instance_name.clone();
+        let persistence_snapshot = self.persistence_snapshot.clone();
         let table_registry = self
             .cache
             .get(
                 Key {
-                    instance_name: instance_name.clone(),
+                    instance_name: self.instance_name.clone(),
                     tables_last_modified,
                 },
                 async move {
@@ -349,10 +348,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     #[fastrace::trace]
     async fn load_index_registry(
         &self,
-        instance_name: String,
-        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
         table_registry: (Timestamp, TableRegistry),
-        persistence_snapshot: PersistenceSnapshot,
         &BootstrapMetadata {
             index_by_id,
             index_tablet_id,
@@ -367,16 +363,19 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         impl LruKey for Key {
             type Value = WithSize<IndexRegistry>;
         }
-        let indexes_last_modified = *in_memory_index_last_modified
+        let indexes_last_modified = *self
+            .backend_last_modified
             .get(&index_by_id)
             .context("_index not configured to be in-memory")?;
         const NAME: &str = "_index_registry";
-        log_funrun_index_cache_get(NAME, &instance_name);
+        log_funrun_index_cache_get(NAME, &self.instance_name);
+        let instance_name = self.instance_name.clone();
+        let persistence_snapshot = self.persistence_snapshot.clone();
         let index_registry = self
             .cache
             .get(
                 Key {
-                    instance_name: instance_name.clone(),
+                    instance_name: self.instance_name.clone(),
                     // We use the max of the two timestamps as our cache key
                     // because it's "as if" `load_unpacked_index` is reading at
                     // that timestamp.
@@ -408,11 +407,8 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     #[fastrace::trace]
     async fn load_component_registry(
         &self,
-        instance_name: String,
-        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
         table_registry: (Timestamp, TableRegistry),
         index_registry: (Timestamp, IndexRegistry),
-        persistence_snapshot: PersistenceSnapshot,
     ) -> anyhow::Result<(Timestamp, ComponentRegistry)> {
         #[derive(Hash, PartialEq, Eq, Debug, Clone)]
         struct Key {
@@ -429,16 +425,19 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             .id(&COMPONENTS_TABLE)?
             .tablet_id;
         let components_by_id = index_registry.1.must_get_by_id(component_tablet_id)?.id;
-        let components_last_modified = *in_memory_index_last_modified
+        let components_last_modified = *self
+            .backend_last_modified
             .get(&components_by_id)
             .context("_components not configured to be in-memory")?;
         const NAME: &str = "_component_registry";
-        log_funrun_index_cache_get(NAME, &instance_name);
+        log_funrun_index_cache_get(NAME, &self.instance_name);
+        let instance_name = self.instance_name.clone();
+        let persistence_snapshot = self.persistence_snapshot.clone();
         let component_registry = self
             .cache
             .get(
                 Key {
-                    instance_name: instance_name.clone(),
+                    instance_name: self.instance_name.clone(),
                     last_modified: table_registry
                         .0
                         .max(index_registry.0)
@@ -468,12 +467,9 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     #[fastrace::trace]
     async fn load_schema_registry(
         &self,
-        instance_name: String,
-        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
         table_registry: (Timestamp, TableRegistry),
         index_registry: (Timestamp, IndexRegistry),
         component_registry: (Timestamp, ComponentRegistry),
-        persistence_snapshot: PersistenceSnapshot,
     ) -> anyhow::Result<(Timestamp, SchemaRegistry)> {
         #[derive(Hash, PartialEq, Eq, Debug, Clone)]
         struct Key {
@@ -505,18 +501,21 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             let schema_tablet =
                 table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
             let index_id = index_registry.1.must_get_by_id(schema_tablet)?.id;
-            let schemas_last_modified = *in_memory_index_last_modified
+            let schemas_last_modified = *self
+                .backend_last_modified
                 .get(&index_id)
                 .context("_schemas not configured to be in-memory")?;
             last_modified_ts = last_modified_ts.max(schemas_last_modified);
             schema_tables.push((namespace, schema_tablet, index_id));
-            log_funrun_index_cache_get(NAME, &instance_name);
+            log_funrun_index_cache_get(NAME, &self.instance_name);
         }
+        let instance_name = self.instance_name.clone();
+        let persistence_snapshot = self.persistence_snapshot.clone();
         let schema_registry = self
             .cache
             .get(
                 Key {
-                    instance_name: instance_name.clone(),
+                    instance_name: self.instance_name.clone(),
                     last_modified: last_modified_ts,
                 },
                 async move {
@@ -552,9 +551,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     #[fastrace::trace]
     async fn load_registries(
         &self,
-        persistence_snapshot: PersistenceSnapshot,
-        instance_name: String,
-        in_memory_index_last_modified: &BTreeMap<IndexId, Timestamp>,
         bootstrap_metadata: BootstrapMetadata,
     ) -> anyhow::Result<(
         TableRegistry,
@@ -565,40 +561,18 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         // This is unfortunate but we need this cascade of cached lookups
         // because we don't know what cache keys to use until the previous
         // registry has been fetched.
-        let table_registry = self
-            .load_table_registry(
-                instance_name.clone(),
-                in_memory_index_last_modified,
-                persistence_snapshot.clone(),
-                &bootstrap_metadata,
-            )
-            .await?;
+        let table_registry = self.load_table_registry(&bootstrap_metadata).await?;
         let index_registry = self
-            .load_index_registry(
-                instance_name.clone(),
-                in_memory_index_last_modified,
-                table_registry.clone(),
-                persistence_snapshot.clone(),
-                &bootstrap_metadata,
-            )
+            .load_index_registry(table_registry.clone(), &bootstrap_metadata)
             .await?;
         let component_registry = self
-            .load_component_registry(
-                instance_name.clone(),
-                in_memory_index_last_modified,
-                table_registry.clone(),
-                index_registry.clone(),
-                persistence_snapshot.clone(),
-            )
+            .load_component_registry(table_registry.clone(), index_registry.clone())
             .await?;
         let schema_registry = self
             .load_schema_registry(
-                instance_name,
-                in_memory_index_last_modified,
                 table_registry.clone(),
                 index_registry.clone(),
                 component_registry.clone(),
-                persistence_snapshot,
             )
             .await?;
         Ok((
@@ -608,7 +582,9 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             index_registry.1,
         ))
     }
+}
 
+impl<RT: Runtime> InMemoryIndexCache<RT> {
     /// Loads table and index registry from cache or persistence snapshot.
     #[fastrace::trace]
     pub(crate) async fn begin_tx(
@@ -639,21 +615,16 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         let persistence_snapshot =
             repeatable_persistence.read_snapshot(repeatable_persistence.upper_bound())?;
 
-        let (table_registry, schema_registry, component_registry, index_registry) = self
-            .load_registries(
-                persistence_snapshot.clone(),
-                instance_name.clone(),
-                &in_memory_index_last_modified,
-                bootstrap_metadata,
-            )
-            .await?;
-
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {
-            cache: self.clone(),
+            cache: self.cache.clone(),
             instance_name,
             backend_last_modified: in_memory_index_last_modified,
             persistence_snapshot: persistence_snapshot.clone(),
         };
+        let (table_registry, schema_registry, component_registry, index_registry) =
+            in_memory_indexes
+                .load_registries(bootstrap_metadata)
+                .await?;
         let database_index_snapshot = DatabaseIndexSnapshot::new(
             index_registry.clone(),
             Arc::new(in_memory_indexes),
@@ -661,10 +632,9 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot,
         );
 
-        make_transaction(
+        let mut tx = make_transaction(
             ts,
             identity,
-            existing_writes,
             self.rt.clone(),
             table_registry,
             schema_registry,
@@ -676,16 +646,20 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             retention_validator,
             virtual_system_mapping().clone(),
             usage_tracker,
-        )
+        )?;
+        tx.merge_writes(existing_writes.updates)?;
+        Ok(tx)
     }
 }
 
-#[derive(Clone)]
+/// An [`InMemoryIndexCache`] that is bound to a single instance at a specific
+/// timestamp. One instance is created at the beginning of each UDF's
+/// transaction.
 pub(crate) struct FunctionRunnerInMemoryIndexes<RT: Runtime> {
-    pub(crate) cache: InMemoryIndexCache<RT>,
+    pub(crate) cache: MultiTypeAsyncLru<RT>,
     pub(crate) instance_name: String,
     /// The last modified timestamp for each index at the beginning of the
-    /// Transaction.
+    /// Transaction (i.e. as of `persistence_snapshot.timestamp()`).
     pub(crate) backend_last_modified: BTreeMap<IndexId, Timestamp>,
     pub(crate) persistence_snapshot: PersistenceSnapshot,
 }
@@ -700,18 +674,7 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
         tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
-        let Some(index_map) = self
-            .cache
-            .get_or_load(
-                self.instance_name.clone(),
-                index_id,
-                &self.backend_last_modified,
-                self.persistence_snapshot.clone(),
-                tablet_id,
-                table_name,
-            )
-            .await?
-        else {
+        let Some(index_map) = self.get_or_load(index_id, tablet_id, table_name).await? else {
             return Ok(None);
         };
         let range = order
