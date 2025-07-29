@@ -260,39 +260,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         self.isolate_client.shutdown().await
     }
 
-    pub async fn begin_tx(
-        &self,
-        identity: Identity,
-        ts: RepeatableTimestamp,
-        existing_writes: FunctionWrites,
-        reader: Arc<dyn PersistenceReader>,
-        instance_name: String,
-        in_memory_index_versions: BTreeMap<IndexId, Timestamp>,
-        bootstrap_metadata: BootstrapMetadata,
-        table_count_snapshot: Arc<dyn TableCountSnapshot>,
-        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
-        retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<Transaction<RT>> {
-        let usage_tracker = FunctionUsageTracker::new();
-        let transaction = self
-            .index_cache
-            .begin_tx(
-                identity.clone(),
-                ts,
-                existing_writes,
-                reader,
-                instance_name.clone(),
-                in_memory_index_versions,
-                bootstrap_metadata,
-                table_count_snapshot,
-                text_index_snapshot,
-                usage_tracker.clone(),
-                retention_validator,
-            )
-            .await?;
-        Ok(transaction)
-    }
-
     // Runs a function given the information for the backend as well as arguments
     // to the function itself.
     // NOTE: The caller of this is responsible of checking retention by calling

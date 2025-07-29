@@ -354,6 +354,22 @@ impl BackendInMemoryIndexes {
     }
 }
 
+/// Implementor of `InMemoryIndexes` if no indexes are available in-memory.
+pub struct NoInMemoryIndexes;
+#[async_trait]
+impl InMemoryIndexes for NoInMemoryIndexes {
+    async fn range(
+        &self,
+        _index_id: IndexId,
+        _interval: &Interval,
+        _order: Order,
+        _tablet_id: TabletId,
+        _table_name: TableName,
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
+        Ok(None)
+    }
+}
+
 #[derive(Debug)]
 struct IndexDocument {
     key: IndexKeyBytes,

@@ -122,6 +122,7 @@ use indexing::{
     backend_in_memory_indexes::{
         BackendInMemoryIndexes,
         DatabaseIndexSnapshot,
+        NoInMemoryIndexes,
     },
     index_registry::IndexRegistry,
 };
@@ -212,6 +213,7 @@ use crate::{
     TableIterator,
     Transaction,
     TransactionReadSet,
+    TransactionTextSnapshot,
     COMPONENTS_TABLE,
     SCHEMAS_TABLE,
 };
@@ -728,6 +730,49 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         &self,
     ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
         self.snapshot.get_document_and_index_storage()
+    }
+
+    /// Create a [`Transaction`] at the snapshot's timestamp. This allows using
+    /// read-only APIs that require a Transaction without needing a `Database`.
+    ///
+    /// The transaction will not use any in-memory index cache, so this should
+    /// not be used to serve any frequently called APIs.
+    pub fn begin_tx(
+        &self,
+        identity: Identity,
+        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
+        usage_tracker: FunctionUsageTracker,
+        virtual_system_mapping: VirtualSystemMapping,
+    ) -> anyhow::Result<Transaction<RT>> {
+        let database_index_snapshot = DatabaseIndexSnapshot::new(
+            self.snapshot.index_registry.clone(),
+            Arc::new(NoInMemoryIndexes),
+            self.snapshot.table_registry.table_mapping().clone(),
+            self.persistence_snapshot.clone(),
+        );
+
+        let id_generator = TransactionIdGenerator::new(&self.runtime.clone())?;
+        let creation_time =
+            CreationTime::try_from(cmp::max(*self.ts, self.runtime.generate_timestamp()?))?;
+        let transaction_index = TransactionIndex::new(
+            self.snapshot.index_registry.clone(),
+            database_index_snapshot,
+            text_index_snapshot,
+        );
+        Ok(Transaction::new(
+            identity,
+            id_generator,
+            creation_time,
+            transaction_index,
+            self.snapshot.table_registry.clone(),
+            self.snapshot.schema_registry.clone(),
+            self.snapshot.component_registry.clone(),
+            Arc::new(self.snapshot.table_summaries.clone()),
+            self.runtime.clone(),
+            usage_tracker,
+            self.retention_validator.clone(),
+            virtual_system_mapping,
+        ))
     }
 }
 
