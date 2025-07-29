@@ -60,7 +60,7 @@
     "swr": "^2.2.1",
     "system-udfs": "workspace:*",
     "supports-color": "10.0.0",
-    "tailwind-merge": "^3.2.0",
+    "tailwind-merge": "^3.3.1",
     "tailwind-variants": "^1.0.0",
     "yup": "~0.32.11",
     "zod": "^3.24.0",
@@ -69,7 +69,7 @@
   "devDependencies": {
     "@jest/types": "^29.6.0",
     "@tailwindcss/forms": "^0.5.10",
-    "@tailwindcss/postcss": "^4.1.5",
+    "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/dom": "~10.4.0",
     "@testing-library/jest-dom": "~6.6.0",
     "@testing-library/react": "~16.3.0",
@@ -109,7 +109,7 @@
     "postcss": "^8.4.19",
     "prettier": "3.5.3",
     "prettier-plugin-tailwindcss": "~0.6.11",
-    "tailwindcss": "^4.1.5",
+    "tailwindcss": "^4.1.11",
     "tailwind-scrollbar": "^4.0.2",
     "typescript": "~5.0.3"
   }

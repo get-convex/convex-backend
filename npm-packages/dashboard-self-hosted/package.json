@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
-    "@tailwindcss/postcss": "^4.1.5",
+    "@tailwindcss/postcss": "^4.1.11",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/react-table": "^7.7.2",
@@ -48,7 +48,7 @@
     "prettier": "3.5.3",
     "prettier-plugin-tailwindcss": "~0.6.11",
     "tailwind-scrollbar": "^4.0.2",
-    "tailwindcss": "^4.1.5",
+    "tailwindcss": "^4.1.11",
     "typescript": "~5.0.3"
   }
 }
