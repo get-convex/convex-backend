@@ -299,7 +299,7 @@ export async function detectSuspiciousEnvironmentVariables(
   }
 }
 
-export function buildEnvironment(): string | boolean {
+export function getBuildEnvironment(): string | false {
   return process.env.VERCEL
     ? "Vercel"
     : process.env.NETLIFY

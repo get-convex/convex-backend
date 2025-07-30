@@ -14,7 +14,7 @@ import {
   isProjectKey,
   stripDeploymentTypePrefix,
 } from "./deployment.js";
-import { buildEnvironment } from "./envvars.js";
+import { getBuildEnvironment } from "./envvars.js";
 import { readGlobalConfig } from "./utils/globalConfig.js";
 import {
   CONVEX_DEPLOYMENT_ENV_VAR_NAME,
@@ -492,8 +492,6 @@ async function getDeploymentSelectionFromEnv(
       }
     }
   }
-  // Throw a nice error if we're in something like a CI environment where we need a `CONVEX_DEPLOY_KEY`
-  await checkIfBuildEnvironmentExpectsConvexDeployKey(ctx);
 
   const convexDeployment = getEnv(CONVEX_DEPLOYMENT_ENV_VAR_NAME);
   const selfHostedUrl = getEnv(CONVEX_SELF_HOSTED_URL_VAR_NAME);
@@ -561,18 +559,24 @@ async function getDeploymentSelectionFromEnv(
     };
   }
 
+  // Throw a nice error if we're in something like a CI environment where we need a valid deployment configuration
+  await checkIfBuildEnvironmentRequiresDeploymentConfig(ctx);
+
   return { kind: "unknown" };
 }
 
-async function checkIfBuildEnvironmentExpectsConvexDeployKey(ctx: Context) {
-  const buildEnvironmentExpectsConvexDeployKey = buildEnvironment();
-  if (buildEnvironmentExpectsConvexDeployKey) {
+async function checkIfBuildEnvironmentRequiresDeploymentConfig(ctx: Context) {
+  const buildEnvironment = getBuildEnvironment();
+  if (buildEnvironment) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage:
-        `${buildEnvironmentExpectsConvexDeployKey} build environment detected but ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} is not set. ` +
-        `Set this environment variable to deploy from this environment. See https://docs.convex.dev/production/hosting`,
+        `${buildEnvironment} build environment detected but no Convex deployment configuration found.\n` +
+        `Set one of:\n` +
+        `  • ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} for Convex Cloud deployments\n` +
+        `  • ${CONVEX_SELF_HOSTED_URL_VAR_NAME} and ${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME} for self-hosted deployments\n` +
+        `See https://docs.convex.dev/production/hosting or https://docs.convex.dev/self-hosting`,
     });
   }
 }
