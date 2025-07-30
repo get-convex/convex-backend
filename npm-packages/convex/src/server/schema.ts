@@ -430,7 +430,7 @@ export class SchemaDefinition<
 > {
   public tables: Schema;
   public strictTableNameTypes!: StrictTableTypes;
-  private readonly schemaValidation: boolean;
+  public readonly schemaValidation: boolean;
 
   /**
    * @internal
