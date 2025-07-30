@@ -30,6 +30,18 @@ export function TeamAccessTokens({
             Create Token
           </Button>
         </div>
+        <div>
+          <div className="flex items-center gap-1">
+            <span className="font-semibold">Team ID</span>
+            <Tooltip
+              side="right"
+              tip="This is the ID of your team. It is used to identify your team in the Platform API."
+            >
+              <InfoCircledIcon />
+            </Tooltip>
+          </div>
+          <span className="font-mono">{team?.id}</span>
+        </div>
         <div className="mt-2 mb-2 text-sm text-content-primary">
           <span className="font-semibold">What can team access tokens do?</span>
           <ul className="mt-1 list-disc pl-4">
@@ -63,17 +75,19 @@ export function TeamAccessTokens({
         {accessTokens !== undefined && (
           <div className="mt-2 flex w-full flex-col gap-2 divide-y">
             {team && accessTokens.length > 0 ? (
-              accessTokens.map((token) => (
-                <AccessTokenListItem
-                  kind="team"
-                  key={token.name}
-                  token={token}
-                  identifier={team.id.toString()}
-                  shouldShow={false}
-                  showMemberName={false}
-                  showCallout={false}
-                />
-              ))
+              [...accessTokens]
+                .sort((a, b) => b.creationTime - a.creationTime)
+                .map((token) => (
+                  <AccessTokenListItem
+                    kind="team"
+                    key={token.name}
+                    token={token}
+                    identifier={team.id.toString()}
+                    shouldShow={false}
+                    showMemberName={false}
+                    showCallout={false}
+                  />
+                ))
             ) : (
               <div className="my-6 flex w-full justify-center text-content-secondary">
                 You have not created any team access tokens yet.

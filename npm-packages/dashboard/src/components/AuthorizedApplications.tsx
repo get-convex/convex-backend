@@ -36,13 +36,15 @@ export function AuthorizedApplications({
         {accessTokens !== undefined && (
           <div className="mt-2 flex w-full flex-col gap-2 divide-y">
             {accessTokens.length ? (
-              accessTokens.map((token) => (
-                <AuthorizedApplicationListItem
-                  key={token.name}
-                  token={token}
-                  onRevoke={onRevoke}
-                />
-              ))
+              accessTokens
+                .sort((a, b) => b.creationTime - a.creationTime)
+                .map((token) => (
+                  <AuthorizedApplicationListItem
+                    key={token.name}
+                    token={token}
+                    onRevoke={onRevoke}
+                  />
+                ))
             ) : (
               <div className="my-6 flex w-full justify-center text-content-secondary">
                 You have not authorized any applications yet.

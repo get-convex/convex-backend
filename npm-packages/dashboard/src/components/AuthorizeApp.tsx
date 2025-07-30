@@ -367,12 +367,20 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
             <li>Create new projects</li>
             <li>Create new deployments</li>
             <li>
-              <div className="flex items-center gap-1">
-                Read and write data in all projects{" "}
+              <span className="flex items-center gap-1">
+                Manage all projects on the selected team
+                <Tooltip tip="This includes actions like deleting projects, managing custom domains, managing project environment variable defaults, and managing cloud backups and restores.">
+                  <InfoCircledIcon />
+                </Tooltip>
+              </span>
+            </li>
+            <li>
+              <span className="flex items-center gap-1">
+                Read and write data in all projects on the selected team
                 <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
                   <InfoCircledIcon />
                 </Tooltip>
-              </div>
+              </span>
             </li>
           </ul>
         </div>
@@ -384,12 +392,27 @@ export function AuthorizeApp({ authorizationScope }: AuthorizeAppProps) {
         <p>
           Authorizing will give{" "}
           <span className="font-semibold">{oauthAppData?.appName}</span> access
-          to your project, mirroring your access level for the selected project.
+          to:
         </p>
-        <p>
-          If your role changes, the authorized application's access will also
-          change.
-        </p>
+        <ul className="list-disc pl-4">
+          <li>Create new deployments in the selected project</li>
+          <li>
+            <span className="flex items-center gap-1">
+              Manage the selected project project
+              <Tooltip tip="This includes actions like managing custom domains, managing environment variable defaults, and managing cloud backups and restores.">
+                <InfoCircledIcon />
+              </Tooltip>
+            </span>
+          </li>
+          <li>
+            <span className="flex items-center gap-1">
+              Read and write data in any deployment in this project
+              <Tooltip tip="Write access to Production deployments will depend on your team-level and project-level roles.">
+                <InfoCircledIcon />
+              </Tooltip>
+            </span>
+          </li>
+        </ul>
       </div>
     );
   };
