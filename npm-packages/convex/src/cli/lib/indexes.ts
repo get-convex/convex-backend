@@ -181,10 +181,7 @@ function setSchemaProgressSpinner(
   deploymentName?: string | null,
 ) {
   if (!data) {
-    changeSpinner(
-      ctx,
-      "Backfilling indexes and checking that documents match your schema...",
-    );
+    changeSpinner(ctx, "Pushing code to your deployment...");
     return;
   }
   const indexesCompleted = data.indexes.filter(

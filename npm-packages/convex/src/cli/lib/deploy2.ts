@@ -116,10 +116,7 @@ export async function waitForSchema(
     adminKey: options.adminKey,
   });
 
-  changeSpinner(
-    ctx,
-    "Backfilling indexes and checking that documents match your schema...",
-  );
+  changeSpinner(ctx, "Pushing code to your Convex deployment...");
 
   while (true) {
     let currentStatus: SchemaStatus;
