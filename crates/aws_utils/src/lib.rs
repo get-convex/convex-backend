@@ -11,6 +11,7 @@ use aws_config::{
     ConfigLoader,
 };
 use aws_types::region::Region;
+use aws_sdk_s3::config::Builder as S3ConfigBuilder;
 
 pub mod s3;
 
@@ -24,6 +25,9 @@ static AWS_SECRET_ACCESS_KEY: LazyLock<Option<String>> =
     LazyLock::new(|| env::var("AWS_SECRET_ACCESS_KEY").ok());
 
 static AWS_REGION: LazyLock<Option<String>> = LazyLock::new(|| env::var("AWS_REGION").ok());
+
+static AWS_S3_FORCE_PATH_STYLE: LazyLock<Option<String>> =
+    LazyLock::new(|| env::var("AWS_S3_FORCE_PATH_STYLE").ok());
 
 /// Similar aws_config::from_env but returns an error if credentials or
 /// region is are not. It also doesn't spew out log lines every time
@@ -45,10 +49,18 @@ pub fn must_config_from_env() -> anyhow::Result<ConfigLoader> {
         .credentials_provider(credentials))
 }
 
-pub fn must_s3_config_from_env() -> anyhow::Result<ConfigLoader> {
-    let mut config_loader = must_config_from_env()?;
+pub async fn must_s3_config_from_env() -> anyhow::Result<S3ConfigBuilder> {
+    let base_config = must_config_from_env()?.load().await;
+    let mut s3_config_builder = S3ConfigBuilder::from(&base_config);    
     if let Some(s3_endpoint_url) = S3_ENDPOINT_URL.clone() {
-        config_loader = config_loader.endpoint_url(s3_endpoint_url);
+        s3_config_builder = s3_config_builder.endpoint_url(s3_endpoint_url);
     }
-    Ok(config_loader)
+    
+    if let Some(force_path_style) = AWS_S3_FORCE_PATH_STYLE.clone() {
+        if force_path_style.eq_ignore_ascii_case("true") {
+            s3_config_builder = s3_config_builder.force_path_style(true);
+        }
+    }
+    
+    Ok(s3_config_builder)
 }

@@ -157,12 +157,12 @@ async fn s3_client() -> Result<Client, anyhow::Error> {
     static S3_CLIENT: tokio::sync::OnceCell<Client> = tokio::sync::OnceCell::const_new();
     let client = S3_CLIENT
         .get_or_try_init(|| async {
-            let config = must_s3_config_from_env()
-                .context("AWS env variables are required when using S3 storage")?
+            let config = must_s3_config_from_env().await
+                .context("AWS env variables are required when using S3 storage")?;
+            let s3_config = config
                 .retry_config(RetryConfig::standard())
-                .load()
-                .await;
-            anyhow::Ok(Client::new(&config))
+                .build();
+            anyhow::Ok(Client::from_conf(s3_config))
         })
         .await?
         .clone();
