@@ -91,4 +91,7 @@ export default defineSchema({
     link: v.id("links"),
     clicks: v.number(),
   }).index("byLink", ["link"]),
+  numbers: defineTable({
+    value: v.number(),
+  }),
 });

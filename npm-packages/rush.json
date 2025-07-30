@@ -285,6 +285,10 @@
       "projectFolder": "@convex-dev/codemod/test/explicit-ids/sample-convex-project"
     },
     {
+      "packageName": "@convex-dev/workos",
+      "projectFolder": "@convex-dev/workos"
+    },
+    {
       "packageName": "publishing-tests",
       "projectFolder": "publishing-tests"
     },

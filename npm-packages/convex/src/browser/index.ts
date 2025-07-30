@@ -22,6 +22,7 @@ export type {
   MutationOptions,
   SubscribeOptions,
   ConnectionState,
+  AuthTokenFetcher,
 } from "./sync/client.js";
 export type { ConvexClientOptions } from "./simple_client.js";
 export { ConvexClient } from "./simple_client.js";

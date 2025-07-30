@@ -6,13 +6,15 @@ hide_table_of_contents: true
 pagination_prev: file-storage
 ---
 
-Authentication allows you to identify users and restrict what data they can see
-and edit.
+Convex deployment endpoints are exposed to the open internet and the claims
+clients make about who they are must be authenticated to identify users and
+restrict what data they can see and edit.
 
 Convex is compatible with most authentication providers because it uses OpenID
 Connect (based on OAuth) ID tokens in the form of JWTs to authenticate WebSocket
-connections or RPCs. These JWTs can be provided by any service implementing the
-appropriate OAuth endpoints to verify them, including your own Convex backend.
+connections or RPCs. These JWTs can be provided by any service (including your
+own Convex backend) that implement the appropriate OAuth endpoints to verify
+them.
 
 ## Third-party authentication platforms
 
@@ -21,8 +23,8 @@ most comprehensive authentication solutions. Integrating another service
 provides a ton of functionality like passkeys, two-factor auth, spam protection,
 and more on top of the authentication basics.
 
-- [Clerk](/auth/clerk.mdx) is newer and has better Next.js and React Native
-  support
+- [Clerk](/auth/clerk.mdx) is new and has great Next.js and React Native support
+- [WorkOS AuthKit](/auth/authkit.mdx) is new and free for up to 1M users
 - [Auth0](/auth/auth0.mdx) is more established with more bells and whistles
 - [Custom Auth Integration](/auth/advanced/custom-auth.mdx) allow any OpenID
   Connect-compatible identity provider to be used for authentication
@@ -31,7 +33,7 @@ After you integrate one of these, learn more about accessing authentication
 information in [Functions](/auth/functions-auth.mdx) and storing user
 information in the [Database](/auth/database-auth.mdx).
 
-## Convex Auth
+## The Convex Auth Library
 
 For client-side React and React Native mobile apps you can implement auth
 directly in Convex with the [Convex Auth](/auth/convex-auth.mdx) library. This
@@ -72,20 +74,20 @@ else.
 
 ## Authorization
 
-Convex enables a traditional three tier application structure. You have your
-client/UI for your app, and a backend server that handles user requests, and a
-database that the backend queries. This architecture let's you check every
-public request against any authorization rules you can define in code.
+Convex enables a traditional three tier application structure: a client/UI for
+your app, a backend that handles user requests, and a database for queries. This
+architecture lets you check every public request against any authorization rules
+you can define in code.
 
-Thus Convex does not need an opinionated authorization framework like RLS, which
-is required in client oriented databases like Firebase or Supabase. This
+This means Convex doesn't need an opinionated authorization framework like RLS,
+which is required in client oriented databases like Firebase or Supabase. This
 flexibility lets you build and use an
 [authorization framework](https://en.wikipedia.org/wiki/Authorization) for your
 needs.
 
 That said, the most common way is to simply write code that checks if the user
 is logged in and if they are allowed to do the requested action at the beginning
-of your public function.
+of each public function.
 
 For example, the following function enforces that only the currently
 authenticated user can remove their own user image:

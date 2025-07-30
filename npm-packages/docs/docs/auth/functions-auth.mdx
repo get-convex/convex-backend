@@ -1,7 +1,7 @@
 ---
 title: "Auth in Functions"
 sidebar_label: "Functions"
-sidebar_position: 40
+sidebar_position: 100
 description: "Access user authentication in Convex functions"
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Convex & Auth0"
 sidebar_label: "Auth0"
-sidebar_position: 20
+sidebar_position: 30
 description: "Integrate Auth0 authentication with Convex"
 ---
 

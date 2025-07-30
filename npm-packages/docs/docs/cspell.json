@@ -7,6 +7,7 @@
     "Alexes",
     "androidx",
     "asynciterable",
+    "authkit",
     "autoplay",
     "Authed",
     "bendrucker",
@@ -121,6 +122,9 @@
     "webm",
     "websockets",
     "whsec",
+    "workos",
+    "WorkOS",
+    "WORKOS",
     "Workpool",
     "yourclientid",
     "zoneinfo"

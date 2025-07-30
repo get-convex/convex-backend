@@ -5,6 +5,8 @@
 - Expose the schemaValidation property of schema, intended for runtime tests or
   assertions that it is indeed enabled.
 
+- Export TokenFetcher type, intended for external auth integrations.
+
 ## 1.25.4
 
 - Experimental `convex dev --once --debug-node-apis` debug flag for tracing

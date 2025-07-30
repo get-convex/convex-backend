@@ -1,7 +1,7 @@
 ---
 title: "Storing Users in the Convex Database"
 sidebar_label: "Database"
-sidebar_position: 50
+sidebar_position: 120
 description: "Store user information in your Convex database"
 ---
 

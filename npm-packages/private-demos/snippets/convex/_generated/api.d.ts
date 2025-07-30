@@ -95,6 +95,7 @@ import type * as userHelpers from "../userHelpers.js";
 import type * as userHelpersJS from "../userHelpersJS.js";
 import type * as vectorSearch from "../vectorSearch.js";
 import type * as vectorSearch2 from "../vectorSearch2.js";
+import type * as workosFunctions from "../workosFunctions.js";
 import type * as writingDataDelete from "../writingDataDelete.js";
 import type * as writingDataInsert from "../writingDataInsert.js";
 import type * as writingDataPatch from "../writingDataPatch.js";
@@ -191,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   userHelpersJS: typeof userHelpersJS;
   vectorSearch: typeof vectorSearch;
   vectorSearch2: typeof vectorSearch2;
+  workosFunctions: typeof workosFunctions;
   writingDataDelete: typeof writingDataDelete;
   writingDataInsert: typeof writingDataInsert;
   writingDataPatch: typeof writingDataPatch;

@@ -1,7 +1,7 @@
 ---
 title: "Debugging Authentication"
 sidebar_label: "Debugging"
-sidebar_position: 60
+sidebar_position: 130
 description: "Troubleshoot authentication issues in Convex"
 ---
 
