@@ -251,6 +251,12 @@ impl AuthConfigEnvironment {
         }
 
         let config_str = json_stringify(&mut scope, config_val)?;
+
+        // Custom errors for misconfigured `convex/auth.config.ts` files that
+        // are helpful because we allow extra properties in the
+        // authoritative deserialization.
+        check_for_common_confusions(&config_str)?;
+
         let config: AuthConfig = serde_json::from_str::<SerializedAuthConfig>(&config_str)
             .map_err(|error| AuthConfigNotMatchingSchemaError {
                 error: strip_position(&error.to_string()),
@@ -258,6 +264,87 @@ impl AuthConfigEnvironment {
             .try_into()?;
         Ok(config)
     }
+}
+
+fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
+    let raw_config: JsonValue =
+        serde_json::from_str(config_str).map_err(|error| AuthConfigNotMatchingSchemaError {
+            error: strip_position(&error.to_string()),
+        })?;
+
+    if let JsonValue::Object(ref config_obj) = raw_config {
+        if let Some(JsonValue::Array(providers)) = config_obj.get("providers") {
+            for (index, config_obj) in providers.iter().enumerate() {
+                if let JsonValue::Object(obj) = config_obj {
+                    let has_domain = obj.contains_key("domain");
+                    let has_issuer = obj.contains_key("issuer");
+                    let issuer = obj.get("issuer").and_then(|v| v.as_str());
+                    let has_bad_application_id =
+                        obj.contains_key("applicationId") || obj.contains_key("applicationid");
+                    let has_application_id = obj.contains_key("applicationID");
+                    let type_value = obj
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
+                    if has_bad_application_id {
+                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
+                            error: format!(
+                                "Provider at index {} must have applicationID property spelled \
+                                 lowercase 'application', capital I, capital D.",
+                                index
+                            ),
+                        });
+                    }
+                    if type_value != "customJwt" && type_value != "oidc" && type_value != "unknown"
+                    {
+                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
+                            error: format!(
+                                "Provider at index {} has unexpected 'type' value '{}'",
+                                index, type_value
+                            ),
+                        });
+                    }
+
+                    if type_value == "customJwt" && has_domain {
+                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
+                            error: format!(
+                                "Provider at index {} is a customJwt so cannot have a 'domain' \
+                                 specified",
+                                index,
+                            ),
+                        });
+                    }
+
+                    let is_oidc = type_value == "oidc" || type_value == "unknown";
+                    if is_oidc && has_issuer {
+                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
+                            error: format!(
+                                "Provider at index {} is oidc so cannot have an 'issuer' \
+                                 specified.",
+                                index,
+                            ),
+                        });
+                    }
+
+                    if !has_application_id
+                        && (issuer == Some("https://api.workos.com/")
+                            || issuer == Some("https://api.workos.com"))
+                    {
+                        anyhow::bail!(InsecureConfiguration {
+                            error: format!(
+                                "Provider at index {} has an issuer that is shared among many \
+                                 applications, so must to specify an ApplicationID to check \
+                                 against an `aud` field of a JWT.",
+                                index,
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 // It's not meaningful for the user to see the serialized
@@ -299,4 +386,58 @@ pub struct AuthConfigUnserializableError;
 #[error("auth config file must include a list of provider credentials: {error}")]
 pub struct AuthConfigNotMatchingSchemaError {
     error: String,
+}
+
+#[derive(thiserror::Error, Debug, Clone, PartialEq)]
+#[error("This auth configuration appears potentially insecure: {error}")]
+pub struct InsecureConfiguration {
+    error: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_traditional_oidc() -> anyhow::Result<()> {
+        // not "legacy" because we'll support it forever, the only legacy aspect is not
+        // having a "type" field.
+        let valid_config = r#"{"providers": [{"domain": "a", "applicationID": "b"}]}"#;
+        check_for_common_confusions(valid_config)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_newer_oidc() -> anyhow::Result<()> {
+        let valid_config =
+            r#"{"providers": [{"type": "oidc", "domain": "example.com", "applicationID": "c"}]}"#;
+        check_for_common_confusions(valid_config)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_misspell_application_id() -> anyhow::Result<()> {
+        let invalid_config = r#"{"providers": [{"domain": "example.com", "applicationId": "b"}]}"#;
+        let result = check_for_common_confusions(invalid_config);
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("applicationID"));
+        assert!(error_message.contains("spelled lowercase 'application', capital I, capital D."));
+        Ok(())
+    }
+
+    #[test]
+    fn test_valid_custom_jwt() -> anyhow::Result<()> {
+        let valid_config = r#"{ "providers": [ { "type": "customJwt", "applicationID": "your-application-id", "issuer": "https://your.issuer.url.com", "jwks": "https://your.issuer.url.com/.well-known/jwks.json", "algorithm": "RS256" }]}"#;
+
+        check_for_common_confusions(valid_config)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_valid_custom_jwt_without_application() -> anyhow::Result<()> {
+        let valid_config = r#"{ "providers": [ { "type": "customJwt", "issuer": "https://your.issuer.url.com", "jwks": "https://your.issuer.url.com/.well-known/jwks.json", "algorithm": "RS256" }]}"#;
+        check_for_common_confusions(valid_config)?;
+        Ok(())
+    }
 }
