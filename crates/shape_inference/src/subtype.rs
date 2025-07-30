@@ -15,7 +15,6 @@ use super::{
     },
     set::SetShape,
     string::StringLiteralShape,
-    union::UnionBuilder,
     ShapeEnum,
 };
 use crate::{
@@ -340,23 +339,15 @@ impl<C: ShapeConfig> CountedShape<C> {
                 return Some(accumulated);
             },
             (_, ShapeEnum::Union(ref union)) => {
-                let mut accumulated = UnionBuilder::new();
-                let mut found_supertype = false;
                 for union_type in union.iter() {
-                    if !found_supertype {
-                        if let Some(merged_type) = self.merge_if_subtype(union_type) {
-                            found_supertype = true;
-                            accumulated = accumulated.push(merged_type);
-                            continue;
-                        }
+                    if let Some(merged_type) = self.merge_if_subtype(union_type) {
+                        let mut builder = union.clone().into_builder();
+                        assert!(builder.remove(union_type));
+                        builder = builder.push(merged_type);
+                        return Some(builder.build());
                     }
-                    accumulated = accumulated.push(union_type.clone());
                 }
-                if found_supertype {
-                    return Some(accumulated.build());
-                } else {
-                    return None;
-                }
+                return None;
             },
             (_, ShapeEnum::Unknown) => ShapeEnum::Unknown,
             _ => return None,

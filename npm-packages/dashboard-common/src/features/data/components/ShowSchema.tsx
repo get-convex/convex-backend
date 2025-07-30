@@ -90,7 +90,7 @@ export function ShowSchema({
                 <div>
                   <Spinner />
                 </div>{" "}
-                A new schema is being validated after a code push…
+                Code push in progress...
               </div>
             )}
           </HeadlessTab.Panel>
