@@ -17,6 +17,12 @@ async function fromInit() {
   assert.strictEqual(req.headers.get("test-header"), "value");
 }
 
+function invalidConstructor() {
+  assert.throws(() => {
+    new Request({} as any);
+  }, "Failed to parse URL from");
+}
+
 async function invalidJson() {
   const req = new Request("http://foo/", {
     body: "ahoyhoy",
@@ -123,6 +129,7 @@ async function requestReadableStream() {
 export default query(async () => {
   return await wrapInTests({
     fromInit,
+    invalidConstructor,
     methodNonString,
     requestConstructorTakeURLObjectAsParameter,
     invalidJson,

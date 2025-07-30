@@ -101,10 +101,7 @@ export class Request {
       this._method = "GET";
       this._headers = new Headers([]);
     } else {
-      return throwNotImplementedMethodError(
-        "constructor with types other than `Request`, `string` or `URL`",
-        "Request",
-      );
+      throw new TypeError("Failed to parse URL from " + input);
     }
 
     if (typeof options?.method === "string") {
