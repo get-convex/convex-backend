@@ -4,30 +4,38 @@
  */
 
 export interface paths {
-    "/teams": {
+    "/team/{team_id}/create_project": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["get_teams_for_member"];
+        get?: never;
         put?: never;
-        post: operations["create_team"];
+        /**
+         * Create project
+         * @description Create a new project on a team and provision a dev or prod deployment.
+         */
+        post: operations["create project"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/projects": {
+    "/team/{team_id}/list_projects": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["get_projects_for_team"];
+        /**
+         * List projects
+         * @description List all projects for a team.
+         */
+        get: operations["list projects"];
         put?: never;
         post?: never;
         delete?: never;
@@ -36,14 +44,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/projects/{project_id}/instances": {
+    "/project/{project_id}/list_deployments": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["list_deployments_for_project"];
+        /**
+         * List deployments
+         * @description List deployments for a projects.
+         */
+        get: operations["list deployments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -52,7 +64,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/instances/{deployment_name}/auth": {
+    "/project/{project_id}/delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -61,55 +73,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["get_deployment_auth_dashboard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/create_project": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["create_project_and_provision_deployment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{project_id}/transfer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["transfer_project"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/delete_project/{project_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["dashboard_delete_project"];
+        /**
+         * Delete project
+         * @description Delete a project. Deletes all deployments in the project as well.
+         */
+        post: operations["delete project"];
         delete?: never;
         options?: never;
         head?: never;
@@ -120,126 +88,60 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        TransferProjectArgs: {
-            destinationTeamId: components["schemas"]["TeamId"];
-        };
-        /** Format: int64 */
-        TeamId: number;
-        CreateProjectResponse: {
-            adminKey: components["schemas"]["AdminKey"];
-            deploymentName: string;
-            prodUrl: string;
-            projectId: components["schemas"]["ProjectId"];
-            projectSlug: components["schemas"]["ProjectSlug"];
-            /** Format: int64 */
-            projectsRemaining: number;
-            teamId: components["schemas"]["TeamId"];
-            teamSlug: components["schemas"]["TeamSlug"];
-        };
-        TeamSlug: string;
-        ProjectSlug: string;
-        /** Format: int64 */
-        ProjectId: number;
-        /** @description Encrypted admin key */
-        AdminKey: string;
-        CreateProjectArgs: {
-            deploymentType?: null | components["schemas"]["DeploymentType"];
-            projectName: components["schemas"]["ProjectName"];
-            team: components["schemas"]["TeamSlug"];
-        };
-        ProjectName: string;
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview";
-        InstanceAuthForDashboardInteractionsResponse: {
-            adminKey: components["schemas"]["SerializedAccessToken"];
-            instanceUrl: string;
-            /** @enum {string} */
-            kind: "Cloud";
-        } | {
-            adminKey: components["schemas"]["AdminKey"];
-            instanceUrl: string;
-            /** @enum {string} */
-            kind: "Local";
+        PlatformCreateProjectArgs: {
+            /** @description Projects always include a deployment, so start this project off with a
+             *     "dev" development deployment or a "prod" production deployment. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The full name of the project as it will appear in the dashboard. Spaces
+             *     and punctuations allowed. */
+            projectName: components["schemas"]["ProjectName"];
         };
-        /** @description ConvexAccessToken is our own internal notion of authorization.
-         *     It is versioned.
-         *
-         *     V1 - uses an auth0_access_token for authorization.
-         *
-         *     Serialization is done by SerializedAccessToken::new
-         *     The ConvexAccessToken is serialized (json) and base64
-         *     encoded for obfuscation before sending it to the client
-         *
-         *     Deserialization is done by SerializedAccessToken::decode
-         *     This reverses the process and returns a ConvexAccessToken which
-         *     can be match'd by the extractor.
-         *
-         *     `SerializedAccessToken` is intentionally the only struct that is
-         *     left public.
-         *
-         *     The json is externally tagged. Expect it to look like
-         *     {"v1": "auth0token"} */
-        SerializedAccessToken: string;
-        DeploymentResponse: {
-            /** Format: int64 */
-            createTime: number;
-            creator: components["schemas"]["MemberId"];
-            deploymentType: components["schemas"]["DeploymentType"];
-            /** Format: int64 */
-            id: number;
-            /** @enum {string} */
-            kind: "cloud";
-            name: string;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
-            projectId: components["schemas"]["ProjectId"];
-        } | {
-            /** Format: int64 */
-            createTime: number;
-            creator: components["schemas"]["MemberId"];
-            deploymentType: components["schemas"]["DeploymentType"];
-            deviceName: components["schemas"]["DeviceName"];
-            /** Format: int64 */
-            id: number;
-            isActive: boolean;
-            /** @enum {string} */
-            kind: "local";
-            /** Format: int64 */
-            lastUpdateTime: number;
-            name: string;
-            /** Format: int32 */
-            port: number;
-            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+        PlatformCreateProjectResponse: {
+            /** @description The readable identifier for this deployment, something like
+             *     playful-otter-123. */
+            deploymentName: string;
+            /** @description Deployment cloud URL, where this deployment lives. */
+            deploymentUrl: string;
             projectId: components["schemas"]["ProjectId"];
         };
-        DeviceName: string;
-        PreviewDeploymentIdentifier: string;
-        /** Format: int64 */
-        MemberId: number;
-        ProjectDetails: {
-            /** Format: int64 */
+        PlatformDeploymentResponse: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this deployment was created.
+             */
+            createTime: number;
+            /** @description Whether this is a "dev" development deployment or "prod" production
+             *     deployment. */
+            deploymentType: components["schemas"]["DeploymentType"];
+            /** @description The readable identifier for this deployment, something like
+             *     playful-otter-123. */
+            name: string;
+            previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
+            /** @description The project this deployment belongs to. */
+            projectId: components["schemas"]["ProjectId"];
+        };
+        PlatformProjectDetails: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds.
+             */
             createTime: number;
             id: components["schemas"]["ProjectId"];
-            isDemo: boolean;
+            /** @description The full project name, including spaces and punctuation. */
             name: components["schemas"]["ProjectName"];
+            /** @description This shortened version of the name used in Convex Dashboard URLs. */
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
         };
-        CreateTeamArgs: {
-            name: components["schemas"]["ProposedTeamName"];
-        };
-        ProposedTeamName: string;
-        Team: {
-            creator?: null | components["schemas"]["MemberId"];
-            id: components["schemas"]["TeamId"];
-            managedBy?: string | null;
-            name: components["schemas"]["TeamName"];
-            referralCode: components["schemas"]["ReferralCode"];
-            referredBy?: null | components["schemas"]["TeamId"];
-            slug: components["schemas"]["TeamSlug"];
-            suspended: boolean;
-        };
-        ReferralCode: string;
-        TeamName: string;
+        PreviewDeploymentIdentifier: string;
+        /** Format: int64 */
+        ProjectId: number;
+        ProjectName: string;
+        ProjectSlug: string;
+        /** Format: int64 */
+        TeamId: number;
     };
     responses: never;
     parameters: never;
@@ -247,187 +149,95 @@ export interface components {
     headers: never;
     pathItems: never;
 }
-export type TransferProjectArgs = components['schemas']['TransferProjectArgs'];
-export type TeamId = components['schemas']['TeamId'];
-export type CreateProjectResponse = components['schemas']['CreateProjectResponse'];
-export type TeamSlug = components['schemas']['TeamSlug'];
-export type ProjectSlug = components['schemas']['ProjectSlug'];
-export type ProjectId = components['schemas']['ProjectId'];
-export type AdminKey = components['schemas']['AdminKey'];
-export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
-export type ProjectName = components['schemas']['ProjectName'];
 export type DeploymentType = components['schemas']['DeploymentType'];
-export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
-export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
-export type DeploymentResponse = components['schemas']['DeploymentResponse'];
-export type DeviceName = components['schemas']['DeviceName'];
+export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
+export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
+export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
+export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
-export type MemberId = components['schemas']['MemberId'];
-export type ProjectDetails = components['schemas']['ProjectDetails'];
-export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
-export type ProposedTeamName = components['schemas']['ProposedTeamName'];
-export type Team = components['schemas']['Team'];
-export type ReferralCode = components['schemas']['ReferralCode'];
-export type TeamName = components['schemas']['TeamName'];
+export type ProjectId = components['schemas']['ProjectId'];
+export type ProjectName = components['schemas']['ProjectName'];
+export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type TeamId = components['schemas']['TeamId'];
 export type $defs = Record<string, never>;
 export interface operations {
-    get_teams_for_member: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Team"][];
-                };
-            };
-        };
-    };
-    create_team: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTeamArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Team"];
-                };
-            };
-        };
-    };
-    get_projects_for_team: {
+    "create project": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectDetails"][];
-                };
-            };
-        };
-    };
-    list_deployments_for_project: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeploymentResponse"][];
-                };
-            };
-        };
-    };
-    get_deployment_auth_dashboard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceAuthForDashboardInteractionsResponse"];
-                };
-            };
-        };
-    };
-    create_project_and_provision_deployment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateProjectArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreateProjectResponse"];
-                };
-            };
-        };
-    };
-    transfer_project: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TransferProjectArgs"];
+                "application/json": components["schemas"]["PlatformCreateProjectArgs"];
             };
         };
         responses: {
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PlatformCreateProjectResponse"];
+                };
             };
         };
     };
-    dashboard_delete_project: {
+    "list projects": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                project_id: string;
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformProjectDetails"][];
+                };
+            };
+        };
+    };
+    "list deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformDeploymentResponse"][];
+                };
+            };
+        };
+    };
+    "delete project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                project_id: components["schemas"]["ProjectId"];
             };
             cookie?: never;
         };

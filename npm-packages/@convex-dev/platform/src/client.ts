@@ -4,9 +4,12 @@ import type { paths as ConvexPaths } from "./generatedApi.js";
 import { version } from "./version.js";
 
 export const productionProvisionHost = "https://api.convex.dev";
-export const provisionHost = productionProvisionHost;
+export const provisionHost =
+  (globalThis as any)?.process?.env?.CONVEX_PROVISION_HOST ||
+  productionProvisionHost;
+
 // This API spec is rooted here
-const baseUrl = `${provisionHost}/api/dashboard`;
+const baseUrl = `${provisionHost}/v1`;
 
 export type ConvexAuth = {
   kind: "accessToken";
@@ -23,7 +26,6 @@ export function createConvexClient(accessToken: string) {
     Authorization: `Bearer ${auth.accessToken}`,
     "Convex-Client": `convex-platform-${version}`,
   };
-  console.log(headers);
 
   const client = createClient<ConvexPaths>({
     baseUrl,

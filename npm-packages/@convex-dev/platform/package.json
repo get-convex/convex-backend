@@ -9,7 +9,7 @@
     "prepack": "node -e \"if (process.env.npm_config_user_agent && !process.env.npm_config_user_agent.startsWith('pnpm')) { console.error('❌ Use pnpm publish instead of npm publish'); process.exit(1); }\"",
     "test": "echo 0",
     "typecheck": "tsc --noEmit",
-    "generateApiSpec": "node filter-openapi.mjs && openapi-typescript ./src/filtered-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix",
+    "generateApiSpec": "openapi-typescript ./platform-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix",
     "prepare": "tsdown"
   },
   "keywords": [],

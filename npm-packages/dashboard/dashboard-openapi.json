@@ -10,457 +10,9 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/authorize": {
-      "post": {
-        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the Auth0 access token",
-        "operationId": "authorize_device",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AuthorizeArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthorizeResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/authorize_app": {
-      "post": {
-        "operationId": "authorize_app",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AuthorizeAppArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthorizeCodeResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/cloud_backups/{cloud_backup_id}": {
+    "/profile_emails/list": {
       "get": {
-        "operationId": "get_cloud_backup",
-        "parameters": [
-          {
-            "name": "cloud_backup_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBackupResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/cloud_backups/{cloud_backup_id}/cancel": {
-      "post": {
-        "operationId": "cancel_cloud_backup",
-        "parameters": [
-          {
-            "name": "cloud_backup_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "default": null
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/cloud_backups/{cloud_backup_id}/delete": {
-      "post": {
-        "operationId": "delete_cloud_backup",
-        "parameters": [
-          {
-            "name": "cloud_backup_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/create_project": {
-      "post": {
-        "operationId": "create_project_and_provision_deployment",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProjectArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateProjectResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/delete_access_token": {
-      "post": {
-        "operationId": "delete_access_token",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteAccessTokenArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/delete_account": {
-      "post": {
-        "operationId": "delete_account",
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/delete_project/{project_id}": {
-      "post": {
-        "operationId": "dashboard_delete_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/delete_projects": {
-      "post": {
-        "operationId": "dashboard_delete_projects",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteProjectsArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/deployments/{deployment_id}/configure_periodic_backup": {
-      "post": {
-        "operationId": "configure_periodic_backup",
-        "parameters": [
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConfigurePeriodicBackupArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "type": "null"
-                    },
-                    {
-                      "$ref": "#/components/schemas/PeriodicBackupConfig"
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/deployments/{deployment_id}/disable_periodic_backup": {
-      "post": {
-        "operationId": "disable_periodic_backup",
-        "parameters": [
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/deployments/{deployment_id}/get_periodic_backup_config": {
-      "get": {
-        "operationId": "get_periodic_backup_config",
-        "parameters": [
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "type": "null"
-                    },
-                    {
-                      "$ref": "#/components/schemas/PeriodicBackupConfig"
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/deployments/{deployment_id}/request_cloud_backup": {
-      "post": {
-        "operationId": "request_cloud_backup",
-        "parameters": [
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CloudBackupResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/deployments/{deployment_id}/restore_from_cloud_backup": {
-      "post": {
-        "operationId": "restore_from_cloud_backup",
-        "parameters": [
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RestoreFromCloudBackupArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/discord/accounts": {
-      "get": {
-        "operationId": "get_discord_accounts",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscordAccountsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/discord/authorize": {
-      "post": {
-        "operationId": "authorize_discord_account",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AuthorizeDiscordAccountRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/discord/login_url": {
-      "get": {
-        "operationId": "get_discord_login_url",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscordLoginUrlResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/discord/unlink": {
-      "post": {
-        "operationId": "unlink_discord_account",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UnlinkDiscordAccountRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/access_tokens": {
-      "get": {
-        "operationId": "get_deployment_access_tokens",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "list_profile_emails",
         "responses": {
           "200": {
             "description": "",
@@ -469,252 +21,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                    "$ref": "#/components/schemas/MemberEmailResponse"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/auth": {
-      "post": {
-        "operationId": "get_deployment_auth_dashboard",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InstanceAuthForDashboardInteractionsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/domains/create": {
-      "post": {
-        "operationId": "create_vanity_domain",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VanityDomainRequestArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/domains/delete": {
-      "post": {
-        "operationId": "delete_vanity_domain",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VanityDomainRequestArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/instances/{deployment_name}/domains/list": {
-      "get": {
-        "operationId": "list_vanity_domains_for_instance",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListVanityDomainsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/invites/{code}/accept": {
-      "post": {
-        "operationId": "accept_invitation",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Team"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/link_identity": {
-      "post": {
-        "description": "Link a secondary identity to a user's account",
-        "operationId": "link_identity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LinkIdentityRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {}
-      }
-    },
-    "/list_identities": {
-      "get": {
-        "description": "List all identities for a user",
-        "operationId": "list_identities",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AuthIdentity"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/member_data": {
-      "get": {
-        "operationId": "get_member_data",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberDataResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/optins": {
-      "get": {
-        "operationId": "dashboard_get_opt_ins",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetOptInsResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "dashboard_accept_opt_ins",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/OptIn"
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/profile": {
-      "get": {
-        "operationId": "get_profile",
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberResponse"
                 }
               }
             }
@@ -762,19 +70,33 @@
         }
       }
     },
-    "/profile_emails/list": {
+    "/member_data": {
       "get": {
-        "operationId": "list_profile_emails",
+        "operationId": "get_member_data",
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MemberEmailResponse"
-                  }
+                  "$ref": "#/components/schemas/MemberDataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "operationId": "get_profile",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
                 }
               }
             }
@@ -822,6 +144,26 @@
         }
       }
     },
+    "/update_profile_name": {
+      "put": {
+        "operationId": "update_profile_name",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileNameArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/profile_emails/verify/{code}": {
       "post": {
         "operationId": "verify_profile_email",
@@ -843,24 +185,26 @@
         }
       }
     },
-    "/projects/{project_id}": {
-      "get": {
-        "operationId": "get_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
+    "/delete_account": {
+      "post": {
+        "operationId": "delete_account",
+        "responses": {
+          "200": {
+            "description": ""
           }
-        ],
+        }
+      }
+    },
+    "/optins": {
+      "get": {
+        "operationId": "dashboard_get_opt_ins",
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProjectDetails"
+                  "$ref": "#/components/schemas/GetOptInsResponse"
                 }
               }
             }
@@ -868,20 +212,15 @@
         }
       },
       "put": {
-        "operationId": "update_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
+        "operationId": "dashboard_accept_opt_ins",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProjectArgs"
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OptIn"
+                }
               }
             }
           },
@@ -892,288 +231,6 @@
             "description": ""
           }
         }
-      }
-    },
-    "/projects/{project_id}/access_tokens": {
-      "get": {
-        "operationId": "get_project_access_tokens",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/app_access_tokens": {
-      "get": {
-        "operationId": "get_project_app_access_tokens",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AppAccessTokenResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/delete_preview_deployment": {
-      "post": {
-        "operationId": "deactivate_preview_deployment",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeactivatePreviewDeploymentArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/environment_variables/list": {
-      "get": {
-        "operationId": "list_environment_variables",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListEnvVariableResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/environment_variables/update_batch": {
-      "post": {
-        "operationId": "update_environment_variables",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateEnvironmentVariables"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/instances": {
-      "get": {
-        "operationId": "list_deployments_for_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DeploymentResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/preview_deployments": {
-      "get": {
-        "operationId": "list_preview_deployments_for_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DeploymentResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/provision": {
-      "post": {
-        "operationId": "provision_deployment_dashboard",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProvisionDeploymentDashboardArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProvisionDeploymentDashboardResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{project_id}/transfer": {
-      "post": {
-        "operationId": "transfer_project",
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TransferProjectArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/rename_token": {
-      "post": {
-        "operationId": "rename_access_token",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenameAccessTokenArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/set_jwt_cookie": {
-      "post": {
-        "operationId": "set_jwt_cookie",
-        "responses": {}
       }
     },
     "/teams": {
@@ -1221,14 +278,50 @@
         }
       }
     },
-    "/teams/delete_access_token": {
+    "/teams/{team_id}/members": {
+      "get": {
+        "operationId": "get_members_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemberResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/remove_member": {
       "post": {
-        "operationId": "delete_team_access_token",
+        "operationId": "remove_member_from_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ActionOnAccessTokenArgs"
+                "$ref": "#/components/schemas/RemoveMemberArgs"
               }
             }
           },
@@ -1237,6 +330,31 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_entitlements": {
+      "get": {
+        "operationId": "get_team_entitlements",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamEntitlementsResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1269,9 +387,9 @@
         }
       }
     },
-    "/teams/{team_id}/access_tokens": {
-      "get": {
-        "operationId": "get_team_access_tokens",
+    "/teams/{team_id}/delete": {
+      "post": {
+        "operationId": "delete_team",
         "parameters": [
           {
             "name": "team_id",
@@ -1282,45 +400,7 @@
         ],
         "responses": {
           "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/app_access_tokens": {
-      "get": {
-        "operationId": "get_team_app_access_tokens",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AppAccessTokenResponse"
-                  }
-                }
-              }
-            }
+            "description": ""
           }
         }
       }
@@ -1353,144 +433,15 @@
         }
       }
     },
-    "/teams/{team_id}/cancel_orb_subscription": {
-      "post": {
-        "operationId": "cancel_orb_subscription",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/change_subscription_plan": {
-      "post": {
-        "operationId": "change_subscription_plan",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangeSubscriptionPlanArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/create_setup_intent": {
-      "post": {
-        "operationId": "create_setup_intent",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SetupIntentResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/create_subscription": {
-      "post": {
-        "operationId": "create_subscription",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSubscriptionArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/delete": {
-      "post": {
-        "operationId": "delete_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/deployments/{deployment_id}": {
+    "/validate_referral_code": {
       "get": {
-        "operationId": "get_deployment_by_id",
+        "operationId": "validate_referral_code",
         "parameters": [
           {
-            "name": "team_id",
-            "in": "path",
+            "name": "code",
+            "in": "query",
             "description": "",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/TeamId"
-            }
-          },
-          {
-            "name": "deployment_id",
-            "in": "path",
-            "description": "Can be a deployment's id (integer) or name (string)",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "required": true
           }
         ],
         "responses": {
@@ -1499,10 +450,106 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeploymentResponse"
+                  "$ref": "#/components/schemas/ValidateReferralCodeResult"
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/referral_state": {
+      "get": {
+        "operationId": "get_referral_state_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/projects": {
+      "get": {
+        "operationId": "get_projects_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectDetails"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/usage/team_usage_state": {
+      "get": {
+        "operationId": "get_team_usage_state",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamUsageStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/unpause": {
+      "post": {
+        "operationId": "unpause_deployments",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
           }
         }
       }
@@ -1590,12 +637,12 @@
         }
       }
     },
-    "/teams/{team_id}/get_current_spend": {
+    "/projects/{project_id}": {
       "get": {
-        "operationId": "get_current_spend",
+        "operationId": "get_project",
         "parameters": [
           {
-            "name": "team_id",
+            "name": "project_id",
             "in": "path",
             "description": "",
             "required": true
@@ -1607,7 +654,61 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetCurrentSpendResponse"
+                  "$ref": "#/components/schemas/ProjectDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "update_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/instances": {
+      "get": {
+        "operationId": "list_deployments_for_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentResponse"
+                  }
                 }
               }
             }
@@ -1615,96 +716,223 @@
         }
       }
     },
-    "/teams/{team_id}/get_discounted_plan/{plan_id}/{promo_code}": {
+    "/delete_project/{project_id}": {
+      "post": {
+        "operationId": "dashboard_delete_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/delete_projects": {
+      "post": {
+        "operationId": "dashboard_delete_projects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteProjectsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/create_project": {
+      "post": {
+        "operationId": "create_project_and_provision_deployment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateProjectResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/transfer": {
+      "post": {
+        "operationId": "transfer_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/auth": {
+      "post": {
+        "operationId": "get_deployment_auth_dashboard",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceAuthForDashboardInteractionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/provision": {
+      "post": {
+        "operationId": "provision_deployment_dashboard",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionDeploymentDashboardArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionDeploymentDashboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/deployments/{deployment_id}": {
       "get": {
-        "operationId": "get_discounted_plan",
+        "operationId": "get_deployment_by_id",
         "parameters": [
           {
             "name": "team_id",
             "in": "path",
             "description": "",
-            "required": true
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
           },
           {
-            "name": "plan_id",
+            "name": "deployment_id",
+            "in": "path",
+            "description": "Can be a deployment's id (integer) or name (string)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/update_member_role": {
+      "post": {
+        "operationId": "update_member_role",
+        "parameters": [
+          {
+            "name": "team_id",
             "in": "path",
             "description": "",
             "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemberRoleArgs"
+              }
+            }
           },
-          {
-            "name": "promo_code",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscountedPlanResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/get_entitlements": {
-      "get": {
-        "operationId": "get_team_entitlements",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TeamEntitlementsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/get_orb_subscription": {
-      "get": {
-        "operationId": "get_orb_subscription",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "type": "null"
-                    },
-                    {
-                      "$ref": "#/components/schemas/OrbSubscriptionResponse"
-                    }
-                  ]
-                }
-              }
-            }
+            "description": ""
           }
         }
       }
@@ -1737,9 +965,90 @@
         }
       }
     },
-    "/teams/{team_id}/get_spending_limits": {
+    "/teams/{team_id}/update_project_roles": {
+      "post": {
+        "operationId": "update_project_roles",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRolesArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/request_cloud_backup": {
+      "post": {
+        "operationId": "request_cloud_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBackupResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/restore_from_cloud_backup": {
+      "post": {
+        "operationId": "restore_from_cloud_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreFromCloudBackupArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/list_cloud_backups": {
       "get": {
-        "operationId": "get_spending_limits",
+        "operationId": "list_cloud_backups",
         "parameters": [
           {
             "name": "team_id",
@@ -1754,7 +1063,583 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetSpendingLimitsResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudBackupResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cloud_backups/{cloud_backup_id}/delete": {
+      "post": {
+        "operationId": "delete_cloud_backup",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/cloud_backups/{cloud_backup_id}": {
+      "get": {
+        "operationId": "get_cloud_backup",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBackupResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cloud_backups/{cloud_backup_id}/cancel": {
+      "post": {
+        "operationId": "cancel_cloud_backup",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/get_periodic_backup_config": {
+      "get": {
+        "operationId": "get_periodic_backup_config",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PeriodicBackupConfig"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/configure_periodic_backup": {
+      "post": {
+        "operationId": "configure_periodic_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurePeriodicBackupArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PeriodicBackupConfig"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/disable_periodic_backup": {
+      "post": {
+        "operationId": "disable_periodic_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/discord/accounts": {
+      "get": {
+        "operationId": "get_discord_accounts",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordAccountsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/discord/login_url": {
+      "get": {
+        "operationId": "get_discord_login_url",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordLoginUrlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/discord/authorize": {
+      "post": {
+        "operationId": "authorize_discord_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeDiscordAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/discord/unlink": {
+      "post": {
+        "operationId": "unlink_discord_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkDiscordAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/domains/create": {
+      "post": {
+        "operationId": "create_vanity_domain",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VanityDomainRequestArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/domains/delete": {
+      "post": {
+        "operationId": "delete_vanity_domain",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VanityDomainRequestArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/domains/list": {
+      "get": {
+        "operationId": "list_vanity_domains_for_instance",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListVanityDomainsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rename_token": {
+      "post": {
+        "operationId": "rename_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/delete_access_token": {
+      "post": {
+        "operationId": "delete_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/access_tokens": {
+      "get": {
+        "operationId": "get_team_access_tokens",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/app_access_tokens": {
+      "get": {
+        "operationId": "get_team_app_access_tokens",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/access_tokens": {
+      "get": {
+        "operationId": "get_deployment_access_tokens",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/access_tokens": {
+      "get": {
+        "operationId": "get_project_access_tokens",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/app_access_tokens": {
+      "get": {
+        "operationId": "get_project_app_access_tokens",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/delete_access_token": {
+      "post": {
+        "operationId": "delete_team_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionOnAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/authorize": {
+      "post": {
+        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the Auth0 access token",
+        "operationId": "authorize_device",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/authorize_app": {
+      "post": {
+        "operationId": "authorize_app",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeCodeResponse"
                 }
               }
             }
@@ -1844,6 +1729,174 @@
         }
       }
     },
+    "/invites/{code}/accept": {
+      "post": {
+        "operationId": "accept_invitation",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/cancel_orb_subscription": {
+      "post": {
+        "operationId": "cancel_orb_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/change_subscription_plan": {
+      "post": {
+        "operationId": "change_subscription_plan",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeSubscriptionPlanArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/create_subscription": {
+      "post": {
+        "operationId": "create_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_discounted_plan/{plan_id}/{promo_code}": {
+      "get": {
+        "operationId": "get_discounted_plan",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          },
+          {
+            "name": "promo_code",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountedPlanResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_orb_subscription": {
+      "get": {
+        "operationId": "get_orb_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrbSubscriptionResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/list_active_plans": {
       "get": {
         "operationId": "list_active_plans",
@@ -1862,34 +1915,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlansResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/list_cloud_backups": {
-      "get": {
-        "operationId": "list_cloud_backups",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CloudBackupResponse"
-                  }
                 }
               }
             }
@@ -1918,366 +1943,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/members": {
-      "get": {
-        "operationId": "get_members_for_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamMemberResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/oauth_apps": {
-      "get": {
-        "operationId": "list_oauth_apps_for_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/OauthAppResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/oauth_apps/check": {
-      "post": {
-        "operationId": "check_oauth_app",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckOauthAppArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OauthAppResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/oauth_apps/register": {
-      "post": {
-        "operationId": "register_oauth_app",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterOauthAppArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OauthAppResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/oauth_apps/{client_id}/delete": {
-      "post": {
-        "operationId": "delete_oauth_app",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/TeamId"
-            }
-          },
-          {
-            "name": "client_id",
-            "in": "path",
-            "description": "The client ID of the OAuth app to delete",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/oauth_apps/{client_id}/regenerate_secret": {
-      "post": {
-        "operationId": "regenerate_oauth_client_secret",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/TeamId"
-            }
-          },
-          {
-            "name": "client_id",
-            "in": "path",
-            "description": "The client ID of the OAuth app to regenerate the secret for",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/oauth_apps/{client_id}/update": {
-      "post": {
-        "operationId": "update_oauth_app",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/TeamId"
-            }
-          },
-          {
-            "name": "client_id",
-            "in": "path",
-            "description": "The client ID of the OAuth app to update",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateOauthAppArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OauthAppResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/projects": {
-      "get": {
-        "operationId": "get_projects_for_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ProjectDetails"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/referral_state": {
-      "get": {
-        "operationId": "get_referral_state_for_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReferralState"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/remove_member": {
-      "post": {
-        "operationId": "remove_member_from_team",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RemoveMemberArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/set_spending_limit": {
-      "post": {
-        "operationId": "set_spending_limit",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetSpendingLimitArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/teams/{team_id}/unpause": {
-      "post": {
-        "operationId": "unpause_deployments",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
           }
         }
       }
@@ -2356,34 +2021,6 @@
         }
       }
     },
-    "/teams/{team_id}/update_member_role": {
-      "post": {
-        "operationId": "update_member_role",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateMemberRoleArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        }
-      }
-    },
     "/teams/{team_id}/update_payment_method": {
       "put": {
         "operationId": "update_payment_method",
@@ -2412,9 +2049,34 @@
         }
       }
     },
-    "/teams/{team_id}/update_project_roles": {
+    "/teams/{team_id}/create_setup_intent": {
       "post": {
-        "operationId": "update_project_roles",
+        "operationId": "create_setup_intent",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupIntentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/set_spending_limit": {
+      "post": {
+        "operationId": "set_spending_limit",
         "parameters": [
           {
             "name": "team_id",
@@ -2427,7 +2089,166 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProjectRolesArgs"
+                "$ref": "#/components/schemas/SetSpendingLimitArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_current_spend": {
+      "get": {
+        "operationId": "get_current_spend",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCurrentSpendResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_spending_limits": {
+      "get": {
+        "operationId": "get_spending_limits",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSpendingLimitsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/preview_deployments": {
+      "get": {
+        "operationId": "list_preview_deployments_for_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/delete_preview_deployment": {
+      "post": {
+        "operationId": "deactivate_preview_deployment",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeactivatePreviewDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/environment_variables/list": {
+      "get": {
+        "operationId": "list_environment_variables",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvVariableResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/environment_variables/update_batch": {
+      "post": {
+        "operationId": "update_environment_variables",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvironmentVariables"
               }
             }
           },
@@ -2569,31 +2390,6 @@
         }
       }
     },
-    "/teams/{team_id}/usage/team_usage_state": {
-      "get": {
-        "operationId": "get_team_usage_state",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TeamUsageStateResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_slug}/usage/get_token_info": {
       "get": {
         "operationId": "get_token_info",
@@ -2672,6 +2468,29 @@
         }
       }
     },
+    "/set_jwt_cookie": {
+      "post": {
+        "operationId": "set_jwt_cookie",
+        "responses": {}
+      }
+    },
+    "/link_identity": {
+      "post": {
+        "description": "Link a secondary identity to a user's account",
+        "operationId": "link_identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {}
+      }
+    },
     "/unlink_identity": {
       "post": {
         "description": "Unlink a secondary identity from a user's account",
@@ -2687,6 +2506,27 @@
           "required": true
         },
         "responses": {}
+      }
+    },
+    "/list_identities": {
+      "get": {
+        "description": "List all identities for a user",
+        "operationId": "list_identities",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuthIdentity"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/update_primary_identity": {
@@ -2706,33 +2546,13 @@
         "responses": {}
       }
     },
-    "/update_profile_name": {
-      "put": {
-        "operationId": "update_profile_name",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateProfileNameArgs"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/validate_referral_code": {
+    "/teams/{team_id}/oauth_apps": {
       "get": {
-        "operationId": "validate_referral_code",
+        "operationId": "list_oauth_apps_for_team",
         "parameters": [
           {
-            "name": "code",
-            "in": "query",
+            "name": "team_id",
+            "in": "path",
             "description": "",
             "required": true
           }
@@ -2743,10 +2563,190 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidateReferralCodeResult"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OauthAppResponse"
+                  }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/check": {
+      "post": {
+        "operationId": "check_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckOauthAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/register": {
+      "post": {
+        "operationId": "register_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterOauthAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/{client_id}/update": {
+      "post": {
+        "operationId": "update_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "The client ID of the OAuth app to update",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOauthAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OauthAppResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/{client_id}/delete": {
+      "post": {
+        "operationId": "delete_oauth_app",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "The client ID of the OAuth app to delete",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/oauth_apps/{client_id}/regenerate_secret": {
+      "post": {
+        "operationId": "regenerate_oauth_client_secret",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "The client ID of the OAuth app to regenerate the secret for",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
           }
         }
       }

@@ -1,0 +1,283 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "big_brain",
+    "description": "",
+    "license": {
+      "name": "LicenseRef-Convex",
+      "identifier": "LicenseRef-Convex"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/team/{team_id}/create_project": {
+      "post": {
+        "summary": "Create project",
+        "description": "Create a new project on a team and provision a dev or prod deployment.",
+        "operationId": "create project",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreateProjectResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/team/{team_id}/list_projects": {
+      "get": {
+        "summary": "List projects",
+        "description": "List all projects for a team.",
+        "operationId": "list projects",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformProjectDetails"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/{project_id}/list_deployments": {
+      "get": {
+        "summary": "List deployments",
+        "description": "List deployments for a projects.",
+        "operationId": "list deployments",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformDeploymentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/{project_id}/delete": {
+      "post": {
+        "summary": "Delete project",
+        "description": "Delete a project. Deletes all deployments in the project as well.",
+        "operationId": "delete project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DeploymentType": {
+        "type": "string",
+        "enum": [
+          "dev",
+          "prod",
+          "preview"
+        ]
+      },
+      "PlatformCreateProjectArgs": {
+        "type": "object",
+        "required": [
+          "projectName",
+          "deploymentType"
+        ],
+        "properties": {
+          "deploymentType": {
+            "$ref": "#/components/schemas/DeploymentType",
+            "description": "Projects always include a deployment, so start this project off with a\n\"dev\" development deployment or a \"prod\" production deployment."
+          },
+          "projectName": {
+            "$ref": "#/components/schemas/ProjectName",
+            "description": "The full name of the project as it will appear in the dashboard. Spaces\nand punctuations allowed."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformCreateProjectResponse": {
+        "type": "object",
+        "required": [
+          "projectId",
+          "deploymentName",
+          "deploymentUrl"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string",
+            "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
+          },
+          "deploymentUrl": {
+            "type": "string",
+            "description": "Deployment cloud URL, where this deployment lives."
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          }
+        }
+      },
+      "PlatformDeploymentResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "createTime",
+          "deploymentType",
+          "projectId"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this deployment was created."
+          },
+          "deploymentType": {
+            "$ref": "#/components/schemas/DeploymentType",
+            "description": "Whether this is a \"dev\" development deployment or \"prod\" production\ndeployment."
+          },
+          "name": {
+            "type": "string",
+            "description": "The readable identifier for this deployment, something like\nplayful-otter-123."
+          },
+          "previewIdentifier": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PreviewDeploymentIdentifier",
+                "description": "Preview deployment identifier, if this is a preview deployment."
+              }
+            ]
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId",
+            "description": "The project this deployment belongs to."
+          }
+        }
+      },
+      "PlatformProjectDetails": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "teamId",
+          "createTime"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp in milliseconds."
+          },
+          "id": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ProjectName",
+            "description": "The full project name, including spaces and punctuation."
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug",
+            "description": "This shortened version of the name used in Convex Dashboard URLs."
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "PreviewDeploymentIdentifier": {
+        "type": "string"
+      },
+      "ProjectId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "ProjectName": {
+        "type": "string"
+      },
+      "ProjectSlug": {
+        "type": "string"
+      },
+      "TeamId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      }
+    }
+  }
+}

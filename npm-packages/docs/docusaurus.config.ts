@@ -5,6 +5,7 @@ import * as dotenv from "dotenv";
 import { resolve } from "path";
 import type { Config, ThemeConfig } from "@docusaurus/types";
 import type { Options as PresetClassicOptions } from "@docusaurus/preset-classic";
+import type * as OpenApiPlugin from "docusaurus-plugin-openapi-docs";
 
 // Load environment variables.
 dotenv.config({ path: ".env.local" });
@@ -146,6 +147,20 @@ const config: Config = {
       { name: "twitter:image:alt", content: "Convex Docs logo" },
       { name: "og:image:alt", content: "Convex Docs logo" },
     ],
+    languageTabs: [
+      // We'll provide a typed client instead.
+      /*
+      {
+        highlight: "javascript",
+        language: "javascript",
+        logoClass: "nodejs",
+        variants: ["fetch"],
+        options: {
+          followRedirect: false,
+        },
+      },
+      */
+    ],
   } satisfies ThemeConfig,
   presets: [
     [
@@ -156,6 +171,7 @@ const config: Config = {
         },
         docs: {
           sidebarPath: resolve("./sidebars.js"),
+          docItemComponent: "@theme/ApiItem",
           routeBasePath: "/",
           async sidebarItemsGenerator({
             defaultSidebarItemsGenerator,
@@ -372,6 +388,23 @@ const config: Config = {
         onRouteError: "throw",
       },
     ],
+    [
+      "docusaurus-plugin-openapi-docs",
+      {
+        id: "openapi", // plugin id
+        docsPluginId: "classic", // configured for preset-classic
+        config: {
+          management: {
+            specPath: "../@convex-dev/platform/platform-openapi.json",
+            outputDir: "docs/management-api",
+            sidebarOptions: {
+              groupPathsBy: "tag",
+            },
+            hideSendButton: false,
+          } satisfies OpenApiPlugin.Options,
+        },
+      },
+    ],
     "./src/plugins/metrics",
     "./src/plugins/prefixIds",
     async function tailwindPlugin() {
@@ -385,6 +418,7 @@ const config: Config = {
       };
     },
   ],
+  themes: ["docusaurus-theme-openapi-docs"],
   scripts: [
     {
       src: "https://plausible.io/js/script.js",

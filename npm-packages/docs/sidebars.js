@@ -1,5 +1,7 @@
 // @ts-check
 
+// import { default as apiSidebar } from "./docs/management-api/sidebar";
+
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   docs: [
@@ -320,6 +322,17 @@ const sidebars = {
       label: "HTTP API",
       className: "convex-sidebar-http-api",
     },
+    // not released yet
+    /*
+    {
+      type: "category",
+      label: "Management API",
+      link: { type: "doc", id: "management-api" },
+      // the UNTAGGED section
+      items: apiSidebar[1].items,
+      className: "convex-sidebar-components",
+    },
+    */
     {
       type: "doc",
       id: "error",
