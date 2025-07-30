@@ -48,7 +48,7 @@ describe("useTableFilters", () => {
           },
         ],
       };
-      await result.current.changeFilters(newFilters);
+      await result.current.applyFiltersWithHistory(newFilters);
     });
     expect(result.current.filters).toEqual({
       clauses: [
@@ -78,17 +78,17 @@ describe("useTableFilters", () => {
     };
 
     await act(async () => {
-      await result.current.changeFilters(validFilters);
+      await result.current.applyFiltersWithHistory(validFilters);
     });
     expect(result.current.hasFilters).toBe(true);
 
     await act(async () => {
-      await result.current.changeFilters(invalidFilters);
+      await result.current.applyFiltersWithHistory(invalidFilters);
     });
     expect(result.current.hasFilters).toBe(false);
 
     await act(async () => {
-      await result.current.changeFilters(noFilters);
+      await result.current.applyFiltersWithHistory(noFilters);
     });
     expect(result.current.hasFilters).toBe(false);
   });
@@ -106,7 +106,7 @@ describe("useTableFilters", () => {
       table1,
     );
     await act(async () => {
-      await result.current.changeFilters(filtersTable1);
+      await result.current.applyFiltersWithHistory(filtersTable1);
     });
 
     // The filters should be the same as the filters for table1.
@@ -227,7 +227,7 @@ describe("useTableFilters", () => {
     expect(mockRouter.query.filters).toBeUndefined();
     // Change the filters.
     await act(async () => {
-      await result.current.changeFilters(newFilters);
+      await result.current.applyFiltersWithHistory(newFilters);
     });
 
     // The query parameter should be updated with the new filters.

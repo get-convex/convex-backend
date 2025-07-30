@@ -112,7 +112,7 @@ export const useTableFilters = (
   return {
     filters: filterMap[tableName],
     // Make sure a new object is created so the hook is re-rendered
-    changeFilters: async (newFilters?: FilterExpression) => {
+    applyFiltersWithHistory: async (newFilters?: FilterExpression) => {
       if (newFilters) {
         const newFilterMap = { ...filterMap, [tableName]: newFilters };
         if (
@@ -173,7 +173,8 @@ export function useFilterHistory(
       setFilterHistory((prev: FilterExpression[]) => {
         if (
           (prev.length > 0 && isEqual(prev[0], value)) ||
-          value.clauses.length === 0
+          (value.clauses.length === 0 &&
+            (!value.index || value.index.clauses.length === 0))
         ) {
           return prev;
         }

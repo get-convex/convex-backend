@@ -66,7 +66,8 @@ type IndexFiltersProps = {
   tableName: string;
   activeSchema: SchemaJson | null;
   getValidatorForField: (fieldName?: string) => ValidatorJSON | undefined;
-  onChangeFilters: (next: FilterExpression) => void;
+  onFiltersChange: (next: FilterExpression) => void;
+  applyFiltersWithHistory: (next: FilterExpression) => Promise<void>;
   setDraftFilters: (next: FilterExpression) => void;
   onChangeOrder: (newOrder: "asc" | "desc") => void;
   onChangeIndexFilter: (filter: IndexFilterState, idx: number) => void;
@@ -83,7 +84,8 @@ export function IndexFilters({
   tableName,
   activeSchema,
   getValidatorForField,
-  onChangeFilters,
+  onFiltersChange,
+  applyFiltersWithHistory,
   setDraftFilters,
   onChangeOrder,
   onChangeIndexFilter,
@@ -180,7 +182,7 @@ export function IndexFilters({
                 },
               } as FilterExpression;
               setDraftFilters(newFilters);
-              onChangeFilters(newFilters);
+              onFiltersChange(newFilters);
             }}
             Option={({ inButton, label, value }) => (
               <div className="flex items-center gap-1 text-xs">
@@ -319,11 +321,11 @@ export function IndexFilters({
                 clause.enabled ? invalidFilters[`index/${idx}`] : undefined
               }
               onChange={onChangeIndexFilter}
-              onApplyFilters={() => {
+              onApplyFilters={async () => {
                 if (hasInvalidFilters) {
                   return;
                 }
-                onChangeFilters(shownFilters);
+                await applyFiltersWithHistory(shownFilters);
               }}
               onError={onError}
               filter={clause}

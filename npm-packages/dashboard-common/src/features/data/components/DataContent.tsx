@@ -68,7 +68,7 @@ export function DataContent({
   shape: Shape | null;
   activeSchema: SchemaJson | null;
 }) {
-  const { filters, changeFilters, hasFilters } = useTableFilters(
+  const { filters, applyFiltersWithHistory, hasFilters } = useTableFilters(
     tableName,
     componentId,
   );
@@ -250,7 +250,7 @@ export function DataContent({
               tableFields={tableFields}
               defaultDocument={defaultDocument}
               filters={filters}
-              onChangeFilters={changeFilters}
+              onFiltersChange={applyFiltersWithHistory}
               dataFetchErrors={errors}
               draftFilters={draftFilters}
               setDraftFilters={setDraftFilters}
@@ -350,7 +350,7 @@ export function DataContent({
                     </div>
                     <Button
                       onClick={() =>
-                        changeFilters({
+                        applyFiltersWithHistory({
                           clauses: [],
                           index: {
                             name: filters?.index?.name || "_creationTime",

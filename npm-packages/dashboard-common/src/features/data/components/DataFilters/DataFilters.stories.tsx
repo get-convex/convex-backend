@@ -40,7 +40,7 @@ function Example(args: ComponentProps<typeof DataFilters>) {
             {...args}
             filters={{ clauses: [] }}
             // eslint-disable-next-line no-alert
-            onChangeFilters={() => alert("Filters applied!")}
+            onFiltersChange={() => alert("Filters applied!")}
           />
         </DeploymentInfoContext.Provider>
       </ConvexProvider>

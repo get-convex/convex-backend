@@ -35,7 +35,10 @@ import {
   documentValidatorForTable,
   validatorForColumn,
 } from "@common/features/data/components/Table/utils/validators";
-import { useFilterHistory } from "@common/features/data/lib/useTableFilters";
+import {
+  useFilterHistory,
+  useTableFilters,
+} from "@common/features/data/lib/useTableFilters";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
@@ -50,7 +53,7 @@ export function DataFilters({
   tableFields,
   componentId,
   filters,
-  onChangeFilters,
+  onFiltersChange,
   dataFetchErrors,
   draftFilters,
   setDraftFilters,
@@ -66,7 +69,7 @@ export function DataFilters({
   tableFields: string[];
   componentId: string | null;
   filters?: FilterExpression;
-  onChangeFilters(next: FilterExpression): void;
+  onFiltersChange(next: FilterExpression): void;
   dataFetchErrors?: FilterValidationError[];
   draftFilters?: FilterExpression;
   setDraftFilters(next: FilterExpression): void;
@@ -98,11 +101,12 @@ export function DataFilters({
     onChangeOrder,
     getValidatorForField,
     onChangeIndexFilter,
+    applyFiltersWithHistory,
   } = useDataFilters({
     tableName,
     componentId,
     filters,
-    onChangeFilters,
+    onFiltersChange,
     draftFilters,
     setDraftFilters,
     activeSchema,
@@ -131,7 +135,7 @@ export function DataFilters({
           hasOtherFilters:
             shownFilters.clauses.filter((c) => c.enabled !== false).length > 0,
         });
-        onChangeFilters(
+        onFiltersChange(
           draftFilters || {
             clauses: [],
             index: undefined,
@@ -230,7 +234,8 @@ export function DataFilters({
                   tableName={tableName}
                   activeSchema={activeSchema}
                   getValidatorForField={getValidatorForField}
-                  onChangeFilters={onChangeFilters}
+                  onFiltersChange={onFiltersChange}
+                  applyFiltersWithHistory={applyFiltersWithHistory}
                   setDraftFilters={setDraftFilters}
                   onChangeOrder={onChangeOrder}
                   onChangeIndexFilter={onChangeIndexFilter}
@@ -279,7 +284,7 @@ export function DataFilters({
                               (c) => c.enabled !== false,
                             ).length > 0,
                         });
-                        onChangeFilters(shownFilters);
+                        onFiltersChange(shownFilters);
                       }}
                       onError={(...args) => onError("filter", ...args)}
                       error={
@@ -339,7 +344,7 @@ export function DataFilters({
                         variant="neutral"
                         className="ml-auto text-xs"
                         onClick={() => {
-                          onChangeFilters({
+                          onFiltersChange({
                             clauses: [],
                             index: shownFilters.index
                               ? {
@@ -467,7 +472,7 @@ function useDataFilters({
   tableName,
   componentId,
   filters,
-  onChangeFilters,
+  onFiltersChange,
   draftFilters,
   setDraftFilters,
   activeSchema,
@@ -475,7 +480,7 @@ function useDataFilters({
   tableName: string;
   componentId: string | null;
   filters?: FilterExpression;
-  onChangeFilters(next: FilterExpression): void;
+  onFiltersChange(next: FilterExpression): void;
   draftFilters?: FilterExpression;
   setDraftFilters(next: FilterExpression): void;
   activeSchema: SchemaJson | null;
@@ -646,6 +651,7 @@ function useDataFilters({
   );
 
   const { filterHistory } = useFilterHistory(tableName, componentId);
+  const { applyFiltersWithHistory } = useTableFilters(tableName, componentId);
   const [currentIdx, setCurrentIdx] = useState(0);
   useEffect(() => {
     setCurrentIdx(0);
@@ -678,9 +684,9 @@ function useDataFilters({
         order: newOrder,
       };
       setDraftFilters(newFilters);
-      onChangeFilters(newFilters);
+      onFiltersChange(newFilters);
     },
-    [shownFilters, setDraftFilters, onChangeFilters, invalidFilters, log],
+    [shownFilters, setDraftFilters, onFiltersChange, invalidFilters, log],
   );
 
   return {
@@ -698,5 +704,6 @@ function useDataFilters({
     onChangeOrder,
     getValidatorForField,
     onChangeIndexFilter,
+    applyFiltersWithHistory,
   };
 }
