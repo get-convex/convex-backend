@@ -36,7 +36,7 @@ export const dashboard = new Command("dashboard")
     const ctx = await oneoffContext(options);
 
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,

@@ -283,11 +283,10 @@ async function deployToExistingDeployment(
     envFile?: string | undefined;
   },
 ) {
-  const selectionWithinProject =
-    await deploymentSelectionWithinProjectFromOptions(ctx, {
-      ...options,
-      implicitProd: true,
-    });
+  const selectionWithinProject = deploymentSelectionWithinProjectFromOptions({
+    ...options,
+    implicitProd: true,
+  });
   const deploymentSelection = await getDeploymentSelection(ctx, options);
   const deploymentToActOn = await loadSelectedDeploymentCredentials(
     ctx,

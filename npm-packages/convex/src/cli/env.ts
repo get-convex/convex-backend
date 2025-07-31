@@ -48,7 +48,7 @@ async function selectEnvDeployment(
   const ctx = await oneoffContext(options);
   const deploymentSelection = await getDeploymentSelection(ctx, options);
   const selectionWithinProject =
-    await deploymentSelectionWithinProjectFromOptions(ctx, options);
+    deploymentSelectionWithinProjectFromOptions(options);
   const {
     adminKey,
     url: deploymentUrl,

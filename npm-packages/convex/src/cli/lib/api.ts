@@ -119,10 +119,9 @@ export type DeploymentSelectionOptions =
     envFile?: string | undefined;
   };
 
-export async function deploymentSelectionWithinProjectFromOptions(
-  ctx: Context,
+export function deploymentSelectionWithinProjectFromOptions(
   options: DeploymentSelectionOptions,
-): Promise<DeploymentSelectionWithinProject> {
+): DeploymentSelectionWithinProject {
   if (options.previewName !== undefined) {
     return { kind: "previewName", previewName: options.previewName };
   }

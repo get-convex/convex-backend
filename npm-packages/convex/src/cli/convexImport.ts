@@ -29,7 +29,7 @@ export const convexImport = new Command("import")
     await ensureHasConvexDependency(ctx, "import");
 
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
 
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const deployment = await loadSelectedDeploymentCredentials(

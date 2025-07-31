@@ -60,7 +60,7 @@ async function runNetworkTest(
     adminKey = null;
   } else {
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,

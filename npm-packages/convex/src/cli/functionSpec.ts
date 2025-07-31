@@ -23,7 +23,7 @@ export const functionSpec = new Command("function-spec")
     const ctx = await oneoffContext(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
     const { adminKey, url: deploymentUrl } =
       await loadSelectedDeploymentCredentials(
         ctx,

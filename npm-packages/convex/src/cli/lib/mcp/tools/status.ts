@@ -60,8 +60,9 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       });
     }
     process.chdir(projectDir);
-    const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, ctx.options);
+    const selectionWithinProject = deploymentSelectionWithinProjectFromOptions(
+      ctx.options,
+    );
     const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,

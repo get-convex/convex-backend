@@ -19,7 +19,7 @@ export const run = new Command("run")
     const ctx = await oneoffContext(options);
     await ensureHasConvexDependency(ctx, "run");
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,

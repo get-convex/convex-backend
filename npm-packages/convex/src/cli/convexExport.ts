@@ -27,7 +27,7 @@ export const convexExport = new Command("export")
     const deploymentSelection = await getDeploymentSelection(ctx, options);
 
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
 
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,

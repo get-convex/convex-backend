@@ -173,7 +173,7 @@ Same format as .env.local or .env files, and overrides them.`,
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
 
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, cmdOptions);
+      deploymentSelectionWithinProjectFromOptions(cmdOptions);
 
     if (cmdOptions.configure === undefined) {
       if (cmdOptions.team || cmdOptions.project || cmdOptions.devDeployment)

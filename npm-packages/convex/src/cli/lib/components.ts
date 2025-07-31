@@ -88,7 +88,7 @@ export async function runCodegen(
 
   if (ctx.fs.exists(componentRootPath)) {
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+      deploymentSelectionWithinProjectFromOptions(options);
     const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,

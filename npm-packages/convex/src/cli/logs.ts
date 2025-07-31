@@ -21,7 +21,7 @@ export const logs = new Command("logs")
     const ctx = await oneoffContext(cmdOptions);
 
     const selectionWithinProject =
-      await deploymentSelectionWithinProjectFromOptions(ctx, cmdOptions);
+      deploymentSelectionWithinProjectFromOptions(cmdOptions);
     const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
     const deployment = await loadSelectedDeploymentCredentials(
       ctx,
