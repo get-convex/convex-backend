@@ -23,8 +23,9 @@ most comprehensive authentication solutions. Integrating another service
 provides a ton of functionality like passkeys, two-factor auth, spam protection,
 and more on top of the authentication basics.
 
-- [Clerk](/auth/clerk.mdx) is new and has great Next.js and React Native support
-- [WorkOS AuthKit](/auth/authkit.mdx) is new and free for up to 1M users
+- [Clerk](/auth/clerk.mdx) has great Next.js and React Native support
+- [WorkOS AuthKit](/auth/authkit.mdx) is built for B2B apps and free for up to
+  1M users
 - [Auth0](/auth/auth0.mdx) is more established with more bells and whistles
 - [Custom Auth Integration](/auth/advanced/custom-auth.mdx) allow any OpenID
   Connect-compatible identity provider to be used for authentication
