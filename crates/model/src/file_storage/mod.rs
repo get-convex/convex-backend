@@ -363,15 +363,19 @@ pub async fn get_total_file_storage_size<RT: Runtime>(
             .try_collect()?;
         tablet_id_to_by_id_index
     };
+    let mut table_iterator = db
+        .table_iterator()
+        .multi(tablet_id_to_by_id_index.keys().copied().collect());
     let mut total_size = 0;
     for (tablet_id, by_id_index) in tablet_id_to_by_id_index {
-        let table_iterator = db.table_iterator();
         let mut table_stream =
             Box::pin(table_iterator.stream_documents_in_table(tablet_id, by_id_index, None));
         while let Some(storage_document) = table_stream.try_next().await? {
             let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.value.parse()?;
             total_size += storage_entry.size as u64;
         }
+        drop(table_stream);
+        table_iterator.unregister_table(tablet_id)?;
     }
     Ok(total_size)
 }
