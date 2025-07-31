@@ -32,13 +32,12 @@ impl S3Client {
             false => RetryConfig::disabled(),
         };
         let config = must_s3_config_from_env()
+            .await
             .context("AWS env variables are required when using AWS Lambda")?
             .retry_config(retry_config)
-            .load()
-            .await;
+            .build();
 
-        let s3_client = Client::new(&config);
-
+        let s3_client = Client::from_conf(config);
         Ok(Self(s3_client))
     }
 

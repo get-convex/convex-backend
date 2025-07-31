@@ -158,11 +158,10 @@ async fn s3_client() -> Result<Client, anyhow::Error> {
     let client = S3_CLIENT
         .get_or_try_init(|| async {
             let config = must_s3_config_from_env()
-                .context("AWS env variables are required when using S3 storage")?
-                .retry_config(RetryConfig::standard())
-                .load()
-                .await;
-            anyhow::Ok(Client::new(&config))
+                .await
+                .context("AWS env variables are required when using S3 storage")?;
+            let s3_config = config.retry_config(RetryConfig::standard()).build();
+            anyhow::Ok(Client::from_conf(s3_config))
         })
         .await?
         .clone();
