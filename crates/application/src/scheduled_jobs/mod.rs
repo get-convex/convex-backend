@@ -366,12 +366,17 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 BTreeMap::new(),
             );
             let sentry_hub = sentry::Hub::with(|hub| sentry::Hub::new_from_top(hub));
-            // TODO: cancel this handle with the application
             self.context.rt.spawn_background(
                 "spawn_scheduled_job",
                 async move {
-                    context.execute_job(job, job_id).await;
-                    let _ = tx.send(job_id).await;
+                    select_biased! {
+                        _ = tx.closed().fuse() => {
+                            tracing::error!("Scheduled job receiver closed");
+                        },
+                        _ = context.execute_job(job, job_id).fuse() => {
+                            let _ = tx.send(job_id).await;
+                        },
+                    }
                 }
                 .in_span(root)
                 .bind_hub(sentry_hub),
