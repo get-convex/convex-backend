@@ -492,6 +492,113 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         )
     }
 
+    #[fastrace::trace]
+    pub fn get_document_and_index_storage(
+        &self,
+        identity: &Identity,
+    ) -> anyhow::Result<TablesUsage<(ComponentPath, TableName)>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("get_user_document_storage"));
+        }
+
+        let documents_and_index_storage = self.snapshot.get_document_and_index_storage()?;
+        let mut remapped_documents_and_index_storage = BTreeMap::new();
+
+        for ((table_namespace, table_name), usage) in documents_and_index_storage.0 {
+            if let Some(component_path) = self.snapshot.component_registry.get_component_path(
+                ComponentId::from(table_namespace),
+                &mut TransactionReadSet::new(),
+            ) {
+                remapped_documents_and_index_storage.insert((component_path, table_name), usage);
+            } else if !table_name.is_system() {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push.
+                // System tables may be created earlier (e.g. `_schemas`), so they may be
+                // legitimately nonempty in that case.
+                anyhow::ensure!(
+                    usage.document_size == 0 && usage.index_size == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has document size {} and index size {}",
+                    usage.document_size,
+                    usage.index_size
+                );
+            }
+        }
+        Ok(TablesUsage(remapped_documents_and_index_storage))
+    }
+
+    #[fastrace::trace]
+    pub fn get_vector_index_storage(
+        &self,
+        identity: &Identity,
+    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), u64>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("get_vector_index_storage"));
+        }
+        let table_mapping = &self.snapshot.table_registry.table_mapping();
+        let index_registry = &self.snapshot.index_registry;
+        let mut vector_index_storage = BTreeMap::new();
+        for index in index_registry.all_vector_indexes().into_iter() {
+            let (_, value) = index.into_id_and_value();
+            let tablet_id = *value.name.table();
+            let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
+            let component_id = ComponentId::from(table_namespace);
+            let table_name = table_mapping.tablet_name(tablet_id)?;
+            let size = value.config.estimate_pricing_size_bytes()?;
+            if let Some(component_path) = self
+                .snapshot
+                .component_registry
+                .get_component_path(component_id, &mut TransactionReadSet::new())
+            {
+                vector_index_storage
+                    .entry((component_path, table_name))
+                    .and_modify(|sum| *sum += size)
+                    .or_insert(size);
+            } else {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push
+                anyhow::ensure!(
+                    size == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has non-zero vector index size {size}",
+                );
+            }
+        }
+        Ok(vector_index_storage)
+    }
+
+    /// Counts the number of documents in each table, including system tables.
+    #[fastrace::trace]
+    pub fn get_document_counts(
+        &self,
+        identity: &Identity,
+    ) -> anyhow::Result<Vec<(ComponentPath, TableName, u64)>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("get_document_counts"));
+        }
+        let mut document_counts = vec![];
+        for ((table_namespace, table_name), summary) in self.snapshot.iter_table_summaries()? {
+            let count = summary.num_values();
+            if let Some(component_path) = self.snapshot.component_registry.get_component_path(
+                ComponentId::from(table_namespace),
+                &mut TransactionReadSet::new(),
+            ) {
+                document_counts.push((component_path, table_name, count));
+            } else if !table_name.is_system() {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push.
+                // System tables may be created earlier (e.g. `_schemas`), so they may be
+                // legitimately nonempty in that case.
+                anyhow::ensure!(
+                    count == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has document count {count}",
+                );
+            }
+        }
+        Ok(document_counts)
+    }
+
     pub async fn full_table_scan(
         &self,
         tablet_id: TabletId,
@@ -724,12 +831,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
     pub fn table_summaries(&self) -> Option<&TableSummaries> {
         self.snapshot.table_summaries.as_ref()
-    }
-
-    pub fn get_document_and_index_storage(
-        &self,
-    ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
-        self.snapshot.get_document_and_index_storage()
     }
 
     /// Create a [`Transaction`] at the snapshot's timestamp. This allows using
@@ -1570,6 +1671,21 @@ impl<RT: Runtime> Database<RT> {
         Ok(snapshot)
     }
 
+    pub fn latest_database_snapshot(&self) -> anyhow::Result<DatabaseSnapshot<RT>> {
+        let (ts, snapshot) = self.snapshot_manager.lock().latest();
+        let repeatable_persistence =
+            RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
+        Ok(DatabaseSnapshot {
+            runtime: self.runtime.clone(),
+            ts,
+            bootstrap_metadata: self.bootstrap_metadata.clone(),
+            snapshot,
+            persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
+            persistence_reader: self.reader.clone(),
+            retention_validator: self.retention_validator(),
+        })
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub async fn commit(&self, transaction: Transaction<RT>) -> anyhow::Result<Timestamp> {
         self.commit_with_write_source(transaction, WriteSource::unknown())
@@ -1950,120 +2066,12 @@ impl<RT: Runtime> Database<RT> {
         Ok(())
     }
 
-    #[fastrace::trace]
-    pub async fn get_vector_index_storage(
-        &self,
-        identity: Identity,
-    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), u64>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("get_vector_index_storage"));
-        }
-        let mut tx = self.begin(identity).await?;
-        let ts = *tx.begin_timestamp();
-        let mut components_model = BootstrapComponentsModel::new(&mut tx);
-        let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
-        let table_mapping = snapshot.table_registry.table_mapping().clone();
-        let index_registry = snapshot.index_registry;
-        let mut vector_index_storage = BTreeMap::new();
-        for index in index_registry.all_vector_indexes().into_iter() {
-            let (_, value) = index.into_id_and_value();
-            let tablet_id = *value.name.table();
-            let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
-            let component_id = ComponentId::from(table_namespace);
-            let table_name = table_mapping.tablet_name(tablet_id)?;
-            let size = value.config.estimate_pricing_size_bytes()?;
-            if let Some(component_path) = components_model.get_component_path(component_id) {
-                vector_index_storage
-                    .entry((component_path, table_name))
-                    .and_modify(|sum| *sum += size)
-                    .or_insert(size);
-            } else {
-                // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push
-                anyhow::ensure!(
-                    size == 0,
-                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has non-zero vector index size {size}",
-                );
-            }
-        }
-        Ok(vector_index_storage)
-    }
-
-    /// Counts the number of documents in each table, including system tables.
-    #[fastrace::trace]
-    pub async fn get_document_counts(
-        &self,
-    ) -> anyhow::Result<Vec<(ComponentPath, TableName, u64)>> {
-        let mut tx = self.begin(Identity::system()).await?;
-        let ts = *tx.begin_timestamp();
-        let mut components_model = BootstrapComponentsModel::new(&mut tx);
-        let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
-        let mut document_counts = vec![];
-        for ((table_namespace, table_name), summary) in snapshot.iter_table_summaries()? {
-            let count = summary.num_values();
-            if let Some(component_path) =
-                components_model.get_component_path(ComponentId::from(table_namespace))
-            {
-                document_counts.push((component_path, table_name, count));
-            } else if !table_name.is_system() {
-                // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push.
-                // System tables may be created earlier (e.g. `_schemas`), so they may be
-                // legitimately nonempty in that case.
-                anyhow::ensure!(
-                    count == 0,
-                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has document count {count}",
-                );
-            }
-        }
-        Ok(document_counts)
-    }
-
     pub fn has_table_summaries_bootstrapped(&self) -> bool {
         self.snapshot_manager
             .lock()
             .latest_snapshot()
             .table_summaries
             .is_some()
-    }
-
-    #[fastrace::trace]
-    pub async fn get_document_and_index_storage(
-        &self,
-        identity: Identity,
-    ) -> anyhow::Result<TablesUsage<(ComponentPath, TableName)>> {
-        if !(identity.is_admin() || identity.is_system()) {
-            anyhow::bail!(unauthorized_error("get_user_document_storage"));
-        }
-
-        let mut tx = self.begin(identity).await?;
-        let ts = *tx.begin_timestamp();
-        let mut components_model = BootstrapComponentsModel::new(&mut tx);
-        let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
-        let documents_and_index_storage = snapshot.get_document_and_index_storage()?;
-        let mut remapped_documents_and_index_storage = BTreeMap::new();
-        for ((table_namespace, table_name), usage) in documents_and_index_storage.0 {
-            if let Some(component_path) =
-                components_model.get_component_path(ComponentId::from(table_namespace))
-            {
-                remapped_documents_and_index_storage.insert((component_path, table_name), usage);
-            } else if !table_name.is_system() {
-                // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push.
-                // System tables may be created earlier (e.g. `_schemas`), so they may be
-                // legitimately nonempty in that case.
-                anyhow::ensure!(
-                    usage.document_size == 0 && usage.index_size == 0,
-                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has document size {} and index size {}",
-                    usage.document_size,
-                    usage.index_size
-                );
-            }
-        }
-        Ok(TablesUsage(remapped_documents_and_index_storage))
     }
 
     pub fn usage_counter(&self) -> UsageCounter {

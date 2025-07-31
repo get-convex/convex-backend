@@ -9,6 +9,7 @@ use itertools::{
 use value::TableName;
 
 /// Counts the amount of storage used by documents and indexes in a table.
+#[derive(Debug)]
 pub struct TableUsage {
     /// Bytes used by documents in this table
     pub document_size: u64,
@@ -22,6 +23,7 @@ pub struct TableUsage {
 
 /// `TableUsage` for all tables in a database. `T` is the fully qualified name
 /// of a table.
+#[derive(Debug)]
 pub struct TablesUsage<T>(pub BTreeMap<T, TableUsage>);
 
 #[derive(Debug, PartialEq)]

@@ -83,6 +83,7 @@ pub use transaction::{
     Transaction,
 };
 pub use transaction_index::{
+    SearchNotEnabled,
     TextIndexManagerSnapshot,
     TransactionTextSnapshot,
 };

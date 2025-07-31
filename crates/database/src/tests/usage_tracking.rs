@@ -209,8 +209,8 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
 
     let storage = fixtures
         .db
-        .get_vector_index_storage(Identity::system())
-        .await?;
+        .latest_database_snapshot()?
+        .get_vector_index_storage(&Identity::system())?;
 
     let key = (ComponentPath::root(), index_name.table().clone());
     let value = storage.get(&key).cloned();

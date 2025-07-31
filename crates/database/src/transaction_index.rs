@@ -761,6 +761,21 @@ impl TransactionTextSnapshot for TextIndexManagerSnapshot {
     }
 }
 
+pub struct SearchNotEnabled;
+
+#[async_trait]
+impl TransactionTextSnapshot for SearchNotEnabled {
+    async fn search(
+        &self,
+        _index: &Index,
+        _search: &InternalSearch,
+        _version: SearchVersion,
+        _pending_updates: &Vec<DocumentUpdate>,
+    ) -> anyhow::Result<QueryResults> {
+        anyhow::bail!("search not implemented in db-info")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{

@@ -33,9 +33,10 @@ use database::{
         TableFilter,
     },
     unauthorized_error,
-    Database,
+    DatabaseSnapshot,
     IndexModel,
     ResolvedQuery,
+    SearchNotEnabled,
     SystemMetadataModel,
     TableModel,
     Transaction,
@@ -48,6 +49,7 @@ use pb::storage::{
     file_storage_id::StorageIdType as FileStorageIdTypeProto,
     FileStorageId as FileStorageIdProto,
 };
+use usage_tracking::FunctionUsageTracker;
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexValue,
@@ -60,6 +62,7 @@ use value::{
 use self::virtual_table::FileStorageDocMapper;
 use crate::{
     file_storage::types::FileStorageEntry,
+    virtual_system_mapping,
     SystemIndex,
     SystemTable,
 };
@@ -331,9 +334,17 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
 }
 
 #[fastrace::trace]
-pub async fn get_total_file_storage_size<RT: Runtime>(db: &Database<RT>) -> anyhow::Result<u64> {
-    let (tablet_id_to_by_id_index, snapshot_ts) = {
-        let mut tx = db.begin(Identity::system()).await?;
+pub async fn get_total_file_storage_size<RT: Runtime>(
+    identity: &Identity,
+    db: &DatabaseSnapshot<RT>,
+) -> anyhow::Result<u64> {
+    let tablet_id_to_by_id_index = {
+        let mut tx = db.begin_tx(
+            identity.clone(),
+            Arc::new(SearchNotEnabled),
+            FunctionUsageTracker::new(),
+            virtual_system_mapping().clone(),
+        )?;
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
         let table_mapping = tx.table_mapping();
         let tablet_id_to_by_id_index: BTreeMap<_, _> = table_mapping
@@ -350,12 +361,11 @@ pub async fn get_total_file_storage_size<RT: Runtime>(db: &Database<RT>) -> anyh
                 ))
             })
             .try_collect()?;
-        let snapshot_ts = tx.begin_timestamp();
-        (tablet_id_to_by_id_index, snapshot_ts)
+        tablet_id_to_by_id_index
     };
     let mut total_size = 0;
     for (tablet_id, by_id_index) in tablet_id_to_by_id_index {
-        let table_iterator = db.table_iterator(snapshot_ts, 100);
+        let table_iterator = db.table_iterator();
         let mut table_stream =
             Box::pin(table_iterator.stream_documents_in_table(tablet_id, by_id_index, None));
         while let Some(storage_document) = table_stream.try_next().await? {

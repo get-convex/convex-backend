@@ -5638,6 +5638,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "usage_tracking",
  "value",
 ]
 
