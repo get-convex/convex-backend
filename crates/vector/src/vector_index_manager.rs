@@ -183,7 +183,7 @@ impl VectorIndexManager {
         if let IndexState::Ready(ref indexes) = self.indexes {
             Ok(indexes)
         } else {
-            anyhow::bail!(ErrorMetadata::overloaded(
+            anyhow::bail!(ErrorMetadata::feature_temporarily_unavailable(
                 "VectorIndexesUnavailable",
                 "Vector indexes are bootstrapping and not yet available for use",
             ))

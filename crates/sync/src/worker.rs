@@ -236,9 +236,9 @@ pub struct SyncWorker<RT: Runtime> {
     // Has an update been scheduled for the future?
     update_scheduled: bool,
 
-    /// If we've seen a SearchIndexesUnavailable error, wait for this Future to
-    /// resolve before retrying
-    search_query_retry_future: Option<Fuse<BoxFuture<'static, ()>>>,
+    /// If we've seen a FeatureTemporarilyUnavailable error, wait for this
+    /// Future to resolve before retrying
+    unavailable_query_retry_future: Option<Fuse<BoxFuture<'static, ()>>>,
 
     /// Timers to track time between handling ModifyQuerySet message and sending
     /// the Transition with the update
@@ -254,9 +254,9 @@ enum QueryResult {
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
     },
-    /// Skip returning results of this query because search indexes are
-    /// unavailable
-    SearchIndexesUnavailable,
+    /// Skip returning results of this query because search indexes or table
+    /// summaries are unavailable
+    TemporarilyUnavailable,
     Refresh,
 }
 
@@ -266,7 +266,7 @@ struct TransitionState {
     current_version: StateVersion,
     new_version: StateVersion,
     timer: StatusTimer,
-    search_indexes_unavailable: bool,
+    temporarily_unavailable: bool,
 }
 
 impl<RT: Runtime> SyncWorker<RT> {
@@ -295,7 +295,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             action_futures: FuturesUnordered::new(),
             transition_future: None,
             update_scheduled: false,
-            search_query_retry_future: None,
+            unavailable_query_retry_future: None,
             modify_query_to_transition_timers: BTreeMap::new(),
             on_connect: Some((connect_timer(partition_id), on_connect)),
             partition_id,
@@ -306,10 +306,10 @@ impl<RT: Runtime> SyncWorker<RT> {
         self.update_scheduled = true;
     }
 
-    fn schedule_search_query_retry(&mut self) {
-        if self.search_query_retry_future.is_none() {
+    fn schedule_unavailable_query_retry(&mut self) {
+        if self.unavailable_query_retry_future.is_none() {
             let rt = self.rt.clone();
-            self.search_query_retry_future = Some(
+            self.unavailable_query_retry_future = Some(
                 async move {
                     rt.wait(*SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY).await;
                 }
@@ -325,7 +325,7 @@ impl<RT: Runtime> SyncWorker<RT> {
     pub async fn go(&mut self) -> anyhow::Result<()> {
         let mut ping_timeout = self.rt.wait(HEARTBEAT_INTERVAL);
         let mut pending = future::pending().boxed().fuse();
-        let mut search_retry_pending = future::pending().boxed().fuse();
+        let mut unavailable_retry_pending = future::pending().boxed().fuse();
 
         // Create a new subscription client for every sync socket. Thus we don't require
         // the subscription client to auto-recover on connection failures.
@@ -374,11 +374,11 @@ impl<RT: Runtime> SyncWorker<RT> {
                     self.transition_future = None;
                     Some(self.finish_update_queries(transition_state?)?)
                 },
-                _ = self.search_query_retry_future
+                _ = self.unavailable_query_retry_future
                         .as_mut()
-                        .unwrap_or(&mut search_retry_pending) => {
-                    tracing::info!("Scheduling an update to queries after a search query failed because of search indexes bootstrapping.");
-                    self.search_query_retry_future = None;
+                        .unwrap_or(&mut unavailable_retry_pending) => {
+                    tracing::info!("Scheduling an update to queries after a query failed because of async bootstrapping.");
+                    self.unavailable_query_retry_future = None;
                     self.schedule_update();
                     None
                 },
@@ -882,10 +882,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 };
                                 match udf_return_result {
                                     Err(e) => {
+                                        // TODO: use ErrorCode::FeatureTemporarilyUnavailable
+                                        // instead
                                         if let Some(error) = e.downcast_ref::<ErrorMetadata>()
-                                            && error.short_msg == "SearchIndexesUnavailable"
+                                            && [
+                                                "SearchIndexesUnavailable",
+                                                "TableSummariesUnavailable",
+                                            ]
+                                            .contains(&&*error.short_msg)
                                         {
-                                            (QueryResult::SearchIndexesUnavailable, None)
+                                            (QueryResult::TemporarilyUnavailable, None)
                                         } else {
                                             anyhow::bail!(e)
                                         }
@@ -913,11 +919,11 @@ impl<RT: Runtime> SyncWorker<RT> {
             .await;
 
             let mut udf_results = vec![];
-            let mut search_indexes_unavailable = false;
+            let mut temporarily_unavailable = false;
             for result in future_results? {
                 let (query_id, result, maybe_subscription) = result;
-                if matches!(result, QueryResult::SearchIndexesUnavailable) {
-                    search_indexes_unavailable = true;
+                if matches!(result, QueryResult::TemporarilyUnavailable) {
+                    temporarily_unavailable = true;
                 }
                 if let Some(subscription) = maybe_subscription {
                     udf_results.push((query_id, result, subscription));
@@ -930,7 +936,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 current_version,
                 new_version,
                 timer,
-                search_indexes_unavailable,
+                temporarily_unavailable,
             })
         }
         .in_span(root))
@@ -944,7 +950,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             current_version,
             new_version,
             timer,
-            search_indexes_unavailable,
+            temporarily_unavailable,
         }: TransitionState,
     ) -> anyhow::Result<ServerMessage> {
         for (query_id, result, subscription) in udf_results {
@@ -969,17 +975,17 @@ impl<RT: Runtime> SyncWorker<RT> {
                 QueryResult::Refresh => {
                     self.state.refill_subscription(query_id, subscription)?;
                 },
-                QueryResult::SearchIndexesUnavailable => {
+                QueryResult::TemporarilyUnavailable => {
                     anyhow::bail!(
-                        "No QueryResult::SearchIndexesUnavailable should have a udf result and \
+                        "No QueryResult::TemporarilyUnavailable should have a udf result and \
                          subscription"
                     )
                 },
             }
         }
 
-        if search_indexes_unavailable {
-            self.schedule_search_query_retry();
+        if temporarily_unavailable {
+            self.schedule_unavailable_query_retry();
         }
 
         // Resubscribe for queries that don't have an active invalidation

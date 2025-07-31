@@ -400,8 +400,10 @@ pub enum BootstrapKind {
 }
 
 pub fn table_summary_bootstrapping_error(msg: Option<&'static str>) -> anyhow::Error {
-    anyhow::anyhow!(msg.unwrap_or("Table summary unavailable (still bootstrapping)"))
-        .context(ErrorMetadata::operational_internal_server_error())
+    anyhow::anyhow!(ErrorMetadata::feature_temporarily_unavailable(
+        "TableSummariesUnavailable",
+        msg.unwrap_or("Table summary unavailable (still bootstrapping)")
+    ))
 }
 
 /// Compute a `TableSummarySnapshot` at a given timestamp.

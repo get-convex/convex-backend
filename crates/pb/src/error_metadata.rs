@@ -26,6 +26,9 @@ impl From<ErrorCode> for ErrorCodeProto {
             ErrorCode::ClientDisconnect => ErrorCodeProto::ClientDisconnect,
             ErrorCode::RateLimited => ErrorCodeProto::RateLimited,
             ErrorCode::Overloaded => ErrorCodeProto::Overloaded,
+            ErrorCode::FeatureTemporarilyUnavailable => {
+                ErrorCodeProto::FeatureTemporarilyUnavailable
+            },
             ErrorCode::RejectedBeforeExecution => ErrorCodeProto::RejectedBeforeExecution,
             ErrorCode::OCC { .. } => ErrorCodeProto::Occ,
             ErrorCode::PaginationLimit => ErrorCodeProto::PaginationLimit,
@@ -50,6 +53,9 @@ impl ErrorCodeProto {
             ErrorCodeProto::ClientDisconnect => ErrorCode::ClientDisconnect,
             ErrorCodeProto::RateLimited => ErrorCode::RateLimited,
             ErrorCodeProto::Overloaded => ErrorCode::Overloaded,
+            ErrorCodeProto::FeatureTemporarilyUnavailable => {
+                ErrorCode::FeatureTemporarilyUnavailable
+            },
             ErrorCodeProto::RejectedBeforeExecution => ErrorCode::RejectedBeforeExecution,
             ErrorCodeProto::Occ => ErrorCode::OCC {
                 table_name: occ_info.table_name,

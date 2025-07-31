@@ -104,9 +104,10 @@ const serverDisconnectErrors = {
   ExecuteFullError: { timeout: 3000 },
   SystemTimeoutError: { timeout: 3000 },
   ExpiredInQueue: { timeout: 3000 },
-  // More ErrorMetadata::overloaded() that typically indicate a deploy just happened
+  // ErrorMetadata::feature_temporarily_unavailable() that typically indicate a deploy just happened
   VectorIndexesUnavailable: { timeout: 1000 },
   SearchIndexesUnavailable: { timeout: 1000 },
+  TableSummariesUnavailable: { timeout: 1000 },
   // More ErrorMeatadata::overloaded()
   VectorIndexTooLarge: { timeout: 3000 },
   SearchIndexTooLarge: { timeout: 3000 },

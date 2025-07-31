@@ -141,7 +141,7 @@ impl TextIndexManager {
     fn require_ready_indexes(&self) -> anyhow::Result<&OrdMap<IndexId, TextIndex>> {
         match self.indexes {
             TextIndexManagerState::Bootstrapping => {
-                anyhow::bail!(ErrorMetadata::overloaded(
+                anyhow::bail!(ErrorMetadata::feature_temporarily_unavailable(
                     "SearchIndexesUnavailable",
                     "Search indexes bootstrapping and not yet available for use"
                 ));

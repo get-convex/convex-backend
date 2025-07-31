@@ -56,6 +56,7 @@ pub enum ErrorCode {
     RateLimited,
 
     Overloaded,
+    FeatureTemporarilyUnavailable,
     RejectedBeforeExecution,
     OCC {
         table_name: Option<String>,
@@ -278,6 +279,22 @@ impl ErrorMetadata {
         }
     }
 
+    /// Indicates that a "less critical" feature is not yet available, e.g. due
+    /// to an instance restarting. If a query encounters this error type, it
+    /// will cause
+    pub fn feature_temporarily_unavailable(
+        short_msg: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            // TODO: change error code after a push cycle
+            code: ErrorCode::Overloaded,
+            short_msg: short_msg.into(),
+            msg: msg.into(),
+            source: None,
+        }
+    }
+
     // This is similar to `overloaded` but also guarantees the request was
     // rejected before it has been started. You should generally prefer to use
     // `overloaded`` instead of this error code and decide if an operation is safe
@@ -469,6 +486,7 @@ impl ErrorMetadata {
             | ErrorCode::OCC { .. }
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
+            | ErrorCode::FeatureTemporarilyUnavailable
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::MisdirectedRequest => false,
         }
@@ -518,7 +536,9 @@ impl ErrorMetadata {
                 Some((sentry::Level::Warning, Some(0.001)))
             },
             // we want to see these a bit more than the others above
-            ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.1))),
+            ErrorCode::Overloaded | ErrorCode::FeatureTemporarilyUnavailable => {
+                Some((sentry::Level::Warning, Some(0.1)))
+            },
         }
     }
 
@@ -537,6 +557,7 @@ impl ErrorMetadata {
             ErrorCode::OCC { .. } => Some("occ"),
             ErrorCode::OutOfRetention => Some("out_of_retention"),
             ErrorCode::Overloaded => Some("overloaded"),
+            ErrorCode::FeatureTemporarilyUnavailable => Some("feature_unavailable"),
             ErrorCode::RejectedBeforeExecution => Some("rejected_before_execution"),
             ErrorCode::OperationalInternalServerError => Some("operational"),
         }
@@ -562,6 +583,7 @@ impl ErrorMetadata {
             ErrorCode::PaginationLimit => None,
             ErrorCode::OutOfRetention => None,
             ErrorCode::Overloaded => None,
+            ErrorCode::FeatureTemporarilyUnavailable => None,
             ErrorCode::RejectedBeforeExecution => None,
             ErrorCode::OperationalInternalServerError => None,
             ErrorCode::MisdirectedRequest => None,
@@ -577,6 +599,7 @@ impl ErrorMetadata {
             ErrorCode::OCC { .. }
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
+            | ErrorCode::FeatureTemporarilyUnavailable
             | ErrorCode::RateLimited
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::MisdirectedRequest => Some(CloseCode::Again),
@@ -617,6 +640,7 @@ impl ErrorCode {
             ErrorCode::OCC { .. }
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
+            | ErrorCode::FeatureTemporarilyUnavailable
             | ErrorCode::RejectedBeforeExecution => StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::ClientDisconnect => StatusCode::REQUEST_TIMEOUT,
             ErrorCode::MisdirectedRequest => StatusCode::MISDIRECTED_REQUEST,
@@ -633,9 +657,10 @@ impl ErrorCode {
             ErrorCode::Forbidden => tonic::Code::FailedPrecondition,
             ErrorCode::NotFound => tonic::Code::NotFound,
             ErrorCode::ClientDisconnect => tonic::Code::Aborted,
-            ErrorCode::Overloaded | ErrorCode::RejectedBeforeExecution | ErrorCode::RateLimited => {
-                tonic::Code::ResourceExhausted
-            },
+            ErrorCode::Overloaded
+            | ErrorCode::FeatureTemporarilyUnavailable
+            | ErrorCode::RejectedBeforeExecution
+            | ErrorCode::RateLimited => tonic::Code::ResourceExhausted,
             ErrorCode::OCC { .. } => tonic::Code::ResourceExhausted,
             ErrorCode::PaginationLimit => tonic::Code::InvalidArgument,
             ErrorCode::OutOfRetention => tonic::Code::OutOfRange,
@@ -990,6 +1015,9 @@ mod proptest {
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),
                 ErrorCode::RateLimited => ErrorMetadata::rate_limited("too", "many requests"),
                 ErrorCode::Overloaded => ErrorMetadata::overloaded("overloaded", "error"),
+                ErrorCode::FeatureTemporarilyUnavailable => {
+                    ErrorMetadata::feature_temporarily_unavailable("bootstrapping", "who knows")
+                },
                 ErrorCode::RejectedBeforeExecution => {
                     ErrorMetadata::rejected_before_execution("rejected_before_execution", "error")
                 },
