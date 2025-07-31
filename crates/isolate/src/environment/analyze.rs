@@ -703,7 +703,7 @@ fn udf_analyze<RT: Runtime>(
 
         let canonicalized_name: FunctionName = property_name
             .parse()
-            .map_err(|e| invalid_function_name_error(&e))?;
+            .map_err(|e| invalid_function_name_error(module_path, &e))?;
         if let Some(Some(token)) = fn_source_map.as_ref().map(|sm| sm.lookup_token(lineno, linecol))
             // This condition is in place so that we don't have to jump to source in source mappings
             // to get back to the original source. This logic gets complicated and is not strictly necessary now

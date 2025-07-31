@@ -511,7 +511,7 @@ impl<RT: Runtime> Actions<RT> {
                 let function_name: FunctionName = f
                     .name
                     .parse()
-                    .map_err(|e| invalid_function_name_error(&e))?;
+                    .map_err(|e| invalid_function_name_error(&path, &e))?;
                 functions.push(AnalyzedFunction::new(
                     function_name,
                     pos,

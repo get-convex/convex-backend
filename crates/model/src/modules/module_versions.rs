@@ -283,10 +283,13 @@ impl TryFrom<SerializedAnalyzedSourcePosition> for AnalyzedSourcePosition {
     }
 }
 
-pub fn invalid_function_name_error(e: &anyhow::Error) -> ErrorMetadata {
+pub fn invalid_function_name_error(
+    path: &CanonicalizedModulePath,
+    e: &anyhow::Error,
+) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "InvalidFunctionName",
-        format!("Invalid function name: {}", e),
+        format!("Invalid function name used in `{}`: {}", path.as_str(), e),
     )
 }
 
