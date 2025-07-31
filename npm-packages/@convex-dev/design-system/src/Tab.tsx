@@ -24,7 +24,7 @@ export function Tab({
             "focus-visible:outline-border-selected",
             !disabled && selected
               ? "border-b-2 border-content-primary text-content-primary"
-              : "text-content-secondary",
+              : "border-b-2 border-transparent text-content-secondary",
             disabled
               ? "cursor-not-allowed disabled:text-content-secondary"
               : "hover:text-content-primary",
