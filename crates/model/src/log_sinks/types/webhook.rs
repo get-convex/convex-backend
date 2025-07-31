@@ -17,10 +17,9 @@ pub struct WebhookConfig {
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum WebhookFormat {
-    #[default]
     Json,
     Jsonl,
 }
@@ -29,7 +28,6 @@ pub enum WebhookFormat {
 #[serde(rename_all = "camelCase")]
 pub struct SerializedWebhookConfig {
     pub url: String,
-    #[serde(default)]
     pub format: WebhookFormat,
 }
 
@@ -68,33 +66,5 @@ mod proptest {
             .prop_filter_map("Invalid URL for WebhookConfig", |url| {
                 reqwest::Url::parse(url.0.to_string().as_str()).ok()
             })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::log_sinks::types::webhook::{
-        SerializedWebhookConfig,
-        WebhookConfig,
-        WebhookFormat,
-    };
-
-    #[test]
-    fn test_deserialize_missing_format() -> anyhow::Result<()> {
-        let serialized = r#"
-            {
-                "url": "https://example.com"
-            }
-        "#;
-        let config: SerializedWebhookConfig = serde_json::from_str(serialized)?;
-        let config = WebhookConfig::try_from(config)?;
-        assert_eq!(
-            config,
-            WebhookConfig {
-                url: "https://example.com".parse()?,
-                format: WebhookFormat::Json,
-            }
-        );
-        Ok(())
     }
 }

@@ -91,7 +91,6 @@ pub async fn add_datadog_sink(
 #[serde(rename_all = "camelCase")]
 pub struct WebhookSinkPostArgs {
     url: String,
-    #[serde(default)]
     format: WebhookFormat,
 }
 

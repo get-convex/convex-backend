@@ -24,9 +24,7 @@ export function WebhookConfigurationForm({
   const formState = useFormik({
     initialValues: {
       url: existingIntegration?.url ?? "",
-      format: existingIntegration
-        ? (existingIntegration.format ?? "json")
-        : "jsonl",
+      format: existingIntegration?.format ?? "jsonl",
     },
     onSubmit: async (values) => {
       await createWebhookIntegration(values.url, values.format);

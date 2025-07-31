@@ -204,7 +204,7 @@ export const datadogConfig = v.object({
 export const webhookConfig = v.object({
   type: v.literal("webhook"),
   url: v.string(),
-  format: v.optional(v.union(v.literal("json"), v.literal("jsonl"))),
+  format: v.union(v.literal("json"), v.literal("jsonl")),
 });
 
 export const axiomConfig = v.object({
