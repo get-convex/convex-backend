@@ -26,17 +26,18 @@ Steps:
 
 1. Setting up ports for the deployment
 
-   Go to your railway deployment
+   Just deploy the template and enjoy 🚀
+   If you would like to separete api and http domains
 
    - Select `convex-backend` service
    - Select Settings tab and scroll to `Public Networking` section
-   - Hover on the domain and delete auto assigned domain
+   - Hover on the domain and click on edit or delete buttons
    - Click on `Generate Domain` for auto generated one or `Custom Domain` if you
      want to setup custom domain
-   - Make sure to select port `3210` and add your domain
+   - Make sure to select port `3210` and add your domain for convex (api) url and select port `3211` for http (action) routes
    - Re-deploy both `convex-dashboard` and `convex-backend` services
 
-2. Generating admin key with railway ssh
+3. Generating admin key with railway ssh
 
    Follow [these](https://blog.railway.com/p/ssh#how-to-ssh-on-railway)
    instructions to setup railway SSH on your machine
