@@ -8,7 +8,7 @@ async function getTableId(
   db: GenericDatabaseReader<DataModel>,
   tableName: string,
   tableNamespace: string | null,
-): Promise<string> {
+): Promise<string | undefined> {
   // Get the table id for the tablename
   const tablesWithName = await db
     .query("_tables")
@@ -21,9 +21,7 @@ async function getTableId(
       (table) => table.namespace === undefined,
     );
     if (tables.length !== 1) {
-      throw new Error(
-        "Table not found for tableName" + tableName + " in the root namespace ",
-      );
+      return undefined;
     }
     tableId = tables[0]._id;
   } else {
@@ -31,12 +29,7 @@ async function getTableId(
       (table) => table.namespace && table.namespace.id === tableNamespace,
     );
     if (tables.length !== 1) {
-      throw new Error(
-        "Table not found for tableName" +
-          tableName +
-          " in the componentId " +
-          tableNamespace,
-      );
+      return undefined;
     }
     tableId = tables[0]._id;
   }
@@ -62,6 +55,9 @@ export default queryPrivateSystem({
       return undefined;
     }
     const tableId = await getTableId(db, tableName, tableNamespace);
+    if (!tableId) {
+      return undefined;
+    }
     const indexes = await db
       .query("_index")
       .withIndex("by_id", (q) => q)
