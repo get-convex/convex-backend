@@ -39,5 +39,6 @@ export const Primary: StoryObj<typeof PlanSummaryForTeam> = {
       projectMaxPreviewDeployments: 10,
       maxChefTokens: 8500000,
     },
+    hasFilter: false,
   },
 };

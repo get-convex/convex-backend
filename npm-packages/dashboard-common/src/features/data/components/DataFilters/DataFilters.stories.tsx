@@ -36,12 +36,7 @@ function Example(args: ComponentProps<typeof DataFilters>) {
     <ConnectedDeploymentContext.Provider value={connectedDeployment}>
       <ConvexProvider client={mockClient}>
         <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-          <DataFilters
-            {...args}
-            filters={{ clauses: [] }}
-            // eslint-disable-next-line no-alert
-            onFiltersChange={() => alert("Filters applied!")}
-          />
+          <DataFilters {...args} />
         </DeploymentInfoContext.Provider>
       </ConvexProvider>
     </ConnectedDeploymentContext.Provider>
@@ -52,5 +47,19 @@ export const Default: StoryObj<typeof DataFilters> = {
   args: {
     tableName: "myTable",
     defaultDocument: { myColumn: 0 },
+    filters: { clauses: [] },
+    onFiltersChange: () => {
+      // eslint-disable-next-line no-alert
+      alert("Filters applied");
+    },
+    setDraftFilters: () => {},
+    setShowFilters: () => {},
+    tableFields: ["myColumn"],
+    componentId: "myComponent",
+    activeSchema: null,
+    numRows: 0,
+    numRowsLoaded: 0,
+    hasFilters: true,
+    showFilters: true,
   },
 };

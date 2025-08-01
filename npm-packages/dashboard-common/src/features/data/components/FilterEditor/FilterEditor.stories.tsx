@@ -27,5 +27,9 @@ export const Editor: StoryObj<typeof FilterEditor> = {
   args: {
     fields: ["_id", "_creationTime", "myColumn"],
     defaultDocument: { myColumn: 0 },
+    onChange: () => {},
+    onDelete: () => {},
+    onApplyFilters: () => {},
+    onError: () => {},
   },
 };

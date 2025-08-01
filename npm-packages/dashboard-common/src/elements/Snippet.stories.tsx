@@ -1,28 +1,35 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { Snippet } from "@common/elements/Snippet";
 
-export default {
+const meta = {
   component: Snippet,
   render: (args) => (
     <div style={{ maxWidth: 300 }}>
-      <Snippet {...args} value="Something you can copy" />
-      <br />
-      <Snippet
-        {...args}
-        value="Something longer that you can't read all of, but you can still"
-      />
+      <Snippet {...args} />
     </div>
   ),
 } as Meta<typeof Snippet>;
 
-export const Primary: StoryObj<typeof Snippet> = {
+export default meta;
+type Story = StoryObj<typeof Snippet>;
+
+export const Primary: Story = {
   args: {
+    value: "Something you can copy",
     copying: "something",
   },
 };
 
-export const Code: StoryObj<typeof Snippet> = {
+export const Truncated: Story = {
   args: {
+    value: "Something longer that you can't read all of, but you can still",
+    copying: "something",
+  },
+};
+
+export const Code: Story = {
+  args: {
+    value: "console.log('Hello world');",
     monospace: true,
     copying: "something code-like",
   },

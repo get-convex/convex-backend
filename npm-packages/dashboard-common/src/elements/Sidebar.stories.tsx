@@ -16,7 +16,10 @@ export default {
       <Sidebar {...args} />
     </div>
   ),
-} as Meta<typeof Sidebar>;
+  args: {
+    setCollapsed: () => {},
+  },
+} satisfies Meta<typeof Sidebar>;
 
 export const Primary: StoryObj<typeof Sidebar> = {
   args: {
