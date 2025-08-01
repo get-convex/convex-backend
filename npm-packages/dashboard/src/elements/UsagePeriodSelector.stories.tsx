@@ -62,5 +62,12 @@ function InteractiveDemo() {
 }
 
 export const Interactive: Story = {
+  args: {
+    period: {
+      type: "currentBillingPeriod",
+      from: "2023-10-01",
+      to: "2023-10-31",
+    },
+  },
   render: () => <InteractiveDemo />,
 };

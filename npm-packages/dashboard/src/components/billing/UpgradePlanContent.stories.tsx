@@ -18,10 +18,33 @@ const DEFAULT_FORM_STATE: UpgradeFormState = {
   spendingLimitDisableThresholdUsd: null,
 };
 
-export default {
+const meta = {
   component: UpgradePlanContent,
   render: (args) => render(args, DEFAULT_FORM_STATE),
-} as Meta<typeof UpgradePlanContent>;
+  args: {
+    plan: {
+      name: "Professional",
+      id: "CONVEX_PROFESSIONAL",
+      description: "The professional plan.",
+      status: "active",
+      seatPrice: 25,
+      planType: "CONVEX_PROFESSIONAL",
+    },
+    isChef: false,
+    numMembers: 2,
+    paymentDetailsForm: (
+      <Callout className="w-fit">
+        STRIPE PAYMENT DETAILS FORM WOULD BE HERE!
+      </Callout>
+    ),
+    setPaymentMethod: () => {},
+    billingAddressInputs: (
+      <Callout className="w-fit">Billing address inputs would be here</Callout>
+    ),
+  },
+} satisfies Meta<typeof UpgradePlanContent>;
+
+export default meta;
 
 function render(args: UpgradePlanContentProps, formState: UpgradeFormState) {
   return (
@@ -31,24 +54,7 @@ function render(args: UpgradePlanContentProps, formState: UpgradeFormState) {
         to see different states.
       </Callout>
       <Formik initialValues={formState} onSubmit={() => {}}>
-        <UpgradePlanContent
-          {...args}
-          plan={{
-            name: "Professional",
-            id: "CONVEX_PROFESSIONAL",
-            description: "The professional plan.",
-            status: "active",
-            seatPrice: 25,
-            planType: "CONVEX_PROFESSIONAL",
-          }}
-          isChef={false}
-          numMembers={2}
-          paymentDetailsForm={
-            <Callout className="w-fit">
-              STRIPE PAYMENT DETAILS FORM WOULD BE HERE!
-            </Callout>
-          }
-        />
+        <UpgradePlanContent {...args} />
       </Formik>
     </Sheet>
   );

@@ -60,6 +60,8 @@ export default {
     team,
     canPerformActions: true,
     getZipExportUrl: () => "",
+    maxCloudBackups: 2,
+    progressMessage: null,
   },
   render: StoryRender,
 } as Meta<typeof BackupListItem>;

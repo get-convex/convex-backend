@@ -31,5 +31,6 @@ export const Primary: StoryObj<typeof InviteMemberForm> = {
       referredBy: null,
     },
     members,
+    hasAdminPermissions: true,
   },
 };

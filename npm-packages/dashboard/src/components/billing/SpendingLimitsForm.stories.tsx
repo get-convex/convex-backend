@@ -6,10 +6,14 @@ const currentSpending = {
   nextBillingPeriodStart: "2025-09-25",
 } as const;
 
-const meta: Meta<typeof SpendingLimitsForm> = {
+const meta = {
   component: SpendingLimitsForm,
-  args: {},
-};
+  args: {
+    onSubmit: async () => {},
+    onCancel: () => {},
+    currentSpending,
+  },
+} satisfies Meta<typeof SpendingLimitsForm>;
 
 export default meta;
 type Story = StoryObj<typeof SpendingLimitsForm>;
