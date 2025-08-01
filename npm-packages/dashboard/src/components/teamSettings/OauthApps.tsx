@@ -415,8 +415,17 @@ export function OauthApps({ teamId }: { teamId: number }) {
         {isLoading ? null : oauthApps && oauthApps.length ? (
           <div className="flex flex-col gap-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-              <p className="text-sm">
+              <p className="flex flex-col gap-1 text-sm">
                 These are the OAuth applications registered by your team.
+                <Link
+                  href="https://docs.convex.dev/platform-apis/oauth-applications"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-fit items-center gap-1 text-content-link hover:underline"
+                >
+                  <ExternalLinkIcon />
+                  Learn more about OAuth applications
+                </Link>
               </p>
               <Button
                 size="xs"
@@ -451,8 +460,8 @@ export function OauthApps({ teamId }: { teamId: number }) {
                 No OAuth Applications
               </h3>
               <p className="mb-4 max-w-md text-sm text-content-secondary">
-                OAuth applications allow third-party developers to create and
-                connect to Convex deployments owned by other teams.
+                OAuth applications allow you to create and connect to Convex
+                deployments owned by other teams.
               </p>
               <p className="mb-4 max-w-md text-sm text-content-secondary">
                 This page is for developers who want to create Convex
@@ -461,7 +470,7 @@ export function OauthApps({ teamId }: { teamId: number }) {
               <div className="mb-2 flex w-full flex-col items-center space-y-2 text-sm text-content-tertiary">
                 <p>
                   <Link
-                    href="https://docs.convex.dev/auth/oauth"
+                    href="https://docs.convex.dev/platform-apis/oauth-applications"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex w-fit items-center gap-1 text-content-link hover:underline"
@@ -472,13 +481,13 @@ export function OauthApps({ teamId }: { teamId: number }) {
                 </p>
                 <p>
                   <Link
-                    href="https://docs.convex.dev/auth/oauth#verification"
+                    href="https://docs.convex.dev/platform-apis"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex w-fit items-center gap-1 text-content-link hover:underline"
                   >
                     <ExternalLinkIcon />
-                    OAuth app verification requirements
+                    Learn more about Convex Platform APIs
                   </Link>
                 </p>
               </div>

@@ -8,6 +8,7 @@ import { Tooltip } from "@ui/Tooltip";
 import React, { useState } from "react";
 import { CreateTokenDialog } from "components/teamSettings/CreateTokenDialog";
 import { useCurrentTeam } from "api/teams";
+import Link from "next/link";
 
 export function TeamAccessTokens({
   accessTokens,
@@ -24,7 +25,15 @@ export function TeamAccessTokens({
         <div className="flex items-center justify-between">
           <p className="text-sm text-content-primary">
             These access tokens allow your team to access your Convex projects
-            programmatically.
+            using{" "}
+            <Link
+              href="https://docs.convex.dev/platform-apis"
+              className="text-content-link hover:underline"
+              target="_blank"
+            >
+              Convex Platform APIs
+            </Link>
+            .
           </p>
           <Button onClick={() => setShowCreateDialog(true)} icon={<PlusIcon />}>
             Create Token
