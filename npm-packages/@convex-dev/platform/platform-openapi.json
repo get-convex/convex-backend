@@ -47,7 +47,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          }
+        ]
       }
     },
     "/team/{team_id}/list_projects": {
@@ -80,7 +85,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          }
+        ]
       }
     },
     "/project/{project_id}/list_deployments": {
@@ -113,7 +123,13 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": []
+          }
+        ]
       }
     },
     "/project/{project_id}/delete": {
@@ -136,7 +152,12 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth Team Token": []
+          }
+        ]
       }
     }
   },
@@ -277,6 +298,18 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      }
+    },
+    "securitySchemes": {
+      "OAuth Project Token": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api)."
+      },
+      "OAuth Team Token": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api)."
       }
     }
   }

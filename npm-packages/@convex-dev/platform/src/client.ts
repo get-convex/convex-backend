@@ -23,6 +23,7 @@ export function createConvexClient(accessToken: string) {
   };
 
   const headers: Record<string, string> = {
+    // Yep, even API keys go use Bearer. Everyone else does it.
     Authorization: `Bearer ${auth.accessToken}`,
     "Convex-Client": `convex-platform-${version}`,
   };

@@ -5351,6 +5351,18 @@
           }
         }
       }
+    },
+    "securitySchemes": {
+      "OAuth Project Token": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api)."
+      },
+      "OAuth Team Token": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api)."
+      }
     }
   }
 }

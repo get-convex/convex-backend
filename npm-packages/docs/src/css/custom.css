@@ -1312,14 +1312,26 @@ h2.zen-header {
   margin: 0 auto;
 }
 
-/* Fix pages should not be too wide, except for all the quick starts */
-html:not([class*="docs-doc-id-quickstart/"]) main > .container > .row .col {
+/* Fix pages should not be too wide, except for all the quick starts and management API docs */
+html:not([class*="docs-doc-id-quickstart/"]):not(
+    [class*="docs-doc-id-management-api/"]
+  )
+  main
+  > .container
+  > .row
+  .col {
   max-width: 800px !important;
   margin: 0 auto;
 }
 
 @media (min-width: 997px) {
-  html:not([class*="docs-doc-id-quickstart/"]) main > .container > .row .col {
+  html:not([class*="docs-doc-id-quickstart/"]):not(
+      [class*="docs-doc-id-management-api/"]
+    )
+    main
+    > .container
+    > .row
+    .col {
     margin: unset;
   }
 }
