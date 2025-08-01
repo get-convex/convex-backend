@@ -92,6 +92,8 @@
     "@babel/runtime-corejs3@7.26.0": "^7.26.10",
     "@babel/runtime@7.26.0": "^7.26.10",
     "esbuild@<=0.24.2": "0.25.0",
+    "form-data@>=2.5.0 <2.5.4": "2.5.4",
+    "form-data@>=4.0.0 <4.0.4": "4.0.4",
     "http-proxy-middleware@2.0.8": "^2.0.9",
     "http-proxy-middleware@2.0.9": "^2.0.9",
     "http-proxy@1.11.1": "^1.18.1",
