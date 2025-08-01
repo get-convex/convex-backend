@@ -3,7 +3,7 @@ import { Shape } from "shapes";
 import { ShowSchema } from "@common/features/data/components/ShowSchema";
 import { SchemaJson } from "@common/lib/format";
 
-export default {
+const meta = {
   component: ShowSchema,
   args: {
     activeSchema: undefined,
@@ -24,7 +24,10 @@ export default {
       ],
     ]),
   },
-} as Meta<typeof ShowSchema>;
+} satisfies Meta<typeof ShowSchema>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 const sampleSchema: SchemaJson = {
   tables: [
@@ -54,28 +57,28 @@ const sampleSchema: SchemaJson = {
   schemaValidation: true,
 };
 
-export const NoSchema: StoryObj<typeof ShowSchema> = { args: {} };
+export const NoSchema: Story = { args: {} };
 
-export const GenerationError: StoryObj<typeof ShowSchema> = {
+export const GenerationError: Story = {
   args: {
     hasShapeError: true,
   },
 };
 
-export const LoadingSchema: StoryObj<typeof ShowSchema> = {
+export const LoadingSchema: Story = {
   args: {
     inProgressSchema: sampleSchema,
   },
 };
 
-export const LoadingSchemaWithExistingSchema: StoryObj<typeof ShowSchema> = {
+export const LoadingSchemaWithExistingSchema: Story = {
   args: {
     activeSchema: sampleSchema,
     inProgressSchema: sampleSchema,
   },
 };
 
-export const SavedSchema: StoryObj<typeof ShowSchema> = {
+export const SavedSchema: Story = {
   args: {
     activeSchema: {
       ...sampleSchema,
@@ -84,7 +87,7 @@ export const SavedSchema: StoryObj<typeof ShowSchema> = {
   },
 };
 
-export const EnforcedSchema: StoryObj<typeof ShowSchema> = {
+export const EnforcedSchema: Story = {
   args: {
     activeSchema: sampleSchema,
   },

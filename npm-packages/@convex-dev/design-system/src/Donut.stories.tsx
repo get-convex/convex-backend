@@ -2,12 +2,12 @@ import type { Meta, StoryObj } from "@storybook/nextjs";
 
 import { Donut } from "./Donut";
 
-const meta: Meta<typeof Donut> = {
+const meta = {
   component: Donut,
-};
+} satisfies Meta<typeof Donut>;
 
 export default meta;
-type Story = StoryObj<typeof Donut>;
+type Story = StoryObj<typeof meta>;
 
 export const UnderLimit: Story = {
   args: {

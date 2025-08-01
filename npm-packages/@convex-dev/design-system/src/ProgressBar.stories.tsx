@@ -1,16 +1,17 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { useEffect, useState } from "react";
 import { ProgressBar } from "@ui/ProgressBar";
 
-export default {
+const meta = {
   component: ProgressBar,
   args: { ariaLabel: "Progress" },
   render: (args: Parameters<typeof ProgressBar>[0]) => (
     <ProgressBar {...args} />
   ),
-};
+} satisfies Meta<typeof ProgressBar>;
 
-type Story = StoryObj<typeof ProgressBar>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Indeterminate: Story = {
   args: { fraction: undefined },

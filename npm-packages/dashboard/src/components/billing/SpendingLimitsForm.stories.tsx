@@ -16,7 +16,7 @@ const meta = {
 } satisfies Meta<typeof SpendingLimitsForm>;
 
 export default meta;
-type Story = StoryObj<typeof SpendingLimitsForm>;
+type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {

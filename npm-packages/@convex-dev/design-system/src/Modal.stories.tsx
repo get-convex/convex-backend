@@ -1,23 +1,26 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { Modal } from "@ui/Modal";
 
-export default {
+const meta = {
   component: Modal,
   render: (args) => (
     <Modal {...args}>
       Modal content... maybe there's even a button in here 😮
     </Modal>
   ),
-} as Meta<typeof Modal>;
+} satisfies Meta<typeof Modal>;
 
-export const Primary: StoryObj<typeof Modal> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     title: "Modal title",
     description: "Detailed description of the modal's purpose",
   },
 };
 
-export const Large: StoryObj<typeof Modal> = {
+export const Large: Story = {
   args: {
     title: "Modal title",
     description: "Detailed description of the modal's purpose",

@@ -13,7 +13,7 @@ const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.components.list, () => [])
   .registerQueryFake(udfs.getTableMapping.default, () => ({}));
 
-export default {
+const meta = {
   component: EditDocumentPanel,
   args: {
     tableName: "users",
@@ -30,12 +30,15 @@ export default {
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
-} as Meta<typeof EditDocumentPanel>;
+} satisfies Meta<typeof EditDocumentPanel>;
 
-export const Adding: StoryObj<typeof EditDocumentPanel> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Adding: Story = {
   args: { defaultDocument: {} },
 };
 
-export const Editing: StoryObj<typeof EditDocumentPanel> = {
+export const Editing: Story = {
   args: { defaultDocument: { abc: 1, def: "ghi" } },
 };

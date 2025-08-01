@@ -1,9 +1,12 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { CodeLine } from "./CodeLine";
 
-export default { component: CodeLine };
+const meta = { component: CodeLine } satisfies Meta<typeof CodeLine>;
 
-export const Primary: StoryObj<typeof CodeLine> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     code: "const x = 1;",
   },

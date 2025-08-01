@@ -41,7 +41,7 @@ const deployment: DeploymentResponse = {
   previewIdentifier: null,
 };
 
-export default {
+const meta = {
   component: BackupRestoreFail,
   args: {
     errorMessage:
@@ -51,9 +51,10 @@ export default {
     team,
     backup,
   },
-} as Meta<typeof BackupRestoreFail>;
+} satisfies Meta<typeof BackupRestoreFail>;
 
-type Story = StoryObj<typeof BackupRestoreFail>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Primary: Story = {
   args: {},

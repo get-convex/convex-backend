@@ -7,16 +7,19 @@ import { Header } from "./Header";
 
 const mockUser = {} as unknown as UserProfile;
 
-export default {
+const meta = {
   component: Header,
   render: (args) => (
     <UserProvider user={mockUser}>
       <Header {...args} />
     </UserProvider>
   ),
-} as Meta<typeof Header>;
+} satisfies Meta<typeof Header>;
 
-export const Default: StoryObj<typeof Header> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {
   args: {
     user: {
       name: "Test User",
@@ -25,7 +28,7 @@ export const Default: StoryObj<typeof Header> = {
   },
 };
 
-export const WithLinks: StoryObj<typeof Header> = {
+export const WithLinks: Story = {
   args: {
     user: {
       name: "Test User",
@@ -52,7 +55,7 @@ export const WithLinks: StoryObj<typeof Header> = {
   },
 };
 
-export const WithBreadcrumbComponents: StoryObj<typeof Header> = {
+export const WithBreadcrumbComponents: Story = {
   args: {
     user: {
       name: "Test User",

@@ -2,11 +2,14 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { InvoiceResponse } from "generatedApi";
 import { Invoices } from "./Invoices";
 
-export default {
+const meta = {
   component: Invoices,
-} as Meta<typeof Invoices>;
+} satisfies Meta<typeof Invoices>;
 
-export const NoInvoices: StoryObj<typeof Invoices> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const NoInvoices: Story = {
   args: {
     invoices: [],
   },
@@ -27,13 +30,13 @@ function generateInvoices(num: number): InvoiceResponse[] {
   }));
 }
 
-export const WithInvoices: StoryObj<typeof Invoices> = {
+export const WithInvoices: Story = {
   args: {
     invoices: generateInvoices(5),
   },
 };
 
-export const WithPagesOfInvoices: StoryObj<typeof Invoices> = {
+export const WithPagesOfInvoices: Story = {
   args: {
     invoices: generateInvoices(55),
   },

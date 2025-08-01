@@ -8,10 +8,10 @@ const meta = {
       <Snippet {...args} />
     </div>
   ),
-} as Meta<typeof Snippet>;
+} satisfies Meta<typeof Snippet>;
 
 export default meta;
-type Story = StoryObj<typeof Snippet>;
+type Story = StoryObj<typeof meta>;
 
 export const Primary: Story = {
   args: {

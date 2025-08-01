@@ -2,12 +2,15 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 
-export default {
+const meta = {
   component: Button,
   render: (args: any) => <Button {...args} />,
-} as Meta<typeof Button>;
+} satisfies Meta<typeof Button>;
 
-export const Primary: StoryObj<typeof Button> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     variant: "primary",
     icon: <PlusIcon />,
@@ -15,7 +18,7 @@ export const Primary: StoryObj<typeof Button> = {
   },
 };
 
-export const PrimaryFocused: StoryObj<typeof Button> = {
+export const PrimaryFocused: Story = {
   args: {
     variant: "primary",
     focused: true,
@@ -23,14 +26,14 @@ export const PrimaryFocused: StoryObj<typeof Button> = {
   },
 };
 
-export const Destructive: StoryObj<typeof Button> = {
+export const Destructive: Story = {
   args: {
     variant: "danger",
     children: "Button",
   },
 };
 
-export const DestructiveFocused: StoryObj<typeof Button> = {
+export const DestructiveFocused: Story = {
   args: {
     variant: "danger",
     focused: true,
@@ -38,21 +41,21 @@ export const DestructiveFocused: StoryObj<typeof Button> = {
   },
 };
 
-export const Disabled: StoryObj<typeof Button> = {
+export const Disabled: Story = {
   args: {
     disabled: true,
     children: "Button",
   },
 };
 
-export const Link: StoryObj<typeof Button> = {
+export const Link: Story = {
   args: {
     href: "https://convex.dev",
     children: "Link button",
   },
 };
 
-export const LinkDisabled: StoryObj<typeof Button> = {
+export const LinkDisabled: Story = {
   args: {
     href: "https://convex.dev",
     disabled: true,
@@ -60,7 +63,7 @@ export const LinkDisabled: StoryObj<typeof Button> = {
   },
 };
 
-export const LinkTargetBlack: StoryObj<typeof Button> = {
+export const LinkTargetBlack: Story = {
   args: {
     href: "https://convex.dev",
     target: "_blank",
@@ -68,7 +71,7 @@ export const LinkTargetBlack: StoryObj<typeof Button> = {
   },
 };
 
-export const LinkOnClick: StoryObj<typeof Button> = {
+export const LinkOnClick: Story = {
   args: {
     href: "https://convex.dev",
     onClick: () => {
@@ -79,7 +82,7 @@ export const LinkOnClick: StoryObj<typeof Button> = {
   },
 };
 
-export const LinkTip: StoryObj<typeof Button> = {
+export const LinkTip: Story = {
   args: {
     href: "https://convex.dev",
     children: "Link button",

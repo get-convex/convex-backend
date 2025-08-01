@@ -4,7 +4,7 @@ import { ExternalLinkIcon, StarIcon, TrashIcon } from "@radix-ui/react-icons";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 
-export default {
+const meta = {
   component: ContextMenu,
   args: {
     target: null,
@@ -20,7 +20,8 @@ export default {
   },
 } satisfies Meta<typeof ContextMenu>;
 
-type Story = StoryObj<typeof ContextMenu>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 function DemoTrigger({
   onOpenContextMenu,

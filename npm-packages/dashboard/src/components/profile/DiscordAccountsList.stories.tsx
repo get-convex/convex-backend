@@ -1,9 +1,12 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { DiscordAccountsList } from "./DiscordAccounts";
 
-export default { component: DiscordAccountsList };
+const meta = { component: DiscordAccountsList } satisfies Meta<
+  typeof DiscordAccountsList
+>;
 
-type Story = StoryObj<typeof DiscordAccountsList>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Primary: Story = {
   args: {

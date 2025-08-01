@@ -19,7 +19,7 @@ function schemaJsonAsString(value: SchemaJson): string {
   return JSON.stringify(value);
 }
 
-export default {
+const meta = {
   component: DeploymentEventContent,
   decorators: [
     (Story) => (
@@ -30,7 +30,8 @@ export default {
   ],
 } satisfies Meta<typeof DeploymentEventContent>;
 
-type Story = StoryObj<typeof DeploymentEventContent>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const CreateEnvironmentVariable: Story = {
   args: {

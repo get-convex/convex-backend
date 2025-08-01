@@ -1,7 +1,7 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 
-export default {
+const meta = {
   component: ReadonlyCode,
   args: {
     language: "javascript",
@@ -12,14 +12,18 @@ export default {
       <ReadonlyCode {...args} />
     </div>
   ),
-} as Meta<typeof ReadonlyCode>;
-export const ParentHeight: StoryObj<typeof ReadonlyCode> = {
+} satisfies Meta<typeof ReadonlyCode>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const ParentHeight: Story = {
   args: {
     code: 'console.log("Hello World");',
   },
 };
 
-export const ContentHeight: StoryObj<typeof ReadonlyCode> = {
+export const ContentHeight: Story = {
   args: {
     language: "python",
     code: 'for i in range(10):\n\tprint("Hello world")',
@@ -28,7 +32,7 @@ export const ContentHeight: StoryObj<typeof ReadonlyCode> = {
   },
 };
 
-export const ContentHeightWithMax: StoryObj<typeof ReadonlyCode> = {
+export const ContentHeightWithMax: Story = {
   args: {
     code: 'console.log("Hello World");\n'.repeat(100),
     height: {
@@ -38,7 +42,7 @@ export const ContentHeightWithMax: StoryObj<typeof ReadonlyCode> = {
   },
 };
 
-export const HighlightLines: StoryObj<typeof ReadonlyCode> = {
+export const HighlightLines: Story = {
   args: {
     code: 'console.log("Hello World");\n'.repeat(100),
     highlightLines: {

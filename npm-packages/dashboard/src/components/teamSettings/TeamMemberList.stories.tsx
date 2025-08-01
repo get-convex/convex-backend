@@ -1,9 +1,14 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { InvitationResponse, Team, TeamMemberResponse } from "generatedApi";
 
 import { TeamMemberList } from "./TeamMemberList";
 
-export default { component: TeamMemberList };
+const meta = { component: TeamMemberList } satisfies Meta<
+  typeof TeamMemberList
+>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 const members: TeamMemberResponse[] = [
   {
@@ -40,7 +45,7 @@ const team: Team = {
   referredBy: null,
 };
 
-export const Primary: StoryObj<typeof TeamMemberList> = {
+export const Primary: Story = {
   args: {
     members,
     invites,
@@ -48,7 +53,7 @@ export const Primary: StoryObj<typeof TeamMemberList> = {
   },
 };
 
-export const LoadingState: StoryObj<typeof TeamMemberList> = {
+export const LoadingState: Story = {
   args: {
     members: undefined,
     invites: undefined,

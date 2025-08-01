@@ -1,10 +1,13 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { BreadcrumbLink } from "../BreadcrumbLink/BreadcrumbLink";
 import { Breadcrumbs } from "./Breadcrumbs";
 
-export default { component: Breadcrumbs };
+const meta = { component: Breadcrumbs } satisfies Meta<typeof Breadcrumbs>;
 
-export const Primary: StoryObj<typeof Breadcrumbs> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     children: [
       <BreadcrumbLink href="/">Home</BreadcrumbLink>,
@@ -14,7 +17,7 @@ export const Primary: StoryObj<typeof Breadcrumbs> = {
   },
 };
 
-export const WithOtherChildren: StoryObj<typeof Breadcrumbs> = {
+export const WithOtherChildren: Story = {
   args: {
     children: [
       <span className="p-3">span</span>,

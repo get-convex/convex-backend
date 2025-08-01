@@ -22,10 +22,13 @@ const mockClient = mockConvexReactClient()
     ({ tableName: _tableName, tableNamespace: _tableNamespace }) => [],
   );
 
-export default {
+const meta = {
   component: DataFilters,
   render: (args) => <Example {...args} />,
-} as Meta<typeof DataFilters>;
+} satisfies Meta<typeof DataFilters>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 function Example(args: ComponentProps<typeof DataFilters>) {
   const connectedDeployment = useMemo(
@@ -43,7 +46,7 @@ function Example(args: ComponentProps<typeof DataFilters>) {
   );
 }
 
-export const Default: StoryObj<typeof DataFilters> = {
+export const Default: Story = {
   args: {
     tableName: "myTable",
     defaultDocument: { myColumn: 0 },

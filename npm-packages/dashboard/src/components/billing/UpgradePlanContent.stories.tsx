@@ -45,6 +45,7 @@ const meta = {
 } satisfies Meta<typeof UpgradePlanContent>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
 function render(args: UpgradePlanContentProps, formState: UpgradeFormState) {
   return (
@@ -60,7 +61,7 @@ function render(args: UpgradePlanContentProps, formState: UpgradeFormState) {
   );
 }
 
-export const NoPaymentMethod: StoryObj<typeof UpgradePlanContent> = {
+export const NoPaymentMethod: Story = {
   args: {},
   render: (args) =>
     render(args, {
@@ -69,24 +70,24 @@ export const NoPaymentMethod: StoryObj<typeof UpgradePlanContent> = {
     }),
 };
 
-export const HasPaymentMethod: StoryObj<typeof UpgradePlanContent> = {
+export const HasPaymentMethod: Story = {
   args: {},
 };
 
-export const WithDiscount: StoryObj<typeof UpgradePlanContent> = {
+export const WithDiscount: Story = {
   args: {
     teamMemberDiscountPct: 0.5,
   },
 };
 
-export const WithPhasedDiscount: StoryObj<typeof UpgradePlanContent> = {
+export const WithPhasedDiscount: Story = {
   args: {
     teamMemberDiscountPct: 0.5,
     couponDurationInMonths: 2,
   },
 };
 
-export const WithFreeDiscount: StoryObj<typeof UpgradePlanContent> = {
+export const WithFreeDiscount: Story = {
   args: {
     teamMemberDiscountPct: 1,
   },
@@ -106,7 +107,7 @@ export const WithFreeDiscountAndNoPaymentMethod: StoryObj<
   },
 };
 
-export const LoadingPromo: StoryObj<typeof UpgradePlanContent> = {
+export const LoadingPromo: Story = {
   render: (args) =>
     render(args, {
       ...DEFAULT_FORM_STATE,
@@ -118,7 +119,7 @@ export const LoadingPromo: StoryObj<typeof UpgradePlanContent> = {
   },
 };
 
-export const InvalidPromo: StoryObj<typeof UpgradePlanContent> = {
+export const InvalidPromo: Story = {
   render: (args) =>
     render(args, {
       ...DEFAULT_FORM_STATE,

@@ -1,9 +1,14 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 
 import { TeamMemberResponse } from "generatedApi";
 import { InviteMemberForm } from "./InviteMemberForm";
 
-export default { component: InviteMemberForm };
+const meta = { component: InviteMemberForm } satisfies Meta<
+  typeof InviteMemberForm
+>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 const members: TeamMemberResponse[] = [
   {
@@ -18,7 +23,7 @@ const members: TeamMemberResponse[] = [
     role: "developer",
   },
 ];
-export const Primary: StoryObj<typeof InviteMemberForm> = {
+export const Primary: Story = {
   args: {
     team: {
       creator: 1,

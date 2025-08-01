@@ -10,11 +10,12 @@ import {
   TeamUsageByFunctionChart,
 } from "./TeamUsageByFunctionChart";
 
-const meta: Meta<typeof TeamUsageByFunctionChart> = {
+const meta = {
   component: TeamUsageByFunctionChart,
-};
+} satisfies Meta<typeof TeamUsageByFunctionChart>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
 const team = {
   id: 42,
@@ -251,7 +252,7 @@ const rows: AggregatedFunctionMetrics[] = [
   },
 ];
 
-export const Default: StoryObj<typeof TeamUsageByFunctionChart> = {
+export const Default: Story = {
   args: {
     rows,
     team,
@@ -262,7 +263,7 @@ export const Default: StoryObj<typeof TeamUsageByFunctionChart> = {
   },
 };
 
-export const ForDeletedProject: StoryObj<typeof TeamUsageByFunctionChart> = {
+export const ForDeletedProject: Story = {
   args: {
     rows,
     team,
@@ -273,7 +274,7 @@ export const ForDeletedProject: StoryObj<typeof TeamUsageByFunctionChart> = {
   },
 };
 
-export const DatabaseBandwidth: StoryObj<typeof TeamUsageByFunctionChart> = {
+export const DatabaseBandwidth: Story = {
   args: {
     rows,
     team,
@@ -286,7 +287,7 @@ export const DatabaseBandwidth: StoryObj<typeof TeamUsageByFunctionChart> = {
   },
 };
 
-export const ActionCompute: StoryObj<typeof TeamUsageByFunctionChart> = {
+export const ActionCompute: Story = {
   args: {
     rows,
     team,
@@ -299,7 +300,7 @@ export const ActionCompute: StoryObj<typeof TeamUsageByFunctionChart> = {
   },
 };
 
-export const VectorBandwidth: StoryObj<typeof TeamUsageByFunctionChart> = {
+export const VectorBandwidth: Story = {
   args: {
     rows,
     team,

@@ -1,9 +1,12 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { NavBar } from "./NavBar";
 
-export default { component: NavBar };
+const meta = { component: NavBar } satisfies Meta<typeof NavBar>;
 
-export const Primary: StoryObj<typeof NavBar> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     activeLabel: "One",
     items: [

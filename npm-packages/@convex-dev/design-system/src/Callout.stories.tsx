@@ -1,16 +1,19 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { Callout } from "@ui/Callout";
 
-export default { component: Callout };
+const meta = { component: Callout } satisfies Meta<typeof Callout>;
 
-export const Error: StoryObj<typeof Callout> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Error: Story = {
   args: {
     variant: "error",
     children: "This is an error",
   },
 };
 
-export const Instructions: StoryObj<typeof Callout> = {
+export const Instructions: Story = {
   args: {
     children: "These are instructions",
   },

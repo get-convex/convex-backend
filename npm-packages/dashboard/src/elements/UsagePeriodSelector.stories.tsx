@@ -5,16 +5,16 @@ import { Period, UsagePeriodSelector } from "./UsagePeriodSelector";
 
 const currentBillingPeriod = { start: "2023-10-01", end: "2023-10-31" };
 
-const meta: Meta<typeof UsagePeriodSelector> = {
+const meta = {
   component: UsagePeriodSelector,
   args: {
     currentBillingPeriod,
     onChange: () => {},
   },
-};
+} satisfies Meta<typeof UsagePeriodSelector>;
 
 export default meta;
-type Story = StoryObj<typeof UsagePeriodSelector>;
+type Story = StoryObj<typeof meta>;
 
 export const CurrentBillingPeriod: Story = {
   args: {

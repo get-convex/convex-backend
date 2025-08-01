@@ -1,11 +1,14 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { Spinner } from "@ui/Spinner";
 
-export default {
+const meta = {
   component: Spinner,
   render: (args: any) => <Spinner {...args} />,
-} as Meta<typeof Spinner>;
+} satisfies Meta<typeof Spinner>;
 
-export const Default: StoryObj<typeof Spinner> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {
   args: {},
 };

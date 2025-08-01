@@ -1,11 +1,12 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { BackupRestoreOngoing } from "./BackupRestoreStatus";
 
-export default {
+const meta = {
   component: BackupRestoreOngoing,
-} as Meta<typeof BackupRestoreOngoing>;
+} satisfies Meta<typeof BackupRestoreOngoing>;
 
-type Story = StoryObj<typeof BackupRestoreOngoing>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Primary: Story = {
   args: {

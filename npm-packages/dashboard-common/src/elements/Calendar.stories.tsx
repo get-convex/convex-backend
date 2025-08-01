@@ -1,14 +1,14 @@
-import { StoryFn, StoryObj } from "@storybook/nextjs";
+import { Meta, StoryFn, StoryObj } from "@storybook/nextjs";
 import { Calendar } from "@common/elements/Calendar";
 
-export const Single: StoryObj<typeof Calendar> = {
+export const Single: Story = {
   args: {
     mode: "single",
     selected: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
   },
 };
 
-export const Range: StoryObj<typeof Calendar> = {
+export const Range: Story = {
   args: {
     mode: "range",
     selected: {
@@ -18,7 +18,7 @@ export const Range: StoryObj<typeof Calendar> = {
   },
 };
 
-export const RestrictedRange: StoryObj<typeof Calendar> = {
+export const RestrictedRange: Story = {
   args: {
     mode: "single",
     selected: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
@@ -27,7 +27,7 @@ export const RestrictedRange: StoryObj<typeof Calendar> = {
   },
 };
 
-export default {
+const meta = {
   component: Calendar,
   decorators: [
     (Story: StoryFn) => (
@@ -38,4 +38,7 @@ export default {
       </div>
     ),
   ],
-};
+} satisfies Meta<typeof Calendar>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;

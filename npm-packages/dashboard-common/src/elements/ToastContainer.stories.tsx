@@ -6,9 +6,12 @@ import { Sheet } from "@ui/Sheet";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 
-export default {
+const meta = {
   component: ToastContainer,
-} as Meta<typeof ToastContainer>;
+} satisfies Meta<typeof ToastContainer>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 function ToastDemo() {
   const [message, setMessage] = useState("Hello world");
@@ -70,6 +73,6 @@ function ToastDemo() {
   );
 }
 
-export const Demo: StoryObj<typeof ToastContainer> = {
+export const Demo: Story = {
   render: () => <ToastDemo />,
 };

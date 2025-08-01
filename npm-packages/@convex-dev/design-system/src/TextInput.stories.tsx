@@ -2,10 +2,13 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { ComponentProps, useState } from "react";
 import { TextInput } from "@ui/TextInput";
 
-export default {
+const meta = {
   component: TextInput,
   render: (args) => <Example {...args} />,
-} as Meta<typeof TextInput>;
+} satisfies Meta<typeof TextInput>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 function Example(args: ComponentProps<typeof TextInput>) {
   const [value, setValue] = useState("");
@@ -19,4 +22,4 @@ function Example(args: ComponentProps<typeof TextInput>) {
   );
 }
 
-export const Primary: StoryObj<typeof TextInput> = { args: {} };
+export const Primary: Story = { args: {} };

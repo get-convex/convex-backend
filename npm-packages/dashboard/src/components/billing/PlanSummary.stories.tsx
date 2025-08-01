@@ -1,11 +1,14 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { PlanSummaryForTeam } from "./PlanSummary";
 
-export default {
+const meta = {
   component: PlanSummaryForTeam,
-} as Meta<typeof PlanSummaryForTeam>;
+} satisfies Meta<typeof PlanSummaryForTeam>;
 
-export const Primary: StoryObj<typeof PlanSummaryForTeam> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     hasSubscription: true,
     showEntitlements: true,

@@ -3,7 +3,7 @@ import { DailyMetric } from "hooks/usageMetrics";
 import { Sheet } from "@ui/Sheet";
 import { UsageBarChart } from "./UsageBarChart";
 
-const meta: Meta<typeof UsageBarChart> = {
+const meta = {
   component: UsageBarChart,
   args: {
     entity: "documents",
@@ -14,34 +14,35 @@ const meta: Meta<typeof UsageBarChart> = {
       <UsageBarChart {...args} />
     </Sheet>
   ),
-};
+} satisfies Meta<typeof UsageBarChart>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
 const rows: DailyMetric[] = [...Array(31).keys()].map((dayIndex) => ({
   ds: `2023-07-${(dayIndex + 1).toString().padStart(2, "0")}`,
   value: dayIndex === 1 ? 0 : (dayIndex + 5) * 100_000,
 }));
 
-export const Standard: StoryObj<typeof UsageBarChart> = {
+export const Standard: Story = {
   args: {
     rows: rows.slice(0, 15),
   },
 };
 
-export const FullMonth: StoryObj<typeof UsageBarChart> = {
+export const FullMonth: Story = {
   args: {
     rows,
   },
 };
 
-export const FewDays: StoryObj<typeof UsageBarChart> = {
+export const FewDays: Story = {
   args: {
     rows: rows.slice(0, 3),
   },
 };
 
-export const HighValuesOnly: StoryObj<typeof UsageBarChart> = {
+export const HighValuesOnly: Story = {
   args: {
     rows: [
       { ds: "2023-06-22", value: 250 },
@@ -50,32 +51,32 @@ export const HighValuesOnly: StoryObj<typeof UsageBarChart> = {
   },
 };
 
-export const SingleEntry: StoryObj<typeof UsageBarChart> = {
+export const SingleEntry: Story = {
   args: {
     rows: rows.slice(0, 1),
   },
 };
 
-export const Empty: StoryObj<typeof UsageBarChart> = {
+export const Empty: Story = {
   args: {
     rows: [],
   },
 };
 
-export const MissingEntries: StoryObj<typeof UsageBarChart> = {
+export const MissingEntries: Story = {
   args: {
     rows: [...rows.slice(20, 30), ...rows.slice(0, 10)],
   },
 };
 
-export const Storage: StoryObj<typeof UsageBarChart> = {
+export const Storage: Story = {
   args: {
     rows: rows.map((row) => ({ ...row, value: row.value * 100 })),
     quantityType: "storage",
   },
 };
 
-export const ActionCompute: StoryObj<typeof UsageBarChart> = {
+export const ActionCompute: Story = {
   args: {
     rows: rows.map((row) => ({ ...row, value: row.value * 100 })),
     quantityType: "actionCompute",

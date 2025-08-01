@@ -1,27 +1,28 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 
-const meta: Meta<typeof KeyboardShortcut> = {
+const meta = {
   component: KeyboardShortcut,
-};
+} satisfies Meta<typeof KeyboardShortcut>;
 
 export default meta;
+type Story = StoryObj<typeof meta>;
 
-export const Windows: StoryObj<typeof KeyboardShortcut> = {
+export const Windows: Story = {
   args: {
     isApple: false,
     value: ["Ctrl", "Alt", "Delete"],
   },
 };
 
-export const Apple: StoryObj<typeof KeyboardShortcut> = {
+export const Apple: Story = {
   args: {
     isApple: true,
     value: ["CtrlOrCmd", "Alt", "Shift", "Return"],
   },
 };
 
-export const AutoDetect: StoryObj<typeof KeyboardShortcut> = {
+export const AutoDetect: Story = {
   args: {
     value: ["CtrlOrCmd", "C"],
   },

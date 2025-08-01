@@ -9,7 +9,7 @@ import {
 } from "@radix-ui/react-icons";
 import { Sidebar } from "@common/elements/Sidebar";
 
-export default {
+const meta = {
   component: Sidebar,
   render: (args) => (
     <div className="m-[-1rem] h-[100vh] w-[100vw] bg-background-primary">
@@ -21,7 +21,10 @@ export default {
   },
 } satisfies Meta<typeof Sidebar>;
 
-export const Primary: StoryObj<typeof Sidebar> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     collapsed: false,
     items: [

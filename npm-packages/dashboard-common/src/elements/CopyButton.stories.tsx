@@ -1,9 +1,12 @@
-import { StoryObj } from "@storybook/nextjs";
+import { Meta, StoryObj } from "@storybook/nextjs";
 import { CopyButton } from "@common/elements/CopyButton";
 
-export default { component: CopyButton };
+const meta = { component: CopyButton } satisfies Meta<typeof CopyButton>;
 
-export const Primary: StoryObj<typeof CopyButton> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     text: "Hello, world!",
   },

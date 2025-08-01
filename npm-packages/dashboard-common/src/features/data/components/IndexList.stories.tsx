@@ -15,7 +15,6 @@ const meta = {
 } satisfies Meta<typeof IndexList>;
 
 export default meta;
-
 type Story = StoryObj<typeof meta>;
 
 export const LoadingStory: Story = {
@@ -66,7 +65,7 @@ export const WithIndexes: Story = {
   },
 };
 
-export const WithUpdatingIndexes: StoryObj<typeof IndexList> = {
+export const WithUpdatingIndexes: Story = {
   args: {
     indexes: [
       {

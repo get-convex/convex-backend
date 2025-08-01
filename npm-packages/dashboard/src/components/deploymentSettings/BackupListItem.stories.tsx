@@ -45,7 +45,7 @@ const team: Team = {
   referredBy: null,
 };
 
-export default {
+const meta = {
   component: BackupListItem,
   args: {
     backup,
@@ -64,9 +64,10 @@ export default {
     progressMessage: null,
   },
   render: StoryRender,
-} as Meta<typeof BackupListItem>;
+} satisfies Meta<typeof BackupListItem>;
 
-type Story = StoryObj<typeof BackupListItem>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const RestorableWithNoWarning: Story = {
   args: {

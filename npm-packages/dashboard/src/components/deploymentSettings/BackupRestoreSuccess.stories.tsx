@@ -41,7 +41,7 @@ const deployment: DeploymentResponse = {
   previewIdentifier: null,
 };
 
-export default {
+const meta = {
   component: BackupRestoreSuccess,
   args: {
     completedTime: new Date(),
@@ -51,9 +51,10 @@ export default {
     backup,
     snapshotImportCheckpoints: undefined,
   },
-} as Meta<typeof BackupRestoreSuccess>;
+} satisfies Meta<typeof BackupRestoreSuccess>;
 
-type Story = StoryObj<typeof BackupRestoreSuccess>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const Primary: Story = {
   args: {

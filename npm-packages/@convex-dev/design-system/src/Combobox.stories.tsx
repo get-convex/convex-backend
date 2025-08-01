@@ -2,10 +2,13 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { ComponentProps, useState } from "react";
 import { Combobox } from "@ui/Combobox";
 
-export default {
+const meta = {
   component: Combobox,
   render: (args) => <Example {...args} />,
-} as Meta<typeof Combobox>;
+} satisfies Meta<typeof Combobox>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 function Example(args: Omit<ComponentProps<typeof Combobox>, "Option">) {
   const [selectedOption, setSelectedOption] = useState<string>("1");
@@ -27,4 +30,4 @@ function Example(args: Omit<ComponentProps<typeof Combobox>, "Option">) {
   );
 }
 
-export const Default: StoryObj<typeof Combobox> = {};
+export const Default: Story = {};

@@ -2,7 +2,7 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { Sheet } from "@ui/Sheet";
 import { SpendingLimitsSection } from "./SubscriptionOverview";
 
-const meta: Meta<typeof SpendingLimitsSection> = {
+const meta = {
   component: SpendingLimitsSection,
   args: {
     hasAdminPermissions: true,
@@ -13,10 +13,10 @@ const meta: Meta<typeof SpendingLimitsSection> = {
       <SpendingLimitsSection {...args} />
     </Sheet>
   ),
-};
+} satisfies Meta<typeof SpendingLimitsSection>;
 
 export default meta;
-type Story = StoryObj<typeof SpendingLimitsSection>;
+type Story = StoryObj<typeof meta>;
 
 export const NoSpendingLimits: Story = {
   args: {

@@ -24,7 +24,7 @@ const member: MemberResponse = {
   email: "member@convex.dev",
 };
 
-export default {
+const meta = {
   component: AuditLogItem,
   args: {
     team,
@@ -34,7 +34,8 @@ export default {
   },
 } satisfies Meta<typeof AuditLogItem>;
 
-type Story = StoryObj<typeof AuditLogItem>;
+export default meta;
+type Story = StoryObj<typeof meta>;
 
 export const SpendingLimitChange: Story = {
   args: {

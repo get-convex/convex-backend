@@ -1,16 +1,19 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { Menu, MenuItem, MenuLink } from "@ui/Menu";
 
-export default {
+const meta = {
   component: Menu,
   render: (args) => (
     <div className="w-fit">
       <Menu {...args} />
     </div>
   ),
-} as Meta<typeof Menu>;
+} satisfies Meta<typeof Menu>;
 
-export const Primary: StoryObj<typeof Menu> = {
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
   args: {
     buttonProps: {
       children: "Menu",
