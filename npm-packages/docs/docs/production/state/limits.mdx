@@ -14,10 +14,10 @@ Limits are applied per team unless stated otherwise.
 
 ## Team
 
-|            | Free/Starter | Professional                  |
-| ---------- | ------------ | ----------------------------- |
-| Developers | 1-6          | 1-20<br/>$25/member per month |
-| Projects   | 20           | 100                           |
+|            | Free/Starter | Professional             |
+| ---------- | ------------ | ------------------------ |
+| Developers | 1-6          | 25$ per member per month |
+| Projects   | 20           | 100                      |
 
 ## Database
 

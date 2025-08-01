@@ -55,7 +55,6 @@ export function PlanCard({
           {plan.planType === "CONVEX_PROFESSIONAL" && (
             <ul className="ml-4 list-disc">
               <li>Everything in Starter</li>
-              <li>Up to 20 team members</li>
               <li>Unlimited projects</li>
               <li>Higher included usage limits</li>
               <li className="font-semibold">
