@@ -6,6 +6,8 @@ import { SchemaJson } from "@common/lib/format";
 export default {
   component: ShowSchema,
   args: {
+    activeSchema: undefined,
+    inProgressSchema: undefined,
     shapes: new Map<string, Shape>([
       [
         "tasks",

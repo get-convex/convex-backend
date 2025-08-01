@@ -3,4 +3,8 @@ import { CopyButton } from "@common/elements/CopyButton";
 
 export default { component: CopyButton };
 
-export const Primary: StoryObj<typeof CopyButton> = {};
+export const Primary: StoryObj<typeof CopyButton> = {
+  args: {
+    text: "Hello, world!",
+  },
+};

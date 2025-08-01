@@ -17,6 +17,8 @@ export default {
   component: EditDocumentPanel,
   args: {
     tableName: "users",
+    onClose: () => {},
+    onSave: async () => {},
   },
   render: (args) => (
     <ConvexProvider client={mockClient}>

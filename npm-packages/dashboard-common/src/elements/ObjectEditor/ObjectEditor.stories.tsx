@@ -17,7 +17,7 @@ export default {
     <ConvexProvider client={mockClient}>
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <div className="h-64">
-          <ObjectEditor {...args} path="document" mode="editField" />
+          <ObjectEditor {...args} />
         </div>
       </DeploymentInfoContext.Provider>
     </ConvexProvider>
@@ -27,5 +27,9 @@ export default {
 export const Primary: StoryObj<typeof ObjectEditor> = {
   args: {
     defaultValue: null,
+    onChange: () => {},
+    onError: () => {},
+    path: "document",
+    mode: "editField",
   },
 };
