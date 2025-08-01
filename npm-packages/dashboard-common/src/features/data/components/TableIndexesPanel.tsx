@@ -3,7 +3,6 @@ import { ConvexSchemaFilePath } from "@common/features/data/components/ConvexSch
 import { Loading } from "@ui/Loading";
 import { useSingleTableSchemaStatus } from "./TableSchema";
 import { IndexList } from "./IndexList";
-import { LearnMoreLink } from "./LearnMoreLink";
 
 export function TableIndexesPanel({
   tableName,
@@ -34,21 +33,15 @@ function IndexBody({ tableName }: { tableName: string }) {
   }
 
   return (
-    <>
-      <LearnMoreLink
-        name="indexes"
-        link="https://docs.convex.dev/database/indexes"
-      />
-      <div className="px-4 sm:px-6">
-        {tableSchemaStatus.isDefined ? (
-          <IndexList tableName={tableName} />
-        ) : (
-          <>
-            Once you add your table to your <ConvexSchemaFilePath /> file,
-            you’ll be able to see any indexes you’ve defined here.
-          </>
-        )}
-      </div>
-    </>
+    <div className="grow p-4 pt-0 sm:p-6">
+      {tableSchemaStatus.isDefined ? (
+        <IndexList tableName={tableName} />
+      ) : (
+        <>
+          Once you add your table to your <ConvexSchemaFilePath /> file, you’ll
+          be able to see any indexes you’ve defined here.
+        </>
+      )}
+    </div>
   );
 }
