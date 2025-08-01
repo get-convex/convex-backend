@@ -544,6 +544,16 @@ impl IndexRegistry {
             .collect()
     }
 
+    pub fn enabled_indexes_for_table(
+        &self,
+        tablet_id: TabletId,
+    ) -> impl Iterator<Item = &'_ ParsedDocument<TabletIndexMetadata>> {
+        self.enabled_indexes
+            .range(TabletIndexName::min_for_table(tablet_id)..)
+            .take_while(move |(name, _)| *name.table() == tablet_id)
+            .map(|(_, index)| index.metadata())
+    }
+
     pub fn by_id_indexes(&self) -> BTreeMap<TabletId, IndexId> {
         self.all_enabled_indexes()
             .into_iter()

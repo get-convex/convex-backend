@@ -35,7 +35,6 @@ use common::{
             TabletIndexMetadata,
             INDEX_TABLE,
         },
-        schema::SchemaMetadata,
         tables::{
             TableMetadata,
             TableState,
@@ -126,7 +125,6 @@ use indexing::{
     },
     index_registry::IndexRegistry,
 };
-use itertools::Itertools;
 use keybroker::Identity;
 use parking_lot::Mutex;
 use search::{
@@ -189,7 +187,10 @@ use crate::{
         SubscriptionsClient,
         SubscriptionsWorker,
     },
-    system_tables::ErasedSystemIndex,
+    system_tables::{
+        ErasedSystemIndex,
+        SystemTable,
+    },
     table_registry::TableRegistry,
     table_summary::{
         self,
@@ -209,7 +210,9 @@ use crate::{
     },
     BootstrapComponentsModel,
     ComponentRegistry,
+    ComponentsTable,
     FollowerRetentionManager,
+    SchemasTable,
     TableIterator,
     Transaction,
     TransactionReadSet,
@@ -357,11 +360,14 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             .ok_or_else(|| anyhow::anyhow!("no documents -- cannot load uninitialized database"))
     }
 
-    async fn load_raw_table_documents(
+    #[fastrace::trace]
+    async fn load_raw_and_parsed_table_documents<
+        D: TryFrom<ConvexObject, Error = anyhow::Error>,
+    >(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
         tablet_id: TabletId,
-    ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>> {
+    ) -> anyhow::Result<(Vec<(Timestamp, PackedDocument)>, Vec<ParsedDocument<D>>)> {
         persistence_snapshot
             .index_scan(
                 index_id,
@@ -370,21 +376,34 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 Order::Asc,
                 usize::MAX,
             )
-            .map_ok(|(_, rev)| (rev.value.id(), (rev.ts, rev.value)))
+            .map(|row| {
+                let rev = row?.1;
+                let doc = PackedDocument::pack(&rev.value);
+                let parsed = rev.value.parse()?;
+                Ok(((rev.ts, doc), parsed))
+            })
             .try_collect()
             .await
     }
 
-    #[fastrace::trace]
-    async fn load_table_documents<D: TryFrom<ConvexObject, Error = anyhow::Error>>(
-        persistence_snapshot: &PersistenceSnapshot,
-        index_id: IndexId,
-        tablet_id: TabletId,
-    ) -> anyhow::Result<Vec<ParsedDocument<D>>> {
-        Self::load_raw_table_documents(persistence_snapshot, index_id, tablet_id)
-            .await?
-            .into_values()
-            .map(|(_, doc)| doc.parse())
+    fn load_table_documents<T: SystemTable>(
+        in_memory_indexes: &BackendInMemoryIndexes,
+        table_mapping: &TableMapping,
+        index_registry: &IndexRegistry,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<Vec<ParsedDocument<T::Metadata>>>
+    where
+        T::Metadata: Send + Sync + Clone,
+        for<'a> &'a PackedDocument: ParseDocument<T::Metadata>,
+    {
+        let tablet_id =
+            table_mapping.namespace(namespace).name_to_tablet()(T::table_name().clone())?;
+        let by_id = index_registry.must_get_by_id(tablet_id)?.id;
+        let docs = in_memory_indexes
+            .range(by_id, &Interval::all(), Order::Asc)?
+            .with_context(|| format!("table {} is not in-memory?", T::table_name()))?;
+        docs.into_iter()
+            .map(|doc| doc.2.force().map(Arc::unwrap_or_clone))
             .try_collect()
     }
 
@@ -424,7 +443,8 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         TableMapping,
         OrdMap<TabletId, TableState>,
         IndexRegistry,
-        BTreeMap<ResolvedDocumentId, (Timestamp, PackedDocument)>,
+        Vec<(Timestamp, PackedDocument)>,
+        Vec<(Timestamp, PackedDocument)>,
         BootstrapMetadata,
     )> {
         let _timer = metrics::load_table_and_index_metadata_timer();
@@ -436,31 +456,32 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             index_tablet_id,
         }: BootstrapMetadata = bootstrap_metadata;
 
-        let index_documents: BTreeMap<_, _> =
-            Self::load_raw_table_documents(persistence_snapshot, index_by_id, index_tablet_id)
-                .await?
-                .into_iter()
-                .map(|(id, (ts, doc))| (id, (ts, PackedDocument::pack(&doc))))
-                .collect();
-        let table_documents = Self::load_table_documents::<TableMetadata>(
+        let (index_documents, parsed_index_documents) = Self::load_raw_and_parsed_table_documents(
+            persistence_snapshot,
+            index_by_id,
+            index_tablet_id,
+        )
+        .await?;
+        let (table_documents, parsed_table_documents) = Self::load_raw_and_parsed_table_documents(
             persistence_snapshot,
             tables_by_id,
             tables_tablet_id,
         )
         .await?;
 
-        let (table_mapping, table_states) = Self::table_mapping_and_states(table_documents);
+        let (table_mapping, table_states) = Self::table_mapping_and_states(parsed_table_documents);
 
         let persistence_version = persistence_snapshot.persistence().version();
         let index_registry = IndexRegistry::bootstrap(
             &table_mapping,
-            index_documents.values().map(|(_, d)| d.clone()),
+            parsed_index_documents.into_iter(),
             persistence_version,
         )?;
         Ok((
             table_mapping,
             table_states,
             index_registry,
+            table_documents,
             index_documents,
             bootstrap_metadata,
         ))
@@ -678,14 +699,30 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
         // Step 1: Fetch tables and indexes from persistence.
         tracing::info!("Bootstrapping indexes...");
-        let (table_mapping, table_states, index_registry, index_documents, bootstrap_metadata) =
-            Self::load_table_and_index_metadata(&persistence_snapshot).await?;
+        let (
+            table_mapping,
+            table_states,
+            index_registry,
+            table_documents,
+            index_documents,
+            bootstrap_metadata,
+        ) = Self::load_table_and_index_metadata(&persistence_snapshot).await?;
 
         // Step 2: Load bootstrap tables indexes into memory.
         let load_indexes_into_memory_timer = load_indexes_into_memory_timer();
         let in_memory_indexes = {
             let mut index =
                 BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, *snapshot)?;
+            // Since we already loaded the `TablesTable` from persistence, feed
+            // the documents from memory instead of re-fetching them.
+            index.load_table(
+                &index_registry,
+                bootstrap_metadata.tables_tablet_id,
+                table_documents,
+                *snapshot,
+                persistence.version(),
+            );
+            // Then fetch the remaining in-memory tables.
             index
                 .load_enabled_for_tables(
                     &index_registry,
@@ -716,30 +753,23 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
         let mut schema_docs = BTreeMap::new();
         for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
-            let schema_tablet =
-                table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
-            let by_id = index_registry.must_get_by_id(schema_tablet)?.id;
-            let schema_documents = Self::load_table_documents::<SchemaMetadata>(
-                &persistence_snapshot,
-                by_id,
-                schema_tablet,
-            )
-            .await?;
+            let schema_documents = Self::load_table_documents::<SchemasTable>(
+                &in_memory_indexes,
+                &table_mapping,
+                &index_registry,
+                namespace,
+            )?;
             schema_docs.insert(namespace, schema_documents);
         }
 
         let schema_registry = SchemaRegistry::bootstrap(schema_docs);
 
-        let component_tablet = table_mapping
-            .namespace(TableNamespace::Global)
-            .name_to_tablet()(COMPONENTS_TABLE.clone())?;
-        let component_by_id = index_registry.must_get_by_id(component_tablet)?.id;
-        let component_docs = Self::load_table_documents::<ComponentMetadata>(
-            &persistence_snapshot,
-            component_by_id,
-            component_tablet,
-        )
-        .await?;
+        let component_docs = Self::load_table_documents::<ComponentsTable>(
+            &in_memory_indexes,
+            &table_mapping,
+            &index_registry,
+            TableNamespace::Global,
+        )?;
         let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         Ok(Self {
             runtime,
@@ -1370,11 +1400,11 @@ impl<RT: Runtime> Database<RT> {
         let index_documents = document_writes
             .iter()
             .filter(|(id, _)| id.tablet_id == index_table_id.tablet_id)
-            .map(|(id, doc)| (*id, (ts, PackedDocument::pack(doc))))
-            .collect::<BTreeMap<_, _>>();
+            .map(|(_, doc)| (ts, PackedDocument::pack(doc)))
+            .collect::<Vec<_>>();
         let mut index_registry = IndexRegistry::bootstrap(
             &table_mapping,
-            index_documents.values().map(|(_, d)| d.clone()),
+            index_documents.iter().map(|(_, d)| d.clone()),
             persistence.reader().version(),
         )?;
         let mut in_memory_indexes =

@@ -881,7 +881,7 @@ mod tests {
         BTreeMap<TabletIndexName, ResolvedDocumentId>,
     )> {
         let mut index_id_by_name = BTreeMap::new();
-        let mut index_documents = BTreeMap::new();
+        let mut index_documents = Vec::new();
 
         let index_table = id_generator.system_table_id(&INDEX_TABLE).tablet_id;
         // Add the _index.by_id index.
@@ -893,12 +893,12 @@ mod tests {
         for metadata in indexes {
             let doc = gen_index_document(id_generator, metadata.clone())?;
             index_id_by_name.insert(metadata.name.clone(), doc.id());
-            index_documents.insert(doc.id(), (ts, PackedDocument::pack(&doc)));
+            index_documents.push((ts, PackedDocument::pack(&doc)));
         }
 
         let index_registry = IndexRegistry::bootstrap(
             id_generator,
-            index_documents.values().map(|(_, d)| d.clone()),
+            index_documents.iter().map(|(_, d)| d.clone()),
             PersistenceVersion::default(),
         )?;
         let index = BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, ts)?;

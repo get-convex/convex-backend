@@ -970,6 +970,12 @@ impl<D: ConvexSerializable> ParseDocument<D> for PackedDocument {
     }
 }
 
+impl<D> ParseDocument<D> for ParsedDocument<D> {
+    fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
+        Ok(self)
+    }
+}
+
 impl<D> Deref for ParsedDocument<D> {
     type Target = D;
 

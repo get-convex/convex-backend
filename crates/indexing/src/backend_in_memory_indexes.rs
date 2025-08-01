@@ -60,6 +60,7 @@ use common::{
         DatabaseIndexValue,
         IndexId,
         IndexName,
+        PersistenceVersion,
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
@@ -80,7 +81,6 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
-    ResolvedDocumentId,
     TableMapping,
     TableName,
     TabletId,
@@ -126,10 +126,7 @@ impl InMemoryIndexes for BackendInMemoryIndexes {
         _tablet_id: TabletId,
         _table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
-        Ok(self
-            .in_memory_indexes
-            .get(&index_id)
-            .map(|index_map| order.apply(index_map.range(interval)).collect()))
+        self.range(index_id, interval, order)
     }
 }
 
@@ -137,7 +134,7 @@ impl BackendInMemoryIndexes {
     #[fastrace::trace]
     pub fn bootstrap(
         index_registry: &IndexRegistry,
-        index_documents: BTreeMap<ResolvedDocumentId, (Timestamp, PackedDocument)>,
+        index_documents: Vec<(Timestamp, PackedDocument)>,
         ts: Timestamp,
     ) -> anyhow::Result<Self> {
         // Load the indexes by_id index
@@ -145,7 +142,7 @@ impl BackendInMemoryIndexes {
             .get_enabled(&TabletIndexName::by_id(index_registry.index_table()))
             .context("Missing meta index")?;
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
-        for (ts, index_doc) in index_documents.into_values() {
+        for (ts, index_doc) in index_documents {
             let index_key = IndexKey::new(vec![], index_doc.developer_id());
             meta_index_map.insert(index_key.to_bytes(), ts, index_doc);
         }
@@ -156,6 +153,8 @@ impl BackendInMemoryIndexes {
         Ok(Self { in_memory_indexes })
     }
 
+    /// Fetch tables across all namespaces whose name is in `tables` and load
+    /// their enabled indexes into memory.
     #[fastrace::trace]
     pub async fn load_enabled_for_tables(
         &mut self,
@@ -290,6 +289,37 @@ impl BackendInMemoryIndexes {
         Ok((num_keys, total_size))
     }
 
+    /// Insert enabled indexes for the given `tablet_id` with the provided,
+    /// already-fetched documents.
+    #[fastrace::trace]
+    pub fn load_table(
+        &mut self,
+        index_registry: &IndexRegistry,
+        tablet_id: TabletId,
+        documents: Vec<(Timestamp, PackedDocument)>,
+        snapshot_timestamp: Timestamp,
+        persistence_version: PersistenceVersion,
+    ) {
+        for index_doc in index_registry.enabled_indexes_for_table(tablet_id) {
+            let IndexConfig::Database {
+                developer_config,
+                on_disk_state,
+                ..
+            } = &index_doc.config
+            else {
+                continue;
+            };
+            assert_eq!(*on_disk_state, DatabaseIndexState::Enabled); // ensured by IndexRegistry
+            let mut index_map = DatabaseIndexMap::new_at(snapshot_timestamp);
+            for (ts, doc) in &documents {
+                let key = doc.index_key_owned(&developer_config.fields, persistence_version);
+                index_map.insert(key, *ts, doc.clone());
+            }
+            self.in_memory_indexes
+                .insert(index_doc.id().internal_id(), index_map);
+        }
+    }
+
     pub fn update(
         &mut self,
         // NB: We assume that `index_registry` has already received this update.
@@ -346,6 +376,18 @@ impl BackendInMemoryIndexes {
             .iter()
             .map(|(index_id, index_map)| (*index_id, index_map.last_modified))
             .collect()
+    }
+
+    pub fn range(
+        &self,
+        index_id: IndexId,
+        interval: &Interval,
+        order: Order,
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
+        Ok(self
+            .in_memory_indexes
+            .get(&index_id)
+            .map(|index_map| order.apply(index_map.range(interval)).collect()))
     }
 
     #[cfg(test)]
