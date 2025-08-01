@@ -63,7 +63,7 @@ use indexing::{
     backend_in_memory_indexes::{
         DatabaseIndexSnapshot,
         InMemoryIndexes,
-        LazyDocument,
+        MemoryDocument,
         SystemDocument,
     },
     index_registry::IndexRegistry,
@@ -141,7 +141,7 @@ impl LruKey for IndexCacheKey {
 /// The cache value is the same as [DatabaseIndexMap] apart from keeping track
 /// of last modified timestamps. The [BTreeMap] keys are the index keys.
 struct IndexCacheValue {
-    map: BTreeMap<Vec<u8>, (Timestamp, PackedDocument, SystemDocument)>,
+    map: BTreeMap<Vec<u8>, (Timestamp, MemoryDocument)>,
     size: usize,
 }
 
@@ -184,7 +184,16 @@ async fn load_index(
             // SystemDocument, so the cache will use more memory than its
             // nominal size
             size += key.0.heap_size() + doc.heap_size();
-            (key.0, (rev.ts, doc, SystemDocument::new()))
+            (
+                key.0,
+                (
+                    rev.ts,
+                    MemoryDocument {
+                        packed_document: doc,
+                        cached_system_document: SystemDocument::new(),
+                    },
+                ),
+            )
         })
         .try_collect()
         .await?;
@@ -673,7 +682,7 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
         order: Order,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
         let Some(index_map) = self.get_or_load(index_id, tablet_id, table_name).await? else {
             return Ok(None);
         };
@@ -682,15 +691,9 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
                 index_map
                     .map
                     .range(interval)
-                    .map(|(k, (ts, v, system_doc))| {
-                        (
-                            IndexKeyBytes(k.clone()),
-                            *ts,
-                            LazyDocument::Packed(v.clone(), Some(system_doc.clone())),
-                        )
-                    }),
+                    .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.clone())),
             )
-            .collect::<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>();
+            .collect::<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>();
         Ok(Some(range))
     }
 }

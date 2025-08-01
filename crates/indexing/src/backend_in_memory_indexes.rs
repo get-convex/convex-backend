@@ -103,7 +103,7 @@ pub trait InMemoryIndexes: Send + Sync {
         order: Order,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>>;
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>>;
 }
 
 /// [`BackendInMemoryIndexes`] maintains in-memory database indexes. With the
@@ -125,7 +125,7 @@ impl InMemoryIndexes for BackendInMemoryIndexes {
         order: Order,
         _tablet_id: TabletId,
         _table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
         Ok(self
             .in_memory_indexes
             .get(&index_id)
@@ -365,7 +365,7 @@ impl InMemoryIndexes for NoInMemoryIndexes {
         _order: Order,
         _tablet_id: TabletId,
         _table_name: TableName,
-    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, LazyDocument)>>> {
+    ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
         Ok(None)
     }
 }
@@ -374,8 +374,7 @@ impl InMemoryIndexes for NoInMemoryIndexes {
 struct IndexDocument {
     key: IndexKeyBytes,
     ts: Timestamp,
-    document: PackedDocument,
-    system_doc: SystemDocument,
+    document: MemoryDocument,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, derive_more::Deref)]
@@ -440,23 +439,21 @@ impl DatabaseIndexMap {
     fn range(
         &self,
         interval: &Interval,
-    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, LazyDocument)> + '_ {
+    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, MemoryDocument)> + '_ {
         let _s = static_span!();
-        self.inner.range(interval).map(|e| {
-            (
-                e.key.clone(),
-                e.ts,
-                LazyDocument::Packed(e.document.clone(), Some(e.system_doc.clone())),
-            )
-        })
+        self.inner
+            .range(interval)
+            .map(|e| (e.key.clone(), e.ts, e.document.clone()))
     }
 
     fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, document: PackedDocument) {
         self.inner.insert(ArcIndexDocument(Arc::new(IndexDocument {
             key,
             ts,
-            document,
-            system_doc: SystemDocument::new(),
+            document: MemoryDocument {
+                packed_document: document,
+                cached_system_document: SystemDocument::new(),
+            },
         })));
         self.last_modified = cmp::max(self.last_modified, ts);
     }
@@ -486,7 +483,7 @@ enum RangeFetchResult {
     /// This happens for tables that are statically configured to be kept in
     /// memory (e.g. `APP_TABLES_TO_LOAD_IN_MEMORY`).
     MemoryCached {
-        documents: Vec<(IndexKeyBytes, Timestamp, LazyDocument)>,
+        documents: Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>,
         next_cursor: CursorPosition,
     },
     /// The range was against a non-memory table.
@@ -666,7 +663,16 @@ impl DatabaseIndexSnapshot {
                     Ok(RangeFetchResult::MemoryCached {
                         documents,
                         next_cursor,
-                    }) => (Ok((documents, next_cursor)), None),
+                    }) => (
+                        Ok((
+                            documents
+                                .into_iter()
+                                .map(|(key, ts, doc)| (key, ts, LazyDocument::Memory(doc)))
+                                .collect(),
+                            next_cursor,
+                        )),
+                        None,
+                    ),
                     Ok(RangeFetchResult::NonCached {
                         index_id,
                         cache_results,
@@ -753,7 +759,7 @@ impl DatabaseIndexSnapshot {
                 DatabaseIndexSnapshotCacheResult::Document(index_key, ts, document) => {
                     // Serve from cache.
                     log_transaction_cache_query(true);
-                    results.push((index_key, ts, LazyDocument::Packed(document, None)));
+                    results.push((index_key, ts, LazyDocument::Packed(document)));
                 },
                 DatabaseIndexSnapshotCacheResult::CacheMiss(interval) => {
                     log_transaction_cache_query(false);
@@ -1205,9 +1211,30 @@ pub struct RangeRequest {
 
 pub enum LazyDocument {
     Resolved(ResolvedDocument),
-    Packed(PackedDocument, Option<SystemDocument>),
+    Packed(PackedDocument),
+    Memory(MemoryDocument),
 }
 
+/// A system document fetched from an in-memory index. This is internally
+/// reference-counted and cheaply cloneable.
+#[derive(Clone, Debug)]
+pub struct MemoryDocument {
+    pub packed_document: PackedDocument,
+    pub cached_system_document: SystemDocument,
+}
+impl MemoryDocument {
+    /// Parse and return the document. The same document must not be parsed
+    /// twice with different types `T`.
+    pub fn force<T: Send + Sync + 'static>(&self) -> anyhow::Result<Arc<ParsedDocument<T>>>
+    where
+        for<'a> &'a PackedDocument: ParseDocument<T>,
+    {
+        self.cached_system_document.force(&self.packed_document)
+    }
+}
+
+/// Stores a lazily-populated, cached `ParsedDocument` of the right type for
+/// this system document.
 #[derive(Clone, Default, Debug)]
 pub struct SystemDocument(Arc<OnceLock<Arc<dyn Any + Send + Sync>>>);
 
@@ -1256,7 +1283,8 @@ impl LazyDocument {
     pub fn unpack(self) -> ResolvedDocument {
         match self {
             LazyDocument::Resolved(doc) => doc,
-            LazyDocument::Packed(doc, _) => doc.unpack(),
+            LazyDocument::Packed(doc) => doc.unpack(),
+            LazyDocument::Memory(doc) => doc.packed_document.unpack(),
         }
     }
 
@@ -1265,7 +1293,8 @@ impl LazyDocument {
             LazyDocument::Resolved(doc) => doc.size(),
             // This is the size of the PackedValue representation, not the
             // proper size of the ConvexValue
-            LazyDocument::Packed(doc, ..) => doc.value().size(),
+            LazyDocument::Packed(doc) => doc.value().size(),
+            LazyDocument::Memory(doc) => doc.packed_document.value().size(),
         }
     }
 }

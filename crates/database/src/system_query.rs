@@ -28,6 +28,7 @@ use common::{
 };
 use indexing::backend_in_memory_indexes::{
     LazyDocument,
+    MemoryDocument,
     RangeRequest,
 };
 use value::{
@@ -274,10 +275,14 @@ impl<RT: Runtime, T: SystemTable> SystemQuery<'_, '_, RT, T> {
                         LazyDocument::Resolved(doc) => {
                             Arc::new(SystemTableMetadata::parse_from_doc(doc)?)
                         },
-                        LazyDocument::Packed(doc, Some(cached_system_doc)) if !T::FOR_MIGRATION => {
-                            cached_system_doc.force(&doc)?
+                        LazyDocument::Memory(doc) if !T::FOR_MIGRATION => {
+                            doc.force::<T::Metadata>()?
                         },
-                        LazyDocument::Packed(doc, _) => Arc::new(doc.parse()?),
+                        LazyDocument::Memory(MemoryDocument {
+                            packed_document: doc,
+                            ..
+                        })
+                        | LazyDocument::Packed(doc) => Arc::new(doc.parse()?),
                     })
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
