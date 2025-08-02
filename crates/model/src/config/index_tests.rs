@@ -88,8 +88,11 @@ macro_rules! db_schema_with_search_indexes {
                     let table_def = TableDefinition {
                         table_name: table_name.clone(),
                         indexes: BTreeMap::new(),
+                        staged_db_indexes: Default::default(),
                         search_indexes,
+                        staged_search_indexes: Default::default(),
                         vector_indexes: Default::default(),
+                        staged_vector_indexes: Default::default(),
                         document_type: None,
                     };
                     tables.insert(table_name, table_def);

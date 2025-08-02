@@ -116,8 +116,11 @@ impl TryFrom<DatabaseSchema> for DatabaseSchemaJson {
 pub struct TableDefinitionJson {
     table_name: String,
     indexes: Vec<IndexSchemaJson>,
+    staged_db_indexes: Option<Vec<IndexSchemaJson>>,
     search_indexes: Option<Vec<SearchIndexSchemaJson>>,
+    staged_search_indexes: Option<Vec<SearchIndexSchemaJson>>,
     vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
+    staged_vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     document_type: Option<ValidatorJson>,
 }
 
@@ -142,13 +145,12 @@ fn parse_names_and_indexes<T: TryFrom<U, Error = anyhow::Error>, U>(
     .map_err(|e: anyhow::Error| e.wrap_error_message(|s| format!("In table \"{table_name}\": {s}")))
 }
 
-fn validate_unique_index_fields<T, Y: Clone + Eq + std::hash::Hash>(
-    indexes: &BTreeMap<IndexDescriptor, T>,
+fn validate_unique_index_fields<'a, T: 'a, Y: Clone + Eq + std::hash::Hash>(
+    indexes: impl Iterator<Item = (&'a IndexDescriptor, &'a T)>,
     unique_index_field: impl Fn(&T) -> Y,
     non_unique_error: impl Fn(&IndexDescriptor, &IndexDescriptor) -> ErrorMetadata,
 ) -> anyhow::Result<()> {
     let index_fields: BTreeMap<_, _> = indexes
-        .iter()
         .map(|(name, fields)| (name, unique_index_field(fields)))
         .collect();
 
@@ -165,8 +167,11 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
     type Error = anyhow::Error;
 
     fn try_from(j: TableDefinitionJson) -> Result<Self, Self::Error> {
+        let staged_db_indexes = j.staged_db_indexes.unwrap_or_default();
         let search_indexes = j.search_indexes.unwrap_or_default();
+        let staged_search_indexes = j.staged_search_indexes.unwrap_or_default();
         let vector_indexes = j.vector_indexes.unwrap_or_default();
+        let staged_vector_indexes = j.staged_vector_indexes.unwrap_or_default();
 
         let document_type = j.document_type.map(|t| t.try_into()).transpose()?;
 
@@ -192,12 +197,29 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             })?;
         for schema in indexes.values() {
             if schema.fields.is_empty() {
-                anyhow::bail!(index_validation_error::empty_index(&table_name, schema));
+                anyhow::bail!(index_validation_error::empty_index(
+                    &table_name,
+                    schema,
+                    false
+                ));
+            }
+        }
+        let (staged_db_index_names, staged_db_indexes) =
+            parse_names_and_indexes(&table_name, staged_db_indexes, |idx: &IndexSchema| {
+                &idx.index_descriptor
+            })?;
+        for schema in staged_db_indexes.values() {
+            if schema.fields.is_empty() {
+                anyhow::bail!(index_validation_error::empty_index(
+                    &table_name,
+                    schema,
+                    true
+                ));
             }
         }
         validate_unique_index_fields(
-            &indexes,
-            |idx| Vec::<FieldPath>::from(idx.fields.clone()),
+            indexes.iter().chain(staged_db_indexes.iter()),
+            |idx: &IndexSchema| Vec::<FieldPath>::from(idx.fields.clone()),
             |index1, index2| index_not_unique(&table_name, index1, index2),
         )?;
 
@@ -205,9 +227,14 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             parse_names_and_indexes(&table_name, search_indexes, |idx: &SearchIndexSchema| {
                 &idx.index_descriptor
             })?;
+        let (staged_search_index_names, staged_search_indexes) = parse_names_and_indexes(
+            &table_name,
+            staged_search_indexes,
+            |idx: &SearchIndexSchema| &idx.index_descriptor,
+        )?;
         validate_unique_index_fields(
-            &search_indexes,
-            |idx| idx.search_field.clone(),
+            search_indexes.iter().chain(staged_search_indexes.iter()),
+            |idx: &SearchIndexSchema| idx.search_field.clone(),
             |index1, index2| search_field_not_unique(&table_name, index1, index2),
         )?;
 
@@ -215,15 +242,24 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             parse_names_and_indexes(&table_name, vector_indexes, |idx: &VectorIndexSchema| {
                 &idx.index_descriptor
             })?;
+        let (staged_vector_index_names, staged_vector_indexes): (Vec<_>, BTreeMap<_, _>) =
+            parse_names_and_indexes(
+                &table_name,
+                staged_vector_indexes,
+                |idx: &VectorIndexSchema| &idx.index_descriptor,
+            )?;
         validate_unique_index_fields(
-            &vector_indexes,
-            |idx| (idx.vector_field.clone(), idx.dimension),
+            vector_indexes.iter().chain(staged_vector_indexes.iter()),
+            |idx: &VectorIndexSchema| (idx.vector_field.clone(), idx.dimension),
             |index1, index2| vector_field_not_unique(&table_name, index1, index2),
         )?;
 
         let all_index_names: Vec<_> = index_names
             .into_iter()
+            .chain(staged_db_index_names)
             .chain(search_index_names)
+            .chain(staged_search_index_names)
+            .chain(staged_vector_index_names)
             .chain(vector_index_names)
             .collect();
 
@@ -248,8 +284,11 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
         Ok(Self {
             table_name,
             indexes,
+            staged_db_indexes,
             search_indexes,
+            staged_search_indexes,
             vector_indexes,
+            staged_vector_indexes,
             document_type,
         })
     }
@@ -262,8 +301,11 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
         TableDefinition {
             table_name,
             indexes,
+            staged_db_indexes,
             search_indexes,
+            staged_search_indexes,
             vector_indexes,
+            staged_vector_indexes,
             document_type,
         }: TableDefinition,
     ) -> anyhow::Result<Self> {
@@ -272,8 +314,20 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
             .into_values()
             .map(IndexSchemaJson::try_from)
             .collect::<anyhow::Result<Vec<_>>>()?;
+        let staged_db_indexes = Some(
+            staged_db_indexes
+                .into_values()
+                .map(IndexSchemaJson::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
         let search_indexes = Some(
             search_indexes
+                .into_values()
+                .map(SearchIndexSchemaJson::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
+        let staged_search_indexes = Some(
+            staged_search_indexes
                 .into_values()
                 .map(SearchIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
@@ -285,11 +339,20 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
                 .map(VectorIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
+        let staged_vector_indexes = Some(
+            staged_vector_indexes
+                .into_values()
+                .map(VectorIndexSchemaJson::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
         Ok(TableDefinitionJson {
             table_name,
             indexes,
+            staged_db_indexes,
             search_indexes,
+            staged_search_indexes,
             vector_indexes,
+            staged_vector_indexes,
             document_type,
         })
     }

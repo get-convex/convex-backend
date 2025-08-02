@@ -10,10 +10,13 @@ use crate::{
     },
 };
 
-pub fn empty_index(table_name: &TableName, index: &IndexSchema) -> ErrorMetadata {
+pub fn empty_index(table_name: &TableName, index: &IndexSchema, is_staged: bool) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "EmptyIndex",
-        format!("In table \"{table_name}\" index \"{index}\" must have at least one field."),
+        format!(
+            "In table \"{table_name}\" {}index \"{index}\" must have at least one field.",
+            if is_staged { "staged " } else { "" }
+        ),
     )
 }
 pub fn fields_not_unique_within_index(field: &FieldPath) -> ErrorMetadata {

@@ -248,8 +248,11 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
             name1.clone() => TableDefinition {
                 table_name: name1,
                 indexes: btreemap!(),
+                staged_db_indexes: btreemap!(),
                 search_indexes: btreemap!(),
+                staged_search_indexes: btreemap!(),
                 vector_indexes: btreemap!(),
+                staged_vector_indexes: btreemap!(),
                 document_type: Some(DocumentSchema::Union(vec![
                   object_validator!(
                     "ref" => FieldValidator::required_field_type(Validator::Id("twoIndexTable".parse()?)),
@@ -284,13 +287,17 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                         fields: vec!["creation".parse()?, "deleted".parse()?].try_into()?,
                     },
                 ),
+                staged_db_indexes: btreemap!(),
                 search_indexes: btreemap!(),
+                staged_search_indexes: btreemap!(),
                 vector_indexes: btreemap!(),
+                staged_vector_indexes: btreemap!(),
                 document_type: None,
             },
             name3.clone() => TableDefinition {
               table_name: name3,
               indexes: btreemap!(),
+              staged_db_indexes: btreemap!(),
               search_indexes: btreemap! {
                 search_index.clone() => SearchIndexSchema::new(
                   search_index,
@@ -298,8 +305,11 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                   btreeset!{"is_deleted".parse()?, "workspace_id".parse()?}
                 )?
                },
+               staged_search_indexes: btreemap!(),
                vector_indexes: btreemap!(),
+               staged_vector_indexes: btreemap!(),
                document_type: None,
+
           }
         ),
         schema_validation: true,

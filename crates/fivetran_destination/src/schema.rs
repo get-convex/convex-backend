@@ -207,8 +207,11 @@ impl FivetranTableSchema {
             table_name,
             document_type,
             indexes,
+            staged_db_indexes: Default::default(),
             search_indexes: Default::default(),
+            staged_search_indexes: Default::default(),
             vector_indexes: Default::default(),
+            staged_vector_indexes: Default::default(),
         })
     }
 
@@ -661,8 +664,11 @@ impl FivetranTableSchema {
         Ok(TableDefinition {
             table_name,
             indexes,
+            staged_db_indexes: BTreeMap::new(),
             search_indexes: BTreeMap::new(),
+            staged_search_indexes: BTreeMap::new(),
             vector_indexes: BTreeMap::new(),
+            staged_vector_indexes: BTreeMap::new(),
             document_type: Some(document_schema),
         })
     }
@@ -1073,8 +1079,11 @@ mod tests {
     ) -> TableDefinition {
         TableDefinition {
             table_name: "table_name".parse().unwrap(),
+            staged_db_indexes: Default::default(),
             search_indexes: Default::default(),
+            staged_search_indexes: Default::default(),
             vector_indexes: Default::default(),
+            staged_vector_indexes: Default::default(),
             document_type: Some(DocumentSchema::Union(vec![ObjectValidator(
                 fields
                     .into_iter()
@@ -1896,6 +1905,9 @@ mod tests {
                         ].try_into()?
                     }
                 },
+                staged_db_indexes: btreemap! {},
+                staged_search_indexes: btreemap! {},
+                staged_vector_indexes: btreemap! {},
                 document_type: Some(DocumentSchema::Union(vec![object_validator!(
                     "name" => FieldValidator::required_field_type(Validator::Union(vec![
                         Validator::String,

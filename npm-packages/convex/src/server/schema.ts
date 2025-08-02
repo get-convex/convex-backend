@@ -160,8 +160,11 @@ export class TableDefinition<
   VectorIndexes extends GenericTableVectorIndexes = {},
 > {
   private indexes: Index[];
+  private stagedDbIndexes: Index[];
   private searchIndexes: SearchIndex[];
+  private stagedSearchIndexes: SearchIndex[];
   private vectorIndexes: VectorIndex[];
+  private stagedVectorIndexes: VectorIndex[];
   // The type of documents stored in this table.
   validator: DocumentType;
 
@@ -170,8 +173,11 @@ export class TableDefinition<
    */
   constructor(documentType: DocumentType) {
     this.indexes = [];
+    this.stagedDbIndexes = [];
     this.searchIndexes = [];
+    this.stagedSearchIndexes = [];
     this.vectorIndexes = [];
+    this.stagedVectorIndexes = [];
     this.validator = documentType;
   }
 
@@ -223,6 +229,26 @@ export class TableDefinition<
   }
 
   /**
+   *
+   * @internal
+   * @param name - The name of the staged index.
+   * @param fields - The fields to index, in order. Must specify at least one
+   * field.
+   * @returns A {@link TableDefinition} with this staged index included.
+   */
+  stagedIndex<
+    IndexName extends string,
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
+  >(
+    name: IndexName,
+    fields: [FirstFieldPath, ...RestFieldPaths],
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
+    this.stagedDbIndexes.push({ indexDescriptor: name, fields });
+    return this;
+  }
+
+  /**
    * Define a search index on this table.
    *
    * To learn about search indexes, see [Search](https://docs.convex.dev/text-search).
@@ -256,6 +282,32 @@ export class TableDefinition<
     VectorIndexes
   > {
     this.searchIndexes.push({
+      indexDescriptor: name,
+      searchField: indexConfig.searchField,
+      filterFields: indexConfig.filterFields || [],
+    });
+    return this;
+  }
+
+  /**
+   * Stage a search index on this table.
+   *
+   * To learn about text search indexes, see [Search](https://docs.convex.dev/text-search).
+   *
+   * @internal
+   * @param name - The name of the index.
+   * @param indexConfig - The text index configuration object.
+   * @returns A {@link TableDefinition} with this text index included.
+   */
+  stagedSearchIndex<
+    IndexName extends string,
+    SearchField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
+  >(
+    name: IndexName,
+    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
+    this.stagedSearchIndexes.push({
       indexDescriptor: name,
       searchField: indexConfig.searchField,
       filterFields: indexConfig.filterFields || [],
@@ -305,6 +357,33 @@ export class TableDefinition<
   }
 
   /**
+   * Stage a vector index on this table.
+   *
+   * To learn about vector indexes, see [Vector Search](https://docs.convex.dev/vector-search).
+   *
+   * @internal
+   * @param name - The name of the index.
+   * @param indexConfig - The vector index configuration object.
+   * @returns A {@link TableDefinition} with this vector index included.
+   */
+  stagedVectorIndex<
+    IndexName extends string,
+    VectorField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
+  >(
+    name: IndexName,
+    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
+    this.stagedVectorIndexes.push({
+      indexDescriptor: name,
+      vectorField: indexConfig.vectorField,
+      dimensions: indexConfig.dimensions,
+      filterFields: indexConfig.filterFields || [],
+    });
+    return this;
+  }
+
+  /**
    * Work around for https://github.com/microsoft/TypeScript/issues/57035
    */
   protected self(): TableDefinition<
@@ -331,8 +410,11 @@ export class TableDefinition<
 
     return {
       indexes: this.indexes,
+      stagedDbIndexes: this.stagedDbIndexes,
       searchIndexes: this.searchIndexes,
+      stagedSearchIndexes: this.stagedSearchIndexes,
       vectorIndexes: this.vectorIndexes,
+      stagedVectorIndexes: this.stagedVectorIndexes,
       documentType,
     };
   }
@@ -450,13 +532,23 @@ export class SchemaDefinition<
   export(): string {
     return JSON.stringify({
       tables: Object.entries(this.tables).map(([tableName, definition]) => {
-        const { indexes, searchIndexes, vectorIndexes, documentType } =
-          definition.export();
+        const {
+          indexes,
+          stagedDbIndexes,
+          searchIndexes,
+          stagedSearchIndexes,
+          vectorIndexes,
+          stagedVectorIndexes,
+          documentType,
+        } = definition.export();
         return {
           tableName,
           indexes,
+          stagedDbIndexes,
           searchIndexes,
+          stagedSearchIndexes,
           vectorIndexes,
+          stagedVectorIndexes,
           documentType,
         };
       }),

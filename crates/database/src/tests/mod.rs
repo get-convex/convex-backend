@@ -281,8 +281,11 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         TableDefinition {
             table_name: table_name.clone(),
             indexes,
+            staged_db_indexes: BTreeMap::new(),
             search_indexes: BTreeMap::new(),
+            staged_search_indexes: BTreeMap::new(),
             vector_indexes: BTreeMap::new(),
+            staged_vector_indexes: BTreeMap::new(),
             document_type: None,
         },
     );
@@ -337,8 +340,11 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         TableDefinition {
             table_name,
             indexes,
+            staged_db_indexes: BTreeMap::new(),
             search_indexes: BTreeMap::new(),
+            staged_search_indexes: BTreeMap::new(),
             vector_indexes: BTreeMap::new(),
+            staged_vector_indexes: BTreeMap::new(),
             document_type: None,
         },
     );

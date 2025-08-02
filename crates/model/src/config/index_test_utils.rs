@@ -100,8 +100,11 @@ macro_rules! db_schema_with_indexes {
                     let table_def = common::schemas::TableDefinition {
                         table_name: table_name.clone(),
                         indexes,
+                        staged_db_indexes: Default::default(),
                         search_indexes: Default::default(),
+                        staged_search_indexes: Default::default(),
                         vector_indexes: Default::default(),
+                        staged_vector_indexes: Default::default(),
                         document_type: None,
                     };
                     tables.insert(table_name, table_def);

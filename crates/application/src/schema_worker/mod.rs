@@ -294,8 +294,11 @@ mod tests {
         let table_definition = TableDefinition {
             table_name: table_name.clone(),
             indexes: btreemap! {},
+            staged_db_indexes: btreemap! {},
             search_indexes: btreemap! {},
+            staged_search_indexes: btreemap! {},
             vector_indexes: btreemap! {},
+            staged_vector_indexes: btreemap! {},
             document_type: Some(DocumentSchema::Any),
         };
         let db_schema = DatabaseSchema {
