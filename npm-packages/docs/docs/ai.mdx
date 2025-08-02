@@ -22,7 +22,7 @@ sure you get bug-free AI generated code:
    generate database code using the large training set of TypeScript code
    without switching to SQL.
 1. **Less Code for the Same Work** Since so much infrastructure and boiler plate
-   is automatically manged by Convex there is less code to write, and thus less
+   is automatically managed by Convex there is less code to write, and thus less
    code to get wrong.
 1. **Automatic Reactivity** The reactive system automatically tracks data
    dependencies and updates your UI. AI doesn't need to manually manage
