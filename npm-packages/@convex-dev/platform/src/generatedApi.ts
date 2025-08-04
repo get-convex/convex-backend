@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/team/{team_id}/create_project": {
+    "/teams/{team_id}/create_project": {
         parameters: {
             query?: never;
             header?: never;
@@ -24,7 +24,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/team/{team_id}/list_projects": {
+    "/teams/{team_id}/list_projects": {
         parameters: {
             query?: never;
             header?: never;
@@ -44,7 +44,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/project/{project_id}/list_deployments": {
+    "/projects/{project_id}/list_deployments": {
         parameters: {
             query?: never;
             header?: never;
@@ -64,7 +64,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/project/{project_id}/delete": {
+    "/projects/{project_id}/delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -84,16 +84,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}/create_deploy_key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create deploy key
+         * @description Create a deploy key like "dev:happy-animal-123|ey..." which can be
+         *     used with the Convex CLI to develop against or deploy code.
+         *
+         *     When access to the deployment is granted through an OAuth token this
+         *     deploy key will use the same OAuth-granted token because token derivation
+         *     has not been implemented. When access to the deployment is granted any
+         *     other way a new token will be created which grants access only to this
+         *     deployment.
+         */
+        post: operations["create deploy key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/token_details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get token details
+         * @description Returns the team ID for team tokens.
+         *     Especially useful after receiving a team token from an OAuth flow
+         *     since most endpoints require team ID.
+         */
+        get: operations["get token details"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Encrypted admin key */
+        AdminKey: string;
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview";
+        DeviceName: string;
+        PlatformCreateDeployKeyArgs: {
+            /** @description Name for the deploy key. */
+            name: string;
+        };
+        PlatformCreateDeployKeyResponse: {
+            /** @description The generated deploy key. */
+            deployKey: components["schemas"]["AdminKey"];
+        };
         PlatformCreateProjectArgs: {
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
-            deploymentType: components["schemas"]["DeploymentType"];
+            deploymentType: components["schemas"]["PlatformProjectDeploymentType"];
             /** @description The full name of the project as it will appear in the dashboard. Spaces
              *     and punctuations allowed. */
             projectName: components["schemas"]["ProjectName"];
@@ -122,6 +182,8 @@ export interface components {
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
         };
+        /** @enum {string} */
+        PlatformProjectDeploymentType: "dev" | "prod";
         PlatformProjectDetails: {
             /**
              * Format: int64
@@ -134,6 +196,31 @@ export interface components {
             /** @description This shortened version of the name used in Convex Dashboard URLs. */
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
+        };
+        PlatformTokenDetailsResponse: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this token was created.
+             */
+            createTime: number;
+            /** @description The name given to the token at creation. */
+            name: components["schemas"]["DeviceName"];
+            /** @description The team ID this token is associated with. */
+            teamId: components["schemas"]["TeamId"];
+            /** @enum {string} */
+            type: "teamToken";
+        } | {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this token was created.
+             */
+            createTime: number;
+            /** @description The name given to the token at creation. */
+            name: components["schemas"]["DeviceName"];
+            /** @description The project ID this token is associated with. */
+            projectId: components["schemas"]["ProjectId"];
+            /** @enum {string} */
+            type: "projectToken";
         };
         PreviewDeploymentIdentifier: string;
         /** Format: int64 */
@@ -149,11 +236,17 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AdminKey = components['schemas']['AdminKey'];
 export type DeploymentType = components['schemas']['DeploymentType'];
+export type DeviceName = components['schemas']['DeviceName'];
+export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
+export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
+export type PlatformProjectDeploymentType = components['schemas']['PlatformProjectDeploymentType'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
+export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
@@ -248,6 +341,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "create deploy key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformCreateDeployKeyArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformCreateDeployKeyResponse"];
+                };
+            };
+        };
+    };
+    "get token details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformTokenDetailsResponse"];
+                };
             };
         };
     };

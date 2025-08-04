@@ -10,7 +10,7 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/team/{team_id}/create_project": {
+    "/teams/{team_id}/create_project": {
       "post": {
         "summary": "Create project",
         "description": "Create a new project on a team and provision a dev or prod deployment.",
@@ -50,12 +50,13 @@
         },
         "security": [
           {
-            "OAuth Team Token": []
+            "OAuth Team Token": [],
+            "Team Token": []
           }
         ]
       }
     },
-    "/team/{team_id}/list_projects": {
+    "/teams/{team_id}/list_projects": {
       "get": {
         "summary": "List projects",
         "description": "List all projects for a team.",
@@ -88,12 +89,13 @@
         },
         "security": [
           {
-            "OAuth Team Token": []
+            "OAuth Team Token": [],
+            "Team Tokens": []
           }
         ]
       }
     },
-    "/project/{project_id}/list_deployments": {
+    "/projects/{project_id}/list_deployments": {
       "get": {
         "summary": "List deployments",
         "description": "List deployments for a projects.",
@@ -127,12 +129,13 @@
         "security": [
           {
             "OAuth Project Token": [],
-            "OAuth Team Token": []
+            "OAuth Team Token": [],
+            "Team Token": []
           }
         ]
       }
     },
-    "/project/{project_id}/delete": {
+    "/projects/{project_id}/delete": {
       "post": {
         "summary": "Delete project",
         "description": "Delete a project. Deletes all deployments in the project as well.",
@@ -155,7 +158,78 @@
         },
         "security": [
           {
-            "OAuth Team Token": []
+            "OAuth Team Token": [],
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/deployments/{deployment_name}/create_deploy_key": {
+      "post": {
+        "summary": "Create deploy key",
+        "description": "Create a deploy key like \"dev:happy-animal-123|ey...\" which can be\nused with the Convex CLI to develop against or deploy code.\n\nWhen access to the deployment is granted through an OAuth token this\ndeploy key will use the same OAuth-granted token because token derivation\nhas not been implemented. When access to the deployment is granted any\nother way a new token will be created which grants access only to this\ndeployment.",
+        "operationId": "create deploy key",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreateDeployKeyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": [],
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/token_details": {
+      "get": {
+        "summary": "Get token details",
+        "description": "Returns the team ID for team tokens.\nEspecially useful after receiving a team token from an OAuth flow\nsince most endpoints require team ID.",
+        "operationId": "get token details",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformTokenDetailsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": [],
+            "Team Token": []
           }
         ]
       }
@@ -163,6 +237,10 @@
   },
   "components": {
     "schemas": {
+      "AdminKey": {
+        "type": "string",
+        "description": "Encrypted admin key"
+      },
       "DeploymentType": {
         "type": "string",
         "enum": [
@@ -170,6 +248,34 @@
           "prod",
           "preview"
         ]
+      },
+      "DeviceName": {
+        "type": "string"
+      },
+      "PlatformCreateDeployKeyArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for the deploy key."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformCreateDeployKeyResponse": {
+        "type": "object",
+        "required": [
+          "deployKey"
+        ],
+        "properties": {
+          "deployKey": {
+            "$ref": "#/components/schemas/AdminKey",
+            "description": "The generated deploy key."
+          }
+        }
       },
       "PlatformCreateProjectArgs": {
         "type": "object",
@@ -179,7 +285,7 @@
         ],
         "properties": {
           "deploymentType": {
-            "$ref": "#/components/schemas/DeploymentType",
+            "$ref": "#/components/schemas/PlatformProjectDeploymentType",
             "description": "Projects always include a deployment, so start this project off with a\n\"dev\" development deployment or a \"prod\" production deployment."
           },
           "projectName": {
@@ -249,6 +355,13 @@
           }
         }
       },
+      "PlatformProjectDeploymentType": {
+        "type": "string",
+        "enum": [
+          "dev",
+          "prod"
+        ]
+      },
       "PlatformProjectDetails": {
         "type": "object",
         "required": [
@@ -280,6 +393,70 @@
           }
         }
       },
+      "PlatformTokenDetailsResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "teamId",
+              "name",
+              "createTime",
+              "type"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this token was created."
+              },
+              "name": {
+                "$ref": "#/components/schemas/DeviceName",
+                "description": "The name given to the token at creation."
+              },
+              "teamId": {
+                "$ref": "#/components/schemas/TeamId",
+                "description": "The team ID this token is associated with."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "teamToken"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "projectId",
+              "name",
+              "createTime",
+              "type"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Timestamp in milliseconds when this token was created."
+              },
+              "name": {
+                "$ref": "#/components/schemas/DeviceName",
+                "description": "The name given to the token at creation."
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId",
+                "description": "The project ID this token is associated with."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "projectToken"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "PreviewDeploymentIdentifier": {
         "type": "string"
       },
@@ -310,6 +487,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api)."
+      },
+      "Team Token": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Created in the dashboard under team settings for any team you can manage."
       }
     }
   }
