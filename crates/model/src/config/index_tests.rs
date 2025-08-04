@@ -1106,7 +1106,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
             } => {
                 let db_state = match on_disk_state {
                     DatabaseIndexState::Backfilling(_) => TestIndexState::Backfilling,
-                    DatabaseIndexState::Backfilled => TestIndexState::Backfilled,
+                    DatabaseIndexState::Backfilled { .. } => TestIndexState::Backfilled,
                     DatabaseIndexState::Enabled => TestIndexState::Enabled,
                 };
                 assert_eq!(developer_config.fields.len(), 1);

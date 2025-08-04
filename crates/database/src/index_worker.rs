@@ -603,16 +603,18 @@ impl<RT: Runtime> IndexWorker<RT> {
                 ref mut on_disk_state,
                 ..
             } => {
-                anyhow::ensure!(
-                    matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)),
-                    "IndexWorker finished backfilling index {index_metadata:?} not in Backfilling \
-                     state",
-                );
-
+                let DatabaseIndexState::Backfilling(ref backfilling_state) = *on_disk_state else {
+                    anyhow::bail!(
+                        "IndexWorker finished backfilling index {index_metadata:?} not in \
+                         Backfilling state"
+                    );
+                };
                 *on_disk_state = if is_system_index_on_user_table || is_index_on_system_table {
                     DatabaseIndexState::Enabled
                 } else {
-                    DatabaseIndexState::Backfilled
+                    DatabaseIndexState::Backfilled {
+                        staged: backfilling_state.staged,
+                    }
                 };
             },
             _ => anyhow::bail!(

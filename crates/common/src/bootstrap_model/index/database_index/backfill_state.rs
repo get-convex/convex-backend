@@ -16,6 +16,8 @@ pub struct DatabaseIndexBackfillState {
     pub index_created_lower_bound: Timestamp,
     // We have done the backfill and the only step left is catch up retention.
     pub retention_started: bool,
+    /// Whether the index is staged.
+    pub staged: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -25,6 +27,7 @@ pub struct SerializedDatabaseIndexBackfillState {
     // as option if we ever need to parse historical documents.
     index_created_lower_bound: Option<i64>,
     retention_started: Option<bool>,
+    staged: Option<bool>,
 }
 
 impl TryFrom<DatabaseIndexBackfillState> for SerializedDatabaseIndexBackfillState {
@@ -34,6 +37,7 @@ impl TryFrom<DatabaseIndexBackfillState> for SerializedDatabaseIndexBackfillStat
         Ok(Self {
             index_created_lower_bound: Some(config.index_created_lower_bound.into()),
             retention_started: Some(config.retention_started),
+            staged: Some(config.staged),
         })
     }
 }
@@ -49,6 +53,7 @@ impl TryFrom<SerializedDatabaseIndexBackfillState> for DatabaseIndexBackfillStat
                 .transpose()?
                 .unwrap_or(Timestamp::MIN),
             retention_started: config.retention_started.unwrap_or(false),
+            staged: config.staged.unwrap_or(false),
         })
     }
 }

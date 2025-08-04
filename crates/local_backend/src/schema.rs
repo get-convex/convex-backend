@@ -130,7 +130,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     // might consider a new value that would let us
                     // differentiate between Backfilled and Enabled in the
                     // dashboard. The CLI doesn't currently care.
-                    DatabaseIndexState::Enabled | DatabaseIndexState::Backfilled => {
+                    DatabaseIndexState::Enabled | DatabaseIndexState::Backfilled { .. } => {
                         "done".to_string()
                     },
                 };

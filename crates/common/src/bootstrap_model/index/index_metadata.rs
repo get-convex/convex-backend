@@ -74,6 +74,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                 on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
                     index_created_lower_bound,
                     retention_started: false,
+                    staged: false,
                 }),
             },
         }

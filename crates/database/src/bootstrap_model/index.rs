@@ -213,7 +213,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                         backfilled_index.name.descriptor()
                     )
                 },
-                DatabaseIndexState::Backfilled => {
+                DatabaseIndexState::Backfilled { .. } => {
                     *on_disk_state = DatabaseIndexState::Enabled;
                 },
             },
