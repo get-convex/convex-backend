@@ -1,5 +1,4 @@
 use authentication::application_auth::ApplicationAuth;
-use common::types::MemberId;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -77,32 +76,6 @@ fn must_be_admin_internal(
         return Err(read_only_admin_key_error().into());
     }
     Ok(admin_identity.principal().clone())
-}
-
-pub fn must_be_admin_member_with_write_access(identity: &Identity) -> anyhow::Result<MemberId> {
-    must_be_admin_member_internal(identity, true)
-}
-
-pub fn must_be_admin_member(identity: &Identity) -> anyhow::Result<MemberId> {
-    must_be_admin_member_internal(identity, false)
-}
-
-fn must_be_admin_member_internal(
-    identity: &Identity,
-    needs_write_access: bool,
-) -> anyhow::Result<MemberId> {
-    if let Identity::InstanceAdmin(admin_identity) = identity {
-        if let AdminIdentityPrincipal::Member(member_id) = admin_identity.principal() {
-            if needs_write_access && admin_identity.is_read_only() {
-                return Err(read_only_admin_key_error().into());
-            }
-            Ok(*member_id)
-        } else {
-            Err(bad_admin_key_error(identity.instance_name()).into())
-        }
-    } else {
-        Err(bad_admin_key_error(identity.instance_name()).into())
-    }
 }
 
 pub fn bad_admin_key_error(instance_name: Option<String>) -> ErrorMetadata {

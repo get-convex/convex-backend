@@ -29,7 +29,7 @@ use sync_types::Timestamp;
 use value::TableNamespace;
 
 use crate::{
-    admin::must_be_admin_member_with_write_access,
+    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     parse::parse_document_id,
     LocalAppState,
@@ -64,7 +64,7 @@ pub async fn cancel_all_jobs(
         end_next_ts,
     }): Json<CancelAllJobsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_member_with_write_access(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
 
     let udf_path = udf_path
         .map(|p| p.parse())
@@ -117,7 +117,7 @@ pub async fn cancel_job(
     ExtractIdentity(identity): ExtractIdentity,
     Json(cancel_job_request): Json<CancelJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_member_with_write_access(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
     let component_id =
         ComponentId::deserialize_from_string(cancel_job_request.component_id.as_deref())?;
     st.application
