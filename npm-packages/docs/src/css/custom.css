@@ -890,6 +890,9 @@ html[data-theme="dark"] .convex-menu-header {
 .convex-sidebar-ai-agents {
   --convex-icon: url("../../static/img/sidebar-icons/bot.svg");
 }
+.convex-sidebar-platform-apis {
+  --convex-icon: url("../../static/img/sidebar-icons/grid.svg");
+}
 
 .convex-sidebar-chef {
   --convex-icon: url("../../static/img/sidebar-icons/chef.svg");
