@@ -117,6 +117,9 @@ export class ConvexHttpClient {
           : instantiateDefaultLogger({ verbose: false });
     this.address = address;
     this.debug = true;
+    if (options?.auth) {
+      this.setAuth(options.auth);
+    }
   }
 
   /**

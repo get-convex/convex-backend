@@ -10,6 +10,9 @@
 - More informative messaging on code push. Link to index backfill progress in
   the dashboard.
 
+- Fix a bug where an auth token passed initially to the ConvexHttpClient was
+  ignored.
+
 ## 1.25.4
 
 - Experimental `convex dev --once --debug-node-apis` debug flag for tracing
