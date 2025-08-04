@@ -60,10 +60,6 @@ pub mod text_index_worker;
 pub use component_registry::ComponentRegistry;
 pub use execution_size::FunctionExecutionSize;
 pub use index_worker::IndexWorker;
-pub use index_workers::{
-    fast_forward::FastForwardIndexWorker,
-    search_worker::SearchIndexWorkers,
-};
 pub use patch::PatchValue;
 pub use preloaded::PreloadedIndexRange;
 pub use reads::{
@@ -163,6 +159,13 @@ pub use self::{
     index_worker::{
         IndexSelector,
         IndexWriter,
+    },
+    index_workers::{
+        fast_forward::{
+            load_metadata_fast_forward_ts,
+            FastForwardIndexWorker,
+        },
+        search_worker::SearchIndexWorkers,
     },
     query::{
         soft_data_limit,

@@ -102,6 +102,12 @@ impl SetDigest {
             self.0[i] = self.0[i].wrapping_add(*x);
         }
     }
+
+    pub fn remove(&mut self, digest: &Sha256Digest) {
+        for (i, x) in digest.iter().enumerate() {
+            self.0[i] = self.0[i].wrapping_sub(*x);
+        }
+    }
 }
 
 impl fmt::Debug for SetDigest {
