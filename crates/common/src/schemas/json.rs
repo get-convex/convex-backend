@@ -184,7 +184,14 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             index_validation_error::table_name_reserved(&table_name)
         );
 
-        if j.indexes.len() + vector_indexes.len() + text_indexes.len() > MAX_INDEXES_PER_TABLE {
+        if j.indexes.len()
+            + vector_indexes.len()
+            + text_indexes.len()
+            + staged_db_indexes.len()
+            + staged_text_indexes.len()
+            + staged_vector_indexes.len()
+            > MAX_INDEXES_PER_TABLE
+        {
             anyhow::bail!(index_validation_error::too_many_indexes(
                 &table_name,
                 MAX_INDEXES_PER_TABLE
