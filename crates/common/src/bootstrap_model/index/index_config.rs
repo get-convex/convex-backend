@@ -140,7 +140,7 @@ impl IndexConfig {
                 on_disk_state,
                 developer_config,
             } => match on_disk_state {
-                VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled(_) => Ok(0),
+                VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled { .. } => Ok(0),
                 VectorIndexState::SnapshottedAt(snapshot) => match &snapshot.data {
                     VectorIndexSnapshotData::MultiSegment(segments) => segments
                         .iter()
@@ -298,7 +298,8 @@ mod tests {
                         id: "jkl".to_string(),
                         num_vectors: 11,
                         num_deleted: 12,
-                    }]
+                    }],
+                    staged: false,
                 }),
             }
         );

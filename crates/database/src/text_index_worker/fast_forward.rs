@@ -40,9 +40,8 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
             return None;
         };
         let TextIndexSnapshot { ts, version, .. } = match on_disk_state {
-            TextIndexState::SnapshottedAt(snapshot) | TextIndexState::Backfilled(snapshot) => {
-                snapshot
-            },
+            TextIndexState::SnapshottedAt(snapshot)
+            | TextIndexState::Backfilled { snapshot, .. } => snapshot,
             TextIndexState::Backfilling(_) => return None,
         };
         Some((*ts, *version))

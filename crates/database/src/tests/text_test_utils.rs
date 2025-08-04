@@ -230,7 +230,10 @@ impl TextFixtures {
             .into_value();
         must_let!(let IndexMetadata {
             config: IndexConfig::Text {
-                on_disk_state: TextIndexState::Backfilled(TextIndexSnapshot { ts, .. }),
+                on_disk_state: TextIndexState::Backfilled {
+                    snapshot: TextIndexSnapshot { ts, .. },
+                    staged: _,
+                },
                 ..
             },
             ..
@@ -291,9 +294,8 @@ impl TextFixtures {
         must_let!(let IndexConfig::Text { on_disk_state, .. } = &metadata.config);
         let snapshot = match on_disk_state {
             TextIndexState::Backfilling(_) => anyhow::bail!("Still backfilling!"),
-            TextIndexState::Backfilled(snapshot) | TextIndexState::SnapshottedAt(snapshot) => {
-                snapshot
-            },
+            TextIndexState::Backfilled { snapshot, .. }
+            | TextIndexState::SnapshottedAt(snapshot) => snapshot,
         };
         must_let!(let TextIndexSnapshotData::MultiSegment(segments) = &snapshot.data);
         Ok(segments.clone())

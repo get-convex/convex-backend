@@ -422,6 +422,16 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         );
 
         let (developer_config, state) = T::extract_metadata(metadata)?;
+        let staged = match &state {
+            SearchOnDiskState::Backfilling(backfill_state) => backfill_state.staged,
+            SearchOnDiskState::Backfilled {
+                snapshot: _,
+                staged,
+            } => *staged,
+            SearchOnDiskState::SnapshottedAt(_) => {
+                anyhow::bail!("Index is already snapshotted, cannot commit backfill flush")
+            },
+        };
 
         // Find new segment and add to current segments to avoid race with compactor
         let new_segment = new_segment_id
@@ -456,10 +466,13 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             job.index_name.clone(),
             developer_config,
             if backfill_result.is_backfill_complete {
-                SearchOnDiskState::Backfilled(SearchSnapshot {
-                    ts: *backfill_complete_ts,
-                    data: SnapshotData::MultiSegment(new_and_modified_segments),
-                })
+                SearchOnDiskState::Backfilled {
+                    snapshot: SearchSnapshot {
+                        ts: *backfill_complete_ts,
+                        data: SnapshotData::MultiSegment(new_and_modified_segments),
+                    },
+                    staged,
+                }
             } else {
                 SearchOnDiskState::Backfilling(BackfillState {
                     segments: new_and_modified_segments,
@@ -467,6 +480,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                         .new_cursor
                         .map(|cursor| cursor.internal_id()),
                     backfill_snapshot_ts: Some(*backfill_complete_ts),
+                    staged,
                 })
             },
         )

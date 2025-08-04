@@ -114,7 +114,7 @@ mod tests {
         state: VectorIndexState,
     ) -> VectorIndexSnapshot {
         if expected_index_state == "backfilled" {
-            must_let!(let VectorIndexState::Backfilled(snapshot) = state);
+            must_let!(let VectorIndexState::Backfilled { snapshot, .. } = state);
             snapshot
         } else {
             must_let!(let VectorIndexState::SnapshottedAt(snapshot) = state);

@@ -39,9 +39,8 @@ impl<RT: Runtime> IndexFastForward<RT, ()> for VectorFastForward {
             return None;
         };
         let VectorIndexSnapshot { ts, .. } = match on_disk_state {
-            VectorIndexState::SnapshottedAt(snapshot) | VectorIndexState::Backfilled(snapshot) => {
-                snapshot
-            },
+            VectorIndexState::SnapshottedAt(snapshot)
+            | VectorIndexState::Backfilled { snapshot, .. } => snapshot,
             VectorIndexState::Backfilling(_) => return None,
         };
         Some((*ts, ()))

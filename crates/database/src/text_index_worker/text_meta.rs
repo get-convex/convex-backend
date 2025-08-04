@@ -137,8 +137,9 @@ impl SearchIndex for TextSearchIndex {
                 TextIndexState::Backfilling(snapshot) => {
                     SearchOnDiskState::Backfilling(snapshot.into())
                 },
-                TextIndexState::Backfilled(snapshot) => {
-                    SearchOnDiskState::Backfilled(snapshot.into())
+                TextIndexState::Backfilled { snapshot, staged } => SearchOnDiskState::Backfilled {
+                    snapshot: snapshot.into(),
+                    staged,
                 },
                 TextIndexState::SnapshottedAt(snapshot) => {
                     SearchOnDiskState::SnapshottedAt(snapshot.into())
@@ -407,7 +408,10 @@ impl From<SearchOnDiskState<TextSearchIndex>> for TextIndexState {
     fn from(value: SearchOnDiskState<TextSearchIndex>) -> Self {
         match value {
             SearchOnDiskState::Backfilling(state) => Self::Backfilling(state.into()),
-            SearchOnDiskState::Backfilled(snapshot) => Self::Backfilled(snapshot.into()),
+            SearchOnDiskState::Backfilled { snapshot, staged } => Self::Backfilled {
+                snapshot: snapshot.into(),
+                staged,
+            },
             SearchOnDiskState::SnapshottedAt(snapshot) => Self::SnapshottedAt(snapshot.into()),
         }
     }
@@ -417,7 +421,10 @@ impl From<TextIndexState> for SearchOnDiskState<TextSearchIndex> {
     fn from(value: TextIndexState) -> Self {
         match value {
             TextIndexState::Backfilling(state) => Self::Backfilling(state.into()),
-            TextIndexState::Backfilled(snapshot) => Self::Backfilled(snapshot.into()),
+            TextIndexState::Backfilled { snapshot, staged } => Self::Backfilled {
+                snapshot: snapshot.into(),
+                staged,
+            },
             TextIndexState::SnapshottedAt(snapshot) => Self::SnapshottedAt(snapshot.into()),
         }
     }
@@ -448,6 +455,7 @@ impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
             segments: value.segments,
             cursor: value.cursor.clone().map(|value| value.cursor),
             backfill_snapshot_ts: value.cursor.map(|value| value.backfill_snapshot_ts),
+            staged: value.staged,
         }
     }
 }
@@ -467,6 +475,7 @@ impl From<BackfillState<TextSearchIndex>> for TextIndexBackfillState {
         Self {
             segments: value.segments,
             cursor,
+            staged: value.staged,
         }
     }
 }

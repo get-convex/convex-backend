@@ -221,10 +221,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 ref mut on_disk_state,
                 ..
             } => match on_disk_state {
-                TextIndexState::Backfilled(snapshot) => {
+                TextIndexState::Backfilled { snapshot, .. } => {
                     *on_disk_state = TextIndexState::SnapshottedAt(snapshot.clone());
                 },
-                TextIndexState::Backfilling(_) | TextIndexState::SnapshottedAt(_) => {
+                TextIndexState::Backfilling { .. } | TextIndexState::SnapshottedAt(_) => {
                     anyhow::bail!(
                         "Expected backfilled index, but found: {on_disk_state:?} for {:?}",
                         backfilled_index.name.descriptor()
@@ -235,7 +235,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 ref mut on_disk_state,
                 ..
             } => match on_disk_state {
-                VectorIndexState::Backfilled(snapshot) => {
+                VectorIndexState::Backfilled { snapshot, .. } => {
                     *on_disk_state = VectorIndexState::SnapshottedAt(snapshot.clone());
                 },
                 VectorIndexState::Backfilling(_) | VectorIndexState::SnapshottedAt(_) => {

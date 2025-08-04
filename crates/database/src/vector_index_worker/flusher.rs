@@ -714,7 +714,7 @@ mod tests {
             .into_value();
         must_let!(let IndexMetadata {
             config: IndexConfig::Vector {
-                on_disk_state: VectorIndexState::Backfilled(VectorIndexSnapshot { .. }),
+                on_disk_state: VectorIndexState::Backfilled { snapshot: VectorIndexSnapshot { .. }, .. },
                 ..
             },
             ..

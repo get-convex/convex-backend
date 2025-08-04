@@ -146,10 +146,14 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                     data: SnapshotData::MultiSegment(segments),
                     ..
                 })
-                | SearchOnDiskState::Backfilled(SearchSnapshot {
-                    data: SnapshotData::MultiSegment(segments),
+                | SearchOnDiskState::Backfilled {
+                    snapshot:
+                        SearchSnapshot {
+                            data: SnapshotData::MultiSegment(segments),
+                            ..
+                        },
                     ..
-                }) => Self::find_segments_to_compact(
+                } => Self::find_segments_to_compact(
                     segments,
                     &config.developer_config,
                     &self.config,
@@ -204,7 +208,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                     Self::search_type()
                 )
             })?,
-            SearchOnDiskState::Backfilled(snapshot)
+            SearchOnDiskState::Backfilled { snapshot, .. }
             | SearchOnDiskState::SnapshottedAt(snapshot) => snapshot.ts,
         };
 

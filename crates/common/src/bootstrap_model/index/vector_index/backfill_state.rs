@@ -23,6 +23,7 @@ pub struct VectorIndexBackfillState {
     // They will be set after the first backfill iteration.
     pub cursor: Option<InternalId>,
     pub backfill_snapshot_ts: Option<Timestamp>,
+    pub staged: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -30,6 +31,7 @@ pub struct SerializedVectorIndexBackfillState {
     segments: Option<Vec<SerializedFragmentedVectorSegment>>,
     document_cursor: Option<String>,
     backfill_snapshot_ts: Option<i64>,
+    staged: Option<bool>,
 }
 
 impl TryFrom<VectorIndexBackfillState> for SerializedVectorIndexBackfillState {
@@ -46,6 +48,7 @@ impl TryFrom<VectorIndexBackfillState> for SerializedVectorIndexBackfillState {
             ),
             document_cursor: backfill_state.cursor.map(|id| id.to_string()),
             backfill_snapshot_ts: backfill_state.backfill_snapshot_ts.map(|ts| ts.into()),
+            staged: Some(backfill_state.staged),
         })
     }
 }
@@ -73,6 +76,7 @@ impl TryFrom<SerializedVectorIndexBackfillState> for VectorIndexBackfillState {
                 .backfill_snapshot_ts
                 .map(Timestamp::try_from)
                 .transpose()?,
+            staged: serialized.staged.unwrap_or_default(),
         })
     }
 }

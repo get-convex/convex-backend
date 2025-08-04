@@ -357,9 +357,8 @@ impl VectorFixtures {
         must_let!(let IndexConfig::Vector { on_disk_state, .. } = &metadata.config);
         let snapshot = match on_disk_state {
             VectorIndexState::Backfilling(_) => anyhow::bail!("Still backfilling!"),
-            VectorIndexState::Backfilled(snapshot) | VectorIndexState::SnapshottedAt(snapshot) => {
-                snapshot
-            },
+            VectorIndexState::Backfilled { snapshot, .. }
+            | VectorIndexState::SnapshottedAt(snapshot) => snapshot,
         };
         must_let!(let VectorIndexSnapshotData::MultiSegment(segments) = &snapshot.data);
         Ok(segments.clone())
@@ -536,7 +535,7 @@ pub(crate) async fn assert_backfilled(
         .into_value();
     must_let!(let IndexMetadata {
             config: IndexConfig::Vector {
-                on_disk_state: VectorIndexState::Backfilled(VectorIndexSnapshot { ts, .. }),
+                on_disk_state: VectorIndexState::Backfilled { snapshot: VectorIndexSnapshot { ts, .. }, staged: false },
                 ..
             },
             ..

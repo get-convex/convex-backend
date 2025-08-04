@@ -21,13 +21,15 @@ pub struct TextIndexBackfillState {
     pub segments: Vec<FragmentedTextSegment>,
     // None at the start of backfill, then set after the first backfill iteration.
     pub cursor: Option<TextBackfillCursor>,
+    pub staged: bool,
 }
 
 impl TextIndexBackfillState {
-    pub fn new() -> Self {
+    pub fn new(staged: bool) -> Self {
         Self {
             segments: vec![],
             cursor: None,
+            staged,
         }
     }
 }
@@ -69,6 +71,7 @@ impl TryFrom<SerializedTextBackfillCursor> for TextBackfillCursor {
 pub struct SerializedTextIndexBackfillState {
     segments: Option<Vec<SerializedFragmentedTextSegment>>,
     cursor: Option<SerializedTextBackfillCursor>,
+    staged: Option<bool>,
 }
 
 impl TryFrom<TextIndexBackfillState> for SerializedTextIndexBackfillState {
@@ -86,6 +89,7 @@ impl TryFrom<TextIndexBackfillState> for SerializedTextIndexBackfillState {
             cursor: backfill_state
                 .cursor
                 .map(SerializedTextBackfillCursor::from),
+            staged: Some(backfill_state.staged),
         })
     }
 }
@@ -105,6 +109,7 @@ impl TryFrom<SerializedTextIndexBackfillState> for TextIndexBackfillState {
                 .cursor
                 .map(TextBackfillCursor::try_from)
                 .transpose()?,
+            staged: serialized.staged.unwrap_or_default(),
         })
     }
 }

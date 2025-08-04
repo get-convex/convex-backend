@@ -802,11 +802,13 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
             assert_eq!(segments.len(), (i + 1) as usize);
             backfill_ts = backfill_snapshot_ts;
         } else {
-            must_let!(let VectorIndexState::Backfilled(
-                VectorIndexSnapshot {
+            must_let!(let VectorIndexState::Backfilled {
+                snapshot: VectorIndexSnapshot {
                     data,
                     ts,
-                }) = on_disk_state);
+                },
+                ..
+            } = on_disk_state);
             // Verify snapshot timestamp matches backfill timestamp
             assert_eq!(backfill_ts.unwrap(), ts);
             must_let!(let VectorIndexSnapshotData::MultiSegment(segments) = data);
@@ -875,8 +877,10 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
     let mut vec_indexes = scenario.get_vector_index_configs().await?;
     assert_eq!(vec_indexes.len(), 1);
     let (_, on_disk_state) = vec_indexes.remove(0);
-    must_let!(let VectorIndexState::Backfilled(VectorIndexSnapshot
-        { data: VectorIndexSnapshotData::MultiSegment(segments), .. }) = on_disk_state);
+    must_let!(let VectorIndexState::Backfilled {
+        snapshot: VectorIndexSnapshot { data: VectorIndexSnapshotData::MultiSegment(segments), .. },
+        ..
+    } = on_disk_state);
     assert_eq!(segments.len(), 1);
 
     // Enable the index

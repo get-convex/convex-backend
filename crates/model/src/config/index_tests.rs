@@ -665,7 +665,7 @@ async fn apply_config_with_backfilling_search_index_throws(rt: TestRuntime) -> a
     assert_root_cause_contains(
         result,
         "Expected backfilled index, but found: Backfilling(TextIndexBackfillState { segments: [], \
-         cursor: None }) for \"index\"",
+         cursor: None, staged: false }) for \"index\"",
     );
 
     Ok(())
@@ -1119,7 +1119,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
             } => {
                 let search_state = match on_disk_state {
                     TextIndexState::Backfilling(_) => TestIndexState::Backfilling,
-                    TextIndexState::Backfilled(_) => TestIndexState::Backfilled,
+                    TextIndexState::Backfilled { .. } => TestIndexState::Backfilled,
                     TextIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
                 };
                 TestIndexConfig(developer_config.search_field.to_string(), search_state)
@@ -1130,7 +1130,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
             } => {
                 let vector_state = match on_disk_state {
                     VectorIndexState::Backfilling(_) => TestIndexState::Backfilling,
-                    VectorIndexState::Backfilled(_) => TestIndexState::Backfilled,
+                    VectorIndexState::Backfilled { .. } => TestIndexState::Backfilled,
                     VectorIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
                 };
                 TestIndexConfig(developer_config.vector_field.to_string(), vector_state)

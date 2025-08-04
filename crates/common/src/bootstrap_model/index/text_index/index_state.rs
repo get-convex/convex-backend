@@ -23,16 +23,26 @@ use crate::bootstrap_model::index::text_index::backfill_state::{
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum TextIndexState {
     Backfilling(TextIndexBackfillState),
-    Backfilled(TextIndexSnapshot),
+    Backfilled {
+        snapshot: TextIndexSnapshot,
+        staged: bool,
+    },
     SnapshottedAt(TextIndexSnapshot),
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum SerializedTextIndexState {
-    Backfilling,
+    Backfilling {
+        staged: Option<bool>,
+    },
     Backfilling2(SerializedTextIndexBackfillState),
     Backfilled(SerializedTextIndexSnapshot),
+    /// New format for representing staged backfilled index state.
+    Backfilled2 {
+        snapshot: SerializedTextIndexSnapshot,
+        staged: bool,
+    },
     Snapshotted(SerializedTextIndexSnapshot),
 }
 
@@ -48,13 +58,18 @@ impl TryFrom<TextIndexState> for SerializedTextIndexState {
                 // we should always write the old format. TODO(CX-6465): Clean
                 // this up.
                 if state.segments.is_empty() && state.cursor.is_none() {
-                    SerializedTextIndexState::Backfilling
+                    SerializedTextIndexState::Backfilling {
+                        staged: Some(state.staged),
+                    }
                 } else {
                     SerializedTextIndexState::Backfilling2(state.try_into()?)
                 }
             },
-            TextIndexState::Backfilled(snapshot) => {
-                SerializedTextIndexState::Backfilled(snapshot.try_into()?)
+            TextIndexState::Backfilled { snapshot, staged } => {
+                SerializedTextIndexState::Backfilled2 {
+                    snapshot: snapshot.try_into()?,
+                    staged,
+                }
             },
             TextIndexState::SnapshottedAt(snapshot) => {
                 SerializedTextIndexState::Snapshotted(snapshot.try_into()?)
@@ -68,14 +83,21 @@ impl TryFrom<SerializedTextIndexState> for TextIndexState {
 
     fn try_from(serialized: SerializedTextIndexState) -> Result<Self, Self::Error> {
         Ok(match serialized {
-            SerializedTextIndexState::Backfilling => {
-                TextIndexState::Backfilling(TextIndexBackfillState::new())
+            SerializedTextIndexState::Backfilling { staged } => {
+                TextIndexState::Backfilling(TextIndexBackfillState::new(staged.unwrap_or_default()))
             },
             SerializedTextIndexState::Backfilling2(backfill_state) => {
                 TextIndexState::Backfilling(backfill_state.try_into()?)
             },
-            SerializedTextIndexState::Backfilled(snapshot) => {
-                TextIndexState::Backfilled(snapshot.try_into()?)
+            SerializedTextIndexState::Backfilled(snapshot) => TextIndexState::Backfilled {
+                snapshot: snapshot.try_into()?,
+                staged: false,
+            },
+            SerializedTextIndexState::Backfilled2 { snapshot, staged } => {
+                TextIndexState::Backfilled {
+                    snapshot: snapshot.try_into()?,
+                    staged,
+                }
             },
             SerializedTextIndexState::Snapshotted(snapshot) => {
                 TextIndexState::SnapshottedAt(snapshot.try_into()?)

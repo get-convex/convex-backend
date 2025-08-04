@@ -365,13 +365,21 @@ impl TextIndexManager {
                                     ..
                                 },
                                 IndexConfig::Text {
-                                    on_disk_state: TextIndexState::Backfilled(snapshot),
+                                    on_disk_state:
+                                        TextIndexState::Backfilled {
+                                            snapshot,
+                                            staged: _,
+                                        },
                                     ..
                                 },
                             ) => (None, Some(snapshot)),
                             (
                                 IndexConfig::Text {
-                                    on_disk_state: TextIndexState::Backfilled(old_snapshot),
+                                    on_disk_state:
+                                        TextIndexState::Backfilled {
+                                            snapshot: old_snapshot,
+                                            staged: _,
+                                        },
                                     ..
                                 },
                                 IndexConfig::Text {
@@ -381,11 +389,19 @@ impl TextIndexManager {
                             ) => (Some(old_snapshot), Some(new_snapshot)),
                             (
                                 IndexConfig::Text {
-                                    on_disk_state: TextIndexState::Backfilled(old_snapshot),
+                                    on_disk_state:
+                                        TextIndexState::Backfilled {
+                                            snapshot: old_snapshot,
+                                            staged: _,
+                                        },
                                     ..
                                 },
                                 IndexConfig::Text {
-                                    on_disk_state: TextIndexState::Backfilled(new_snapshot),
+                                    on_disk_state:
+                                        TextIndexState::Backfilled {
+                                            snapshot: new_snapshot,
+                                            staged: _,
+                                        },
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),

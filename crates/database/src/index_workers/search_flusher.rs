@@ -276,13 +276,16 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             let needs_backfill = match &config.on_disk_state {
                 SearchOnDiskState::Backfilling(_) => Some(BuildReason::Backfilling),
                 SearchOnDiskState::SnapshottedAt(snapshot)
-                | SearchOnDiskState::Backfilled(snapshot)
+                | SearchOnDiskState::Backfilled { snapshot, .. }
                     if !T::is_version_current(snapshot) =>
                 {
                     Some(BuildReason::VersionMismatch)
                 },
                 SearchOnDiskState::SnapshottedAt(SearchSnapshot { ts, .. })
-                | SearchOnDiskState::Backfilled(SearchSnapshot { ts, .. }) => {
+                | SearchOnDiskState::Backfilled {
+                    snapshot: SearchSnapshot { ts, .. },
+                    ..
+                } => {
                     let ts = IndexWorkerMetadataModel::new(&mut tx)
                         .get_fast_forward_ts(*ts, index_id.internal_id())
                         .await?;
@@ -401,7 +404,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     },
                 )
             },
-            SearchOnDiskState::Backfilled(ref snapshot)
+            SearchOnDiskState::Backfilled { ref snapshot, .. }
             | SearchOnDiskState::SnapshottedAt(ref snapshot) => {
                 match snapshot.data {
                     // We skip rebuilding the index if it is an unknown format because it's very

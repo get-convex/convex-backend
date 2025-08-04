@@ -165,11 +165,15 @@ pub struct BackfillState<T: SearchIndex> {
     pub segments: Vec<T::Segment>,
     pub cursor: Option<InternalId>,
     pub backfill_snapshot_ts: Option<Timestamp>,
+    pub staged: bool,
 }
 
 pub enum SearchOnDiskState<T: SearchIndex> {
     Backfilling(BackfillState<T>),
-    Backfilled(SearchSnapshot<T>),
+    Backfilled {
+        snapshot: SearchSnapshot<T>,
+        staged: bool,
+    },
     SnapshottedAt(SearchSnapshot<T>),
 }
 
@@ -177,7 +181,7 @@ impl<T: SearchIndex> SearchOnDiskState<T> {
     pub fn segments(&self) -> Vec<T::Segment> {
         match self {
             SearchOnDiskState::Backfilling(ref backfill_state) => backfill_state.segments.clone(),
-            SearchOnDiskState::Backfilled(ref snapshot)
+            SearchOnDiskState::Backfilled { ref snapshot, .. }
             | SearchOnDiskState::SnapshottedAt(ref snapshot) => snapshot.data.clone().segments(),
         }
     }
@@ -187,7 +191,7 @@ impl<T: SearchIndex> SearchOnDiskState<T> {
             SearchOnDiskState::Backfilling(ref backfill_state) => {
                 backfill_state.backfill_snapshot_ts.as_ref()
             },
-            SearchOnDiskState::Backfilled(ref snapshot)
+            SearchOnDiskState::Backfilled { ref snapshot, .. }
             | SearchOnDiskState::SnapshottedAt(ref snapshot) => Some(&snapshot.ts),
         }
     }
@@ -203,7 +207,7 @@ impl<T: SearchIndex> SearchOnDiskState<T> {
         };
         match self {
             Self::Backfilling(_) => anyhow::bail!("Can't update backfilling index!"),
-            Self::Backfilled(_) => Ok(Self::Backfilled(snapshot)),
+            Self::Backfilled { staged, .. } => Ok(Self::Backfilled { snapshot, staged }),
             Self::SnapshottedAt(_) => Ok(Self::SnapshottedAt(snapshot)),
         }
     }
@@ -214,10 +218,13 @@ impl<T: SearchIndex> SearchOnDiskState<T> {
                 segments,
                 ..backfill
             })),
-            Self::Backfilled(snapshot) => Ok(Self::Backfilled(SearchSnapshot {
-                data: SnapshotData::MultiSegment(segments),
-                ..snapshot
-            })),
+            Self::Backfilled { snapshot, staged } => Ok(Self::Backfilled {
+                snapshot: SearchSnapshot {
+                    data: SnapshotData::MultiSegment(segments),
+                    ..snapshot
+                },
+                staged,
+            }),
             Self::SnapshottedAt(snapshot) => Ok(Self::SnapshottedAt(SearchSnapshot {
                 data: SnapshotData::MultiSegment(segments),
                 ..snapshot

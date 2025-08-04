@@ -130,7 +130,10 @@ impl IndexesToBootstrap {
                 } => {
                     let qdrant_schema = QdrantSchema::new(developer_config);
                     let ts = match on_disk_state {
-                        VectorIndexState::Backfilled(ref snapshot_info)
+                        VectorIndexState::Backfilled {
+                            snapshot: ref snapshot_info,
+                            ..
+                        }
                         | VectorIndexState::SnapshottedAt(ref snapshot_info) => {
                             // Use fast forward ts instead of snapshot ts.
                             let current_index_ts =
@@ -174,11 +177,15 @@ impl IndexesToBootstrap {
                             ));
                             TextIndex::Backfilling { memory_index }
                         },
-                        TextIndexState::Backfilled(TextIndexSnapshot {
-                            data,
-                            ts: disk_ts,
-                            version,
-                        })
+                        TextIndexState::Backfilled {
+                            snapshot:
+                                TextIndexSnapshot {
+                                    data,
+                                    ts: disk_ts,
+                                    version,
+                                },
+                            staged: _,
+                        }
                         | TextIndexState::SnapshottedAt(TextIndexSnapshot {
                             data,
                             ts: disk_ts,
@@ -1056,7 +1063,7 @@ mod tests {
         };
         must_let!(
             let IndexConfig::Text {
-                on_disk_state: TextIndexState::Backfilled(disk_snapshot), ..
+                on_disk_state: TextIndexState::Backfilled { snapshot: disk_snapshot, .. }, ..
             } = index_doc.into_value().config
         );
 

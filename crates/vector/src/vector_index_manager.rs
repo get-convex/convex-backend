@@ -289,7 +289,7 @@ impl VectorIndexManager {
             (Some(prev_version), Some(next_version)) => {
                 let prev_metadata: ParsedDocument<IndexMetadata<_>> = prev_version.parse()?;
                 let next_metadata: ParsedDocument<IndexMetadata<_>> = next_version.parse()?;
-                let (old_snapshot, new_snapshot) =
+                let (old_snapshot, new_snapshot, staged) =
                     match (&prev_metadata.config, &next_metadata.config) {
                         (
                             IndexConfig::Vector {
@@ -299,40 +299,55 @@ impl VectorIndexManager {
                             },
                             IndexConfig::Vector {
                                 on_disk_state:
-                                    VectorIndexState::Backfilling(VectorIndexBackfillState { .. }),
+                                    VectorIndexState::Backfilling(VectorIndexBackfillState {
+                                        staged,
+                                        ..
+                                    }),
                                 ..
                             },
-                        ) => (None, None),
+                        ) => (None, None, *staged),
                         (
                             IndexConfig::Vector {
                                 on_disk_state: VectorIndexState::Backfilling { .. },
                                 ..
                             },
                             IndexConfig::Vector {
-                                on_disk_state: VectorIndexState::Backfilled(snapshot),
+                                on_disk_state: VectorIndexState::Backfilled { snapshot, staged },
                                 ..
                             },
-                        ) => (None, Some(snapshot)),
+                        ) => (None, Some(snapshot), *staged),
                         (
                             IndexConfig::Vector {
-                                on_disk_state: VectorIndexState::Backfilled(old_snapshot),
+                                on_disk_state:
+                                    VectorIndexState::Backfilled {
+                                        snapshot: old_snapshot,
+                                        ..
+                                    },
                                 ..
                             },
                             IndexConfig::Vector {
                                 on_disk_state: VectorIndexState::SnapshottedAt(new_snapshot),
                                 ..
                             },
-                        ) => (Some(old_snapshot), Some(new_snapshot)),
+                        ) => (Some(old_snapshot), Some(new_snapshot), false),
                         (
                             IndexConfig::Vector {
-                                on_disk_state: VectorIndexState::Backfilled(old_snapshot),
+                                on_disk_state:
+                                    VectorIndexState::Backfilled {
+                                        snapshot: old_snapshot,
+                                        ..
+                                    },
                                 ..
                             },
                             IndexConfig::Vector {
-                                on_disk_state: VectorIndexState::Backfilled(new_snapshot),
+                                on_disk_state:
+                                    VectorIndexState::Backfilled {
+                                        snapshot: new_snapshot,
+                                        staged,
+                                    },
                                 ..
                             },
-                        ) => (Some(old_snapshot), Some(new_snapshot)),
+                        ) => (Some(old_snapshot), Some(new_snapshot), *staged),
                         (
                             IndexConfig::Vector {
                                 on_disk_state: VectorIndexState::SnapshottedAt(old_snapshot),
@@ -342,14 +357,14 @@ impl VectorIndexManager {
                                 on_disk_state: VectorIndexState::SnapshottedAt(new_snapshot),
                                 ..
                             },
-                        ) => (Some(old_snapshot), Some(new_snapshot)),
+                        ) => (Some(old_snapshot), Some(new_snapshot), false),
                         (IndexConfig::Vector { .. }, _) | (_, IndexConfig::Vector { .. }) => {
                             anyhow::bail!(
                                 "Invalid index type transition: {prev_metadata:?} to \
                                  {next_metadata:?}"
                             );
                         },
-                        _ => (None, None),
+                        _ => (None, None, false),
                     };
                 if let Some(new_snapshot) = new_snapshot {
                     let is_newly_enabled =
@@ -365,7 +380,10 @@ impl VectorIndexManager {
                         let updated_state = if is_next_index_enabled {
                             VectorIndexState::SnapshottedAt(new_snapshot.clone())
                         } else {
-                            VectorIndexState::Backfilled(new_snapshot.clone())
+                            VectorIndexState::Backfilled {
+                                snapshot: new_snapshot.clone(),
+                                staged,
+                            }
                         };
 
                         self.indexes.update(

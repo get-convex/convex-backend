@@ -72,8 +72,9 @@ impl From<VectorIndexState> for SearchOnDiskState<VectorSearchIndex> {
             VectorIndexState::Backfilling(backfill_state) => {
                 SearchOnDiskState::Backfilling(backfill_state.into())
             },
-            VectorIndexState::Backfilled(snapshot) => {
-                SearchOnDiskState::Backfilled(snapshot.into())
+            VectorIndexState::Backfilled { snapshot, staged } => SearchOnDiskState::Backfilled {
+                snapshot: snapshot.into(),
+                staged,
             },
             VectorIndexState::SnapshottedAt(snapshot) => {
                 SearchOnDiskState::SnapshottedAt(snapshot.into())
@@ -88,7 +89,10 @@ impl TryFrom<SearchOnDiskState<VectorSearchIndex>> for VectorIndexState {
     fn try_from(value: SearchOnDiskState<VectorSearchIndex>) -> anyhow::Result<Self> {
         Ok(match value {
             SearchOnDiskState::Backfilling(state) => Self::Backfilling(state.into()),
-            SearchOnDiskState::Backfilled(snapshot) => Self::Backfilled(snapshot.try_into()?),
+            SearchOnDiskState::Backfilled { snapshot, staged } => Self::Backfilled {
+                snapshot: snapshot.try_into()?,
+                staged,
+            },
             SearchOnDiskState::SnapshottedAt(snapshot) => Self::SnapshottedAt(snapshot.try_into()?),
         })
     }
@@ -326,6 +330,7 @@ impl From<VectorIndexBackfillState> for BackfillState<VectorSearchIndex> {
             segments: value.segments,
             cursor: value.cursor,
             backfill_snapshot_ts: value.backfill_snapshot_ts,
+            staged: value.staged,
         }
     }
 }
@@ -336,6 +341,7 @@ impl From<BackfillState<VectorSearchIndex>> for VectorIndexBackfillState {
             segments: value.segments,
             cursor: value.cursor,
             backfill_snapshot_ts: value.backfill_snapshot_ts,
+            staged: value.staged,
         }
     }
 }

@@ -105,10 +105,10 @@ pub async fn assert_backfilled(
             assert_matches!(on_disk_state, DatabaseIndexState::Backfilled { .. })
         },
         IndexConfig::Text { on_disk_state, .. } => {
-            assert_matches!(on_disk_state, TextIndexState::Backfilled(_))
+            assert_matches!(on_disk_state, TextIndexState::Backfilled { .. })
         },
         IndexConfig::Vector { on_disk_state, .. } => {
-            assert_matches!(on_disk_state, VectorIndexState::Backfilled(_))
+            assert_matches!(on_disk_state, VectorIndexState::Backfilled { .. })
         },
     }
     Ok(())
