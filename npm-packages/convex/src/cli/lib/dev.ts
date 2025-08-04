@@ -1,14 +1,14 @@
 import chalk from "chalk";
+import { OneoffCtx } from "../../bundler/context.js";
 import {
   logError,
   logFinishedStep,
   logMessage,
   logWarning,
-  OneoffCtx,
   showSpinner,
   showSpinnerIfSlow,
   stopSpinner,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { runPush } from "./components.js";
 import { performance } from "perf_hooks";
 import path from "path";

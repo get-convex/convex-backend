@@ -5,7 +5,8 @@ import { parse as parseAST } from "@babel/parser";
 import { Identifier, ImportSpecifier } from "@babel/types";
 import * as Sentry from "@sentry/node";
 import { Filesystem, consistentPathSort } from "./fs.js";
-import { Context, logVerbose, logWarning } from "./context.js";
+import { Context } from "./context.js";
+import { logVerbose, logWarning } from "./log.js";
 import { wasmPlugin } from "./wasm.js";
 import {
   ExternalPackage,

@@ -1,6 +1,6 @@
 import inquirer from "inquirer";
-import { Context, logOutput } from "../../../bundler/context.js";
-
+import { Context } from "../../../bundler/context.js";
+import { logOutput } from "../../../bundler/log.js";
 export const promptString = async (
   ctx: Context,
   options: {

@@ -1,5 +1,6 @@
 import chalk from "chalk";
-import { Context, logFinishedStep, logMessage } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logFinishedStep, logMessage } from "../../bundler/log.js";
 import { DeploymentType } from "./api.js";
 import { writeConvexUrlToEnvFile } from "./envvars.js";
 import { getDashboardUrl } from "./dashboard.js";

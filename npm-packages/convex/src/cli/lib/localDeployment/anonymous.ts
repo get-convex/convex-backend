@@ -2,13 +2,13 @@
 // Anonymous (No account)
 
 import path from "path";
+import { Context } from "../../../bundler/context.js";
 import {
-  Context,
   logFinishedStep,
   logMessage,
   logVerbose,
   logWarning,
-} from "../../../bundler/context.js";
+} from "../../../bundler/log.js";
 import { promptSearch, promptString, promptYesNo } from "../utils/prompts.js";
 import {
   bigBrainGenerateAdminKeyForAnonymousDeployment,

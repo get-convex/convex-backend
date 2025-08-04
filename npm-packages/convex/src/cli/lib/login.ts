@@ -9,8 +9,8 @@ import open from "open";
 import chalk from "chalk";
 import { provisionHost } from "./config.js";
 import { version } from "../version.js";
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   changeSpinner,
   logError,
   logFailure,
@@ -19,7 +19,7 @@ import {
   logOutput,
   logVerbose,
   showSpinner,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { Issuer } from "openid-client";
 import { hostname } from "os";
 import { execSync } from "child_process";

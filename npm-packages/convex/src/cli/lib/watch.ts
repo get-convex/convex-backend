@@ -1,12 +1,8 @@
 import chokidar from "chokidar";
 import path from "path";
 import { Observations, RecordingFs, WatchEvent } from "../../bundler/fs.js";
-import {
-  BigBrainAuth,
-  Context,
-  ErrorType,
-  logFailure,
-} from "../../bundler/context.js";
+import { BigBrainAuth, Context, ErrorType } from "../../bundler/context.js";
+import { logFailure } from "../../bundler/log.js";
 import * as Sentry from "@sentry/node";
 import { Ora } from "ora";
 

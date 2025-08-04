@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { logOutput } from "../../bundler/context.js";
+import { logOutput } from "../../bundler/log.js";
 import { runSystemQuery } from "./run.js";
 import { Context } from "../../bundler/context.js";
 

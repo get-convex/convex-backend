@@ -1,4 +1,5 @@
-import { Context, logMessage } from "../../../bundler/context.js";
+import { Context } from "../../../bundler/context.js";
+import { logMessage } from "../../../bundler/log.js";
 import { detect } from "detect-port";
 import crypto from "crypto";
 import chalk from "chalk";

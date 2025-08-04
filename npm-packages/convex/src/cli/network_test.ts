@@ -3,12 +3,8 @@ import {
   deploymentSelectionWithinProjectFromOptions,
   loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
-import {
-  Context,
-  oneoffContext,
-  showSpinner,
-  logMessage,
-} from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
+import { showSpinner, logMessage } from "../bundler/log.js";
 import chalk from "chalk";
 import { actionDescription } from "./lib/command.js";
 import { runNetworkTestOnUrl, withTimeout } from "./lib/networkTest.js";

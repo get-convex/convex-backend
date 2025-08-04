@@ -1,11 +1,11 @@
 import AdmZip from "adm-zip";
+import { Context } from "../../../bundler/context.js";
 import {
-  Context,
   logFinishedStep,
   startLogProgress,
   logVerbose,
   logMessage,
-} from "../../../bundler/context.js";
+} from "../../../bundler/log.js";
 import {
   dashboardZip,
   executablePath,

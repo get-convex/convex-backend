@@ -1,10 +1,10 @@
 import chalk from "chalk";
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   changeSpinner,
   logFinishedStep,
   logMessage,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { doCodegen } from "./codegen.js";
 import {
   ProjectConfig,

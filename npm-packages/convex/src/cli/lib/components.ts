@@ -1,10 +1,10 @@
 import path from "path";
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   changeSpinner,
   logFinishedStep,
   logMessage,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import {
   ProjectConfig,
   configFromProjectConfig,

@@ -2,15 +2,15 @@ import chalk from "chalk";
 import equal from "deep-equal";
 import { EOL } from "os";
 import path from "path";
+import { Context } from "../../bundler/context.js";
 import {
   changeSpinner,
-  Context,
   logError,
   logFailure,
   logFinishedStep,
   logMessage,
   showSpinner,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import {
   Bundle,
   BundleHash,

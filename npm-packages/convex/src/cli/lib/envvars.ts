@@ -4,7 +4,8 @@
 import chalk from "chalk";
 import * as dotenv from "dotenv";
 
-import { Context, logWarning } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logWarning } from "../../bundler/log.js";
 import { loadPackageJson } from "./utils/utils.js";
 
 const _FRAMEWORKS = [

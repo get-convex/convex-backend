@@ -1,10 +1,6 @@
 import chalk from "chalk";
-import {
-  Context,
-  logError,
-  logOutput,
-  logWarning,
-} from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logError, logOutput, logWarning } from "../../bundler/log.js";
 import { Base64 } from "../../values/index.js";
 import { Value } from "../../values/value.js";
 import { runSystemPaginatedQuery } from "./run.js";

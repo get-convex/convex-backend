@@ -1,13 +1,13 @@
 import chalk from "chalk";
 import path from "path";
 import { bundleSchema } from "../../bundler/index.js";
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   changeSpinner,
   logFailure,
   logFinishedStep,
   logError,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import {
   poll,
   logAndHandleFetchError,

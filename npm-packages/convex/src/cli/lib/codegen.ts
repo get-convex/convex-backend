@@ -12,13 +12,13 @@ import {
 import { readmeCodegen } from "../codegen_templates/readme.js";
 import { serverCodegen } from "../codegen_templates/server.js";
 import { tsconfigCodegen } from "../codegen_templates/tsconfig.js";
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   logError,
   logMessage,
   logOutput,
   logVerbose,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { configFilepath, readProjectConfig } from "./config.js";
 import { recursivelyDelete } from "./fsUtils.js";

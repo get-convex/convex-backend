@@ -1,4 +1,5 @@
-import { BigBrainAuth, Context, logVerbose } from "../../bundler/context.js";
+import { BigBrainAuth, Context } from "../../bundler/context.js";
+import { logVerbose } from "../../bundler/log.js";
 import {
   AccountRequiredDeploymentType,
   DeploymentType,

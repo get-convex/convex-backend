@@ -2,12 +2,8 @@ import { Command } from "@commander-js/extra-typings";
 import { readProjectConfig } from "./lib/config.js";
 import chalk from "chalk";
 import { bigBrainAPI } from "./lib/utils/utils.js";
-import {
-  logError,
-  logMessage,
-  logOutput,
-  oneoffContext,
-} from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
+import { logError, logMessage, logOutput } from "../bundler/log.js";
 
 type Deployment = {
   id: number;

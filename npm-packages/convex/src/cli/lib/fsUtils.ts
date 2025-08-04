@@ -1,4 +1,5 @@
-import { Context, logOutput } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logOutput } from "../../bundler/log.js";
 import path from "path";
 import { NodeFs } from "../../bundler/fs.js";
 

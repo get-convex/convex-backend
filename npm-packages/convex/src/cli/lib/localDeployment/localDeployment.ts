@@ -1,4 +1,5 @@
-import { Context, logVerbose } from "../../../bundler/context.js";
+import { Context } from "../../../bundler/context.js";
+import { logVerbose } from "../../../bundler/log.js";
 import {
   bigBrainPause,
   bigBrainRecordActivity,

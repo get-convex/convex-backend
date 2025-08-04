@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import { Command } from "@commander-js/extra-typings";
-import { logMessage, oneoffContext } from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
+import { logMessage } from "../bundler/log.js";
 import { loadPackageJson } from "./lib/utils/utils.js";
 
 export const update = new Command("update")

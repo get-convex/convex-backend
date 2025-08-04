@@ -1,12 +1,7 @@
 import chalk from "chalk";
 import { Command, Option } from "@commander-js/extra-typings";
-import {
-  Context,
-  logFinishedStep,
-  logMessage,
-  oneoffContext,
-  showSpinner,
-} from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
+import { logFinishedStep, logMessage, showSpinner } from "../bundler/log.js";
 import {
   deploymentSelectionWithinProjectFromOptions,
   loadSelectedDeploymentCredentials,

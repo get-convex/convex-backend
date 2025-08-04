@@ -5,16 +5,16 @@ import {
   deploymentFetch,
   logAndHandleFetchError,
 } from "./utils/utils.js";
+import { Context } from "../../bundler/context.js";
 import {
   logFailure,
-  Context,
   showSpinner,
   logFinishedStep,
   logWarning,
   logMessage,
   stopSpinner,
   changeSpinner,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import path from "path";
 import { subscribe } from "./run.js";
 import { ConvexHttpClient } from "../../browser/http_client.js";

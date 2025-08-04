@@ -1,12 +1,12 @@
+import { Context } from "../../bundler/context.js";
 import {
   changeSpinner,
-  Context,
   logError,
   logFailure,
   logFinishedStep,
   logVerbose,
   showSpinner,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { spawnSync } from "child_process";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 import {

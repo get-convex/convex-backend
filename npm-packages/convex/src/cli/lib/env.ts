@@ -1,11 +1,11 @@
 import chalk from "chalk";
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   logFailure,
   logFinishedStep,
   logMessage,
   logOutput,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { runSystemQuery } from "./run.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 

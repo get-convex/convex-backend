@@ -7,12 +7,12 @@ import {
   qualifiedDefinitionPath,
   toComponentDefinitionPath,
 } from "./directoryStructure.js";
+import { Context } from "../../../../bundler/context.js";
 import {
-  Context,
   logMessage,
   logWarning,
   showSpinner,
-} from "../../../../bundler/context.js";
+} from "../../../../bundler/log.js";
 import esbuild, { BuildOptions, Metafile, OutputFile, Plugin } from "esbuild";
 import chalk from "chalk";
 import {

@@ -1,7 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
-import { Context, logMessage, oneoffContext } from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
+import { logMessage } from "../bundler/log.js";
 import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils/utils.js";
 import {
   getDeploymentSelection,

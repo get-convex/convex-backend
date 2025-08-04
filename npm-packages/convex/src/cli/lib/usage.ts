@@ -1,5 +1,6 @@
 import chalk from "chalk";
-import { Context, logWarning } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logWarning } from "../../bundler/log.js";
 import { teamDashboardUrl } from "./dashboard.js";
 import { fetchTeamAndProject } from "./api.js";
 import { bigBrainAPI } from "./utils/utils.js";

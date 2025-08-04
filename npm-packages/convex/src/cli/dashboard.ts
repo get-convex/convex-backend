@@ -1,13 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
-import {
-  Context,
-  logMessage,
-  logOutput,
-  logWarning,
-  oneoffContext,
-} from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
+import { logMessage, logOutput, logWarning } from "../bundler/log.js";
 import {
   deploymentSelectionWithinProjectFromOptions,
   loadSelectedDeploymentCredentials,

@@ -1,4 +1,5 @@
-import { Context, logVerbose, logWarning } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logVerbose, logWarning } from "../../bundler/log.js";
 import { getTeamAndProjectFromPreviewAdminKey } from "./deployment.js";
 import {
   assertLocalBackendRunning,

@@ -1,6 +1,6 @@
 import http from "node:http";
 import { Context } from "../../../bundler/context.js";
-import { logVerbose } from "../../../bundler/context.js";
+import { logVerbose } from "../../../bundler/log.js";
 
 // The below is adapted from https://github.com/vercel/serve/blob/main/source/utilities/server.ts
 // MIT License -- https://github.com/vercel/serve/blob/main/license.md

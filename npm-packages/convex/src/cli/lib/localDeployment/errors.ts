@@ -1,4 +1,5 @@
-import { logFailure, logMessage, Context } from "../../../bundler/context.js";
+import { Context } from "../../../bundler/context.js";
+import { logFailure, logMessage } from "../../../bundler/log.js";
 
 export class LocalDeploymentError extends Error {}
 

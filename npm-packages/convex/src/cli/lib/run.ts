@@ -9,13 +9,8 @@ import {
   makeFunctionReference,
 } from "../../server/index.js";
 import { Value, convexToJson, jsonToConvex } from "../../values/value.js";
-import {
-  Context,
-  logFinishedStep,
-  logMessage,
-  logOutput,
-  OneoffCtx,
-} from "../../bundler/context.js";
+import { Context, OneoffCtx } from "../../bundler/context.js";
+import { logFinishedStep, logMessage, logOutput } from "../../bundler/log.js";
 import { waitForever, waitUntilCalled } from "./utils/utils.js";
 import JSON5 from "json5";
 import path from "path";

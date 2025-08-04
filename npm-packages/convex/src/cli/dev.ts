@@ -1,5 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import { logVerbose, oneoffContext } from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
+import { logVerbose } from "../bundler/log.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { normalizeDevOptions } from "./lib/command.js";

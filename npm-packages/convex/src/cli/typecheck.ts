@@ -3,11 +3,8 @@ import { functionsDir, ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { Command } from "@commander-js/extra-typings";
 import { readConfig } from "./lib/config.js";
 import { typeCheckFunctions } from "./lib/typecheck.js";
-import {
-  logFinishedStep,
-  logMessage,
-  oneoffContext,
-} from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
+import { logFinishedStep, logMessage } from "../bundler/log.js";
 
 // Experimental (it's going to fail sometimes) TypeScript type checking.
 // Includes a separate command to help users debug their TypeScript configs.

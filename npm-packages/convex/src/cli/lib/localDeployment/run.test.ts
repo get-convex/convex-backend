@@ -1,5 +1,6 @@
 import { vi, test, expect } from "vitest";
-import { logFailure, oneoffContext } from "../../../bundler/context.js";
+import { oneoffContext } from "../../../bundler/context.js";
+import { logFailure } from "../../../bundler/log.js";
 import { findLatestVersionWithBinary } from "./download.js";
 import { components } from "@octokit/openapi-types";
 import stripAnsi from "strip-ansi";

@@ -1,13 +1,13 @@
 import path from "path";
 import esbuild, { BuildFailure, LogLevel, Plugin } from "esbuild";
+import { Context } from "./context.js";
 import {
-  Context,
   logError,
   changeSpinner,
   logFailure,
   logVerbose,
   logMessage,
-} from "./context.js";
+} from "./log.js";
 import { wasmPlugin } from "./wasm.js";
 import dependencyTrackerPlugin from "./depgraph.js";
 

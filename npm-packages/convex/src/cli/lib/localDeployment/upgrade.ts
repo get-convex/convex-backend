@@ -1,10 +1,10 @@
 import path from "path";
+import { Context } from "../../../bundler/context.js";
 import {
-  Context,
   logFailure,
   logFinishedStep,
   logVerbose,
-} from "../../../bundler/context.js";
+} from "../../../bundler/log.js";
 import { runSystemQuery } from "../run.js";
 import {
   LocalDeploymentKind,

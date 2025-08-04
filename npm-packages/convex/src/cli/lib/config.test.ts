@@ -1,6 +1,7 @@
 import { vi, test, expect } from "vitest";
 import { parseProjectConfig } from "./config.js";
-import { logFailure, oneoffContext } from "../../bundler/context.js";
+import { oneoffContext } from "../../bundler/context.js";
+import { logFailure } from "../../bundler/log.js";
 import stripAnsi from "strip-ansi";
 
 test("parseProjectConfig", async () => {

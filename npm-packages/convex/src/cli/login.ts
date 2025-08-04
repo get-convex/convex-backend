@@ -1,11 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import {
-  Context,
-  logFailure,
-  logFinishedStep,
-  logMessage,
-  oneoffContext,
-} from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
+import { logFailure, logFinishedStep, logMessage } from "../bundler/log.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
 import { loadUuidForAnonymousUser } from "./lib/localDeployment/filePaths.js";
 import {

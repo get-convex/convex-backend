@@ -1,11 +1,7 @@
 import chalk from "chalk";
 import path from "path";
-import {
-  Context,
-  logError,
-  logFailure,
-  showSpinner,
-} from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logError, logFailure, showSpinner } from "../../bundler/log.js";
 import * as Sentry from "@sentry/node";
 import * as semver from "semver";
 import { spawnAsync } from "./utils/utils.js";

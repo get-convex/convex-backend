@@ -4,15 +4,15 @@ import {
   deploymentFetch,
   logAndHandleFetchError,
 } from "./utils/utils.js";
+import { Context } from "../../bundler/context.js";
 import {
   logFailure,
-  Context,
   showSpinner,
   logFinishedStep,
   logError,
   stopSpinner,
   changeSpinner,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import { subscribe } from "./run.js";
 import { nodeFs } from "../../bundler/fs.js";
 import path from "path";

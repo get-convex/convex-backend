@@ -1,4 +1,5 @@
-import { Context, logVerbose, logMessage } from "../../../bundler/context.js";
+import { Context } from "../../../bundler/context.js";
+import { logVerbose, logMessage } from "../../../bundler/log.js";
 import {
   LocalDeploymentKind,
   deploymentStateDir,

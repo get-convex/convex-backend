@@ -1,9 +1,5 @@
-import {
-  Context,
-  logMessage,
-  logOutput,
-  logWarning,
-} from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
+import { logMessage, logOutput, logWarning } from "../../bundler/log.js";
 import { nextBackoff } from "./dev.js";
 import chalk from "chalk";
 import { deploymentFetch } from "./utils/utils.js";

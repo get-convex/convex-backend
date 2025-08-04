@@ -1,12 +1,12 @@
 import chalk from "chalk";
+import { Context } from "../bundler/context.js";
 import {
-  Context,
   logFailure,
   logFinishedStep,
   logMessage,
   logWarning,
   showSpinner,
-} from "../bundler/context.js";
+} from "../bundler/log.js";
 import {
   DeploymentType,
   DeploymentName,

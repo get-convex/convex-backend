@@ -33,7 +33,8 @@
 
 import path from "path";
 import { cacheDir, rootDirectory } from "../utils/utils.js";
-import { Context, logVerbose } from "../../../bundler/context.js";
+import { Context } from "../../../bundler/context.js";
+import { logVerbose } from "../../../bundler/log.js";
 import { recursivelyDelete } from "../fsUtils.js";
 import crypto from "crypto";
 

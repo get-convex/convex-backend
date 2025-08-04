@@ -2,7 +2,8 @@ import chalk from "chalk";
 import os from "os";
 import path from "path";
 import { rootDirectory } from "./utils.js";
-import { Context, logError, logVerbose } from "../../../bundler/context.js";
+import { Context } from "../../../bundler/context.js";
+import { logError, logVerbose } from "../../../bundler/log.js";
 import { z } from "zod";
 
 export function globalConfigPath(): string {

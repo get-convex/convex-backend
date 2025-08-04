@@ -7,13 +7,8 @@ import { ProjectConfig } from "../config.js";
 import { spawn } from "child_process";
 import { InvalidArgumentError } from "commander";
 import fetchRetryFactory, { RequestInitRetryParams } from "fetch-retry";
-import {
-  Context,
-  ErrorType,
-  logError,
-  logMessage,
-  logWarning,
-} from "../../../bundler/context.js";
+import { Context, ErrorType } from "../../../bundler/context.js";
+import { logError, logMessage, logWarning } from "../../../bundler/log.js";
 import { version } from "../../version.js";
 import { Project } from "../api.js";
 import { promptOptions, promptSearch, promptYesNo } from "./prompts.js";

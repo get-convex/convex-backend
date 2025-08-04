@@ -1,11 +1,11 @@
+import { Context } from "../../bundler/context.js";
 import {
-  Context,
   logFailure,
   logFinishedStep,
   logMessage,
   logVerbose,
   logWarning,
-} from "../../bundler/context.js";
+} from "../../bundler/log.js";
 import chalk from "chalk";
 import * as net from "net";
 import * as dns from "dns";
