@@ -8,7 +8,12 @@ import { spawn } from "child_process";
 import { InvalidArgumentError } from "commander";
 import fetchRetryFactory, { RequestInitRetryParams } from "fetch-retry";
 import { Context, ErrorType } from "../../../bundler/context.js";
-import { logError, logMessage, logWarning } from "../../../bundler/log.js";
+import {
+  failExistingSpinner,
+  logError,
+  logMessage,
+  logWarning,
+} from "../../../bundler/log.js";
 import { version } from "../../version.js";
 import { Project } from "../api.js";
 import { promptOptions, promptSearch, promptYesNo } from "./prompts.js";
@@ -166,10 +171,9 @@ export async function logAndHandleFetchError(
   ctx: Context,
   err: unknown,
 ): Promise<never> {
-  if (ctx.spinner) {
-    // Fail the spinner so the stderr lines appear
-    ctx.spinner.fail();
-  }
+  // Fail the spinner so the stderr lines appear
+  failExistingSpinner();
+
   if (err instanceof ThrowingFetchError) {
     return await err.handle(ctx);
   } else {

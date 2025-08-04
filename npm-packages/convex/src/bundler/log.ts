@@ -2,7 +2,9 @@ import { format } from "util";
 import { Context } from "./context.js";
 import chalk from "chalk";
 import ProgressBar from "progress";
-import ora from "ora";
+import ora, { Ora } from "ora";
+
+let spinner: Ora | null = null;
 
 // console.error before it started being red by default in Node v20
 function logToStderr(...args: unknown[]) {
@@ -10,27 +12,27 @@ function logToStderr(...args: unknown[]) {
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logError(ctx: Context, message: string) {
-  ctx.spinner?.clear();
+export function logError(_ctx: Context, message: string) {
+  spinner?.clear();
   logToStderr(message);
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logWarning(ctx: Context, ...logged: any) {
-  ctx.spinner?.clear();
+export function logWarning(_ctx: Context, ...logged: any) {
+  spinner?.clear();
   logToStderr(...logged);
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logMessage(ctx: Context, ...logged: any) {
-  ctx.spinner?.clear();
+export function logMessage(_ctx: Context, ...logged: any) {
+  spinner?.clear();
   logToStderr(...logged);
 }
 
 // For the rare case writing output to stdout. Status and error messages
 // (logMessage, logWarning, etc.) should be written to stderr.
-export function logOutput(ctx: Context, ...logged: any) {
-  ctx.spinner?.clear();
+export function logOutput(_ctx: Context, ...logged: any) {
+  spinner?.clear();
   // the one spot where we can console.log
   // eslint-disable-next-line no-console
   console.log(...logged);
@@ -49,11 +51,11 @@ export function logVerbose(ctx: Context, ...logged: any) {
  * when it's done.
  */
 export function startLogProgress(
-  ctx: Context,
+  _ctx: Context,
   format: string,
   progressBarOptions: ProgressBar.ProgressBarOptions,
 ): ProgressBar {
-  ctx.spinner?.clear();
+  spinner?.clear();
   return new ProgressBar(format, progressBarOptions);
 }
 
@@ -62,9 +64,9 @@ export function startLogProgress(
 // To print warnings/errors while it's running use logError or logWarning.
 // To stop it due to an error use logFailure.
 // To stop it due to success use logFinishedStep.
-export function showSpinner(ctx: Context, message: string) {
-  ctx.spinner?.stop();
-  ctx.spinner = ora({
+export function showSpinner(_ctx: Context, message: string) {
+  spinner?.stop();
+  spinner = ora({
     // Add newline to prevent clobbering when a message
     // we can't pipe through `logMessage` et al gets printed
     text: message + "\n",
@@ -76,38 +78,43 @@ export function showSpinner(ctx: Context, message: string) {
   }).start();
 }
 
-export function changeSpinner(ctx: Context, message: string) {
-  if (ctx.spinner) {
+export function changeSpinner(_ctx: Context, message: string) {
+  if (spinner) {
     // Add newline to prevent clobbering
-    ctx.spinner.text = message + "\n";
+    spinner.text = message + "\n";
   } else {
     logToStderr(message);
   }
 }
 
-export function logFailure(ctx: Context, message: string) {
-  if (ctx.spinner) {
-    ctx.spinner.fail(message);
-    ctx.spinner = undefined;
+export function failExistingSpinner() {
+  spinner?.fail();
+  spinner = null;
+}
+
+export function logFailure(_ctx: Context, message: string) {
+  if (spinner) {
+    spinner.fail(message);
+    spinner = null;
   } else {
     logToStderr(`${chalk.red(`✖`)} ${message}`);
   }
 }
 
 // Stops and removes spinner if one is active
-export function logFinishedStep(ctx: Context, message: string) {
-  if (ctx.spinner) {
-    ctx.spinner.succeed(message);
-    ctx.spinner = undefined;
+export function logFinishedStep(_ctx: Context, message: string) {
+  if (spinner) {
+    spinner.succeed(message);
+    spinner = null;
   } else {
     logToStderr(`${chalk.green(`✔`)} ${message}`);
   }
 }
 
-export function stopSpinner(ctx: Context) {
-  if (ctx.spinner) {
-    ctx.spinner.stop();
-    ctx.spinner = undefined;
+export function stopSpinner(_ctx: Context) {
+  if (spinner) {
+    spinner.stop();
+    spinner = null;
   }
 }
 

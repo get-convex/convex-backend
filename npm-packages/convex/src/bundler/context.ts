@@ -52,7 +52,6 @@ export type BigBrainAuth = {
 export interface Context {
   fs: Filesystem;
   deprecationMessagePrinted: boolean;
-  spinner: Ora | undefined;
   // Reports to Sentry and either throws FatalError or exits the process.
   // Prints the `printedMessage` if provided
   crash(args: {
