@@ -138,7 +138,7 @@ export function useListInvoices(teamId?: number) {
       team_id: teamId?.toString() || "",
     },
     swrOptions: {
-      refreshInterval: 0,
+      refreshInterval: 1000 * 60,
     },
   });
 
