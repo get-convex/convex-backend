@@ -22,8 +22,8 @@ use common::{
         },
         DatabaseSchema,
         DocumentSchema,
-        SearchIndexSchema,
         TableDefinition,
+        TextIndexSchema,
     },
     types::TableName,
     value::FieldPath,
@@ -72,13 +72,13 @@ macro_rules! db_schema_with_search_indexes {
                 $(
                     let table_name: TableName = str::parse($table)?;
                     #[allow(unused)]
-                    let mut search_indexes = BTreeMap::new();
+                    let mut text_indexes = BTreeMap::new();
                     $(
                         let index_name = new_index_name($table, $index_name)?;
                         let field_path: FieldPath = str::parse($field).unwrap();
-                        search_indexes.insert(
+                        text_indexes.insert(
                             index_name.descriptor().clone(),
-                            SearchIndexSchema::new(
+                            TextIndexSchema::new(
                                 index_name.descriptor().clone(),
                                 field_path.try_into()?,
                                 BTreeSet::new(),
@@ -89,8 +89,8 @@ macro_rules! db_schema_with_search_indexes {
                         table_name: table_name.clone(),
                         indexes: BTreeMap::new(),
                         staged_db_indexes: Default::default(),
-                        search_indexes,
-                        staged_search_indexes: Default::default(),
+                        text_indexes,
+                        staged_text_indexes: Default::default(),
                         vector_indexes: Default::default(),
                         staged_vector_indexes: Default::default(),
                         document_type: None,

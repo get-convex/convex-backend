@@ -378,8 +378,8 @@ mod tests {
                 "email" => FieldValidator::required_field_type(Validator::String),
             )])),
             staged_db_indexes: Default::default(),
-            search_indexes: Default::default(),
-            staged_search_indexes: Default::default(),
+            text_indexes: Default::default(),
+            staged_text_indexes: Default::default(),
             vector_indexes: Default::default(),
             staged_vector_indexes: Default::default(),
         };

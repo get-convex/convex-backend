@@ -48,8 +48,8 @@ use crate::{
     json::JsonSerializable,
     schemas::{
         invalid_top_level_type_in_schema,
-        SearchIndexSchema,
         TableDefinition,
+        TextIndexSchema,
         MAX_INDEXES_PER_TABLE,
     },
     types::{
@@ -117,8 +117,8 @@ pub struct TableDefinitionJson {
     table_name: String,
     indexes: Vec<IndexSchemaJson>,
     staged_db_indexes: Option<Vec<IndexSchemaJson>>,
-    search_indexes: Option<Vec<SearchIndexSchemaJson>>,
-    staged_search_indexes: Option<Vec<SearchIndexSchemaJson>>,
+    search_indexes: Option<Vec<TextIndexSchemaJson>>,
+    staged_search_indexes: Option<Vec<TextIndexSchemaJson>>,
     vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     staged_vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     document_type: Option<ValidatorJson>,
@@ -168,8 +168,8 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
 
     fn try_from(j: TableDefinitionJson) -> Result<Self, Self::Error> {
         let staged_db_indexes = j.staged_db_indexes.unwrap_or_default();
-        let search_indexes = j.search_indexes.unwrap_or_default();
-        let staged_search_indexes = j.staged_search_indexes.unwrap_or_default();
+        let text_indexes = j.search_indexes.unwrap_or_default();
+        let staged_text_indexes = j.staged_search_indexes.unwrap_or_default();
         let vector_indexes = j.vector_indexes.unwrap_or_default();
         let staged_vector_indexes = j.staged_vector_indexes.unwrap_or_default();
 
@@ -184,7 +184,7 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             index_validation_error::table_name_reserved(&table_name)
         );
 
-        if j.indexes.len() + vector_indexes.len() + search_indexes.len() > MAX_INDEXES_PER_TABLE {
+        if j.indexes.len() + vector_indexes.len() + text_indexes.len() > MAX_INDEXES_PER_TABLE {
             anyhow::bail!(index_validation_error::too_many_indexes(
                 &table_name,
                 MAX_INDEXES_PER_TABLE
@@ -223,18 +223,17 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             |index1, index2| index_not_unique(&table_name, index1, index2),
         )?;
 
-        let (search_index_names, search_indexes) =
-            parse_names_and_indexes(&table_name, search_indexes, |idx: &SearchIndexSchema| {
+        let (text_index_names, text_indexes) =
+            parse_names_and_indexes(&table_name, text_indexes, |idx: &TextIndexSchema| {
                 &idx.index_descriptor
             })?;
-        let (staged_search_index_names, staged_search_indexes) = parse_names_and_indexes(
-            &table_name,
-            staged_search_indexes,
-            |idx: &SearchIndexSchema| &idx.index_descriptor,
-        )?;
+        let (staged_text_index_names, staged_text_indexes) =
+            parse_names_and_indexes(&table_name, staged_text_indexes, |idx: &TextIndexSchema| {
+                &idx.index_descriptor
+            })?;
         validate_unique_index_fields(
-            search_indexes.iter().chain(staged_search_indexes.iter()),
-            |idx: &SearchIndexSchema| idx.search_field.clone(),
+            text_indexes.iter().chain(staged_text_indexes.iter()),
+            |idx: &TextIndexSchema| idx.search_field.clone(),
             |index1, index2| search_field_not_unique(&table_name, index1, index2),
         )?;
 
@@ -257,8 +256,8 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
         let all_index_names: Vec<_> = index_names
             .into_iter()
             .chain(staged_db_index_names)
-            .chain(search_index_names)
-            .chain(staged_search_index_names)
+            .chain(text_index_names)
+            .chain(staged_text_index_names)
             .chain(staged_vector_index_names)
             .chain(vector_index_names)
             .collect();
@@ -285,8 +284,8 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             table_name,
             indexes,
             staged_db_indexes,
-            search_indexes,
-            staged_search_indexes,
+            text_indexes,
+            staged_text_indexes,
             vector_indexes,
             staged_vector_indexes,
             document_type,
@@ -302,8 +301,8 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
             table_name,
             indexes,
             staged_db_indexes,
-            search_indexes,
-            staged_search_indexes,
+            text_indexes: search_indexes,
+            staged_text_indexes: staged_search_indexes,
             vector_indexes,
             staged_vector_indexes,
             document_type,
@@ -323,13 +322,13 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
         let search_indexes = Some(
             search_indexes
                 .into_values()
-                .map(SearchIndexSchemaJson::try_from)
+                .map(TextIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
         let staged_search_indexes = Some(
             staged_search_indexes
                 .into_values()
-                .map(SearchIndexSchemaJson::try_from)
+                .map(TextIndexSchemaJson::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
         let document_type = document_type.map(ValidatorJson::try_from).transpose()?;
@@ -483,20 +482,20 @@ impl TryFrom<VectorIndexSchema> for VectorIndexSchemaJson {
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct SearchIndexSchemaJson {
+pub struct TextIndexSchemaJson {
     index_descriptor: String,
     search_field: String,
     filter_fields: BTreeSet<String>,
 }
 
-impl JsonSerializable for SearchIndexSchema {
-    type Json = SearchIndexSchemaJson;
+impl JsonSerializable for TextIndexSchema {
+    type Json = TextIndexSchemaJson;
 }
 
-impl TryFrom<SearchIndexSchemaJson> for SearchIndexSchema {
+impl TryFrom<TextIndexSchemaJson> for TextIndexSchema {
     type Error = anyhow::Error;
 
-    fn try_from(j: SearchIndexSchemaJson) -> Result<Self, Self::Error> {
+    fn try_from(j: TextIndexSchemaJson) -> Result<Self, Self::Error> {
         let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let search_field = j.search_field.parse().with_context(|| {
             index_validation_error::invalid_index_field(&index_descriptor, &j.search_field)
@@ -515,18 +514,18 @@ impl TryFrom<SearchIndexSchemaJson> for SearchIndexSchema {
     }
 }
 
-impl TryFrom<SearchIndexSchema> for SearchIndexSchemaJson {
+impl TryFrom<TextIndexSchema> for TextIndexSchemaJson {
     type Error = anyhow::Error;
 
     fn try_from(
-        SearchIndexSchema {
+        TextIndexSchema {
             index_descriptor,
             search_field,
             filter_fields,
             ..
-        }: SearchIndexSchema,
+        }: TextIndexSchema,
     ) -> anyhow::Result<Self> {
-        Ok(SearchIndexSchemaJson {
+        Ok(TextIndexSchemaJson {
             index_descriptor: index_descriptor.to_string(),
             search_field: String::from(search_field),
             filter_fields: filter_fields

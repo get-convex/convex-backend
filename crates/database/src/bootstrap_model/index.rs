@@ -418,7 +418,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             }
 
             // Collect the search indexes.
-            for (index_descriptor, index_schema) in &table_schema.search_indexes {
+            for (index_descriptor, index_schema) in &table_schema.text_indexes {
                 let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
                 indexes_in_schema.push(IndexMetadata::new_backfilling_text_index(
                     index_name.clone(),

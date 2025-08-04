@@ -170,8 +170,8 @@ macro_rules! db_schema {
                         table_name: table_name.clone(),
                         indexes: Default::default(),
                         staged_db_indexes: Default::default(),
-                        search_indexes: Default::default(),
-                        staged_search_indexes: Default::default(),
+                        text_indexes: Default::default(),
+                        staged_text_indexes: Default::default(),
                         vector_indexes: Default::default(),
                         staged_vector_indexes: Default::default(),
                         document_type: Some($document_schema),
@@ -204,8 +204,8 @@ macro_rules! db_schema_not_validated {
                         table_name: table_name.clone(),
                         indexes: Default::default(),
                         staged_db_indexes: Default::default(),
-                        search_indexes: Default::default(),
-                        staged_search_indexes: Default::default(),
+                        text_indexes: Default::default(),
+                        staged_text_indexes: Default::default(),
                         vector_indexes: Default::default(),
                         staged_vector_indexes: Default::default(),
                         document_type: Some($document_schema),
@@ -260,8 +260,8 @@ macro_rules! db_schema_with_vector_indexes {
                         table_name: table_name.clone(),
                         indexes: Default::default(),
                         staged_db_indexes: Default::default(),
-                        search_indexes: Default::default(),
-                        staged_search_indexes: Default::default(),
+                        text_indexes: Default::default(),
+                        staged_text_indexes: Default::default(),
                         vector_indexes,
                         staged_vector_indexes: Default::default(),
                         document_type: Some($document_schema),
@@ -553,8 +553,8 @@ pub struct TableDefinition {
     pub table_name: TableName,
     pub indexes: BTreeMap<IndexDescriptor, IndexSchema>,
     pub staged_db_indexes: BTreeMap<IndexDescriptor, IndexSchema>,
-    pub search_indexes: BTreeMap<IndexDescriptor, SearchIndexSchema>,
-    pub staged_search_indexes: BTreeMap<IndexDescriptor, SearchIndexSchema>,
+    pub text_indexes: BTreeMap<IndexDescriptor, TextIndexSchema>,
+    pub staged_text_indexes: BTreeMap<IndexDescriptor, TextIndexSchema>,
     pub vector_indexes: BTreeMap<IndexDescriptor, VectorIndexSchema>,
     pub staged_vector_indexes: BTreeMap<IndexDescriptor, VectorIndexSchema>,
     pub document_type: Option<DocumentSchema>, /* FIXME: `Option` could be removed here, since
@@ -577,18 +577,18 @@ impl TableDefinition {
                     .map(move |field_path| (index_descriptor, field_path))
             });
 
-        let search_index_fields = self
-            .search_indexes
+        let text_index_fields = self
+            .text_indexes
             .iter()
-            .chain(self.staged_search_indexes.iter())
+            .chain(self.staged_text_indexes.iter())
             .map(|(index_descriptor, search_index_schema)| {
                 (index_descriptor, (&search_index_schema.search_field))
             });
 
-        let search_index_filter_fields = self
-            .search_indexes
+        let text_index_filter_fields = self
+            .text_indexes
             .iter()
-            .chain(self.staged_search_indexes.iter())
+            .chain(self.staged_text_indexes.iter())
             .flat_map(|(index_descriptor, search_index_schema)| {
                 search_index_schema
                     .filter_fields
@@ -599,8 +599,8 @@ impl TableDefinition {
         let vector_index_fields = self.vector_fields();
 
         index_fields
-            .chain(search_index_fields)
-            .chain(search_index_filter_fields)
+            .chain(text_index_fields)
+            .chain(text_index_filter_fields)
             .chain(vector_index_fields)
     }
 
@@ -626,8 +626,8 @@ impl proptest::arbitrary::Arbitrary for TableDefinition {
         (
             prop::collection::vec(any::<IndexSchema>(), 0..6),
             prop::collection::vec(any::<IndexSchema>(), 0..6),
-            prop::collection::vec(any::<SearchIndexSchema>(), 0..3),
-            prop::collection::vec(any::<SearchIndexSchema>(), 0..3),
+            prop::collection::vec(any::<TextIndexSchema>(), 0..3),
+            prop::collection::vec(any::<TextIndexSchema>(), 0..3),
             prop::collection::vec(any::<VectorIndexSchema>(), 0..3),
             prop::collection::vec(any::<VectorIndexSchema>(), 0..3),
             any_with::<Option<DocumentSchema>>((
@@ -665,11 +665,11 @@ impl proptest::arbitrary::Arbitrary for TableDefinition {
                                 .into_iter()
                                 .map(|i| (i.index_descriptor.clone(), i))
                                 .collect(),
-                            search_indexes: search_indexes
+                            text_indexes: search_indexes
                                 .into_iter()
                                 .map(|i| (i.index_descriptor.clone(), i))
                                 .collect(),
-                            staged_search_indexes: staged_search_indexes
+                            staged_text_indexes: staged_search_indexes
                                 .into_iter()
                                 .map(|i| (i.index_descriptor.clone(), i))
                                 .collect(),
@@ -706,7 +706,7 @@ impl Display for IndexSchema {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct SearchIndexSchema {
+pub struct TextIndexSchema {
     pub index_descriptor: IndexDescriptor,
     pub search_field: FieldPath,
     #[cfg_attr(
@@ -719,7 +719,7 @@ pub struct SearchIndexSchema {
     _pd: PhantomData<()>,
 }
 
-impl SearchIndexSchema {
+impl TextIndexSchema {
     pub fn new(
         index_descriptor: IndexDescriptor,
         search_field: FieldPath,

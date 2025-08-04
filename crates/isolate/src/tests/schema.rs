@@ -10,8 +10,8 @@ use common::{
         DatabaseSchema,
         DocumentSchema,
         IndexSchema,
-        SearchIndexSchema,
         TableDefinition,
+        TextIndexSchema,
     },
     types::{
         IndexDescriptor,
@@ -249,8 +249,8 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                 table_name: name1,
                 indexes: btreemap!(),
                 staged_db_indexes: btreemap!(),
-                search_indexes: btreemap!(),
-                staged_search_indexes: btreemap!(),
+                text_indexes: btreemap!(),
+                staged_text_indexes: btreemap!(),
                 vector_indexes: btreemap!(),
                 staged_vector_indexes: btreemap!(),
                 document_type: Some(DocumentSchema::Union(vec![
@@ -288,8 +288,8 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                     },
                 ),
                 staged_db_indexes: btreemap!(),
-                search_indexes: btreemap!(),
-                staged_search_indexes: btreemap!(),
+                text_indexes: btreemap!(),
+                staged_text_indexes: btreemap!(),
                 vector_indexes: btreemap!(),
                 staged_vector_indexes: btreemap!(),
                 document_type: None,
@@ -298,14 +298,14 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
               table_name: name3,
               indexes: btreemap!(),
               staged_db_indexes: btreemap!(),
-              search_indexes: btreemap! {
-                search_index.clone() => SearchIndexSchema::new(
+              text_indexes: btreemap! {
+                search_index.clone() => TextIndexSchema::new(
                   search_index,
                   "title".parse()?,
                   btreeset!{"is_deleted".parse()?, "workspace_id".parse()?}
                 )?
                },
-               staged_search_indexes: btreemap!(),
+               staged_text_indexes: btreemap!(),
                vector_indexes: btreemap!(),
                staged_vector_indexes: btreemap!(),
                document_type: None,
