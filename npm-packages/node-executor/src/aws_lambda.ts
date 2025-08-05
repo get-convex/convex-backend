@@ -1,6 +1,6 @@
 import { Context } from "aws-lambda";
 import { invoke } from "./executor";
-import { setDebugLogging } from "./log";
+import { logDebug, setDebugLogging } from "./log";
 import { populatePrebuildPackages } from "./source_package";
 import { Writable } from "node:stream";
 
@@ -10,6 +10,10 @@ declare const awslambda: any;
 
 const CALLBACK_WAIT_FOR_EMPTY_EVENT_LOOP =
   process.env.CALLBACK_WAITS_FOR_EMPTY_EVENT_LOOP === "true";
+
+const MAX_INVOKE_COUNT = process.env.MAX_INVOKE_COUNT
+  ? parseInt(process.env.MAX_INVOKE_COUNT)
+  : 16;
 
 // eslint-disable-next-line  @typescript-eslint/no-unused-vars
 export const handler = awslambda.streamifyResponse(
@@ -35,7 +39,16 @@ export const handler = awslambda.streamifyResponse(
     setDebugLogging(true);
     await warmupPromise;
     event.requestId = context.awsRequestId;
-    await invoke(event, responseStream);
+    const numInvocations = await invoke(event, responseStream);
     responseStream.end();
+    if (
+      (event.type === "analyze" || event.type === "build_deps") &&
+      numInvocations >= MAX_INVOKE_COUNT
+    ) {
+      logDebug(
+        `analyze or build_deps has run ${numInvocations} times, restarting node process`,
+      );
+      process.exit(0);
+    }
   },
 );

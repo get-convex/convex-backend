@@ -129,7 +129,7 @@ function unhandledRejectionHandler(
 export async function invoke(
   request: ExecuteRequest | AnalyzeRequest | BuildDepsRequest,
   responseStream: Writable,
-) {
+): Promise<number> {
   process.removeAllListeners("unhandledRejection");
   process.removeAllListeners("uncaughtException");
   process.on("unhandledRejection", (e: unknown) =>
@@ -172,6 +172,7 @@ export async function invoke(
     );
   }
   responseStream.write(JSON.stringify(result));
+  return numInvocations;
 }
 
 export type ExecuteRequest = {
