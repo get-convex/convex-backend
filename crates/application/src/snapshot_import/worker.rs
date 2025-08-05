@@ -30,8 +30,8 @@ use crate::{
     },
 };
 
-const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
-const MAX_BACKOFF: Duration = Duration::from_secs(60);
+const INITIAL_BACKOFF: Duration = Duration::from_secs(30);
+const MAX_BACKOFF: Duration = Duration::from_secs(300);
 
 pub struct SnapshotImportWorker;
 

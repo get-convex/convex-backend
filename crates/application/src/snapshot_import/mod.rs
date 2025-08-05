@@ -170,7 +170,7 @@ pub use worker::SnapshotImportWorker;
 // nontransient system errors, those are bugs and we should fix them. However,
 // while we are in the process, use this as a bandaid to limit the damage. Once
 // nontransient system errors are fixed, we can remove this.
-const SNAPSHOT_IMPORT_MAX_SYSTEM_FAILURES: u32 = 3;
+const SNAPSHOT_IMPORT_MAX_SYSTEM_FAILURES: u32 = 5;
 
 struct SnapshotImportExecutor<RT: Runtime> {
     runtime: RT,
