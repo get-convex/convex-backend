@@ -23,7 +23,6 @@ pub enum VectorIndexState {
     Backfilling(VectorIndexBackfillState),
     Backfilled {
         snapshot: VectorIndexSnapshot,
-        #[cfg_attr(any(test, feature = "testing"), proptest(value = "false"))]
         staged: bool,
     },
     SnapshottedAt(VectorIndexSnapshot),
@@ -63,12 +62,11 @@ impl TryFrom<VectorIndexState> for SerializedVectorIndexState {
             VectorIndexState::Backfilling(backfill_state) => {
                 SerializedVectorIndexState::Backfilling(backfill_state.try_into()?)
             },
-            VectorIndexState::Backfilled {
-                snapshot,
-                staged: _,
-            } => {
-                // TODO(ENG-9637) Write Backfilled2 to track staged state
-                SerializedVectorIndexState::Backfilled(snapshot.try_into()?)
+            VectorIndexState::Backfilled { snapshot, staged } => {
+                SerializedVectorIndexState::Backfilled2 {
+                    snapshot: snapshot.try_into()?,
+                    staged,
+                }
             },
             VectorIndexState::SnapshottedAt(snapshot) => {
                 SerializedVectorIndexState::Snapshotted(snapshot.try_into()?)
