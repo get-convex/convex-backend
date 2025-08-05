@@ -26,8 +26,12 @@ static AWS_SECRET_ACCESS_KEY: LazyLock<Option<String>> =
 
 static AWS_REGION: LazyLock<Option<String>> = LazyLock::new(|| env::var("AWS_REGION").ok());
 
-static AWS_S3_FORCE_PATH_STYLE: LazyLock<Option<String>> =
-    LazyLock::new(|| env::var("AWS_S3_FORCE_PATH_STYLE").ok());
+static AWS_S3_FORCE_PATH_STYLE: LazyLock<bool> = LazyLock::new(|| {
+    env::var("AWS_S3_FORCE_PATH_STYLE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_default()
+});
 
 /// Similar aws_config::from_env but returns an error if credentials or
 /// region is are not. It also doesn't spew out log lines every time
@@ -55,12 +59,6 @@ pub async fn must_s3_config_from_env() -> anyhow::Result<S3ConfigBuilder> {
     if let Some(s3_endpoint_url) = S3_ENDPOINT_URL.clone() {
         s3_config_builder = s3_config_builder.endpoint_url(s3_endpoint_url);
     }
-
-    if let Some(force_path_style) = AWS_S3_FORCE_PATH_STYLE.clone() {
-        if force_path_style.eq_ignore_ascii_case("true") {
-            s3_config_builder = s3_config_builder.force_path_style(true);
-        }
-    }
-
+    s3_config_builder = s3_config_builder.force_path_style(*AWS_S3_FORCE_PATH_STYLE);
     Ok(s3_config_builder)
 }
