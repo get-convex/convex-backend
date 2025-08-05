@@ -113,7 +113,7 @@ export async function watchAndPush(
       outerCtx.bigBrainAuth(),
     );
     options.logManager?.beginDeploy();
-    showSpinner(ctx, "Preparing Convex functions...");
+    showSpinner("Preparing Convex functions...");
     try {
       await runPush(ctx, options);
       const end = performance.now();
@@ -123,7 +123,6 @@ export async function watchAndPush(
       options.logManager?.endDeploy();
       numFailures = 0;
       logFinishedStep(
-        ctx,
         `${getCurrentTimeString()} Convex functions ready! (${formatDuration(
           end - start,
         )})`,
@@ -192,7 +191,6 @@ export async function watchAndPush(
         const delay = nextBackoff(numFailures);
         numFailures += 1;
         logWarning(
-          ctx,
           chalk.yellow(
             `Failed due to network error, retrying in ${formatDuration(
               delay,
@@ -225,7 +223,7 @@ export async function watchAndPush(
       // Make sure that we don't spin if this push failed
       // in any edge cases that didn't call `logFailure`
       // before throwing.
-      stopSpinner(ctx);
+      stopSpinner();
     }
     if (cmdOptions.once) {
       return;
@@ -273,7 +271,7 @@ async function runFunctionInDev(
     componentPath,
     callbacks: {
       onSuccess: () => {
-        logFinishedStep(ctx, `Finished running function "${functionName}"`);
+        logFinishedStep(`Finished running function "${functionName}"`);
       },
     },
   });
@@ -366,7 +364,7 @@ function getFileSystemWatch(
     watch: async () => {
       const observations = ctx.fs.finalize();
       if (observations === "invalidated") {
-        logMessage(ctx, "Filesystem changed during push, retrying...");
+        logMessage("Filesystem changed during push, retrying...");
         return;
       }
       // Initialize the watcher if we haven't done it already. Chokidar expects to have a
@@ -375,14 +373,13 @@ function getFileSystemWatch(
       if (!watch.watcher) {
         watch.watcher = new Watcher(observations);
         await showSpinnerIfSlow(
-          ctx,
           "Preparing to watch files...",
           500,
           async () => {
             await watch.watcher!.ready();
           },
         );
-        stopSpinner(ctx);
+        stopSpinner();
       }
       // Watch new directories if needed.
       watch.watcher.update(observations);
@@ -397,7 +394,6 @@ function getFileSystemWatch(
         for (const event of watch.watcher.drainEvents()) {
           if (cmdOptions.traceEvents) {
             logMessage(
-              ctx,
               "Processing",
               event.name,
               path.relative("", event.absPath),
@@ -407,7 +403,7 @@ function getFileSystemWatch(
           if (result.overlaps) {
             const relPath = path.relative("", event.absPath);
             if (cmdOptions.traceEvents) {
-              logMessage(ctx, `${relPath} ${result.reason}, rebuilding...`);
+              logMessage(`${relPath} ${result.reason}, rebuilding...`);
             }
             anyChanges = true;
             break;
@@ -426,10 +422,7 @@ function getFileSystemWatch(
         }
         const remaining = deadline - now;
         if (cmdOptions.traceEvents) {
-          logMessage(
-            ctx,
-            `Waiting for ${formatDuration(remaining)} to quiesce...`,
-          );
+          logMessage(`Waiting for ${formatDuration(remaining)} to quiesce...`);
         }
         const remainingWait = new Promise<"timeout">((resolve) =>
           setTimeout(() => resolve("timeout"), deadline - now),
@@ -445,7 +438,6 @@ function getFileSystemWatch(
             if (result.overlaps) {
               if (cmdOptions.traceEvents) {
                 logMessage(
-                  ctx,
                   `Received an overlapping event at ${event.absPath}, delaying push.`,
                 );
               }
@@ -456,7 +448,6 @@ function getFileSystemWatch(
           // Let the check above `break` from the loop if we're past our deadlne.
           if (result !== "timeout") {
             logError(
-              ctx,
               "Assertion failed: Unexpected result from watcher: " + result,
             );
           }

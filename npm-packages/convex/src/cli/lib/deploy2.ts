@@ -44,7 +44,6 @@ async function brotliCompress(ctx: Context, data: string): Promise<Buffer> {
   const end = performance.now();
   const duration = end - start;
   logVerbose(
-    ctx,
     `Compressed ${(data.length / 1024).toFixed(2)}KiB to ${(result.length / 1024).toFixed(2)}KiB (${((result.length / data.length) * 100).toFixed(2)}%) in ${duration.toFixed(2)}ms`,
   );
   return result;
@@ -62,13 +61,10 @@ export async function startPush(
 ): Promise<StartPushResponse> {
   const custom = (_k: string | number, s: any) =>
     typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
-  logVerbose(ctx, JSON.stringify(request, custom, 2));
+  logVerbose(JSON.stringify(request, custom, 2));
   const onError = (err: any) => {
     if (err.toString() === "TypeError: fetch failed") {
-      changeSpinner(
-        ctx,
-        `Fetch failed, is ${options.url} correct? Retrying...`,
-      );
+      changeSpinner(`Fetch failed, is ${options.url} correct? Retrying...`);
     }
   };
   const fetch = deploymentFetch(ctx, {
@@ -76,7 +72,7 @@ export async function startPush(
     adminKey: request.adminKey,
     onError,
   });
-  changeSpinner(ctx, "Analyzing source code...");
+  changeSpinner("Analyzing source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
       body: await brotliCompress(ctx, JSON.stringify(request)),
@@ -116,7 +112,7 @@ export async function waitForSchema(
     adminKey: options.adminKey,
   });
 
-  changeSpinner(ctx, "Pushing code to your Convex deployment...");
+  changeSpinner("Pushing code to your Convex deployment...");
 
   while (true) {
     let currentStatus: SchemaStatus;
@@ -135,7 +131,7 @@ export async function waitForSchema(
       });
       currentStatus = schemaStatus.parse(await response.json());
     } catch (error: unknown) {
-      logFailure(ctx, "Error: Unable to wait for schema from " + options.url);
+      logFailure("Error: Unable to wait for schema from " + options.url);
       return await logAndHandleFetchError(ctx, error);
     }
     switch (currentStatus.type) {
@@ -159,7 +155,7 @@ export async function waitForSchema(
         } else {
           msg = "Checking that documents match your schema...";
         }
-        changeSpinner(ctx, msg);
+        changeSpinner(msg);
         break;
       }
       case "failed": {
@@ -171,8 +167,8 @@ export async function waitForSchema(
           msg += ` in component "${currentStatus.componentPath}"`;
         }
         msg += ".";
-        logFailure(ctx, msg);
-        logError(ctx, chalk.red(`${currentStatus.error}`));
+        logFailure(msg);
+        logError(chalk.red(`${currentStatus.error}`));
         return await ctx.crash({
           exitCode: 1,
           errorType: {
@@ -194,7 +190,7 @@ export async function waitForSchema(
         });
       }
       case "complete": {
-        changeSpinner(ctx, "Schema validation complete.");
+        changeSpinner("Schema validation complete.");
         return;
       }
     }
@@ -212,7 +208,7 @@ export async function finishPush(
     verbose?: boolean;
   },
 ): Promise<FinishPushDiff> {
-  changeSpinner(ctx, "Finalizing push...");
+  changeSpinner("Finalizing push...");
   const fetch = deploymentFetch(ctx, {
     deploymentUrl: options.url,
     adminKey: options.adminKey,
@@ -234,7 +230,7 @@ export async function finishPush(
     });
     return finishPushDiff.parse(await response.json());
   } catch (error: unknown) {
-    logFailure(ctx, "Error: Unable to finish push to " + options.url);
+    logFailure("Error: Unable to finish push to " + options.url);
     return await logAndHandleFetchError(ctx, error);
   }
 }
@@ -269,7 +265,6 @@ export async function reportPushCompleted(
     await response.json();
   } catch (error: unknown) {
     logFailure(
-      ctx,
       "Error: Unable to report push completed to " + url + ": " + error,
     );
   }
@@ -316,13 +311,9 @@ export async function deployToDeployment(
     writePushRequest: options.writePushRequest,
     liveComponentSources: !!options.liveComponentSources,
   };
-  showSpinner(
-    ctx,
-    `Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`,
-  );
+  showSpinner(`Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`);
   await runPush(ctx, pushOptions);
   logFinishedStep(
-    ctx,
     `${
       options.dryRun ? "Would have deployed" : "Deployed"
     } Convex functions to ${url}`,
@@ -346,7 +337,6 @@ export async function runCommand(
   const urlVar =
     options.cmdUrlEnvVarName ?? (await suggestedEnvVarName(ctx)).envVar;
   showSpinner(
-    ctx,
     `Running '${options.cmd}' with environment variable "${urlVar}" set...${
       options.dryRun ? " [dry run]" : ""
     }`,
@@ -373,7 +363,6 @@ export async function runCommand(
     }
   }
   logFinishedStep(
-    ctx,
     `${options.dryRun ? "Would have run" : "Ran"} "${
       options.cmd
     }" with environment variable "${urlVar}" set`,

@@ -108,7 +108,7 @@ export const promptYesNo = async (
     ]);
     return result;
   } else {
-    logOutput(ctx, options.message);
+    logOutput(options.message);
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",

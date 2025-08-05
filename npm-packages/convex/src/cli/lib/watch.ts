@@ -121,7 +121,7 @@ export class WatchContext implements Context {
       Sentry.captureException(args.errForSentry);
     }
     if (args.printedMessage !== null) {
-      logFailure(this, args.printedMessage);
+      logFailure(args.printedMessage);
     }
     for (const fn of Object.values(this._cleanupFns)) {
       await fn(args.exitCode, args.errForSentry);

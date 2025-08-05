@@ -73,7 +73,6 @@ export async function checkAuthorization(
   } catch (e: any) {
     // This `catch` block should only be hit if a network error was encountered
     logError(
-      ctx,
       `Unexpected error when authorizing - are you connected to the internet?`,
     );
     return await logAndHandleFetchError(ctx, e);
@@ -143,7 +142,6 @@ async function performDeviceAuthorization(
   // Open authentication URL
   const { verification_uri_complete, user_code, expires_in } = handle;
   logMessage(
-    ctx,
     `Visit ${verification_uri_complete} to finish logging in.\n` +
       `You should see the following code which expires in ${
         expires_in % 60 === 0
@@ -160,30 +158,24 @@ async function performDeviceAuthorization(
 
   if (shouldOpen) {
     showSpinner(
-      ctx,
       `Opening ${verification_uri_complete} in your browser to log in...\n`,
     );
     try {
       const p = await open(verification_uri_complete);
       p.once("error", () => {
         changeSpinner(
-          ctx,
           `Manually open ${verification_uri_complete} in your browser to log in.`,
         );
       });
-      changeSpinner(ctx, "Waiting for the confirmation...");
+      changeSpinner("Waiting for the confirmation...");
     } catch {
-      logError(ctx, chalk.red(`Unable to open browser.`));
+      logError(chalk.red(`Unable to open browser.`));
       changeSpinner(
-        ctx,
         `Manually open ${verification_uri_complete} in your browser to log in.`,
       );
     }
   } else {
-    showSpinner(
-      ctx,
-      `Open ${verification_uri_complete} in your browser to log in.`,
-    );
+    showSpinner(`Open ${verification_uri_complete} in your browser to log in.`);
   }
 
   // Device Access Token Request - https://tools.ietf.org/html/rfc8628#section-3.4
@@ -265,9 +257,9 @@ async function performPasswordAuthentication(
       throw Error("Access token is missing");
     }
   } catch (err: any) {
-    logFailure(ctx, `Password flow failed: ${err}`);
+    logFailure(`Password flow failed: ${err}`);
     if (err.response) {
-      logError(ctx, chalk.red(`${JSON.stringify(err.response.data)}`));
+      logError(chalk.red(`${JSON.stringify(err.response.data)}`));
     }
     return await ctx.crash({
       exitCode: 1,
@@ -325,7 +317,6 @@ export async function performLogin(
   }
   if (!deviceNameOverride) {
     logMessage(
-      ctx,
       chalk.bold(`Welcome to developing with Convex, let's get you logged in.`),
     );
     deviceName = await promptString(ctx, {
@@ -385,7 +376,7 @@ export async function performLogin(
   }
 
   if (dumpAccessToken) {
-    logOutput(ctx, `${accessToken!}`);
+    logOutput(`${accessToken!}`);
     return await ctx.crash({
       exitCode: 0,
       errorType: "fatal",
@@ -408,7 +399,7 @@ export async function performLogin(
   try {
     await modifyGlobalConfig(ctx, globalConfig);
     const path = globalConfigPath();
-    logFinishedStep(ctx, `Saved credentials to ${formatPathForPrinting(path)}`);
+    logFinishedStep(`Saved credentials to ${formatPathForPrinting(path)}`);
   } catch (err: unknown) {
     return await ctx.crash({
       exitCode: 1,
@@ -418,13 +409,10 @@ export async function performLogin(
     });
   }
 
-  logVerbose(ctx, `performLogin: updating big brain auth after login`);
+  logVerbose(`performLogin: updating big brain auth after login`);
   await updateBigBrainAuthAfterLogin(ctx, data.accessToken);
 
-  logVerbose(
-    ctx,
-    `performLogin: checking opt ins, acceptOptIns: ${acceptOptIns}`,
-  );
+  logVerbose(`performLogin: checking opt ins, acceptOptIns: ${acceptOptIns}`);
   // Do opt in to TOS and Privacy Policy stuff
   const shouldContinue = await optins(ctx, acceptOptIns ?? false);
   if (!shouldContinue) {
@@ -487,7 +475,7 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
         message: optInToAccept.message,
       }));
     if (!confirmed) {
-      logFailure(ctx, "Please accept the Terms of Service to use Convex.");
+      logFailure("Please accept the Terms of Service to use Convex.");
       return Promise.resolve(false);
     }
   }
@@ -511,7 +499,7 @@ export async function ensureLoggedIn(
   const isLoggedIn = await checkAuthorization(ctx, false);
   if (!isLoggedIn) {
     if (options?.message) {
-      logMessage(ctx, options.message);
+      logMessage(options.message);
     }
     await performLogin(ctx, {
       acceptOptIns: false,

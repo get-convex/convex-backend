@@ -49,8 +49,8 @@ async function openDocs(ctx: Context, toOpen: boolean, cookie?: string) {
   }
   if (toOpen) {
     await open(docsUrl);
-    logMessage(ctx, chalk.green("Docs have launched! Check your browser."));
+    logMessage(chalk.green("Docs have launched! Check your browser."));
   } else {
-    logMessage(ctx, chalk.green(`Find Convex docs here: ${docsUrl}`));
+    logMessage(chalk.green(`Find Convex docs here: ${docsUrl}`));
   }
 }

@@ -43,7 +43,7 @@ async function runNetworkTest(
     speedTest?: boolean;
   },
 ) {
-  showSpinner(ctx, "Performing network test...");
+  showSpinner("Performing network test...");
   // Try to fetch the URL following the usual paths, but special case the
   // `--url` argument in case the developer doesn't have network connectivity.
   let url: string;
@@ -66,6 +66,6 @@ async function runNetworkTest(
     url = credentials.url;
     adminKey = credentials.adminKey;
   }
-  logMessage(ctx, `${chalk.green(`✔`)} Deployment URL: ${url}`);
+  logMessage(`${chalk.green(`✔`)} Deployment URL: ${url}`);
   await runNetworkTestOnUrl(ctx, { url, adminKey }, options);
 }

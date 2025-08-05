@@ -10,10 +10,9 @@ async function warn(
   options: { title: string; subtitle: string; teamSlug: string },
 ) {
   const { title, subtitle, teamSlug } = options;
-  logWarning(ctx, chalk.bold.yellow(title));
-  logWarning(ctx, chalk.yellow(subtitle));
+  logWarning(chalk.bold.yellow(title));
+  logWarning(chalk.yellow(subtitle));
   logWarning(
-    ctx,
     chalk.yellow(`Visit ${teamDashboardUrl(teamSlug)} to learn more.`),
   );
 }

@@ -118,7 +118,7 @@ export async function runFunctionAndLog(
 
   // `null` is the default return type
   if (result !== null) {
-    logOutput(ctx, formatValue(result));
+    logOutput(formatValue(result));
   }
 }
 
@@ -358,15 +358,14 @@ export async function subscribeAndLog(
     callbacks: {
       onStart() {
         logFinishedStep(
-          ctx,
           `Watching query ${args.functionName} on ${args.deploymentUrl}...`,
         );
       },
       onChange(result) {
-        logOutput(ctx, formatValue(result));
+        logOutput(formatValue(result));
       },
       onStop() {
-        logMessage(ctx, `Closing connection to ${args.deploymentUrl}...`);
+        logMessage(`Closing connection to ${args.deploymentUrl}...`);
       },
     },
   });

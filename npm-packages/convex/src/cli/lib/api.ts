@@ -160,13 +160,11 @@ export async function validateDeploymentSelectionForExistingDeployment(
       });
     case "deployKey":
       logWarning(
-        ctx,
         "Ignoring `--prod`, `--preview-name`, or `--deployment-name` flags and using deployment from CONVEX_DEPLOY_KEY",
       );
       break;
     case "cliArgs":
       logWarning(
-        ctx,
         "Ignoring `--prod`, `--preview-name`, or `--deployment-name` flags since this command was run with --url and --admin-key",
       );
       break;
@@ -617,7 +615,6 @@ async function _loadExistingDeploymentCredentialsForProject(
     deploymentSelection,
   );
   logVerbose(
-    ctx,
     `Deployment URL: ${result.url}, Deployment Name: ${result.deploymentName}, Deployment Type: ${result.deploymentType}`,
   );
   if (ensureLocalRunning && result.deploymentType === "local") {
@@ -666,7 +663,6 @@ export async function loadSelectedDeploymentCredentials(
       );
       // We're already set up.
       logVerbose(
-        ctx,
         `Deployment URL: ${deploymentSelection.deploymentToActOn.url}, Deployment Name: ${deploymentSelection.deploymentToActOn.deploymentFields?.deploymentName ?? "unknown"}, Deployment Type: ${deploymentSelection.deploymentToActOn.deploymentFields?.deploymentType ?? "unknown"}`,
       );
       return {

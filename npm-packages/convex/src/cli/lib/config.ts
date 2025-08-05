@@ -310,16 +310,15 @@ export async function readProjectConfig(ctx: Context): Promise<{
     );
   } catch (err) {
     if (err instanceof ParseError || err instanceof SyntaxError) {
-      logError(ctx, chalk.red(`Error: Parsing "${configPath}" failed`));
-      logMessage(ctx, chalk.gray(err.toString()));
+      logError(chalk.red(`Error: Parsing "${configPath}" failed`));
+      logMessage(chalk.gray(err.toString()));
     } else {
       logFailure(
-        ctx,
         `Error: Unable to read project config file "${configPath}"\n` +
           "  Are you running this command from the root directory of a Convex project? If so, run `npx convex dev` first.",
       );
       if (err instanceof Error) {
-        logError(ctx, chalk.red(err.message));
+        logError(chalk.red(err.message));
       }
     }
     return await ctx.crash({
@@ -373,7 +372,7 @@ export async function configFromProjectConfig(
   const entryPoints = await entryPointsByEnvironment(ctx, baseDir);
   // es-build prints errors to console which would clobber our spinner.
   if (verbose) {
-    showSpinner(ctx, "Bundling modules for Convex's runtime...");
+    showSpinner("Bundling modules for Convex's runtime...");
   }
   const convexResult = await bundle(
     ctx,
@@ -384,7 +383,6 @@ export async function configFromProjectConfig(
   );
   if (verbose) {
     logMessage(
-      ctx,
       "Convex's runtime modules: ",
       convexResult.modules.map((m) => m.path),
     );
@@ -392,7 +390,7 @@ export async function configFromProjectConfig(
 
   // Bundle node modules.
   if (verbose && entryPoints.node.length !== 0) {
-    showSpinner(ctx, "Bundling modules for Node.js runtime...");
+    showSpinner("Bundling modules for Node.js runtime...");
   }
   const nodeResult = await bundle(
     ctx,
@@ -405,13 +403,11 @@ export async function configFromProjectConfig(
   );
   if (verbose && entryPoints.node.length !== 0) {
     logMessage(
-      ctx,
       "Node.js runtime modules: ",
       nodeResult.modules.map((m) => m.path),
     );
     if (projectConfig.node.externalPackages.length > 0) {
       logMessage(
-        ctx,
         "Node.js runtime external dependencies (to be installed on the server): ",
         [...nodeResult.externalDependencies.entries()].map(
           (a) => `${a[0]}: ${a[1]}`,
@@ -472,7 +468,7 @@ export async function debugIsolateEndpointBundles(
   const baseDir = functionsDir(configPath, projectConfig);
   const entryPoints = await entryPointsByEnvironment(ctx, baseDir);
   if (entryPoints.isolate.length === 0) {
-    logFinishedStep(ctx, "No non-'use node' modules found.");
+    logFinishedStep("No non-'use node' modules found.");
   }
   await debugIsolateBundlesSerially(ctx, {
     entryPoints: entryPoints.isolate,
@@ -543,7 +539,6 @@ export async function upgradeOldAuthInfoToAuthConfig(
   };`,
       );
       logMessage(
-        ctx,
         chalk.yellowBright(
           `Moved auth config from config.json to \`${authConfigRelativePath}\``,
         ),
@@ -581,7 +576,6 @@ export async function writeProjectConfig(
   } else if (deleteIfAllDefault && ctx.fs.exists(configPath)) {
     ctx.fs.unlink(configPath);
     logMessage(
-      ctx,
       chalk.yellowBright(
         `Deleted ${configPath} since it completely matched defaults`,
       ),
@@ -639,7 +633,7 @@ export function removedExistingConfig(
     return false;
   }
   recursivelyDelete(ctx, configPath);
-  logFinishedStep(ctx, `Removed existing ${configPath}`);
+  logFinishedStep(`Removed existing ${configPath}`);
   return true;
 }
 
@@ -656,7 +650,7 @@ export async function pullConfig(
     adminKey,
   });
 
-  changeSpinner(ctx, "Downloading current deployment state...");
+  changeSpinner("Downloading current deployment state...");
   try {
     const res = await fetch("/api/get_config_hashes", {
       method: "POST",
@@ -691,7 +685,7 @@ export async function pullConfig(
       udfServerVersion: data.udfServerVersion,
     };
   } catch (err: unknown) {
-    logFailure(ctx, `Error: Unable to pull deployment config from ${origin}`);
+    logFailure(`Error: Unable to pull deployment config from ${origin}`);
     return await logAndHandleFetchError(ctx, err);
   }
 }
@@ -799,11 +793,10 @@ export async function pushConfig(
   try {
     if (config.nodeDependencies.length > 0) {
       changeSpinner(
-        ctx,
         "Installing external packages and deploying source code...",
       );
     } else {
-      changeSpinner(ctx, "Analyzing and deploying source code...");
+      changeSpinner("Analyzing and deploying source code...");
     }
     await fetch("/api/push_config", {
       body: await brotli(JSON.stringify(serializedConfig), {
@@ -1088,7 +1081,7 @@ export async function handlePushConfigError(
 
   if (data?.code === "InternalServerError") {
     if (deploymentName?.startsWith("local-")) {
-      printLocalDeploymentOnError(ctx);
+      printLocalDeploymentOnError();
       return ctx.crash({
         exitCode: 1,
         errorType: "fatal",
@@ -1100,6 +1093,6 @@ export async function handlePushConfigError(
     }
   }
 
-  logFailure(ctx, defaultMessage);
+  logFailure(defaultMessage);
   return await logAndHandleFetchError(ctx, error);
 }

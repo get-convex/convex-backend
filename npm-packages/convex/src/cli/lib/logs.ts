@@ -46,7 +46,7 @@ export async function logsForDeployment(
     deploymentNotice: string;
   },
 ) {
-  logMessage(ctx, chalk.yellow(`Watching logs${options.deploymentNotice}...`));
+  logMessage(chalk.yellow(`Watching logs${options.deploymentNotice}...`));
   await watchLogs(ctx, credentials.url, credentials.adminKey, "stdout", {
     history: options.history,
     success: options.success,
@@ -109,7 +109,6 @@ export async function watchLogs(
       // If we exceed a threshold number of failures, warn the user and display backoff.
       if (numFailures > MAX_UDF_STREAM_FAILURE_COUNT) {
         logWarning(
-          ctx,
           `Convex [WARN] Failed to fetch logs. Waiting ${backoff}ms before next retry.`,
         );
       }
@@ -282,10 +281,10 @@ function logToTerminal(
 function logToDestination(ctx: Context, dest: LogDestination, ...logged: any) {
   switch (dest) {
     case "stdout":
-      logOutput(ctx, ...logged);
+      logOutput(...logged);
       break;
     case "stderr":
-      logMessage(ctx, ...logged);
+      logMessage(...logged);
       break;
   }
 }

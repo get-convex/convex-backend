@@ -73,7 +73,6 @@ export const login = new Command("login")
       (await checkAuthorization(ctx, !!options.acceptOptIns))
     ) {
       logFinishedStep(
-        ctx,
         "This device has previously been authorized and is ready for use with Convex.",
       );
       await handleLinkingDeployments(ctx, {
@@ -122,7 +121,6 @@ async function handleLinkingDeployments(
   if (anonymousDeployments.length === 0) {
     if (args.interactive) {
       logMessage(
-        ctx,
         "It doesn't look like you have any deployments to link. You can run `npx convex dev` to set up a new project or select an existing one.",
       );
     }
@@ -139,11 +137,9 @@ async function handleLinkingDeployments(
     });
     if (!createProjects) {
       logMessage(
-        ctx,
         "Not linking your existing deployments. If you want to link them later, run `npx convex login --link-deployments`.",
       );
       logMessage(
-        ctx,
         `Visit ${DASHBOARD_HOST} or run \`npx convex dev\` to get started with your new account.`,
       );
       return;
@@ -157,7 +153,6 @@ async function handleLinkingDeployments(
     const projectsRemaining = await getProjectsRemaining(ctx, teamSlug);
     if (anonymousDeployments.length > projectsRemaining) {
       logFailure(
-        ctx,
         `You have ${anonymousDeployments.length} deployments to link, but only have ${projectsRemaining} projects remaining. If you'd like to choose which ones to link, run this command with the --link-deployments flag.`,
       );
       return;
@@ -182,7 +177,6 @@ async function handleLinkingDeployments(
         projectSlug: null,
       });
       logFinishedStep(
-        ctx,
         `Added ${deployment.deploymentName} to project ${linkedDeployment.projectSlug}`,
       );
       if (deployment.deploymentName === configuredDeployment) {
@@ -206,7 +200,6 @@ async function handleLinkingDeployments(
       }
     }
     logFinishedStep(
-      ctx,
       `Sucessfully linked your deployments! Visit ${dashboardUrl} to get started.`,
     );
     return;
@@ -223,7 +216,6 @@ async function handleLinkingDeployments(
       : null;
   while (true) {
     logMessage(
-      ctx,
       getDeploymentListMessage(
         anonymousDeployments.map((d) => d.deploymentName),
       ),
@@ -253,7 +245,6 @@ async function handleLinkingDeployments(
       projectSlug,
     });
     logFinishedStep(
-      ctx,
       `Added ${deploymentToLink} to project ${linkedDeployment.projectSlug}`,
     );
     if (deploymentToLink === configuredDeployment) {

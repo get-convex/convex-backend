@@ -46,7 +46,6 @@ export async function runNonComponentsPush(
 ) {
   if (options.writePushRequest) {
     logMessage(
-      ctx,
       "Skipping push because --write-push-request is set, but we are on the non-components path so there is nothing to write.",
     );
     return;
@@ -61,7 +60,6 @@ export async function runNonComponentsPush(
 
   if (!options.codegen) {
     logMessage(
-      ctx,
       chalk.gray("Skipping codegen. Remove --codegen=disable to enable."),
     );
     // Codegen includes typechecking, so if we're skipping it, run the type
@@ -76,14 +74,13 @@ export async function runNonComponentsPush(
       options,
     );
     if (verbose) {
-      logMessage(ctx, chalk.green("Codegen finished."));
+      logMessage(chalk.green("Codegen finished."));
     }
   }
 
   if (options.debugNodeApis) {
     await debugIsolateEndpointBundles(ctx, projectConfig, configPath);
     logFinishedStep(
-      ctx,
       "All non-'use node' entry points successfully bundled. Skipping rest of push.",
     );
     return;
@@ -96,7 +93,6 @@ export async function runNonComponentsPush(
   if (options.debugBundlePath) {
     await handleDebugBundlePath(ctx, options.debugBundlePath, localConfig);
     logMessage(
-      ctx,
       `Wrote bundle and metadata to ${options.debugBundlePath}. Skipping rest of push.`,
     );
     return;
@@ -121,7 +117,7 @@ export async function runNonComponentsPush(
     options.adminKey,
   );
 
-  changeSpinner(ctx, "Diffing local code and deployment state");
+  changeSpinner("Diffing local code and deployment state");
   const { diffString, stats } = diffConfig(
     remoteConfigWithModuleHashes,
     localConfig,
@@ -133,7 +129,6 @@ export async function runNonComponentsPush(
           ? `No functions found in ${localConfig.projectConfig.functions}`
           : "Config already synced";
       logMessage(
-        ctx,
         chalk.gray(
           `${
             options.dryRun
@@ -148,14 +143,13 @@ export async function runNonComponentsPush(
 
   if (verbose) {
     logMessage(
-      ctx,
       chalk.bold(
         `Remote config ${
           options.dryRun ? "would" : "will"
         } be overwritten with the following changes:`,
       ),
     );
-    logMessage(ctx, diffString);
+    logMessage(diffString);
   }
 
   if (options.dryRun) {

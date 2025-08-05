@@ -122,7 +122,7 @@ export async function runCodegen(
     }
 
     if (options.typecheck !== "disable") {
-      logMessage(ctx, chalk.gray("Running TypeScript typecheck…"));
+      logMessage(chalk.gray("Running TypeScript typecheck…"));
     }
 
     await doCodegen(ctx, functionsDirectoryPath, options.typecheck, {
@@ -185,7 +185,7 @@ async function startComponentsPushAndCodegen(
   }
   const rootComponent = isComponent.component;
 
-  changeSpinner(ctx, "Finding component definitions...");
+  changeSpinner("Finding component definitions...");
   // Create a list of relevant component directories. These are just for knowing
   // while directories to bundle in bundleDefinitions and bundleImplementations.
   // This produces a bundle in memory as a side effect but it's thrown away.
@@ -202,7 +202,7 @@ async function startComponentsPushAndCodegen(
   );
 
   if (options.codegen) {
-    changeSpinner(ctx, "Generating server code...");
+    changeSpinner("Generating server code...");
     await parentSpan.enterAsync("doInitialComponentCodegen", () =>
       withTmpDir(async (tmpDir) => {
         await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
@@ -213,7 +213,7 @@ async function startComponentsPushAndCodegen(
     );
   }
 
-  changeSpinner(ctx, "Bundling component definitions...");
+  changeSpinner("Bundling component definitions...");
   // This bundles everything but the actual function definitions
   const {
     appDefinitionSpecWithoutImpls,
@@ -233,13 +233,12 @@ async function startComponentsPushAndCodegen(
   if (options.debugNodeApis) {
     await debugIsolateEndpointBundles(ctx, projectConfig, configPath);
     logFinishedStep(
-      ctx,
       "All non-'use node' entry points successfully bundled. Skipping rest of push.",
     );
     return null;
   }
 
-  changeSpinner(ctx, "Bundling component schemas and implementations...");
+  changeSpinner("Bundling component schemas and implementations...");
   const { appImplementation, componentImplementations } =
     await parentSpan.enterAsync("bundleImplementations", () =>
       bundleImplementations(
@@ -261,7 +260,6 @@ async function startComponentsPushAndCodegen(
     // TODO(ENG-6972): Actually write the bundles for components.
     await handleDebugBundlePath(ctx, options.debugBundlePath, localConfig);
     logMessage(
-      ctx,
       `Wrote bundle and metadata for modules in the root to ${options.debugBundlePath}. Skipping rest of push.`,
     );
     return null;
@@ -316,17 +314,17 @@ async function startComponentsPushAndCodegen(
   }
   logStartPushSizes(parentSpan, startPushRequest);
 
-  changeSpinner(ctx, "Uploading functions to Convex...");
+  changeSpinner("Uploading functions to Convex...");
   const startPushResponse = await parentSpan.enterAsync("startPush", (span) =>
     startPush(ctx, span, startPushRequest, options),
   );
 
   if (options.verbose) {
-    logMessage(ctx, "startPush: " + JSON.stringify(startPushResponse, null, 2));
+    logMessage("startPush: " + JSON.stringify(startPushResponse, null, 2));
   }
 
   if (options.codegen) {
-    changeSpinner(ctx, "Generating TypeScript bindings...");
+    changeSpinner("Generating TypeScript bindings...");
     await parentSpan.enterAsync("doFinalComponentCodegen", () =>
       withTmpDir(async (tmpDir) => {
         await doFinalComponentCodegen(
@@ -351,7 +349,7 @@ async function startComponentsPushAndCodegen(
     );
   }
 
-  changeSpinner(ctx, "Running TypeScript...");
+  changeSpinner("Running TypeScript...");
   await parentSpan.enterAsync("typeCheckFunctionsInMode", async () => {
     await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
     if (options.typecheckComponents) {
@@ -437,7 +435,7 @@ function printDiff(
 ) {
   if (opts.verbose) {
     const diffString = JSON.stringify(finishPushResponse, null, 2);
-    logMessage(ctx, diffString);
+    logMessage(diffString);
     return;
   }
   const { componentDiffs } = finishPushResponse;
@@ -454,7 +452,7 @@ function printDiff(
         }
         msg += `  [-] ${formatIndex(index)}`;
       }
-      logFinishedStep(ctx, msg);
+      logFinishedStep(msg);
     }
     if (rootDiff.indexDiff.added_indexes.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} table indexes:\n`;
@@ -465,7 +463,7 @@ function printDiff(
         }
         msg += `  [+] ${formatIndex(index)}`;
       }
-      logFinishedStep(ctx, msg);
+      logFinishedStep(msg);
     }
   }
 
@@ -475,13 +473,13 @@ function printDiff(
       continue;
     }
     if (componentDiff.diffType.type === "create") {
-      logFinishedStep(ctx, `Installed component ${componentPath}.`);
+      logFinishedStep(`Installed component ${componentPath}.`);
     }
     if (componentDiff.diffType.type === "unmount") {
-      logFinishedStep(ctx, `Unmounted component ${componentPath}.`);
+      logFinishedStep(`Unmounted component ${componentPath}.`);
     }
     if (componentDiff.diffType.type === "remount") {
-      logFinishedStep(ctx, `Remounted component ${componentPath}.`);
+      logFinishedStep(`Remounted component ${componentPath}.`);
     }
   }
 }

@@ -106,7 +106,7 @@ export async function runLocalBackend(
     });
   }
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
-  logVerbose(ctx, `Starting local backend: \`${commandStr}\``);
+  logVerbose(`Starting local backend: \`${commandStr}\``);
   const p = child_process
     .spawn(args.binaryPath, commandArgs, {
       stdio: "ignore",
@@ -117,13 +117,10 @@ export async function runLocalBackend(
     })
     .on("exit", (code) => {
       const why = code === null ? "from signal" : `with code ${code}`;
-      logVerbose(
-        ctx,
-        `Local backend exited ${why}, full command \`${commandStr}\``,
-      );
+      logVerbose(`Local backend exited ${why}, full command \`${commandStr}\``);
     });
   const cleanupHandle = ctx.registerCleanup(async () => {
-    logVerbose(ctx, `Stopping local backend on port ${ports.cloud}`);
+    logVerbose(`Stopping local backend on port ${ports.cloud}`);
     p.kill("SIGTERM");
   });
 
@@ -146,7 +143,7 @@ export async function assertLocalBackendRunning(
     deploymentName: string;
   },
 ): Promise<void> {
-  logVerbose(ctx, `Checking local backend at ${args.url} is running`);
+  logVerbose(`Checking local backend at ${args.url} is running`);
   try {
     const resp = await fetch(`${args.url}/instance_name`);
     if (resp.status === 200) {
@@ -185,16 +182,13 @@ export async function ensureBackendRunning(
     maxTimeSecs: number;
   },
 ): Promise<void> {
-  logVerbose(
-    ctx,
-    `Ensuring backend running on port ${args.cloudPort} is running`,
-  );
+  logVerbose(`Ensuring backend running on port ${args.cloudPort} is running`);
   const deploymentUrl = localDeploymentUrl(args.cloudPort);
   let timeElapsedSecs = 0;
   let hasShownWaiting = false;
   while (timeElapsedSecs <= args.maxTimeSecs) {
     if (!hasShownWaiting && timeElapsedSecs > 2) {
-      logMessage(ctx, "waiting for local backend to start...");
+      logMessage("waiting for local backend to start...");
       hasShownWaiting = true;
     }
     try {
@@ -242,10 +236,7 @@ export async function ensureBackendStopped(
     allowOtherDeployments: boolean;
   },
 ) {
-  logVerbose(
-    ctx,
-    `Ensuring backend running on port ${args.ports.cloud} is stopped`,
-  );
+  logVerbose(`Ensuring backend running on port ${args.ports.cloud} is stopped`);
   let timeElapsedSecs = 0;
   while (timeElapsedSecs < args.maxTimeSecs) {
     const cloudPort = await detect(args.ports.cloud);
@@ -273,7 +264,7 @@ export async function ensureBackendStopped(
         }
       }
     } catch (error: any) {
-      logVerbose(ctx, `Error checking if backend is running: ${error.message}`);
+      logVerbose(`Error checking if backend is running: ${error.message}`);
       // Backend is probably not running
       continue;
     }

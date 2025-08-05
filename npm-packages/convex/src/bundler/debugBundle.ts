@@ -89,13 +89,11 @@ export async function debugIsolateBundlesSerially(
   },
 ): Promise<void> {
   logMessage(
-    ctx,
     `Bundling convex entry points one at a time to track down things that can't be bundled for the Convex JS runtime.`,
   );
   let i = 1;
   for (const entryPoint of entryPoints) {
     changeSpinner(
-      ctx,
       `bundling entry point ${entryPoint} (${i++}/${entryPoints.length})...`,
     );
 
@@ -134,17 +132,12 @@ export async function debugIsolateBundlesSerially(
       if (!importedPath) continue;
 
       const full = path.resolve(errorFile);
-      logError(ctx, "");
+      logError("");
       logError(
-        ctx,
         `Bundling ${entryPoint} resulted in ${error.errors.length} esbuild errors.`,
       );
+      logError(`One of the bundling errors occurred while bundling ${full}:\n`);
       logError(
-        ctx,
-        `One of the bundling errors occurred while bundling ${full}:\n`,
-      );
-      logError(
-        ctx,
         esbuild
           .formatMessagesSync([buildError], {
             kind: "error",
@@ -152,48 +145,44 @@ export async function debugIsolateBundlesSerially(
           })
           .join("\n"),
       );
-      logError(ctx, "It would help to avoid importing this file.");
+      logError("It would help to avoid importing this file.");
       const chains = tracer.traceImportChains(entryPoint, full);
       const chain: string[] = chains[0];
       chain.reverse();
 
-      logError(ctx, ``);
+      logError(``);
       if (chain.length > 0) {
         const problematicFileRelative = formatFilePath(dir, chain[0]);
 
         if (chain.length === 1) {
-          logError(ctx, `  ${problematicFileRelative}`);
+          logError(`  ${problematicFileRelative}`);
         } else {
-          logError(ctx, `  ${problematicFileRelative} is imported by`);
+          logError(`  ${problematicFileRelative} is imported by`);
 
           for (let i = 1; i < chain.length - 1; i++) {
             const fileRelative = formatFilePath(dir, chain[i]);
-            logError(ctx, `  ${fileRelative}, which is imported by`);
+            logError(`  ${fileRelative}, which is imported by`);
           }
 
           const entryPointFile = chain[chain.length - 1];
           const entryPointRelative = formatFilePath(dir, entryPointFile);
 
+          logError(`  ${entryPointRelative}, which doesn't use "use node"\n`);
           logError(
-            ctx,
-            `  ${entryPointRelative}, which doesn't use "use node"\n`,
-          );
-          logError(
-            ctx,
             `  For registered action functions to use Node.js APIs in any code they run they must be defined\n` +
               `  in a file with 'use node' at the top. See https://docs.convex.dev/functions/runtimes#nodejs-runtime\n`,
           );
         }
       }
 
-      logFailure(ctx, "Bundling failed");
+      logFailure("Bundling failed");
       return await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem data",
         printedMessage: "Bundling failed.",
       });
     }
-    logVerbose(ctx, `${entryPoint} bundled`);
+    logVerbose(`${entryPoint} bundled`);
   }
 }
 

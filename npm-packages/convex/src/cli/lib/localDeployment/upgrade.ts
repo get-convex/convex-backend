@@ -72,7 +72,6 @@ export async function handlePotentialUpgrade(
     });
   }
   logVerbose(
-    ctx,
     `Considering upgrade from ${args.oldVersion} to ${args.newVersion}`,
   );
   const confirmed =
@@ -179,7 +178,7 @@ async function handleUpgrade(
     },
   );
 
-  logVerbose(ctx, "Running backend on old version");
+  logVerbose("Running backend on old version");
   const { cleanupHandle: oldCleanupHandle } = await runLocalBackend(ctx, {
     binaryPath: oldBinaryPath,
     ports: args.ports,
@@ -189,7 +188,7 @@ async function handleUpgrade(
     isLatestVersion: false,
   });
 
-  logVerbose(ctx, "Downloading env vars");
+  logVerbose("Downloading env vars");
   const deploymentUrl = localDeploymentUrl(args.ports.cloud);
   const envs = (await runSystemQuery(ctx, {
     deploymentUrl,
@@ -202,7 +201,7 @@ async function handleUpgrade(
     value: string;
   }>;
 
-  logVerbose(ctx, "Doing a snapshot export");
+  logVerbose("Doing a snapshot export");
   const exportPath = path.join(
     deploymentStateDir(args.deploymentKind, args.deploymentName),
     "export.zip",
@@ -230,7 +229,7 @@ async function handleUpgrade(
     deploymentUrl,
   });
 
-  logVerbose(ctx, "Stopping the backend on the old version");
+  logVerbose("Stopping the backend on the old version");
   const oldCleanupFunc = ctx.removeCleanup(oldCleanupHandle);
   if (oldCleanupFunc) {
     await oldCleanupFunc(0);
@@ -243,7 +242,7 @@ async function handleUpgrade(
   });
 
   // TODO(ENG-7078) save old artifacts to backup files
-  logVerbose(ctx, "Running backend on new version");
+  logVerbose("Running backend on new version");
   const { cleanupHandle } = await runLocalBackend(ctx, {
     binaryPath: args.newBinaryPath,
     ports: args.ports,
@@ -253,7 +252,7 @@ async function handleUpgrade(
     isLatestVersion: true,
   });
 
-  logVerbose(ctx, "Importing the env vars");
+  logVerbose("Importing the env vars");
   if (envs.length > 0) {
     const fetch = deploymentFetch(ctx, {
       deploymentUrl,
@@ -270,17 +269,17 @@ async function handleUpgrade(
     }
   }
 
-  logVerbose(ctx, "Doing a snapshot import");
+  logVerbose("Doing a snapshot import");
   const importId = await uploadForImport(ctx, {
     deploymentUrl,
     adminKey: args.newAdminKey,
     filePath: exportPath,
     importArgs: { format: "zip", mode: "replace", tableName: undefined },
     onImportFailed: async (e) => {
-      logFailure(ctx, `Failed to import snapshot: ${e}`);
+      logFailure(`Failed to import snapshot: ${e}`);
     },
   });
-  logVerbose(ctx, `Snapshot import started`);
+  logVerbose(`Snapshot import started`);
   let status = await waitForStableImportState(ctx, {
     importId,
     deploymentUrl,
@@ -305,10 +304,10 @@ async function handleUpgrade(
     adminKey: args.newAdminKey,
     deploymentUrl,
     onError: async (e) => {
-      logFailure(ctx, `Failed to confirm import: ${e}`);
+      logFailure(`Failed to confirm import: ${e}`);
     },
   });
-  logVerbose(ctx, `Snapshot import confirmed`);
+  logVerbose(`Snapshot import confirmed`);
   status = await waitForStableImportState(ctx, {
     importId,
     deploymentUrl,
@@ -318,7 +317,7 @@ async function handleUpgrade(
       return 0;
     },
   });
-  logVerbose(ctx, `Snapshot import status: ${status.state}`);
+  logVerbose(`Snapshot import status: ${status.state}`);
   if (status.state !== "completed") {
     const message = "Error while transferring data: Failed to import snapshot";
     return ctx.crash({
@@ -329,7 +328,7 @@ async function handleUpgrade(
     });
   }
 
-  logFinishedStep(ctx, "Successfully upgraded to a new backend version");
+  logFinishedStep("Successfully upgraded to a new backend version");
   saveDeploymentConfig(ctx, args.deploymentKind, args.deploymentName, {
     ports: args.ports,
     backendVersion: args.newVersion,

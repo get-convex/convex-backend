@@ -105,25 +105,25 @@ class OneoffContextImpl {
     printedMessage: string | null;
   }) => {
     if (args.printedMessage !== null) {
-      logFailure(this, args.printedMessage);
+      logFailure(args.printedMessage);
     }
     return await this.flushAndExit(args.exitCode, args.errForSentry);
   };
   flushAndExit = async (exitCode: number, err?: any) => {
-    logVerbose(this, "Flushing and exiting, error:", err);
+    logVerbose("Flushing and exiting, error:", err);
     if (err) {
-      logVerbose(this, err.stack);
+      logVerbose(err.stack);
     }
     const cleanupFns = this._cleanupFns;
     // Clear the cleanup functions so that there's no risk of running them twice
     // if this somehow gets triggered twice.
     this._cleanupFns = {};
     const fns = Object.values(cleanupFns);
-    logVerbose(this, `Running ${fns.length} cleanup functions`);
+    logVerbose(`Running ${fns.length} cleanup functions`);
     for (const fn of fns) {
       await fn(exitCode, err);
     }
-    logVerbose(this, "All cleanup functions ran");
+    logVerbose("All cleanup functions ran");
     return flushAndExit(exitCode, err);
   };
   registerCleanup(fn: (exitCode: number, err?: any) => Promise<void>) {
@@ -140,7 +140,7 @@ class OneoffContextImpl {
     return this._bigBrainAuth;
   }
   _updateBigBrainAuth(auth: BigBrainAuth | null): void {
-    logVerbose(this, `Updating big brain auth to ${auth?.kind ?? "null"}`);
+    logVerbose(`Updating big brain auth to ${auth?.kind ?? "null"}`);
     this._bigBrainAuth = auth;
   }
 }

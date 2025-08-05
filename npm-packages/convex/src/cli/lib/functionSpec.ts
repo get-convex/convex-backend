@@ -31,8 +31,8 @@ export async function functionSpecForDeployment(
   if (options.file) {
     const fileName = `function_spec_${Date.now().valueOf()}.json`;
     ctx.fs.writeUtf8File(fileName, output);
-    logOutput(ctx, chalk.green(`Wrote function spec to ${fileName}`));
+    logOutput(chalk.green(`Wrote function spec to ${fileName}`));
   } else {
-    logOutput(ctx, output);
+    logOutput(output);
   }
 }

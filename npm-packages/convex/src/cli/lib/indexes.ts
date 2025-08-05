@@ -64,7 +64,7 @@ export async function pushSchema(
   }
   const bundles = await bundleSchema(ctx, schemaDir, []);
 
-  changeSpinner(ctx, "Checking for index or schema changes...");
+  changeSpinner("Checking for index or schema changes...");
 
   let data: PrepareSchemaResponse;
   const fetch = deploymentFetch(ctx, {
@@ -83,7 +83,7 @@ export async function pushSchema(
     deprecationCheckWarning(ctx, res);
     data = await res.json();
   } catch (err: unknown) {
-    logFailure(ctx, `Error: Unable to run schema validation on ${origin}`);
+    logFailure(`Error: Unable to run schema validation on ${origin}`);
     return await logAndHandleFetchError(ctx, err);
   }
 
@@ -120,7 +120,6 @@ async function waitForReadySchema(
       return data;
     } catch (err: unknown) {
       logFailure(
-        ctx,
         `Error: Unable to build indexes and run schema validation on ${origin}`,
       );
       return await logAndHandleFetchError(ctx, err);
@@ -145,8 +144,8 @@ async function waitForReadySchema(
       // Schema validation failed. This could be either because the data
       // is bad or the schema is wrong. Classify this as a filesystem error
       // because adjusting `schema.ts` is the most normal next step.
-      logFailure(ctx, "Schema validation failed");
-      logError(ctx, chalk.red(`${data.schemaState.error}`));
+      logFailure("Schema validation failed");
+      logError(chalk.red(`${data.schemaState.error}`));
       return await ctx.crash({
         exitCode: 1,
         errorType: {
@@ -166,7 +165,7 @@ async function waitForReadySchema(
         printedMessage: `Schema was overwritten by another push.`,
       });
     case "validated":
-      logFinishedStep(ctx, "Schema validation complete.");
+      logFinishedStep("Schema validation complete.");
       break;
     case "active":
       break;
@@ -181,7 +180,7 @@ function setSchemaProgressSpinner(
   deploymentName?: string | null,
 ) {
   if (!data) {
-    changeSpinner(ctx, "Pushing code to your deployment...");
+    changeSpinner("Pushing code to your deployment...");
     return;
   }
   const indexesCompleted = data.indexes.filter(
@@ -218,7 +217,7 @@ see progress on the dashboard here: ${dashboardUrl}`;
   } else {
     msg = "Checking that documents match your schema...";
   }
-  changeSpinner(ctx, msg);
+  changeSpinner(msg);
 }
 
 function logIndexChanges(
@@ -237,7 +236,6 @@ function logIndexChanges(
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
     logFinishedStep(
-      ctx,
       `${dryRun ? "Would delete" : "Deleted"} table indexes:\n${indexDiff}`,
     );
   }
@@ -249,7 +247,6 @@ function logIndexChanges(
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
     logFinishedStep(
-      ctx,
       `${dryRun ? "Would add" : "Added"} table indexes:\n${indexDiff}`,
     );
   }

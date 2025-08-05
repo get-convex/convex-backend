@@ -15,7 +15,7 @@ test("parseProjectConfig", async () => {
     ...originalContext,
     crash: (args: { printedMessage: string | null }) => {
       if (args.printedMessage !== null) {
-        logFailure(originalContext, args.printedMessage);
+        logFailure(args.printedMessage);
       }
       throw new Error();
     },

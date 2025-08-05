@@ -116,7 +116,6 @@ export async function updateBigBrainAuthAfterLogin(
   const existingAuth = ctx.bigBrainAuth();
   if (existingAuth !== null && existingAuth.kind === "projectKey") {
     logVerbose(
-      ctx,
       `Ignoring update to big brain auth since project key takes precedence`,
     );
     return;
@@ -257,36 +256,33 @@ function logDeploymentSelection(ctx: Context, selection: DeploymentSelection) {
   switch (selection.kind) {
     case "existingDeployment": {
       logVerbose(
-        ctx,
         `Existing deployment: ${selection.deploymentToActOn.url} ${selection.deploymentToActOn.source}`,
       );
       break;
     }
     case "deploymentWithinProject": {
       logVerbose(
-        ctx,
         `Deployment within project: ${prettyProjectSelection(selection.targetProject)}`,
       );
       break;
     }
     case "preview": {
-      logVerbose(ctx, `Preview deploy key`);
+      logVerbose(`Preview deploy key`);
       break;
     }
     case "chooseProject": {
-      logVerbose(ctx, `Choose project`);
+      logVerbose(`Choose project`);
       break;
     }
     case "anonymous": {
       logVerbose(
-        ctx,
         `Anonymous, has selected deployment?: ${selection.deploymentName !== null}`,
       );
       break;
     }
     default: {
       const _exhaustivenessCheck: never = selection;
-      logVerbose(ctx, `Unknown deployment selection`);
+      logVerbose(`Unknown deployment selection`);
     }
   }
   return null;
@@ -336,7 +332,7 @@ async function _getDeploymentSelection(
 
   if (cliArgs.envFile) {
     // If an `--env-file` is specified, it must contain enough information for both auth and deployment selection.
-    logVerbose(ctx, `Checking env file: ${cliArgs.envFile}`);
+    logVerbose(`Checking env file: ${cliArgs.envFile}`);
     const existingFile = ctx.fs.exists(cliArgs.envFile)
       ? ctx.fs.readUtf8File(cliArgs.envFile)
       : null;

@@ -39,7 +39,7 @@ export async function exportFromDeployment(
     snapshotExportDashboardLink,
   } = options;
 
-  showSpinner(ctx, `Creating snapshot export${deploymentNotice}`);
+  showSpinner(`Creating snapshot export${deploymentNotice}`);
 
   const snapshotExportState = await startSnapshotExport(ctx, {
     includeStorage,
@@ -50,14 +50,12 @@ export async function exportFromDeployment(
 
   switch (snapshotExportState.state) {
     case "completed":
-      stopSpinner(ctx);
+      stopSpinner();
       logFinishedStep(
-        ctx,
         `Created snapshot export at timestamp ${snapshotExportState.start_ts}`,
       );
       if (snapshotExportDashboardLink !== undefined) {
         logFinishedStep(
-          ctx,
           `Export is available at ${snapshotExportDashboardLink}`,
         );
       }
@@ -88,15 +86,15 @@ export async function exportFromDeployment(
     }
   }
 
-  showSpinner(ctx, `Downloading snapshot export to ${chalk.bold(inputPath)}`);
+  showSpinner(`Downloading snapshot export to ${chalk.bold(inputPath)}`);
   const { filePath } = await downloadSnapshotExport(ctx, {
     snapshotExportTs: snapshotExportState.start_ts,
     inputPath,
     adminKey,
     deploymentUrl,
   });
-  stopSpinner(ctx);
-  logFinishedStep(ctx, `Downloaded snapshot export to ${chalk.bold(filePath)}`);
+  stopSpinner();
+  logFinishedStep(`Downloaded snapshot export to ${chalk.bold(filePath)}`);
 }
 
 type SnapshotExportState =
@@ -228,7 +226,7 @@ export async function downloadSnapshotExport(
   } else {
     filePath = inputPath;
   }
-  changeSpinner(ctx, `Downloading snapshot export to ${chalk.bold(filePath)}`);
+  changeSpinner(`Downloading snapshot export to ${chalk.bold(filePath)}`);
 
   try {
     await nodeFs.writeFileStream(
@@ -236,8 +234,8 @@ export async function downloadSnapshotExport(
       Readable.fromWeb(response.body! as any),
     );
   } catch (e) {
-    logFailure(ctx, `Exporting data failed`);
-    logError(ctx, chalk.red(e));
+    logFailure(`Exporting data failed`);
+    logError(chalk.red(e));
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",

@@ -57,18 +57,15 @@ export async function handleLocalDeployment(
     teamSlug: options.teamSlug,
   });
   if (existingDeploymentForProject === null) {
-    printLocalDeploymentWelcomeMessage(ctx);
+    printLocalDeploymentWelcomeMessage();
   }
   ctx.registerCleanup(async (_exitCode, err) => {
     if (err instanceof LocalDeploymentError) {
-      printLocalDeploymentOnError(ctx);
+      printLocalDeploymentOnError();
     }
   });
   if (existingDeploymentForProject !== null) {
-    logVerbose(
-      ctx,
-      `Found existing deployment for project ${options.projectSlug}`,
-    );
+    logVerbose(`Found existing deployment for project ${options.projectSlug}`);
     // If it's still running for some reason, exit and tell the user to kill it.
     // It's fine if a different backend is running on these ports though since we'll
     // pick new ones.

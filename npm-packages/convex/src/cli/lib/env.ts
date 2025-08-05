@@ -27,7 +27,6 @@ export async function envSetInDeployment(
   await callUpdateEnvironmentVariables(ctx, deployment, [{ name, value }]);
   const formatted = /\s/.test(value) ? `"${value}"` : value;
   logFinishedStep(
-    ctx,
     `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${deployment.deploymentNotice}`,
   );
 }
@@ -66,10 +65,10 @@ export async function envGetInDeployment(
     args: { name },
   })) as EnvVar | null;
   if (envVar === null) {
-    logFailure(ctx, `Environment variable "${name}" not found.`);
+    logFailure(`Environment variable "${name}" not found.`);
     return;
   }
-  logOutput(ctx, `${envVar.value}`);
+  logOutput(`${envVar.value}`);
 }
 
 export async function envRemoveInDeployment(
@@ -83,7 +82,6 @@ export async function envRemoveInDeployment(
 ) {
   await callUpdateEnvironmentVariables(ctx, deployment, [{ name }]);
   logFinishedStep(
-    ctx,
     `Successfully unset ${chalk.bold(name)}${deployment.deploymentNotice}`,
   );
 }
@@ -102,11 +100,11 @@ export async function envListInDeployment(
     args: {},
   })) as EnvVar[];
   if (envs.length === 0) {
-    logMessage(ctx, "No environment variables set.");
+    logMessage("No environment variables set.");
     return;
   }
   for (const { name, value } of envs) {
-    logOutput(ctx, `${name}=${value}`);
+    logOutput(`${name}=${value}`);
   }
 }
 

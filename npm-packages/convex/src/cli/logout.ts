@@ -19,7 +19,6 @@ export const logout = new Command("logout")
     }
 
     logFinishedStep(
-      ctx,
       "You have been logged out of Convex.\n  Run `npx convex dev` to log in.",
     );
   });

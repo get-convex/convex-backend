@@ -46,7 +46,6 @@ export async function typeCheckFunctionsInMode(
       ) {
         logSpecificError?.();
         logError(
-          ctx,
           chalk.gray("To ignore failing typecheck, use `--typecheck=disable`."),
         );
         try {
@@ -78,10 +77,9 @@ export async function typeCheckFunctions(
   if (!ctx.fs.exists(tsconfig)) {
     return handleResult("cantTypeCheck", () => {
       logError(
-        ctx,
         "Found no convex/tsconfig.json to use to typecheck Convex functions, so skipping typecheck.",
       );
-      logError(ctx, "Run `npx convex codegen --init` to create one.");
+      logError("Run `npx convex codegen --init` to create one.");
     });
   }
   await runTsc(ctx, ["--project", functionsDir], handleResult);
@@ -97,7 +95,6 @@ async function runTsc(
   if (!ctx.fs.exists(tscPath)) {
     return handleResult("cantTypeCheck", () => {
       logError(
-        ctx,
         chalk.gray("No TypeScript binary found, so skipping typecheck."),
       );
     });
@@ -117,7 +114,6 @@ async function runTsc(
   // Print this warning after any logs from running `tsc`
   if (hasOlderTypeScriptVersion) {
     logError(
-      ctx,
       chalk.yellow(
         "Convex works best with TypeScript version 4.8.4 or newer -- npm i --save-dev typescript@latest to update.",
       ),
@@ -142,9 +138,9 @@ async function runTscInner(
   ]);
   if (result.status === null) {
     return handleResult("typecheckFailed", () => {
-      logFailure(ctx, `TypeScript typecheck timed out.`);
+      logFailure(`TypeScript typecheck timed out.`);
       if (result.error) {
-        logError(ctx, chalk.red(`${result.error.toString()}`));
+        logError(chalk.red(`${result.error.toString()}`));
       }
     });
   }
@@ -191,10 +187,10 @@ async function runTscInner(
   return handleResult(
     "typecheckFailed",
     () => {
-      logFailure(ctx, "TypeScript typecheck via `tsc` failed.");
+      logFailure("TypeScript typecheck via `tsc` failed.");
     },
     async () => {
-      showSpinner(ctx, "Collecting TypeScript errors");
+      showSpinner("Collecting TypeScript errors");
       await spawnAsync(
         ctx,
         process.execPath,

@@ -39,7 +39,6 @@ export function readGlobalConfig(ctx: Context): GlobalConfig | null {
   } catch (err) {
     // Print an error and act as if the file does not exist.
     logError(
-      ctx,
       chalk.red(
         `Failed to parse global config in ${configPath} with error ${
           err as any
@@ -67,7 +66,6 @@ export async function modifyGlobalConfig(ctx: Context, config: GlobalConfig) {
       schema.parse(storedConfig);
     } catch (err) {
       logError(
-        ctx,
         chalk.red(
           `Failed to parse global config in ${configPath} with error ${
             err as any
@@ -98,7 +96,7 @@ async function overrwriteGlobalConfig(ctx: Context, config: GlobalConfig) {
       ),
     });
   }
-  logVerbose(ctx, `Saved credentials to ${formatPathForPrinting(path)}`);
+  logVerbose(`Saved credentials to ${formatPathForPrinting(path)}`);
 }
 
 export function formatPathForPrinting(path: string) {

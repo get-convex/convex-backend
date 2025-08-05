@@ -82,11 +82,10 @@ async function prepareForCodegen(
   if (ctx.fs.exists(legacyCodegenPath)) {
     if (opts?.dryRun) {
       logError(
-        ctx,
         `Command would delete legacy codegen file: ${legacyCodegenPath}}`,
       );
     } else {
-      logError(ctx, `Deleting legacy codegen file: ${legacyCodegenPath}}`);
+      logError(`Deleting legacy codegen file: ${legacyCodegenPath}}`);
       ctx.fs.unlink(legacyCodegenPath);
     }
   }
@@ -178,7 +177,6 @@ export async function doInitialComponentCodegen(
   if (isPublishedPackage) {
     if (opts?.verbose) {
       logMessage(
-        ctx,
         `skipping initial codegen for installed package ${componentDirectory.path}`,
       );
     }
@@ -340,7 +338,7 @@ async function doReadmeCodegen(
 ) {
   const readmePath = path.join(functionsDir, "README.md");
   if (skipIfExists && ctx.fs.exists(readmePath)) {
-    logVerbose(ctx, `Not overwriting README.md.`);
+    logVerbose(`Not overwriting README.md.`);
     return;
   }
   await writeFormattedFile(
@@ -362,7 +360,7 @@ async function doTsconfigCodegen(
 ) {
   const tsconfigPath = path.join(functionsDir, "tsconfig.json");
   if (skipIfExists && ctx.fs.exists(tsconfigPath)) {
-    logVerbose(ctx, `Not overwriting tsconfig.json.`);
+    logVerbose(`Not overwriting tsconfig.json.`);
     return;
   }
   await writeFormattedFile(
@@ -635,8 +633,8 @@ async function writeFormattedFile(
   if (options?.debug) {
     // NB: The `test_codegen_projects_are_up_to_date` smoke test depends
     // on this output format.
-    logOutput(ctx, `# ${path.resolve(destination)}`);
-    logOutput(ctx, formattedContents);
+    logOutput(`# ${path.resolve(destination)}`);
+    logOutput(formattedContents);
     return;
   }
   try {
@@ -651,7 +649,7 @@ async function writeFormattedFile(
     }
   }
   if (options?.dryRun) {
-    logOutput(ctx, `Command would write file: ${destination}`);
+    logOutput(`Command would write file: ${destination}`);
     return;
   }
   const tmpPath = tmpDir.writeUtf8File(formattedContents);

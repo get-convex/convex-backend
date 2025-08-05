@@ -44,19 +44,16 @@ export async function isOffline(): Promise<boolean> {
   return false;
 }
 
-export function printLocalDeploymentWelcomeMessage(ctx: Context) {
+export function printLocalDeploymentWelcomeMessage() {
   logMessage(
-    ctx,
     chalk.cyan("You're trying out the beta local deployment feature!"),
   );
   logMessage(
-    ctx,
     chalk.cyan(
       "To learn more, read the docs: https://docs.convex.dev/cli/local-deployments",
     ),
   );
   logMessage(
-    ctx,
     chalk.cyan(
       "To opt out at any time, run `npx convex disable-local-deployments`",
     ),

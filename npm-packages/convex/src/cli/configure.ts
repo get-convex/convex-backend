@@ -260,7 +260,6 @@ export async function _deploymentCredentialsOrConfigure(
       const forceAnonymous = process.env.CONVEX_AGENT_MODE === "anonymous";
       if (forceAnonymous) {
         logWarning(
-          ctx,
           chalk.yellow.bold(
             "CONVEX_AGENT_MODE=anonymous mode is in beta, functionality may change in the future.",
           ),
@@ -352,7 +351,7 @@ async function handleDeploymentWithinProject(
 
   const accessResult = await checkAccessToSelectedProject(ctx, targetProject);
   if (accessResult.kind === "noAccess") {
-    logMessage(ctx, "You don't have access to the selected project.");
+    logMessage("You don't have access to the selected project.");
     const result = await handleChooseProject(
       ctx,
       chosenConfiguration,
@@ -462,7 +461,6 @@ export async function handleManuallySetUrlAndAdminKey(
   const didErase = await eraseDeploymentEnvVar(ctx);
   if (didErase) {
     logMessage(
-      ctx,
       chalk.yellowBright(
         `Removed the CONVEX_DEPLOYMENT environment variable from .env.local`,
       ),
@@ -471,7 +469,6 @@ export async function handleManuallySetUrlAndAdminKey(
   const envVarWrite = await writeConvexUrlToEnvFile(ctx, url);
   if (envVarWrite !== null) {
     logMessage(
-      ctx,
       chalk.green(
         `Saved the given --url as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
       ),
@@ -555,7 +552,7 @@ async function selectNewProject(
         : undefined,
   });
 
-  showSpinner(ctx, "Creating new Convex project...");
+  showSpinner("Creating new Convex project...");
 
   let projectSlug, teamSlug, projectsRemaining;
   try {
@@ -566,14 +563,13 @@ async function selectNewProject(
       deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
     }));
   } catch (err) {
-    logFailure(ctx, "Unable to create project.");
+    logFailure("Unable to create project.");
     return await logAndHandleFetchError(ctx, err);
   }
   const teamMessage = didChooseBetweenTeams
     ? " in team " + chalk.bold(teamSlug)
     : "";
   logFinishedStep(
-    ctx,
     `Created project ${chalk.bold(
       projectSlug,
     )}${teamMessage}, manage it at ${chalk.bold(
@@ -583,7 +579,6 @@ async function selectNewProject(
 
   if (projectsRemaining <= 2) {
     logWarning(
-      ctx,
       chalk.yellow.bold(
         `Your account now has ${projectsRemaining} project${
           projectsRemaining === 1 ? "" : "s"
@@ -645,7 +640,7 @@ async function selectExistingProject(
         : undefined,
   });
 
-  showSpinner(ctx, `Reinitializing project ${projectSlug}...\n`);
+  showSpinner(`Reinitializing project ${projectSlug}...\n`);
 
   const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
 
@@ -653,7 +648,7 @@ async function selectExistingProject(
 
   await doCodegen(ctx, functionsPath, "disable");
 
-  logFinishedStep(ctx, `Reinitialized project ${chalk.bold(projectSlug)}`);
+  logFinishedStep(`Reinitialized project ${chalk.bold(projectSlug)}`);
   return { teamSlug, projectSlug, devDeployment };
 }
 

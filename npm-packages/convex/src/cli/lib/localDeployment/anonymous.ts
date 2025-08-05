@@ -76,15 +76,12 @@ export async function handleAnonymousDeployment(
     process.env.CONVEX_AGENT_MODE !== "anonymous"
   ) {
     logMessage(
-      ctx,
       "This command, `npx convex dev`, will run your Convex backend locally and update it with the function you write in the `convex/` directory.",
     );
     logMessage(
-      ctx,
       "Use `npx convex dashboard` to view and interact with your project from a web UI.",
     );
     logMessage(
-      ctx,
       "Use `npx convex docs` to read the docs and `npx convex help` to see other commands.",
     );
     ensureUuidForAnonymousUser(ctx);
@@ -104,7 +101,7 @@ export async function handleAnonymousDeployment(
   }
   ctx.registerCleanup(async (_exitCode, err) => {
     if (err instanceof LocalDeploymentError) {
-      printLocalDeploymentOnError(ctx);
+      printLocalDeploymentOnError();
     }
   });
   const { binaryPath, version } = await ensureBackendBinaryDownloaded(
@@ -254,10 +251,7 @@ async function chooseDeployment(
       (d) => d.deploymentName === options.deploymentName,
     );
     if (existing === undefined) {
-      logWarning(
-        ctx,
-        `Could not find project with name ${options.deploymentName}!`,
-      );
+      logWarning(`Could not find project with name ${options.deploymentName}!`);
     } else {
       return {
         kind: "existing",
@@ -273,7 +267,7 @@ async function chooseDeployment(
       deploymentName,
       deployments.map((d) => d.deploymentName),
     );
-    logVerbose(ctx, `Deployment name: ${uniqueName}`);
+    logVerbose(`Deployment name: ${uniqueName}`);
     return {
       kind: "new",
       deploymentName: uniqueName,
@@ -281,7 +275,7 @@ async function chooseDeployment(
   }
 
   if (deployments.length === 0) {
-    logMessage(ctx, "Let's set up your first project.");
+    logMessage("Let's set up your first project.");
     return await promptForNewDeployment(ctx, []);
   }
 
@@ -295,7 +289,7 @@ async function chooseDeployment(
       deploymentName,
       deployments.map((d) => d.deploymentName),
     );
-    logVerbose(ctx, `Deployment name: ${uniqueName}`);
+    logVerbose(`Deployment name: ${uniqueName}`);
     return {
       kind: "new",
       deploymentName: uniqueName,
@@ -367,7 +361,7 @@ async function promptForNewDeployment(
     `anonymous-${deploymentName}`,
     existingNames,
   );
-  logVerbose(ctx, `Deployment name: ${uniqueName}`);
+  logVerbose(`Deployment name: ${uniqueName}`);
   return isFirstDeployment
     ? {
         kind: "first",
@@ -422,7 +416,6 @@ export async function handleLinkToProject(
   projectSlug: string;
 }> {
   logVerbose(
-    ctx,
     `Linking ${args.deploymentName} to a project in team ${args.teamSlug}`,
   );
   const config = loadDeploymentConfig(ctx, "anonymous", args.deploymentName);
@@ -453,7 +446,7 @@ export async function handleLinkToProject(
     });
     projectSlug = newProjectSlug;
   }
-  logVerbose(ctx, `Creating local deployment in project ${projectSlug}`);
+  logVerbose(`Creating local deployment in project ${projectSlug}`);
   // Register it in big brain
   const { deploymentName: localDeploymentName, adminKey } = await bigBrainStart(
     ctx,
@@ -472,7 +465,7 @@ export async function handleLinkToProject(
       printedMessage: `Project ${projectSlug} already has a local deployment, so we cannot link this anonymous local deployment to it.`,
     });
   }
-  logVerbose(ctx, `Moving ${args.deploymentName} to ${localDeploymentName}`);
+  logVerbose(`Moving ${args.deploymentName} to ${localDeploymentName}`);
   await moveDeployment(
     ctx,
     {
@@ -484,7 +477,7 @@ export async function handleLinkToProject(
       deploymentName: localDeploymentName,
     },
   );
-  logVerbose(ctx, `Saving deployment config for ${localDeploymentName}`);
+  logVerbose(`Saving deployment config for ${localDeploymentName}`);
   saveDeploymentConfig(ctx, "local", localDeploymentName, {
     adminKey,
     backendVersion: config.backendVersion,
@@ -494,10 +487,7 @@ export async function handleLinkToProject(
     projectSlug,
     teamSlug: args.teamSlug,
   });
-  logFinishedStep(
-    ctx,
-    `Linked ${args.deploymentName} to project ${projectSlug}`,
-  );
+  logFinishedStep(`Linked ${args.deploymentName} to project ${projectSlug}`);
   return {
     projectSlug,
     deploymentName: localDeploymentName,

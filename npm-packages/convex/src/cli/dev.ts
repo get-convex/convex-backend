@@ -162,7 +162,7 @@ Same format as .env.local or .env files, and overrides them.`,
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
     process.on("SIGINT", async () => {
-      logVerbose(ctx, "Received SIGINT, cleaning up...");
+      logVerbose("Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
     });
 

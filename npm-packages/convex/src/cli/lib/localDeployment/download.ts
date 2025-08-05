@@ -51,10 +51,10 @@ async function _ensureBackendBinaryDownloaded(
   ctx: Context,
   version: string,
 ): Promise<{ binaryPath: string; version: string }> {
-  logVerbose(ctx, `Ensuring backend binary downloaded for version ${version}`);
+  logVerbose(`Ensuring backend binary downloaded for version ${version}`);
   const existingDownload = await checkForExistingDownload(ctx, version);
   if (existingDownload !== null) {
-    logVerbose(ctx, `Using existing download at ${existingDownload}`);
+    logVerbose(`Using existing download at ${existingDownload}`);
     return {
       binaryPath: existingDownload,
       version,
@@ -99,7 +99,6 @@ export async function findLatestVersionWithBinary(
 ): Promise<string> {
   const targetName = getDownloadPath();
   logVerbose(
-    ctx,
     `Finding latest stable release containing binary named ${targetName}`,
   );
   let latestVersion: string | undefined;
@@ -131,7 +130,7 @@ export async function findLatestVersionWithBinary(
         // Track the latest stable version we've seen even if it doesn't have our binary
         if (!latestVersion && !release.prerelease && !release.draft) {
           latestVersion = release.tag_name;
-          logVerbose(ctx, `Latest stable version is ${latestVersion}`);
+          logVerbose(`Latest stable version is ${latestVersion}`);
         }
 
         // Only consider stable releases
@@ -139,14 +138,12 @@ export async function findLatestVersionWithBinary(
           // Check if this release has our binary
           if (release.assets.find((asset) => asset.name === targetName)) {
             logVerbose(
-              ctx,
               `Latest stable version with appropriate binary is ${release.tag_name}`,
             );
             return release.tag_name;
           }
 
           logVerbose(
-            ctx,
             `Version ${release.tag_name} does not contain a ${targetName}, checking previous version`,
           );
         }
@@ -239,7 +236,7 @@ async function downloadBackendBinary(
       const name = executableName();
       const tempExecPath = path.join(unzippedPath, name);
       await makeExecutable(tempExecPath);
-      logVerbose(ctx, "Marked as executable");
+      logVerbose("Marked as executable");
       ctx.fs.mkdir(versionedBinaryDir(version), { recursive: true });
       ctx.fs.swapTmpFile(tempExecPath as TempPath, executablePath(version));
     },
@@ -296,7 +293,6 @@ async function downloadZipFile(
   let progressBar: ProgressBar | null = null;
   if (!isNaN(contentLength) && contentLength !== 0 && process.stdout.isTTY) {
     progressBar = startLogProgress(
-      ctx,
       `Downloading ${nameForLogging} [:bar] :percent :etas`,
       {
         width: 40,
@@ -305,7 +301,7 @@ async function downloadZipFile(
       },
     );
   } else {
-    logMessage(ctx, `Downloading ${nameForLogging}`);
+    logMessage(`Downloading ${nameForLogging}`);
   }
   if (response.status !== 200) {
     return await ctx.crash({
@@ -315,7 +311,7 @@ async function downloadZipFile(
     });
   }
   await withTmpDir(async (tmpDir) => {
-    logVerbose(ctx, `Created tmp dir ${tmpDir.path}`);
+    logVerbose(`Created tmp dir ${tmpDir.path}`);
     // Create a file in the tmp dir
     const zipLocation = tmpDir.registerTempPath(null);
     const readable = Readable.fromWeb(response.body! as any);
@@ -326,15 +322,15 @@ async function downloadZipFile(
     });
     if (progressBar) {
       progressBar.terminate();
-      logFinishedStep(ctx, `Downloaded ${nameForLogging}`);
+      logFinishedStep(`Downloaded ${nameForLogging}`);
     }
-    logVerbose(ctx, "Downloaded zip file");
+    logVerbose("Downloaded zip file");
 
     const zip = new AdmZip(zipLocation);
     await withTmpDir(async (versionDir) => {
-      logVerbose(ctx, `Created tmp dir ${versionDir.path}`);
+      logVerbose(`Created tmp dir ${versionDir.path}`);
       zip.extractAllTo(versionDir.path, true);
-      logVerbose(ctx, "Extracted from zip file");
+      logVerbose("Extracted from zip file");
       await args.onDownloadComplete(ctx, versionDir.path);
     });
   });
@@ -361,7 +357,7 @@ async function _ensureDashboardDownloaded(ctx: Context, version: string) {
     nameForLogging: "Convex dashboard",
     onDownloadComplete: async (ctx, unzippedPath) => {
       await recursivelyCopy(ctx, nodeFs, unzippedPath, outDir);
-      logVerbose(ctx, "Copied into out dir");
+      logVerbose("Copied into out dir");
     },
   });
   return outDir;

@@ -55,12 +55,12 @@ async function listTables(
     args: {},
   })) as { name: string }[];
   if (tables.length === 0) {
-    logError(ctx, `There are no tables in the ${deploymentNotice}database.`);
+    logError(`There are no tables in the ${deploymentNotice}database.`);
     return;
   }
   const tableNames = tables.map((table) => table.name);
   tableNames.sort();
-  logOutput(ctx, tableNames.join("\n"));
+  logOutput(tableNames.join("\n"));
 }
 
 async function listDocuments(
@@ -87,7 +87,7 @@ async function listDocuments(
   })) as Record<string, Value>[];
 
   if (data.length === 0) {
-    logError(ctx, "There are no documents in this table.");
+    logError("There are no documents in this table.");
     return;
   }
 
@@ -103,7 +103,6 @@ async function listDocuments(
   );
   if (data.length > options.limit) {
     logWarning(
-      ctx,
       chalk.yellow(
         `Showing the ${options.limit} ${
           options.order === "desc" ? "most recently" : "oldest"
@@ -148,14 +147,12 @@ function logDocumentsTable(ctx: Context, rows: Record<string, string>[]) {
   }
 
   logOutput(
-    ctx,
     limitLine(
       fields.map((field, i) => field.padEnd(columnWidths[i])).join(" | "),
       lineLimit,
     ),
   );
   logOutput(
-    ctx,
     limitLine(
       columnWidths.map((width) => "-".repeat(width)).join("-|-"),
       lineLimit,
@@ -163,7 +160,6 @@ function logDocumentsTable(ctx: Context, rows: Record<string, string>[]) {
   );
   for (const row of rows) {
     logOutput(
-      ctx,
       limitLine(
         fields
           .map((field, i) => (row[field] ?? "").padEnd(columnWidths[i]))
@@ -174,7 +170,6 @@ function logDocumentsTable(ctx: Context, rows: Record<string, string>[]) {
   }
   if (didTruncate) {
     logWarning(
-      ctx,
       chalk.yellow(
         "Lines were truncated to fit the terminal width. Pipe the command to see " +
           "the full output, such as:\n  `npx convex data tableName | less -S`",

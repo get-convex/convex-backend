@@ -1,5 +1,4 @@
 import { format } from "util";
-import { Context } from "./context.js";
 import chalk from "chalk";
 import ProgressBar from "progress";
 import ora, { Ora } from "ora";
@@ -12,35 +11,35 @@ function logToStderr(...args: unknown[]) {
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logError(_ctx: Context, message: string) {
+export function logError(message: string) {
   spinner?.clear();
   logToStderr(message);
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logWarning(_ctx: Context, ...logged: any) {
+export function logWarning(...logged: any) {
   spinner?.clear();
   logToStderr(...logged);
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logMessage(_ctx: Context, ...logged: any) {
+export function logMessage(...logged: any) {
   spinner?.clear();
   logToStderr(...logged);
 }
 
 // For the rare case writing output to stdout. Status and error messages
 // (logMessage, logWarning, etc.) should be written to stderr.
-export function logOutput(_ctx: Context, ...logged: any) {
+export function logOutput(...logged: any) {
   spinner?.clear();
   // the one spot where we can console.log
   // eslint-disable-next-line no-console
   console.log(...logged);
 }
 
-export function logVerbose(ctx: Context, ...logged: any) {
+export function logVerbose(...logged: any) {
   if (process.env.CONVEX_VERBOSE) {
-    logMessage(ctx, `[verbose] ${new Date().toISOString()}`, ...logged);
+    logMessage(`[verbose] ${new Date().toISOString()}`, ...logged);
   }
 }
 
@@ -51,7 +50,6 @@ export function logVerbose(ctx: Context, ...logged: any) {
  * when it's done.
  */
 export function startLogProgress(
-  _ctx: Context,
   format: string,
   progressBarOptions: ProgressBar.ProgressBarOptions,
 ): ProgressBar {
@@ -64,7 +62,7 @@ export function startLogProgress(
 // To print warnings/errors while it's running use logError or logWarning.
 // To stop it due to an error use logFailure.
 // To stop it due to success use logFinishedStep.
-export function showSpinner(_ctx: Context, message: string) {
+export function showSpinner(message: string) {
   spinner?.stop();
   spinner = ora({
     // Add newline to prevent clobbering when a message
@@ -78,7 +76,7 @@ export function showSpinner(_ctx: Context, message: string) {
   }).start();
 }
 
-export function changeSpinner(_ctx: Context, message: string) {
+export function changeSpinner(message: string) {
   if (spinner) {
     // Add newline to prevent clobbering
     spinner.text = message + "\n";
@@ -92,7 +90,7 @@ export function failExistingSpinner() {
   spinner = null;
 }
 
-export function logFailure(_ctx: Context, message: string) {
+export function logFailure(message: string) {
   if (spinner) {
     spinner.fail(message);
     spinner = null;
@@ -102,7 +100,7 @@ export function logFailure(_ctx: Context, message: string) {
 }
 
 // Stops and removes spinner if one is active
-export function logFinishedStep(_ctx: Context, message: string) {
+export function logFinishedStep(message: string) {
   if (spinner) {
     spinner.succeed(message);
     spinner = null;
@@ -111,7 +109,7 @@ export function logFinishedStep(_ctx: Context, message: string) {
   }
 }
 
-export function stopSpinner(_ctx: Context) {
+export function stopSpinner() {
   if (spinner) {
     spinner.stop();
     spinner = null;
@@ -120,13 +118,12 @@ export function stopSpinner(_ctx: Context) {
 
 // Only shows the spinner if the async `fn` takes longer than `delayMs`
 export async function showSpinnerIfSlow(
-  ctx: Context,
   message: string,
   delayMs: number,
   fn: () => Promise<any>,
 ) {
   const timeout = setTimeout(() => {
-    showSpinner(ctx, message);
+    showSpinner(message);
   }, delayMs);
   await fn();
   clearTimeout(timeout);

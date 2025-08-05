@@ -25,14 +25,14 @@ export const deployments = new Command("deployments")
 
     const url = `teams/${config.team}/projects/${config.project}/deployments`;
 
-    logMessage(ctx, `Deployments for project ${config.team}/${config.project}`);
+    logMessage(`Deployments for project ${config.team}/${config.project}`);
     const deployments = (await bigBrainAPI({
       ctx,
       method: "GET",
       url,
     })) as Deployment[];
-    logOutput(ctx, deployments);
+    logOutput(deployments);
     if (deployments.length === 0) {
-      logError(ctx, chalk.yellow(`No deployments exist for project`));
+      logError(chalk.yellow(`No deployments exist for project`));
     }
   });

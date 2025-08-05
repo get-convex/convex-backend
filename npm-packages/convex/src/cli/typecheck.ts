@@ -31,7 +31,7 @@ export const typecheck = new Command("typecheck")
       async (typecheckResult, logSpecificError, runOnError) => {
         logSpecificError?.();
         if (typecheckResult === "typecheckFailed") {
-          logMessage(ctx, chalk.gray("Typecheck failed"));
+          logMessage(chalk.gray("Typecheck failed"));
           try {
             await runOnError?.();
             // If runOnError doesn't throw then it worked the second time.
@@ -46,7 +46,6 @@ export const typecheck = new Command("typecheck")
           });
         } else if (typecheckResult === "cantTypeCheck") {
           logMessage(
-            ctx,
             chalk.gray("Unable to typecheck; is TypeScript installed?"),
           );
           return await ctx.crash({
@@ -56,7 +55,6 @@ export const typecheck = new Command("typecheck")
           });
         } else {
           logFinishedStep(
-            ctx,
             "Typecheck passed: `tsc --noEmit` completed with exit code 0.",
           );
           return await ctx.flushAndExit(0);

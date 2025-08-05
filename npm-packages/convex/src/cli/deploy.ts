@@ -98,7 +98,6 @@ Same format as .env.local or .env files, and overrides them.`,
 
     if (deploymentSelection.kind === "anonymous") {
       logMessage(
-        ctx,
         "You are currently developing anonymously with a locally running project.\n" +
           "To deploy your Convex app to the cloud, log in by running `npx convex login`.\n" +
           "See https://docs.convex.dev/production for more information on how Convex cloud works and instructions on how to set up hosting.",
@@ -182,7 +181,6 @@ async function deployToNewPreviewDeployment(
 
   if (options.dryRun) {
     logFinishedStep(
-      ctx,
       `Would have claimed preview deployment for "${previewName}"`,
     );
     await runCommand(ctx, {
@@ -193,11 +191,10 @@ async function deployToNewPreviewDeployment(
       adminKey: "preview-deployment-admin-key",
     });
     logFinishedStep(
-      ctx,
       `Would have deployed Convex functions to preview deployment for "${previewName}"`,
     );
     if (options.previewRun !== undefined) {
-      logMessage(ctx, `Would have run function "${options.previewRun}"`);
+      logMessage(`Would have run function "${options.previewRun}"`);
     }
     return;
   }
@@ -234,9 +231,9 @@ async function deployToNewPreviewDeployment(
     url: previewUrl,
     liveComponentSources: false,
   };
-  showSpinner(ctx, `Deploying to ${previewUrl}...`);
+  showSpinner(`Deploying to ${previewUrl}...`);
   await runPush(ctx, pushOptions);
-  logFinishedStep(ctx, `Deployed Convex functions to ${previewUrl}`);
+  logFinishedStep(`Deployed Convex functions to ${previewUrl}`);
 
   if (options.previewRun !== undefined) {
     await runFunctionAndLog(ctx, {
@@ -247,10 +244,7 @@ async function deployToNewPreviewDeployment(
       componentPath: undefined,
       callbacks: {
         onSuccess: () => {
-          logFinishedStep(
-            ctx,
-            `Finished running function "${options.previewRun}"`,
-          );
+          logFinishedStep(`Finished running function "${options.previewRun}"`);
         },
       },
     });
@@ -343,7 +337,6 @@ async function askToConfirmPush(
   prodUrl: string,
 ) {
   logMessage(
-    ctx,
     `\
 You're currently developing against your ${chalk.bold(
       deployment.configuredType ?? "dev",

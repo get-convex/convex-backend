@@ -55,13 +55,13 @@ function componentPlugin({
       // This regex can't be really precise since developers could import
       // "convex.config", "convex.config.js", "convex.config.ts", etc.
       build.onResolve({ filter: /.*convex.config.*/ }, async (args) => {
-        verbose && logMessage(ctx, "esbuild resolving import:", args);
+        verbose && logMessage("esbuild resolving import:", args);
         if (args.namespace !== "file") {
-          verbose && logMessage(ctx, "  Not a file.");
+          verbose && logMessage("  Not a file.");
           return;
         }
         if (args.kind === "entry-point") {
-          verbose && logMessage(ctx, "  -> Top-level entry-point.");
+          verbose && logMessage("  -> Top-level entry-point.");
           const componentDirectory = await buildComponentDirectory(
             ctx,
             path.resolve(args.path),
@@ -104,7 +104,7 @@ function componentPlugin({
           }
         }
         if (resolvedPath === undefined) {
-          verbose && logMessage(ctx, `  -> ${args.path} not found.`);
+          verbose && logMessage(`  -> ${args.path} not found.`);
           return;
         }
 
@@ -113,7 +113,7 @@ function componentPlugin({
         if (!imported) {
           const isComponent = isComponentDirectory(ctx, parentDir, false);
           if (isComponent.kind !== "ok") {
-            verbose && logMessage(ctx, "  -> Not a component:", isComponent);
+            verbose && logMessage("  -> Not a component:", isComponent);
             return;
           }
           imported = isComponent.component;
@@ -122,7 +122,6 @@ function componentPlugin({
 
         verbose &&
           logMessage(
-            ctx,
             "  -> Component import! Recording it.",
             args.path,
             resolvedPath,
@@ -534,7 +533,7 @@ export async function bundleImplementations(
     const functions = convexResult.modules;
     if (isRoot) {
       if (verbose) {
-        showSpinner(ctx, "Bundling modules for Node.js runtime...");
+        showSpinner("Bundling modules for Node.js runtime...");
       }
       const nodeResult: {
         modules: Bundle[];
@@ -637,7 +636,6 @@ async function registerEsbuildReads(
       // Consider this a transient error so we'll try again and hopefully
       // no files change right after esbuild next time.
       logWarning(
-        ctx,
         `Bundled file ${absPath} changed right after esbuild invocation`,
       );
       return await ctx.crash({

@@ -77,7 +77,7 @@ export function loadDeploymentConfig(
   const dir = deploymentStateDir(deploymentKind, deploymentName);
   const configFile = path.join(dir, "config.json");
   if (!ctx.fs.exists(dir) || !ctx.fs.stat(dir).isDirectory()) {
-    logVerbose(ctx, `Deployment ${deploymentName} not found`);
+    logVerbose(`Deployment ${deploymentName} not found`);
     return null;
   }
   if (ctx.fs.exists(configFile)) {
@@ -85,7 +85,7 @@ export function loadDeploymentConfig(
     try {
       return JSON.parse(content);
     } catch (e) {
-      logVerbose(ctx, `Failed to parse local deployment config: ${e as any}`);
+      logVerbose(`Failed to parse local deployment config: ${e as any}`);
       return null;
     }
   }
@@ -157,7 +157,7 @@ export function loadDashboardConfig(ctx: Context) {
   try {
     return JSON.parse(content);
   } catch (e) {
-    logVerbose(ctx, `Failed to parse dashboard config: ${e as any}`);
+    logVerbose(`Failed to parse dashboard config: ${e as any}`);
     return null;
   }
 }
@@ -183,7 +183,7 @@ export function loadUuidForAnonymousUser(ctx: Context) {
     const config = JSON.parse(content);
     return config.uuid ?? null;
   } catch (e) {
-    logVerbose(ctx, `Failed to parse uuid for anonymous user: ${e as any}`);
+    logVerbose(`Failed to parse uuid for anonymous user: ${e as any}`);
     return null;
   }
 }
