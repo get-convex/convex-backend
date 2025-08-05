@@ -27,7 +27,7 @@ Steps:
 1. Deploying the template
    Just deploy the template and enjoy. 🚀
    
-   Optional: If you would like to separete api and http domains follow steps below:
+   ℹ️ Optional: If you would like to separete api and http domains follow steps below:
 
    - Select `convex-backend` service
    - Select Settings tab and scroll to `Public Networking` section
@@ -37,7 +37,7 @@ Steps:
    - Make sure to select port `3210` and add your domain for convex (api) url and select port `3211` for http (action) routes
    - Re-deploy both `convex-dashboard` and `convex-backend` services
 
-3. Generating admin key with railway ssh
+2. Generating admin key with railway ssh
 
    Follow [these](https://blog.railway.com/p/ssh#how-to-ssh-on-railway)
    instructions to setup railway SSH on your machine
