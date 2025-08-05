@@ -70,33 +70,6 @@ use crate::{
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct BuildIndexesResponse {
-    added: Vec<IndexMetadataResponse>,
-    dropped: Vec<IndexMetadataResponse>,
-}
-
-impl TryFrom<LegacyIndexDiff> for BuildIndexesResponse {
-    type Error = anyhow::Error;
-
-    fn try_from(diff: LegacyIndexDiff) -> anyhow::Result<Self> {
-        Ok(BuildIndexesResponse {
-            added: diff
-                .added
-                .into_iter()
-                .map(IndexMetadataResponse::try_from)
-                .try_collect()?,
-            dropped: diff
-                .dropped
-                .into_iter()
-                .map(|doc| doc.into_value())
-                .map(IndexMetadataResponse::try_from)
-                .try_collect()?,
-        })
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct BackfillResponse {
     state: String,
 }
