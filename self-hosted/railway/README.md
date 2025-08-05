@@ -19,13 +19,13 @@ or use one click deploy button below:
 The template comes with pre-configured env-variables and you need to follow some
 setup steps to make it fully work.
 
-1. Setting up ports for the deployment
+1. Deploying the template
 2. Generating admin key with railway ssh
 
 Steps:
 
-1. Setting up ports for the deployment
-   Just deploy the template and enjoy 🚀
+1. Deploying the template
+   Just deploy the template and enjoy. 🚀
    
    Optional: If you would like to separete api and http domains follow steps below:
 
