@@ -25,6 +25,7 @@ pub enum TextIndexState {
     Backfilling(TextIndexBackfillState),
     Backfilled {
         snapshot: TextIndexSnapshot,
+        #[cfg_attr(any(test, feature = "testing"), proptest(value = "false"))]
         staged: bool,
     },
     SnapshottedAt(TextIndexSnapshot),
@@ -65,11 +66,12 @@ impl TryFrom<TextIndexState> for SerializedTextIndexState {
                     SerializedTextIndexState::Backfilling2(state.try_into()?)
                 }
             },
-            TextIndexState::Backfilled { snapshot, staged } => {
-                SerializedTextIndexState::Backfilled2 {
-                    snapshot: snapshot.try_into()?,
-                    staged,
-                }
+            TextIndexState::Backfilled {
+                snapshot,
+                staged: _,
+            } => {
+                // TODO(ENG-9637) Write Backfilled2 to track staged state
+                SerializedTextIndexState::Backfilled(snapshot.try_into()?)
             },
             TextIndexState::SnapshottedAt(snapshot) => {
                 SerializedTextIndexState::Snapshotted(snapshot.try_into()?)
