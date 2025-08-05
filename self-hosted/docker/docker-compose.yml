@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/get-convex/convex-backend:6efab6f2b6c182b90255774d747328cfc7b80dd9
+    image: ghcr.io/get-convex/convex-backend:33cef775a8a6228cbacee4a09ac2c4073d62ed13
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
@@ -27,6 +27,7 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_S3_FORCE_PATH_STYLE=${AWS_S3_FORCE_PATH_STYLE:-}
       - S3_STORAGE_EXPORTS_BUCKET=${S3_STORAGE_EXPORTS_BUCKET:-}
       - S3_STORAGE_SNAPSHOT_IMPORTS_BUCKET=${S3_STORAGE_SNAPSHOT_IMPORTS_BUCKET:-}
       - S3_STORAGE_MODULES_BUCKET=${S3_STORAGE_MODULES_BUCKET:-}
@@ -40,7 +41,7 @@ services:
       start_period: 10s
 
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:6efab6f2b6c182b90255774d747328cfc7b80dd9
+    image: ghcr.io/get-convex/convex-dashboard:33cef775a8a6228cbacee4a09ac2c4073d62ed13
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports:
