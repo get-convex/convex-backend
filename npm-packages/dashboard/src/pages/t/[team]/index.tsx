@@ -20,8 +20,9 @@ import { DocsGrid } from "components/projects/DocsGrid";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import Head from "next/head";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@ui/cn";
+import { PaginationControls } from "components/common/PaginationControls";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -109,10 +110,23 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
   );
 
   const [projectQuery, setProjectQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const projectsPerPage = 100;
 
   const filteredProjects = projects
     .filter((p) => p.name.toLowerCase().includes(projectQuery.toLowerCase()))
     .sort((a, b) => b.createTime - a.createTime);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
+  const startIndex = (currentPage - 1) * projectsPerPage;
+  const endIndex = startIndex + projectsPerPage;
+  const paginatedProjects = filteredProjects.slice(startIndex, endIndex);
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [projectQuery]);
 
   return (
     <div className="flex flex-col items-center">
@@ -165,6 +179,12 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
           )}
         </div>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        className="mb-2 ml-auto"
+      />
       {projects.length > 0 && filteredProjects.length === 0 && (
         <div className="my-24 flex flex-col items-center gap-2 text-content-secondary">
           There are no projects matching your search.
@@ -192,10 +212,18 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
           !showAsList && "lg:grid-cols-2 xl:grid-cols-3",
         )}
       >
-        {filteredProjects.map((p: ProjectDetails) => (
+        {paginatedProjects.map((p: ProjectDetails) => (
           <ProjectCard key={p.id} project={p} />
         ))}
       </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        className="ml-auto"
+      />
+
       {createProjectModal}
     </div>
   );
