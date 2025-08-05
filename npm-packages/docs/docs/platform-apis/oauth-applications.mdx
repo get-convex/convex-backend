@@ -1,5 +1,6 @@
 ---
 title: OAuth Applications
+sidebar_position: 10
 ---
 
 # OAuth Applications

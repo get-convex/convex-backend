@@ -1,0 +1,86 @@
+---
+title: Embedding the dashboard
+sidebar_position: 20
+---
+
+Convex provides a hosted dashboard that is embeddable via iframe. Embedding the
+dashboard is useful for developers building AI app generators, like
+[Convex Chef](https://chef.convex.dev).
+
+You can embed the Convex dashboard by adding an `<iframe>` to
+https://dashboard-embedded.convex.dev. Normally, the embedded dashboard requires
+the user to enter credentials to use it, but you may skip the login step by
+providing deployment credentials via a
+[`postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
+to the iframe.
+
+When using `postMessage`, there may be a delay until the credentials are
+received. The default login page will be shown until credentials are received,
+so we recommend adding a delay before displaying the rendered iframe to avoid
+flashing a login screen.
+
+<Admonition type="caution" title="This will share your credentials client-side">
+  When using `postMessage` to authenticate with the embedded dashboard, your
+  deployment key will be shared with the end-user. Only do this when sharing
+  credentials with the user is safe, such as with an [OAuth
+  Application](/platform-apis/oauth-applications).
+</Admonition>
+
+Required information for `postMessage`:
+
+- `deploymentUrl`: The deployment cloud URL. Returned when creating the project
+  with the [Create project API](/management-api/create-project)
+- `deploymentName`: The readable identifier for the deployment. Returned when
+  creating the project with the
+  [Create project API](/management-api/create-project).
+- `adminKey`: A deploy key scoped to the specified `deploymentName`. Can be
+  retrieved with the [Create deploy key API](/management-api/create-deploy-key).
+
+Here's an example of the Convex dashboard embedded in a React application:
+
+```tsx
+import { useEffect, useRef } from "react";
+
+export function Dashboard({
+  deploymentUrl,
+  deploymentName,
+  deployKey,
+}: {
+  deploymentUrl: string;
+  deploymentName: string;
+  deployKey: string;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // We first wait for the iframe to send a dashboard-credentials-request message.
+      // This makes sure that we don’t send the credentials until the iframe is ready.
+      if (event.data?.type !== "dashboard-credentials-request") {
+        return;
+      }
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "dashboard-credentials",
+          adminKey: deployKey,
+          deploymentUrl,
+          deploymentName,
+        },
+        "*",
+      );
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [deploymentUrl, adminKey, deploymentName]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      // You can also default on other pages, for instance /functions, /files or /logs
+      src="https://dashboard-embedded.convex.dev/data"
+      allow="clipboard-write"
+    />
+  );
+}
+```
