@@ -649,10 +649,18 @@ impl proptest::arbitrary::Arbitrary for TableDefinition {
                     let index_descriptors: BTreeSet<_> = indexes
                         .iter()
                         .map(|i| &i.index_descriptor)
+                        .chain(staged_db_indexes.iter().map(|i| &i.index_descriptor))
                         .chain(search_indexes.iter().map(|i| &i.index_descriptor))
+                        .chain(staged_search_indexes.iter().map(|i| &i.index_descriptor))
                         .chain(vector_indexes.iter().map(|i| &i.index_descriptor))
+                        .chain(staged_vector_indexes.iter().map(|i| &i.index_descriptor))
                         .collect();
-                    let expected = indexes.len() + search_indexes.len() + vector_indexes.len();
+                    let expected = indexes.len()
+                        + staged_db_indexes.len()
+                        + search_indexes.len()
+                        + staged_search_indexes.len()
+                        + vector_indexes.len()
+                        + staged_vector_indexes.len();
                     assert!(index_descriptors.len() <= expected);
                     if index_descriptors.len() == expected {
                         Some(Self {
