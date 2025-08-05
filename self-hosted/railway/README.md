@@ -25,9 +25,9 @@ setup steps to make it fully work.
 Steps:
 
 1. Setting up ports for the deployment
-
    Just deploy the template and enjoy 🚀
-   If you would like to separete api and http domains
+   
+   Optional: If you would like to separete api and http domains follow steps below:
 
    - Select `convex-backend` service
    - Select Settings tab and scroll to `Public Networking` section
