@@ -273,13 +273,13 @@ export default defineSchema({
         onDiskState: v.union(
           v.object({
             type: v.literal("Backfilling"),
-            backfill_state: v.object({
-              index_created_lower_bound: v.optional(v.int64()),
-              retention_started: v.optional(v.boolean()),
+            backfillState: v.object({
+              staged: v.optional(v.boolean()),
             }),
           }),
           v.object({
             type: v.literal("Backfilled2"),
+            staged: v.optional(v.boolean()),
           }),
           v.object({
             type: v.literal("Enabled"),
@@ -293,27 +293,33 @@ export default defineSchema({
         type: v.literal("search"),
         searchField: v.string(),
         filterFields: v.array(v.string()),
-        onDiskState: v.object({
-          state: v.union(
-            v.literal("backfilling"),
-            v.literal("backfilling2"),
-            v.literal("backfilled"),
-            v.literal("snapshotted"),
-          ),
-        }),
+        onDiskState: v.union(
+          v.object({
+            state: v.union(
+              v.literal("backfilling"),
+              v.literal("backfilling2"),
+              v.literal("backfilled2"),
+            ),
+            // skip some fields here
+            staged: v.optional(v.boolean()),
+          }),
+          v.object({
+            state: v.union(v.literal("backfilled"), v.literal("snapshotted")),
+          }),
+        ),
       }),
       v.object({
         type: v.literal("vector"),
         vectorField: v.string(),
         dimensions: v.int64(),
         filterFields: v.array(v.string()),
-        onDiskState: v.object({
-          state: v.union(
-            v.literal("backfilling"),
-            v.literal("backfilled"),
-            v.literal("snapshotted"),
-          ),
-        }),
+        onDiskState: v.union(
+          v.object({
+            state: v.union(v.literal("backfilling"), v.literal("backfilled")),
+            staged: v.optional(v.boolean()),
+          }),
+          v.object({ state: v.literal("snapshotted") }),
+        ),
       }),
     ),
   }),
