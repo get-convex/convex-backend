@@ -101,6 +101,26 @@ export const WithUpdatingIndexes: Story = {
       {
         table: "my-table",
         name: "updated_index",
+        fields: ["name"],
+        staged: true,
+        backfill: {
+          state: "in_progress",
+          stats: { numDocsIndexed: 500, totalDocs: 1000 },
+        },
+      },
+      {
+        table: "my-table",
+        name: "updated_index",
+        fields: ["name"],
+        staged: true,
+        backfill: {
+          state: "in_progress",
+          stats: { numDocsIndexed: 1000, totalDocs: 1000 },
+        },
+      },
+      {
+        table: "my-table",
+        name: "updated_index",
         fields: ["name", "subtitle"],
         backfill: {
           state: "in_progress",

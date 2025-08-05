@@ -5,7 +5,7 @@ import {
   ArrowTopRightIcon,
 } from "@radix-ui/react-icons";
 import { FingerPrintIcon } from "@heroicons/react/24/outline";
-import { Index } from "@common/features/data/lib/api";
+import { Index, IndexType } from "@common/features/data/lib/api";
 import { useNents } from "@common/lib/useNents";
 import { Loading } from "@ui/Loading";
 import { Spinner } from "@ui/Spinner";
@@ -14,6 +14,7 @@ import { api } from "system-udfs/convex/_generated/api";
 import { Fragment } from "react";
 import { ProgressBar } from "@ui/ProgressBar";
 import { Tooltip } from "@ui/Tooltip";
+import { cn } from "@ui/cn";
 
 export function IndexList({ tableName }: { tableName: string }) {
   const { selectedNent } = useNents();
@@ -48,6 +49,7 @@ export function IndexesList({
         indexes={groupedIndexes.database ?? []}
         icon={FingerPrintIcon}
         tableName={tableName}
+        indexType="database"
       />
       <IndexListSection
         title="Search indexes"
@@ -56,6 +58,7 @@ export function IndexesList({
         indexes={groupedIndexes.search ?? []}
         icon={MagnifyingGlassIcon}
         tableName={tableName}
+        indexType="search"
       />
       <IndexListSection
         title="Vector indexes"
@@ -64,6 +67,7 @@ export function IndexesList({
         indexes={groupedIndexes.vector ?? []}
         icon={ArrowTopRightIcon}
         tableName={tableName}
+        indexType="vector"
       />
     </div>
   );
@@ -76,6 +80,7 @@ function IndexListSection({
   indexes,
   icon: Icon,
   tableName,
+  indexType,
 }: {
   title: string;
   description: string;
@@ -83,6 +88,7 @@ function IndexListSection({
   indexes: Index[];
   icon: React.FC<{ className?: string }>;
   tableName: string;
+  indexType: IndexType;
 }) {
   const indexesByName = groupBy(indexes, "name");
 
@@ -119,6 +125,7 @@ function IndexListSection({
             <IndexListRow
               key={`${index.name} ${indexesByName[index.name].indexOf(index)}`}
               index={index}
+              indexType={indexType}
             />
           ))}
         </div>
@@ -127,16 +134,69 @@ function IndexListSection({
   );
 }
 
-function IndexListRow({ index }: { index: Index }) {
+function stagedIndexSyntaxForType(indexType: IndexType) {
+  switch (indexType) {
+    case "database":
+      return ".stagedIndex()";
+    case "search":
+      return ".stagedSearchIndex()";
+    case "vector":
+      return ".stagedVectorIndex()";
+    default: {
+      const _exhaustivenessCheck: never = indexType;
+      return "unknown";
+    }
+  }
+}
+
+function indexSyntaxForType(indexType: IndexType) {
+  switch (indexType) {
+    case "database":
+      return ".index()";
+    case "search":
+      return ".searchIndex()";
+    case "vector":
+      return ".vectorIndex()";
+    default: {
+      const _exhaustivenessCheck: never = indexType;
+      return "unknown";
+    }
+  }
+}
+
+function IndexListRow({
+  index,
+  indexType,
+}: {
+  index: Index;
+  indexType: IndexType;
+}) {
   const { fields } = index;
+  const isStaged = index.staged === true;
 
   return (
     <article className="flex flex-col gap-2 text-sm text-content-secondary">
       <header className="flex items-center gap-2">
         <h6 className="truncate font-mono text-sm font-medium text-content-primary">
           {index.name}
+          {isStaged && (
+            <Tooltip
+              tip={
+                <div className="text-sm">
+                  <p className="mb-2">
+                    Staged indexes are not queryable. To enable this index,
+                    replace <code>{stagedIndexSyntaxForType(indexType)}</code>{" "}
+                    with a <code>{indexSyntaxForType(indexType)}</code>in your{" "}
+                    <code>schema.ts</code> file.
+                  </p>
+                </div>
+              }
+            >
+              <span className="ml-2 text-xs font-normal">(staged)</span>
+            </Tooltip>
+          )}
         </h6>
-        <div className="grow border-b" role="presentation" />
+        <div className={cn("grow border-b", isStaged && "border-dashed")} />
       </header>
 
       <div className="flex flex-col gap-1 pl-2">
@@ -171,9 +231,11 @@ function IndexListRow({ index }: { index: Index }) {
         )}
       </div>
 
-      {index.backfill.state === "in_progress" && (
+      {(index.backfill.state === "in_progress" ||
+        index.backfill.state === "backfilling" ||
+        index.backfill.state === "backfilled") && (
         <div className="flex flex-col gap-1 pl-2">
-          <p className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {!(
               index.backfill.stats && index.backfill.stats.totalDocs !== null
             ) && (
@@ -182,7 +244,7 @@ function IndexListRow({ index }: { index: Index }) {
               </div>
             )}
             Backfill in progress
-          </p>
+          </div>
           {index.backfill.stats && index.backfill.stats.totalDocs !== null && (
             <IndexBackfillProgress
               numDocsIndexed={index.backfill.stats.numDocsIndexed}
@@ -246,19 +308,19 @@ function IndexBackfillProgress({
   );
 }
 
-function getIndexType(index: Index) {
+function getIndexType(index: Index): IndexType | "unknown" {
   if (Array.isArray(index.fields)) {
-    return "database" as const;
+    return "database";
   }
 
   if ("searchField" in index.fields) {
-    return "search" as const;
+    return "search";
   }
 
   if ("vectorField" in index.fields) {
-    return "vector" as const;
+    return "vector";
   }
 
   const _unreachable: never = index.fields;
-  return "unknown" as const;
+  return "unknown";
 }

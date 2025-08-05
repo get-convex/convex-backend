@@ -48,6 +48,7 @@ export const useInvalidateShapes = () => {
 export type Index = {
   table?: string;
   name: string;
+  staged?: boolean;
   fields:
     | string[]
     | {
@@ -60,10 +61,13 @@ export type Index = {
         dimensions: number;
       };
   backfill: {
-    state: "in_progress" | "done";
+    // TODO(ENG-9643) Remove "in_progress" support
+    state: "backfilling" | "backfilled" | "in_progress" | "done";
     stats?: {
       numDocsIndexed: number;
       totalDocs: number | null;
     };
   };
 };
+
+export type IndexType = "database" | "search" | "vector";
