@@ -22,7 +22,7 @@
     "dashboard": "workspace:*"
   },
   "dependencies": {
-    "openapi-fetch": "~0.13.0",
+    "openapi-fetch": "~0.14.0",
     "tsdown": "^0.12.7",
     "tsx": "^4.19.4"
   },

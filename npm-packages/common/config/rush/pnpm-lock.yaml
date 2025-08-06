@@ -295,8 +295,8 @@ importers:
   ../../@convex-dev/platform:
     dependencies:
       openapi-fetch:
-        specifier: ~0.13.0
-        version: 0.13.4
+        specifier: ~0.14.0
+        version: 0.14.0
       tsdown:
         specifier: ^0.12.7
         version: 0.12.9(oxc-resolver@11.5.2)(typescript@5.8.3)
@@ -970,8 +970,8 @@ importers:
         specifier: ~0.2.0
         version: 0.2.0
       openapi-fetch:
-        specifier: ~0.13.0
-        version: 0.13.4
+        specifier: ~0.14.0
+        version: 0.14.0
       posthog-js:
         specifier: ~1.256.0
         version: 1.256.2(@rrweb/types@2.0.0-alpha.17)
@@ -1010,7 +1010,7 @@ importers:
         version: 2.3.0(react@18.3.1)
       swr-openapi:
         specifier: ~5.1.0
-        version: 5.1.4(openapi-fetch@0.13.4)(openapi-typescript@7.6.1(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1))(typescript@5.0.4)
+        version: 5.1.4(openapi-fetch@0.14.0)(openapi-typescript@7.6.1(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1))(typescript@5.0.4)
       system-udfs:
         specifier: workspace:*
         version: link:../system-udfs
@@ -18193,8 +18193,8 @@ packages:
       zod:
         optional: true
 
-  openapi-fetch@0.13.4:
-    resolution: {integrity: sha512-JHX7UYjLEiHuQGCPxa3CCCIqe/nc4bTIF9c4UYVC8BegAbWoS3g4gJxKX5XcG7UtYQs2060kY6DH64KkvNZahg==}
+  openapi-fetch@0.14.0:
+    resolution: {integrity: sha512-PshIdm1NgdLvb05zp8LqRQMNSKzIlPkyMxYFxwyHR+UlKD4t2nUjkDhNxeRbhRSEd3x5EUNh2w5sJYwkhOH4fg==}
 
   openapi-to-postmanv2@4.25.0:
     resolution: {integrity: sha512-sIymbkQby0gzxt2Yez8YKB6hoISEel05XwGwNrAhr6+vxJWXNxkmssQc/8UEtVkuJ9ZfUXLkip9PYACIpfPDWg==}
@@ -43412,7 +43412,7 @@ snapshots:
       - encoding
     optional: true
 
-  openapi-fetch@0.13.4:
+  openapi-fetch@0.14.0:
     dependencies:
       openapi-typescript-helpers: 0.0.15
 
@@ -46914,9 +46914,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  swr-openapi@5.1.4(openapi-fetch@0.13.4)(openapi-typescript@7.6.1(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1))(typescript@5.0.4):
+  swr-openapi@5.1.4(openapi-fetch@0.14.0)(openapi-typescript@7.6.1(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1))(typescript@5.0.4):
     dependencies:
-      openapi-fetch: 0.13.4
+      openapi-fetch: 0.14.0
       openapi-typescript-helpers: 0.0.15
       react: 18.3.1
       swr: 2.3.0(react@18.3.1)
