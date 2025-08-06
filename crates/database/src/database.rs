@@ -942,6 +942,7 @@ impl<RT: Runtime> Database<RT> {
         shutdown: ShutdownSignal,
         virtual_system_mapping: VirtualSystemMapping,
         usage_events: Arc<dyn UsageEventLogger>,
+        retention_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<Self> {
         let _load_database_timer = metrics::load_database_timer();
 
@@ -997,6 +998,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot_reader.clone(),
             follower_retention_manager,
             shutdown.clone(),
+            retention_rate_limiter,
         )
         .await?;
 

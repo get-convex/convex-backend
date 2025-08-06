@@ -77,8 +77,8 @@ use common::{
     },
     query::Order,
     runtime::{
-        new_rate_limiter,
         shutdown_and_join,
+        RateLimiter,
         Runtime,
         SpawnHandle,
     },
@@ -115,13 +115,19 @@ use futures::{
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
-use governor::Quota;
+use governor::{
+    InsufficientCapacity,
+    Jitter,
+};
 use parking_lot::Mutex;
 use rand::Rng;
-use tokio::sync::watch::{
-    self,
-    Receiver,
-    Sender,
+use tokio::{
+    sync::watch::{
+        self,
+        Receiver,
+        Sender,
+    },
+    time::MissedTickBehavior,
 };
 use value::InternalDocumentId;
 
@@ -251,6 +257,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: Reader<SnapshotManager>,
         follower_retention_manager: FollowerRetentionManager<RT>,
         lease_lost_shutdown: ShutdownSignal,
+        retention_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
         let reader = persistence.reader();
         let snapshot_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
@@ -361,6 +368,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 receive_min_document_snapshot,
                 document_checkpoint_writer,
                 snapshot_reader.clone(),
+                retention_rate_limiter.clone(),
             ),
         );
         Ok(Self {
@@ -913,6 +921,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         rt: &RT,
         cursor: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
+        retention_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
         if !*RETENTION_DOCUMENT_DELETES_ENABLED || *min_snapshot_ts == Timestamp::MIN {
             return Ok((cursor, 0));
@@ -956,8 +965,36 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             let results = try_join_all(
                 Self::partition_document_chunk(delete_chunk)
                     .into_iter()
-                    .map(|delete_chunk| {
+                    .map(|delete_chunk| async {
+                        if delete_chunk.is_empty() {
+                            return Ok((*new_cursor, 0));
+                        }
+                        let mut chunk_len = delete_chunk.len() as u32;
+                        loop {
+                            match retention_rate_limiter.check_n(chunk_len.try_into().unwrap()) {
+                                Ok(Ok(())) => {
+                                    break;
+                                },
+                                Ok(Err(not_until)) => {
+                                    let wait_time = Jitter::up_to(Duration::from_secs(1))
+                                        + not_until.wait_time_from(rt.monotonic_now().into());
+                                    rt.wait(wait_time).await;
+                                    continue;
+                                },
+                                Err(InsufficientCapacity(n)) => {
+                                    tracing::warn!(
+                                        "Retention rate limiter quota is insufficient for chunks \
+                                         of {} documents (current quota: {n}/sec), rate limit \
+                                         will be exceeded",
+                                        delete_chunk.len()
+                                    );
+                                    chunk_len = n;
+                                    continue;
+                                },
+                            }
+                        }
                         Self::delete_document_chunk(delete_chunk, persistence.clone(), *new_cursor)
+                            .await
                     }),
             )
             .await?;
@@ -1241,6 +1278,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         mut min_document_snapshot_rx: Receiver<RepeatableTimestamp>,
         mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
+        retention_rate_limiter: Arc<RateLimiter<RT>>,
     ) {
         // Wait with jitter on startup to avoid thundering herd
         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
@@ -1251,11 +1289,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             Backoff::new(INITIAL_BACKOFF, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
         let mut min_document_snapshot_ts = RepeatableTimestamp::MIN;
         let mut is_working = false;
-
-        let rate_limiter = new_rate_limiter(
-            rt.clone(),
-            Quota::with_period(*DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).unwrap(),
-        );
+        let mut interval = tokio::time::interval(*DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         loop {
             if !is_working {
@@ -1274,10 +1309,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             }
 
             // Rate limit so we don't overload the database
-            while let Err(not_until) = rate_limiter.check() {
-                let delay = not_until.wait_time_from(rt.monotonic_now().into());
-                rt.wait(delay).await;
-            }
+            interval.tick().await;
 
             tracing::trace!(
                 "go_delete_documents: running, is_working: {is_working}, current_bounds: \
@@ -1298,6 +1330,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &rt,
                     cursor,
                     retention_validator.clone(),
+                    retention_rate_limiter.clone(),
                 )
                 .await?;
                 tracing::debug!("go_delete_documents: Checkpointing at: {new_cursor:?}");

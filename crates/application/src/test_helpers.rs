@@ -30,7 +30,10 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     persistence::Persistence,
-    runtime::Runtime,
+    runtime::{
+        new_unlimited_rate_limiter,
+        Runtime,
+    },
     shutdown::ShutdownSignal,
     testing::TestPersistence,
     types::{
@@ -200,6 +203,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             ShutdownSignal::panic(),
             virtual_system_mapping().clone(),
             args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger)),
+            // Essentially unlimited rate limit for testing
+            Arc::new(new_unlimited_rate_limiter(rt.clone())),
         )
         .await?;
         initialize_application_system_tables(&database).await?;

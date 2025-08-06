@@ -480,6 +480,17 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
     ))
 });
 
+/// Documents-per-second rate limit for document retention
+/// Note that while this serves as an upper bound, retention speed is mostly
+/// limited by `DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS`,
+/// `DOCUMENT_RETENTION_DELETE_CHUNK`, and `DOCUMENT_RETENTION_DELETE_PARALLEL`
+pub static DOCUMENT_RETENTION_RATE_LIMIT: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "DOCUMENT_RETENTION_RATE_LIMIT",
+        NonZeroU32::new(1024).unwrap(),
+    )
+});
+
 /// Maximum scanned documents within a single run for document retention unless
 /// there are a bunch of writes at single timestamp. Then, we go until there are
 /// no more writes at that timestamp.

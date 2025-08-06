@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use common::{
     persistence::Persistence,
-    runtime::Runtime,
+    runtime::{
+        new_unlimited_rate_limiter,
+        Runtime,
+    },
     shutdown::ShutdownSignal,
     testing::TestPersistence,
     virtual_system_mapping::VirtualSystemMapping,
@@ -88,6 +91,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             ShutdownSignal::panic(),
             virtual_system_mapping,
             Arc::new(test_usage_logger.clone()),
+            Arc::new(new_unlimited_rate_limiter(rt.clone())),
         )
         .await?;
         db.set_search_storage(search_storage.clone());

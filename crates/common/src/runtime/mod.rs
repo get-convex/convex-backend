@@ -485,6 +485,14 @@ pub fn new_rate_limiter<RT: Runtime>(runtime: RT, quota: Quota) -> RateLimiter<R
     RateLimiter::direct_with_clock(quota, RuntimeClock { runtime })
 }
 
+/// Creates a rate limiter that is *nearly* unlimited, useful for testing.
+pub fn new_unlimited_rate_limiter<RT: Runtime>(runtime: RT) -> RateLimiter<RT> {
+    new_rate_limiter(
+        runtime,
+        Quota::with_period(Duration::from_nanos(1)).unwrap(),
+    )
+}
+
 pub fn new_keyed_rate_limiter<RT: Runtime, K: Hash + Eq + Clone>(
     runtime: RT,
     quota: Quota,
