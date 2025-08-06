@@ -13,7 +13,7 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "convex-helpers": "^0.1.85",
-    "prettier": "3.5.3"
+    "prettier": "3.6.2"
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.0",

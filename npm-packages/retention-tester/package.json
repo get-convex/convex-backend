@@ -13,7 +13,7 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "@faker-js/faker": "^9.0.0",
-    "prettier": "3.5.3"
+    "prettier": "3.6.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

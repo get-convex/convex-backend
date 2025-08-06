@@ -25,7 +25,7 @@
     "snowflake-sdk": "^2.0.0",
     "tiktoken": "^1.0.10",
     "@types/node-fetch": "^2.6.1",
-    "prettier": "3.5.3"
+    "prettier": "3.6.2"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",

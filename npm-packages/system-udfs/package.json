@@ -21,7 +21,7 @@
     "id-encoding": "workspace:*",
     "js-base64": "~3.7.4",
     "convex": "workspace:*",
-    "prettier": "3.5.3",
+    "prettier": "3.6.2",
     "udf-syscall-ffi": "workspace:*"
   },
   "devDependencies": {
