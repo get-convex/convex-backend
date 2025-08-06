@@ -10,12 +10,12 @@
   },
   "dependencies": {
     "convex": "^0.19.0",
-    "expo": "~48.0.9",
-    "expo-status-bar": "~1.12.0",
+    "expo": "~53.0.20",
+    "expo-status-bar": "~2.2.3",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
-    "react-native": "0.79.3",
-    "react-native-dotenv": "^3.4.8",
+    "react-native": "0.80.2",
+    "react-native-dotenv": "^3.4.11",
     "react-native-get-random-values": "~1.11.0"
   },
   "devDependencies": {
