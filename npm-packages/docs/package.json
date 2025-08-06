@@ -44,7 +44,7 @@
     "postcss": "^8.4.19",
     "@radix-ui/react-icons": "~1.3.0",
     "react-cookie": "~7.2.2",
-    "posthog-js": "~1.250.0",
+    "posthog-js": "~1.256.0",
     "dotenv": "^16.4.7",
     "@docusaurus/plugin-content-docs": "~3.8.1",
     "copy-text-to-clipboard": "^3.2.0",
