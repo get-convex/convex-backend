@@ -75,7 +75,7 @@
   "types": "./dist/commonjs/index.d.ts",
   "dependencies": {
     "@auth/core": "^0.37.0",
-    "@convex-dev/auth": "^0.0.83",
+    "@convex-dev/auth": "^0.0.87",
     "convex-helpers": "^0.1.85"
   },
   "overrides": {
