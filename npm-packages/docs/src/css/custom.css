@@ -1611,3 +1611,25 @@ a.video-card h2 {
   letter-spacing: normal;
   max-height: 2.4em;
 }
+
+/* Hack to hide additional Bearer token headers in OpenAPI endpoints */
+.openapi-explorer__details-container:nth-child(2)
+  > div
+  > .openapi-explorer__form-item:nth-child(2) {
+  display: none;
+}
+.openapi-explorer__details-container:nth-child(2)
+  > div
+  > .openapi-explorer__form-item:nth-child(3) {
+  display: none;
+}
+.openapi-explorer__details-container:nth-child(2)
+  > div
+  > .openapi-explorer__form-item:nth-child(4) {
+  display: none;
+}
+.openapi-explorer__details-container:nth-child(2)
+  > div
+  > .openapi-explorer__form-item:nth-child(5) {
+  display: none;
+}

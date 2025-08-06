@@ -9,7 +9,8 @@ description:
 
 When you can't log in or use the CLI interactively to specify a project or
 deployment, for example in a production build environment, the environment
-variable `CONVEX_DEPLOY_KEY` can be set to a deploy key.
+variable `CONVEX_DEPLOY_KEY` can be set to a deploy key to make convex CLI
+commands run non-interactively.
 
 Deploy keys identify a deployment, project, or team; confer permission to take
 certain actions with those resources; and can change the behavior of the convex
@@ -34,7 +35,7 @@ serialized data.
 
 In either of these cases, there's no reason to set `CONVEX_DEPLOY_KEY`.
 
-### Setting deploy keys
+### How to set a deploy key
 
 Generally deploys keys are set in a dashboard of the service that needs the key
 but in most shells you can set it right before the command, like
@@ -43,14 +44,15 @@ but in most shells you can set it right before the command, like
 CONVEX_DEPLOY_KEY='key goes here' npx convex dev
 ```
 
-or set in before you run the command
+or export it before you run the command
 
 ```
 export CONVEX_DEPLOY_KEY='key goes here'
 npx convex dev
 ```
 
-or add it to your .env.local file where it will be found by `npx convex`.
+or add it to your `.env.local` file where it will be found by `npx convex` when
+run in that directory.
 
 # Common uses of deploy keys
 
@@ -112,3 +114,15 @@ Project tokens are obtained when a user grants an permission to use a project to
 an organization via an Convex OAuth application. Actions made with the token are
 on behalf of the user so if a user loses access to a project the token no longer
 grant access to it.
+
+### Development deploy keys
+
+A _dev deploy key_ might be used to provide an agent full access to a single
+deployment for development.
+
+> `dev:joyful-jaguar-123|eyJ2...0=`
+
+This can help limit the blast radius when developing with an agent.
+
+To give an agent exclusive access to its own dev deployment, see
+[Agent Mode](/docs/cli/background-agents.mdx).

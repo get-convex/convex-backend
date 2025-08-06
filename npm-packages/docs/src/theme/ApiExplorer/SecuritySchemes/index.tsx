@@ -12,6 +12,13 @@ function Passthrough({ children }: any) {
   return children;
 }
 
+const AuthTypeLinks: Record<string, string> = {
+  "OAuth Team Token": "/platform-apis/oauth-applications",
+  "OAuth Project Token": "//platform-apis/oauth-applications",
+  "Team Token": "/platform-apis#managing-your-own-projects",
+  PAT: "/platform-apis#managing-your-own-projects",
+};
+
 function SecuritySchemes(props: any) {
   const options = useTypedSelector((state: any) => state.auth.options);
   const selected = useTypedSelector((state: any) => state.auth.selected);
@@ -39,7 +46,14 @@ function SecuritySchemes(props: any) {
         const infoAuthPath = `/${props.infoPath}#authentication`;
         if (isHttp) {
           if (auth.scheme === "bearer") {
-            const { name, key, type, scopes, ...rest } = auth;
+            const {
+              name,
+              key,
+              type: _type,
+              scopes,
+              scheme: _scheme,
+              ...rest
+            } = auth;
             return (
               <React.Fragment key={auth.key}>
                 <pre
@@ -53,13 +67,13 @@ function SecuritySchemes(props: any) {
                   }}
                 >
                   <span>
-                    <strong>name:</strong>{" "}
-                    <Link to={infoAuthPath}>{name ?? key}</Link>
+                    <strong>
+                      <Link to={AuthTypeLinks[key] || infoAuthPath}>
+                        {name ?? key}
+                      </Link>
+                    </strong>
                   </span>
-                  <span>
-                    <strong>type: </strong>
-                    {type}
-                  </span>
+                  <span>HTTP Bearer token</span>
                   {scopes && scopes.length > 0 && (
                     <span>
                       <strong>scopes: </strong>
@@ -71,7 +85,6 @@ function SecuritySchemes(props: any) {
                   {Object.keys(rest).map((k, _i) => {
                     return (
                       <span key={k}>
-                        <strong>{k}: </strong>
                         {typeof rest[k] === "object" ? (
                           JSON.stringify(rest[k], null, 2)
                         ) : typeof rest[k] === "string" &&

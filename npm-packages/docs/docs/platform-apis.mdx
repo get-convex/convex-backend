@@ -61,15 +61,15 @@ call the relevant APIs to manage Convex projects and deployments.
 ## Pushing code to a deployment
 
 Working with your deployment should be scripted primarily with the existing
-Convex CLI. The Convex CLI manages a lot of the heavy lifting such as bundling
-code properly handling responses etc.
+Convex CLI. The Convex CLI manages a lot of the heavy lifting: bundling code,
+properly handling responses, etc.
 
 The examples here assume you are working in a container with shell and file
 system access from which you can drive the app building process. You likely
 already have this if you're generating frontend code.
 
-A `CONVEX_DEPLOY_KEY` is the value returned by the
-[Create deploy key](/management-api/create-deploy-key) API.
+Set [`CONVEX_DEPLOY_KEY`](/docs/cli/deploy-key-types.mdx) is the value returned
+by the [Create deploy key](/management-api/create-deploy-key) API.
 
 ### Pushing code to the dev Convex backend
 

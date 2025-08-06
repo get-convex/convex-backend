@@ -1,14 +1,20 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "big_brain",
-    "description": "",
+    "title": "Convex Management API",
+    "description": "Management API for provisioning and managing Convex projects and deployments.",
     "license": {
       "name": "LicenseRef-Convex",
       "identifier": "LicenseRef-Convex"
     },
-    "version": "0.1.0"
+    "version": "1.0.0"
   },
+  "servers": [
+    {
+      "url": "https://api.convex.dev/v1",
+      "description": "Platform API"
+    }
+  ],
   "paths": {
     "/teams/{team_id}/create_project": {
       "post": {
