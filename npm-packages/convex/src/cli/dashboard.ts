@@ -67,7 +67,14 @@ export const dashboard = new Command("dashboard")
 async function logOrOpenUrl(ctx: Context, url: string, shouldOpen: boolean) {
   if (shouldOpen) {
     logMessage(chalk.gray(`Opening ${url} in the default browser...`));
-    await open(url);
+    try {
+      // This can fail e.g. on a headless dev machine.
+      await open(url);
+    } catch {
+      logWarning(
+        `⚠️ Could not open dashboard in the default browser.\nPlease visit: ${url}`,
+      );
+    }
   } else {
     logOutput(url);
   }
