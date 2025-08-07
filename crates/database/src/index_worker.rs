@@ -14,6 +14,7 @@ use std::{
 };
 
 use common::{
+    self,
     backoff::Backoff,
     bootstrap_model::index::{
         database_index::{
@@ -21,14 +22,7 @@ use common::{
             IndexedFields,
         },
         IndexConfig,
-        IndexMetadata,
         TabletIndexMetadata,
-        INDEX_TABLE,
-    },
-    document::{
-        ParseDocument,
-        ParsedDocument,
-        ResolvedDocument,
     },
     errors::report_error,
     knobs::{
@@ -52,11 +46,7 @@ use common::{
         stream_revision_pairs,
         RevisionPair,
     },
-    query::{
-        IndexRange,
-        Order,
-        Query,
-    },
+    query::Order,
     runtime::{
         new_rate_limiter,
         try_join,
@@ -66,7 +56,6 @@ use common::{
     types::{
         DatabaseIndexUpdate,
         IndexId,
-        IndexName,
         PersistenceVersion,
         RepeatableTimestamp,
         TabletIndexName,
@@ -109,8 +98,9 @@ use crate::{
         tablet_index_backfill_timer,
     },
     retention::LeaderRetentionManager,
+    system_tables::SystemIndex,
     Database,
-    ResolvedQuery,
+    IndexTable,
     SystemMetadataModel,
     TableIterator,
 };
@@ -318,30 +308,20 @@ impl<RT: Runtime> IndexWorker<RT> {
             let timer = index_backfill_timer();
             // Get all the documents from the `_index` table.
             let mut tx = self.database.begin(Identity::system()).await?;
-            // Index doesn't have `by_creation_time` index, and thus can't be queried via
-            // collect.
-            let index_scan = Query::index_range(IndexRange {
-                index_name: IndexName::by_id(INDEX_TABLE.clone()),
-                range: vec![],
-                order: Order::Asc,
-            });
-            let mut index_documents = BTreeMap::new();
-            {
-                let mut query = ResolvedQuery::new(&mut tx, TableNamespace::Global, index_scan)?;
-                while let Some(document) = query.next(&mut tx, None).await? {
-                    index_documents.insert(document.id(), document);
-                }
-            }
+            // _index doesn't have `by_creation_time` index, and thus must use `by_id`.
+            let index_documents = tx
+                .query_system(TableNamespace::Global, &SystemIndex::<IndexTable>::by_id())?
+                .all()
+                .await?;
             let mut to_backfill_by_tablet = BTreeMap::new();
             let mut num_to_backfill = 0;
-            for (id, doc) in &index_documents {
-                let index_metadata: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
+            for index_metadata in &index_documents {
                 if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
-                    if matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)) {
+                    if matches!(on_disk_state, DatabaseIndexState::Backfilling(_)) {
                         to_backfill_by_tablet
                             .entry(*index_metadata.name.table())
                             .or_insert_with(Vec::new)
-                            .push(id.internal_id());
+                            .push(index_metadata.id().internal_id());
                         num_to_backfill += 1;
                     }
                 }
@@ -351,19 +331,19 @@ impl<RT: Runtime> IndexWorker<RT> {
                 tx.begin_timestamp()
             );
 
+            let index_registry = IndexRegistry::bootstrap(
+                tx.table_mapping(),
+                index_documents.into_iter().map(|doc| (*doc).clone()),
+                self.persistence_version,
+            )?;
+
             let mut num_backfilled = 0;
             for (tablet_id, index_ids) in to_backfill_by_tablet {
                 log_num_indexes_to_backfill(num_to_backfill - num_backfilled);
                 num_backfilled += index_ids.len();
-                self.backfill_tablet(
-                    tablet_id,
-                    index_ids,
-                    tx.table_mapping(),
-                    index_documents.clone(),
-                )
-                .await?;
+                self.backfill_tablet(tablet_id, index_ids, tx.table_mapping(), &index_registry)
+                    .await?;
             }
-            drop(index_documents);
             if num_to_backfill > 0 {
                 timer.finish(true);
                 // We backfilled at least one index during this loop iteration.
@@ -392,15 +372,9 @@ impl<RT: Runtime> IndexWorker<RT> {
         tablet_id: TabletId,
         index_ids: Vec<IndexId>,
         table_mapping: &TableMapping,
-        index_documents: BTreeMap<ResolvedDocumentId, ResolvedDocument>,
+        index_registry: &IndexRegistry,
     ) -> anyhow::Result<()> {
         let _timer = tablet_index_backfill_timer();
-        let index_registry = IndexRegistry::bootstrap(
-            table_mapping,
-            index_documents.into_values(),
-            self.persistence_version,
-        )?;
-
         let mut backfills = BTreeMap::new();
         for index_id in &index_ids {
             let (index_name, retention_started) = self.begin_backfill(*index_id).await?;
@@ -444,7 +418,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             self.index_writer
                 .perform_backfill(
                     ts,
-                    &index_registry,
+                    index_registry,
                     index_selector,
                     1,
                     Some(self.database.clone()),
