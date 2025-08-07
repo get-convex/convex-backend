@@ -20,7 +20,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@vitejs/plugin-react": "^4.2.1",
-    "globals": "~15.15.0",
+    "globals": "~16.3.0",
     "typescript": "~5.6.2",
     "vite": "^6.3.5"
   }
