@@ -2520,7 +2520,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AuthIdentity"
+                    "$ref": "#/components/schemas/AuthIdentityResponse"
                   }
                 }
               }
@@ -3022,17 +3022,21 @@
           }
         }
       },
-      "AuthIdentity": {
+      "AuthIdentityResponse": {
         "type": "object",
         "required": [
           "connection",
           "userId",
           "provider",
-          "profileData"
+          "profileData",
+          "isPrimary"
         ],
         "properties": {
           "connection": {
             "type": "string"
+          },
+          "isPrimary": {
+            "type": "boolean"
           },
           "profileData": {
             "$ref": "#/components/schemas/ProfileData"

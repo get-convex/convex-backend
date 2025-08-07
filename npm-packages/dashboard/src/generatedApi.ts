@@ -1657,8 +1657,9 @@ export interface components {
             cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
         };
-        AuthIdentity: {
+        AuthIdentityResponse: {
             connection: string;
+            isPrimary: boolean;
             profileData: components["schemas"]["ProfileData"];
             provider: string;
             userId: string;
@@ -2266,7 +2267,7 @@ export type AuditLogAction = components['schemas']['AuditLogAction'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
 export type AuditLogResponse = components['schemas']['AuditLogResponse'];
-export type AuthIdentity = components['schemas']['AuthIdentity'];
+export type AuthIdentityResponse = components['schemas']['AuthIdentityResponse'];
 export type AuthorizeAppArgs = components['schemas']['AuthorizeAppArgs'];
 export type AuthorizeAppMode = components['schemas']['AuthorizeAppMode'];
 export type AuthorizeArgs = components['schemas']['AuthorizeArgs'];
@@ -4417,7 +4418,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthIdentity"][];
+                    "application/json": components["schemas"]["AuthIdentityResponse"][];
                 };
             };
         };

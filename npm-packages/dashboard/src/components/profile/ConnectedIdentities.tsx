@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Sheet } from "@ui/Sheet";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { UserProfile } from "@auth0/nextjs-auth0/client";
-import { AuthIdentity } from "generatedApi";
+import { AuthIdentityResponse } from "generatedApi";
 import { LoadingTransition } from "@ui/Loading";
 import GoogleLogo from "logos/google.svg";
 import GithubLogo from "logos/github-logo.svg";
@@ -266,7 +266,7 @@ export function IdentityDisplayName({
   isPrimary,
 }: {
   user: UserProfile;
-  identity: AuthIdentity;
+  identity: AuthIdentityResponse;
   isPrimary: boolean;
 }) {
   let main: string | undefined;
