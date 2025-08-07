@@ -129,11 +129,15 @@ export default queryPrivateSystem({
             case "vector": {
               const stateType = config.onDiskState.state;
               const state =
-                stateType === "backfilling" || stateType === "backfilled"
+                stateType === "backfilling" ||
+                stateType === "backfilled" ||
+                stateType === "backfilled2"
                   ? ("in_progress" as const)
                   : ("done" as const);
               const staged =
-                stateType === "backfilling" || stateType === "backfilled"
+                stateType === "backfilling" ||
+                stateType === "backfilled" ||
+                stateType === "backfilled2"
                   ? (config.onDiskState.staged ?? false)
                   : false;
               return {

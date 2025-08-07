@@ -315,7 +315,11 @@ export default defineSchema({
         filterFields: v.array(v.string()),
         onDiskState: v.union(
           v.object({
-            state: v.union(v.literal("backfilling"), v.literal("backfilled")),
+            state: v.union(
+              v.literal("backfilling"),
+              v.literal("backfilled"),
+              v.literal("backfilled2"),
+            ),
             staged: v.optional(v.boolean()),
           }),
           v.object({ state: v.literal("snapshotted") }),
