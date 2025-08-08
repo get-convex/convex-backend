@@ -235,7 +235,7 @@
   "dependencies": {
     "esbuild": "0.25.4",
     "jwt-decode": "^4.0.0",
-    "prettier": "3.6.2"
+    "prettier": "^3.0.0"
   },
   "peerDependencies": {
     "@auth0/auth0-react": "^2.0.1",
@@ -316,6 +316,7 @@
     "open": "^8.3.0",
     "openid-client": "^5.3.1",
     "ora": "^8.1.1",
+    "prettier": "3.6.2",
     "progress": "~2.0.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
