@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
 import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
-import { timeLabel } from "@common/elements/BigChart";
+import { timeLabelForMinute } from "@common/lib/format";
 import { ChartData } from "@common/lib/charts/types";
 import { DeploymentTimes } from "@common/features/health/components/DeploymentTimes";
 import { Button } from "@ui/Button";
@@ -185,7 +185,7 @@ export function ChartForFunctionRate({
                       extraContent={
                         <DeploymentTimes deploymentTimes={deploymentTimes} />
                       }
-                      label={timeLabel(label)}
+                      label={timeLabelForMinute(label)}
                       showLegend
                     />
                   );

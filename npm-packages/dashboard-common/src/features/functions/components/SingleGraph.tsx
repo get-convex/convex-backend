@@ -12,7 +12,7 @@ import {
 import { ChartDataSource, ChartData } from "@common/lib/charts/types";
 import { HealthCard } from "@common/elements/HealthCard";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
-import { timeLabel } from "@common/elements/BigChart";
+import { timeLabelForMinute } from "@common/lib/format";
 import { LoadingTransition } from "@ui/Loading";
 
 export function SingleGraph({
@@ -95,7 +95,7 @@ export function SingleGraph({
                     <ChartTooltip
                       active={active}
                       payload={payload}
-                      label={timeLabel(label)}
+                      label={timeLabelForMinute(label)}
                       showLegend
                     />
                   )}

@@ -14,6 +14,7 @@ import { ChartData, ChartDataSource } from "@common/lib/charts/types";
 import { Callout } from "@ui/Callout";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { timeLabelForMinute } from "@common/lib/format";
 
 export function BigChart({
   dataSources,
@@ -125,7 +126,7 @@ export function BigChart({
                           <ChartTooltip
                             active={active}
                             payload={payload}
-                            label={timeLabel(label)}
+                            label={timeLabelForMinute(label)}
                           />
                         )}
                         animationDuration={100}
@@ -194,33 +195,3 @@ export function BigChart({
     </div>
   );
 }
-
-export const timeLabel = (value: string) => {
-  if (!value) {
-    return "";
-  }
-  // TODO(ari): Consolidate all the time rendering logic - this is a hack
-  // for now
-  if (value.includes("-") || !value.includes(":")) {
-    return value;
-  }
-  const [time, modifier] = value.split(" ");
-  const [hours, minutes] = time.split(":");
-  const date = new Date();
-  date.setHours(parseInt(hours) + (modifier === "PM" ? 12 : 0));
-  date.setMinutes(parseInt(minutes));
-  const oneMinuteLater = new Date(date);
-  oneMinuteLater.setMinutes(date.getMinutes() + 1);
-
-  return `${formatTime(date)} – ${formatTime(oneMinuteLater)}`;
-};
-
-const formatTime = (date: Date) => {
-  let hours = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours %= 12;
-  hours = hours || 12; // the hour '0' should be '12'
-  const strMinutes = minutes < 10 ? `0${minutes}` : minutes;
-  return `${hours}:${strMinutes} ${ampm}`;
-};
