@@ -95,11 +95,7 @@ export function ConnectedIdentities() {
           <div className="flex w-full flex-col gap-4">
             <div className="flex flex-col">
               {identities?.map((identity) => {
-                // user.sub is like "provider|id"; we want everything after provider|
-                const primaryId = user?.sub?.substring(
-                  user.sub.indexOf("|") + 1,
-                );
-                const isPrimary = identity.userId === primaryId;
+                const { isPrimary } = identity;
                 return (
                   <div
                     key={identity.userId}
@@ -301,7 +297,7 @@ export function IdentityDisplayName({
     main = userId;
   }
 
-  return <p className="max-w-full truncate">{main}</p>;
+  return <p className="max-w-full truncate">{main || userId}</p>;
 }
 
 function ProviderLogo({

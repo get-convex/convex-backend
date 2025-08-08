@@ -12,7 +12,6 @@ import {
 } from "components/profile/ConnectedIdentities";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { LinkIdentityNoMultipleIdentities } from "components/profile/LinkIdentityNoMultipleIdentities";
-import { LinkIdentitySuccessPrompt } from "components/profile/LinkIdentitySuccessPrompt";
 import { LinkIdentityForm } from "components/profile/LinkIdentityForm";
 
 export { getServerSideProps } from "lib/ssr";
@@ -29,24 +28,13 @@ function LinkIdentity() {
   const providerDisplayNameSafe = providerDisplayName || "";
   const providerSafe = provider || "";
 
-  const {
-    accessToken,
-    resume,
-    status,
-    message,
-    setLinkIdentityState,
-    linkSuccess,
-    returnTo,
-  } = useLinkIdentityStateMachine();
+  const { accessToken, resume, status, message, setLinkIdentityState } =
+    useLinkIdentityStateMachine();
 
   // The feature flag is disabled, so show a UI that explains that the user
   // can't link multiple GitHub accounts -- they should contact us instead.
   if (!multipleUserIdentities) {
     return <LinkIdentityNoMultipleIdentities user={user} />;
-  }
-
-  if (linkSuccess && resume !== undefined) {
-    return <LinkIdentitySuccessPrompt returnTo={returnTo} />;
   }
 
   return (
@@ -74,8 +62,6 @@ function useLinkIdentityStateMachine() {
   const [message, setMessage] = useState<string>("");
   const [linkIdentityState, setLinkIdentityState] =
     useSessionStorage<LinkIdentityState>(linkIdentityStateKey, {});
-
-  const [linkSuccess, setLinkSuccess] = useState(false);
 
   const setCookieInProgress = useRef(false);
   const setLinkIdentityCookie = useSetLinkIdentityCookie();
@@ -134,7 +120,7 @@ function useLinkIdentityStateMachine() {
       setMessage("");
       try {
         await linkIdentity({ fromProfile: normalizedResume === "fromProfile" });
-        setLinkSuccess(true);
+        void router.push(linkIdentityState.returnTo || "/profile");
         setStatus("ready");
       } catch (err: any) {
         setStatus("error");
@@ -158,8 +144,6 @@ function useLinkIdentityStateMachine() {
     resume: normalizedResume,
     status,
     message,
-    returnTo: linkIdentityState.returnTo || "/profile",
     setLinkIdentityState,
-    linkSuccess,
   };
 }
