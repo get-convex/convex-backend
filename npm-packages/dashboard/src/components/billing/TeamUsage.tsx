@@ -54,6 +54,7 @@ import {
 } from "./TeamUsageByFunctionChart";
 import { UsageBarChart, UsageStackedBarChart } from "./UsageBarChart";
 import {
+  TeamUsageError,
   UsageChartUnavailable,
   UsageDataNotAvailable,
   UsageNoDataError,
@@ -325,6 +326,15 @@ function FunctionUsageBreakdown({
 
   if (maxValue === 0) {
     return <UsageNoDataError entity={metric.name} />;
+  }
+
+  if (projects.length > 100) {
+    return (
+      <TeamUsageError
+        title="Too many projects to show the full breakdown"
+        description="To view detailed breakdowns, please select a specific project in the header at the top."
+      />
+    );
   }
 
   return (
