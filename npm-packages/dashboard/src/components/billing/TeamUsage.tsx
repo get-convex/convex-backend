@@ -328,7 +328,7 @@ function FunctionUsageBreakdown({
     return <UsageNoDataError entity={metric.name} />;
   }
 
-  if (projects.length > 100) {
+  if (usageByProject.length > 100) {
     return (
       <TeamUsageError
         title="Too many projects to show the full breakdown"
