@@ -26,6 +26,7 @@ import { promptYesNo } from "./lib/utils/prompts.js";
 import { deployToDeployment, runCommand } from "./lib/deploy2.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { deploymentNameAndTypeFromSelection } from "./lib/deploymentSelection.js";
+import { checkVersion } from "./lib/updates.js";
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
   .description(
@@ -282,26 +283,21 @@ async function deployToExistingDeployment(
     deploymentSelection,
     selectionWithinProject,
   );
-  if (deploymentToActOn.deploymentFields !== null) {
-    await usageStateWarning(
-      ctx,
-      deploymentToActOn.deploymentFields.deploymentName,
-    );
-  }
+  const { deploymentFields } = deploymentToActOn;
+
   const configuredDeployment =
     deploymentNameAndTypeFromSelection(deploymentSelection);
   if (configuredDeployment !== null && configuredDeployment.name !== null) {
     const shouldPushToProd =
-      configuredDeployment.name ===
-        deploymentToActOn.deploymentFields?.deploymentName ||
+      configuredDeployment.name === deploymentFields?.deploymentName ||
       (options.yes ??
         (await askToConfirmPush(
           ctx,
           {
             configuredName: configuredDeployment.name,
             configuredType: configuredDeployment.type,
-            requestedName: deploymentToActOn.deploymentFields?.deploymentName!,
-            requestedType: deploymentToActOn.deploymentFields?.deploymentType!,
+            requestedName: deploymentFields?.deploymentName!,
+            requestedType: deploymentFields?.deploymentType!,
           },
           deploymentToActOn.url,
         )));
@@ -314,16 +310,24 @@ async function deployToExistingDeployment(
     }
   }
 
-  await deployToDeployment(
-    ctx,
-    {
-      url: deploymentToActOn.url,
-      adminKey: deploymentToActOn.adminKey,
-      deploymentName:
-        deploymentToActOn.deploymentFields?.deploymentName ?? null,
-    },
-    options,
-  );
+  const isCloudDeployment = deploymentFields !== null;
+  await Promise.all([
+    deployToDeployment(
+      ctx,
+      {
+        url: deploymentToActOn.url,
+        adminKey: deploymentToActOn.adminKey,
+        deploymentName: deploymentFields?.deploymentName ?? null,
+      },
+      options,
+    ),
+    ...(isCloudDeployment
+      ? [
+          usageStateWarning(ctx, deploymentFields.deploymentName),
+          checkVersion(),
+        ]
+      : []),
+  ]);
 }
 
 async function askToConfirmPush(

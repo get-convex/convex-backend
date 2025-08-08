@@ -636,15 +636,8 @@ async function _loadExistingDeploymentCredentialsForProject(
     },
   };
 }
-// This is used by most commands (notably not `dev` and `deploy`) to determine
-// which deployment to act on, taking into account the deployment selection flags.
-//
-export async function loadSelectedDeploymentCredentials(
-  ctx: Context,
-  deploymentSelection: DeploymentSelection,
-  selectionWithinProject: DeploymentSelectionWithinProject,
-  { ensureLocalRunning } = { ensureLocalRunning: true },
-): Promise<{
+
+export type DetailedDeploymentCredentials = {
   adminKey: string;
   url: string;
   deploymentFields: {
@@ -653,7 +646,17 @@ export async function loadSelectedDeploymentCredentials(
     projectSlug: string | null;
     teamSlug: string | null;
   } | null;
-}> {
+};
+
+// This is used by most commands (notably not `dev` and `deploy`) to determine
+// which deployment to act on, taking into account the deployment selection flags.
+//
+export async function loadSelectedDeploymentCredentials(
+  ctx: Context,
+  deploymentSelection: DeploymentSelection,
+  selectionWithinProject: DeploymentSelectionWithinProject,
+  { ensureLocalRunning } = { ensureLocalRunning: true },
+): Promise<DetailedDeploymentCredentials> {
   switch (deploymentSelection.kind) {
     case "existingDeployment":
       await validateDeploymentSelectionForExistingDeployment(

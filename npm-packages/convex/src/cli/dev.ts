@@ -12,6 +12,7 @@ import {
 } from "./lib/utils/utils.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { detectSuspiciousEnvironmentVariables } from "./lib/envvars.js";
+import { checkVersion } from "./lib/updates.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -238,21 +239,26 @@ Same format as .env.local or .env files, and overrides them.`,
       },
     );
 
-    if (credentials.deploymentFields !== null) {
-      await usageStateWarning(ctx, credentials.deploymentFields.deploymentName);
-    }
-
-    if (cmdOptions.skipPush) {
-      return;
-    }
-
-    await devAgainstDeployment(
-      ctx,
-      {
-        url: credentials.url,
-        adminKey: credentials.adminKey,
-        deploymentName: credentials.deploymentFields?.deploymentName ?? null,
-      },
-      devOptions,
-    );
+    await Promise.all([
+      ...(!cmdOptions.skipPush
+        ? [
+            devAgainstDeployment(
+              ctx,
+              {
+                url: credentials.url,
+                adminKey: credentials.adminKey,
+                deploymentName:
+                  credentials.deploymentFields?.deploymentName ?? null,
+              },
+              devOptions,
+            ),
+          ]
+        : []),
+      ...(credentials.deploymentFields !== null
+        ? [
+            usageStateWarning(ctx, credentials.deploymentFields.deploymentName),
+            checkVersion(),
+          ]
+        : []),
+    ]);
   });
