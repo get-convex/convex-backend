@@ -115,6 +115,7 @@ pub use self::{
             LegacyIndexDiff,
         },
         index_backfills::{
+            types::IndexBackfillMetadata,
             IndexBackfillTable,
             INDEX_BACKFILLS_BY_INDEX_ID,
             INDEX_BACKFILLS_TABLE,
