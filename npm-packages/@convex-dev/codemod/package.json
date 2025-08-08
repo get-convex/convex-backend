@@ -1,7 +1,8 @@
 {
   "name": "@convex-dev/codemod",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Automatic codemods to help you migrate your codebase to newer versions of Convex",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "@convex-dev/codemod": "dist/index.js"
@@ -37,6 +38,6 @@
     "ts-morph": "^26.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

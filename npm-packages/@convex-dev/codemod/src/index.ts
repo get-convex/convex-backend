@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { Argument, Command, Option } from "commander";
 import { Project } from "ts-morph";
 import { createContext, logFinishedStep, showSpinner } from "./context";
