@@ -7,12 +7,25 @@ instructions together.
 
 ## Deploying to Railway.com
 
-You can view the ready to deploy
-[template here](https://railway.com/template/OKpPqB)
+You can view the ready to deploy template here
+- [Convex + SQLite](https://railway.com/deploy/OKpPqB)
+- [Convex + Postgres](https://railway.com/deploy/convex-postgres)
+- [Convex + Mysql](https://railway.com/deploy/convex-mysql)
 
-or use one click deploy button below:
+or use one click deploy buttons below:
+
+Convex + SQLite
 
 [![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/template/OKpPqB)
+
+Convex + Postgres
+
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-postgres)
+
+Convex + Mysql
+
+[![Deploy on Railway.com](https://railway.com/button.svg)]([https://railway.com/deploy/convex-postgres](https://railway.com/deploy/convex-mysql))
+
 
 ## Setup
 
@@ -25,9 +38,10 @@ setup steps to make it fully work.
 Steps:
 
 1. Deploying the template
+
    Just deploy the template and enjoy. 🚀
    
-   ℹ️ Optional: If you would like to separete api and http domains follow steps below:
+   ℹ️ (Optional): If you would like to separete api and http domains follow steps below:
 
    - Select `convex-backend` service
    - Select Settings tab and scroll to `Public Networking` section
@@ -37,7 +51,7 @@ Steps:
    - Make sure to select port `3210` and add your domain for convex (api) url and select port `3211` for http (action) routes
    - Re-deploy both `convex-dashboard` and `convex-backend` services
 
-2. Generating admin key with railway ssh
+3. Generating admin key with railway ssh
 
    Follow [these](https://blog.railway.com/p/ssh#how-to-ssh-on-railway)
    instructions to setup railway SSH on your machine
@@ -59,7 +73,7 @@ example:
 
 ### Database
 
-At this point, your data is stored in SQLite and your files are stored in the
+If you deployed SQLite template, your data is stored in local SQLite file and your files are stored in the
 Railway volume. You can see them in the `data` folder if you run:
 
 ```
