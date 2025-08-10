@@ -65,7 +65,7 @@ function messageForDeploymentType(deploymentType: DeploymentType, url: string) {
     case "preview":
       return `Provisioned a ${deploymentType} deployment`;
     default: {
-      const _exhaustiveCheck: never = deploymentType;
+      deploymentType satisfies never;
       return `Provisioned a ${deploymentType as any} deployment`;
     }
   }

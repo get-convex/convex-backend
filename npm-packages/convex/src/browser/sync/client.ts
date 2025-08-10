@@ -467,7 +467,7 @@ export class BaseConvexClient {
             case "Ping":
               break; // do nothing
             default: {
-              const _typeCheck: never = serverMessage;
+              serverMessage satisfies never;
             }
           }
 

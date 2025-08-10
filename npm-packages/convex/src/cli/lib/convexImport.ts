@@ -204,7 +204,7 @@ export async function importIntoDeployment(
         });
       }
       default: {
-        const _: never = snapshotImportState;
+        snapshotImportState satisfies never;
         return await ctx.crash({
           exitCode: 1,
           errorType: "fatal",

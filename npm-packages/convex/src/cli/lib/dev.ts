@@ -162,7 +162,7 @@ export async function watchAndPush(
             }
             break;
           default: {
-            const _exhaustiveCheck: never = cmdOptions.run;
+            cmdOptions.run satisfies never;
             // Don't return this since it'll bypass the `catch` below.
             await ctx.crash({
               exitCode: 1,

@@ -451,7 +451,7 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
       // If we have a key configured as auth, we do not need to check opt ins.
       return true;
     default: {
-      const _exhaustivenessCheck: never = bbAuth;
+      bbAuth satisfies never;
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",

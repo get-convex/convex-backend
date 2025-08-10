@@ -157,7 +157,7 @@ export class LocalSyncState {
         }
         default: {
           // Enforce that the switch-case is exhaustive.
-          const _: never = modification;
+          modification satisfies never;
           throw new Error(`Invalid modification ${(modification as any).type}`);
         }
       }

@@ -281,7 +281,7 @@ function logDeploymentSelection(ctx: Context, selection: DeploymentSelection) {
       break;
     }
     default: {
-      const _exhaustivenessCheck: never = selection;
+      selection satisfies never;
       logVerbose(`Unknown deployment selection`);
     }
   }
@@ -300,7 +300,7 @@ function prettyProjectSelection(selection: ProjectSelection) {
       return `Project deploy key`;
     }
     default: {
-      const _exhaustivenessCheck: never = selection;
+      selection satisfies never;
       return `Unknown`;
     }
   }
@@ -480,7 +480,7 @@ async function getDeploymentSelectionFromEnv(
         };
       }
       default: {
-        const _exhaustivenessCheck: never = deployKeyType;
+        deployKeyType satisfies never;
         return ctx.crash({
           exitCode: 1,
           errorType: "fatal",
@@ -618,7 +618,7 @@ export const deploymentNameAndTypeFromSelection = (
       return null;
     }
   }
-  const _exhaustivenessCheck: never = selection;
+  selection satisfies never;
   return null;
 };
 

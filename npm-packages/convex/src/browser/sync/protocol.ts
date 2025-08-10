@@ -48,7 +48,7 @@ export function parseServerMessage(
       };
     }
     default: {
-      const _exhaustivenessCheck: never = encoded;
+      encoded satisfies never;
     }
   }
   return undefined as never;
@@ -76,7 +76,7 @@ export function encodeClientMessage(
       }
     }
     default: {
-      const _exhaustivenessCheck: never = message;
+      message satisfies never;
     }
   }
   return undefined as never;

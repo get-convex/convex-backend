@@ -449,7 +449,7 @@ export class AuthenticationManager {
       case "initialRefetch":
         break;
       default: {
-        const _typeCheck: never = newAuth;
+        newAuth satisfies never;
       }
     }
     if (this.authState.state === "waitingForScheduledRefetch") {

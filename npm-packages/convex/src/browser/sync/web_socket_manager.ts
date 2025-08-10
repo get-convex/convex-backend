@@ -412,7 +412,7 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
       }
     }
   }
@@ -457,7 +457,7 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
         return Promise.resolve();
       }
     }
@@ -483,7 +483,7 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
         throw new Error(
           `Invalid websocket state: ${(this.socket as any).state}`,
         );
@@ -506,7 +506,7 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
         return Promise.resolve();
       }
     }
@@ -528,7 +528,7 @@ export class WebSocketManager {
         return;
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
       }
     }
     this.connect();
@@ -548,7 +548,7 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
         return;
       }
     }
@@ -581,7 +581,7 @@ export class WebSocketManager {
         return;
       default: {
         // Enforce that the switch-case is exhaustive.
-        const _: never = this.socket;
+        this.socket satisfies never;
       }
     }
     this.connect();

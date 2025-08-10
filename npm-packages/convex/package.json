@@ -194,7 +194,7 @@
     "postpack": "node scripts/postpack.mjs",
     "test": "vitest --silent",
     "test-not-silent": "vitest",
-    "new-test": "vitest",
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false",
     "test-esm": "node ./scripts/test-esm.mjs && ./scripts/checkdeps.mjs && ./scripts/checkimports.mjs"
   },
   "files": [

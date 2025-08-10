@@ -109,7 +109,7 @@ export function instantiateDefaultLogger(options: {
         console.error(...args);
         break;
       default: {
-        const _typecheck: never = level;
+        level satisfies never;
         console.log(...args);
       }
     }

@@ -26,8 +26,7 @@ export function getDashboardUrl(
     case "preview":
       return deploymentDashboardUrlPage(deploymentName, "");
     default: {
-      const _exhaustiveCheck: never = deploymentType;
-      return _exhaustiveCheck;
+      return deploymentType satisfies never;
     }
   }
 }

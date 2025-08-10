@@ -76,7 +76,7 @@ export async function exportFromDeployment(
       });
     }
     default: {
-      const _: never = snapshotExportState;
+      snapshotExportState satisfies never;
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
@@ -137,7 +137,7 @@ async function waitForStableExportState(
             onDone();
             break;
           default: {
-            const _: never = snapshotExportState;
+            snapshotExportState satisfies never;
             onDone();
           }
         }

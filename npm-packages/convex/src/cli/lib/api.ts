@@ -239,7 +239,7 @@ export async function checkAccessToSelectedProject(
       // it will instead fail as soon as we try to use the key.
       return { kind: "unknown" };
     default: {
-      const _exhaustivenessCheck: never = projectSelection;
+      projectSelection satisfies never;
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
@@ -424,7 +424,7 @@ async function handleOwnDev(
       };
     }
     default: {
-      const _exhaustivenessCheck: never = projectSelection;
+      projectSelection satisfies never;
       return ctx.crash({
         exitCode: 1,
         errorType: "fatal",
@@ -573,7 +573,7 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
         projectSelection,
       );
     default: {
-      const _exhaustivenessCheck: never = deploymentSelection;
+      deploymentSelection satisfies never;
       return ctx.crash({
         exitCode: 1,
         errorType: "fatal",
@@ -737,7 +737,7 @@ export async function loadSelectedDeploymentCredentials(
       };
     }
     default: {
-      const _exhaustivenessCheck: never = deploymentSelection;
+      deploymentSelection satisfies never;
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
