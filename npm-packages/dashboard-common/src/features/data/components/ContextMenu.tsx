@@ -451,7 +451,7 @@ function ContextMenuSubmenu({
             <FloatingPortal>
               {/* 20px = twice the padding in the `shift` middleware (https://floating-ui.com/docs/misc#handling-large-content) */}
               <div
-                className="z-40 overflow-hidden rounded-lg border bg-background-secondary shadow-md outline-hidden"
+                className="z-50 overflow-hidden rounded-lg border bg-background-secondary shadow-md outline-hidden"
                 ref={refs.setFloating}
                 style={floatingStyles}
                 {...getFloatingProps()}
