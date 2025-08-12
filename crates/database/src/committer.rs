@@ -811,7 +811,8 @@ impl<RT: Runtime> Committer<RT> {
             .collect();
         persistence
             .write(document_writes, index_writes, ConflictStrategy::Error)
-            .await?;
+            .await
+            .context("Commit failed to write to persistence")?;
 
         timer.finish();
         Ok(())
