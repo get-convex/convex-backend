@@ -3,7 +3,6 @@ import { cn } from "@ui/cn";
 import { useEffect, useRef, useState } from "react";
 import { usePopper } from "react-popper";
 import { Calendar } from "@common/elements/Calendar";
-import { useInteractOutside } from "@common/features/data/lib/useInteractOutside";
 import { TextInput } from "@ui/TextInput";
 
 const dateTimeFormat = "M/d/yyyy, h:mm:ss aa";
@@ -135,11 +134,45 @@ export function DateTimePicker({
   }, [dateTime]);
 
   // Close the popover when clicking/touching outside.
-  useInteractOutside(wrapperRef, () => {
-    if (open) {
-      setOpen(false);
+  useEffect(() => {
+    function handleOutsideInteraction(event: MouseEvent | TouchEvent) {
+      if (open) {
+        const target = event.target as Node;
+        // Don't close if clicking inside the wrapper or the popover
+        if (
+          (wrapperRef.current && wrapperRef.current.contains(target)) ||
+          (popoverRef.current && popoverRef.current.contains(target))
+        ) {
+          return;
+        }
+        setOpen(false);
+      }
     }
-  });
+
+    function handleKeyboardFocus(event: FocusEvent) {
+      if (open) {
+        const target = event.target as Node;
+        // Don't close if focusing inside the wrapper or the popover
+        if (
+          (wrapperRef.current && wrapperRef.current.contains(target)) ||
+          (popoverRef.current && popoverRef.current.contains(target))
+        ) {
+          return;
+        }
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideInteraction);
+    document.addEventListener("touchstart", handleOutsideInteraction);
+    document.addEventListener("focusin", handleKeyboardFocus);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideInteraction);
+      document.removeEventListener("touchstart", handleOutsideInteraction);
+      document.removeEventListener("focusin", handleKeyboardFocus);
+    };
+  }, [open]);
 
   // Re-calculate popper position when opening.
   useEffect(() => {

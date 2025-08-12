@@ -72,4 +72,33 @@ describe("DateTimePicker", () => {
     // The popup should be hidden again.
     expect(screen.queryByRole("dialog")).toHaveClass("hidden");
   });
+
+  it("should allow selecting a date by clicking on the calendar", async () => {
+    // Use a specific initial date to make the test predictable
+    const initialDate = new Date("2024-01-15T10:30:00");
+    render(<DateTimePicker date={initialDate} onChange={mockOnChange} />);
+
+    const dateTimeInput = screen.getByLabelText("Date and time");
+    const user = userEvent.setup();
+
+    // Focus the input to open the popup.
+    await user.click(dateTimeInput);
+
+    // The popup should now be visible.
+    expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
+
+    // Find a different date button in the calendar (e.g., day 20)
+    // The calendar should have buttons for each day of the month
+    const dayButton = screen.getByRole("gridcell", { name: "20" });
+
+    // Click on the date button
+    await user.click(dayButton);
+
+    // Verify that onChange was called with a date that has day 20
+    // The time portion should remain the same (10:30:00)
+    expect(mockOnChange).toHaveBeenCalledWith(new Date("2024-01-20T10:30:00"));
+
+    // The popup should still be open (only closes on outside click or escape)
+    expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
+  });
 });

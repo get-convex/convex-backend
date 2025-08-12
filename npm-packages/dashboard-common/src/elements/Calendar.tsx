@@ -31,8 +31,9 @@ function Calendar({ ...props }: CalendarProps) {
         ),
         day: cn(
           "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
-          "hover:bg-background-primary",
+          "hover:rounded hover:bg-background-primary",
         ),
+        day_selected: "bg-background-tertiary rounded border",
         day_range_start: "rounded-l bg-background-tertiary border",
         day_range_end: "rounded-r bg-background-tertiary border",
         day_range_middle:
