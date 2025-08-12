@@ -7,7 +7,7 @@ import { v } from "convex/values";
 export default queryGeneric({
   args: { tableName: v.string() },
   handler: async ({ db }, { tableName }) => {
-    await db.query(tableName as TableNames).collect();
+    await db.query(tableName as TableNames).count();
     return Math.random();
   },
 });
