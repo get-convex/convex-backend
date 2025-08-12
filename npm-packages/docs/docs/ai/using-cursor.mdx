@@ -106,8 +106,8 @@ projects.
 Adding Convex docs can let you specifically refer to Convex features when
 building your app.
 
-From **`Cursor Settings`** > **`Features`** > **`Docs`** add new doc, use the
-URL "https://docs.convex.dev/"
+From **`Cursor Settings`** > **`Indexing & Docs`** > **`Docs`** add new doc, use
+the URL "https://docs.convex.dev/home"
 
 ![Chat UI](/img/cursor-with-convex/adding_convex_docs.webp)
 
