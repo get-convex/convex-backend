@@ -84,33 +84,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/deployments/{deployment_name}/create_deploy_key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create deploy key
-         * @description Create a deploy key like "dev:happy-animal-123|ey..." which can be
-         *     used with the Convex CLI to develop against or deploy code.
-         *
-         *     When access to the deployment is granted through an OAuth token this
-         *     deploy key will use the same OAuth-granted token because token derivation
-         *     has not been implemented. When access to the deployment is granted any
-         *     other way a new token will be created which grants access only to this
-         *     deployment.
-         */
-        post: operations["create deploy key"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/token_details": {
         parameters: {
             query?: never;
@@ -137,19 +110,9 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Encrypted admin key */
-        AdminKey: string;
         /** @enum {string} */
         DeploymentType: "dev" | "prod" | "preview";
         DeviceName: string;
-        PlatformCreateDeployKeyArgs: {
-            /** @description Name for the deploy key. */
-            name: string;
-        };
-        PlatformCreateDeployKeyResponse: {
-            /** @description The generated deploy key. */
-            deployKey: components["schemas"]["AdminKey"];
-        };
         PlatformCreateProjectArgs: {
             /** @description Projects always include a deployment, so start this project off with a
              *     "dev" development deployment or a "prod" production deployment. */
@@ -236,11 +199,8 @@ export interface components {
     headers: never;
     pathItems: never;
 }
-export type AdminKey = components['schemas']['AdminKey'];
 export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeviceName = components['schemas']['DeviceName'];
-export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateDeployKeyArgs'];
-export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
@@ -341,32 +301,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    "create deploy key": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Deployment name */
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformCreateDeployKeyArgs"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformCreateDeployKeyResponse"];
-                };
             };
         };
     };

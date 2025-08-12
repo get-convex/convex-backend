@@ -33,8 +33,7 @@ Required information for `postMessage`:
 - `deploymentName`: The readable identifier for the deployment. Returned when
   creating the project with the
   [Create project API](/management-api/create-project).
-- `adminKey`: A deploy key scoped to the specified `deploymentName`. Can be
-  retrieved with the [Create deploy key API](/management-api/create-deploy-key).
+- `adminKey`: A deploy key scoped to the specified `deploymentName`.
 
 Here's an example of the Convex dashboard embedded in a React application:
 

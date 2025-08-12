@@ -68,9 +68,6 @@ The examples here assume you are working in a container with shell and file
 system access from which you can drive the app building process. You likely
 already have this if you're generating frontend code.
 
-Set [`CONVEX_DEPLOY_KEY`](/docs/cli/deploy-key-types.mdx) is the value returned
-by the [Create deploy key](/management-api/create-deploy-key) API.
-
 ### Pushing code to the dev Convex backend
 
 ```bash
