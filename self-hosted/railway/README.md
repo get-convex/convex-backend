@@ -7,33 +7,50 @@ instructions together.
 
 ## Deploying to Railway.com
 
-You can view the ready to deploy
-[template here](https://railway.com/template/OKpPqB)
+You can view the ready to deploy template here
 
-or use one click deploy button below:
+- [Convex + SQLite](https://railway.com/deploy/OKpPqB)
+- [Convex + Postgres](https://railway.com/deploy/convex-postgres)
+- [Convex + Mysql](https://railway.com/deploy/convex-mysql)
+
+or use one click deploy buttons below:
+
+Convex + SQLite
 
 [![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/template/OKpPqB)
+
+Convex + Postgres
+
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-postgres)
+
+Convex + Mysql
+
+[![Deploy on Railway.com](https://railway.com/button.svg)](<[https://railway.com/deploy/convex-postgres](https://railway.com/deploy/convex-mysql)>)
 
 ## Setup
 
 The template comes with pre-configured env-variables and you need to follow some
 setup steps to make it fully work.
 
-1. Setting up ports for the deployment
+1. Deploying the template
 2. Generating admin key with railway ssh
 
 Steps:
 
-1. Setting up ports for the deployment
+1. Deploying the template
 
-   Go to your railway deployment
+   Just deploy the template and enjoy. 🚀
+
+   ℹ️ (Optional): If you would like to separete api and http domains follow
+   steps below:
 
    - Select `convex-backend` service
    - Select Settings tab and scroll to `Public Networking` section
-   - Hover on the domain and delete auto assigned domain
+   - Hover on the domain and click on edit or delete buttons
    - Click on `Generate Domain` for auto generated one or `Custom Domain` if you
      want to setup custom domain
-   - Make sure to select port `3210` and add your domain
+   - Make sure to select port `3210` and add your domain for convex (api) url
+     and select port `3211` for http (action) routes
    - Re-deploy both `convex-dashboard` and `convex-backend` services
 
 2. Generating admin key with railway ssh
@@ -58,8 +75,9 @@ example:
 
 ### Database
 
-At this point, your data is stored in SQLite and your files are stored in the
-Railway volume. You can see them in the `data` folder if you run:
+If you deployed SQLite template, your data is stored in local SQLite file and
+your files are stored in the Railway volume. You can see them in the `data`
+folder if you run:
 
 ```
 railway ssh
