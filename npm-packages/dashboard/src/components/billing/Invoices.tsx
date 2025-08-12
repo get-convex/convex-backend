@@ -55,9 +55,7 @@ function InvoicesTable({ invoices }: { invoices: InvoiceResponse[] }) {
                 {new Date(invoice.invoiceDate).toLocaleDateString()}
               </td>
               <td className="py-2 text-sm">
-                <StatusPill
-                  status={invoice.hasFailedPayment ? "failed" : invoice.status}
-                />
+                <StatusPill status={invoice.status} />
               </td>
               <td className="py-2 text-sm">
                 {parseFloat(invoice.total).toLocaleString("en-US", {
