@@ -7,7 +7,7 @@ import {
   nodeWebSocket,
   withInMemoryWebSocket,
 } from "../browser/sync/client_node_test_helpers.js";
-import { ConvexReactClient } from "./index.js";
+import { ConvexReactClient, ConvexReactClientOptions } from "./index.js";
 import waitForExpect from "wait-for-expect";
 import { anyApi } from "../server/index.js";
 import { Long } from "../browser/long.js";
@@ -17,17 +17,18 @@ import {
   ServerMessage,
 } from "../browser/sync/protocol.js";
 
-const testReactClient = (address: string) =>
+const testReactClient = (address: string, options?: ConvexReactClientOptions) =>
   new ConvexReactClient(address, {
     webSocketConstructor: nodeWebSocket,
     unsavedChangesWarning: false,
+    ...options,
   });
 
 // Disabled due to flakes in CI
 // https://linear.app/convex/issue/ENG-7052/re-enable-auth-websocket-client-tests
 
 // On Linux these can retry forever due to EADDRINUSE so run then sequentially.
-describe.sequential.skip("auth websocket tests", () => {
+describe.sequential("auth websocket tests", () => {
   // This is the path usually taken on page load after a user logged in,
   // with a constant token provider.
   test("Authenticate via valid static token", async () => {
@@ -1064,6 +1065,57 @@ describe.sequential.skip("auth websocket tests", () => {
         modifications: [],
       });
     });
+  });
+});
+
+// When a client is created it can't necessarily have setAuth called
+// on it right away: often that library needs some setup.
+describe.sequential("authMode WebSocket", () => {
+  test.each([false, true])("expectAuth: %s", async (expectAuth: boolean) => {
+    await withInMemoryWebSocket(async ({ address, receive, close }) => {
+      const client = testReactClient(
+        address,
+        expectAuth ? { expectAuth: true } : {},
+      );
+
+      // ConvexReactClient connect is lazy, you have to subscribe to
+      // a query or otherwise make a request before anything happens.
+      const _mutP = client.mutation(anyApi.myMutation.default, {});
+
+      // If expectAuth isn't enabled, this kicks off connect etc.
+      if (!expectAuth) {
+        expect((await receive()).type).toBe("Connect");
+        expect((await receive()).type).toBe("ModifyQuerySet");
+        expect((await receive()).type).toBe("Mutation");
+      } else {
+        // but *nothing* happens if expectAuth is set.
+      }
+
+      let resolve: (value: string) => void;
+      const tokenFetcher2 = vi.fn(
+        () =>
+          new Promise<string>((r) => {
+            resolve = r;
+          }),
+      );
+      const onAuthChange = vi.fn();
+      client.setAuth(tokenFetcher2, onAuthChange);
+
+      resolve!(jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"));
+
+      if (!expectAuth) {
+        expect((await receive()).type).toBe("Authenticate");
+      } else {
+        // We're still paused until auth is returned
+        expect((await receive()).type).toBe("Connect");
+        expect((await receive()).type).toBe("Authenticate");
+        expect((await receive()).type).toBe("ModifyQuerySet");
+        expect((await receive()).type).toBe("Mutation");
+      }
+
+      await client.close();
+      close();
+    }, true);
   });
 });
 

@@ -115,6 +115,18 @@ export interface BaseConvexClientOptions {
    * The default value is `2`.
    */
   authRefreshTokenLeewaySeconds?: number;
+  /**
+   * This API is experimental: it may change or disappear.
+   *
+   * Whether query, mutation, and action requests should be held back
+   * until the first auth token can be sent.
+   *
+   * Opting into this behavior works well for pages that should
+   * only be viewed by authenticated clients.
+   *
+   * Defaults to false, not waiting for an auth token.
+   */
+  expectAuth?: boolean;
 }
 
 /**
@@ -309,6 +321,14 @@ export class BaseConvexClient {
       this.logger,
       this.markConnectionStateDirty,
     );
+
+    // This is a callback for AuthenticationManager (which can't call
+    // this synchronously, the callback wouldn't work) so the initial
+    // pause for expectAuth we call it at the end of this constructor.
+    const pauseSocket = () => {
+      this.webSocketManager.pause();
+      this.state.pause();
+    };
     this.authenticationManager = new AuthenticationManager(
       this.state,
       {
@@ -319,10 +339,7 @@ export class BaseConvexClient {
         },
         stopSocket: () => this.webSocketManager.stop(),
         tryRestartSocket: () => this.webSocketManager.tryRestart(),
-        pauseSocket: () => {
-          this.webSocketManager.pause();
-          this.state.pause();
-        },
+        pauseSocket,
         resumeSocket: () => this.webSocketManager.resume(),
         clearAuth: () => {
           this.clearAuth();
@@ -482,6 +499,11 @@ export class BaseConvexClient {
       this.markConnectionStateDirty,
     );
     this.mark("convexClientConstructed");
+
+    // Begin client in a paused state waiting for an auth token.
+    if (options.expectAuth) {
+      pauseSocket();
+    }
   }
 
   /**

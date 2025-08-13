@@ -10,11 +10,13 @@ const MAXIMUM_REFRESH_DELAY = 20 * 24 * 60 * 60 * 1000; // 20 days
 const MAX_TOKEN_CONFIRMATION_ATTEMPTS = 2;
 
 /**
- * An async function returning the JWT-encoded OpenID Connect Identity Token
- * if available.
+ * An async function returning a JWT. Depending on the auth providers
+ * configured in convex/auth.config.ts, this may be a JWT-encoded OpenID
+ * Connect Identity Token or a traditional JWT.
  *
  * `forceRefreshToken` is `true` if the server rejected a previously
- * returned token, and the client should try to fetch a new one.
+ * returned token or the token is anticipated to expiring soon
+ * based on its `exp` time.
  *
  * See {@link ConvexReactClient.setAuth}.
  *

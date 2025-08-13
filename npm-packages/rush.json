@@ -301,6 +301,10 @@
       "projectFolder": "@convex-dev/platform"
     },
     {
+      "packageName": "clerk-initial-auth",
+      "projectFolder": "private-demos/clerk-initial-auth"
+    },
+    {
       "packageName": "bundle-size",
       "projectFolder": "private-demos/bundle-size"
     },

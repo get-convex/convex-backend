@@ -62,7 +62,9 @@ export async function withInMemoryWebSocket(
     if (!msgP) {
       throw new Error("Receive() called twice? No message promise found.");
     }
-    return JSON.parse(await msgP);
+    const text = await msgP;
+    const structured = JSON.parse(text);
+    return structured;
   }
   function send(message: ServerMessage) {
     // eslint-disable-next-line no-console
@@ -81,13 +83,16 @@ export async function withInMemoryWebSocket(
       send,
       close: () => {
         // eslint-disable-next-line no-console
-        if (debug) console.debug(`           -->8-CLOSE- server`);
+        if (debug) console.debug(`           --CLOSE-->8-- server`);
         socket!.close();
         setUpSocket();
       },
     });
   } finally {
-    socket!.close();
+    const s = socket!;
+    if (s!) {
+      socket!.close();
+    }
     wss.close();
   }
 }
