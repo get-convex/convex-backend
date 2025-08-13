@@ -27,6 +27,11 @@ import {
   instantiateNoopLogger,
   Logger,
 } from "../browser/logging.js";
+import { ConvexQueryOptions } from "../browser/query_options.js";
+
+// When no arguments are passed, extend subscriptions (for APIs that do this by default)
+// for this amount after the subscription would otherwise be dropped.
+const DEFAULT_EXTEND_SUBSCRIPTION_FOR = 5_000;
 
 if (typeof React === "undefined") {
   throw new Error("Required dependency 'react' not found");
@@ -425,6 +430,33 @@ export class ConvexReactClient {
         return undefined;
       },
     };
+  }
+
+  // Let's try out a queryOptions-style API.
+  // This method is similar to the React Query API `queryClient.prefetchQuery()`.
+  // In the future an ensureQueryData(): Promise<Data> method could exist.
+  /**
+   * Indicates likely future interest in a query subscription.
+   *
+   * The implementation currently immediately subscribes to a query. In the future this method
+   * may prioritize some queries over others, fetch the query result without subscribing, or
+   * do nothing in slow network connections or high load scenarios.
+   *
+   * To use this in a React component, call useQuery() and ignore the return value.
+   *
+   * @param queryOptions - A query (function reference from an api object) and its args, plus
+   * an optional extendSubscriptionFor for how long to subscribe to the query.
+   */
+  prewarmQuery<Query extends FunctionReference<"query">>(
+    queryOptions: ConvexQueryOptions<Query> & {
+      extendSubscriptionFor?: number;
+    },
+  ) {
+    const extendSubscriptionFor =
+      queryOptions.extendSubscriptionFor ?? DEFAULT_EXTEND_SUBSCRIPTION_FOR;
+    const watch = this.watchQuery(queryOptions.query, queryOptions.args || {});
+    const unsubscribe = watch.onUpdate(() => {});
+    setTimeout(unsubscribe, extendSubscriptionFor);
   }
 
   /**

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `ConvexReactClient.prewarmQuery({query, args})` method for subscribing to a
+  query for 5 seconds. Prewarming indicates likely future interest in a
+  subscription and is currently implemented by subscribing to the query for 5
+  seconds.
+
+  The return value of this method may change and the arguments may change in the
+  future so this API should be considered unstable but adapting to these changes
+  shouldn't be difficult.
+
 - Expose the schemaValidation property of schema, intended for runtime tests or
   assertions that it is indeed enabled.
 

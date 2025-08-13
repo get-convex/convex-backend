@@ -325,6 +325,10 @@
       "projectFolder": "demos/typescript"
     },
     {
+      "packageName": "prewarming-demo",
+      "projectFolder": "demos/prewarming"
+    },
+    {
       "packageName": "typescript-demo-old",
       "projectFolder": "private-demos/typescript-old"
     },
