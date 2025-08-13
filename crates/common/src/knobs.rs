@@ -1330,6 +1330,21 @@ pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
 pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
     LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 16));
 
+/// Whether or not to use a rate limiter when loading instances
+pub static INSTANCE_LOADER_USE_RATE_LIMITER: LazyLock<bool> =
+    LazyLock::new(|| env_config("INSTANCE_LOADER_USE_RATE_LIMITER", true));
+
+/// The number of instances that can be loaded per second when the rate limiter
+/// is in use. The default value of 4 means that for a Conductor with 5000
+/// instances, we'd take about 20 minutes to load all instances with infinite
+/// concurrency.
+pub static INSTANCE_LOADER_INSTANCES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "INSTANCE_LOADER_INSTANCES_PER_SECOND",
+        NonZeroU32::new(4).unwrap(),
+    )
+});
+
 /// The max number of storage files that can be fetched concurrently during
 /// export. Concurrency is also limited by `EXPORT_MAX_INFLIGHT_PREFETCH_BYTES`.
 pub static EXPORT_STORAGE_GET_CONCURRENCY: LazyLock<usize> =
