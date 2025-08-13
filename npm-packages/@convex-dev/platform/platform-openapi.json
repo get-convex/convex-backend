@@ -170,6 +170,50 @@
         ]
       }
     },
+    "/deployments/{deployment_name}/create_deploy_key": {
+      "post": {
+        "summary": "Create deploy key",
+        "description": "Create a deploy key like \"dev:happy-animal-123|ey...\" which can be\nused with the Convex CLI to develop against or deploy code.\n\nWhen access to the deployment is granted through an OAuth token this\ndeploy key will use the same OAuth-granted token.\n\nWhen access to the deployment is granted any other way a new token will be\ncreated which grants access only to this deployment.",
+        "operationId": "create deploy key",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformCreateDeployKeyArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCreateDeployKeyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": [],
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/token_details": {
       "get": {
         "summary": "Get token details",
@@ -199,6 +243,10 @@
   },
   "components": {
     "schemas": {
+      "AdminKey": {
+        "type": "string",
+        "description": "Encrypted admin key"
+      },
       "DeploymentType": {
         "type": "string",
         "enum": [
@@ -209,6 +257,31 @@
       },
       "DeviceName": {
         "type": "string"
+      },
+      "PlatformCreateDeployKeyArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for the deploy key."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlatformCreateDeployKeyResponse": {
+        "type": "object",
+        "required": [
+          "deployKey"
+        ],
+        "properties": {
+          "deployKey": {
+            "$ref": "#/components/schemas/AdminKey",
+            "description": "The generated deploy key."
+          }
+        }
       },
       "PlatformCreateProjectArgs": {
         "type": "object",
