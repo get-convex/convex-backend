@@ -126,6 +126,7 @@ pub async fn internal_query_post(
             identity,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
+                parent_execution_id: Some(context.execution_id),
             },
         )
         .await?;
@@ -181,6 +182,7 @@ pub async fn internal_mutation_post(
             None,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
+                parent_execution_id: Some(context.execution_id),
             },
             None,
         )
@@ -239,6 +241,7 @@ pub async fn internal_action_post(
             identity,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
+                parent_execution_id: Some(context.execution_id),
             },
         )
         .await?;

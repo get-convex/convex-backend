@@ -1918,6 +1918,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 None,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
+                    parent_execution_id: Some(context.execution_id),
                 },
             )
             .await?
@@ -1942,6 +1943,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 None,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
+                    parent_execution_id: Some(context.execution_id),
                 },
                 None,
             )
@@ -1970,6 +1972,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 identity,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
+                    parent_execution_id: Some(context.execution_id),
                 },
             )
             .await

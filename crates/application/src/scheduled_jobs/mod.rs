@@ -791,7 +791,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 let mut updated_job = job.clone();
                 updated_job.state = ScheduledJobState::InProgress {
                     request_id: Some(context.request_id.clone()),
-                    execution_id: Some(context.execution_id.clone()),
+                    execution_id: Some(context.execution_id),
                 };
                 SchedulerModel::new(&mut tx, namespace)
                     .replace(job_id, updated_job.clone())
@@ -854,7 +854,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Restore the request & execution ID of the failed execution.
                 let context = ExecutionContext::new_from_parts(
                     request_id.clone().unwrap_or_else(RequestId::new),
-                    execution_id.clone().unwrap_or_else(ExecutionId::new),
+                    (*execution_id).unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
                 );

@@ -86,7 +86,7 @@ impl ExecutionContext {
 
     pub fn add_sentry_tags(&self, scope: &mut sentry::Scope) {
         scope.set_tag("request_id", &self.request_id);
-        scope.set_tag("execution_id", &self.execution_id);
+        scope.set_tag("execution_id", self.execution_id);
     }
 }
 
@@ -186,7 +186,7 @@ impl<'de> Deserialize<'de> for RequestId {
 ///
 /// Execution ids are not meant to be human readable, but they must be globally
 /// unique.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExecutionId(Uuid);
 
 #[cfg(any(test, feature = "testing"))]

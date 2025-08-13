@@ -61,6 +61,7 @@ async fn run_query_with_journal(
             journal,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
+                parent_execution_id: None,
             },
         )
         .await?;
@@ -97,6 +98,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             None,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
+                parent_execution_id: None,
             },
             None,
         )

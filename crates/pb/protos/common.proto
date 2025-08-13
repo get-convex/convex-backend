@@ -149,6 +149,7 @@ message SchedulerFunctionCaller {
 message ActionFunctionCaller {
   common.DeveloperDocumentId parent_scheduled_job = 1;
   optional string component_id = 2;
+  optional string parent_execution_id = 3;
 }
 
 message RedactedJsError {

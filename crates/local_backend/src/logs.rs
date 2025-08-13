@@ -51,6 +51,8 @@ pub enum FunctionExecutionJson {
         log_lines: Vec<JsonValue>,
         timestamp: f64,
         cached_result: bool,
+        caller: String,
+        parent_execution_id: Option<String>,
         execution_time: f64,
         success: Option<JsonValue>,
         error: Option<String>,
@@ -291,6 +293,11 @@ fn execution_to_json(
                 success: None,
                 error: error.map(|e| e.to_string()),
                 request_id: execution.context.request_id.to_string(),
+                caller: execution.caller.to_string(),
+                parent_execution_id: execution
+                    .caller
+                    .parent_execution_id()
+                    .map(|id| id.to_string()),
                 execution_id: execution.context.execution_id.to_string(),
                 usage_stats: usage_stats_json,
                 occ_info: occ_info_json,
@@ -315,6 +322,11 @@ fn execution_to_json(
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,
+                caller: execution.caller.to_string(),
+                parent_execution_id: execution
+                    .caller
+                    .parent_execution_id()
+                    .map(|id| id.to_string()),
                 success,
                 error: error.map(|e| e.to_string()),
                 request_id: execution.context.request_id.to_string(),

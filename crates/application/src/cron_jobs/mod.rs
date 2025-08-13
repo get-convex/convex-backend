@@ -557,7 +557,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 let mut updated_job = job.clone();
                 updated_job.state = CronJobState::InProgress {
                     request_id: Some(context.request_id.clone()),
-                    execution_id: Some(context.execution_id.clone()),
+                    execution_id: Some(context.execution_id),
                 };
                 CronModel::new(&mut tx, component)
                     .update_job_state(updated_job.cron_next_run())
@@ -637,7 +637,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 // Restore the execution ID of the failed execution.
                 let context = ExecutionContext::new_from_parts(
                     request_id.clone().unwrap_or_else(RequestId::new),
-                    execution_id.clone().unwrap_or_else(ExecutionId::new),
+                    execution_id.unwrap_or_else(ExecutionId::new),
                     caller.parent_scheduled_job(),
                     caller.is_root(),
                 );

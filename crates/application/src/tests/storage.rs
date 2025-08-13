@@ -89,6 +89,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
     let args = vec![json!({"id": id.to_string()})];
     let caller = FunctionCaller::Action {
         parent_scheduled_job: None,
+        parent_execution_id: None,
     };
     let host = ResolvedHostname {
         instance_name: "carnitas".to_string(),
@@ -189,6 +190,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
     let args = vec![json!({})];
     let caller = FunctionCaller::Action {
         parent_scheduled_job: None,
+        parent_execution_id: None,
     };
     let host = ResolvedHostname {
         instance_name: "carnitas".to_string(),

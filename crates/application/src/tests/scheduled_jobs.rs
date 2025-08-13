@@ -324,6 +324,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             None,
             FunctionCaller::Action {
                 parent_scheduled_job,
+                parent_execution_id: None,
             },
             None,
         )
@@ -341,6 +342,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             Identity::system(),
             FunctionCaller::Action {
                 parent_scheduled_job,
+                parent_execution_id: None,
             },
         )
         .await??;

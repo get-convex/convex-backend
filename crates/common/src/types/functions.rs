@@ -24,6 +24,7 @@ use crate::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
     },
+    execution_context::ExecutionId,
     version::ClientVersion,
 };
 
@@ -159,6 +160,7 @@ pub enum FunctionCaller {
     },
     Action {
         parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
+        parent_execution_id: Option<ExecutionId>,
     },
     #[cfg(any(test, feature = "testing"))]
     #[proptest(weight = 0)]
@@ -196,7 +198,25 @@ impl FunctionCaller {
             } => Some((*component_id, *job_id)),
             FunctionCaller::Action {
                 parent_scheduled_job,
+                ..
             } => *parent_scheduled_job,
+        }
+    }
+
+    pub fn parent_execution_id(&self) -> Option<ExecutionId> {
+        match self {
+            FunctionCaller::SyncWorker(_)
+            | FunctionCaller::HttpApi(_)
+            | FunctionCaller::Tester(_)
+            | FunctionCaller::HttpEndpoint
+            | FunctionCaller::Cron
+            | FunctionCaller::Scheduler { .. } => None,
+            FunctionCaller::Action {
+                parent_execution_id,
+                ..
+            } => *parent_execution_id,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => None,
         }
     }
 
@@ -293,6 +313,7 @@ impl From<FunctionCaller> for pb::common::FunctionCaller {
             },
             FunctionCaller::Action {
                 parent_scheduled_job,
+                parent_execution_id,
             } => {
                 let (component_id, document_id) = parent_scheduled_job.unzip();
                 let caller = pb::common::ActionFunctionCaller {
@@ -300,6 +321,8 @@ impl From<FunctionCaller> for pb::common::FunctionCaller {
                     component_id: component_id
                         .unwrap_or(ComponentId::Root)
                         .serialize_to_string(),
+                    parent_execution_id: parent_execution_id
+                        .map(|execution_id| execution_id.to_string()),
                 };
                 pb::common::function_caller::Caller::Action(caller)
             },
@@ -346,6 +369,7 @@ impl TryFrom<pb::common::FunctionCaller> for FunctionCaller {
                 let pb::common::ActionFunctionCaller {
                     parent_scheduled_job,
                     component_id,
+                    parent_execution_id,
                 } = caller;
                 let parent_scheduled_job = parent_scheduled_job
                     .map(|job_id| job_id.try_into())
@@ -353,6 +377,9 @@ impl TryFrom<pb::common::FunctionCaller> for FunctionCaller {
                 let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
                 FunctionCaller::Action {
                     parent_scheduled_job: parent_scheduled_job.map(|job_id| (component_id, job_id)),
+                    parent_execution_id: parent_execution_id
+                        .map(|id| ExecutionId::from_str(&id))
+                        .transpose()?,
                 }
             },
             None => anyhow::bail!("Missing `caller` field"),

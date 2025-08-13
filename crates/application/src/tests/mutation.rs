@@ -49,6 +49,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             None,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
+                parent_execution_id: None,
             },
             None,
         )
@@ -70,6 +71,7 @@ async fn insert_and_count(application: &Application<TestRuntime>) -> anyhow::Res
             None,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
+                parent_execution_id: None,
             },
             None,
         )
