@@ -5201,6 +5201,7 @@ name = "log_streaming"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bytes",
  "common",
  "convex_macro",

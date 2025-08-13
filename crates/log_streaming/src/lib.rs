@@ -21,6 +21,7 @@ use std::{
     time::Duration,
 };
 
+use async_trait::async_trait;
 use common::{
     backoff::Backoff,
     document::ParsedDocument,
@@ -35,6 +36,7 @@ use common::{
         LogSender,
     },
     runtime::{
+        shutdown_and_join,
         Runtime,
         SpawnHandle,
         WithTimeout,
@@ -91,7 +93,7 @@ use crate::sinks::{
 /// See `log_streaming/README.md` for more info.
 #[derive(Clone)]
 pub struct LogManagerClient {
-    handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    handle: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     event_sender: mpsc::Sender<LogEvent>,
     active_sinks_count: Arc<AtomicUsize>,
     entitlement_enabled: Arc<AtomicBool>,
@@ -146,9 +148,13 @@ impl LogManagerClient {
     }
 }
 
+#[async_trait]
 impl LogSender for LogManagerClient {
-    fn shutdown(&self) -> anyhow::Result<()> {
-        self.handle.lock().shutdown();
+    async fn shutdown(&self) -> anyhow::Result<()> {
+        let handle = self.handle.lock().take();
+        if let Some(handle) = handle {
+            shutdown_and_join(handle).await?;
+        }
         Ok(())
     }
 
@@ -252,7 +258,7 @@ impl<RT: Runtime> LogManager<RT> {
             active_sinks_count: active_sinks_count.clone(),
         };
 
-        let handle = Arc::new(Mutex::new(runtime.spawn("log_manager", worker.go())));
+        let handle = Arc::new(Mutex::new(Some(runtime.spawn("log_manager", worker.go()))));
         let entitlement_enabled = Arc::new(AtomicBool::new(entitlement_enabled));
         LogManagerClient {
             handle,

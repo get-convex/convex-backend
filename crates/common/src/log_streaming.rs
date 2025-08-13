@@ -15,6 +15,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use tonic::async_trait;
 use value::heap_size::HeapSize;
 
 use crate::{
@@ -33,9 +34,10 @@ use crate::{
 };
 
 /// Public worker for the LogManager.
+#[async_trait]
 pub trait LogSender: Send + Sync {
     fn send_logs(&self, logs: Vec<LogEvent>);
-    fn shutdown(&self) -> anyhow::Result<()>;
+    async fn shutdown(&self) -> anyhow::Result<()>;
 }
 
 /// Structured log

@@ -553,8 +553,8 @@ pub struct Application<RT: Runtime> {
     search_and_vector_bootstrap_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     table_summary_worker: TableSummaryClient,
     schema_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    snapshot_import_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    export_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    snapshot_import_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    export_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     log_visibility: Arc<dyn LogVisibility<RT>>,
@@ -808,7 +808,9 @@ impl<RT: Runtime> Application<RT> {
             database.usage_counter(),
             instance_name.clone(),
         );
-        let export_worker = Arc::new(Mutex::new(runtime.spawn("export_worker", export_worker)));
+        let export_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("export_worker", export_worker),
+        )));
 
         let snapshot_import_worker = SnapshotImportWorker::start(
             runtime.clone(),
@@ -817,9 +819,9 @@ impl<RT: Runtime> Application<RT> {
             file_storage.clone(),
             database.usage_counter(),
         );
-        let snapshot_import_worker = Arc::new(Mutex::new(
+        let snapshot_import_worker = Arc::new(Mutex::new(Some(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
-        ));
+        )));
 
         let migration_worker = MigrationWorker::new(
             runtime.clone(),
@@ -3436,7 +3438,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
-        self.log_manager_client.shutdown()?;
+        self.log_manager_client.shutdown().await?;
         self.table_summary_worker.shutdown().await?;
         self.system_table_cleanup_worker.lock().shutdown();
         self.schema_worker.lock().shutdown();
@@ -3444,8 +3446,14 @@ impl<RT: Runtime> Application<RT> {
         self.search_worker.lock().shutdown();
         self.search_and_vector_bootstrap_worker.lock().shutdown();
         self.fast_forward_worker.lock().shutdown();
-        self.export_worker.lock().shutdown();
-        self.snapshot_import_worker.lock().shutdown();
+        let export_worker = self.export_worker.lock().take();
+        if let Some(export_worker) = export_worker {
+            shutdown_and_join(export_worker).await?;
+        }
+        let snapshot_import_worker = self.snapshot_import_worker.lock().take();
+        if let Some(snapshot_import_worker) = snapshot_import_worker {
+            shutdown_and_join(snapshot_import_worker).await?;
+        }
         self.runner.shutdown().await?;
         self.scheduled_job_runner.shutdown();
         self.cron_job_executor.lock().shutdown();

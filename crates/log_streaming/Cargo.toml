@@ -21,6 +21,7 @@ testing = [
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 bytes = { workspace = true }
 common = { path = "../../crates/common" }
 convex_macro = { path = "../../crates/convex_macro" }
