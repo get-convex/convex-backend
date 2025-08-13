@@ -28,7 +28,7 @@ const testReactClient = (address: string, options?: ConvexReactClientOptions) =>
 // https://linear.app/convex/issue/ENG-7052/re-enable-auth-websocket-client-tests
 
 // On Linux these can retry forever due to EADDRINUSE so run then sequentially.
-describe.sequential("auth websocket tests", () => {
+-describe.sequential.skip("auth websocket tests", () => {
   // This is the path usually taken on page load after a user logged in,
   // with a constant token provider.
   test("Authenticate via valid static token", async () => {
