@@ -210,3 +210,25 @@ mod proptest {
         }
     }
 }
+
+#[cfg(any(test, feature = "testing"))]
+pub mod test_helpers {
+    use crate::types::{
+        IndexDescriptor,
+        IndexName,
+    };
+
+    pub fn new_index_name(table_name: &str, index_name: &str) -> anyhow::Result<IndexName> {
+        IndexName::new(
+            str::parse(table_name)?,
+            IndexDescriptor::new(index_name.to_string())?,
+        )
+    }
+
+    pub fn new_index_descriptor(
+        table_name: &str,
+        index_name: &str,
+    ) -> anyhow::Result<IndexDescriptor> {
+        new_index_name(table_name, index_name).map(|name| name.descriptor().clone())
+    }
+}

@@ -5,6 +5,10 @@ use std::{
 };
 
 use anyhow::Context;
+pub use common::index::test_helpers::{
+    new_index_descriptor,
+    new_index_name,
+};
 use common::{
     bootstrap_model::index::{
         database_index::{
@@ -134,17 +138,6 @@ pub async fn assert_enabled(
         },
     }
     Ok(())
-}
-
-pub fn new_index_name(table_name: &str, index_name: &str) -> anyhow::Result<IndexName> {
-    IndexName::new(
-        str::parse(table_name)?,
-        IndexDescriptor::new(index_name.to_string())?,
-    )
-}
-
-pub fn new_index_descriptor(table_name: &str, index_name: &str) -> anyhow::Result<IndexDescriptor> {
-    new_index_name(table_name, index_name).map(|name| name.descriptor().clone())
 }
 
 pub fn index_descriptors_and_fields(diff: &IndexDiff) -> Vec<Vec<(IndexDescriptor, Vec<String>)>> {
