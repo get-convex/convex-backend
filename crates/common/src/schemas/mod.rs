@@ -55,6 +55,8 @@ use crate::{
 };
 
 pub mod json;
+#[cfg(any(test, feature = "testing"))]
+pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 pub mod validator;
@@ -222,60 +224,6 @@ macro_rules! db_schema_not_validated {
 }
 
 pub const VECTOR_DIMENSIONS: u32 = 1536;
-
-#[macro_export]
-// Turns a mapping of tableName => (index_name, vector_field) into a
-// DatabaseSchema struct.
-macro_rules! db_schema_with_vector_indexes {
-    ($($table:expr => {
-        $document_schema:expr, [$(($index_name:expr, $vector_field:expr)),*]
-    }),* $(,)?) => {
-        {
-            #[allow(unused)]
-            use std::str::FromStr;
-            #[allow(unused)]
-            let mut tables = std::collections::BTreeMap::new();
-            {
-                $(
-                    let table_name: $crate::types::TableName =
-                        str::parse($table)?;
-                    #[allow(unused)]
-                    let mut vector_indexes = std::collections::BTreeMap::new();
-                    $(
-                        let index_name = $crate::types::IndexName::new(
-                            str::parse($table)?,
-                            $crate::types::IndexDescriptor::new($index_name)?
-                        )?;
-                        vector_indexes.insert(
-                            index_name.descriptor().clone(),
-                            $crate::schemas::VectorIndexSchema::new(
-                                index_name.descriptor().clone(),
-                                value::FieldPath::from_str($vector_field)?,
-                                1536u32.try_into()?,
-                                Default::default(),
-                            )?,
-                        );
-                    )*
-                    let table_def = $crate::schemas::TableDefinition {
-                        table_name: table_name.clone(),
-                        indexes: Default::default(),
-                        staged_db_indexes: Default::default(),
-                        text_indexes: Default::default(),
-                        staged_text_indexes: Default::default(),
-                        vector_indexes,
-                        staged_vector_indexes: Default::default(),
-                        document_type: Some($document_schema),
-                    };
-                    tables.insert(table_name, table_def);
-                )*
-            }
-            $crate::schemas::DatabaseSchema {
-                tables,
-                schema_validation: true,
-            }
-        }
-    };
-}
 
 impl DatabaseSchema {
     pub fn tables_to_validate<'a, C: ShapeConfig, S: ShapeCounter, F>(

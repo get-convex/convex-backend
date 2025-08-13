@@ -1,8 +1,4 @@
 use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
     future::Future,
     str::FromStr,
 };
@@ -14,6 +10,8 @@ use common::{
         vector_index::VectorIndexState,
         IndexConfig,
     },
+    db_schema_with_indexes,
+    db_schema_with_search_indexes,
     object_validator,
     schemas::{
         validator::{
@@ -22,11 +20,8 @@ use common::{
         },
         DatabaseSchema,
         DocumentSchema,
-        TableDefinition,
-        TextIndexSchema,
     },
     types::TableName,
-    value::FieldPath,
 };
 use database::{
     test_helpers::{
@@ -54,57 +49,12 @@ use crate::{
         apply_config,
         assert_root_cause_contains,
         backfill_indexes,
-        db_schema_with_indexes,
         deploy_schema,
         expect_diff,
         prepare_schema,
     },
     test_helpers::DbFixturesWithModel,
 };
-
-macro_rules! db_schema_with_search_indexes {
-    ($($table:expr => [$(($index_name:expr, $field:expr)),*]),* $(,)?) => {
-        {
-
-            #[allow(unused)]
-            let mut tables = BTreeMap::new();
-            {
-                $(
-                    let table_name: TableName = str::parse($table)?;
-                    #[allow(unused)]
-                    let mut text_indexes = BTreeMap::new();
-                    $(
-                        let index_name = new_index_name($table, $index_name)?;
-                        let field_path: FieldPath = str::parse($field).unwrap();
-                        text_indexes.insert(
-                            index_name.descriptor().clone(),
-                            TextIndexSchema::new(
-                                index_name.descriptor().clone(),
-                                field_path.try_into()?,
-                                BTreeSet::new(),
-                            )?,
-                        );
-                    )*
-                    let table_def = TableDefinition {
-                        table_name: table_name.clone(),
-                        indexes: BTreeMap::new(),
-                        staged_db_indexes: Default::default(),
-                        text_indexes,
-                        staged_text_indexes: Default::default(),
-                        vector_indexes: Default::default(),
-                        staged_vector_indexes: Default::default(),
-                        document_type: None,
-                    };
-                    tables.insert(table_name, table_def);
-                )*
-            }
-            DatabaseSchema {
-                tables,
-                schema_validation: true,
-            }
-        }
-    };
-}
 
 type FnGenSchema =
     Box<dyn Fn(&str, &str, &str, Option<DocumentSchema>) -> anyhow::Result<DatabaseSchema>>;

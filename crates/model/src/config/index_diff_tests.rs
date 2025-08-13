@@ -1,3 +1,4 @@
+use common::db_schema_with_indexes;
 use database::{
     test_helpers::{
         index_utils::{
@@ -16,7 +17,6 @@ use value::TableNamespace;
 use crate::{
     config::index_test_utils::{
         backfill_indexes,
-        db_schema_with_indexes,
         deploy_schema,
         expect_diff,
         prepare_schema,
