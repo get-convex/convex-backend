@@ -290,7 +290,7 @@ pub async fn test_streaming_export_connection(
 /// extra fields during an export.
 ///
 /// TODO(nicolas): Remove this endpoint (replaced by
-/// get_fivetran_table_structure)
+/// get_table_column_names)
 pub async fn get_tables_and_columns(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
