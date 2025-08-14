@@ -2261,31 +2261,6 @@
         }
       }
     },
-    "/teams/{team_id}/usage/current_billing_period": {
-      "get": {
-        "operationId": "get_team_current_billing_period",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TeamCurrentBillingPeriodResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_id}/usage/query": {
       "get": {
         "operationId": "query_usage_databricks",
@@ -2383,6 +2358,31 @@
                       "type": "string"
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/usage/current_billing_period": {
+      "get": {
+        "operationId": "get_team_current_billing_period",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCurrentBillingPeriodResponse"
                 }
               }
             }
