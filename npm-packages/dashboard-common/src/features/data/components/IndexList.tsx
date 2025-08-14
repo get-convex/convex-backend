@@ -186,7 +186,7 @@ function IndexListRow({
                   <p className="mb-2">
                     Staged indexes are not queryable. To enable this index,
                     replace <code>{stagedIndexSyntaxForType(indexType)}</code>{" "}
-                    with a <code>{indexSyntaxForType(indexType)}</code>in your{" "}
+                    with <code>{indexSyntaxForType(indexType)}</code> in your{" "}
                     <code>schema.ts</code> file.
                   </p>
                 </div>
