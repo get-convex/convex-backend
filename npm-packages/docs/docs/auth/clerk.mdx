@@ -67,10 +67,10 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
   </Step>
   <Step title="Set the Issuer URL in your env vars">
-    In your `env` file, add your _Issuer_ URL as the `CLERK_FRONTEND_API_URL` environment variable. If you're using Vite, you'll need to prefix it with `VITE_`.
+    In your `env` file, add your _Issuer_ URL as the `CLERK_JWT_ISSUER_DOMAIN` environment variable.
 
     ```env title=".env"
-    VITE_CLERK_FRONTEND_API_URL=https://verb-noun-00.clerk.accounts.dev
+    CLERK_JWT_ISSUER_DOMAIN=https://verb-noun-00.clerk.accounts.dev
     ```
 
   </Step>
@@ -492,17 +492,14 @@ development, it's format will be `https://verb-noun-00.clerk.accounts.dev`. In
 production, it's format will be `https://clerk.<your-domain>.com`.
 
 Paste your Clerk Frontend API URL into your `.env` file, set it as the
-`CLERK_FRONTEND_API_URL` environment variable. If you are using Vite, you will
-need to prefix it with `VITE_`. If you are using Next.js, you will need to
-prefix it with `NEXT_PUBLIC_`.
+`CLERK_JWT_ISSUER_DOMAIN` environment variable.
 
 ```env title=".env"
-CLERK_FRONTEND_API_URL=https://verb-noun-00.clerk.accounts.dev
+CLERK_JWT_ISSUER_DOMAIN=https://verb-noun-00.clerk.accounts.dev
 ```
 
 Then, update your <JSDialectFileName name="auth.config.ts" /> file to use the
-environment variable. Don't forget to use the necessary prefix for your client
-platform (e.g. `VITE_` or `NEXT_PUBLIC_`).
+environment variable.
 
 ```ts title="convex/auth.config.ts"
 export default {
