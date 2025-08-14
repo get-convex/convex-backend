@@ -45,25 +45,28 @@ use crate::{
 macro_rules! expect_diff {
     (
         $diff:expr;
-        added: [$(($at:expr, $ai:expr, $af:expr)),*],
-        dropped: [$(($dt:expr, $di:expr, $df:expr)),*]
+        $(added: [$(($at:expr, $ai:expr, $af:expr)),*]$(,)?)?
+        $(dropped: [$(($dt:expr, $di:expr, $df:expr)),*]$(,)?)?
     ) => {
         let added_descriptors = vec![
-            $((
+            $($((
                 new_index_descriptor($at, $ai)?,
                 $af.into_iter().map(|str| str.to_string()).collect(),
-            ),)*
+            ),)*)?
         ];
         let dropped_descriptors = vec![
-            $((
+            $($((
                 new_index_descriptor($dt, $di)?,
                 $df.into_iter().map(|str| str.to_string()).collect()
-            ),)*
+            ),)*)?
         ];
         assert_eq!(
             database::test_helpers::index_utils::index_descriptors_and_fields(&$diff),
             vec![added_descriptors, dropped_descriptors]
         );
+    };
+    ($diff:expr) => {
+        expect_diff!($diff;)
     };
 }
 pub(crate) use expect_diff;

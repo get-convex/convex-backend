@@ -135,7 +135,7 @@ async fn prepare_new_mutated_indexes_with_new_index_marks_index_backfilling_and_
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
-        expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["a"])], dropped:[]);
+        expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["a"])]);
         assert_backfilling(tx, TABLE_NAME, INDEX_NAME)
     })
     .await
@@ -157,7 +157,7 @@ async fn prepare_new_mutated_indexes_with_removed_index_does_not_remove_it_but_d
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
-        expect_diff!(result ; added:[], dropped:[(TABLE_NAME, INDEX_NAME, vec!["a"])]);
+        expect_diff!(result ; dropped:[(TABLE_NAME, INDEX_NAME, vec!["a"])]);
         assert_enabled(&db, TABLE_NAME, INDEX_NAME).await
     })
     .await
@@ -504,7 +504,7 @@ async fn prepare_new_mutated_indexes_with_enabled_identical_index_does_not_backf
         let result = IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
-        expect_diff!(result ; added:[], dropped: []);
+        expect_diff!(result);
         db.commit(tx).await?;
 
         assert_enabled(&db, TABLE_NAME, INDEX_NAME).await
@@ -549,7 +549,7 @@ async fn prepare_new_mutated_indexes_with_backfilled_identical_index_does_not_ba
         let result = IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
-        expect_diff!(result ; added:[], dropped: []);
+        expect_diff!(result);
         db.commit(tx).await?;
 
         assert_backfilled(&db, TABLE_NAME, INDEX_NAME).await

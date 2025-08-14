@@ -33,7 +33,7 @@ async fn get_index_diff_with_no_indexes_returns_empty_diff(rt: TestRuntime) -> a
         .get_index_diff(TableNamespace::test_user(), &schema.tables)
         .await?;
 
-    expect_diff!(diff ; added:[], dropped:[]);
+    expect_diff!(diff);
 
     Ok(())
 }
@@ -255,7 +255,7 @@ async fn test_clean_index_diff_after_backfill(rt: TestRuntime) -> anyhow::Result
         .get_index_diff(TableNamespace::test_user(), &schema.tables)
         .await?;
 
-    expect_diff!(diff ; added:[], dropped:[]);
+    expect_diff!(diff);
     assert_eq!(
         descriptors(values(diff.identical)),
         vec![new_index_descriptor(table_name, index_name)?]
@@ -283,7 +283,7 @@ async fn get_index_diff_with_existing_unmodified_backfilled_indexes_prepare_beha
         .get_index_diff(TableNamespace::test_user(), &schema.tables)
         .await?;
 
-    expect_diff!(diff ; added:[], dropped:[]);
+    expect_diff!(diff);
     Ok(())
 }
 
