@@ -30,6 +30,10 @@
   query, or action _before_ setAuth() has been called, e.g. via a provider in
   React.
 
+- Change the default permissions for the local MCP server: access to production
+  deployments is now disabled by default, requiring
+  `--dangerously-enable-production-deployments` to enable.
+
 ## 1.25.4
 
 - Experimental `convex dev --once --debug-node-apis` debug flag for tracing

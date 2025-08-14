@@ -1,4 +1,4 @@
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -43,8 +43,15 @@ mcp
     `Comma separated list of tool names to disable (options: ${allToolNames.join(", ")})`,
   )
   .option(
-    "--disable-production-deployments",
-    "Disable the MCP server from accessing production deployments.",
+    "--dangerously-enable-production-deployments",
+    "DANGEROUSLY allow the MCP server to access production deployments. Defaults to false.",
+    false,
+  )
+  // Deprecated option, we swapped the default. no-op.
+  .addOption(
+    new Option("--disable-production-deployments")
+      .conflicts("--dangerously-enable-production-deployments")
+      .hideHelp(),
   )
   .addDeploymentSelectionOptions(actionDescription("Run the MCP server on"))
   .action(async (options) => {

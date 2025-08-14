@@ -11,7 +11,7 @@ import { z } from "zod";
 export interface McpOptions extends DeploymentSelectionOptions {
   projectDir?: string;
   disableTools?: string;
-  disableProductionDeployments?: boolean;
+  dangerouslyEnableProductionDeployments?: boolean;
 }
 
 export class RequestContext implements Context {
@@ -70,7 +70,7 @@ export class RequestContext implements Context {
     const { projectDir, deployment } = decodeDeploymentSelector(encoded);
     if (
       deployment.kind === "prod" &&
-      this.options.disableProductionDeployments
+      !this.options.dangerouslyEnableProductionDeployments
     ) {
       return await this.crash({
         exitCode: 1,
@@ -83,7 +83,7 @@ export class RequestContext implements Context {
   }
 
   get productionDeploymentsDisabled() {
-    return !!this.options.disableProductionDeployments;
+    return !this.options.dangerouslyEnableProductionDeployments;
   }
 }
 
