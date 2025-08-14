@@ -96,7 +96,9 @@ use convex_fivetran_source::api_types::selection as serialized;
 use proptest::prelude::*;
 #[cfg(test)]
 use proptest_derive::Arbitrary;
+use serde_json::Value as JsonValue;
 use value::{
+    export::ValueFormat,
     ConvexObject,
     DeveloperDocumentId,
     FieldName,
@@ -339,6 +341,22 @@ impl StreamingExportDocument {
         );
 
         Ok(Self { id, value })
+    }
+
+    pub fn export_fields(
+        self,
+        value_format: ValueFormat,
+    ) -> anyhow::Result<BTreeMap<String, JsonValue>> {
+        let map = match self.value.0.export(value_format) {
+            JsonValue::Object(map) => map,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unexpectedly serialized a Convex document as a non-object JSON value"
+                ));
+            },
+        };
+
+        Ok(map.into_iter().collect())
     }
 }
 
@@ -790,5 +808,79 @@ mod tests_serialization {
             let deserialized: StreamingExportSelection = serialized.try_into().expect("Can't roundtrip");
             prop_assert_eq!(value, deserialized);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests_export_fields {
+    use common::{
+        pii::PII,
+        testing::TestIdGenerator,
+    };
+    use maplit::btreemap;
+    use serde_json::json;
+    use value::{
+        assert_obj,
+        export::ValueFormat,
+        TableName,
+    };
+
+    use crate::streaming_export_selection::StreamingExportDocument;
+
+    #[test]
+    fn test_export_fields_convex_encoded_json() -> anyhow::Result<()> {
+        let mut id_generator = TestIdGenerator::new();
+        let posts_table_name: TableName = "posts".parse()?;
+        let id = id_generator.user_generate(&posts_table_name).developer_id;
+
+        let big_value: i64 = 1234567890123456789;
+        let doc = StreamingExportDocument::new(
+            id,
+            PII(assert_obj!(
+                "_id" => id.encode(),
+                "bigint" => big_value,
+            )),
+        )?;
+
+        let fields = doc.export_fields(ValueFormat::ConvexEncodedJSON)?;
+
+        // In ConvexEncodedJSON, integers are exported as objects
+        assert_eq!(
+            fields,
+            btreemap! {
+                "_id".to_string() => json!(id.encode()),
+                "bigint".to_string() => json!({"$integer": "FYHpffQQIhE="}),
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_export_fields_convex_clean_json() -> anyhow::Result<()> {
+        let mut id_generator = TestIdGenerator::new();
+        let posts_table_name: TableName = "posts".parse()?;
+        let id = id_generator.user_generate(&posts_table_name).developer_id;
+
+        let big_value: i64 = 1234567890123456789;
+        let doc = StreamingExportDocument::new(
+            id,
+            PII(assert_obj!(
+                "_id" => id.encode(),
+                "bigint" => big_value,
+            )),
+        )?;
+
+        let fields = doc.export_fields(ValueFormat::ConvexCleanJSON)?;
+
+        // In ConvexCleanJSON, big integers are exported as strings
+        assert_eq!(
+            fields,
+            btreemap! {
+                "_id".to_string() => json!(id.encode()),
+                "bigint".to_string() => json!(big_value.to_string()),
+            }
+        );
+        Ok(())
     }
 }

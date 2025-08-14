@@ -16,7 +16,6 @@ use common::{
         ComponentPath,
     },
     document::{
-        ResolvedDocument,
         CREATION_TIME_FIELD,
         ID_FIELD,
     },
@@ -44,6 +43,7 @@ use common::{
     },
 };
 use convex_fivetran_source::api_types::{
+    selection::Selection,
     DocumentDeltasArgs,
     DocumentDeltasResponse,
     DocumentDeltasValue,
@@ -54,6 +54,7 @@ use convex_fivetran_source::api_types::{
     ListSnapshotValue,
 };
 use database::{
+    streaming_export_selection::StreamingExportSelection,
     BootstrapComponentsModel,
     DocumentDeltas,
     SchemaModel,
@@ -121,22 +122,17 @@ pub async fn _document_deltas(
             "/api/document_deltas requires a cursor",
         ))?
         .try_into()?;
-    let table_name = args
-        .table_name
-        .map(|table_name| table_name.parse())
-        .transpose()?;
-    let component_filter = args
-        .component
-        .as_deref()
-        .map(FromStr::from_str)
-        .transpose()?;
+
+    let selection = Selection::from(args.selection);
+    let selection = StreamingExportSelection::try_from(selection)?;
+
     let DocumentDeltas {
         deltas,
         cursor: new_cursor,
         has_more,
     } = st
         .application
-        .document_deltas(identity, cursor, table_name, component_filter)
+        .document_deltas(identity, cursor, selection)
         .await?;
     let value_format = args
         .format
@@ -157,7 +153,7 @@ pub async fn _document_deltas(
                     // the row as deleted.
                     deleted: maybe_doc.is_none(),
                     fields: match maybe_doc {
-                        Some(doc) => export_doc_fields(doc, value_format)?,
+                        Some(doc) => doc.export_fields(value_format)?,
                         None => btreemap! {
                             "_id".to_string() => JsonValue::from(id),
                         },
@@ -223,15 +219,10 @@ async fn _list_snapshot(
             })
         })
         .transpose()?;
-    let table_name = args
-        .table_name
-        .map(|table_name| table_name.parse())
-        .transpose()?;
-    let component_filter = args
-        .component
-        .as_deref()
-        .map(FromStr::from_str)
-        .transpose()?;
+
+    let selection = Selection::from(args.selection);
+    let selection = StreamingExportSelection::try_from(selection)?;
+
     let SnapshotPage {
         documents,
         snapshot,
@@ -239,7 +230,7 @@ async fn _list_snapshot(
         has_more,
     } = st
         .application
-        .list_snapshot(identity, snapshot, cursor, table_name, component_filter)
+        .list_snapshot(identity, snapshot, cursor, selection)
         .await?;
     let value_format = args
         .format
@@ -259,7 +250,7 @@ async fn _list_snapshot(
                     // which would provide the same guarantees but would be more confusing
                     // if clients try to use it for anything besides deduplication.
                     ts: i64::from(ts),
-                    fields: export_doc_fields(doc, value_format)?,
+                    fields: doc.export_fields(value_format)?,
                 })
             },
         )
@@ -326,22 +317,6 @@ pub async fn get_tables_and_columns(
         out.insert(String::from(table_name.clone()), JsonValue::Array(columns));
     }
     Ok(Json(out))
-}
-
-fn export_doc_fields(
-    doc: ResolvedDocument,
-    value_format: ValueFormat,
-) -> anyhow::Result<BTreeMap<String, JsonValue>> {
-    let map = match doc.into_value().0.export(value_format) {
-        JsonValue::Object(map) => map,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Unexpectedly serialized a Convex document as a non-object JSON value"
-            ));
-        },
-    };
-
-    Ok(map.into_iter().collect())
 }
 
 /// Used by Fivetran -- returns a mapping from table name to a list of top level

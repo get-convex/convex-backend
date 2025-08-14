@@ -182,6 +182,10 @@ use crate::{
         TableSummaries,
     },
     stack_traces::StackTrace,
+    streaming_export_selection::{
+        StreamingExportDocument,
+        StreamingExportSelection,
+    },
     subscription::{
         Subscription,
         SubscriptionsClient,
@@ -323,7 +327,7 @@ pub struct DocumentDeltas {
         DeveloperDocumentId,
         ComponentPath,
         TableName,
-        Option<ResolvedDocument>,
+        Option<StreamingExportDocument>,
     )>,
     /// Exclusive cursor timestamp to pass in to the next call to
     /// document_deltas.
@@ -334,7 +338,7 @@ pub struct DocumentDeltas {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct SnapshotPage {
-    pub documents: Vec<(Timestamp, ComponentPath, TableName, ResolvedDocument)>,
+    pub documents: Vec<(Timestamp, ComponentPath, TableName, StreamingExportDocument)>,
     pub snapshot: Timestamp,
     pub cursor: Option<ResolvedDocumentId>,
     pub has_more: bool,
@@ -907,21 +911,16 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     }
 }
 
-#[derive(Clone)]
-pub struct StreamingExportTableFilter {
-    pub table_name: Option<TableName>,
-    pub component_path: Option<ComponentPath>,
-    pub namespace: Option<TableNamespace>,
+pub struct StreamingExportFilter {
+    pub selection: StreamingExportSelection,
     pub include_hidden: bool,
     pub include_system: bool,
 }
 
-impl Default for StreamingExportTableFilter {
+impl Default for StreamingExportFilter {
     fn default() -> Self {
         Self {
-            table_name: None,
-            namespace: None,
-            component_path: None,
+            selection: StreamingExportSelection::default(),
             // Allow snapshot imports to be streamed by default.
             // Note this behavior is kind of odd for `--require-empty` imports
             // because the rows are streamed before they are committed to Convex,
@@ -1765,48 +1764,33 @@ impl<RT: Runtime> Database<RT> {
     }
 
     fn streaming_export_table_filter(
-        table_filter: &StreamingExportTableFilter,
+        filter: &StreamingExportFilter,
         tablet_id: TabletId,
         table_mapping: &TableMapping,
         component_paths: &BTreeMap<ComponentId, ComponentPath>,
-    ) -> bool {
+    ) -> anyhow::Result<bool> {
         if !table_mapping.id_exists(tablet_id) {
             // Always exclude deleted tablets.
-            return false;
+            return Ok(false);
         }
-        if !table_filter.include_system && table_mapping.is_system_tablet(tablet_id) {
-            return false;
+        if !filter.include_system && table_mapping.is_system_tablet(tablet_id) {
+            return Ok(false);
         }
-        if !table_filter.include_hidden && !table_mapping.is_active(tablet_id) {
-            return false;
+        if !filter.include_hidden && !table_mapping.is_active(tablet_id) {
+            return Ok(false);
         }
-        if let Some(namespace_filter) = table_filter.namespace
-            && !table_mapping
-                .tablet_namespace(tablet_id)
-                .is_ok_and(|namespace| namespace == namespace_filter)
-        {
-            return false;
-        }
-        if let Some(table_name_filter) = &table_filter.table_name
-            && !table_mapping
-                .tablet_name(tablet_id)
-                .is_ok_and(|table_name| table_name == *table_name_filter)
-        {
-            return false;
-        }
-        if let Some(component_path_filter) = &table_filter.component_path {
-            if !table_mapping
-                .tablet_namespace(tablet_id)
-                .is_ok_and(|namespace| {
-                    component_paths
-                        .get(&namespace.into())
-                        .is_some_and(|component_path| component_path == component_path_filter)
-                })
-            {
-                return false;
-            }
-        }
-        true
+
+        let (table_namespace, _, table_name) = table_mapping
+            .get_table_metadata(tablet_id)
+            .with_context(|| format!("Can’t find the table entry for the tablet id {tablet_id}"))?;
+        let component_path = component_paths
+            .get(&ComponentId::from(*table_namespace))
+            .with_context(|| {
+                format!("Can’t find the component path for table namespace {table_namespace:?}")
+            })?;
+        Ok(filter
+            .selection
+            .is_table_included(component_path, table_name))
     }
 
     #[fastrace::trace]
@@ -1814,7 +1798,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         cursor: Option<Timestamp>,
-        filter: StreamingExportTableFilter,
+        filter: StreamingExportFilter,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
@@ -1885,7 +1869,7 @@ impl<RT: Runtime> Database<RT> {
                 id.table(),
                 &table_mapping,
                 &component_paths,
-            ) {
+            )? {
                 let table_number = table_mapping.tablet_number(id.table())?;
                 let table_name = table_mapping.tablet_name(id.table())?;
                 let component_id = ComponentId::from(table_mapping.tablet_namespace(id.table())?);
@@ -1899,7 +1883,18 @@ impl<RT: Runtime> Database<RT> {
                     .cloned()
                     .unwrap_or_else(ComponentPath::root);
                 let id = DeveloperDocumentId::new(table_number, id.internal_id());
-                deltas.push((ts, id, component_path, table_name, maybe_doc));
+                let column_filter = filter
+                    .selection
+                    .column_filter(&component_path, &table_name)?;
+                deltas.push((
+                    ts,
+                    id,
+                    component_path,
+                    table_name,
+                    maybe_doc
+                        .map(|doc| column_filter.filter_document(doc.to_developer()))
+                        .transpose()?,
+                ));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
                     // We want to finish, but we have to process all documents at this timestamp.
                     new_cursor = Some(ts);
@@ -1922,7 +1917,7 @@ impl<RT: Runtime> Database<RT> {
         identity: Identity,
         snapshot: Option<Timestamp>,
         cursor: Option<ResolvedDocumentId>,
-        table_filter: StreamingExportTableFilter,
+        filter: StreamingExportFilter,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<SnapshotPage> {
@@ -1957,18 +1952,27 @@ impl<RT: Runtime> Database<RT> {
         let tablet_ids: BTreeSet<_> = table_mapping
             .iter()
             .map(|(tablet_id, ..)| tablet_id)
-            .filter(|tablet_id| {
-                Self::streaming_export_table_filter(
-                    &table_filter,
-                    *tablet_id,
+            .filter_map(|tablet_id| {
+                let has_table_already_been_treated = cursor
+                    .as_ref()
+                    .map(|c| tablet_id < c.tablet_id)
+                    .unwrap_or(false);
+                if has_table_already_been_treated {
+                    return None;
+                }
+
+                match Self::streaming_export_table_filter(
+                    &filter,
+                    tablet_id,
                     &table_mapping,
                     &component_paths,
-                ) && cursor
-                    .as_ref()
-                    .map(|c| *tablet_id >= c.tablet_id)
-                    .unwrap_or(true)
+                ) {
+                    Ok(true) => Some(Ok(tablet_id)),
+                    Ok(false) => None,
+                    Err(e) => Some(Err(e)),
+                }
             })
-            .collect();
+            .try_collect()?;
         let mut tablet_ids = tablet_ids.into_iter();
         let tablet_id = match tablet_ids.next() {
             Some(first_table) => first_table,
@@ -2020,7 +2024,16 @@ impl<RT: Runtime> Database<RT> {
                 .get(&component_id)
                 .cloned()
                 .unwrap_or_else(ComponentPath::root);
-            documents.push((ts, component_path, table_name, doc));
+            let column_filter = filter
+                .selection
+                .column_filter(&component_path, &table_name)?;
+
+            documents.push((
+                ts,
+                component_path,
+                table_name,
+                column_filter.filter_document(doc.to_developer())?,
+            ));
             if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
                 new_cursor = Some(id);
                 break;

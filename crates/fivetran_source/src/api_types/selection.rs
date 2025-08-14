@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
+use maplit::btreemap;
 use serde::{
     Deserialize,
     Serialize,
 };
+
+use super::SelectionArg;
 
 /// Defines the components, tables, and columns to export in a deployment.
 ///
@@ -68,6 +71,15 @@ pub enum TableSelection {
     },
 }
 
+impl TableSelection {
+    pub fn included_with_all_columns() -> Self {
+        Self::Included {
+            columns: BTreeMap::new(),
+            other_columns: InclusionDefault::Included,
+        }
+    }
+}
+
 /// Serializable version of `StreamingExportColumnInclusion`.
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum ColumnInclusion {
@@ -75,6 +87,41 @@ pub enum ColumnInclusion {
     Excluded,
     #[serde(rename = "incl")]
     Included,
+}
+
+impl From<SelectionArg> for Selection {
+    fn from(arg: SelectionArg) -> Self {
+        match arg {
+            SelectionArg::Exact { selection } => selection,
+            SelectionArg::SingleTable {
+                table_name,
+                component,
+            } => Self {
+                components: btreemap! {
+                    component.unwrap_or(String::from("")) => ComponentSelection::Included {
+                        tables: btreemap! {
+                            table_name => TableSelection::included_with_all_columns(),
+                        },
+                        other_tables: InclusionDefault::Excluded,
+                    },
+                },
+                other_components: InclusionDefault::Excluded,
+            },
+            SelectionArg::SingleComponent { component } => Self {
+                components: btreemap! {
+                    component => ComponentSelection::Included {
+                        tables: BTreeMap::new(),
+                        other_tables: InclusionDefault::Included,
+                    },
+                },
+                other_components: InclusionDefault::Excluded,
+            },
+            SelectionArg::Everything {} => Self {
+                components: BTreeMap::new(),
+                other_components: InclusionDefault::Included,
+            },
+        }
+    }
 }
 
 #[cfg(test)]

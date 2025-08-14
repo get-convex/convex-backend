@@ -4,7 +4,7 @@ use common::{
     runtime::Runtime,
 };
 use convex_macro::test_runtime;
-use database::StreamingExportTableFilter;
+use database::StreamingExportFilter;
 use keybroker::Identity;
 use runtime::testing::TestRuntime;
 use value::{
@@ -47,7 +47,7 @@ async fn test_streaming_export_from_component(rt: TestRuntime) -> anyhow::Result
                 Identity::system(),
                 snapshot,
                 cursor,
-                StreamingExportTableFilter::default(),
+                StreamingExportFilter::default(),
                 5,
                 5,
             )

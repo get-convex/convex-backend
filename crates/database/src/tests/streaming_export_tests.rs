@@ -1,9 +1,12 @@
 use common::{
     assert_obj,
     components::ComponentPath,
+    document::ResolvedDocument,
+    pii::PII,
     types::TableName,
 };
 use keybroker::Identity;
+use maplit::btreemap;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use sync_types::Timestamp;
@@ -13,10 +16,19 @@ use value::{
 };
 
 use crate::{
-    database::StreamingExportTableFilter,
+    streaming_export_selection::{
+        StreamingExportColumnInclusion,
+        StreamingExportColumnSelection,
+        StreamingExportComponentSelection,
+        StreamingExportDocument,
+        StreamingExportInclusionDefault,
+        StreamingExportSelection,
+        StreamingExportTableSelection,
+    },
     test_helpers::DbFixtures,
     DocumentDeltas,
     SnapshotPage,
+    StreamingExportFilter,
     TableModel,
     TestFacingModel,
     UserFacingModel,
@@ -49,7 +61,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         .document_deltas(
             Identity::system(),
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             200,
             3,
         )
@@ -63,21 +75,21 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                     doc1sort.developer_id(),
                     ComponentPath::root(),
                     table_mapping.tablet_name(doc1sort.id().tablet_id)?,
-                    Some(doc1sort.clone())
+                    Some(StreamingExportDocument::with_all_fields(doc1sort.clone()))
                 ),
                 (
                     ts1,
                     doc2sort.developer_id(),
                     ComponentPath::root(),
                     table_mapping.tablet_name(doc2sort.id().tablet_id)?,
-                    Some(doc2sort.clone())
+                    Some(StreamingExportDocument::with_all_fields(doc2sort.clone()))
                 ),
                 (
                     ts2,
                     doc3.developer_id(),
                     ComponentPath::root(),
                     table_mapping.tablet_name(doc3.id().tablet_id)?,
-                    Some(doc3.clone())
+                    Some(StreamingExportDocument::with_all_fields(doc3.clone()))
                 ),
             ],
             cursor: ts2,
@@ -89,7 +101,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         .document_deltas(
             Identity::system(),
             Some(ts1),
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             200,
             3,
         )
@@ -102,7 +114,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                 doc3.developer_id(),
                 ComponentPath::root(),
                 table_mapping.tablet_name(doc3.id().tablet_id)?,
-                Some(doc3.clone())
+                Some(StreamingExportDocument::with_all_fields(doc3.clone()))
             )],
             cursor: ts2,
             has_more: false,
@@ -113,8 +125,11 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         .document_deltas(
             Identity::system(),
             None,
-            StreamingExportTableFilter {
-                table_name: Some("table1".parse()?),
+            StreamingExportFilter {
+                selection: StreamingExportSelection::single_table(
+                    ComponentPath::root(),
+                    "table1".parse().unwrap(),
+                ),
                 ..Default::default()
             },
             200,
@@ -129,7 +144,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                 doc1.developer_id(),
                 ComponentPath::root(),
                 table_mapping.tablet_name(doc1.id().tablet_id)?,
-                Some(doc1.clone())
+                Some(StreamingExportDocument::with_all_fields(doc1.clone()))
             )],
             cursor: ts2,
             has_more: false
@@ -142,7 +157,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         .document_deltas(
             Identity::system(),
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             200,
             1,
         )
@@ -156,14 +171,14 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                     doc1sort.developer_id(),
                     ComponentPath::root(),
                     table_mapping.tablet_name(doc1sort.id().tablet_id)?,
-                    Some(doc1sort.clone())
+                    Some(StreamingExportDocument::with_all_fields(doc1sort.clone()))
                 ),
                 (
                     ts1,
                     doc2sort.developer_id(),
                     ComponentPath::root(),
                     table_mapping.tablet_name(doc2sort.id().tablet_id)?,
-                    Some(doc2sort.clone())
+                    Some(StreamingExportDocument::with_all_fields(doc2sort.clone()))
                 ),
             ],
             cursor: ts1,
@@ -175,7 +190,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         .document_deltas(
             Identity::Unknown(None),
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             200,
             3,
         )
@@ -211,7 +226,7 @@ async fn document_deltas_should_ignore_rows_from_deleted_tables(
         .document_deltas(
             Identity::system(),
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             200,
             3,
         )
@@ -251,7 +266,7 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
         .document_deltas(
             Identity::system(),
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             200,
             3,
         )
@@ -264,7 +279,9 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
                 remaining_doc.developer_id(),
                 ComponentPath::root(),
                 table_mapping.tablet_name(remaining_doc.id().tablet_id)?,
-                Some(remaining_doc.clone())
+                Some(StreamingExportDocument::with_all_fields(
+                    remaining_doc.clone()
+                ))
             ),],
             cursor: ts_latest,
             has_more: false,
@@ -328,8 +345,16 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
                             Identity::system(),
                             snapshot,
                             cursor,
-                            StreamingExportTableFilter {
-                                table_name: table_filter.clone(),
+                            StreamingExportFilter {
+                                selection: table_filter
+                                    .clone()
+                                    .map(|table| {
+                                        StreamingExportSelection::single_table(
+                                            ComponentPath::root(),
+                                            table,
+                                        )
+                                    })
+                                    .unwrap_or_default(),
                                 ..Default::default()
                             },
                             100,
@@ -353,23 +378,40 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
             }
         };
 
+    let to_snapshot_docs =
+        |docs: Vec<(Timestamp, ComponentPath, TableName, ResolvedDocument)>| -> Vec<_> {
+            docs.into_iter()
+                .map(|(ts, cp, tn, doc)| {
+                    (ts, cp, tn, StreamingExportDocument::with_all_fields(doc))
+                })
+                .collect()
+        };
+
     let snapshot_page = snapshot_list_all(None, None, None).await?;
-    assert_eq!(snapshot_page.0, docs2sorted);
+    assert_eq!(snapshot_page.0, to_snapshot_docs(docs2sorted.clone()));
     assert_eq!(snapshot_page.1, ts2);
 
     let snapshot_explicit_ts = snapshot_list_all(Some(ts2), None, None).await?;
-    assert_eq!(snapshot_explicit_ts.0, docs2sorted);
+    assert_eq!(
+        snapshot_explicit_ts.0,
+        to_snapshot_docs(docs2sorted.clone())
+    );
     assert_eq!(snapshot_explicit_ts.1, ts2);
 
     let snapshot_table_filter = snapshot_list_all(None, Some("table2".parse()?), None).await?;
     assert_eq!(
         snapshot_table_filter.0,
-        vec![(ts2, ComponentPath::root(), "table2".parse()?, doc4)]
+        vec![(
+            ts2,
+            ComponentPath::root(),
+            "table2".parse()?,
+            StreamingExportDocument::with_all_fields(doc4)
+        )]
     );
     assert_eq!(snapshot_table_filter.1, ts2);
 
     let snapshot_old = snapshot_list_all(Some(ts1), None, None).await?;
-    assert_eq!(snapshot_old.0, docs1sorted);
+    assert_eq!(snapshot_old.0, to_snapshot_docs(docs1sorted.clone()));
     assert_eq!(snapshot_old.1, ts1);
 
     let snapshot_has_more = db
@@ -377,7 +419,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::system(),
             Some(ts1),
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             100,
             1,
         )
@@ -385,7 +427,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(
         snapshot_has_more,
         SnapshotPage {
-            documents: vec![docs1sorted[0].clone()],
+            documents: to_snapshot_docs(vec![docs1sorted[0].clone()]),
             snapshot: ts1,
             cursor: Some(docs1sorted[0].3.id()),
             has_more: true,
@@ -393,7 +435,10 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     let snapshot_cursor = snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].3.id())).await?;
-    assert_eq!(snapshot_cursor.0, vec![docs1sorted[1].clone()]);
+    assert_eq!(
+        snapshot_cursor.0,
+        to_snapshot_docs(vec![docs1sorted[1].clone()])
+    );
     assert_eq!(snapshot_cursor.1, ts1);
 
     let snapshot_auth = db
@@ -401,12 +446,136 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::Unknown(None),
             None,
             None,
-            StreamingExportTableFilter::default(),
+            StreamingExportFilter::default(),
             100,
             3,
         )
         .await;
     assert!(snapshot_auth.is_err());
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_snapshot_list_with_filters(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+
+    let user = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "users".parse()?,
+            assert_obj!("user" => "joe", "password" => "hunter2"),
+        )
+        .await?;
+    TestFacingModel::new(&mut tx)
+        .insert_and_get("tokens".parse()?, assert_obj!("secret" => "sk-123"))
+        .await?;
+    let ts = db.commit(tx).await?;
+
+    let filter = StreamingExportFilter {
+        selection: StreamingExportSelection {
+            components: btreemap! {
+                ComponentPath::root() => StreamingExportComponentSelection::Included {
+                    tables: btreemap! {
+                        "users".parse()? => StreamingExportTableSelection::Included (
+                            StreamingExportColumnSelection::new(
+                                btreemap! {
+                                    "password".parse()? => StreamingExportColumnInclusion::Excluded,
+                                    "_creationTime".parse()? => StreamingExportColumnInclusion::Excluded,
+                                },
+                                StreamingExportInclusionDefault::Included,
+                            )?,
+                        ),
+                    },
+                    other_tables: StreamingExportInclusionDefault::Excluded,
+                },
+            },
+            other_components: StreamingExportInclusionDefault::Excluded,
+        },
+        ..Default::default()
+    };
+
+    let snapshot_page = db
+        .list_snapshot(Identity::system(), Some(ts), None, filter, 100, 5)
+        .await?;
+
+    let partial_doc = StreamingExportDocument::new(
+        user.id().into(),
+        PII(assert_obj!(
+            "_id" => user.id().to_string(),
+            "user" => "joe",
+        )),
+    )?;
+
+    assert_eq!(
+        snapshot_page.documents,
+        vec![(ts, ComponentPath::root(), "users".parse()?, partial_doc)]
+    );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_document_deltas_with_filters(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+
+    let user_id = TestFacingModel::new(&mut tx)
+        .insert(
+            &"users".parse()?,
+            assert_obj!("user" => "joe", "password" => "hunter2"),
+        )
+        .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(&"tokens".parse()?, assert_obj!("secret" => "sk-123"))
+        .await?;
+    let ts = db.commit(tx).await?;
+
+    let filter = StreamingExportFilter {
+        selection: StreamingExportSelection {
+            components: btreemap! {
+                ComponentPath::root() => StreamingExportComponentSelection::Included {
+                    tables: btreemap! {
+                        "users".parse()? => StreamingExportTableSelection::Included (
+                            StreamingExportColumnSelection::new(
+                                btreemap! {
+                                    "password".parse()? => StreamingExportColumnInclusion::Excluded,
+                                    "_creationTime".parse()? => StreamingExportColumnInclusion::Excluded,
+                                },
+                                StreamingExportInclusionDefault::Included,
+                            )?,
+                        ),
+                    },
+                    other_tables: StreamingExportInclusionDefault::Excluded,
+                },
+            },
+            other_components: StreamingExportInclusionDefault::Excluded,
+        },
+        ..Default::default()
+    };
+
+    let deltas = db
+        .document_deltas(Identity::system(), None, filter, 200, 3)
+        .await?;
+
+    let partial_delta = StreamingExportDocument::new(
+        user_id.into(),
+        PII(assert_obj!(
+            "_id" => user_id.to_string(),
+            "user" => "joe",
+        )),
+    )?;
+
+    assert_eq!(
+        deltas.deltas,
+        vec![(
+            ts,
+            user_id.into(),
+            ComponentPath::root(),
+            "users".parse()?,
+            Some(partial_delta)
+        )]
+    );
 
     Ok(())
 }

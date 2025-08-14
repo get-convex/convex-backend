@@ -222,6 +222,15 @@ impl TableMapping {
             .with_context(|| format!("cannot find table {id:?}"))
     }
 
+    pub fn get_table_metadata(
+        &self,
+        id: TabletId,
+    ) -> anyhow::Result<&(TableNamespace, TableNumber, TableName)> {
+        self.tablet_to_table
+            .get(&id)
+            .with_context(|| format!("cannot find table {id:?}"))
+    }
+
     pub fn tablet_to_name(&self) -> impl Fn(TabletId) -> anyhow::Result<TableName> + '_ {
         |id| self.tablet_name(id)
     }

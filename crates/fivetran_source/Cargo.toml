@@ -30,6 +30,7 @@ derive_more = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 headers = { workspace = true }
+maplit = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 reqwest = { workspace = true }
@@ -50,7 +51,6 @@ tonic-build = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 convex = { path = "../convex", features = ["testing"] }
 convex_fivetran_common = { path = "../fivetran_common", features = ["testing"] }
-maplit = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }

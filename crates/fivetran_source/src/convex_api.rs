@@ -7,10 +7,6 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use convex_fivetran_common::config::Config;
-use convex_fivetran_source::api_types::{
-    DocumentDeltasArgs,
-    ListSnapshotArgs,
-};
 use derive_more::{
     Display,
     From,
@@ -27,8 +23,11 @@ use serde::{
 };
 
 use crate::api_types::{
+    DocumentDeltasArgs,
     DocumentDeltasResponse,
+    ListSnapshotArgs,
     ListSnapshotResponse,
+    SelectionArg,
 };
 
 #[allow(clippy::declare_interior_mutable_const)]
@@ -174,8 +173,7 @@ impl Source for ConvexApi {
             ListSnapshotArgs {
                 snapshot,
                 cursor: cursor.map(|c| c.into()),
-                table_name: None,
-                component: None,
+                selection: SelectionArg::default(),
                 format: Some("convex_encoded_json".to_string()),
             },
         )
@@ -190,8 +188,7 @@ impl Source for ConvexApi {
             "document_deltas",
             DocumentDeltasArgs {
                 cursor: Some(cursor.into()),
-                table_name: None,
-                component: None,
+                selection: SelectionArg::default(),
                 format: Some("convex_encoded_json".to_string()),
             },
         )

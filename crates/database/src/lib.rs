@@ -154,7 +154,7 @@ pub use self::{
         DocumentDeltas,
         OccRetryStats,
         SnapshotPage,
-        StreamingExportTableFilter,
+        StreamingExportFilter,
         MAX_OCC_FAILURES,
     },
     index_worker::{
