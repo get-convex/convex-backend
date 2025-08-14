@@ -197,6 +197,7 @@ dependencies = [
  "either",
  "errors",
  "events",
+ "exports",
  "fastrace",
  "file_storage",
  "float_next_after",
@@ -3207,6 +3208,43 @@ dependencies = [
  "proptest-derive",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "exports"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async_zip 0.0.17",
+ "async_zip_reader",
+ "bytes",
+ "common",
+ "convex_macro",
+ "database",
+ "errors",
+ "events",
+ "fastrace",
+ "file_storage",
+ "futures",
+ "headers",
+ "itertools 0.14.0",
+ "keybroker",
+ "maplit",
+ "metrics",
+ "mime2ext",
+ "model",
+ "pretty_assertions",
+ "runtime",
+ "serde",
+ "serde_json",
+ "shape_inference",
+ "storage",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "usage_tracking",
+ "value",
 ]
 
 [[package]]

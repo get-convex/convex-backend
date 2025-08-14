@@ -53,13 +53,13 @@ use value::{
     TabletId,
 };
 
-use crate::exports::{
-    worker::ExportWorker,
+use crate::{
     zip_uploader::ZipSnapshotUpload,
+    ExportComponents,
 };
 
-pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
-    worker: &ExportWorker<RT>,
+pub(crate) async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
+    components: &ExportComponents<RT>,
     path_prefix: &str,
     zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
     namespace: TableNamespace,
@@ -123,7 +123,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
                 *FILE_STORAGE_VIRTUAL_TABLE,
                 virtual_storage_id.encode()
             );
-            let file_stream = worker
+            let file_stream = components
                 .file_storage
                 .get(&file_storage_entry.storage_key)
                 .await?

@@ -37,7 +37,7 @@ static AFTER_DOCUMENTS_CLEAN: Bytes = Bytes::from_static("\n".as_bytes());
 // 0o644 => read-write for owner, read for everyone else.
 const ZIP_ENTRY_PERMISSIONS: u16 = 0o644;
 
-pub(super) static README_MD_CONTENTS: &str = r#"# Welcome to your Convex snapshot export!
+pub static README_MD_CONTENTS: &str = r#"# Welcome to your Convex snapshot export!
 
 This ZIP file contains a snapshot of the tables in your Convex deployment.
 

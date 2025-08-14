@@ -24,6 +24,7 @@ use database::{
     ImportFacingModel,
 };
 use errors::ErrorMetadata;
+use exports::FileStorageZipMetadata;
 use file_storage::FileStorage;
 use futures::{
     stream::{
@@ -60,15 +61,12 @@ use value::{
     TabletIdAndTableNumber,
 };
 
-use crate::{
-    exports::FileStorageZipMetadata,
-    snapshot_import::{
-        import_error::ImportError,
-        parse::ImportUnit,
-        progress::{
-            add_checkpoint_message,
-            best_effort_update_progress_message,
-        },
+use crate::snapshot_import::{
+    import_error::ImportError,
+    parse::ImportUnit,
+    progress::{
+        add_checkpoint_message,
+        best_effort_update_progress_message,
     },
 };
 

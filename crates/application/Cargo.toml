@@ -31,6 +31,7 @@ testing = [
     "usage_tracking/testing",
     "value/testing",
     "vector/testing",
+    "exports/testing",
 ]
 
 [dependencies]
@@ -54,6 +55,7 @@ database = { path = "../database" }
 either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
+exports = { path = "../exports" }
 fastrace = { workspace = true }
 file_storage = { path = "../file_storage" }
 float_next_after = { workspace = true }
@@ -120,6 +122,7 @@ common = { path = "../common", features = ["testing"] }
 database = { path = "../database", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
 events = { path = "../events", features = ["testing"] }
+exports = { path = "../exports", features = ["testing"] }
 function_runner = { path = "../function_runner", features = ["testing"] }
 isolate = { path = "../isolate", features = ["testing"] }
 keybroker = { path = "../keybroker", features = ["testing"] }

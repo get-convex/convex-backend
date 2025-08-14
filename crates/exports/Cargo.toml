@@ -1,0 +1,72 @@
+[package]
+name = "exports"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[features]
+testing = [
+    "common/testing",
+    "database/testing",
+    "errors/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "shape_inference/testing",
+    "storage/testing",
+    "usage_tracking/testing",
+    "value/testing",
+]
+
+[dependencies]
+anyhow = { workspace = true }
+async_zip = { workspace = true }
+bytes = { workspace = true }
+common = { path = "../common" }
+database = { path = "../database" }
+errors = { path = "../errors" }
+fastrace = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+keybroker = { path = "../keybroker" }
+maplit = { workspace = true }
+metrics = { path = "../metrics" }
+mime2ext = { workspace = true }
+model = { path = "../model" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shape_inference = { path = "../shape_inference" }
+storage = { path = "../storage" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+usage_tracking = { path = "../../crates/usage_tracking" }
+value = { path = "../value" }
+
+[dev-dependencies]
+async_zip_reader = { version = "0.1.0", path = "../async_zip_reader" }
+common = { path = "../common", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
+database = { path = "../database", features = ["testing"] }
+errors = { path = "../errors", features = ["testing"] }
+events = { path = "../events" }
+file_storage = { path = "../file_storage" }
+headers = { workspace = true }
+keybroker = { path = "../keybroker", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+model = { path = "../model", features = ["testing"] }
+pretty_assertions = { workspace = true }
+runtime = { path = "../runtime" }
+shape_inference = { path = "../shape_inference", features = ["testing"] }
+storage = { path = "../storage", features = ["testing"] }
+usage_tracking = { path = "../../crates/usage_tracking", features = [
+    "testing",
+] }
+value = { path = "../value", features = ["testing"] }
+
+[lints]
+workspace = true
