@@ -156,19 +156,11 @@ macro_rules! db_schema_with_indexes {
             }
         }
     };
-    ($($table:expr => [$(($index_name:expr, $fields:expr)),*]),* $(,)?) => {
-         db_schema_with_indexes!($($table => {
-            indexes: $(($index_name, $fields)),*
-        }),*)
-    };
 }
 
 #[test]
 fn test_db_schema_with_indexes() -> anyhow::Result<()> {
-    // Test with only indexes (array syntax)
-    db_schema_with_indexes!("table" => [("indexname", vec!["a"])]);
-
-    // Test with only indexes (new syntax)
+    // Test with only indexes (curly bracket syntax)
     db_schema_with_indexes!("table" => {
         indexes: ("indexname", vec!["a", "b", "c"])
     });
@@ -197,43 +189,5 @@ fn test_db_schema_with_indexes() -> anyhow::Result<()> {
     // Test with no indexes (empty table)
     db_schema_with_indexes!("table" => {});
 
-    Ok(())
-}
-
-#[macro_export]
-macro_rules! db_schema_with_search_indexes {
-    ($($table:expr => [$(($index_name:expr, $field:expr)),*]),* $(,)?) => {
-         $crate::db_schema_with_indexes!($($table => {
-            text_indexes: $(($index_name, $field)),*
-        }),*)
-    };
-}
-
-#[test]
-fn test_db_schema_with_text_indexes() -> anyhow::Result<()> {
-    db_schema_with_search_indexes!("table" => [("indexname", "a")]);
-    Ok(())
-}
-
-#[macro_export]
-// Turns a mapping of tableName => (index_name, vector_field) into a
-// DatabaseSchema struct.
-macro_rules! db_schema_with_vector_indexes {
-    ($($table:expr => {
-        $document_schema:expr, [$(($index_name:expr, $vector_field:expr)),*]
-    }),* $(,)?) => {
-         $crate::db_schema_with_indexes!($($table => {
-            vector_indexes: $(($index_name, $vector_field)),*,
-            document_schema: $document_schema,
-        }),*)
-    };
-}
-
-#[test]
-fn test_db_schema_with_vector_indexes() -> anyhow::Result<()> {
-    let document_schema = crate::schemas::DocumentSchema::Any;
-    db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
-    );
     Ok(())
 }

@@ -11,7 +11,7 @@ use value::{
 };
 
 use crate::{
-    db_schema_with_vector_indexes,
+    db_schema_with_indexes,
     json::JsonSerializable,
     object_validator,
     schemas::{
@@ -181,10 +181,10 @@ fn test_nested_optional_float64_vector_index_field_succeeds() -> anyhow::Result<
             )
         )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "myNestedObject.nestedField")]
+            vector_indexes: ("myVectorIndex", "myNestedObject.nestedField"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -208,10 +208,10 @@ fn test_nested_union_vector_eligible_types_succeeds() -> anyhow::Result<()> {
             )
         )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "myNestedObject.nestedField")]
+            vector_indexes: ("myVectorIndex", "myNestedObject.nestedField"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -234,10 +234,10 @@ fn test_nested_union_vector_and_int_index_field_succeeds() -> anyhow::Result<()>
             )
         )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "myNestedObject.nestedField")]
+            vector_indexes: ("myVectorIndex", "myNestedObject.nestedField"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -256,10 +256,10 @@ fn test_union_of_objects_only_one_has_null_field_succeeds() -> anyhow::Result<()
             )
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "vector")]
+            vector_indexes: ("myVectorIndex", "vector"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -280,10 +280,10 @@ fn test_union_of_objects_only_one_has_vector_field_succeeds() -> anyhow::Result<
             )
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "vector")]
+            vector_indexes: ("myVectorIndex", "vector"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -312,10 +312,10 @@ fn test_nested_union_of_objects_only_one_has_vector_field_succeeds() -> anyhow::
             ])
         )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "object.vector")]
+            vector_indexes: ("myVectorIndex", "object.vector"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -345,10 +345,10 @@ fn test_nested_union_of_objects_both_have_field_only_one_is_vector_succeeds() ->
             ])
         )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "object.vector")]
+            vector_indexes: ("myVectorIndex", "object.vector"),
+            document_schema: document_schema
         }
     );
     db_schema.check_index_references()?;
@@ -377,10 +377,10 @@ fn test_nested_union_of_objects_both_have_field_neither_is_vector_fails() -> any
             ])
         )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
+    let db_schema = db_schema_with_indexes!(
         "table" => {
-            document_schema,
-            [("myVectorIndex", "object.vector")]
+            vector_indexes: ("myVectorIndex", "object.vector"),
+            document_schema: document_schema
         }
     );
     expect_invalid_vector_error(db_schema);
@@ -395,8 +395,11 @@ fn test_optional_vector_index_field_succeeds() -> anyhow::Result<()> {
                 Validator::Array(Box::new(Validator::Float64))
             )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())
@@ -410,8 +413,11 @@ fn test_float64_vector_index_field_succeeds() -> anyhow::Result<()> {
                 Validator::Array(Box::new(Validator::Float64))
             )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())
@@ -423,8 +429,11 @@ fn test_any_vector_index_field_succeeds() -> anyhow::Result<()> {
         "myField" =>
             FieldValidator::required_field_type(Validator::Any)
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())
@@ -436,8 +445,11 @@ fn test_null_vector_index_field_fails() -> anyhow::Result<()> {
         "myField" =>
             FieldValidator::required_field_type(Validator::Null)
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     expect_invalid_vector_error(db_schema);
     Ok(())
@@ -449,8 +461,11 @@ fn test_string_vector_index_field_fails() -> anyhow::Result<()> {
         "myField" =>
             FieldValidator::required_field_type(Validator::String)
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     expect_invalid_vector_error(db_schema);
     Ok(())
@@ -468,8 +483,11 @@ fn test_union_same_field_name_both_not_vector_fields_fails() -> anyhow::Result<(
                 FieldValidator::required_field_type(Validator::Float64)
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     expect_invalid_vector_error(db_schema);
     Ok(())
@@ -500,8 +518,11 @@ fn test_union_same_field_name_both_vector_fields_succeeds() -> anyhow::Result<()
                 )
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())
@@ -521,8 +542,11 @@ fn test_union_same_field_any_and_vector_index_field_succeeds() -> anyhow::Result
                 )
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())
@@ -544,8 +568,11 @@ fn test_union_same_field_one_vector_field_succeeds() -> anyhow::Result<()> {
                 )
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())
@@ -567,8 +594,11 @@ fn test_union_same_field_one_vector_one_null_field_succeeds() -> anyhow::Result<
                 )
         ),
     ]);
-    let db_schema = db_schema_with_vector_indexes!(
-        "table" => {document_schema, [("myVectorIndex", "myField")]}
+    let db_schema = db_schema_with_indexes!(
+        "table" => {
+            vector_indexes: ("myVectorIndex", "myField"),
+            document_schema: document_schema
+        }
     );
     db_schema.check_index_references()?;
     Ok(())

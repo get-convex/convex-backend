@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use common::{
-    db_schema_with_vector_indexes,
+    db_schema_with_indexes,
     object_validator,
     persistence::Persistence,
     runtime::Runtime,
@@ -54,8 +54,11 @@ async fn commit_schema(
                 Validator::Array(Box::new(Validator::Float64))
             )
     )]);
-    let db_schema = db_schema_with_vector_indexes!(
-        TABLE => {document_schema, [("myVectorIndex", VECTOR_FIELD)]}
+    let db_schema = db_schema_with_indexes!(
+        TABLE => {
+            vector_indexes: ("myVectorIndex", VECTOR_FIELD),
+            document_schema: document_schema
+        }
     );
     deploy_schema(rt, tp, db, db_schema).await
 }
