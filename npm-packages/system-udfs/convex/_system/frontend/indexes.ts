@@ -78,7 +78,7 @@ export default queryPrivateSystem({
                 filterFields: string[];
                 dimensions: number;
               };
-          state: "in_progress" | "backfilled" | "done";
+          state: "backfilling" | "backfilled" | "done";
           staged: boolean;
         } {
           switch (config.type) {
@@ -89,7 +89,7 @@ export default queryPrivateSystem({
               switch (stateType) {
                 case "Backfilling":
                   staged = config.onDiskState.backfillState.staged ?? false;
-                  state = "in_progress" as const;
+                  state = "backfilling" as const;
                   break;
                 case "Backfilled2":
                   staged = config.onDiskState.staged ?? false;
@@ -105,7 +105,7 @@ export default queryPrivateSystem({
               const stateType = config.onDiskState.state;
               const state =
                 stateType === "backfilling" || stateType === "backfilling2"
-                  ? ("in_progress" as const)
+                  ? ("backfilling" as const)
                   : stateType === "backfilled" || stateType === "backfilled2"
                     ? ("backfilled" as const)
                     : ("done" as const);
@@ -129,7 +129,7 @@ export default queryPrivateSystem({
               const stateType = config.onDiskState.state;
               const state =
                 stateType === "backfilling"
-                  ? ("in_progress" as const)
+                  ? ("backfilling" as const)
                   : stateType === "backfilled" || stateType === "backfilled2"
                     ? ("backfilled" as const)
                     : ("done" as const);
@@ -157,7 +157,7 @@ export default queryPrivateSystem({
         }
 
         const { fields, state, staged } = getIndexFieldsAndState(index.config);
-        if (state === "in_progress") {
+        if (state === "backfilling") {
           const indexBackfill = await db
             .query("_index_backfills")
             .withIndex("by_index_id", (q) => q.eq("indexId", index._id))
