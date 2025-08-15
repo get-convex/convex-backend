@@ -114,7 +114,6 @@ export function DataFilters({
 
   const numRowsWeKnowOf = hasFilters ? numRowsLoaded : numRows;
 
-  const { enableIndexFilters } = useContext(DeploymentInfoContext);
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
 
@@ -226,41 +225,37 @@ export function DataFilters({
         {indexes && showFilters && (
           <div className="w-full animate-fadeInFromLoading">
             <div className="scrollbar flex w-full flex-col gap-2 overflow-x-auto rounded-sm rounded-tl-none border bg-background-secondary p-2 pb-2.5">
-              {enableIndexFilters && (
-                <IndexFilters
-                  shownFilters={shownFilters}
-                  defaultDocument={defaultDocument}
-                  indexes={indexes}
-                  tableName={tableName}
-                  activeSchema={activeSchema}
-                  getValidatorForField={getValidatorForField}
-                  onFiltersChange={onFiltersChange}
-                  applyFiltersWithHistory={applyFiltersWithHistory}
-                  setDraftFilters={setDraftFilters}
-                  onChangeOrder={onChangeOrder}
-                  onChangeIndexFilter={onChangeIndexFilter}
-                  invalidFilters={invalidFilters}
-                  onError={(...args) => onError("index", ...args)}
-                  hasInvalidFilters={hasInvalidFilters}
-                />
-              )}
+              <IndexFilters
+                shownFilters={shownFilters}
+                defaultDocument={defaultDocument}
+                indexes={indexes}
+                tableName={tableName}
+                activeSchema={activeSchema}
+                getValidatorForField={getValidatorForField}
+                onFiltersChange={onFiltersChange}
+                applyFiltersWithHistory={applyFiltersWithHistory}
+                setDraftFilters={setDraftFilters}
+                onChangeOrder={onChangeOrder}
+                onChangeIndexFilter={onChangeIndexFilter}
+                invalidFilters={invalidFilters}
+                onError={(...args) => onError("index", ...args)}
+                hasInvalidFilters={hasInvalidFilters}
+              />
               {shownFilters.clauses.length > 0 && (
                 <div className="mt-2 flex flex-col gap-2">
-                  {enableIndexFilters && (
-                    <div className="flex items-center gap-1">
-                      <hr className="w-2" />{" "}
-                      <p className="flex items-center gap-1 text-xs text-content-secondary">
-                        Other Filters
-                        <Tooltip
-                          tip="Other filters are not indexed and are applied after the indexed filters. These filters are less efficient."
-                          side="right"
-                        >
-                          <InfoCircledIcon />
-                        </Tooltip>
-                      </p>{" "}
-                      <hr className="grow" />
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <hr className="w-2" />{" "}
+                    <p className="flex items-center gap-1 text-xs text-content-secondary">
+                      Other Filters
+                      <Tooltip
+                        tip="Other filters are not indexed and are applied after the indexed filters. These filters are less efficient."
+                        side="right"
+                      >
+                        <InfoCircledIcon />
+                      </Tooltip>
+                    </p>{" "}
+                    <hr className="grow" />
+                  </div>
                   {shownFilters.clauses.map((clause, idx) => (
                     <FilterItem
                       key={clause.id || idx}

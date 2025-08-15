@@ -7,7 +7,7 @@ import classNames from "classnames";
 import { GenericDocument } from "convex/server";
 import { HeaderGroup } from "react-table";
 import { useDrop, useDrag } from "react-dnd";
-import { useRef, useContext, useState } from "react";
+import { useRef, useState } from "react";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
@@ -18,7 +18,6 @@ import { DataCellProps } from "@common/features/data/components/Table/DataCell/D
 import { columnWidthToString } from "@common/features/data/components/Table/DataRow";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { documentValidatorForTable } from "@common/features/data/components/Table/utils/validators";
 import { Button } from "@ui/Button";
 import { ValidatorTooltip } from "./ValidatorTooltip";
@@ -70,8 +69,6 @@ export function ColumnHeader({
       }),
     () => {},
   );
-
-  const { enableIndexFilters } = useContext(DeploymentInfoContext);
 
   const { densityValues } = useTableDensity();
   const width = columnWidthToString(column.getHeaderProps().style?.width);
@@ -163,7 +160,7 @@ export function ColumnHeader({
                   <QuestionMarkCircledIcon />
                 </Tooltip>
               )}
-            {sort && enableIndexFilters && (
+            {sort && (
               <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
                 <CaretUpIcon
                   className={cn(

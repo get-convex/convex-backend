@@ -25,7 +25,6 @@ import { Fallback } from "pages/500";
 import { useTeamUsageState } from "api/usage";
 import { useProjectEnvironmentVariables } from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
@@ -62,7 +61,6 @@ export function DeploymentInfoProvider({
   const teamsURI = `/t/${selectedTeamSlug}`;
   const projectsURI = `${teamsURI}/${projectSlug}`;
   const deploymentsURI = `${projectsURI}/${deploymentName}`;
-  const { enableIndexFilters } = useLaunchDarkly();
   useIsomorphicLayoutEffect(() => {
     const f = async () => {
       setDeploymentInfo(undefined);
@@ -94,7 +92,6 @@ export function DeploymentInfoProvider({
         projectsURI,
         deploymentsURI,
         isSelfHosted: false,
-        enableIndexFilters,
       });
     };
     if (accessToken && (deploymentOverride || deploymentName)) {
@@ -105,7 +102,6 @@ export function DeploymentInfoProvider({
     deploymentName,
     deploymentOverride,
     deploymentsURI,
-    enableIndexFilters,
     projectsURI,
     teamsURI,
   ]);

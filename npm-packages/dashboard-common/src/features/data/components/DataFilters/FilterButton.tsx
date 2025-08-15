@@ -2,8 +2,6 @@ import { ChevronDownIcon, MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
 import { cn } from "@ui/cn";
-import { useContext } from "react";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export const filterMenuId = "filterMenu";
 
@@ -33,14 +31,12 @@ export function FilterButton({
     (filter) => filter.enabled !== false,
   );
 
-  const { enableIndexFilters } = useContext(DeploymentInfoContext);
-
   const hasAnyEnabledFilters =
     indexFilters?.length || validFilterNames.size > 0;
 
   const filterButtonContent = (
     <div className="flex items-center gap-2">
-      <span>{enableIndexFilters ? "Filter & Sort" : "Filter"}</span>
+      <span>Filter & Sort</span>
       {hasAnyEnabledFilters && (
         <span className="rounded-full border border-content-primary px-1 py-0 text-xs leading-[14px] tabular-nums">
           {(indexFilters?.length || 0) + (regularFilters?.length || 0)}

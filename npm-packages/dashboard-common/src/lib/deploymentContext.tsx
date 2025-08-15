@@ -103,7 +103,6 @@ export type DeploymentInfo = (
   projectsURI: string;
   deploymentsURI: string;
   isSelfHosted: boolean;
-  enableIndexFilters: boolean;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(

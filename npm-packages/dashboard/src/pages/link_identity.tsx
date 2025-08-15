@@ -10,15 +10,11 @@ import {
   linkIdentityStateKey,
   providerToDisplayName,
 } from "components/profile/ConnectedIdentities";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
-import { LinkIdentityNoMultipleIdentities } from "components/profile/LinkIdentityNoMultipleIdentities";
 import { LinkIdentityForm } from "components/profile/LinkIdentityForm";
 
 export { getServerSideProps } from "lib/ssr";
 
 function LinkIdentity() {
-  const { multipleUserIdentities } = useLaunchDarkly();
-
   const { user } = useAuth0();
   const subParts = user?.sub?.split("|");
   const provider = subParts?.[0] === "oidc" ? subParts?.[1] : subParts?.[0];
@@ -30,12 +26,6 @@ function LinkIdentity() {
 
   const { accessToken, resume, status, message, setLinkIdentityState } =
     useLinkIdentityStateMachine();
-
-  // The feature flag is disabled, so show a UI that explains that the user
-  // can't link multiple GitHub accounts -- they should contact us instead.
-  if (!multipleUserIdentities) {
-    return <LinkIdentityNoMultipleIdentities user={user} />;
-  }
 
   return (
     <LinkIdentityForm

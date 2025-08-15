@@ -50,5 +50,4 @@ export const mockDeploymentInfo: DeploymentInfo = {
   projectsURI: "",
   deploymentsURI: "",
   isSelfHosted: true,
-  enableIndexFilters: false,
 };

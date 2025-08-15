@@ -43,7 +43,6 @@ import { TransferProject } from "components/projects/TransferProject";
 import { cn } from "@ui/cn";
 import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { Tooltip } from "@ui/Tooltip";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -236,8 +235,6 @@ function ProjectSettings() {
     projectId: project?.id!,
   });
 
-  const { showTeamOauthTokens } = useLaunchDarkly();
-
   const authorizedAppsExplainer = (
     <>
       <h3 className="mb-2">Authorized Applications</h3>
@@ -273,7 +270,7 @@ function ProjectSettings() {
         You cannot see applications that other members of your team have
         authorized.
       </p>
-      {team && showTeamOauthTokens && (
+      {team && (
         <p className="mt-1 mb-2 text-xs text-content-secondary">
           There may also be <b>team-wide authorized applications</b> that can
           access all projects in this team. You can view them in{" "}

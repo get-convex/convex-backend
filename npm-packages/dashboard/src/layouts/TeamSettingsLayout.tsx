@@ -7,7 +7,6 @@ import Head from "next/head";
 import React from "react";
 import { Team } from "generatedApi";
 import { SidebarLink } from "@common/elements/Sidebar";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export function TeamSettingsLayout({
   page: selectedPage,
@@ -27,7 +26,6 @@ export function TeamSettingsLayout({
   title: string;
 }) {
   const selectedTeam = useCurrentTeam();
-  const { referralsPage, showTeamOauthTokens } = useLaunchDarkly();
 
   const auditLogsEnabled = useTeamEntitlements(
     selectedTeam?.id,
@@ -38,8 +36,9 @@ export function TeamSettingsLayout({
     "members",
     "billing",
     "usage",
-    ...(referralsPage ? ["referrals"] : []),
-    ...(showTeamOauthTokens ? ["access-tokens", "applications"] : []),
+    "referrals",
+    "access-tokens",
+    "applications",
   ];
 
   return (

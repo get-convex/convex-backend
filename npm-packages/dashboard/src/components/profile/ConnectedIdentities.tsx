@@ -19,7 +19,6 @@ import { useSessionStorage } from "react-use";
 import { Button } from "@ui/Button";
 import { Menu, MenuItem } from "@ui/Menu";
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export const linkIdentityStateKey = "linkIdentityState";
 export type LinkIdentityState = {
@@ -80,9 +79,6 @@ export function ConnectedIdentities() {
     (i) => i.userId === changingPrimaryId,
   );
 
-  const { changePrimaryIdentity: changePrimaryIdentityFlag } =
-    useLaunchDarkly();
-
   return (
     <Sheet className="flex flex-col gap-4">
       <h3>Identities</h3>
@@ -128,33 +124,27 @@ export function ConnectedIdentities() {
                         size: "xs",
                       }}
                     >
-                      {changePrimaryIdentityFlag ? (
-                        <MenuItem
-                          action={() => setChangingPrimaryId(identity.userId)}
-                          disabled={
-                            isPrimary || identity.connection === "vercel"
-                          }
-                          tip={
-                            isPrimary
-                              ? "This is already your primary identity."
-                              : identity.connection === "vercel"
-                                ? "You cannot set a Vercel identity as your primary identity."
-                                : undefined
-                          }
-                          tipSide="right"
-                        >
-                          Set as primary
-                        </MenuItem>
-                      ) : null}
+                      <MenuItem
+                        action={() => setChangingPrimaryId(identity.userId)}
+                        disabled={isPrimary || identity.connection === "vercel"}
+                        tip={
+                          isPrimary
+                            ? "This is already your primary identity."
+                            : identity.connection === "vercel"
+                              ? "You cannot set a Vercel identity as your primary identity."
+                              : undefined
+                        }
+                        tipSide="right"
+                      >
+                        Set as primary
+                      </MenuItem>
                       <MenuItem
                         action={() => setUnlinkingId(identity.userId)}
                         disabled={isPrimary}
                         variant="danger"
                         tip={
                           isPrimary
-                            ? changePrimaryIdentityFlag
-                              ? "You cannot unlink your primary identity. To unlink this identity, you must first set a new primary identity."
-                              : "You cannot unlink your primary identity."
+                            ? "You cannot unlink your primary identity. To unlink this identity, you must first set a new primary identity."
                             : undefined
                         }
                         tipSide="right"
