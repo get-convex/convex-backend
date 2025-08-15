@@ -26,6 +26,16 @@ pub struct VectorIndexBackfillState {
     pub staged: bool,
 }
 
+impl VectorIndexBackfillState {
+    pub fn new(staged: bool) -> Self {
+        Self {
+            segments: vec![],
+            cursor: None,
+            backfill_snapshot_ts: None,
+            staged,
+        }
+    }
+}
 #[derive(Serialize, Deserialize)]
 pub struct SerializedVectorIndexBackfillState {
     segments: Option<Vec<SerializedFragmentedVectorSegment>>,

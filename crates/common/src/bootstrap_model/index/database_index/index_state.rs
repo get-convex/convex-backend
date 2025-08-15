@@ -27,6 +27,16 @@ pub enum DatabaseIndexState {
     Enabled,
 }
 
+impl DatabaseIndexState {
+    pub fn is_staged(&self) -> bool {
+        match self {
+            Self::Backfilling(index_state) => index_state.staged,
+            Self::Backfilled { staged } => *staged,
+            Self::Enabled => false,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "PascalCase")]
 pub enum SerializedDatabaseIndexState {

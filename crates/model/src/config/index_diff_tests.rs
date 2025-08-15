@@ -315,3 +315,173 @@ async fn test_same_index_name_across_two_tables(rt: TestRuntime) -> anyhow::Resu
         dropped:[]);
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_add_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+
+    let mut tx = new_tx(rt).await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; added:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_enable_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["a.q", "b.q"])
+        text_indexes: ("index2", "b.q")
+        vector_indexes: ("index3", "c.q")
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; enabled:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_disable_enabled_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["a.q", "b.q"])
+        text_indexes: ("index2", "b.q")
+        vector_indexes: ("index3", "c.q")
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; disabled:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_remove_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {});
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; dropped:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_change_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q"])
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["b.q"])
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ;
+        added:[("table", "index1", vec!["b.q"])],
+        dropped: [("table", "index1", vec!["a.q"])]
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_change_staged_index_while_enabling(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q"])
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["b.q"])
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ;
+        added:[("table", "index1", vec!["b.q"])],
+        dropped: [("table", "index1", vec!["a.q"])]
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_change_index_while_disabling(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["a.q"])
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["b.q"])
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ;
+        added:[("table", "index1", vec!["b.q"])],
+        dropped: [("table", "index1", vec!["a.q"])]
+    );
+    Ok(())
+}

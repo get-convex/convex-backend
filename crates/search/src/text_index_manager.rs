@@ -415,6 +415,27 @@ impl TextIndexManager {
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),
+                            (
+                                IndexConfig::Text {
+                                    on_disk_state: TextIndexState::SnapshottedAt(old_snapshot),
+                                    ..
+                                },
+                                IndexConfig::Text {
+                                    on_disk_state:
+                                        TextIndexState::Backfilled {
+                                            snapshot: new_snapshot,
+                                            staged,
+                                        },
+                                    ..
+                                },
+                            ) => {
+                                anyhow::ensure!(
+                                    old_snapshot == new_snapshot,
+                                    "Snapshot mismatch when disabling text index"
+                                );
+                                anyhow::ensure!(staged, "Disabled text index must be staged");
+                                (Some(old_snapshot), Some(new_snapshot))
+                            },
                             (IndexConfig::Text { .. }, _) | (_, IndexConfig::Text { .. }) => {
                                 anyhow::bail!(
                                     "Invalid index type transition: {prev_metadata:?} to \

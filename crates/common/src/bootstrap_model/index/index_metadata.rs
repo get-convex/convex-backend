@@ -67,6 +67,15 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         name: GenericIndexName<T>,
         fields: IndexedFields,
     ) -> Self {
+        Self::_new_backfilling(index_created_lower_bound, name, fields, false)
+    }
+
+    fn _new_backfilling(
+        index_created_lower_bound: Timestamp,
+        name: GenericIndexName<T>,
+        fields: IndexedFields,
+        staged: bool,
+    ) -> Self {
         Self {
             name,
             config: IndexConfig::Database {
@@ -74,10 +83,18 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                 on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
                     index_created_lower_bound,
                     retention_started: false,
-                    staged: false,
+                    staged,
                 }),
             },
         }
+    }
+
+    pub fn new_staged_backfilling(
+        index_created_lower_bound: Timestamp,
+        name: GenericIndexName<T>,
+        fields: IndexedFields,
+    ) -> Self {
+        Self::_new_backfilling(index_created_lower_bound, name, fields, true)
     }
 
     pub fn new_backfilling_text_index(
@@ -95,6 +112,21 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         )
     }
 
+    pub fn new_staged_backfilling_text_index(
+        name: GenericIndexName<T>,
+        search_field: FieldPath,
+        filter_fields: BTreeSet<FieldPath>,
+    ) -> Self {
+        Self::new_text_index(
+            name,
+            DeveloperTextIndexConfig {
+                search_field,
+                filter_fields,
+            },
+            TextIndexState::Backfilling(TextIndexBackfillState::new(true)),
+        )
+    }
+
     pub fn new_backfilling_vector_index(
         name: GenericIndexName<T>,
         vector_field: FieldPath,
@@ -109,12 +141,26 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
                     vector_field,
                     filter_fields,
                 },
-                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState {
-                    segments: vec![],
-                    cursor: None,
-                    backfill_snapshot_ts: None,
-                    staged: false,
-                }),
+                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(false)),
+            },
+        }
+    }
+
+    pub fn new_staged_backfilling_vector_index(
+        name: GenericIndexName<T>,
+        vector_field: FieldPath,
+        dimensions: VectorDimensions,
+        filter_fields: BTreeSet<FieldPath>,
+    ) -> Self {
+        Self {
+            name,
+            config: IndexConfig::Vector {
+                developer_config: DeveloperVectorIndexConfig {
+                    dimensions,
+                    vector_field,
+                    filter_fields,
+                },
+                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(true)),
             },
         }
     }
@@ -153,6 +199,10 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
 
     pub fn is_vector_index(&self) -> bool {
         matches!(self.config, IndexConfig::Vector { .. })
+    }
+
+    pub fn is_staged_index(&self) -> bool {
+        self.config.is_staged()
     }
 
     pub fn map_table<U: IndexTableIdentifier>(

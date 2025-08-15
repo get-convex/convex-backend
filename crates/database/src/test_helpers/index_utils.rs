@@ -145,10 +145,14 @@ pub fn index_descriptors_and_fields(diff: &IndexDiff) -> Vec<Vec<(IndexDescripto
         added,
         identical: _,
         dropped,
+        enabled,
+        disabled,
     } = diff.clone();
     let dropped = values(dropped);
+    let enabled = values(enabled);
+    let disabled = values(disabled);
 
-    vec![added, dropped]
+    vec![added, dropped, enabled, disabled]
         .into_iter()
         .map(descriptors_and_fields)
         .collect()
@@ -163,10 +167,12 @@ pub fn values<T: IndexTableIdentifier>(
 pub fn descriptors_and_fields<T: IndexTableIdentifier>(
     metadata: Vec<IndexMetadata<T>>,
 ) -> Vec<(IndexDescriptor, Vec<String>)> {
-    metadata
+    let mut descriptors: Vec<_> = metadata
         .iter()
         .map(|index| (descriptor(index), get_index_fields(index.clone())))
-        .collect()
+        .collect();
+    descriptors.sort();
+    descriptors
 }
 
 pub fn descriptors<T: IndexTableIdentifier>(
@@ -185,25 +191,15 @@ pub fn get_index_fields<T: IndexTableIdentifier>(index_metadata: IndexMetadata<T
             developer_config, ..
         } => developer_config
             .fields
-            .iter()
-            .flat_map(|field_path| field_path.fields().iter().map(|field| field.to_string()))
+            .into_iter()
+            .map(|field_path| field_path.into())
             .collect(),
         IndexConfig::Text {
             developer_config, ..
-        } => developer_config
-            .search_field
-            .fields()
-            .iter()
-            .map(|field| field.to_string())
-            .collect(),
+        } => vec![developer_config.search_field.into()],
         IndexConfig::Vector {
             developer_config, ..
-        } => developer_config
-            .vector_field
-            .fields()
-            .iter()
-            .map(|field| field.to_string())
-            .collect(),
+        } => vec![developer_config.vector_field.into()],
     }
 }
 

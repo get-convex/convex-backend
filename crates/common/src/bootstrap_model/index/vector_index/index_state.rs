@@ -29,6 +29,14 @@ pub enum VectorIndexState {
 }
 
 impl VectorIndexState {
+    pub fn is_staged(&self) -> bool {
+        match self {
+            VectorIndexState::Backfilling(backfill_state) => backfill_state.staged,
+            VectorIndexState::Backfilled { staged, .. } => *staged,
+            VectorIndexState::SnapshottedAt(_) => false,
+        }
+    }
+
     pub fn segments(&self) -> anyhow::Result<&Vec<FragmentedVectorSegment>> {
         match self {
             VectorIndexState::Backfilling(backfill_state) => Ok(&backfill_state.segments),

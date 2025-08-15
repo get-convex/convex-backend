@@ -28,6 +28,7 @@ type IndexMetadata = {
   backfill: {
     state: "in_progress" | "done";
   };
+  staged: boolean;
 };
 
 type SchemaState =
@@ -44,6 +45,8 @@ type SchemaStateResponse = {
 type PrepareSchemaResponse = {
   added: IndexMetadata[];
   dropped: IndexMetadata[];
+  enabled: IndexMetadata[];
+  disabled: IndexMetadata[];
   schemaId: string;
 };
 
@@ -87,8 +90,8 @@ export async function pushSchema(
     return await logAndHandleFetchError(ctx, err);
   }
 
+  logIndexChanges(ctx, data, dryRun);
   const schemaId = data.schemaId;
-
   const schemaState = await waitForReadySchema(
     ctx,
     origin,
@@ -96,7 +99,6 @@ export async function pushSchema(
     schemaId,
     deploymentName,
   );
-  logIndexChanges(ctx, data, dryRun);
   return { schemaId, schemaState };
 }
 
@@ -134,8 +136,9 @@ async function waitForReadySchema(
   const data = await poll(fetch, (data: SchemaStateResponse) => {
     setSchemaProgressSpinner(ctx, data, start, deploymentName);
     return (
-      data.indexes.every((index) => index.backfill.state === "done") &&
-      data.schemaState.state !== "pending"
+      data.indexes.every(
+        (index) => index.backfill.state === "done" || index.staged,
+      ) && data.schemaState.state !== "pending"
     );
   });
 
@@ -222,10 +225,7 @@ see progress on the dashboard here: ${dashboardUrl}`;
 
 function logIndexChanges(
   ctx: Context,
-  indexes: {
-    added: IndexMetadata[];
-    dropped: IndexMetadata[];
-  },
+  indexes: PrepareSchemaResponse,
   dryRun: boolean,
 ) {
   if (indexes.dropped.length > 0) {
@@ -248,6 +248,28 @@ function logIndexChanges(
     indexDiff = indexDiff.slice(0, -1);
     logFinishedStep(
       `${dryRun ? "Would add" : "Added"} table indexes:\n${indexDiff}`,
+    );
+  }
+  if (indexes.enabled.length > 0) {
+    let indexDiff = "";
+    for (const index of indexes.enabled) {
+      indexDiff += `  [+] ${stringifyIndex(index)}\n`;
+    }
+    // strip last new line
+    indexDiff = indexDiff.slice(0, -1);
+    logFinishedStep(
+      `${dryRun ? "Would enable" : "Enabled"} table indexes:\n${indexDiff}`,
+    );
+  }
+  if (indexes.disabled.length > 0) {
+    let indexDiff = "";
+    for (const index of indexes.disabled) {
+      indexDiff += `  [+] ${stringifyIndex(index)}\n`;
+    }
+    // strip last new line
+    indexDiff = indexDiff.slice(0, -1);
+    logFinishedStep(
+      `${dryRun ? "Would disable" : "Disabled"} table indexes:\n${indexDiff}`,
     );
   }
 }

@@ -55,6 +55,23 @@ pub enum IndexConfig {
 }
 
 impl IndexConfig {
+    pub fn is_staged(&self) -> bool {
+        match self {
+            Self::Database {
+                developer_config: _,
+                on_disk_state,
+            } => on_disk_state.is_staged(),
+            Self::Text {
+                developer_config: _,
+                on_disk_state,
+            } => on_disk_state.is_staged(),
+            Self::Vector {
+                developer_config: _,
+                on_disk_state,
+            } => on_disk_state.is_staged(),
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         match self {
             IndexConfig::Database { on_disk_state, .. } => {
@@ -79,6 +96,20 @@ impl IndexConfig {
             },
             IndexConfig::Vector { on_disk_state, .. } => {
                 matches!(on_disk_state, VectorIndexState::Backfilling(_))
+            },
+        }
+    }
+
+    pub fn is_backfilled(&self) -> bool {
+        match self {
+            IndexConfig::Database { on_disk_state, .. } => {
+                matches!(on_disk_state, DatabaseIndexState::Backfilled { .. })
+            },
+            IndexConfig::Text { on_disk_state, .. } => {
+                matches!(on_disk_state, TextIndexState::Backfilled { .. })
+            },
+            IndexConfig::Vector { on_disk_state, .. } => {
+                matches!(on_disk_state, VectorIndexState::Backfilled { .. })
             },
         }
     }

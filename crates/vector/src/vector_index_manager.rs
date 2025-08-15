@@ -358,6 +358,27 @@ impl VectorIndexManager {
                                 ..
                             },
                         ) => (Some(old_snapshot), Some(new_snapshot), false),
+                        (
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::SnapshottedAt(old_snapshot),
+                                ..
+                            },
+                            IndexConfig::Vector {
+                                on_disk_state:
+                                    VectorIndexState::Backfilled {
+                                        snapshot: new_snapshot,
+                                        staged,
+                                    },
+                                ..
+                            },
+                        ) => {
+                            anyhow::ensure!(
+                                old_snapshot == new_snapshot,
+                                "Snapshot mismatch when disabling vector index"
+                            );
+                            anyhow::ensure!(staged, "Disabled vector index must be staged");
+                            (Some(old_snapshot), Some(new_snapshot), *staged)
+                        },
                         (IndexConfig::Vector { .. }, _) | (_, IndexConfig::Vector { .. }) => {
                             anyhow::bail!(
                                 "Invalid index type transition: {prev_metadata:?} to \

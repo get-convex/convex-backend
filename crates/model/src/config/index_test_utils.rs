@@ -44,8 +44,10 @@ use crate::{
 macro_rules! expect_diff {
     (
         $diff:expr;
-        $(added: [$(($at:expr, $ai:expr, $af:expr)),*]$(,)?)?
-        $(dropped: [$(($dt:expr, $di:expr, $df:expr)),*]$(,)?)?
+        $(added: [$(($at:expr, $ai:expr, $af:expr)),*$(,)?]$(,)?)?
+        $(dropped: [$(($dt:expr, $di:expr, $df:expr)),*$(,)?]$(,)?)?
+        $(enabled: [$(($et:expr, $ei:expr, $ef:expr)),*$(,)?]$(,)?)?
+        $(disabled: [$(($dit:expr, $dii:expr, $dif:expr)),*$(,)?]$(,)?)?
     ) => {
         let added_descriptors = vec![
             $($((
@@ -59,9 +61,21 @@ macro_rules! expect_diff {
                 $df.into_iter().map(|str| str.to_string()).collect()
             ),)*)?
         ];
+        let enabled_descriptors = vec![
+            $($((
+                new_index_descriptor($et, $ei)?,
+                $ef.into_iter().map(|str| str.to_string()).collect()
+            ),)*)?
+        ];
+        let disabled_descriptors = vec![
+            $($((
+                new_index_descriptor($dit, $dii)?,
+                $dif.into_iter().map(|str| str.to_string()).collect()
+            ),)*)?
+        ];
         assert_eq!(
             database::test_helpers::index_utils::index_descriptors_and_fields(&$diff),
-            vec![added_descriptors, dropped_descriptors]
+            vec![added_descriptors, dropped_descriptors, enabled_descriptors, disabled_descriptors]
         );
     };
     ($diff:expr) => {

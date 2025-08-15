@@ -96,6 +96,15 @@ impl TryFrom<Vec<FieldPath>> for IndexedFields {
     }
 }
 
+impl IntoIterator for IndexedFields {
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type Item = FieldPath;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl From<IndexedFields> for Vec<FieldPath> {
     fn from(fields: IndexedFields) -> Self {
         fields.0.into()

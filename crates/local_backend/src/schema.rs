@@ -83,6 +83,7 @@ pub struct IndexMetadataResponse {
     // `{ searchField: string, filterFields: string }` for a search index.
     fields: JsonValue,
     backfill: BackfillResponse,
+    staged: bool,
 }
 
 impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
@@ -115,6 +116,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     backfill: BackfillResponse {
                         state: backfill_state,
                     },
+                    staged: on_disk_state.is_staged(),
                 }
             },
             IndexConfig::Text {
@@ -145,6 +147,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     backfill: BackfillResponse {
                         state: backfill_state,
                     },
+                    staged: on_disk_state.is_staged(),
                 }
             },
             IndexConfig::Vector {
@@ -173,6 +176,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     backfill: BackfillResponse {
                         state: backfill_state,
                     },
+                    staged: on_disk_state.is_staged(),
                 }
             },
         })
@@ -192,6 +196,8 @@ pub struct PrepareSchemaArgs {
 pub struct PrepareSchemaResponse {
     added: Vec<IndexMetadataResponse>,
     dropped: Vec<IndexMetadataResponse>,
+    enabled: Vec<IndexMetadataResponse>,
+    disabled: Vec<IndexMetadataResponse>,
     schema_id: String,
 }
 
@@ -205,6 +211,18 @@ impl PrepareSchemaResponse {
                 .try_collect()?,
             dropped: diff
                 .dropped
+                .into_iter()
+                .map(|doc| doc.into_value())
+                .map(IndexMetadataResponse::try_from)
+                .try_collect()?,
+            enabled: diff
+                .enabled
+                .into_iter()
+                .map(|doc| doc.into_value())
+                .map(IndexMetadataResponse::try_from)
+                .try_collect()?,
+            disabled: diff
+                .disabled
                 .into_iter()
                 .map(|doc| doc.into_value())
                 .map(IndexMetadataResponse::try_from)
