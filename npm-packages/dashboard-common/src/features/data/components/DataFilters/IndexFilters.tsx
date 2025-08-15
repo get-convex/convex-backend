@@ -12,6 +12,7 @@ import { Combobox } from "@ui/Combobox";
 import { Tooltip } from "@ui/Tooltip";
 import { SchemaJson } from "@common/lib/format";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { Index } from "@common/features/data/lib/api";
 import { IndexFilterEditor, IndexFilterState } from "./IndexFilterEditor";
 
 export function getDefaultIndex(): {
@@ -69,7 +70,7 @@ const BY_ID_INDEX = {
 type IndexFiltersProps = {
   shownFilters: FilterExpression;
   defaultDocument: GenericDocument;
-  indexes: any[] | undefined;
+  indexes: Index[] | undefined;
   tableName: string;
   activeSchema: SchemaJson | null;
   getValidatorForField: (fieldName?: string) => ValidatorJSON | undefined;
@@ -123,10 +124,7 @@ export function IndexFilters({
         },
         // Add other user indexes with array fields
         ...indexes
-          .filter((index) => {
-            const simpleIndex = index as unknown as SimpleIndex;
-            return Array.isArray(simpleIndex.fields);
-          })
+          .filter((index) => Array.isArray(index.fields) && !index.staged)
           .map((index) => {
             const simpleIndex = index as unknown as SimpleIndex;
             return {
