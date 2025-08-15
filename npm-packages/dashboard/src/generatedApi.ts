@@ -1351,22 +1351,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/usage/current_billing_period": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_team_current_billing_period"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/usage/query": {
         parameters: {
             query?: never;
@@ -1375,6 +1359,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["query_usage_databricks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/usage/current_billing_period": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_team_current_billing_period"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1660,6 +1660,7 @@ export interface components {
         AuthIdentityResponse: {
             connection: string;
             isPrimary: boolean;
+            parentUserId?: string | null;
             profileData: components["schemas"]["ProfileData"];
             provider: string;
             userId: string;
@@ -4265,27 +4266,6 @@ export interface operations {
             };
         };
     };
-    get_team_current_billing_period: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamCurrentBillingPeriodResponse"];
-                };
-            };
-        };
-    };
     query_usage_databricks: {
         parameters: {
             query: {
@@ -4313,6 +4293,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[][];
+                };
+            };
+        };
+    };
+    get_team_current_billing_period: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCurrentBillingPeriodResponse"];
                 };
             };
         };

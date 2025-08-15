@@ -3038,6 +3038,12 @@
           "isPrimary": {
             "type": "boolean"
           },
+          "parentUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "profileData": {
             "$ref": "#/components/schemas/ProfileData"
           },
