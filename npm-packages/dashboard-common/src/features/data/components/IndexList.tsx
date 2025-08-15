@@ -143,7 +143,7 @@ function stagedIndexSyntaxForType(indexType: IndexType) {
     case "vector":
       return ".stagedVectorIndex()";
     default: {
-      const _exhaustivenessCheck: never = indexType;
+      indexType satisfies never;
       return "unknown";
     }
   }
@@ -158,7 +158,7 @@ function indexSyntaxForType(indexType: IndexType) {
     case "vector":
       return ".vectorIndex()";
     default: {
-      const _exhaustivenessCheck: never = indexType;
+      indexType satisfies never;
       return "unknown";
     }
   }
@@ -334,6 +334,6 @@ function getIndexType(index: Index): IndexType | "unknown" {
     return "vector";
   }
 
-  const _unreachable: never = index.fields;
+  index.fields satisfies never;
   return "unknown";
 }

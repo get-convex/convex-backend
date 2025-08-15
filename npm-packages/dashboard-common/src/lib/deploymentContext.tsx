@@ -497,7 +497,7 @@ function DeploymentWithConnectionState({
           setIsDisconnected(false);
           break;
         default: {
-          const _exhaustiveCheck: never = result;
+          result satisfies never;
           throw new Error(`Unknown connection state: ${result}`);
         }
       }

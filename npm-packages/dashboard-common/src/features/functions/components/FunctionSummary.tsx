@@ -143,7 +143,7 @@ export const functionTypeLabel = (udfType: UdfType) => {
       break;
     default:
       // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
-      const _typeCheck: never = udfType;
+      udfType satisfies never;
       text = "Function";
   }
   return text;

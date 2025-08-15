@@ -212,7 +212,7 @@ function getVariantDetails(variant: Variant): {
         ...dangerStyle,
       };
     default: {
-      const _exhaustiveCheck: never = variant;
+      variant satisfies never;
       throw new Error("Unexpected variant");
     }
   }

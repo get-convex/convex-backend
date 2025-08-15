@@ -138,7 +138,7 @@ export function stringifyShape(shape: Shape): string {
     case "Unknown":
       return "unknown";
     default: {
-      const _typeCheck: never = variant;
+      variant satisfies never;
       throw new Error(`Unrecognized variant in ${shape}`);
     }
   }

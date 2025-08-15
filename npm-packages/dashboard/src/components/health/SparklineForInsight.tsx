@@ -31,7 +31,7 @@ export function SparklineForInsight({ insight }: { insight: Insight }) {
     case "occRetried":
       return <OCCSparkline insight={insight} />;
     default: {
-      const _exhaustiveCheck: never = insight;
+      insight satisfies never;
       return null;
     }
   }

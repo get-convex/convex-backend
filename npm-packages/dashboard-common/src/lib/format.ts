@@ -142,7 +142,7 @@ export function displaySchemaFromShape({
       return `v.any()`;
     default: {
       // Enforce that the switch-case is exhaustive.
-      const _: never = variant;
+      variant satisfies never;
       throw new Error(`Unrecognized variant ${shape.type} in ${shape}`);
     }
   }
@@ -235,7 +235,7 @@ function displayValidator(validator: ValidatorJSON): string {
         .join(",\n")})`;
     default: {
       // Enforce that the switch-case is exhaustive.
-      const _: never = validator;
+      validator satisfies never;
       throw new Error(`Unrecognized validator variant: ${validator}`);
     }
   }

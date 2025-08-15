@@ -76,7 +76,7 @@ export function BackupRestoreStatus({
         />
       );
     default: {
-      const _typeCheck: never = state;
+      state satisfies never;
       return null;
     }
   }

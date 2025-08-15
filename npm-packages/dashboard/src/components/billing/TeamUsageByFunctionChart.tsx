@@ -378,7 +378,7 @@ function DeploymentTypeIndicator({
         </>
       );
     default: {
-      const _typecheck: never = deploymentType;
+      deploymentType satisfies never;
       return null;
     }
   }

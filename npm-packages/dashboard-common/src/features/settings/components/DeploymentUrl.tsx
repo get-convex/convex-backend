@@ -20,7 +20,7 @@ export function DeploymentType({
     case "dev":
       return <span>development</span>;
     default: {
-      const _typeCheck: never = deploymentType;
+      deploymentType satisfies never;
       return null;
     }
   }

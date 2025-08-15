@@ -82,7 +82,7 @@ export const isValidValue = (
         isValidValue(v, value, shallow),
       );
     default: {
-      const _typeCheck: never = validator;
+      validator satisfies never;
       return false;
     }
   }

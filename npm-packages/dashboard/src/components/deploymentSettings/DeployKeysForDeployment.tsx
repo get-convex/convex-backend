@@ -30,7 +30,7 @@ function getAdminKeyPrefix(deployment: DeploymentResponse) {
       return "preview";
     }
     default: {
-      const _typecheck: never = deployment.deploymentType;
+      deployment.deploymentType satisfies never;
       return "";
     }
   }

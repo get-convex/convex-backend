@@ -33,7 +33,7 @@ function statusToColors(
       };
     default:
       // eslint-disable-next-line no-case-declarations
-      const _: never = status;
+      status satisfies never;
       throw new Error(`Unrecognized health status ${status}`);
   }
 }

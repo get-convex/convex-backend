@@ -77,7 +77,7 @@ export const defaultValueForShape = (shape: Shape): Value | undefined => {
     case "Unknown":
       return undefined;
     default: {
-      const _typeCheck: never = shape;
+      shape satisfies never;
       return undefined;
     }
   }

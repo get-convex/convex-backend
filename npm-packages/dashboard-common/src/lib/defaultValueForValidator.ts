@@ -41,7 +41,7 @@ export const defaultValueForValidator = (
     case "array":
       return [];
     default: {
-      const _typeCheck: never = validator;
+      validator satisfies never;
       throw new Error(
         `Unsupported validator type: ${JSON.stringify(validator)}`,
       );

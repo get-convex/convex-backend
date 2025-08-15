@@ -407,8 +407,8 @@ export function DeploymentLabel({
   );
 }
 
-export function getBackgroundColor(type: DeploymentType): string {
-  switch (type) {
+export function getBackgroundColor(deploymentType: DeploymentType): string {
+  switch (deploymentType) {
     case "prod":
       return "border-purple-600 dark:border-purple-100 bg-purple-100 text-purple-600 dark:bg-purple-700 dark:text-purple-100";
     case "preview":
@@ -416,7 +416,7 @@ export function getBackgroundColor(type: DeploymentType): string {
     case "dev":
       return "border-green-600 dark:border-green-400 bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400";
     default: {
-      const _typecheck: never = type;
+      deploymentType satisfies never;
       return "";
     }
   }
@@ -441,7 +441,7 @@ export function getDeploymentLabel({
       return whoseName === null ? "Development (Cloud)" : `${whoseName}’s Dev`;
     }
     default: {
-      const _typecheck: never = deployment.deploymentType;
+      deployment.deploymentType satisfies never;
       return "";
     }
   }

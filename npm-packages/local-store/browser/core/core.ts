@@ -240,7 +240,7 @@ export class CoreSyncEngine {
         };
       }
     }
-    const _typecheck: never = syncRequest;
+    syncRequest satisfies never;
     throw new Error("Unreachable");
   }
 

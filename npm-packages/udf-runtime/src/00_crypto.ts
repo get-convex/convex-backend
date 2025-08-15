@@ -348,7 +348,7 @@ class SubtleCrypto {
       }
     }
 
-    const _: never = algorithmName;
+    algorithmName satisfies never;
     throw new TypeError(`Unknown algorithm name ${algorithmName}`);
   }
 
@@ -728,7 +728,7 @@ class SubtleCrypto {
       }
     }
 
-    const _: never = algorithmName;
+    algorithmName satisfies never;
     throw new TypeError(`Unknown algorithm name ${algorithmName}`);
   }
 
@@ -779,7 +779,7 @@ class SubtleCrypto {
         );
       }
     }
-    const _: never = algorithmName;
+    algorithmName satisfies never;
     throw new DOMException("Not implemented", "NotSupportedError");
   }
 

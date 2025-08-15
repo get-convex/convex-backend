@@ -41,7 +41,7 @@ export function ChartForInsight({ insight }: { insight: Insight }) {
       return <ChartCountDocumentsRead insight={docsReadInsight} />;
     }
     default: {
-      const _exhaustiveCheck: never = insight;
+      insight satisfies never;
       return null;
     }
   }

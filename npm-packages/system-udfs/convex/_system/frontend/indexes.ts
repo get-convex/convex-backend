@@ -150,7 +150,7 @@ export default queryPrivateSystem({
               };
             }
             default: {
-              const _typecheck: never = config;
+              config satisfies never;
               throw new Error(`Unknown index type`);
             }
           }

@@ -149,7 +149,7 @@ export function integrationToLogo(
         ),
       };
     default: {
-      const _: never = kind;
+      kind satisfies never;
       throw new Error(`Unrecognized integration type ${kind}`);
     }
   }
@@ -172,7 +172,7 @@ export function integrationUsingLegacyFormat(
       return config.version !== "2";
     default: {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _typeCheck: never = config;
+      config satisfies never;
       return false;
     }
   }
@@ -250,7 +250,7 @@ export function configToUrl(config: IntegrationConfig): string {
       return config.url;
     default:
       // eslint-disable-next-line no-case-declarations
-      const _: never = kind;
+      kind satisfies never;
       throw new Error(`Unrecognized integration type ${kind}`);
   }
 }
@@ -270,7 +270,7 @@ function datadogSiteLocationToUrl(siteLocation: DatadogSiteLocation): string {
     case "AP1":
       return "https://ap1.datadoghq.com";
     default: {
-      const _: never = siteLocation;
+      siteLocation satisfies never;
       throw new Error(`Unrecognized site location ${siteLocation}`);
     }
   }

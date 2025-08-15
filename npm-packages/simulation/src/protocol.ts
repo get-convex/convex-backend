@@ -142,7 +142,7 @@ export function receiveIncomingMessages(messages: IncomingMessage[]) {
         break;
       }
       default: {
-        const _: never = message;
+        message satisfies never;
       }
     }
   }

@@ -156,7 +156,7 @@ export function EventsForInsight({ insight }: { insight: Insight }) {
               />
             );
           default: {
-            const _exhaustiveCheck: never = insight;
+            insight satisfies never;
             return null;
           }
         }
