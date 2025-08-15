@@ -22,12 +22,17 @@ use serde::{
     Serialize,
 };
 
-use crate::api_types::{
-    DocumentDeltasArgs,
-    DocumentDeltasResponse,
-    ListSnapshotArgs,
-    ListSnapshotResponse,
-    SelectionArg,
+use crate::{
+    api_types::{
+        DocumentDeltasArgs,
+        DocumentDeltasResponse,
+        DocumentDeltasValue,
+        ListSnapshotArgs,
+        ListSnapshotResponse,
+        ListSnapshotValue,
+        SelectionArg,
+    },
+    schema::DEFAULT_FIVETRAN_SCHEMA_NAME,
 };
 
 #[allow(clippy::declare_interior_mutable_const)]
@@ -58,8 +63,11 @@ pub trait Source: Display + Send {
         cursor: DocumentDeltasCursor,
     ) -> anyhow::Result<DocumentDeltasResponse>;
 
-    /// Get a list of columns for each table on the Convex backend.
-    async fn get_tables_and_columns(&self) -> anyhow::Result<BTreeMap<TableName, Vec<FieldName>>>;
+    /// Get a list of columns for each table and component on the Convex
+    /// backend.
+    async fn get_table_column_names(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ComponentPath, BTreeMap<TableName, Vec<FieldName>>>>;
 }
 
 /// Implementation of [`Source`] accessing a real Convex deployment over HTTP.
@@ -195,24 +203,30 @@ impl Source for ConvexApi {
         .await
     }
 
-    async fn get_tables_and_columns(&self) -> anyhow::Result<BTreeMap<TableName, Vec<FieldName>>> {
-        let tables_to_columns: BTreeMap<TableName, Vec<String>> =
-            self.get("get_tables_and_columns").await?;
+    async fn get_table_column_names(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ComponentPath, BTreeMap<TableName, Vec<FieldName>>>> {
+        let response: GetTableColumnNamesResponse = self.get("get_table_column_names").await?;
 
-        tables_to_columns
+        let by_component = response
+            .by_component
             .into_iter()
-            .map(|(table_name, all_columns)| {
-                let system_columns = ["_id", "_creationTime"].into_iter().map(String::from);
-                let user_columns: Vec<_> = all_columns
-                    .into_iter()
-                    .filter(|key| !key.starts_with('_'))
-                    .collect();
-
-                let columns = system_columns.chain(user_columns).map(FieldName).collect();
-
-                Ok((table_name, columns))
+            .map(|(component_path, tables)| {
+                (
+                    ComponentPath(component_path),
+                    tables
+                        .into_iter()
+                        .map(|table| {
+                            let columns: Vec<_> =
+                                table.columns.into_iter().map(FieldName).collect();
+                            (TableName(table.name), columns)
+                        })
+                        .collect(),
+                )
             })
-            .try_collect()
+            .collect();
+
+        Ok(by_component)
     }
 }
 
@@ -240,8 +254,90 @@ impl From<&str> for TableName {
     }
 }
 
+#[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Display, Clone, Debug)]
+pub struct ComponentPath(pub String);
+
+#[cfg(test)]
+impl From<&str> for ComponentPath {
+    fn from(value: &str) -> Self {
+        ComponentPath(value.to_string())
+    }
+}
+
+#[cfg(test)]
+impl ComponentPath {
+    pub fn root() -> Self {
+        ComponentPath("".to_string())
+    }
+
+    pub fn test_component() -> Self {
+        ComponentPath("waitlist".to_string())
+    }
+}
+
 #[derive(Display)]
 pub struct FieldName(pub String);
+
+#[cfg(test)]
+impl From<&str> for FieldName {
+    fn from(value: &str) -> Self {
+        FieldName(value.to_string())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTableColumnNamesResponse {
+    pub by_component: BTreeMap<String, Vec<GetTableColumnNameTable>>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTableColumnNameTable {
+    pub name: String,
+    pub columns: Vec<String>,
+}
+
+pub trait SnapshotValue {
+    fn table(&self) -> &String;
+    fn component(&self) -> &String;
+
+    /// The full path of the table, including the component name,
+    /// in the format used for `tables_seen` in [`State`].
+    fn table_path_for_state(&self) -> String {
+        match self.component().as_str() {
+            "" => self.table().clone(),
+            _ => format!("{}/{}", self.component(), self.table()),
+        }
+    }
+
+    fn fivetran_schema_name(&self) -> String {
+        match self.component().as_str() {
+            "" => DEFAULT_FIVETRAN_SCHEMA_NAME.to_string(),
+            _ => self.component().clone(),
+        }
+    }
+}
+
+impl SnapshotValue for ListSnapshotValue {
+    fn table(&self) -> &String {
+        &self.table
+    }
+
+    fn component(&self) -> &String {
+        &self.component
+    }
+}
+
+impl SnapshotValue for DocumentDeltasValue {
+    fn table(&self) -> &String {
+        &self.table
+    }
+
+    fn component(&self) -> &String {
+        &self.component
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -288,5 +384,49 @@ mod tests {
             panic!();
         };
         assert!(schema_object.object.is_some());
+    }
+
+    #[test]
+    fn test_table_path_for_state_root_component() {
+        let snapshot_value = ListSnapshotValue {
+            table: "messages".to_string(),
+            component: "".to_string(),
+            fields: BTreeMap::new(),
+            ts: 0,
+        };
+        assert_eq!(snapshot_value.table_path_for_state(), "messages");
+    }
+
+    #[test]
+    fn test_table_path_for_state_other_component() {
+        let snapshot_value = ListSnapshotValue {
+            table: "messages".to_string(),
+            component: "waitlist".to_string(),
+            fields: BTreeMap::new(),
+            ts: 0,
+        };
+        assert_eq!(snapshot_value.table_path_for_state(), "waitlist/messages");
+    }
+
+    #[test]
+    fn test_fivetran_schema_name_root_component() {
+        let snapshot_value = ListSnapshotValue {
+            table: "messages".to_string(),
+            component: "".to_string(),
+            fields: BTreeMap::new(),
+            ts: 0,
+        };
+        assert_eq!(snapshot_value.fivetran_schema_name(), "convex");
+    }
+
+    #[test]
+    fn test_fivetran_schema_name_other_component() {
+        let snapshot_value = ListSnapshotValue {
+            table: "messages".to_string(),
+            component: "waitlist".to_string(),
+            fields: BTreeMap::new(),
+            ts: 0,
+        };
+        assert_eq!(snapshot_value.fivetran_schema_name(), "waitlist");
     }
 }

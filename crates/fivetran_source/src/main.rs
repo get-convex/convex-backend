@@ -6,6 +6,7 @@ mod connector;
 mod convert;
 mod convex_api;
 mod log;
+mod schema;
 mod sync;
 
 #[cfg(test)]
