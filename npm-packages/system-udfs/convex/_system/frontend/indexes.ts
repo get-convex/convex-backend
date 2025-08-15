@@ -69,7 +69,6 @@ export default queryPrivateSystem({
     );
     return Promise.all(
       userIndexes.map(async (index) => {
-        // TODO: Return backfilled state for asynchronous index progress instead of representing backfilled as in_progress
         function getIndexFieldsAndState(config: typeof index.config): {
           fields:
             | string[]
@@ -79,37 +78,37 @@ export default queryPrivateSystem({
                 filterFields: string[];
                 dimensions: number;
               };
-          state: "in_progress" | "done";
+          state: "in_progress" | "backfilled" | "done";
           staged: boolean;
         } {
           switch (config.type) {
             case "database": {
               const stateType = config.onDiskState.type;
-              const state =
-                stateType === "Backfilling" || stateType === "Backfilled2"
-                  ? ("in_progress" as const)
-                  : ("done" as const);
               let staged;
+              let state;
               switch (stateType) {
                 case "Backfilling":
                   staged = config.onDiskState.backfillState.staged ?? false;
+                  state = "in_progress" as const;
                   break;
                 case "Backfilled2":
                   staged = config.onDiskState.staged ?? false;
+                  state = "backfilled" as const;
                   break;
                 default:
                   staged = false;
+                  state = "done" as const;
               }
               return { fields: config.fields, state, staged };
             }
             case "search": {
               const stateType = config.onDiskState.state;
               const state =
-                stateType === "backfilling" ||
-                stateType === "backfilling2" ||
-                stateType === "backfilled"
+                stateType === "backfilling" || stateType === "backfilling2"
                   ? ("in_progress" as const)
-                  : ("done" as const);
+                  : stateType === "backfilled" || stateType === "backfilled2"
+                    ? ("backfilled" as const)
+                    : ("done" as const);
               const fields = {
                 searchField: config.searchField,
                 filterFields: config.filterFields,
@@ -129,11 +128,11 @@ export default queryPrivateSystem({
             case "vector": {
               const stateType = config.onDiskState.state;
               const state =
-                stateType === "backfilling" ||
-                stateType === "backfilled" ||
-                stateType === "backfilled2"
+                stateType === "backfilling"
                   ? ("in_progress" as const)
-                  : ("done" as const);
+                  : stateType === "backfilled" || stateType === "backfilled2"
+                    ? ("backfilled" as const)
+                    : ("done" as const);
               const staged =
                 stateType === "backfilling" ||
                 stateType === "backfilled" ||
