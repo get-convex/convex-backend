@@ -353,7 +353,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             .await?;
 
         // Added indexes should have backfilled via build_indexes
-        // (for < 0.14.0 CLIs) or in apply_config (for >= 0.14.0 CLIs).
         let indexes_to_enable = identical
             .iter()
             .filter(|index| !index.config.is_enabled())

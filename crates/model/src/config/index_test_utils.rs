@@ -12,7 +12,6 @@ use common::{
         Persistence,
     },
     schemas::DatabaseSchema,
-    version::Version,
 };
 use database::{
     text_index_worker::flusher::backfill_text_indexes,
@@ -120,9 +119,6 @@ pub async fn apply_config(
     db: Database<TestRuntime>,
     schema_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<()> {
-    // This is a kind of arbitrary version that supports schema validation. I'm not
-    // even sure that the value here matters at all.
-    let udf_server_version: Version = Version::parse("0.14.0")?;
     let config_metadata = ConfigMetadata {
         functions: "convex/".to_string(),
         auth_info: vec![],
@@ -133,7 +129,7 @@ pub async fn apply_config(
         .apply(
             config_metadata,
             vec![],
-            UdfConfig::new_for_test(db.runtime(), udf_server_version),
+            UdfConfig::new_for_test(db.runtime(), "1000.0.0".parse()?),
             None,
             BTreeMap::new(),
             schema_id,

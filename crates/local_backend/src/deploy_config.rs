@@ -112,16 +112,13 @@ pub struct ConfigJson {
     pub modules: Vec<ModuleJson>,
     pub admin_key: String,
     pub udf_server_version: String,
-    // Used in CLI >= 0.14.0, None when there is no schema file.
+    // None when there is no schema file.
     pub schema_id: Option<String>,
-    // Used in CLI >= future
     pub push_metrics: Option<ClientPushMetrics>,
     // Use for external node dependencies
-    // TODO: add what version of CLI this is used for
     pub node_dependencies: Option<Vec<NodeDependencyJson>>,
     // Additional information about the names of the bundled modules.
     // We can use that for stats as well provide better debug messages.
-    // Used in CLI >= future
     pub bundled_module_infos: Option<Vec<BundledModuleInfoJson>>,
 }
 
