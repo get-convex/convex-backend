@@ -57,18 +57,17 @@ pub enum IndexConfig {
 impl IndexConfig {
     pub fn is_staged(&self) -> bool {
         match self {
-            Self::Database {
-                developer_config: _,
-                on_disk_state,
-            } => on_disk_state.is_staged(),
-            Self::Text {
-                developer_config: _,
-                on_disk_state,
-            } => on_disk_state.is_staged(),
-            Self::Vector {
-                developer_config: _,
-                on_disk_state,
-            } => on_disk_state.is_staged(),
+            Self::Database { on_disk_state, .. } => on_disk_state.is_staged(),
+            Self::Text { on_disk_state, .. } => on_disk_state.is_staged(),
+            Self::Vector { on_disk_state, .. } => on_disk_state.is_staged(),
+        }
+    }
+
+    pub fn set_staged(&mut self, staged: bool) {
+        match self {
+            Self::Database { on_disk_state, .. } => on_disk_state.set_staged(staged),
+            Self::Text { on_disk_state, .. } => on_disk_state.set_staged(staged),
+            Self::Vector { on_disk_state, .. } => on_disk_state.set_staged(staged),
         }
     }
 

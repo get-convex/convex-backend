@@ -602,7 +602,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     fn identical_or_replaced(
         &mut self,
-        existing_index: ParsedDocument<DeveloperIndexMetadata>,
+        mut existing_index: ParsedDocument<DeveloperIndexMetadata>,
         new_index: DeveloperIndexMetadata,
     ) -> IndexComparison {
         let existing_fields = DeveloperIndexConfig::from(existing_index.config.clone());
@@ -612,12 +612,13 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 IndexComparison::Identical(existing_index)
             } else {
                 // Staged status changed - use the previous on-disk state
-                // staged -> enabled
+                // Toggle the staged status and return enabled/disabled to
+                // inform callsite.
                 if existing_index.config.is_staged() {
-                    // Should we modify the index's staged flag here or when we actually go to
-                    // change its state?
+                    existing_index.config.set_staged(false);
                     IndexComparison::Enabled(existing_index)
                 } else {
+                    existing_index.config.set_staged(true);
                     IndexComparison::Disabled(existing_index)
                 }
             }
@@ -708,6 +709,18 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         for index in &diff.added {
             self.add_application_index(namespace, index.clone()).await?;
         }
+
+        // Replace all the enabled/disabled ones in-place to update their `staged`
+        // status. The actual enabling/disabling will be done at finish_push
+        // (apply_config).
+        for index in diff.enabled.iter().chain(diff.disabled.iter()) {
+            let (id, value) = index.clone().into_id_and_value();
+            let new_config = value.config.try_into()?;
+            SystemMetadataModel::new_global(self.tx)
+                .patch(id, patch_value!("config" =>  Some(new_config))?)
+                .await?;
+        }
+
         Ok(diff)
     }
 

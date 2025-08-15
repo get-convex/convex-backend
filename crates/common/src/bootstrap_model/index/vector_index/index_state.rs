@@ -37,6 +37,18 @@ impl VectorIndexState {
         }
     }
 
+    pub fn set_staged(&mut self, staged_new: bool) {
+        match self {
+            VectorIndexState::Backfilling(backfill_state) => {
+                backfill_state.staged = staged_new;
+            },
+            VectorIndexState::Backfilled { staged, .. } => {
+                *staged = staged_new;
+            },
+            VectorIndexState::SnapshottedAt(_) => {},
+        }
+    }
+
     pub fn segments(&self) -> anyhow::Result<&Vec<FragmentedVectorSegment>> {
         match self {
             VectorIndexState::Backfilling(backfill_state) => Ok(&backfill_state.segments),
