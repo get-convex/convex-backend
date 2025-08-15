@@ -176,8 +176,10 @@ impl<RT: Runtime> ExportWorker<RT> {
         let requestor = export.requestor();
         drop(export); // Drop this to prevent accidentally using stale state
 
-        tracing::info!("Export {id} beginning...");
-        let (snapshot_ts, object_key, usage) = {
+        let database_snapshot = self.database.latest_database_snapshot()?;
+        let snapshot_ts = *database_snapshot.timestamp();
+        tracing::info!(%snapshot_ts, "Export {id} beginning...");
+        let (object_key, usage) = {
             let database_ = self.database.clone();
             let export_future = async {
                 let database_ = self.database.clone();
@@ -185,7 +187,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 export_inner(
                     &ExportComponents {
                         runtime: self.runtime.clone(),
-                        database: self.database.clone(),
+                        database: database_snapshot,
                         storage: self.storage.clone(),
                         file_storage: self.file_storage.clone(),
                         usage_tracking: self.usage_tracking.clone(),

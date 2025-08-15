@@ -114,6 +114,11 @@ impl<RT: Runtime> TableIterator<RT> {
         }
     }
 
+    pub fn with_page_size(mut self, page_size: usize) -> Self {
+        self.inner.page_size = page_size;
+        self
+    }
+
     /// Create a `MultiTableIterator`, which can iterate multiple tables at the
     /// same snapshot timestamp. This is more efficient than creating a separate
     /// `TableIterator` for each table since each table can share the work of

@@ -22,13 +22,13 @@ use common::{
         IndexId,
         ObjectKey,
         TableName,
-        Timestamp,
     },
 };
 use database::{
-    Database,
+    DatabaseSnapshot,
     IndexModel,
     MultiTableIterator,
+    SearchNotEnabled,
     TableSummary,
     COMPONENTS_TABLE,
 };
@@ -50,6 +50,7 @@ use model::{
         ExportRequestor,
     },
     file_storage::FILE_STORAGE_TABLE,
+    virtual_system_mapping,
 };
 use serde_json::json;
 use shape_inference::export_context::{
@@ -94,19 +95,21 @@ pub use crate::{
 
 pub struct ExportComponents<RT: Runtime> {
     pub runtime: RT,
-    pub database: Database<RT>,
+    pub database: DatabaseSnapshot<RT>,
     pub storage: Arc<dyn Storage>,
     pub file_storage: Arc<dyn Storage>,
     pub usage_tracking: UsageCounter,
     pub instance_name: String,
 }
 
+/// Uploads an export to storage at the returned `ObjectKey`.
+/// The export is current as of the `DatabaseSnapshot`'s timestamp.
 pub async fn export_inner<F, Fut, RT: Runtime>(
     components: &ExportComponents<RT>,
     format: ExportFormat,
     requestor: ExportRequestor,
     update_progress: F,
-) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)>
+) -> anyhow::Result<(ObjectKey, FunctionUsageTracker)>
 where
     F: Fn(String) -> Fut + Send + Copy,
     Fut: Future<Output = anyhow::Result<()>> + Send,
@@ -114,11 +117,16 @@ where
     let timer = export_timer(&components.instance_name);
     let storage = &components.storage;
     update_progress("Beginning backup".to_string()).await?;
-    let (ts, tables, component_ids_to_paths, by_id_indexes, system_tables) = {
-        let mut tx = components.database.begin(Identity::system()).await?;
+    let (tables, component_ids_to_paths, by_id_indexes, system_tables) = {
+        let mut tx = components.database.begin_tx(
+            Identity::system(),
+            Arc::new(SearchNotEnabled),
+            // only used for system reads
+            FunctionUsageTracker::new(),
+            virtual_system_mapping().clone(),
+        )?;
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-        let ts = tx.begin_timestamp();
-        let snapshot = components.database.snapshot(ts)?;
+        let snapshot = &components.database.snapshot;
         let table_summaries = snapshot.must_table_summaries()?;
         let tables: BTreeMap<_, _> = snapshot
             .table_registry
@@ -141,13 +149,7 @@ where
             .iter_active_system_tables()
             .map(|(id, namespace, _, name)| ((namespace, name.clone()), id))
             .collect();
-        (
-            ts,
-            tables,
-            component_ids_to_paths,
-            by_id_indexes,
-            system_tables,
-        )
+        (tables, component_ids_to_paths, by_id_indexes, system_tables)
     };
     let export = match format {
         ExportFormat::Zip { include_storage } => {
@@ -171,7 +173,8 @@ where
             }
             let table_iterator = components
                 .database
-                .table_iterator(ts, *EXPORT_WORKER_PAGE_SIZE)
+                .table_iterator()
+                .with_page_size(*EXPORT_WORKER_PAGE_SIZE)
                 .multi(tablet_ids);
 
             let zipper = construct_zip_snapshot(
@@ -189,7 +192,7 @@ where
             );
             let (_, ()) = try_join!(uploader, zipper)?;
             let zip_object_key = upload.complete().await?;
-            (*ts, zip_object_key, usage)
+            (zip_object_key, usage)
         },
     };
     timer.finish();
