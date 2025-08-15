@@ -219,20 +219,6 @@ pub struct WaitForSchemaRequest {
     timeout_ms: Option<u32>,
 }
 
-#[derive(Serialize)]
-#[serde(tag = "type")]
-pub enum WaitForSchemaResponse {
-    InProgress {
-        status: SchemaStatusJson,
-    },
-    Failed {
-        error: String,
-        table_name: Option<String>,
-    },
-    RaceDetected,
-    Complete,
-}
-
 #[debug_handler]
 pub async fn wait_for_schema(
     State(st): State<LocalAppState>,
