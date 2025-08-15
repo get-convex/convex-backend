@@ -11,8 +11,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
@@ -20,7 +20,7 @@
   "devDependencies": {
     "@types/node": "^18.17.0",
     "@types/progress": "~2.0.7",
-    "tsup": "^8.0.0",
+    "tsdown": "^0.12.7",
     "typescript": "~5.0.3",
     "vitest": "^3.1.4"
   },
