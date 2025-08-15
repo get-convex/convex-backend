@@ -72,14 +72,14 @@ export const WithUpdatingIndexes: Story = {
         table: "my-table",
         name: "new_index_no_stats",
         fields: ["author"],
-        backfill: { state: "in_progress" },
+        backfill: { state: "backfilling" },
       },
       {
         table: "my-table",
         name: "new_index_missing_total",
         fields: ["author"],
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 100, totalDocs: null },
         },
       },
@@ -88,7 +88,7 @@ export const WithUpdatingIndexes: Story = {
         name: "new_index_with_stats",
         fields: ["author"],
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 100, totalDocs: 1000 },
         },
       },
@@ -104,7 +104,7 @@ export const WithUpdatingIndexes: Story = {
         fields: ["name"],
         staged: true,
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 500, totalDocs: 1000 },
         },
       },
@@ -114,7 +114,7 @@ export const WithUpdatingIndexes: Story = {
         fields: ["name"],
         staged: true,
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 1000, totalDocs: 1000 },
         },
       },
@@ -133,7 +133,7 @@ export const WithUpdatingIndexes: Story = {
         name: "updated_index",
         fields: ["name", "subtitle"],
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 500, totalDocs: 1000 },
         },
       },
@@ -148,7 +148,7 @@ export const WithUpdatingIndexes: Story = {
         name: "updated_search_index",
         fields: { searchField: "title", filterFields: ["author"] },
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 500, totalDocs: 1000 },
         },
       },
@@ -164,7 +164,7 @@ export const WithLongIndex: Story = {
         name: "by_channel_and_message_and_author_and_modification_date",
         fields: ["channel", "message", "author", "modificationDate"],
         backfill: {
-          state: "in_progress",
+          state: "backfilling",
           stats: { numDocsIndexed: 0, totalDocs: 100 },
         },
       },

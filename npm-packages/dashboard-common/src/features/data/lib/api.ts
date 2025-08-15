@@ -61,8 +61,7 @@ export type Index = {
         dimensions: number;
       };
   backfill: {
-    // TODO(ENG-9643) Remove "in_progress" support
-    state: "backfilling" | "backfilled" | "in_progress" | "done";
+    state: "backfilling" | "backfilled" | "done";
     stats?: {
       numDocsIndexed: number;
       totalDocs: number | null;

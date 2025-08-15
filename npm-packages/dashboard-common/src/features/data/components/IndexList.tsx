@@ -231,8 +231,7 @@ function IndexListRow({
         )}
       </div>
 
-      {(index.backfill.state === "in_progress" ||
-        index.backfill.state === "backfilling") && (
+      {index.backfill.state === "backfilling" && (
         <div className="flex flex-col gap-1 pl-2">
           <div className="flex items-center gap-2">
             {!(
