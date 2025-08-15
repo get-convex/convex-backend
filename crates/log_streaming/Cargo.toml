@@ -23,16 +23,16 @@ testing = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
-common = { path = "../../crates/common" }
-convex_macro = { path = "../../crates/convex_macro" }
-database = { path = "../../crates/database" }
-errors = { path = "../../crates/errors" }
+common = { workspace = true }
+convex_macro = { workspace = true }
+database = { workspace = true }
+errors = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
-keybroker = { path = "../../crates/keybroker" }
+keybroker = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../../crates/metrics" }
-model = { path = "../../crates/model" }
+metrics = { workspace = true }
+model = { workspace = true }
 parking_lot = { workspace = true }
 reqwest = { workspace = true }
 sentry = { workspace = true }
@@ -43,13 +43,13 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../../crates/common", features = ["testing"] }
-database = { path = "../../crates/database", features = ["testing"] }
-errors = { path = "../../crates/errors", features = ["testing"] }
-keybroker = { path = "../../crates/keybroker", features = ["testing"] }
-metrics = { path = "../../crates/metrics", features = ["testing"] }
-model = { path = "../../crates/model", features = ["testing"] }
-runtime = { path = "../../crates/runtime", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+database = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+keybroker = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
+model = { workspace = true, features = ["testing"] }
+runtime = { workspace = true, features = ["testing"] }
 sentry = { workspace = true, features = ["test"] }
 
 [lints]

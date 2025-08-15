@@ -25,15 +25,15 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 atomic_refcell = { workspace = true }
 bitvec = { workspace = true }
-common = { path = "../common" }
-errors = { path = "../errors" }
+common = { workspace = true }
+errors = { workspace = true }
 futures = { workspace = true }
 imbl = { workspace = true }
-indexing = { path = "../indexing" }
+indexing = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 parking_lot = { workspace = true }
-pb = { path = "../pb" }
+pb = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 qdrant_common = { workspace = true }
@@ -44,26 +44,26 @@ rocksdb = { version = "0.22.0", default-features = false, features = [
 ] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-storage = { path = "../storage" }
+storage = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common", features = ["testing"] }
+cmd_util = { workspace = true }
+common = { workspace = true, features = ["testing"] }
 criterion = { workspace = true }
-errors = { path = "../errors", features = ["testing"] }
-indexing = { path = "../indexing", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+indexing = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-storage = { path = "../storage", features = ["testing"] }
+storage = { workspace = true, features = ["testing"] }
 tokio = { workspace = true }
-value = { path = "../value", features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [[bench]]
 name = "memory_index"

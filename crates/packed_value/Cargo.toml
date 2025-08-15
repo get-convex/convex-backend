@@ -19,14 +19,14 @@ flexbuffers = { workspace = true }
 proptest = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
+cmd_util = { workspace = true }
 criterion = { workspace = true }
 maplit = { workspace = true }
 proptest = { workspace = true }
-value = { path = "../value", features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [[bench]]
 name = "packed_value"

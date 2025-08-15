@@ -39,64 +39,64 @@ anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
-async_lru = { path = "../async_lru" }
+async_lru = { workspace = true }
 async_zip = { workspace = true }
-async_zip_reader = { version = "0.1.0", path = "../async_zip_reader" }
-authentication = { path = "../../crates/authentication" }
-aws_s3 = { path = "../aws_s3" }
+async_zip_reader = { workspace = true }
+authentication = { workspace = true }
+aws_s3 = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common" }
-convex_fivetran_destination = { path = "../fivetran_destination" }
-convex_macro = { path = "../convex_macro" }
+cmd_util = { workspace = true }
+common = { workspace = true }
+convex_fivetran_destination = { workspace = true }
+convex_macro = { workspace = true }
 csv-async = { workspace = true }
-database = { path = "../database" }
+database = { workspace = true }
 either = { workspace = true }
-errors = { path = "../errors" }
-events = { path = "../events" }
-exports = { path = "../exports" }
+errors = { workspace = true }
+events = { workspace = true }
+exports = { workspace = true }
 fastrace = { workspace = true }
-file_storage = { path = "../file_storage" }
+file_storage = { workspace = true }
 float_next_after = { workspace = true }
-function_runner = { path = "../function_runner" }
+function_runner = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }
 headers = { workspace = true }
 http = { workspace = true }
-http_client = { path = "../../crates/http_client" }
+http_client = { workspace = true }
 humansize = { workspace = true }
-isolate = { path = "../isolate" }
+isolate = { workspace = true }
 itertools = { workspace = true }
-keybroker = { path = "../keybroker" }
-log_streaming = { path = "../log_streaming" }
+keybroker = { workspace = true }
+log_streaming = { workspace = true }
 lru = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 mime2ext = { workspace = true }
-model = { path = "../model" }
-node_executor = { path = "../../crates/node_executor" }
+model = { workspace = true }
+node_executor = { workspace = true }
 num_cpus = { workspace = true }
 parking_lot = { workspace = true }
-pb = { path = "../pb" }
+pb = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 rand = { workspace = true }
 regex = { workspace = true }
-search = { path = "../search" }
+search = { workspace = true }
 semver = { workspace = true }
 sentry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-shape_inference = { path = "../shape_inference" }
+shape_inference = { workspace = true }
 short_future = { workspace = true }
 slugify = "0.1.0"
 smallvec = { workspace = true }
 sourcemap = { workspace = true }
-storage = { path = "../storage" }
+storage = { workspace = true }
 strum = { workspace = true }
-sync_types = { package = "convex_sync_types", path = "../../crates/convex/sync_types" }
+sync_types = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 thousands = { workspace = true }
@@ -104,48 +104,48 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
-udf = { path = "../udf" }
-udf_metrics = { path = "../udf_metrics" }
+udf = { workspace = true }
+udf_metrics = { workspace = true }
 url = { workspace = true }
-usage_tracking = { path = "../../crates/usage_tracking" }
-value = { path = "../value" }
-vector = { path = "../vector" }
+usage_tracking = { workspace = true }
+value = { workspace = true }
+vector = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = { workspace = true }
 
 [dev-dependencies]
-authentication = { path = "../../crates/authentication", features = [
+authentication = { workspace = true, features = [
     "testing",
 ] }
-common = { path = "../common", features = ["testing"] }
-database = { path = "../database", features = ["testing"] }
-errors = { path = "../errors", features = ["testing"] }
-events = { path = "../events", features = ["testing"] }
-exports = { path = "../exports", features = ["testing"] }
-function_runner = { path = "../function_runner", features = ["testing"] }
-isolate = { path = "../isolate", features = ["testing"] }
-keybroker = { path = "../keybroker", features = ["testing"] }
-log_streaming = { path = "../log_streaming", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
-model = { path = "../model", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+database = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+events = { workspace = true, features = ["testing"] }
+exports = { workspace = true, features = ["testing"] }
+function_runner = { workspace = true, features = ["testing"] }
+isolate = { workspace = true, features = ["testing"] }
+keybroker = { workspace = true, features = ["testing"] }
+log_streaming = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
+model = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
-node_executor = { path = "../../crates/node_executor", features = ["testing"] }
+node_executor = { workspace = true, features = ["testing"] }
 openidconnect = { workspace = true }
 portpicker = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }
-search = { path = "../search", features = ["testing"] }
-shape_inference = { path = "../shape_inference", features = ["testing"] }
-storage = { path = "../storage", features = ["testing"] }
-udf = { path = "../udf", features = ["testing"] }
-usage_tracking = { path = "../../crates/usage_tracking", features = [
+runtime = { workspace = true, features = ["testing"] }
+search = { workspace = true, features = ["testing"] }
+shape_inference = { workspace = true, features = ["testing"] }
+storage = { workspace = true, features = ["testing"] }
+udf = { workspace = true, features = ["testing"] }
+usage_tracking = { workspace = true, features = [
     "testing",
 ] }
-value = { path = "../value", features = ["testing"] }
-vector = { path = "../vector", features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
+vector = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

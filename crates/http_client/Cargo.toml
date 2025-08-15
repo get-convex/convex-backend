@@ -16,7 +16,7 @@ futures = { workspace = true }
 http-body-util = { workspace = true }
 http-cache = { workspace = true }
 http-cache-reqwest = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
@@ -24,7 +24,7 @@ strum = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-metrics = { path = "../metrics", features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 tokio = { workspace = true }
 
 [lints]

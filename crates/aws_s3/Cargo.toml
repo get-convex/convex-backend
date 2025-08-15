@@ -13,26 +13,26 @@ async-trait = { workspace = true }
 aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-smithy-http = { workspace = true }
-aws_utils = { path = "../../crates/aws_utils" }
+aws_utils = { workspace = true }
 bytes = { workspace = true }
-common = { path = "../../crates/common" }
-errors = { path = "../../crates/errors" }
+common = { workspace = true }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
-metrics = { path = "../../crates/metrics" }
-pb = { path = "../../crates/pb" }
+metrics = { workspace = true }
+pb = { workspace = true }
 serde_json = { workspace = true }
-storage = { path = "../../crates/storage" }
+storage = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../../crates/common", features = ["testing"] }
-convex_macro = { path = "../../crates/convex_macro" }
-errors = { path = "../../crates/errors", features = ["testing"] }
-metrics = { path = "../../crates/metrics", features = ["testing"] }
-runtime = { path = "../../crates/runtime" }
-storage = { path = "../../crates/storage", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
+errors = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
+runtime = { workspace = true }
+storage = { workspace = true, features = ["testing"] }
 tokio-stream = { workspace = true }
 
 [lints]

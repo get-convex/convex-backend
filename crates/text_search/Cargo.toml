@@ -14,22 +14,22 @@ testing = ["common/testing", "metrics/testing", "proptest", "value/testing"]
 [dependencies]
 anyhow = { workspace = true }
 byteorder = { workspace = true }
-common = { path = "../common" }
+common = { workspace = true }
 fastrace = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 proptest = { workspace = true, optional = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
+cmd_util = { workspace = true }
+common = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
-value = { path = "../value", features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

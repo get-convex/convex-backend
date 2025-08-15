@@ -24,28 +24,28 @@ async-trait = { workspace = true }
 base64 = { workspace = true }
 biscuit = { workspace = true }
 chrono = { workspace = true }
-common = { path = "../common" }
+common = { workspace = true }
 data-url = { workspace = true }
-errors = { path = "../errors" }
+errors = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
-keybroker = { path = "../keybroker" }
-metrics = { path = "../metrics" }
+keybroker = { workspace = true }
+metrics = { workspace = true }
 mime = { workspace = true }
 oauth2 = { workspace = true }
 openidconnect = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+sync_types = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
-errors = { path = "../errors", features = ["testing"] }
-keybroker = { path = "../keybroker", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+keybroker = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 tokio = { workspace = true }
 
 [lints]

@@ -5,13 +5,13 @@ edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
 [dependencies]
-common = { path = "../common" }
+common = { workspace = true }
 fastrand = { workspace = true }
 slab = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common", features = ["testing"] }
+cmd_util = { workspace = true }
+common = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 

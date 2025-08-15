@@ -9,8 +9,8 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
-big_brain_private_api_types = { path = "../../crates/big_brain_private_api_types" }
-common = { path = "../../crates/common" }
+big_brain_private_api_types = { workspace = true }
+common = { workspace = true }
 reqwest = { workspace = true }
 
 [lints]

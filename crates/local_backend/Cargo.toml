@@ -38,54 +38,54 @@ testing = [
 
 [dependencies]
 anyhow = { workspace = true }
-application = { path = "../application" }
+application = { workspace = true }
 async-broadcast = { workspace = true }
 async-trait = { workspace = true }
-authentication = { path = "../authentication" }
+authentication = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
 base64 = { workspace = true }
 clap = { workspace = true }
-clusters = { path = "../clusters" }
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common" }
-convex_fivetran_destination = { path = "../fivetran_destination" }
-convex_fivetran_source = { path = "../fivetran_source" }
-database = { path = "../database" }
-db_connection = { path = "../db_connection" }
+clusters = { workspace = true }
+cmd_util = { workspace = true }
+common = { workspace = true }
+convex_fivetran_destination = { workspace = true }
+convex_fivetran_source = { workspace = true }
+database = { workspace = true }
+db_connection = { workspace = true }
 either = { workspace = true }
-errors = { path = "../errors" }
-events = { path = "../events" }
+errors = { workspace = true }
+events = { workspace = true }
 fastrace = { workspace = true }
-file_storage = { path = "../file_storage" }
-function_runner = { path = "../function_runner" }
+file_storage = { workspace = true }
+function_runner = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper-util = { workspace = true }
-isolate = { path = "../isolate" }
-keybroker = { path = "../keybroker" }
+isolate = { workspace = true }
+keybroker = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../metrics" }
-model = { path = "../model" }
-mysql = { path = "../mysql" }
-node_executor = { path = "../node_executor" }
+metrics = { workspace = true }
+model = { workspace = true }
+mysql = { workspace = true }
+node_executor = { workspace = true }
 parking_lot = { workspace = true }
-postgres = { path = "../postgres" }
+postgres = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
-runtime = { path = "../runtime" }
-search = { path = "../search" }
+runtime = { workspace = true }
+search = { workspace = true }
 sentry = { workspace = true }
 sentry-tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sqlite = { path = "../sqlite" }
-storage = { path = "../storage" }
-sync = { path = "../sync" }
-sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+sqlite = { workspace = true }
+storage = { workspace = true }
+sync = { workspace = true }
+sync_types = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -94,48 +94,48 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tungstenite = { workspace = true }
-udf = { path = "../udf" }
+udf = { workspace = true }
 url = { workspace = true }
 urlencoding = { workspace = true }
-usage_tracking = { path = "../usage_tracking" }
-value = { path = "../value" }
-vector = { path = "../vector" }
+usage_tracking = { workspace = true }
+value = { workspace = true }
+vector = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
 vergen = { workspace = true, features = ["git", "gitcl"] }
 
 [dev-dependencies]
-application = { path = "../application", features = ["testing"] }
-authentication = { path = "../authentication", features = ["testing"] }
-clusters = { path = "../clusters", features = ["testing"] }
-common = { path = "../common", features = ["testing"] }
-convex_macro = { path = "../convex_macro" }
-database = { path = "../database", features = ["testing"] }
-db_connection = { path = "../db_connection", features = ["testing"] }
-errors = { path = "../errors", features = ["testing"] }
-events = { path = "../events", features = ["testing"] }
-function_runner = { path = "../function_runner", features = ["testing"] }
-isolate = { path = "../isolate", features = ["testing"] }
+application = { workspace = true, features = ["testing"] }
+authentication = { workspace = true, features = ["testing"] }
+clusters = { workspace = true, features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
+database = { workspace = true, features = ["testing"] }
+db_connection = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+events = { workspace = true, features = ["testing"] }
+function_runner = { workspace = true, features = ["testing"] }
+isolate = { workspace = true, features = ["testing"] }
 jsonschema = { workspace = true }
-keybroker = { path = "../keybroker", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
-model = { path = "../model", features = ["testing"] }
-mysql = { path = "../mysql", features = ["testing"] }
-node_executor = { path = "../node_executor", features = ["testing"] }
+keybroker = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
+model = { workspace = true, features = ["testing"] }
+mysql = { workspace = true, features = ["testing"] }
+node_executor = { workspace = true, features = ["testing"] }
 portpicker = { workspace = true }
-postgres = { path = "../postgres", features = ["testing"] }
+postgres = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }
-search = { path = "../search", features = ["testing"] }
-shape_inference = { path = "../shape_inference", features = ["testing"] }
-storage = { path = "../storage", features = ["testing"] }
-sync = { path = "../sync", features = ["testing"] }
+runtime = { workspace = true, features = ["testing"] }
+search = { workspace = true, features = ["testing"] }
+shape_inference = { workspace = true, features = ["testing"] }
+storage = { workspace = true, features = ["testing"] }
+sync = { workspace = true, features = ["testing"] }
 tokio-tungstenite = { workspace = true }
-udf = { path = "../udf", features = ["testing"] }
-usage_tracking = { path = "../usage_tracking", features = ["testing"] }
-value = { path = "../value", features = ["testing"] }
-vector = { path = "../vector", features = ["testing"] }
+udf = { workspace = true, features = ["testing"] }
+usage_tracking = { workspace = true, features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
+vector = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

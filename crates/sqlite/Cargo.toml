@@ -14,7 +14,7 @@ doctest = false
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-common = { path = "../common" }
+common = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 parking_lot = { workspace = true }
@@ -23,7 +23,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 

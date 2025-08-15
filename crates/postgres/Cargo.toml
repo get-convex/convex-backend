@@ -15,15 +15,15 @@ testing = ["common/testing", "metrics/testing"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
-cmd_util = { path = "../../crates/cmd_util" }
-common = { path = "../../crates/common" }
+cmd_util = { workspace = true }
+common = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }
 lru = { workspace = true }
-metrics = { path = "../../crates/metrics" }
+metrics = { workspace = true }
 parking_lot = { workspace = true }
 postgres-protocol = { workspace = true }
 prometheus = { workspace = true }
@@ -41,8 +41,8 @@ tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../../crates/common", features = ["testing"] }
-metrics = { path = "../../crates/metrics", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 tokio = { workspace = true }
 

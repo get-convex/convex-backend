@@ -24,8 +24,8 @@ ignored = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
-convex = { path = "../convex" }
-convex_fivetran_common = { path = "../fivetran_common" }
+convex = { workspace = true }
+convex_fivetran_common = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
@@ -48,9 +48,9 @@ tokio = { workspace = true }
 tonic-build = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
-convex = { path = "../convex", features = ["testing"] }
-convex_fivetran_common = { path = "../fivetran_common", features = ["testing"] }
+cmd_util = { workspace = true }
+convex = { workspace = true, features = ["testing"] }
+convex_fivetran_common = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }

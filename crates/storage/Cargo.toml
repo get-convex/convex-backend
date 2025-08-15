@@ -20,29 +20,29 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
 bytes = { workspace = true }
-common = { path = "../common" }
+common = { workspace = true }
 derive_more = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
-pb = { path = "../pb" }
-runtime = { path = "../runtime", optional = true }
+pb = { workspace = true }
+runtime = { workspace = true, optional = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
-convex_macro = { path = "../convex_macro" }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
 parking_lot = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }
-value = { path = "../value", features = ["testing"] }
+runtime = { workspace = true, features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

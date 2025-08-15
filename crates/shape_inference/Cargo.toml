@@ -19,14 +19,14 @@ maplit = { workspace = true }
 proptest = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
+cmd_util = { workspace = true }
 maplit = { workspace = true }
 proptest = { workspace = true }
-sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
-value = { path = "../value", features = ["testing"] }
+sync_types = { workspace = true }
+value = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

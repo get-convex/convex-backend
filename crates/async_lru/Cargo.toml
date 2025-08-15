@@ -7,27 +7,27 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [dependencies]
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
-common = { path = "../common" }
-errors = { path = "../errors" }
+common = { workspace = true }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 lru = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 parking_lot = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
 
-common = { path = "../common", features = ["testing"] }
-convex_macro = { path = "../convex_macro" }
-errors = { path = "../errors", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
+errors = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 rand = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }
+runtime = { workspace = true, features = ["testing"] }
 tokio = { workspace = true }
-value = { path = "../value", features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

@@ -31,8 +31,8 @@ base64 = { workspace = true }
 cbc = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-common = { path = "../common" }
-convex_fivetran_common = { path = "../fivetran_common" }
+common = { workspace = true }
+convex_fivetran_common = { workspace = true }
 csv-async = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
@@ -48,9 +48,9 @@ tokio = { workspace = true }
 tonic = { workspace = true }
 
 [dev-dependencies]
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common", features = ["testing"] }
-convex_fivetran_common = { path = "../fivetran_common", features = ["testing"] }
+cmd_util = { workspace = true }
+common = { workspace = true, features = ["testing"] }
+convex_fivetran_common = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }

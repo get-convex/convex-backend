@@ -19,15 +19,15 @@ testing = [
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-common = { path = "../../crates/common" }
+common = { workspace = true }
 dynfmt = { workspace = true }
-errors = { path = "../../crates/errors" }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }
-metrics = { path = "../../crates/metrics" }
+metrics = { workspace = true }
 mysql_async = { workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true }
@@ -40,10 +40,10 @@ tracing = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../../crates/common", features = ["testing"] }
-errors = { path = "../../crates/errors", features = ["testing"] }
-metrics = { path = "../../crates/metrics", features = ["testing"] }
-runtime = { path = "../../crates/runtime" }
+common = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
+runtime = { workspace = true }
 
 [lints]
 workspace = true

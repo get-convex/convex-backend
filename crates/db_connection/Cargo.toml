@@ -16,19 +16,19 @@ testing = [
 
 [dependencies]
 anyhow = { workspace = true }
-clusters = { path = "../clusters" }
-common = { path = "../common" }
-mysql = { path = "../mysql" }
-postgres = { path = "../postgres" }
-sqlite = { path = "../sqlite" }
+clusters = { workspace = true }
+common = { workspace = true }
+mysql = { workspace = true }
+postgres = { workspace = true }
+sqlite = { workspace = true }
 tokio-postgres = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-clusters = { path = "../clusters", features = ["testing"] }
-common = { path = "../common", features = ["testing"] }
-mysql = { path = "../mysql", features = ["testing"] }
-postgres = { path = "../postgres", features = ["testing"] }
+clusters = { workspace = true, features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+mysql = { workspace = true, features = ["testing"] }
+postgres = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

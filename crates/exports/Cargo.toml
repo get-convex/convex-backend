@@ -25,48 +25,48 @@ testing = [
 anyhow = { workspace = true }
 async_zip = { workspace = true }
 bytes = { workspace = true }
-common = { path = "../common" }
-database = { path = "../database" }
-errors = { path = "../errors" }
+common = { workspace = true }
+database = { workspace = true }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
-keybroker = { path = "../keybroker" }
+keybroker = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 mime2ext = { workspace = true }
-model = { path = "../model" }
+model = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-shape_inference = { path = "../shape_inference" }
-storage = { path = "../storage" }
+shape_inference = { workspace = true }
+storage = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
-usage_tracking = { path = "../../crates/usage_tracking" }
-value = { path = "../value" }
+usage_tracking = { workspace = true }
+value = { workspace = true }
 
 [dev-dependencies]
-async_zip_reader = { version = "0.1.0", path = "../async_zip_reader" }
-common = { path = "../common", features = ["testing"] }
-convex_macro = { path = "../convex_macro" }
-database = { path = "../database", features = ["testing"] }
-errors = { path = "../errors", features = ["testing"] }
-events = { path = "../events" }
-file_storage = { path = "../file_storage" }
+async_zip_reader = { workspace = true }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
+database = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+events = { workspace = true }
+file_storage = { workspace = true }
 headers = { workspace = true }
-keybroker = { path = "../keybroker", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
-model = { path = "../model", features = ["testing"] }
+keybroker = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
+model = { workspace = true, features = ["testing"] }
 pretty_assertions = { workspace = true }
-runtime = { path = "../runtime" }
-shape_inference = { path = "../shape_inference", features = ["testing"] }
-storage = { path = "../storage", features = ["testing"] }
-usage_tracking = { path = "../../crates/usage_tracking", features = [
+runtime = { workspace = true }
+shape_inference = { workspace = true, features = ["testing"] }
+storage = { workspace = true, features = ["testing"] }
+usage_tracking = { workspace = true, features = [
     "testing",
 ] }
-value = { path = "../value", features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

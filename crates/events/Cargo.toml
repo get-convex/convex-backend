@@ -20,14 +20,14 @@ testing = [
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-common = { path = "../common", optional = true }
+common = { workspace = true, optional = true }
 parking_lot = { workspace = true, optional = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 serde = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
 parking_lot = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

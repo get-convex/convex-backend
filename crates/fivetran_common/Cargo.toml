@@ -36,7 +36,7 @@ url = { workspace = true }
 [build-dependencies]
 cfg-if = { workspace = true }
 fxhash = { workspace = true }
-pb_build = { path = "../pb_build" }
+pb_build = { workspace = true }
 tonic-build = { workspace = true }
 
 [dev-dependencies]

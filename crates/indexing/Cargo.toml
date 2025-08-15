@@ -20,27 +20,27 @@ testing = [
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-common = { path = "../common" }
+common = { workspace = true }
 derive_more = { workspace = true }
-errors = { path = "../errors" }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 tracing = { workspace = true }
-value = { path = "../value" }
+value = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
-convex_macro = { path = "../convex_macro" }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
 divan = { workspace = true }
-errors = { path = "../errors", features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
 maplit = { workspace = true }
-metrics = { path = "../metrics", features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }
-value = { path = "../value", features = ["testing"] }
+runtime = { workspace = true, features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
 
 [[bench]]
 name = "index_registry"

@@ -8,8 +8,8 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true }
-common = { path = "../../crates/common" }
-errors = { path = "../../crates/errors" }
+common = { workspace = true }
+errors = { workspace = true }
 futures = { workspace = true }
 humansize = { workspace = true }
 parking_lot = { workspace = true }

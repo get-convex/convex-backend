@@ -25,25 +25,25 @@ testing = [
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-async_lru = { path = "../async_lru" }
+async_lru = { workspace = true }
 async_zip_0_0_9 = { workspace = true }
 bitvec = { workspace = true }
 bytes = { workspace = true }
 bytesize = { workspace = true }
-cmd_util = { path = "../cmd_util" }
-common = { path = "../common" }
+cmd_util = { workspace = true }
+common = { workspace = true }
 compact_str = { workspace = true }
-errors = { path = "../errors" }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 imbl = { workspace = true }
-imbl_slab = { path = "../imbl_slab" }
-indexing = { path = "../indexing" }
+imbl_slab = { workspace = true }
+indexing = { workspace = true }
 itertools = { workspace = true }
 levenshtein_automata = { workspace = true }
 maplit = { workspace = true }
-metrics = { path = "../metrics" }
-pb = { path = "../pb" }
+metrics = { workspace = true }
+pb = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
@@ -52,37 +52,37 @@ rand = { workspace = true }
 ref-cast = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-storage = { path = "../storage" }
+storage = { workspace = true }
 strum = { workspace = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
 tempfile = { workspace = true }
-text_search = { path = "../text_search" }
+text_search = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
-value = { path = "../value" }
-vector = { path = "../vector" }
+value = { workspace = true }
+vector = { workspace = true }
 walkdir = { workspace = true }
 xorf = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
-convex_macro = { path = "../convex_macro" }
+common = { workspace = true, features = ["testing"] }
+convex_macro = { workspace = true }
 divan = { workspace = true }
-errors = { path = "../errors", features = ["testing"] }
-indexing = { path = "../indexing", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
+indexing = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }
-storage = { path = "../storage", features = ["testing"] }
-text_search = { path = "../text_search", features = ["testing"] }
-value = { path = "../value", features = ["testing"] }
-vector = { path = "../vector", features = ["testing"] }
+runtime = { workspace = true, features = ["testing"] }
+storage = { workspace = true, features = ["testing"] }
+text_search = { workspace = true, features = ["testing"] }
+value = { workspace = true, features = ["testing"] }
+vector = { workspace = true, features = ["testing"] }
 
 [[bench]]
 name = "memory_index"

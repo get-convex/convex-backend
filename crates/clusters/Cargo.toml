@@ -11,11 +11,11 @@ testing = ["common/testing"]
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true }
-common = { path = "../../crates/common" }
+common = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../../crates/common", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true

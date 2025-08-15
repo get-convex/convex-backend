@@ -22,21 +22,21 @@ testing = ["common/testing", "keybroker/testing", "proptest", "proptest-derive"]
 
 [dependencies]
 anyhow = { workspace = true }
-common = { path = "../../crates/common" }
+common = { workspace = true }
 derive_more = { workspace = true }
 enum-iterator = { workspace = true }
-keybroker = { path = "../../crates/keybroker" }
+keybroker = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
-tuple_struct = { path = "../../crates/tuple_struct" }
+tuple_struct = { workspace = true }
 utoipa = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../../crates/common", features = ["testing"] }
-keybroker = { path = "../../crates/keybroker", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+keybroker = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 

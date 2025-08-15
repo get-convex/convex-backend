@@ -4,6 +4,66 @@ resolver = "2"
 exclude = [ "crates/py_client", "crates/python_client_tests" ]
 
 [workspace.dependencies]
+application = { path = "crates/application" }
+async_lru = { path = "crates/async_lru" }
+async_zip_reader = { path = "crates/async_zip_reader" }
+authentication = { path = "crates/authentication" }
+aws_s3 = { path = "crates/aws_s3" }
+aws_utils = { path = "crates/aws_utils" }
+backend_harness = { path = "crates/backend_harness" }
+big_brain_client = { path = "crates/big_brain_client" }
+big_brain_private_api_types = { path = "crates/big_brain_private_api_types" }
+clusters = { path = "crates/clusters" }
+cmd_util = { path = "crates/cmd_util" }
+common = { path = "crates/common" }
+convex = { path = "crates/convex" }
+convex_fivetran_common = { path = "crates/fivetran_common" }
+convex_fivetran_destination = { path = "crates/fivetran_destination" }
+convex_fivetran_source = { path = "crates/fivetran_source" }
+convex_macro = { path = "crates/convex_macro" }
+convex_sync_types = { path = "crates/convex/sync_types" }
+database = { path = "crates/database" }
+db_connection = { path = "crates/db_connection" }
+errors = { path = "crates/errors" }
+events = { path = "crates/events" }
+exports = { path = "crates/exports" }
+file_storage = { path = "crates/file_storage" }
+function_runner = { path = "crates/function_runner" }
+health_check = { path = "crates/health_check" }
+http_client = { path = "crates/http_client" }
+imbl_slab = { path = "crates/imbl_slab" }
+indexing = { path = "crates/indexing" }
+interval_map = { path = "crates/interval_map" }
+isolate = { path = "crates/isolate" }
+keybroker = { path = "crates/keybroker" }
+log_interleaver = { path = "crates/log_interleaver" }
+log_streaming = { path = "crates/log_streaming" }
+metrics = { path = "crates/metrics" }
+migrations_model = { path = "crates/migrations_model" }
+model = { path = "crates/model" }
+mysql = { path = "crates/mysql" }
+node_executor = { path = "crates/node_executor" }
+packed_value = { path = "crates/packed_value" }
+pb = { path = "crates/pb" }
+pb_build = { path = "crates/pb_build" }
+pb_extras = { path = "crates/pb_extras" }
+performance_stats = { path = "crates/performance_stats" }
+postgres = { path = "crates/postgres" }
+runtime = { path = "crates/runtime" }
+search = { path = "crates/search" }
+shape_inference = { path = "crates/shape_inference" }
+sodium_secretbox = { path = "crates/sodium_secretbox" }
+sqlite = { path = "crates/sqlite" }
+storage = { path = "crates/storage" }
+sync = { path = "crates/sync" }
+sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
+text_search = { path = "crates/text_search" }
+tuple_struct = { path = "crates/tuple_struct" }
+udf = { path = "crates/udf" }
+udf_metrics = { path = "crates/udf_metrics" }
+usage_tracking = { path = "crates/usage_tracking" }
+value = { path = "crates/value" }
+vector = { path = "crates/vector" }
 aes = { version = "0.8.4" }
 ahash = "0.8"
 anyhow = "1"

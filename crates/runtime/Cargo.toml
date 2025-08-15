@@ -14,9 +14,9 @@ testing = ["common/testing", "metrics/testing"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-common = { path = "../common" }
+common = { workspace = true }
 futures = { workspace = true }
-metrics = { path = "../metrics" }
+metrics = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }
@@ -24,8 +24,8 @@ tokio-metrics-collector = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-common = { path = "../common", features = ["testing"] }
-metrics = { path = "../metrics", features = ["testing"] }
+common = { workspace = true, features = ["testing"] }
+metrics = { workspace = true, features = ["testing"] }
 
 [lints]
 workspace = true
