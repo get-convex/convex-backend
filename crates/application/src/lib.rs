@@ -1774,7 +1774,11 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         for table_schema in schema.tables.values_mut() {
-            for index_schema in table_schema.indexes.values_mut() {
+            for index_schema in table_schema
+                .indexes
+                .values_mut()
+                .chain(table_schema.staged_db_indexes.values_mut())
+            {
                 index_schema.fields =
                     self._validate_user_defined_index_fields(index_schema.fields.clone())?;
             }
