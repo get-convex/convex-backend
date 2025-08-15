@@ -44,6 +44,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { useQuery } from "convex/react";
 import { api } from "system-udfs/convex/_generated/api";
+import { Index } from "@common/features/data/lib/api";
 import { IndexFilterState } from "./IndexFilterEditor";
 import { IndexFilters, getDefaultIndex } from "./IndexFilters";
 
@@ -82,10 +83,10 @@ export function DataFilters({
 }) {
   const { selectedNent } = useNents();
   const indexes =
-    useQuery(api._system.frontend.indexes.default, {
+    (useQuery(api._system.frontend.indexes.default, {
       tableName,
       tableNamespace: selectedNent?.id ?? null,
-    }) ?? undefined;
+    }) satisfies undefined | null | Index[]) ?? undefined;
   const {
     isDirty,
     hasInvalidFilters,
