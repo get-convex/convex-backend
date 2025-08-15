@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+use cmd_util::env::env_config;
 use common::{
     self,
     backoff::Backoff,
@@ -115,6 +116,9 @@ static ENTRIES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     )
     .unwrap()
 });
+
+static INDEX_WORKER_SLEEP_TIME: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKER_SLEEP_TIME_MS", 0)));
 
 pub struct IndexWorker<RT: Runtime> {
     database: Database<RT>,
@@ -756,6 +760,9 @@ impl<RT: Runtime> IndexWriter<RT> {
         let mut last_logged = self.runtime.system_time();
         let mut last_logged_count = 0;
         while !stream.is_done() {
+            if !INDEX_WORKER_SLEEP_TIME.is_zero() {
+                tokio::time::sleep(*INDEX_WORKER_SLEEP_TIME).await;
+            }
             // Number of documents in the table that have been indexed in this iteration
             let mut num_docs_indexed = 0u64;
             let mut chunk = BTreeSet::new();
