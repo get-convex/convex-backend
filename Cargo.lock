@@ -3222,7 +3222,6 @@ dependencies = [
  "convex_macro",
  "database",
  "errors",
- "events",
  "fastrace",
  "file_storage",
  "futures",

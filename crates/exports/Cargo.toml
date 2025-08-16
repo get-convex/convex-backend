@@ -53,7 +53,6 @@ common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
-events = { workspace = true }
 file_storage = { workspace = true }
 headers = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }
@@ -63,9 +62,7 @@ pretty_assertions = { workspace = true }
 runtime = { workspace = true }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
-usage_tracking = { workspace = true, features = [
-    "testing",
-] }
+usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }
 
 [lints]

@@ -15,7 +15,6 @@ use database::{
     Database,
     UserFacingModel,
 };
-use events::usage::NoOpUsageEventLogger;
 use exports::ExportComponents;
 use keybroker::Identity;
 use maplit::btreeset;
@@ -31,7 +30,6 @@ use storage::{
     StorageExt as _,
 };
 use tokio::io::AsyncReadExt as _;
-use usage_tracking::UsageCounter;
 use value::{
     assert_obj,
     export::ValueFormat,
@@ -127,7 +125,6 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
             database: db.latest_database_snapshot()?,
             storage: storage.clone(),
             file_storage,
-            usage_tracking: UsageCounter::new(Arc::new(NoOpUsageEventLogger)),
             instance_name: "carnitas".to_string(),
         },
         ExportFormat::Zip {
@@ -190,7 +187,6 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
             database: db.latest_database_snapshot()?,
             storage: storage.clone(),
             file_storage,
-            usage_tracking: UsageCounter::new(Arc::new(NoOpUsageEventLogger)),
             instance_name: "carnitas".to_string(),
         },
         ExportFormat::Zip {

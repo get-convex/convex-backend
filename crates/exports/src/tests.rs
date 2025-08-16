@@ -26,7 +26,6 @@ use database::{
     TableModel,
     UserFacingModel,
 };
-use events::usage::NoOpUsageEventLogger;
 use file_storage::{
     FileStorage,
     TransactionalFileStorage,
@@ -51,10 +50,7 @@ use storage::{
     StorageExt,
 };
 use tokio::io::AsyncReadExt;
-use usage_tracking::{
-    FunctionUsageTracker,
-    UsageCounter,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
     assert_obj,
     export::ValueFormat,
@@ -85,7 +81,6 @@ async fn setup_export_test(rt: &TestRuntime) -> anyhow::Result<ExportFixtures> {
             database: db.latest_database_snapshot()?,
             storage,
             file_storage,
-            usage_tracking: UsageCounter::new(Arc::new(NoOpUsageEventLogger)),
             instance_name: "carnitas".to_string(),
         },
         db,

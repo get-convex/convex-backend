@@ -190,7 +190,6 @@ impl<RT: Runtime> ExportWorker<RT> {
                         database: database_snapshot,
                         storage: self.storage.clone(),
                         file_storage: self.file_storage.clone(),
-                        usage_tracking: self.usage_tracking.clone(),
                         instance_name: self.instance_name.clone(),
                     },
                     format,

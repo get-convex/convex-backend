@@ -65,10 +65,7 @@ use storage::{
 };
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use usage_tracking::{
-    FunctionUsageTracker,
-    UsageCounter,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
     InternalId,
     TableNamespace,
@@ -98,7 +95,6 @@ pub struct ExportComponents<RT: Runtime> {
     pub database: DatabaseSnapshot<RT>,
     pub storage: Arc<dyn Storage>,
     pub file_storage: Arc<dyn Storage>,
-    pub usage_tracking: UsageCounter,
     pub instance_name: String,
 }
 
