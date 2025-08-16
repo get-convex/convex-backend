@@ -717,14 +717,13 @@ where
             "Access Token could not be decoded to determine provider type",
         ))?;
 
-    let audience = payload.registered.audience;
-    let is_auth0 = match audience {
+    let is_auth0 = match payload.registered.audience {
         None => false,
-        Some(aud) => match aud {
-            biscuit::SingleOrMultiple::Multiple(auds) => auds
-                .iter()
-                .any(|audience| audience.contains("console.convex.dev")),
-            biscuit::SingleOrMultiple::Single(aud) => aud.contains("console.convex.dev"),
+        Some(biscuit::SingleOrMultiple::Multiple(auds)) => auds.iter().any(|audience| {
+            audience == CONVEX_CONSOLE_API_AUDIENCE || audience == ALTERNATE_CONVEX_API_AUDIENCE
+        }),
+        Some(biscuit::SingleOrMultiple::Single(audience)) => {
+            audience == CONVEX_CONSOLE_API_AUDIENCE || audience == ALTERNATE_CONVEX_API_AUDIENCE
         },
     };
 
