@@ -6,6 +6,7 @@ import { spawnSync } from "child_process";
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.development" });
+dotenv.config({ path: ".env.local" });
 
 if (!process.env.WORKOS_API_SECRET) {
   console.error(
