@@ -1,4 +1,4 @@
-import { useAuth0 } from "hooks/useAuth0";
+import { useWorkOS } from "hooks/useWorkOS";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef } from "react";
 // By calling the server periodically we get an updated cookie via the Set-Cookie header.
 // We also need to refresh the auth token (which expires after 24 hours).
 export function RefreshSession() {
-  const { user } = useAuth0();
+  const { user } = useWorkOS();
   const lastRefreshed = useRef<number>();
   const [_, setAuthToken] = useAccessToken();
 

@@ -1,5 +1,4 @@
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
-import { User } from "hooks/useAuth0";
 import classNames from "classnames";
 import Image from "next/legacy/image";
 import Link from "next/link";
@@ -10,12 +9,13 @@ import { useReducer } from "react";
 import { AskAI } from "elements/AskAI";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
 import { useCurrentProject } from "api/projects";
+import { User } from "@workos-inc/node";
 import { UserMenu } from "../UserMenu/UserMenu";
 
 type HeaderProps = {
   children?: React.ReactNode;
   logoLink?: string;
-  user?: User;
+  user: User | null;
 };
 
 function Support() {

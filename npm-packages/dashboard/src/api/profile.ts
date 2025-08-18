@@ -91,23 +91,6 @@ export function useListIdentities() {
   return identities;
 }
 
-export function useSetLinkIdentityCookie() {
-  return useBBMutation({
-    path: "/set_jwt_cookie",
-    pathParams: undefined,
-    includeCredentials: true,
-  });
-}
-
-export function useLinkIdentity() {
-  return useBBMutation({
-    path: "/link_identity",
-    pathParams: undefined,
-    mutateKey: "/list_identities",
-    includeCredentials: true,
-  });
-}
-
 export function useUnlinkIdentity() {
   return useBBMutation({
     path: "/unlink_identity",

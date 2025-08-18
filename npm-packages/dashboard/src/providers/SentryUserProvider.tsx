@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { setUser } from "@sentry/nextjs";
-import { useAuth0 } from "hooks/useAuth0";
 import { useProfile } from "api/profile";
 
 export function SentryUserProvider({
@@ -8,17 +7,16 @@ export function SentryUserProvider({
 }: {
   children: React.ReactElement;
 }) {
-  const { user } = useAuth0();
   const profile = useProfile();
 
   useEffect(() => {
-    if (user) {
+    if (profile) {
       setUser({
-        id: user.sub ?? undefined,
-        email: (profile?.email || user.email) ?? undefined,
+        id: profile.id ?? undefined,
+        email: profile.email ?? undefined,
       });
     }
-  }, [profile?.email, user]);
+  }, [profile]);
 
   return children;
 }

@@ -7,6 +7,15 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.development" });
 
+if (!process.env.WORKOS_API_SECRET) {
+  console.error(
+    chalk.red(
+      "WORKOS_API_SECRET environment variable is not set.  For local development, you can set it by running `npm run pullEnv`",
+    ),
+  );
+  process.exit(1);
+}
+
 const parsedUrl = url.parse(process.env.NEXT_PUBLIC_BIG_BRAIN_URL);
 http
   .request(

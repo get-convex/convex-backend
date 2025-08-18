@@ -1,4 +1,5 @@
 import "../styles/global.css";
+
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import React from "react";
@@ -7,11 +8,10 @@ import { SWRConfig } from "swr";
 import { swrConfig } from "hooks/swrConfig";
 import { DashboardLayout } from "layouts/DashboardLayout";
 import { DashboardHeader } from "components/header/DashboardHeader";
-import { UserProvider } from "@auth0/nextjs-auth0/client";
 import { useInitialData } from "hooks/useServerSideData";
 import { useRouterProgress } from "hooks/useRouterProgress";
 import Head from "next/head";
-import { RefreshSession } from "components/login/RefreshSession";
+
 import { useDashboardVersion } from "hooks/useDashboardVersion";
 import { Favicon } from "@common/elements/Favicon";
 import { ThemeConsumer } from "@common/elements/ThemeConsumer";
@@ -23,7 +23,6 @@ import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider
 import { PostHogProvider } from "providers/PostHogProvider";
 import { SentryUserProvider } from "providers/SentryUserProvider";
 import {
-  AnonymousLaunchDarklyProvider,
   LaunchDarklyConsumer,
   MaybeLaunchDarklyProvider,
 } from "providers/LaunchDarklyProviders";
@@ -31,6 +30,8 @@ import { CommandPalette } from "elements/CommandPalette";
 import { Fallback } from "pages/500";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
+import { RefreshSession } from "components/login/RefreshSession";
+import { AuthProvider } from "providers/AuthProvider";
 
 declare global {
   interface Window {
@@ -69,29 +70,6 @@ export default function App({ Component, pageProps }: AppProps) {
 
   useDashboardVersion();
 
-  // The link identity page is special because we want do want to load its access token via ssr
-  // but we don't want to call any big brain routes because they will fail.
-  if (router.pathname === "/link_identity") {
-    return (
-      <>
-        <Head>
-          <title>Convex Dashboard</title>
-          <meta name="description" content="Manage your Convex apps" />
-        </Head>
-        <UIProvider Link={Link}>
-          <AnonymousLaunchDarklyProvider>
-            <ThemeProvider attribute="class" disableTransitionOnChange>
-              <ThemeConsumer />
-              <UserProvider user={pageProps.user}>
-                <Component {...pageProps} />
-              </UserProvider>
-            </ThemeProvider>
-          </AnonymousLaunchDarklyProvider>
-        </UIProvider>
-      </>
-    );
-  }
-
   return (
     <>
       <Head>
@@ -100,59 +78,64 @@ export default function App({ Component, pageProps }: AppProps) {
         <Favicon />
       </Head>
       <UIProvider Link={Link}>
-        <PostHogProvider>
-          <ThemeProvider attribute="class" disableTransitionOnChange>
-            <ThemeConsumer />
-            <UserProvider user={pageProps.user}>
-              <RefreshSession />
-              <SentryUserProvider>
-                <ErrorBoundary fallback={Fallback}>
-                  <SWRConfig
-                    value={{ ...swrConfig(), fallback: { initialData } }}
-                  >
-                    <ToastContainer />
+        <AuthProvider>
+          <PostHogProvider>
+            <ThemeProvider attribute="class" disableTransitionOnChange>
+              <ThemeConsumer />
+              <MaybeLaunchDarklyProvider>
+                <LaunchDarklyConsumer>
+                  <>
+                    <RefreshSession />
+                    <SentryUserProvider>
+                      <ErrorBoundary fallback={Fallback}>
+                        <SWRConfig
+                          value={{
+                            ...swrConfig(),
+                            fallback: { initialData },
+                          }}
+                        >
+                          <ToastContainer />
 
-                    {inUnauthedRoute ? (
-                      <Component {...pageProps} />
-                    ) : (
-                      <MaybeLaunchDarklyProvider>
-                        <LaunchDarklyConsumer>
-                          <div className="flex h-screen flex-col">
-                            <CommandPalette />
-                            <DashboardHeader />
-                            {inDeployment ? (
-                              <DeploymentInfoProvider>
-                                <MaybeDeploymentApiProvider>
-                                  <CurrentDeploymentDashboardLayout>
-                                    <ErrorBoundary
-                                      fallback={Fallback}
-                                      key={pathWithoutQueryString}
-                                    >
-                                      <Component {...pageProps} />
-                                    </ErrorBoundary>
-                                  </CurrentDeploymentDashboardLayout>
-                                </MaybeDeploymentApiProvider>
-                              </DeploymentInfoProvider>
-                            ) : (
-                              <DashboardLayout>
-                                <ErrorBoundary
-                                  fallback={Fallback}
-                                  key={pathWithoutQueryString}
-                                >
-                                  <Component {...pageProps} />
-                                </ErrorBoundary>
-                              </DashboardLayout>
-                            )}
-                          </div>
-                        </LaunchDarklyConsumer>
-                      </MaybeLaunchDarklyProvider>
-                    )}
-                  </SWRConfig>
-                </ErrorBoundary>
-              </SentryUserProvider>
-            </UserProvider>
-          </ThemeProvider>
-        </PostHogProvider>
+                          {inUnauthedRoute ? (
+                            <Component {...pageProps} />
+                          ) : (
+                            <div className="flex h-screen flex-col">
+                              <CommandPalette />
+                              <DashboardHeader />
+                              {inDeployment ? (
+                                <DeploymentInfoProvider>
+                                  <MaybeDeploymentApiProvider>
+                                    <CurrentDeploymentDashboardLayout>
+                                      <ErrorBoundary
+                                        fallback={Fallback}
+                                        key={pathWithoutQueryString}
+                                      >
+                                        <Component {...pageProps} />
+                                      </ErrorBoundary>
+                                    </CurrentDeploymentDashboardLayout>
+                                  </MaybeDeploymentApiProvider>
+                                </DeploymentInfoProvider>
+                              ) : (
+                                <DashboardLayout>
+                                  <ErrorBoundary
+                                    fallback={Fallback}
+                                    key={pathWithoutQueryString}
+                                  >
+                                    <Component {...pageProps} />
+                                  </ErrorBoundary>
+                                </DashboardLayout>
+                              )}
+                            </div>
+                          )}
+                        </SWRConfig>
+                      </ErrorBoundary>
+                    </SentryUserProvider>
+                  </>
+                </LaunchDarklyConsumer>
+              </MaybeLaunchDarklyProvider>
+            </ThemeProvider>
+          </PostHogProvider>
+        </AuthProvider>
       </UIProvider>
     </>
   );

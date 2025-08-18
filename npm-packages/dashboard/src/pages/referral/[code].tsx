@@ -1,11 +1,11 @@
 import { GetServerSideProps } from "next";
-import { auth0 } from "server/auth0";
 import { Flourish } from "layouts/LoginLayout";
 import Head from "next/head";
 import { useParams, usePathname } from "next/navigation";
 import Background from "components/login/images/background.svg";
 import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding";
+import { getSession } from "server/workos";
 
 /**
  *  This page powers two routes via Next.js rewrites in next.config.js:
@@ -15,13 +15,13 @@ import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding
 
 export const getServerSideProps: GetServerSideProps = async ({
   req,
-  res,
   query,
 }) => {
   const isChef = req.url?.includes("try-chef");
   try {
     // Check if user is authenticated without forcing login
-    const session = await auth0().getSession(req, res);
+    // const session = await auth0().getSession(req, res);
+    const session = await getSession(req);
 
     // If user is authenticated, redirect to the apply page
     if (session?.user) {

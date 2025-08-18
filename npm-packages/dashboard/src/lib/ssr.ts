@@ -1,6 +1,5 @@
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
-import { GetAccessTokenResult } from "@auth0/nextjs-auth0";
-import { auth0, withPageAuthRequired } from "server/auth0";
+import { getAccessToken, withPageAuthRequired } from "server/workos";
 import groupBy from "lodash/groupBy";
 import { DeploymentResponse, Team, ProjectDetails } from "generatedApi";
 import fetchRetryFactory from "fetch-retry";
@@ -12,25 +11,6 @@ const getProps: GetServerSideProps<{
   const googleAnalyticsId = req.headers.cookie
     ? getGoogleAnalyticsClientId(req.headers.cookie)
     : "";
-
-  // Early return for /link_identity route: don't fetch member data
-  if (resolvedUrl.startsWith("/link_identity")) {
-    let token: GetAccessTokenResult | undefined;
-    try {
-      token = await auth0().getAccessToken(req, res);
-    } catch (error) {
-      console.error("Couldn't fetch auth token", error);
-      res.writeHead(307, { Location: `/api/auth/login?returnTo=${req.url}` });
-      res.end();
-      return { props: {} };
-    }
-    if (!token) {
-      return { props: {} };
-    }
-    return {
-      props: { accessToken: token.accessToken },
-    };
-  }
 
   const isFirstServerCall = req?.url?.indexOf("/_next/data/") === -1;
   const shouldRedirectToDeploymentPage = resolvedUrl.startsWith("/d/");
@@ -49,13 +29,15 @@ const getProps: GetServerSideProps<{
     return { props: {} };
   }
 
-  let token: GetAccessTokenResult | undefined;
+  let token: { accessToken: string } | null;
   try {
-    token = await auth0().getAccessToken(req, res);
+    token = await getAccessToken(req);
   } catch (error) {
     console.error("Couldn't fetch auth token", error);
     // If we can't get the token, we should try to login again
-    res.writeHead(307, { Location: `/api/auth/login?returnTo=${req.url}` });
+    res.writeHead(307, {
+      Location: `/api/auth/login?returnTo=${req.url}`,
+    });
     res.end();
     return { props: {} };
   }
@@ -71,13 +53,14 @@ const getProps: GetServerSideProps<{
   }
 
   try {
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${token.accessToken}`,
+      "Google-Analytics-Client-Id": googleAnalyticsId,
+    };
     const resp = await retryingFetch(
       `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/member_data`,
       {
-        headers: {
-          authorization: `Bearer ${token.accessToken}`,
-          "Google-Analytics-Client-Id": googleAnalyticsId,
-        },
+        headers,
       },
     );
     if (!resp.ok) {
@@ -221,7 +204,10 @@ const getProps: GetServerSideProps<{
     }
 
     return {
-      props: { accessToken: token.accessToken, initialData },
+      props: {
+        accessToken: token.accessToken,
+        initialData,
+      },
       redirect:
         optInsToAccept &&
         optInsToAccept.length > 0 &&

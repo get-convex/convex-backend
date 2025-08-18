@@ -19,13 +19,6 @@ jest.mock("next/router", () => ({
     pathname: `/t/myTeam/myProject/${PROVISION_PROD_PAGE_NAME}`,
   }),
 }));
-jest.mock("@auth0/nextjs-auth0/client", () => ({
-  useUser: () => ({
-    user: {
-      email: "test@convex.dev",
-    },
-  }),
-}));
 
 describe("ProvisionProductionDeploymentPage", () => {
   beforeEach(() => {

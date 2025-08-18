@@ -24,7 +24,7 @@ import {
 import { Modal } from "@ui/Modal";
 import { Formik } from "formik";
 import * as Yup from "yup";
-import { LoadingTransition } from "@ui/Loading";
+import { Loading, LoadingTransition } from "@ui/Loading";
 import { CopyTextButton } from "dashboard-common/src/elements/CopyTextButton";
 import { Tooltip } from "@ui/Tooltip";
 import { Menu, MenuItem } from "@ui/Menu";
@@ -32,7 +32,6 @@ import { cn } from "@ui/cn";
 import { toast } from "@common/lib/utils";
 
 import { captureException, captureMessage } from "@sentry/nextjs";
-import { useAuth0 } from "hooks/useAuth0";
 import { useProfile } from "api/profile";
 import Link from "next/link";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
@@ -272,9 +271,12 @@ function VerificationRequestForm({
   loading: boolean;
   error?: string;
 }) {
-  const { user } = useAuth0();
   const profile = useProfile();
-  const userEmail = profile?.email || user?.email;
+  const userEmail = profile?.email;
+
+  if (!userEmail) {
+    return <Loading />;
+  }
 
   return (
     <Formik

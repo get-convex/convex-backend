@@ -1,6 +1,5 @@
 const { withSentryConfig } = require("@sentry/nextjs");
 const { DefinePlugin } = require("webpack");
-const path = require("path");
 
 const ContentSecurityPolicy = `
   frame-ancestors 'self';
@@ -9,27 +8,12 @@ const ContentSecurityPolicy = `
 const allowedImageDomains = [
   {
     protocol: "https",
-    hostname: "avatars.githubusercontent.com",
-    pathname: "**",
-  },
-  {
-    protocol: "https",
-    hostname: "s.gravatar.com",
-    pathname: "**",
-  },
-  {
-    protocol: "https",
     hostname: "**.convex.cloud",
     pathname: "/api/storage/**",
   },
   {
     protocol: "https",
-    hostname: "lh3.googleusercontent.com",
-    pathname: "**",
-  },
-  {
-    protocol: "https",
-    hostname: "cdn.auth0.com",
+    hostname: "workoscdn.com",
     pathname: "**",
   },
 ];
@@ -90,6 +74,16 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: "/login",
+        destination: "/api/auth/login",
+        permanent: false,
+      },
+      {
+        source: "/signup",
+        destination: `${process.env.WORKOS_LOGIN_URL}/sign-up`,
+        permanent: false,
+      },
+      {
         source: "/teams/:teamId*",
         destination: "/",
         permanent: false,
@@ -128,13 +122,7 @@ const nextConfig = {
     domains:
       process.env.VERCEL_ENV === "production"
         ? undefined
-        : [
-            "127.0.0.1",
-            "s.gravatar.com",
-            "avatars.githubusercontent.com",
-            "lh3.googleusercontent.com",
-            "cdn.auth0.com",
-          ],
+        : ["127.0.0.1", "workoscdn.com"],
     remotePatterns: allowedImageDomains,
   },
   experimental: {

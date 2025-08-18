@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { auth0 } from "server/auth0";
 import { captureException, captureMessage } from "@sentry/nextjs";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { getSession } from "server/workos";
 
 export type ResponseData = {
   error: string | null;
@@ -26,7 +26,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>,
 ) {
-  const session = await auth0().getSession(req, res);
+  const session = await getSession(req);
   if (!session) {
     captureMessage("No session found");
     return res.status(401).json({ error: "Unauthorized" });

@@ -41,8 +41,8 @@ npm run pullEnv
 Run `just run-dash`. It will prompt you to start big brain, in which case run
 `just run-dash` again in another terminal.
 
-Log in to the dashboard with a GitHub account (which will create an account on
-our development Auth0 instance).
+Log in to the dashboard with, which will create an account on our staging WorkOS
+instance.
 
 ### Reset big brain
 
@@ -106,6 +106,8 @@ npm run storybook
 For this, we will proxy big brain via a cors proxy. Set these values in
 `.env.local`. Some must be copied from
 [Production vercel env vars](https://vercel.com/convex-dev/dashboard/settings/environment-variables)
+
+<!--TODO: Ari update these-->
 
 ```
 NEXT_PUBLIC_BIG_BRAIN_URL=http://localhost:8080/https://api.convex.dev

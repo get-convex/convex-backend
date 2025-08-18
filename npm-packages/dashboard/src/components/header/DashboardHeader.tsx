@@ -1,4 +1,4 @@
-import { useAuth0 } from "hooks/useAuth0";
+import { useWorkOS } from "hooks/useWorkOS";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { BreadcrumbLink } from "components/header/BreadcrumbLink/BreadcrumbLink";
 import { Header } from "components/header/Header/Header";
@@ -47,7 +47,7 @@ const NO_TEAM_ROUTES = [
 const NO_HEADER_ROUTES = ["/oauth/authorize/project", "/oauth/authorize/team"];
 
 function DashboardHeaderWhenLoggedIn() {
-  const { user } = useAuth0();
+  const { user } = useWorkOS();
   const router = useRouter();
 
   const projectSlug = router?.query.project as string;
