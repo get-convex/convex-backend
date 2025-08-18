@@ -253,24 +253,26 @@ function logIndexChanges(
   if (indexes.enabled.length > 0) {
     let indexDiff = "";
     for (const index of indexes.enabled) {
-      indexDiff += `  [+] ${stringifyIndex(index)}\n`;
+      indexDiff += `  [*] ${stringifyIndex(index)}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
-    logFinishedStep(
-      `${dryRun ? "Would enable" : "Enabled"} table indexes:\n${indexDiff}`,
-    );
+    const text = dryRun
+      ? `These indexes would be enabled`
+      : `These indexes are now enabled`;
+    logFinishedStep(`${text}:\n${indexDiff}`);
   }
   if (indexes.disabled.length > 0) {
     let indexDiff = "";
     for (const index of indexes.disabled) {
-      indexDiff += `  [+] ${stringifyIndex(index)}\n`;
+      indexDiff += `  [*] ${stringifyIndex(index)}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
-    logFinishedStep(
-      `${dryRun ? "Would disable" : "Disabled"} table indexes:\n${indexDiff}`,
-    );
+    const text = dryRun
+      ? `These indexes would be staged`
+      : `These indexes are now staged`;
+    logFinishedStep(`${text}:\n${indexDiff}`);
   }
 }
 
