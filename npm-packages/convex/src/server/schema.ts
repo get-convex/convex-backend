@@ -147,6 +147,26 @@ export type SearchIndex = {
   searchField: string;
   filterFields: string[];
 };
+
+/**
+ * Options for defining an index.
+ *
+ * @public
+ */
+export interface IndexOptions {
+  /**
+   * Whether the index should be staged.
+   *
+   * For large tables, index backfill can be slow. Staging an index allows you
+   * to push the schema and enable the index later.
+   *
+   * If `staged` is `true`, the index will be staged and will not be enabled
+   * until the staged flag is removed. Staged indexes do not block push
+   * completion. Staged indexes cannot be used in queries.
+   */
+  staged?: boolean;
+}
+
 /**
  * The definition of a table within a schema.
  *
@@ -210,10 +230,9 @@ export class TableDefinition<
   >(
     name: IndexName,
     fields: [FirstFieldPath, ...RestFieldPaths],
+    options?: IndexOptions & { staged: false },
   ): TableDefinition<
     DocumentType,
-    // Update `Indexes` to include the new index and use `Expand` to make the
-    // types look pretty in editors.
     Expand<
       Indexes &
         Record<
@@ -223,28 +242,49 @@ export class TableDefinition<
     >,
     SearchIndexes,
     VectorIndexes
-  > {
-    this.indexes.push({ indexDescriptor: name, fields });
-    return this;
-  }
+  >;
 
   /**
+   * Define a staged index on this table.
    *
-   * @internal
-   * @param name - The name of the staged index.
+   * For large tables, index backfill can be slow. Staging an index allows you
+   * to push the schema and enable the index later.
+   *
+   * If `staged` is `true`, the index will be staged and will not be enabled
+   * until the staged flag is removed. Staged indexes do not block push
+   * completion. Staged indexes cannot be used in queries.
+   *
+   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   *
+   * @param name - The name of the index.
    * @param fields - The fields to index, in order. Must specify at least one
    * field.
-   * @returns A {@link TableDefinition} with this staged index included.
+   * @returns A {@link TableDefinition} with this index included.
    */
-  stagedIndex<
+  index<
     IndexName extends string,
     FirstFieldPath extends ExtractFieldPaths<DocumentType>,
     RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
   >(
     name: IndexName,
     fields: [FirstFieldPath, ...RestFieldPaths],
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
-    this.stagedDbIndexes.push({ indexDescriptor: name, fields });
+    options: IndexOptions & { staged: true },
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
+
+  index<
+    IndexName extends string,
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
+  >(
+    name: IndexName,
+    fields: [FirstFieldPath, ...RestFieldPaths],
+    options?: IndexOptions,
+  ) {
+    if (options?.staged) {
+      this.stagedDbIndexes.push({ indexDescriptor: name, fields });
+    } else {
+      this.indexes.push({ indexDescriptor: name, fields });
+    }
     return this;
   }
 
@@ -263,7 +303,10 @@ export class TableDefinition<
     FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
-    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
+    indexConfig: Expand<
+      SearchIndexConfig<SearchField, FilterFields> &
+        IndexOptions & { staged?: false }
+    >,
   ): TableDefinition<
     DocumentType,
     Indexes,
@@ -280,38 +323,59 @@ export class TableDefinition<
         >
     >,
     VectorIndexes
-  > {
-    this.searchIndexes.push({
-      indexDescriptor: name,
-      searchField: indexConfig.searchField,
-      filterFields: indexConfig.filterFields || [],
-    });
-    return this;
-  }
+  >;
 
   /**
-   * Stage a search index on this table.
+   * Define a staged search index on this table.
    *
-   * To learn about text search indexes, see [Search](https://docs.convex.dev/text-search).
+   * For large tables, index backfill can be slow. Staging an index allows you
+   * to push the schema and enable the index later.
    *
-   * @internal
+   * If `staged` is `true`, the index will be staged and will not be enabled
+   * until the staged flag is removed. Staged indexes do not block push
+   * completion. Staged indexes cannot be used in queries.
+   *
+   * To learn about search indexes, see [Search](https://docs.convex.dev/text-search).
+   *
    * @param name - The name of the index.
-   * @param indexConfig - The text index configuration object.
-   * @returns A {@link TableDefinition} with this text index included.
+   * @param indexConfig - The search index configuration object.
+   * @returns A {@link TableDefinition} with this search index included.
    */
-  stagedSearchIndex<
+  searchIndex<
     IndexName extends string,
     SearchField extends ExtractFieldPaths<DocumentType>,
     FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
-    indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
-    this.stagedSearchIndexes.push({
-      indexDescriptor: name,
-      searchField: indexConfig.searchField,
-      filterFields: indexConfig.filterFields || [],
-    });
+    indexConfig: Expand<
+      SearchIndexConfig<SearchField, FilterFields> &
+        IndexOptions & { staged: true }
+    >,
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
+
+  searchIndex<
+    IndexName extends string,
+    SearchField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
+  >(
+    name: IndexName,
+    indexConfig: Expand<
+      SearchIndexConfig<SearchField, FilterFields> & IndexOptions
+    >,
+  ) {
+    if (indexConfig.staged) {
+      this.stagedSearchIndexes.push({
+        indexDescriptor: name,
+        searchField: indexConfig.searchField,
+        filterFields: indexConfig.filterFields || [],
+      });
+    } else {
+      this.searchIndexes.push({
+        indexDescriptor: name,
+        searchField: indexConfig.searchField,
+        filterFields: indexConfig.filterFields || [],
+      });
+    }
     return this;
   }
 
@@ -330,7 +394,10 @@ export class TableDefinition<
     FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
-    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
+    indexConfig: Expand<
+      VectorIndexConfig<VectorField, FilterFields> &
+        IndexOptions & { staged?: false }
+    >,
   ): TableDefinition<
     DocumentType,
     Indexes,
@@ -346,40 +413,61 @@ export class TableDefinition<
           }
         >
     >
-  > {
-    this.vectorIndexes.push({
-      indexDescriptor: name,
-      vectorField: indexConfig.vectorField,
-      dimensions: indexConfig.dimensions,
-      filterFields: indexConfig.filterFields || [],
-    });
-    return this;
-  }
+  >;
 
   /**
-   * Stage a vector index on this table.
+   * Define a staged vector index on this table.
+   *
+   * For large tables, index backfill can be slow. Staging an index allows you
+   * to push the schema and enable the index later.
+   *
+   * If `staged` is `true`, the index will be staged and will not be enabled
+   * until the staged flag is removed. Staged indexes do not block push
+   * completion. Staged indexes cannot be used in queries.
    *
    * To learn about vector indexes, see [Vector Search](https://docs.convex.dev/vector-search).
    *
-   * @internal
    * @param name - The name of the index.
    * @param indexConfig - The vector index configuration object.
    * @returns A {@link TableDefinition} with this vector index included.
    */
-  stagedVectorIndex<
+  vectorIndex<
     IndexName extends string,
     VectorField extends ExtractFieldPaths<DocumentType>,
     FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
-    indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
-  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
-    this.stagedVectorIndexes.push({
-      indexDescriptor: name,
-      vectorField: indexConfig.vectorField,
-      dimensions: indexConfig.dimensions,
-      filterFields: indexConfig.filterFields || [],
-    });
+    indexConfig: Expand<
+      VectorIndexConfig<VectorField, FilterFields> &
+        IndexOptions & { staged: true }
+    >,
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
+
+  vectorIndex<
+    IndexName extends string,
+    VectorField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
+  >(
+    name: IndexName,
+    indexConfig: Expand<
+      VectorIndexConfig<VectorField, FilterFields> & IndexOptions
+    >,
+  ) {
+    if (indexConfig.staged) {
+      this.stagedVectorIndexes.push({
+        indexDescriptor: name,
+        vectorField: indexConfig.vectorField,
+        dimensions: indexConfig.dimensions,
+        filterFields: indexConfig.filterFields || [],
+      });
+    } else {
+      this.vectorIndexes.push({
+        indexDescriptor: name,
+        vectorField: indexConfig.vectorField,
+        dimensions: indexConfig.dimensions,
+        filterFields: indexConfig.filterFields || [],
+      });
+    }
     return this;
   }
 

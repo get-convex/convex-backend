@@ -453,6 +453,96 @@ describe("DataModelFromSchemaDefinition", () => {
     };
     assert<Equals<DataModel, ExpectedDataModel>>();
   });
+
+  test("defineSchema creates staged indexes", () => {
+    const schema = defineSchema({
+      table: defineTable({
+        enabled: v.string(),
+        enabled2: v.string(),
+        staged: v.string(),
+      })
+        .index("by_enabled", ["enabled"])
+        .index("by_enabled2", ["enabled2"], { staged: false })
+        .index("by_staged", ["staged"], { staged: true }),
+    });
+    type Indexes = DataModelFromSchemaDefinition<
+      typeof schema
+    >["table"]["indexes"];
+    type ExpectedIndexes = {
+      by_enabled: ["enabled", "_creationTime"];
+      by_enabled2: ["enabled2", "_creationTime"];
+      by_id: ["_id"];
+      by_creation_time: ["_creationTime"];
+    };
+    assert<Equals<Indexes, ExpectedIndexes>>();
+  });
+
+  test("defineSchema creates staged search indexes", () => {
+    const schema = defineSchema({
+      table: defineTable({
+        enabled: v.string(),
+        enabled2: v.string(),
+        staged: v.string(),
+      })
+        .searchIndex("by_enabled", { searchField: "enabled" })
+        .searchIndex("by_enabled2", { searchField: "enabled2", staged: false })
+        .searchIndex("by_staged", { searchField: "staged", staged: true }),
+    });
+    type SearchIndexes = DataModelFromSchemaDefinition<
+      typeof schema
+    >["table"]["searchIndexes"];
+    type ExpectedSearchIndexes = {
+      by_enabled: {
+        searchField: "enabled";
+        filterFields: never;
+      };
+      by_enabled2: {
+        searchField: "enabled2";
+        filterFields: never;
+      };
+    };
+    assert<Equals<SearchIndexes, ExpectedSearchIndexes>>();
+  });
+
+  test("defineSchema creates staged vector indexes", () => {
+    const schema = defineSchema({
+      table: defineTable({
+        enabled: v.string(),
+        enabled2: v.string(),
+        staged: v.string(),
+      })
+        .vectorIndex("by_enabled", {
+          vectorField: "enabled",
+          dimensions: 1536,
+        })
+        .vectorIndex("by_enabled2", {
+          vectorField: "enabled2",
+          dimensions: 1536,
+          staged: false,
+        })
+        .vectorIndex("by_staged", {
+          vectorField: "staged",
+          dimensions: 1536,
+          staged: true,
+        }),
+    });
+    type VectorIndexes = DataModelFromSchemaDefinition<
+      typeof schema
+    >["table"]["vectorIndexes"];
+    type ExpectedVectorIndexes = {
+      by_enabled: {
+        vectorField: "enabled";
+        dimensions: number;
+        filterFields: never;
+      };
+      by_enabled2: {
+        vectorField: "enabled2";
+        dimensions: number;
+        filterFields: never;
+      };
+    };
+    assert<Equals<VectorIndexes, ExpectedVectorIndexes>>();
+  });
 });
 
 test("defineSchema generates search index types", () => {
