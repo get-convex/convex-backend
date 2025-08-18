@@ -35,7 +35,7 @@ use storage::Storage;
 use sync_types::backoff::Backoff;
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         retriable_worker::{
             retry_loop_expect_occs_and_overloaded,
             RetriableWorker,

@@ -16,9 +16,8 @@
 mod bootstrap_model;
 mod committer;
 mod database;
+mod database_index_workers;
 mod execution_size;
-mod index_worker;
-mod index_workers;
 mod metrics;
 pub mod patch;
 pub mod persistence_helpers;
@@ -27,6 +26,7 @@ pub mod query;
 pub mod reads;
 mod retention;
 mod search_index_bootstrap;
+mod search_index_workers;
 mod snapshot_manager;
 mod stack_traces;
 pub mod streaming_export_selection;
@@ -58,8 +58,8 @@ pub mod test_helpers;
 pub mod tests;
 pub mod text_index_worker;
 pub use component_registry::ComponentRegistry;
+pub use database_index_workers::IndexWorker;
 pub use execution_size::FunctionExecutionSize;
-pub use index_worker::IndexWorker;
 pub use patch::PatchValue;
 pub use preloaded::PreloadedIndexRange;
 pub use reads::{
@@ -157,16 +157,9 @@ pub use self::{
         StreamingExportFilter,
         MAX_OCC_FAILURES,
     },
-    index_worker::{
+    database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
-    },
-    index_workers::{
-        fast_forward::{
-            load_metadata_fast_forward_ts,
-            FastForwardIndexWorker,
-        },
-        search_worker::SearchIndexWorkers,
     },
     query::{
         soft_data_limit,
@@ -178,6 +171,13 @@ pub use self::{
         FollowerRetentionManager,
         LeaderRetentionManager,
         RetentionType,
+    },
+    search_index_workers::{
+        fast_forward::{
+            load_metadata_fast_forward_ts,
+            FastForwardIndexWorker,
+        },
+        search_worker::SearchIndexWorkers,
     },
     snapshot_manager::{
         Snapshot,

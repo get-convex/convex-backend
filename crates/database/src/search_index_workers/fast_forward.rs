@@ -57,7 +57,7 @@ use crate::{
         IndexWorkerMetadataModel,
         IndexWorkerMetadataRecord,
     },
-    index_workers::{
+    search_index_workers::{
         retriable_worker::RetriableWorker,
         timeout_with_jitter,
         MAX_BACKOFF,

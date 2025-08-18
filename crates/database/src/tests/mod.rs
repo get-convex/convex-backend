@@ -102,7 +102,7 @@ use value::{
 };
 
 use crate::{
-    index_worker::{
+    database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
     },

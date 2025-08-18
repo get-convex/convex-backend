@@ -28,7 +28,13 @@ use tokio::task;
 use value::ResolvedDocumentId;
 
 use crate::{
-    index_workers::{
+    metrics::{
+        compaction_build_one_timer,
+        log_compaction_compacted_segment_num_documents_total,
+        log_compaction_total_segments,
+        CompactionReason,
+    },
+    search_index_workers::{
         index_meta::{
             BackfillState,
             SearchIndex,
@@ -39,12 +45,6 @@ use crate::{
             SnapshotData,
         },
         writer::SearchIndexMetadataWriter,
-    },
-    metrics::{
-        compaction_build_one_timer,
-        log_compaction_compacted_segment_num_documents_total,
-        log_compaction_total_segments,
-        CompactionReason,
     },
     Database,
     IndexModel,

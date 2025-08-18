@@ -12,7 +12,7 @@ use storage::Storage;
 
 use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
-    index_workers::{
+    search_index_workers::{
         search_flusher::{
             SearchFlusher,
             SearchIndexLimits,
@@ -177,7 +177,7 @@ mod tests {
     };
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
-        index_workers::{
+        search_index_workers::{
             search_compactor::CompactionConfig,
             FlusherType,
         },

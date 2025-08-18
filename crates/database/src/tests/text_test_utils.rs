@@ -56,7 +56,7 @@ use value::{
 };
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         search_compactor::CompactionConfig,
         FlusherType,
     },

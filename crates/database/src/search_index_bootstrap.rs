@@ -77,8 +77,8 @@ use vector::{
 
 use crate::{
     committer::CommitterClient,
-    index_workers::fast_forward::load_metadata_fast_forward_ts,
     metrics::log_document_skipped,
+    search_index_workers::fast_forward::load_metadata_fast_forward_ts,
 };
 
 pub const FINISHED_BOOTSTRAP_UPDATES: &str = "finished_bootstrap_updates";
@@ -604,7 +604,7 @@ mod tests {
 
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
-        index_workers::fast_forward::load_metadata_fast_forward_ts,
+        search_index_workers::fast_forward::load_metadata_fast_forward_ts,
         test_helpers::{
             index_utils::assert_enabled,
             DbFixtures,

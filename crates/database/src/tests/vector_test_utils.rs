@@ -82,7 +82,7 @@ use vector::{
 
 use super::DbFixtures;
 use crate::{
-    index_workers::{
+    search_index_workers::{
         search_compactor::CompactionConfig,
         search_flusher::FLUSH_RUNNING_LABEL,
         FlusherType,

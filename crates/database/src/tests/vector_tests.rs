@@ -70,7 +70,7 @@ use vector::{
 };
 
 use crate::{
-    index_workers::FlusherType,
+    search_index_workers::FlusherType,
     test_helpers::{
         vector_utils::{
             random_vector,

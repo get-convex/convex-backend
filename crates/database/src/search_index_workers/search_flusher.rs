@@ -59,7 +59,15 @@ use crate::{
         index_backfills::IndexBackfillModel,
         index_workers::IndexWorkerMetadataModel,
     },
-    index_workers::{
+    metrics::{
+        build_one_search_index_timer,
+        log_documents_per_new_search_segment,
+        log_documents_per_search_index,
+        log_documents_per_search_segment,
+        log_non_deleted_documents_per_search_index,
+        log_non_deleted_documents_per_search_segment,
+    },
+    search_index_workers::{
         index_meta::{
             SearchIndex,
             SearchIndexConfig,
@@ -76,14 +84,6 @@ use crate::{
         BuildReason,
         FlusherType,
         MultiSegmentBackfillResult,
-    },
-    metrics::{
-        build_one_search_index_timer,
-        log_documents_per_new_search_segment,
-        log_documents_per_search_index,
-        log_documents_per_search_segment,
-        log_non_deleted_documents_per_search_index,
-        log_non_deleted_documents_per_search_segment,
     },
     Database,
     IndexModel,

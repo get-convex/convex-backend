@@ -44,7 +44,15 @@ use value::ResolvedDocumentId;
 
 use crate::{
     bootstrap_model::index_backfills::IndexBackfillModel,
-    index_workers::{
+    metrics::{
+        finish_search_index_merge_timer,
+        search_compaction_merge_commit_timer,
+        search_flush_merge_commit_timer,
+        search_writer_lock_wait_timer,
+        SearchIndexMergeType,
+        SearchWriterLockWaiter,
+    },
+    search_index_workers::{
         index_meta::{
             BackfillState,
             SearchIndex,
@@ -60,14 +68,6 @@ use crate::{
         },
         BuildReason,
         MultiSegmentBackfillResult,
-    },
-    metrics::{
-        finish_search_index_merge_timer,
-        search_compaction_merge_commit_timer,
-        search_flush_merge_commit_timer,
-        search_writer_lock_wait_timer,
-        SearchIndexMergeType,
-        SearchWriterLockWaiter,
     },
     Database,
     IndexModel,

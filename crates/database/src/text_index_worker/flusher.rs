@@ -9,7 +9,7 @@ use search::searcher::SegmentTermMetadataFetcher;
 use storage::Storage;
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         search_flusher::{
             SearchFlusher,
             SearchIndexLimits,
@@ -238,7 +238,7 @@ mod tests {
     };
 
     use crate::{
-        index_workers::{
+        search_index_workers::{
             search_compactor::CompactionConfig,
             search_flusher::FLUSH_RUNNING_LABEL,
         },

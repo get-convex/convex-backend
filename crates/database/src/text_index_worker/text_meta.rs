@@ -68,7 +68,7 @@ use storage::Storage;
 use sync_types::Timestamp;
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         index_meta::{
             BackfillState,
             SearchIndex,

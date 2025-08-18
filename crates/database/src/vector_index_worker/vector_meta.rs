@@ -50,7 +50,7 @@ use vector::{
 };
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         index_meta::{
             BackfillState,
             SearchIndex,
