@@ -436,24 +436,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn apply_index_diff(
-        &mut self,
-        namespace: TableNamespace,
-        diff: &LegacyIndexDiff,
-    ) -> anyhow::Result<()> {
-        if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
-            anyhow::bail!(unauthorized_error("modify_indexes"));
-        }
-        for index in &diff.dropped {
-            self.drop_index(index.id()).await?;
-        }
-        for index in &diff.added {
-            self.add_application_index(namespace, index.clone()).await?;
-        }
-
-        Ok(())
-    }
-
     /// Collect all the indexes in the new schema.
     ///
     /// An earlier step (JSON conversion) is responsible for ensuring that index
@@ -721,19 +703,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 .await?;
         }
 
-        Ok(diff)
-    }
-
-    pub async fn build_indexes(
-        &mut self,
-        namespace: TableNamespace,
-        schema: &DatabaseSchema,
-    ) -> anyhow::Result<LegacyIndexDiff> {
-        let diff: LegacyIndexDiff = self.get_index_diff(namespace, &schema.tables).await?.into();
-        if diff.is_empty() {
-            return Ok(diff);
-        }
-        self.apply_index_diff(namespace, &diff).await?;
         Ok(diff)
     }
 

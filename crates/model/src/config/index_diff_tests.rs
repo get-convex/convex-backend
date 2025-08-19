@@ -70,7 +70,7 @@ async fn get_index_diff_with_table_but_no_index_and_one_new_index_returns_added_
 
     let schema_table_only = db_schema_with_indexes!(table_name => {});
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_table_only)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema_table_only)
         .await?;
 
     let schema_with_index = db_schema_with_indexes!(table_name => {
@@ -99,7 +99,7 @@ async fn get_index_diff_with_one_existing_index_that_is_removed_returns_dropped_
     });
 
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_with_index)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema_with_index)
         .await?;
 
     let schema_without_index = db_schema_with_indexes!(table_name => {});
@@ -126,7 +126,7 @@ async fn get_index_diff_with_one_existing_index_when_table_is_removed_returns_dr
     });
 
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_with_index)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema_with_index)
         .await?;
 
     let schema_without_index = db_schema_with_indexes!();
@@ -153,7 +153,10 @@ async fn get_index_diff_with_one_existing_index_that_is_mutated_returns_mutated_
     });
 
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_with_single_field_index)
+        .prepare_new_and_mutated_indexes(
+            TableNamespace::test_user(),
+            &schema_with_single_field_index,
+        )
         .await?;
 
     let schema_with_multi_field_index = db_schema_with_indexes!(table_name => {

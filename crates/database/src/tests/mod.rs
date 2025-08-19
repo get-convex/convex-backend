@@ -295,7 +295,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     };
 
     let changes = IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     assert_eq!(changes.added.len(), 2);
     assert_eq!(changes.added[0].name.to_string(), "table.a_and_b");
@@ -354,7 +354,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     };
 
     let changes = IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     assert_eq!(
         changes

@@ -958,7 +958,7 @@ async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .build_indexes(TableNamespace::test_user(), &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
 
@@ -966,7 +966,7 @@ async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
         // add it without removing it, which will trigger a failure.
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .build_indexes(TableNamespace::test_user(), &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
         Ok(())
