@@ -91,7 +91,7 @@ needs human intervention to do so, such as confirmation of a fact.
 
 ```ts
 import { tool } from "ai";
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const askHuman = tool({
   description: "Ask a human a question",

@@ -66,8 +66,10 @@ const { file } = await storeFile(
   ctx,
   components.agent,
   new Blob([bytes], { type: mimeType }),
-  filename,
-  sha256,
+  {
+    filename,
+    sha256,
+  },
 );
 const { fileId, url, storageId } = file;
 ```

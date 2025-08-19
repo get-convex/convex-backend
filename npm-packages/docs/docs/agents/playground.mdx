@@ -24,14 +24,10 @@ There is also a [hosted version here](https://get-convex.github.io/agent/).
 **Note**: You must already have a Convex project set up with the Agent. See the
 [docs](./getting-started.mdx) for setup instructions.
 
-```sh
-npm i @convex-dev/agent-playground
-```
-
 In your agent Convex project, make a file `convex/playground.ts` with:
 
 ```ts
-import { definePlaygroundAPI } from "@convex-dev/agent-playground";
+import { definePlaygroundAPI } from "@convex-dev/agent";
 import { components } from "./_generated/api";
 import { weatherAgent, fashionAgent } from "./example";
 

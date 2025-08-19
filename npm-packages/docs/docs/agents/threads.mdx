@@ -22,16 +22,16 @@ generating messages. If you specify a userId, the thread will be associated with
 that user and messages will be saved to the user's history.
 
 ```ts
-const agent = new Agent(components.agent, { chat: chatModel });
-//...
-const { threadId } = await agent.createThread(ctx);
+import { createThread } from "@convex-dev/agent";
+
+const threadId = await createThread(ctx, components.agent);
 ```
 
 You may also pass in metadata to set on the thread:
 
 ```ts
 const userId = await getAuthUserId(ctx);
-const { thread } = await agent.createThread(ctx, {
+const threadId = await createThread(ctx, components.agent, {
   userId,
   title: "My thread",
   summary: "This is a summary of the thread",
@@ -42,21 +42,38 @@ Metadata may be provided as context to the agent automatically in the future,
 but for now it's a convenience that helps organize threads in the
 [Playground](./playground.mdx).
 
-## Continuing a thread
+## Generating a message in a thread
 
-You can continue a thread from an action in order to send more messages. Any
-agent can continue a thread created by any other agent.
+You can generate a message in a thread via the agent functions:
+`agent.generateText`, `agent.generateObject`, `agent.streamText`, and
+`agent.streamObject`. Any agent can generate a message in a thread created by
+any other agent.
 
 ```ts
+const agent = new Agent(components.agent, { languageModel, instructions });
+
 export const generateReplyToPrompt = action({
   args: { prompt: v.string(), threadId: v.string() },
   handler: async (ctx, { prompt, threadId }) => {
     // await authorizeThreadAccess(ctx, threadId);
-    const { thread } = await agent.continueThread(ctx, { threadId });
-    const result = await thread.generateText({ prompt });
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
     return result.text;
   },
 });
+```
+
+See [Messages](./messages.mdx) for more details on creating and saving messages.
+
+## Continuing a thread using the `thread` object from `agent.continueThread`
+
+You can also continue a thread by creating an agent-specific `thread` object,
+either when calling `agent.createThread` or `agent.continueThread` from within
+an action. This allows calling methods without specifying those parameters each
+time.
+
+```ts
+const { thread } = await agent.continueThread(ctx, { threadId });
+const result = await thread.generateText({ prompt });
 ```
 
 The `thread` from `continueThread` or `createThread` (available in actions only)
@@ -75,21 +92,6 @@ is a `Thread` object, which has convenience methods that are thread-specific:
   `agent.streamObject(ctx, { threadId }, { prompt, ... })`
 
 See [Messages docs](./messages.mdx) for more details on generating messages.
-
-### Overriding behavior with `agent.continueThread`
-
-You can override a few things when using `agent.continueThread`:
-
-```ts
-const { thread } = await agent.continueThread(ctx, {
-  threadId,
-  userId, // Associates generated messages with this user.
-  tools, // Replaces the agent's default tools
-  usageHandler, // Replaces the agent's default usage handler
-});
-
-await thread.generateText({ prompt }); // Uses the thread-specific options.
-```
 
 ## Deleting threads
 
@@ -150,16 +152,4 @@ const messages = await listMessages(ctx, components.agent, {
   excludeToolMessages: true,
   paginationOpts: { cursor: null, numItems: 10 }, // null means start from the beginning
 });
-```
-
-## Creating a thread without an Agent
-
-Note: if you're in an environment where you don't have access to the Agent, then
-you can create the thread more manually:
-
-```ts
-const { _id: threadId } = await ctx.runMutation(
-  components.agent.threads.createThread,
-  { userId, title, summary },
-);
 ```

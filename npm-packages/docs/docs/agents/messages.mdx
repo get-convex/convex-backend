@@ -132,11 +132,7 @@ via normal Convex queries. See below for details on how to retrieve and display
 the stream.
 
 ```ts
-const { thread } = await storyAgent.continueThread(ctx, { threadId });
-const result = await thread.streamText({ prompt }, { saveStreamDeltas: true });
-// We need to make sure the stream is finished - by awaiting each chunk or
-// using this call to consume it all.
-await result.consumeStream();
+await foo.streamText(ctx, { threadId }, { prompt }, { saveStreamDeltas: true });
 ```
 
 This can be done in an async function, where http streaming to a client is not
@@ -167,6 +163,24 @@ for await (const textPart of result.textStream) {
 }
 ```
 
+### Saving deltas and returning an interactive stream
+
+If you want to do both: iterate as the stream is happening, as well as save the
+deltas, you can pass `{ saveStreamDeltas: { returnImmediately: true } }` to
+`streamText`. This will return immediately, and you can then iterate over the
+stream as it happens.
+
+```ts
+const result = await agent.streamText(
+  ctx,
+  { threadId },
+  { prompt },
+  { saveStreamDeltas: { returnImmediately: true } },
+);
+
+return result.toUIMessageStreamResponse();
+```
+
 See below for how to retrieve the stream deltas to a client.
 
 ### Generating an object
@@ -176,7 +190,7 @@ apply, except you don't have to provide a model. It will use the agent's default
 chat model.
 
 ```ts
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const result = await thread.generateObject({
   prompt: "Generate a plan based on the conversation so far",
@@ -206,10 +220,7 @@ import { listMessages } from "@convex-dev/agent";
 import { components } from "./_generated/api";
 
 export const listThreadMessages = query({
-  args: {
-    threadId: v.string(),
-    paginationOpts: paginationOptsValidator,
-  },
+  args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { threadId, paginationOpts }) => {
     // await authorizeThreadAccess(ctx, threadId);
 
@@ -288,7 +299,7 @@ function MyComponent({ threadId }: { threadId: string }) {
   return (
     <div>
       {toUIMessages(messages.results ?? []).map((message) => (
-        <div key={message.key}>{message.content}</div>
+        <div key={message.key}>{message.text}</div>
       ))}
     </div>
   );
@@ -320,7 +331,7 @@ The helper also adds some additional fields:
 To reference these, ensure you're importing `UIMessage` from
 `@convex-dev/agent/react`.
 
-### Text smoothing with the `useSmoothText` hook
+### Text smoothing with `SmoothText` and `useSmoothText`
 
 The `useSmoothText` hook is a simple hook that smooths the text as it changes.
 It can work with any text, but is especially handy for streaming text.
@@ -329,7 +340,7 @@ It can work with any text, but is especially handy for streaming text.
 import { useSmoothText } from "@convex-dev/agent/react";
 
 // in the component
-const [visibleText] = useSmoothText(message.content);
+const [visibleText] = useSmoothText(message.text);
 ```
 
 You can configure the initial characters per second. It will adapt over time to
@@ -343,11 +354,20 @@ streaming and non-streaming messages, do:
 import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
 
 function Message({ message }: { message: UIMessage }) {
-  const [visibleText] = useSmoothText(message.content, {
+  const [visibleText] = useSmoothText(message.text, {
     startStreaming: message.status === "streaming",
   });
   return <div>{visibleText}</div>;
 }
+```
+
+If you don't want to use the hook, you can use the `SmoothText` component.
+
+```tsx
+import { SmoothText } from "@convex-dev/agent/react";
+
+//...
+<SmoothText text={message.text} />;
 ```
 
 ### Optimistic updates for sending messages
@@ -393,6 +413,43 @@ provide them as a prompt, as well as all generated messages.
 You can save messages to the database manually using `saveMessage` or
 `saveMessages`.
 
+- You can pass a `prompt` or a full `message` (`ModelMessage` type)
+- The `metadata` argument is optional and allows you to provide more details,
+  such as `sources`, `reasoningDetails`, `usage`, `warnings`, `error`, etc.
+
+### Without the Agent class:
+
+Note: If you aren't using the Agent class with a text embedding model set, you
+need to pass an `embedding` if you want to save it at the same time.
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "assistant", content: result },
+  metadata: [{ reasoning, usage, ... }] // See MessageWithMetadata type
+  agentName: "my-agent",
+  embedding: { vector: [0.1, 0.2, ...], model: "text-embedding-3-small" },
+});
+```
+
+```ts
+import { saveMessages } from "@convex-dev/agent";
+
+const { messages } = await saveMessages(ctx, components.agent, {
+  threadId,
+  userId,
+  messages: [{ role, content }, ...],
+  metadata: [{ reasoning, usage, ... }, ...] // See MessageWithMetadata type
+  agentName: "my-agent",
+  embeddings: { model: "text-embedding-3-small", vectors: [[0.1...], ...] },
+});
+```
+
+### Using the Agent class:
+
 ```ts
 const { messageId } = await agent.saveMessage(ctx, {
   threadId,
@@ -402,10 +459,8 @@ const { messageId } = await agent.saveMessage(ctx, {
 });
 ```
 
-You can pass a `prompt` or a full `message` (`CoreMessage` type)
-
 ```ts
-const { lastMessageId, messageIds} = await agent.saveMessages(ctx, {
+const { messages } = await agent.saveMessages(ctx, {
   threadId, userId,
   messages: [{ role, content }],
   metadata: [{ reasoning, usage, ... }] // See MessageWithMetadata type
@@ -417,9 +472,6 @@ set, pass `skipEmbeddings: true`. The embeddings for the message will be
 generated lazily if the message is used as a prompt. Or you can provide an
 embedding upfront if it's available, or later explicitly generate them using
 `agent.generateEmbeddings`.
-
-The `metadata` argument is optional and allows you to provide more details, such
-as `sources`, `reasoningDetails`, `usage`, `warnings`, `error`, etc.
 
 ## Configuring the storage of messages
 
@@ -505,7 +557,7 @@ import { ... } from "@convex-dev/agent";
 - `filterOutOrphanedToolMessages` is a utility function that filters out tool
   call messages that don't have a corresponding tool result message.
 - `extractText` is a utility function that extracts text from a
-  `CoreMessage`-like object.
+  `ModelMessage`-like object.
 
 ### Validators and types
 
@@ -515,7 +567,7 @@ There are types to validate and provide types for various values
 import { ... } from "@convex-dev/agent";
 ```
 
-- `vMessage` is a validator for a `CoreMessage`-like object (with a `role` and
+- `vMessage` is a validator for a `ModelMessage`-like object (with a `role` and
   `content` field e.g.).
 - `MessageDoc` and `vMessageDoc` are the types for a message (which includes a
   `.message` field with the `vMessage` type).

@@ -36,7 +36,7 @@ the table list to see the Agent data. The organization of the tables matches the
 The most useful tables are:
 
 - `threads` has one row per thread
-- `messages` has a separate row for each CoreMessage - e.g. a user message,
+- `messages` has a separate row for each ModelMessage - e.g. a user message,
   assistant tool call, tool result, assistant message, etc. The most important
   fields are `agentName` for which agent it's associated with, `status`, `order`
   and `stepOrder` which are used to order the messages, and `message` which is

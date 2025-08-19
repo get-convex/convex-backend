@@ -61,8 +61,9 @@ import { ComponentCardList } from "@site/src/components/ComponentCard";
 <ComponentCardList
   items={[
     {
-      title: "Install the RAG Component",
-      description: "Get started with Retrieval-Augmented Generation.",
+      title: "RAG (Retrieval-Augmented Generation)",
+      description:
+        "Search documents for relevant content to prompt an LLM using embeddings.",
       href: "https://www.convex.dev/components/rag",
     },
   ]}
@@ -88,16 +89,19 @@ For example code, see
 for the overall code. The simplest version is:
 
 ```ts
-const { thread } = await agent.continueThread(ctx, { threadId });
 const context = await rag.search(ctx, {
   namespace: "global",
   query: userPrompt,
   limit: 10,
 });
 
-const result = await thread.generateText({
-  prompt: `# Context:\n\n ${context.text}\n\n---\n\n# Question:\n\n"""${userPrompt}\n"""`,
-});
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  {
+    prompt: `# Context:\n\n ${context.text}\n\n---\n\n# Question:\n\n"""${userPrompt}\n"""`,
+  },
+);
 ```
 
 ### 2. Tool-based RAG
