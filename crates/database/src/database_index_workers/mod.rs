@@ -35,14 +35,12 @@ use common::{
     runtime::Runtime,
     types::{
         IndexId,
-        PersistenceVersion,
         RepeatableTimestamp,
         TabletIndexName,
     },
 };
 use futures::FutureExt;
 use hashlink::LinkedHashSet;
-use indexing::index_registry::IndexRegistry;
 use keybroker::Identity;
 use tokio::{
     select,
@@ -55,7 +53,6 @@ use tokio_util::task::JoinMap;
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
-    TableMapping,
     TableNamespace,
     TabletId,
 };
@@ -90,7 +87,6 @@ pub struct IndexWorker<RT: Runtime> {
     concurrency_limiter: Arc<Semaphore>,
     work_pool: JoinMap<IndexBackfill, anyhow::Result<()>>,
     database: Database<RT>,
-    persistence_version: PersistenceVersion,
     index_writer: IndexWriter<RT>,
     backoff: Backoff,
     runtime: RT,
@@ -102,8 +98,6 @@ pub struct IndexWorker<RT: Runtime> {
 pub struct IndexBackfill {
     pub tablet_id: TabletId,
     pub index_ids: Vec<IndexId>,
-    pub table_mapping: TableMapping,
-    pub index_registry: IndexRegistry,
 }
 
 impl Hash for IndexBackfill {
@@ -135,7 +129,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             concurrency_limiter: Arc::new(Semaphore::new(*INDEX_BACKFILL_CONCURRENCY)),
             work_pool: JoinMap::new(),
             database,
-            persistence_version: reader.version(),
             index_writer,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
             runtime,
@@ -183,7 +176,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             concurrency_limiter: Arc::new(Semaphore::new(10)),
             work_pool: JoinMap::new(),
             database,
-            persistence_version: reader.version(),
             index_writer,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
             runtime,
@@ -237,12 +229,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             tx.begin_timestamp()
         );
 
-        let index_registry = IndexRegistry::bootstrap(
-            tx.table_mapping(),
-            index_documents.into_iter().map(|doc| (*doc).clone()),
-            self.persistence_version,
-        )?;
-
         for (tablet_id, index_ids) in to_backfill_by_tablet {
             let mut to_backfill = Vec::new();
             for index_id in index_ids {
@@ -255,8 +241,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             backfill_queue.push(IndexBackfill {
                 tablet_id,
                 index_ids: to_backfill,
-                table_mapping: tx.table_mapping().clone(),
-                index_registry: index_registry.clone(),
             });
         }
 
