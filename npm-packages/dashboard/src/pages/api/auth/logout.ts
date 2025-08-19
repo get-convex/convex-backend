@@ -33,7 +33,10 @@ export default async function handler(
       cookiePassword: process.env.WORKOS_COOKIE_PASSWORD || "",
     });
     const logoutUrl = await session.getLogoutUrl({
-      returnTo: process.env.WORKOS_LOGOUT_URL || "",
+      returnTo: `${
+        process.env.WORKOS_REDIRECT_URI ||
+        `https://${process.env.WORKOS_REDIRECT_URI_OVERRIDE}`
+      }/login`,
     });
     res.setHeader("Set-Cookie", [
       "wos-session=deleted; Max-Age=-1; Path=/; HttpOnly; Secure; SameSite=Lax",
