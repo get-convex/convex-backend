@@ -90,21 +90,3 @@ export function useListIdentities() {
   });
   return identities;
 }
-
-export function useUnlinkIdentity() {
-  return useBBMutation({
-    path: "/unlink_identity",
-    pathParams: undefined,
-    mutateKey: "/list_identities",
-    successToast: "Identity removed.",
-  });
-}
-
-export function useChangePrimaryIdentity() {
-  return useBBMutation({
-    path: "/update_primary_identity",
-    pathParams: undefined,
-    mutateKey: "/list_identities",
-    successToast: "Primary identity changed.",
-  });
-}

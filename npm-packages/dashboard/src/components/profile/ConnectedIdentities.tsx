@@ -1,19 +1,13 @@
-import {
-  useListIdentities,
-  useUnlinkIdentity,
-  useChangePrimaryIdentity,
-} from "api/profile";
-import { useState } from "react";
+import { useListIdentities } from "api/profile";
+import Link from "next/link";
 import { Sheet } from "@ui/Sheet";
-import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { AuthIdentityResponse } from "generatedApi";
 import { LoadingTransition } from "@ui/Loading";
 import GoogleLogo from "logos/google.svg";
 import GithubLogo from "logos/github-logo.svg";
 import VercelLogo from "logos/vercel.svg";
 import { Tooltip } from "@ui/Tooltip";
-import { Menu, MenuItem } from "@ui/Menu";
-import { DotsVerticalIcon, InfoCircledIcon } from "@radix-ui/react-icons";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 
 type IdentityGroup = {
   parentUserId: string | null;
@@ -23,27 +17,21 @@ type IdentityGroup = {
 
 export function ConnectedIdentities() {
   const identities = useListIdentities();
-  const unlinkIdentity = useUnlinkIdentity();
-  const changePrimaryIdentity = useChangePrimaryIdentity();
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
-  const [changingPrimaryId, setChangingPrimaryId] = useState<string | null>(
-    null,
-  );
-  const [error, setError] = useState<string | undefined>();
   // Group identities by parent user ID
   const identityGroups = identities ? groupIdentities(identities) : [];
-
-  // Find the identity being changed to primary
-  const candidatePrimaryIdentity = identities?.find(
-    (i) => i.userId === changingPrimaryId,
-  );
 
   return (
     <Sheet className="flex flex-col gap-4">
       <h3>Identities</h3>
       <p className="max-w-prose text-sm">
-        These are the identities associated with your account. You can change
-        your primary identity and unlink secondary identities here.
+        These are the identities associated with your account. Please{" "}
+        <Link
+          className="text-content-link hover:underline"
+          href="mailto:support@convex.dev"
+        >
+          contact support
+        </Link>{" "}
+        if you would like to remove an identity from your account.
       </p>
       <LoadingTransition loadingProps={{ className: "h-[13rem]" }}>
         {identities && (
@@ -53,42 +41,9 @@ export function ConnectedIdentities() {
                 <IdentityGroupRenderer
                   key={group.parentUserId || `group-${groupIndex}`}
                   group={group}
-                  unlinkingId={unlinkingId}
-                  setUnlinkingId={setUnlinkingId}
-                  setChangingPrimaryId={setChangingPrimaryId}
-                  unlinkIdentity={unlinkIdentity}
-                  error={error}
-                  setError={setError}
                 />
               ))}
             </div>
-            {/* Render the confirmation dialog for changing primary identity at the root */}
-            {changingPrimaryId && candidatePrimaryIdentity && (
-              <ConfirmationDialog
-                onClose={() => {
-                  setChangingPrimaryId(null);
-                  setError(undefined);
-                }}
-                onConfirm={async () => {
-                  try {
-                    await changePrimaryIdentity({
-                      newPrimaryProvider: candidatePrimaryIdentity.provider,
-                      newPrimaryUserId: candidatePrimaryIdentity.userId,
-                    });
-                    setChangingPrimaryId(null);
-                    window.location.href = "/api/auth/logout";
-                  } catch (e: any) {
-                    setError(e.message);
-                    throw e;
-                  }
-                }}
-                confirmText="Confirm"
-                variant="primary"
-                dialogTitle="Change Primary Identity"
-                dialogBody="Changing your primary identity will log you out of the dashboard. You will be logged out of the dashboard and need to log in again after changing your primary identity."
-                error={error}
-              />
-            )}
           </div>
         )}
       </LoadingTransition>
@@ -96,23 +51,7 @@ export function ConnectedIdentities() {
   );
 }
 
-function IdentityGroupRenderer({
-  group,
-  unlinkingId,
-  setUnlinkingId,
-  setChangingPrimaryId,
-  unlinkIdentity,
-  error,
-  setError,
-}: {
-  group: IdentityGroup;
-  unlinkingId: string | null;
-  setUnlinkingId: (id: string | null) => void;
-  setChangingPrimaryId: (id: string | null) => void;
-  unlinkIdentity: any;
-  error: string | undefined;
-  setError: (error: string | undefined) => void;
-}) {
+function IdentityGroupRenderer({ group }: { group: IdentityGroup }) {
   // If this is a single identity (no grouping), render normally
   if (group.identities.length === 1 && !group.parentUserId) {
     const identity = group.identities[0];
@@ -129,19 +68,6 @@ function IdentityGroupRenderer({
             <div className="rounded-sm border p-1 text-xs">Primary</div>
           )}
         </div>
-        <IdentityMenu
-          identity={identity}
-          setChangingPrimaryId={setChangingPrimaryId}
-          setUnlinkingId={setUnlinkingId}
-        />
-        <IdentityDialogs
-          identity={identity}
-          unlinkingId={unlinkingId}
-          setUnlinkingId={setUnlinkingId}
-          unlinkIdentity={unlinkIdentity}
-          error={error}
-          setError={setError}
-        />
       </div>
     );
   }
@@ -156,7 +82,7 @@ function IdentityGroupRenderer({
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="font-semibold">{group.parentUserId}</span>
           {group.identities.length > 1 && (
-            <Tooltip tip="These identities are grouped because they shared the same email address at the time they were linked. Unlinking one of these identities will unlink them all.">
+            <Tooltip tip="These identities are grouped because they shared the same email address at the time they were linked.">
               <InfoCircledIcon className="h-4 w-4 text-gray-500" />
             </Tooltip>
           )}
@@ -164,11 +90,6 @@ function IdentityGroupRenderer({
             <div className="rounded-sm border p-1 text-xs">Primary</div>
           )}
         </div>
-        <GroupIdentityMenu
-          group={group}
-          setChangingPrimaryId={setChangingPrimaryId}
-          setUnlinkingId={setUnlinkingId}
-        />
       </div>
 
       {/* Secondary identities in group */}
@@ -192,270 +113,7 @@ function IdentityGroupRenderer({
           ))}
         </div>
       )}
-
-      {/* Dialogs for group or individual identities */}
-      {group.parentUserId ? (
-        // Group unlinking dialog
-        <GroupUnlinkDialog
-          group={group}
-          unlinkingId={unlinkingId}
-          setUnlinkingId={setUnlinkingId}
-          unlinkIdentity={unlinkIdentity}
-          error={error}
-          setError={setError}
-        />
-      ) : (
-        // Individual identity dialogs
-        group.identities.map((identity) => (
-          <IdentityDialogs
-            key={identity.userId}
-            identity={identity}
-            unlinkingId={unlinkingId}
-            setUnlinkingId={setUnlinkingId}
-            unlinkIdentity={unlinkIdentity}
-            error={error}
-            setError={setError}
-          />
-        ))
-      )}
     </div>
-  );
-}
-
-function GroupUnlinkDialog({
-  group,
-  unlinkingId,
-  setUnlinkingId,
-  unlinkIdentity,
-  error,
-  setError,
-}: {
-  group: IdentityGroup;
-  unlinkingId: string | null;
-  setUnlinkingId: (id: string | null) => void;
-  unlinkIdentity: any;
-  error: string | undefined;
-  setError: (error: string | undefined) => void;
-}) {
-  return (
-    <>
-      {unlinkingId === group.parentUserId && (
-        <ConfirmationDialog
-          onClose={() => {
-            setUnlinkingId(null);
-            setError(undefined);
-          }}
-          onConfirm={async () => {
-            try {
-              // Use the parentUserId as the userId, and pass empty provider since it will be ignored
-              await unlinkIdentity({
-                userId: group.parentUserId,
-                provider: "",
-              });
-              setUnlinkingId(null);
-              window.location.href = "/api/auth/logout";
-            } catch (e: any) {
-              setError(e.message);
-              throw e;
-            }
-          }}
-          confirmText="Unlink group"
-          variant="danger"
-          dialogTitle="Unlink Identity Group"
-          dialogBody="Unlinking this group will remove all associated identities from your account. You will not be able to use any of these identities to log in unless you link them again. You will be logged out of the dashboard after unlinking. However, your other sessions will remain logged in. Be sure to log out of the CLI or Chef if necessary."
-          error={error}
-        />
-      )}
-    </>
-  );
-}
-
-function GroupIdentityMenu({
-  group,
-  setChangingPrimaryId,
-  setUnlinkingId,
-}: {
-  group: IdentityGroup;
-  setChangingPrimaryId: (id: string | null) => void;
-  setUnlinkingId: (id: string | null) => void;
-}) {
-  // For groups, we offer options for non-primary identities in the group
-  const nonPrimaryIdentities = group.identities.filter((i) => !i.isPrimary);
-  const primaryIdentity = group.identities.find((i) => i.isPrimary);
-
-  return (
-    <Menu
-      placement="bottom-end"
-      buttonProps={{
-        variant: "neutral",
-        icon: <DotsVerticalIcon />,
-        "aria-label": "Identity group options",
-        size: "xs",
-      }}
-    >
-      {nonPrimaryIdentities.length > 0 ? (
-        <>
-          {(() => {
-            const firstNonPrimary = nonPrimaryIdentities.find(
-              (identity) => identity.connection !== "vercel",
-            );
-            return firstNonPrimary ? (
-              <MenuItem
-                key={`primary-${firstNonPrimary.userId}`}
-                action={() => setChangingPrimaryId(firstNonPrimary.userId)}
-                tip="Set first identity in group as primary"
-                tipSide="right"
-              >
-                Set as primary
-              </MenuItem>
-            ) : null;
-          })()}
-        </>
-      ) : null}
-
-      {/* Unlink options for non-primary identities */}
-      {nonPrimaryIdentities.length > 0 ? (
-        <>
-          {group.parentUserId ? (
-            // If there's a parentUserId (WorkOS group), show single unlink option for the whole group
-            <MenuItem
-              key={`unlink-group-${group.parentUserId}`}
-              action={() => setUnlinkingId(group.parentUserId)}
-              variant="danger"
-              tip="Unlink all identities in this group"
-              tipSide="right"
-            >
-              Unlink group
-            </MenuItem>
-          ) : (
-            // Individual unlink options for non-grouped identities
-            nonPrimaryIdentities.map((identity) => (
-              <MenuItem
-                key={`unlink-${identity.userId}`}
-                action={() => setUnlinkingId(identity.userId)}
-                variant="danger"
-                tip={`Unlink ${identity.provider} identity`}
-                tipSide="right"
-              >
-                Unlink {identity.provider}
-              </MenuItem>
-            ))
-          )}
-        </>
-      ) : null}
-
-      {/* If only primary identity exists, show disabled unlink option */}
-      {nonPrimaryIdentities.length === 0 && primaryIdentity ? (
-        <MenuItem
-          action={() => {}}
-          disabled
-          variant="danger"
-          tip="You cannot unlink your primary identity. To unlink this identity, you must first set a new primary identity."
-          tipSide="right"
-        >
-          Unlink
-        </MenuItem>
-      ) : null}
-    </Menu>
-  );
-}
-
-function IdentityMenu({
-  identity,
-  setChangingPrimaryId,
-  setUnlinkingId,
-}: {
-  identity: AuthIdentityResponse;
-  setChangingPrimaryId: (id: string | null) => void;
-  setUnlinkingId: (id: string | null) => void;
-}) {
-  const { isPrimary } = identity;
-
-  return (
-    <Menu
-      placement="bottom-end"
-      buttonProps={{
-        variant: "neutral",
-        icon: <DotsVerticalIcon />,
-        "aria-label": "Identity options",
-        size: "xs",
-      }}
-    >
-      <MenuItem
-        action={() => setChangingPrimaryId(identity.userId)}
-        disabled={isPrimary || identity.connection === "vercel"}
-        tip={
-          isPrimary
-            ? "This is already your primary identity."
-            : identity.connection === "vercel"
-              ? "You cannot set a Vercel identity as your primary identity."
-              : undefined
-        }
-        tipSide="right"
-      >
-        Set as primary
-      </MenuItem>
-      <MenuItem
-        action={() => setUnlinkingId(identity.userId)}
-        disabled={isPrimary}
-        variant="danger"
-        tip={
-          isPrimary
-            ? "You cannot unlink your primary identity. To unlink this identity, you must first set a new primary identity."
-            : undefined
-        }
-        tipSide="right"
-      >
-        Unlink
-      </MenuItem>
-    </Menu>
-  );
-}
-
-function IdentityDialogs({
-  identity,
-  unlinkingId,
-  setUnlinkingId,
-  unlinkIdentity,
-  error,
-  setError,
-}: {
-  identity: AuthIdentityResponse;
-  unlinkingId: string | null;
-  setUnlinkingId: (id: string | null) => void;
-  unlinkIdentity: any;
-  error: string | undefined;
-  setError: (error: string | undefined) => void;
-}) {
-  return (
-    <>
-      {unlinkingId === identity.userId && (
-        <ConfirmationDialog
-          onClose={() => {
-            setUnlinkingId(null);
-            setError(undefined);
-          }}
-          onConfirm={async () => {
-            try {
-              await unlinkIdentity({
-                userId: identity.userId,
-                provider: identity.provider,
-              });
-              setUnlinkingId(null);
-              window.location.href = "/api/auth/logout";
-            } catch (e: any) {
-              setError(e.message);
-              throw e;
-            }
-          }}
-          confirmText="Unlink"
-          variant="danger"
-          dialogTitle="Unlink Identity"
-          dialogBody="Unlinking this identity will remove it from your account. You will not be able to use it to log in unless you link it again. You will be logged out of the dashboard after unlinking your identity. However, your other sessions will remain logged in. Be sure to log out of the CLI or Chef if necessary."
-          error={error}
-        />
-      )}
-    </>
   );
 }
 
