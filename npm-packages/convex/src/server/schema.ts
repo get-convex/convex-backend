@@ -74,6 +74,16 @@ type ExtractDocument<T extends Validator<any, any, any>> =
   //the table name) and trick TypeScript into expanding them.
   Expand<SystemFields & T["type"]>;
 
+export interface DbIndexConfig<
+  FirstFieldPath extends string,
+  RestFieldPaths extends string[],
+> {
+  /**
+   * The fields to index, in order. Must specify at least one field.
+   */
+  fields: [FirstFieldPath, ...RestFieldPaths];
+}
+
 /**
  * The configuration for a full text search index.
  *
@@ -219,6 +229,38 @@ export class TableDefinition<
    * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
    *
    * @param name - The name of the index.
+   * @param indexConfig - The index configuration object.
+   * @returns A {@link TableDefinition} with this index included.
+   */
+  index<
+    IndexName extends string,
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
+  >(
+    name: IndexName,
+    indexConfig: Expand<
+      DbIndexConfig<FirstFieldPath, RestFieldPaths> &
+        IndexOptions & { staged?: false }
+    >,
+  ): TableDefinition<
+    DocumentType,
+    Expand<
+      Indexes &
+        Record<
+          IndexName,
+          [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
+        >
+    >,
+    SearchIndexes,
+    VectorIndexes
+  >;
+
+  /**
+   * Define an index on this table.
+   *
+   * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
+   *
+   * @param name - The name of the index.
    * @param fields - The fields to index, in order. Must specify at least one
    * field.
    * @returns A {@link TableDefinition} with this index included.
@@ -230,7 +272,6 @@ export class TableDefinition<
   >(
     name: IndexName,
     fields: [FirstFieldPath, ...RestFieldPaths],
-    options?: IndexOptions & { staged: false },
   ): TableDefinition<
     DocumentType,
     Expand<
@@ -257,8 +298,7 @@ export class TableDefinition<
    * To learn about indexes, see [Defining Indexes](https://docs.convex.dev/using/indexes).
    *
    * @param name - The name of the index.
-   * @param fields - The fields to index, in order. Must specify at least one
-   * field.
+   * @param indexConfig - The index configuration object.
    * @returns A {@link TableDefinition} with this index included.
    */
   index<
@@ -267,8 +307,10 @@ export class TableDefinition<
     RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
   >(
     name: IndexName,
-    fields: [FirstFieldPath, ...RestFieldPaths],
-    options: IndexOptions & { staged: true },
+    indexConfig: Expand<
+      DbIndexConfig<FirstFieldPath, RestFieldPaths> &
+        IndexOptions & { staged: true }
+    >,
   ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes>;
 
   index<
@@ -277,13 +319,28 @@ export class TableDefinition<
     RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
   >(
     name: IndexName,
-    fields: [FirstFieldPath, ...RestFieldPaths],
-    options?: IndexOptions,
+    indexConfig:
+      | Expand<DbIndexConfig<FirstFieldPath, RestFieldPaths> & IndexOptions>
+      | [FirstFieldPath, ...RestFieldPaths],
   ) {
-    if (options?.staged) {
-      this.stagedDbIndexes.push({ indexDescriptor: name, fields });
+    if (Array.isArray(indexConfig)) {
+      // indexConfig is [FirstFieldPath, ...RestFieldPaths]
+      this.indexes.push({
+        indexDescriptor: name,
+        fields: indexConfig,
+      });
+    } else if (indexConfig.staged) {
+      // indexConfig is object with fields and staged: true
+      this.stagedDbIndexes.push({
+        indexDescriptor: name,
+        fields: indexConfig.fields,
+      });
     } else {
-      this.indexes.push({ indexDescriptor: name, fields });
+      // indexConfig is object with fields (and maybe staged: false/undefined)
+      this.indexes.push({
+        indexDescriptor: name,
+        fields: indexConfig.fields,
+      });
     }
     return this;
   }

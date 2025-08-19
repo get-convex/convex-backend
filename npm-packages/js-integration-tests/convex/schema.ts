@@ -86,7 +86,7 @@ export default defineSchema({
     name: v.string(),
     embedding: v.array(v.float64()),
   })
-    .index("by_name", ["name"], { staged: true })
+    .index("by_name", { fields: ["name"], staged: true })
     .searchIndex("search_by_name", {
       searchField: "name",
       staged: true,
