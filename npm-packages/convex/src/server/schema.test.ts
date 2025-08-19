@@ -545,6 +545,37 @@ describe("DataModelFromSchemaDefinition", () => {
   });
 });
 
+test("defineSchema doesn’t allow creating indexes with a staged status not known at compile time", () => {
+  defineSchema({
+    table: defineTable({
+      field: v.string(),
+    }).index("staged_database_index", ["field"], {
+      // @ts-expect-error
+      staged: Math.random() < 0.5,
+    }),
+  });
+
+  defineSchema({
+    table: defineTable({
+      field: v.string(),
+    }).searchIndex("staged_search_index", {
+      searchField: "field",
+      // @ts-expect-error
+      staged: Math.random() < 0.5,
+    }),
+  });
+
+  defineSchema({
+    table: defineTable({
+      field: v.array(v.float64()),
+    }).vectorIndex("staged_vector_index", {
+      vectorField: "field",
+      // @ts-expect-error
+      staged: Math.random() < 0.5,
+    }),
+  });
+});
+
 test("defineSchema generates search index types", () => {
   const schema = defineSchema({
     table: defineTable({
