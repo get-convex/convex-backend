@@ -642,7 +642,13 @@ impl IndexRegistry {
             return Ok(enabled.clone());
         }
         match self.get_pending(index_name) {
-            Some(_) => anyhow::bail!(index_backfilling_error(printable_index_name)),
+            Some(index) => {
+                if index.metadata.config.is_staged() {
+                    anyhow::bail!(index_staged_error(printable_index_name))
+                } else {
+                    anyhow::bail!(index_backfilling_error(printable_index_name))
+                }
+            },
             None => {
                 anyhow::bail!(index_not_found_error(printable_index_name))
             },
@@ -786,7 +792,14 @@ impl Index {
 pub fn index_backfilling_error(name: &IndexName) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "IndexBackfillingError",
-        format!("Index {name} is currently backfilling and not available to query yet.",),
+        format!("Index {name} is currently backfilling and not available to query yet."),
+    )
+}
+
+pub fn index_staged_error(name: &IndexName) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "IndexStagedError",
+        format!("Index {name} is currently staged and not available to query until it is enabled."),
     )
 }
 

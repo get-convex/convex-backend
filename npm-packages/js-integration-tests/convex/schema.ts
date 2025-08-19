@@ -81,6 +81,21 @@ export default defineSchema({
   virtualForeignKeys: defineTable({
     foreignKeyField: v.id("_scheduled_functions"),
   }),
+
+  stagedIndexes: defineTable({
+    name: v.string(),
+    embedding: v.array(v.float64()),
+  })
+    .index("by_name", ["name"], { staged: true })
+    .searchIndex("search_by_name", {
+      searchField: "name",
+      staged: true,
+    })
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+      staged: true,
+    }),
 });
 
 // Keep this in sync with the schema! It's important for cleaning up data between tests.
@@ -94,4 +109,5 @@ export const ALL_TABLE_NAMES = [
   "any",
   "testTypes",
   "foods",
+  "stagedIndexes",
 ] as const;

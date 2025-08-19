@@ -201,10 +201,6 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         matches!(self.config, IndexConfig::Vector { .. })
     }
 
-    pub fn is_staged_index(&self) -> bool {
-        self.config.is_staged()
-    }
-
     pub fn map_table<U: IndexTableIdentifier>(
         self,
         f: &impl Fn(T) -> anyhow::Result<U>,
