@@ -122,6 +122,13 @@ async fn test_system_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         ._add_system_indexes(&Identity::system(), indexes)
         .await?;
     wait_for_backfill(&rt, &application, TableNamespace::test_user(), &index_name).await?;
+    wait_for_backfill(
+        &rt,
+        &application,
+        TableNamespace::test_user(),
+        &new_index_name,
+    )
+    .await?;
     let mut tx = application.begin(Identity::system()).await?;
     let found_index = IndexModel::new(&mut tx)
         .enabled_index_metadata(TableNamespace::test_user(), &index_name)?

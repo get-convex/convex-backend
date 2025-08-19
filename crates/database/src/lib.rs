@@ -58,7 +58,10 @@ pub mod test_helpers;
 pub mod tests;
 pub mod text_index_worker;
 pub use component_registry::ComponentRegistry;
-pub use database_index_workers::IndexWorker;
+pub use database_index_workers::{
+    index_writer::IndexWriter,
+    IndexWorker,
+};
 pub use execution_size::FunctionExecutionSize;
 pub use patch::PatchValue;
 pub use preloaded::PreloadedIndexRange;
@@ -157,10 +160,7 @@ pub use self::{
         StreamingExportFilter,
         MAX_OCC_FAILURES,
     },
-    database_index_workers::index_writer::{
-        IndexSelector,
-        IndexWriter,
-    },
+    database_index_workers::index_writer::IndexSelector,
     query::{
         soft_data_limit,
         DeveloperQuery,

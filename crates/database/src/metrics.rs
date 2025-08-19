@@ -17,7 +17,6 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    CancelableTimer,
     IntoLabel,
     StaticMetricLabel,
     StatusTimer,
@@ -66,9 +65,6 @@ register_convex_histogram!(
     "Time for database indexes to backfill",
     &STATUS_LABEL
 );
-pub fn index_backfill_timer() -> CancelableTimer {
-    CancelableTimer::new(&DB_INDEX_BACKFILL_SECONDS)
-}
 
 register_convex_histogram!(
     TABLET_DB_INDEX_BACKFILL_SECONDS,
