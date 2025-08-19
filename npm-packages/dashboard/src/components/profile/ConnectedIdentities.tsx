@@ -62,10 +62,6 @@ export function ConnectedIdentities() {
                 />
               ))}
             </div>
-            <h4 className="mt-4">Link an additional account</h4>
-            <p className="max-w-prose text-sm">
-              You can add additional log in methods to your Convex account.
-            </p>
             {/* Render the confirmation dialog for changing primary identity at the root */}
             {changingPrimaryId && candidatePrimaryIdentity && (
               <ConfirmationDialog
