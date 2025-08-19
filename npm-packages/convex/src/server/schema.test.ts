@@ -570,6 +570,7 @@ test("defineSchema doesn’t allow creating indexes with a staged status not kno
       field: v.array(v.float64()),
     }).vectorIndex("staged_vector_index", {
       vectorField: "field",
+      dimensions: 42,
       // @ts-expect-error
       staged: Math.random() < 0.5,
     }),
