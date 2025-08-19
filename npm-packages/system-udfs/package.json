@@ -32,7 +32,7 @@
     "eslint": "^8.29.0",
     "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
     "eslint-plugin-react": "^7.37.2",
-    "vitest": "^3.1.4",
+    "vitest": "^3.2.4",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "eslint-config-prettier": "^10.0.0",

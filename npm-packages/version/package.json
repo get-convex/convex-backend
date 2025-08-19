@@ -20,6 +20,6 @@
     "@types/node": "^18.17.0",
     "@types/semver": "^7.3.13",
     "typescript": "~5.0.3",
-    "vitest": "^3.1.4"
+    "vitest": "^3.2.4"
   }
 }

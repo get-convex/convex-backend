@@ -55,7 +55,7 @@
     "tshy": "^3.0.0",
     "typescript": "~5.0.3",
     "vite": "^6.3.5",
-    "vitest": "^3.1.4"
+    "vitest": "^3.2.4"
   },
   "exports": {
     ".": {
