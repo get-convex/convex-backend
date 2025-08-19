@@ -244,6 +244,7 @@ tungstenite = { version = "0.26.2", features = [ "url", "native-tls-vendored" ] 
 url = "2.5.4"
 urlencoding = "2.1.3"
 utoipa = { version = "5.3", features = [ "axum_extras", "preserve_path_order", "openapi_extensions" ] }
+utoipa-axum = { version = "0.2" }
 uuid = { version = "1.6", features = [ "fast-rng", "serde", "v4" ] }
 vergen = { version = "8.1.0" }
 walkdir = "2"

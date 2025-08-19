@@ -1,6 +1,9 @@
 use application::EnvVarChange;
 use axum::{
-    extract::State,
+    extract::{
+        FromRef,
+        State,
+    },
     response::IntoResponse,
 };
 use common::http::{
@@ -14,6 +17,8 @@ use model::environment_variables::types::{
     EnvironmentVariable,
 };
 use serde::Deserialize;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     admin::must_be_admin_with_write_access,
@@ -21,7 +26,7 @@ use crate::{
     LocalAppState,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateEnvVarRequest {
     name: String,
@@ -46,11 +51,23 @@ impl UpdateEnvVarRequest {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct UpdateEnvVarsRequest {
     changes: Vec<UpdateEnvVarRequest>,
 }
 
+/// Update environment variables
+///
+/// Update one or many environment variables in a deployment.
+/// This will invalidate all subscriptions, since environment variables
+/// are accessible in queries but are not part of the cache key of a query
+/// result.
+#[utoipa::path(
+    post,
+    path = "/update_environment_variables",
+    request_body = UpdateEnvVarsRequest,
+    responses((status = 200)),
+)]
 pub async fn update_environment_variables(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
@@ -81,6 +98,14 @@ fn validate_env_var(name: &String, value: &String) -> anyhow::Result<Environment
     let name: EnvVarName = name.parse()?;
     let value: EnvVarValue = value.parse()?;
     Ok(EnvironmentVariable::new(name, value))
+}
+
+pub fn platform_router<S>() -> OpenApiRouter<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    OpenApiRouter::new().routes(utoipa_axum::routes!(update_environment_variables))
 }
 
 #[cfg(test)]

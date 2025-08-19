@@ -1,0 +1,77 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Convex Deployment API",
+    "description": "Admin API for interacting with deployments",
+    "license": {
+      "name": "LicenseRef-FSL-1.1-Apache-2.0",
+      "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Deployment API"
+    }
+  ],
+  "paths": {
+    "/update_environment_variables": {
+      "post": {
+        "summary": "Update environment variables",
+        "description": "Update one or many environment variables in a deployment.\nThis will invalidate all subscriptions, since environment variables\nare accessible in queries but are not part of the cache key of a query\nresult.",
+        "operationId": "update_environment_variables",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvVarsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UpdateEnvVarRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateEnvVarsRequest": {
+        "type": "object",
+        "required": [
+          "changes"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateEnvVarRequest"
+            }
+          }
+        }
+      }
+    }
+  }
+}

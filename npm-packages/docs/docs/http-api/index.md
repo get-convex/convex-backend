@@ -8,7 +8,7 @@ import Tabs from '@theme/Tabs'; import TabItem from '@theme/TabItem';
 
 # HTTP APIs
 
-HTTP APIs include:
+Deployment HTTP APIs include:
 
 - [Functions API](#functions-api)
 - [Streaming export API](#streaming-export-api)
@@ -53,7 +53,7 @@ You can find your backend deployment URL on the dashboard
 ```
 curl https://acoustic-panther-728.convex.cloud/api/query \
    -d '{"path": "messages:list", "args": {}, "format": "json"}' \
-   -X POST -H "Content-Type: application/json"
+   -H "Content-Type: application/json"
 ```
 
 </TabItem>
@@ -130,7 +130,7 @@ You can find your backend deployment URL on the dashboard
 ```
 curl https://acoustic-panther-728.convex.cloud/api/run/messages/list \
    -d '{"args": {}, "format": "json"}' \
-   -X POST -H "Content-Type: application/json"
+   -H "Content-Type: application/json"
 ```
 
 </TabItem>

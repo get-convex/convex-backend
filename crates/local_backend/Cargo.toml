@@ -97,7 +97,9 @@ tungstenite = { workspace = true }
 udf = { workspace = true }
 url = { workspace = true }
 urlencoding = { workspace = true }
-usage_tracking = { workspace = true }
+usage_tracking = { path = "../usage_tracking" }
+utoipa = { workspace = true }
+utoipa-axum = { workspace = true }
 value = { workspace = true }
 vector = { workspace = true }
 

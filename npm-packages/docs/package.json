@@ -14,8 +14,7 @@
     "format": "npx dprint fmt",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
-    "pull-agent-docs": "node scripts/pull-agent-docs.js",
-    "generate-platform-api": "npx rimraf docs/management-api && npx docusaurus gen-api-docs all",
+    "generate-platform-api": "npx rimraf docs/management-api docs/deployment-api docs/public-deployment-api && npx docusaurus gen-api-docs all",
     "spellcheck": "cspell \"docs/**/*.md*\"",
     "typecheck": "tsc",
     "test": "cspell \"docs/**/*.md*\" && node test.js"

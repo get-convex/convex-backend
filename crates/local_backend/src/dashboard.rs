@@ -5,7 +5,10 @@ use application::{
 };
 use axum::{
     debug_handler,
-    extract::State,
+    extract::{
+        FromRef,
+        State,
+    },
     response::IntoResponse,
 };
 use common::{
@@ -38,6 +41,8 @@ use serde::{
     Serialize,
 };
 use serde_json::json;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
 use value::{
     TableName,
     TableNamespace,
@@ -58,25 +63,36 @@ use crate::{
     LocalAppState,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteTableArgs {
     table_names: Vec<String>,
     component_id: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DeleteComponentArgs {
     component_id: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ShapesArgs {
     component: Option<String>,
 }
 
+/// Get table shapes
+///
+/// Returns the schema shapes for all tables in the specified component.
+#[utoipa::path(
+    get,
+    path = "/shapes2",
+    params(
+        ("component" = Option<String>, Query, description = "Component ID to get shapes for")
+    ),
+    responses((status = 200, body = serde_json::Value)),
+)]
 #[debug_handler]
 pub async fn shapes2(
     State(st): State<LocalAppState>,
@@ -110,6 +126,15 @@ pub async fn shapes2(
     Ok(Json(out))
 }
 
+/// Delete database tables
+///
+/// Deletes the specified tables from the database.
+#[utoipa::path(
+    post,
+    path = "/delete_tables",
+    request_body = DeleteTableArgs,
+    responses((status = 200)),
+)]
 #[debug_handler]
 pub async fn delete_tables(
     State(st): State<LocalAppState>,
@@ -133,6 +158,15 @@ pub async fn delete_tables(
     Ok(StatusCode::OK)
 }
 
+/// Delete component
+///
+/// Deletes the specified component and all its associated data.
+#[utoipa::path(
+    post,
+    path = "/delete_component",
+    request_body = DeleteComponentArgs,
+    responses((status = 200)),
+)]
 #[debug_handler]
 pub async fn delete_component(
     State(st): State<LocalAppState>,
@@ -147,18 +181,30 @@ pub async fn delete_component(
     Ok(StatusCode::OK)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GetIndexesArgs {
     component_id: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct GetIndexesResponse {
+    #[schema(value_type = Vec<Object>)]
     indexes: Vec<IndexMetadataResponse>,
 }
 
+/// Get database indexes
+///
+/// Returns metadata about database indexes for the specified component.
+#[utoipa::path(
+    get,
+    path = "/get_indexes",
+    params(
+        ("component_id" = Option<String>, Query, description = "Component ID to get indexes for")
+    ),
+    responses((status = 200, body = GetIndexesResponse)),
+)]
 #[debug_handler]
 pub async fn get_indexes(
     State(st): State<LocalAppState>,
@@ -179,13 +225,25 @@ pub async fn get_indexes(
     }))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GetSourceCodeArgs {
     path: String,
     component: Option<String>,
 }
 
+/// Get source code
+///
+/// Returns the source code for the specified module path.
+#[utoipa::path(
+    get,
+    path = "/get_source_code",
+    params(
+        ("path" = String, Query, description = "Module path to get source code for"),
+        ("component" = Option<String>, Query, description = "Component ID")
+    ),
+    responses((status = 200, body = String)),
+)]
 #[debug_handler]
 pub async fn get_source_code(
     State(st): State<LocalAppState>,
@@ -205,8 +263,16 @@ pub async fn get_source_code(
     Ok(Json(source_code))
 }
 
-/// This endpoint checks if the admin key included in the header is valid
-/// for this instance.
+/// Check admin key validity
+///
+/// This endpoint checks if the admin key included in the header is valid for
+/// this instance and validates that the provided admin key has write access.
+#[utoipa::path(
+    get,
+    path = "/check_admin_key",
+    responses((status = 200, body = serde_json::Value)),
+    tag = "public_api"
+)]
 #[debug_handler]
 pub async fn check_admin_key(
     State(_st): State<LocalAppState>,
@@ -216,16 +282,27 @@ pub async fn check_admin_key(
     Ok(Json(json!({ "success": true })))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RunTestFunctionArgs {
     admin_key: String,
+    #[schema(value_type = Object)]
     bundle: ModuleJson,
+    #[schema(value_type = Object)]
     args: UdfArgsJson,
     format: String,
     component_id: Option<String>,
 }
 
+/// Run test function
+///
+/// Executes a test function with the provided arguments and bundle.
+#[utoipa::path(
+    post,
+    path = "/run_test_function",
+    request_body = RunTestFunctionArgs,
+    responses((status = 200, body = serde_json::Value)),
+)]
 #[debug_handler]
 pub async fn run_test_function(
     State(st): State<LocalAppState>,
@@ -264,4 +341,22 @@ pub async fn run_test_function(
         },
     };
     Ok(Json(response))
+}
+
+pub fn local_only_dashboard_router() -> OpenApiRouter<crate::LocalAppState> {
+    OpenApiRouter::new().routes(utoipa_axum::routes!(check_admin_key))
+}
+
+// Routes with the same handlers for the local backend + closed source backend
+pub fn common_dashboard_api_router<S>() -> OpenApiRouter<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(shapes2))
+        .routes(utoipa_axum::routes!(get_indexes))
+        .routes(utoipa_axum::routes!(delete_tables))
+        .routes(utoipa_axum::routes!(delete_component))
+        .routes(utoipa_axum::routes!(get_source_code))
 }

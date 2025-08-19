@@ -1,0 +1,230 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Convex Dashboard HTTP routes",
+    "description": "Endpoints intended for dashboard use",
+    "license": {
+      "name": "LicenseRef-FSL-1.1-Apache-2.0",
+      "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Deployment API"
+    }
+  ],
+  "paths": {
+    "/shapes2": {
+      "get": {
+        "summary": "Get table shapes",
+        "description": "Returns the schema shapes for all tables in the specified component.",
+        "operationId": "shapes2",
+        "parameters": [
+          {
+            "name": "component",
+            "in": "query",
+            "description": "Component ID to get shapes for",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get_indexes": {
+      "get": {
+        "summary": "Get database indexes",
+        "description": "Returns metadata about database indexes for the specified component.",
+        "operationId": "get_indexes",
+        "parameters": [
+          {
+            "name": "component_id",
+            "in": "query",
+            "description": "Component ID to get indexes for",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetIndexesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delete_tables": {
+      "post": {
+        "summary": "Delete database tables",
+        "description": "Deletes the specified tables from the database.",
+        "operationId": "delete_tables",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTableArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/delete_component": {
+      "post": {
+        "summary": "Delete component",
+        "description": "Deletes the specified component and all its associated data.",
+        "operationId": "delete_component",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteComponentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/get_source_code": {
+      "get": {
+        "summary": "Get source code",
+        "description": "Returns the source code for the specified module path.",
+        "operationId": "get_source_code",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Module path to get source code for",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "component",
+            "in": "query",
+            "description": "Component ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/check_admin_key": {
+      "get": {
+        "tags": [
+          "public_api"
+        ],
+        "summary": "Check admin key validity",
+        "description": "This endpoint checks if the admin key included in the header is valid for\nthis instance and validates that the provided admin key has write access.",
+        "operationId": "check_admin_key",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DeleteComponentArgs": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DeleteTableArgs": {
+        "type": "object",
+        "required": [
+          "tableNames"
+        ],
+        "properties": {
+          "componentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tableNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GetIndexesResponse": {
+        "type": "object",
+        "required": [
+          "indexes"
+        ],
+        "properties": {
+          "indexes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  }
+}
