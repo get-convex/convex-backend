@@ -79,6 +79,7 @@ use self::{
 };
 
 mod export_storage;
+pub mod interface;
 mod metrics;
 #[cfg(test)]
 mod tests;

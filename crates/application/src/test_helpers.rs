@@ -51,6 +51,7 @@ use events::usage::{
     NoOpUsageEventLogger,
     UsageEventLogger,
 };
+use exports::interface::InProcessExportProvider;
 use file_storage::{
     FileStorage,
     TransactionalFileStorage,
@@ -279,6 +280,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             fetch_client,
             None, // local_log_sink
             ShutdownSignal::panic(),
+            Arc::new(InProcessExportProvider),
         )
         .await?;
 

@@ -3218,6 +3218,7 @@ name = "exports"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "async_zip 0.0.17",
  "async_zip_reader",
  "bytes",
@@ -5158,6 +5159,7 @@ dependencies = [
  "either",
  "errors",
  "events",
+ "exports",
  "fastrace",
  "file_storage",
  "function_runner",

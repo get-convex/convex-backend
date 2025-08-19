@@ -23,7 +23,7 @@ use database::{
     SystemMetadataModel,
 };
 use exports::{
-    export_inner,
+    interface::ExportProvider,
     ExportComponents,
 };
 use futures::{
@@ -63,6 +63,7 @@ pub struct ExportWorker<RT: Runtime> {
     pub(super) database: Database<RT>,
     pub(super) storage: Arc<dyn Storage>,
     pub(super) file_storage: Arc<dyn Storage>,
+    pub(super) export_provider: Arc<dyn ExportProvider<RT>>,
     pub(super) backoff: Backoff,
     pub(super) usage_tracking: UsageCounter,
     pub(super) instance_name: String,
@@ -75,6 +76,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         database: Database<RT>,
         storage: Arc<dyn Storage>,
         file_storage: Arc<dyn Storage>,
+        export_provider: Arc<dyn ExportProvider<RT>>,
         usage_tracking: UsageCounter,
         instance_name: String,
     ) -> impl Future<Output = ()> + Send {
@@ -83,6 +85,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             database,
             storage,
             file_storage,
+            export_provider,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
             usage_tracking,
             instance_name,
@@ -179,22 +182,22 @@ impl<RT: Runtime> ExportWorker<RT> {
         let database_snapshot = self.database.latest_database_snapshot()?;
         let snapshot_ts = *database_snapshot.timestamp();
         tracing::info!(%snapshot_ts, "Export {id} beginning...");
+        let components = ExportComponents {
+            runtime: self.runtime.clone(),
+            database: database_snapshot,
+            storage: self.storage.clone(),
+            file_storage: self.file_storage.clone(),
+            instance_name: self.instance_name.clone(),
+        };
         let (object_key, usage) = {
             let database_ = self.database.clone();
-            let export_future = async {
-                let database_ = self.database.clone();
-
-                export_inner(
-                    &ExportComponents {
-                        runtime: self.runtime.clone(),
-                        database: database_snapshot,
-                        storage: self.storage.clone(),
-                        file_storage: self.file_storage.clone(),
-                        instance_name: self.instance_name.clone(),
-                    },
-                    format,
-                    requestor,
-                    |msg| async {
+            let export_future = self.export_provider.export(
+                &components,
+                format,
+                requestor,
+                Box::new(move |msg| {
+                    let database_ = database_.clone();
+                    async move {
                         tracing::info!("Export {id} progress: {msg}");
                         database_
                             .execute_with_occ_retries(
@@ -221,12 +224,12 @@ impl<RT: Runtime> ExportWorker<RT> {
                             )
                             .await?;
                         Ok(())
-                    },
-                )
-                .await
-            };
-            tokio::pin!(export_future);
+                    }
+                    .boxed()
+                }),
+            );
 
+            let database_ = self.database.clone();
             // In parallel, monitor the export document to check for cancellation
             let monitor_export = async move {
                 loop {

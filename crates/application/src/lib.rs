@@ -21,6 +21,7 @@ use std::{
     },
 };
 
+use ::exports::interface::ExportProvider;
 use ::log_streaming::{
     LogManager,
     LogManagerClient,
@@ -687,6 +688,7 @@ impl<RT: Runtime> Application<RT> {
         fetch_client: Arc<dyn FetchClient>,
         local_log_sink: Option<String>,
         lease_lost_shutdown: ShutdownSignal,
+        export_provider: Arc<dyn ExportProvider<RT>>,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -811,6 +813,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.exports_storage.clone(),
             application_storage.files_storage.clone(),
+            export_provider,
             database.usage_counter(),
             instance_name.clone(),
         );

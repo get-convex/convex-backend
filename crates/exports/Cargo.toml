@@ -23,6 +23,7 @@ testing = [
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 async_zip = { workspace = true }
 bytes = { workspace = true }
 common = { workspace = true }
