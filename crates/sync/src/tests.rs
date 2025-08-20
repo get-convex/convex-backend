@@ -94,7 +94,7 @@ impl<RT: Runtime> SyncTest<RT> {
             // Only analyze isolate modules, so sync tests don't require prod
             // runtime. Remove the filter if you need to test node modules.
             let modules = TEST_SOURCE_ISOLATE_ONLY.clone();
-            let source_package = application.upload_package(&modules, None).await?;
+            let source_package = application.upload_package(&modules, None, None).await?;
             let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
             let analyze_results = application
                 .analyze(

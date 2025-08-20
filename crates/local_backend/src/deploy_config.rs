@@ -120,6 +120,8 @@ pub struct ConfigJson {
     // Additional information about the names of the bundled modules.
     // We can use that for stats as well provide better debug messages.
     pub bundled_module_infos: Option<Vec<BundledModuleInfoJson>>,
+    // Version of Node.js to use in the node executor.
+    pub node_version: Option<String>,
 }
 
 pub struct ConfigStats {
@@ -273,6 +275,18 @@ pub async fn push_config_handler(
     let udf_server_version = Version::parse(&config.udf_server_version).context(
         ErrorMetadata::bad_request("InvalidVersion", "The function version is invalid"),
     )?;
+    let node_version = config
+        .node_version
+        .clone()
+        .map(|v| v.parse())
+        .transpose()
+        .context(ErrorMetadata::bad_request(
+            "InvalidNodeVersion",
+            format!(
+                "The node version `{}` is invalid",
+                config.node_version.unwrap_or_default()
+            ),
+        ))?;
 
     let (analytics, metrics) = application
         .push_config_no_components(
@@ -282,6 +296,7 @@ pub async fn push_config_handler(
             udf_server_version,
             config.schema_id,
             config.node_dependencies,
+            node_version,
         )
         .await?;
     Ok((identity, analytics, metrics))

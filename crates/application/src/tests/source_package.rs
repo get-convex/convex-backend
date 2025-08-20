@@ -48,7 +48,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
         storage_key,
         sha256,
         ..
-    } = application.upload_package(&package, None).await?;
+    } = application.upload_package(&package, None, None).await?;
 
     let result =
         download_package(application.modules_storage().clone(), storage_key, sha256).await?;

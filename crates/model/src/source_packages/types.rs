@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     fmt::Formatter,
+    str::FromStr,
 };
 
 use common::{
@@ -23,12 +24,34 @@ use value::{
 use crate::external_packages::types::ExternalDepsPackageId;
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum NodeVersion {
+    V18x,
+    V20x,
+    V22x,
+}
+
+impl FromStr for NodeVersion {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "18" => Ok(NodeVersion::V18x),
+            "20" => Ok(NodeVersion::V20x),
+            "22" => Ok(NodeVersion::V22x),
+            _ => anyhow::bail!("Invalid node version: {value}"),
+        }
+    }
+}
+
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourcePackage {
     pub storage_key: ObjectKey,
     pub sha256: Sha256Digest,
     pub external_deps_package_id: Option<ExternalDepsPackageId>,
     pub package_size: PackageSize,
+    pub node_version: Option<NodeVersion>,
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -165,6 +188,30 @@ impl From<SourcePackageId> for DeveloperDocumentId {
     }
 }
 
+impl TryFrom<ConvexValue> for NodeVersion {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
+        if let ConvexValue::String(s) = value {
+            s.parse()
+        } else {
+            Err(anyhow::anyhow!("Value is not a string"))
+        }
+    }
+}
+
+impl TryFrom<NodeVersion> for ConvexValue {
+    type Error = anyhow::Error;
+
+    fn try_from(value: NodeVersion) -> Result<Self, Self::Error> {
+        match value {
+            NodeVersion::V18x => Ok(ConvexValue::String("18".try_into()?)),
+            NodeVersion::V20x => Ok(ConvexValue::String("20".try_into()?)),
+            NodeVersion::V22x => Ok(ConvexValue::String("22".try_into()?)),
+        }
+    }
+}
+
 impl TryFrom<SourcePackage> for ConvexObject {
     type Error = anyhow::Error;
 
@@ -174,6 +221,7 @@ impl TryFrom<SourcePackage> for ConvexObject {
             sha256,
             external_deps_package_id,
             package_size,
+            node_version,
         }: SourcePackage,
     ) -> Result<Self, Self::Error> {
         let storage_key: String = storage_key.into();
@@ -185,6 +233,10 @@ impl TryFrom<SourcePackage> for ConvexObject {
                 .transpose()?
                 .unwrap_or(ConvexValue::Null),
             "packageSize" => ConvexValue::Object(package_size.try_into()?),
+            "nodeVersion" => node_version
+                .map(ConvexValue::try_from)
+                .transpose()?
+                .unwrap_or(ConvexValue::Null),
         )
     }
 }
@@ -213,11 +265,17 @@ impl TryFrom<ConvexObject> for SourcePackage {
             None => PackageSize::default(),
             _ => anyhow::bail!("Invalid 'packageSize' in {object_fields:?}"),
         };
+        let node_version = match object_fields.remove("nodeVersion") {
+            Some(ConvexValue::Null) | None => None,
+            Some(ConvexValue::String(s)) => Some(s.parse()?),
+            _ => anyhow::bail!("Invalid 'nodeVersion' in {object_fields:?}"),
+        };
         Ok(Self {
             storage_key,
             sha256,
             external_deps_package_id: external_package_id,
             package_size,
+            node_version,
         })
     }
 }

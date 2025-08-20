@@ -89,6 +89,7 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
                 sha256,
                 external_deps_package_id: None,
                 package_size,
+                node_version: None,
             }),
             btreemap! {
                 p1 => AnalyzedModule {
@@ -175,6 +176,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
                 sha256,
                 external_deps_package_id: None,
                 package_size,
+                node_version: None,
             }),
             analyzed_result,
             None,
