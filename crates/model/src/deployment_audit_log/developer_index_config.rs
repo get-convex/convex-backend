@@ -87,3 +87,25 @@ impl TryFrom<SerializedDeveloperIndexConfig> for DeveloperIndexConfig {
 }
 
 codegen_convex_serialization!(DeveloperIndexConfig, SerializedDeveloperIndexConfig);
+
+#[cfg(test)]
+mod tests {
+    use common::bootstrap_model::index::database_index::IndexedFields;
+
+    use super::*;
+
+    #[test]
+    fn test_developer_index_config_serialization() -> anyhow::Result<()> {
+        let config = DeveloperIndexConfig::Database(DatabaseIndexSpec {
+            fields: IndexedFields::creation_time(),
+        });
+        let serialized = SerializedDeveloperIndexConfig::try_from(config.clone()).unwrap();
+        let json = serde_json::to_value(&serialized)?;
+        let expected = serde_json::json!({
+            "type": "database",
+            "fields": ["_creationTime"],
+        });
+        assert_eq!(json, expected);
+        Ok(())
+    }
+}
