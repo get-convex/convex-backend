@@ -749,6 +749,18 @@ where
                 format!("Issuer {} does not match WorkOS client ID", issuer)
             )
         )
+    } else if issuer.contains("api.auth.convex.dev") {
+        anyhow::ensure!(
+            *issuer
+                == format!(
+                    "https://api.auth.convex.dev/user_management/{}",
+                    workos_client_id
+                ),
+            ErrorMetadata::unauthenticated(
+                "AccessTokenInvalid",
+                format!("Issuer {} does not match WorkOS client ID", issuer)
+            )
+        )
     } else {
         anyhow::ensure!(
             workos_auth_urls.iter().any(|url| {
