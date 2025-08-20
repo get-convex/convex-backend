@@ -66,7 +66,11 @@ export default async function handler(
       throw new Error(`Couldn't fetch profile data: ${responseText}`);
     }
 
-    const { id, email: profileEmail } = await profileDataResp.json();
+    const {
+      id,
+      email: profileEmail,
+      name: profileName,
+    } = await profileDataResp.json();
 
     const memberDataResp = await retryingFetch(
       `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/member_data`,
@@ -89,7 +93,7 @@ export default async function handler(
       projects: ProjectDetails[];
       deployments: DeploymentResponse[];
     } = await memberDataResp.json();
-    const { teamId, projectId, deploymentName, user } = body;
+    const { teamId, projectId, deploymentName } = body;
 
     let customerId: string | null = null;
 
@@ -99,7 +103,7 @@ export default async function handler(
       },
       id,
       profileEmail,
-      user,
+      profileName,
     );
 
     if (upsertCustomerRes.error) {
@@ -112,7 +116,7 @@ export default async function handler(
           { emailAddress: profileEmail },
           id,
           profileEmail,
-          user,
+          profileName,
         );
 
         if (upsertCustomerWithEmailIdentifierRes.error) {
@@ -221,12 +225,12 @@ function upsertPlainCustomer(
   customerIdentifier: UpsertCustomerInput["identifier"],
   memberId: number,
   profileEmail: string,
-  validatedUser: z.infer<typeof RequestBodySchema>["user"],
+  profileName: string | null,
 ) {
   return client.upsertCustomer({
     identifier: customerIdentifier,
     onCreate: {
-      fullName: validatedUser.name || validatedUser.nickname || profileEmail,
+      fullName: profileName || profileEmail,
       externalId: memberId.toString(),
       email: {
         email: profileEmail,
@@ -239,7 +243,7 @@ function upsertPlainCustomer(
         isVerified: true,
       },
       fullName: {
-        value: validatedUser.name || validatedUser.nickname || profileEmail,
+        value: profileName || profileEmail,
       },
     },
   });
