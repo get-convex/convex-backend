@@ -195,6 +195,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 &components,
                 format,
                 requestor,
+                id.to_string(),
                 Box::new(move |msg| {
                     let database_ = database_.clone();
                     async move {

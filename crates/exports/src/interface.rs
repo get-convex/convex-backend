@@ -18,6 +18,7 @@ pub trait ExportProvider<RT: Runtime>: Send + Sync {
         components: &ExportComponents<RT>,
         format: ExportFormat,
         requestor: ExportRequestor,
+        export_id: String,
         update_progress: Box<
             dyn Fn(String) -> BoxFuture<'static, anyhow::Result<()>> + Send + Sync,
         >,
@@ -33,6 +34,7 @@ impl<RT: Runtime> ExportProvider<RT> for InProcessExportProvider {
         components: &ExportComponents<RT>,
         format: ExportFormat,
         requestor: ExportRequestor,
+        _export_id: String,
         update_progress: Box<
             dyn Fn(String) -> BoxFuture<'static, anyhow::Result<()>> + Send + Sync,
         >,
