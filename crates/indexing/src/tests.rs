@@ -267,7 +267,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
     let result = index_registry.update(Some(&original), Some(&changed_fields));
     assert!(result.is_err());
     assert!(format!("{:?}", result.unwrap_err())
-        .contains("Can't modify developer index config for existing indexes"));
+        .contains("Can't modify index spec for existing indexes"));
     let current_metadata = index_registry.enabled_index_metadata(&by_name).unwrap();
     must_let!(let IndexConfig::Database { spec, .. } = &current_metadata.config);
     must_let!(let DatabaseIndexSpec { fields } = spec);

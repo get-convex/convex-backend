@@ -15,7 +15,6 @@ use common::{
             IndexedFields,
         },
         text_index::TextIndexSpec,
-        DeveloperIndexConfig,
         IndexConfig,
         TabletIndexMetadata,
         INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR,
@@ -348,9 +347,8 @@ impl IndexRegistry {
                     );
                 }
                 anyhow::ensure!(
-                    DeveloperIndexConfig::from(old_metadata.config.clone())
-                        == DeveloperIndexConfig::from(new_metadata.config.clone()),
-                    "Can't modify developer index config for existing indexes {}",
+                    old_metadata.config.same_spec(&new_metadata.config),
+                    "Can't modify index spec for existing indexes {}",
                     old_metadata.name
                 );
             }

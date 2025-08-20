@@ -21,7 +21,6 @@ use common::{
             VectorIndexSpec,
             VectorIndexState,
         },
-        DeveloperIndexConfig,
         DeveloperIndexMetadata,
         IndexConfig,
         IndexMetadata,
@@ -587,9 +586,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         mut existing_index: ParsedDocument<DeveloperIndexMetadata>,
         new_index: DeveloperIndexMetadata,
     ) -> IndexComparison {
-        let existing_fields = DeveloperIndexConfig::from(existing_index.config.clone());
-        let new_fields = DeveloperIndexConfig::from(new_index.config.clone());
-        if existing_fields == new_fields {
+        if existing_index.config.same_spec(&new_index.config) {
             if existing_index.config.is_staged() == new_index.config.is_staged() {
                 IndexComparison::Identical(existing_index)
             } else {
