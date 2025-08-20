@@ -37,10 +37,10 @@ use common::{
         },
         HttpResponseError,
     },
+    types::IndexDiff,
 };
 use database::{
     IndexModel,
-    LegacyIndexDiff,
     SchemaModel,
 };
 use errors::ErrorMetadata;
@@ -202,7 +202,7 @@ pub struct PrepareSchemaResponse {
 }
 
 impl PrepareSchemaResponse {
-    fn new(diff: LegacyIndexDiff, schema_id: ResolvedDocumentId) -> anyhow::Result<Self> {
+    fn new(diff: IndexDiff, schema_id: ResolvedDocumentId) -> anyhow::Result<Self> {
         Ok(PrepareSchemaResponse {
             added: diff
                 .added
@@ -266,7 +266,7 @@ pub async fn prepare_schema_handler(
     let table_namespace = TableNamespace::root_component();
     // In dry_run we only commit the schema, to enable CLI to check if the schema is
     // valid.
-    let index_diff: LegacyIndexDiff = if dry_run {
+    let index_diff = if dry_run {
         let mut tx = st.application.begin(identity.clone()).await?;
         IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(table_namespace, &schema)
@@ -275,8 +275,7 @@ pub async fn prepare_schema_handler(
         IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(table_namespace, &schema)
             .await?
-    }
-    .into();
+    };
 
     let (schema_id, schema_state) = SchemaModel::new(&mut tx, table_namespace)
         .submit_pending(schema)

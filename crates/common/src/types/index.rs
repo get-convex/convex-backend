@@ -200,6 +200,15 @@ pub struct IndexDiff {
     pub disabled: Vec<ParsedDocument<DeveloperIndexMetadata>>,
 }
 
+impl IndexDiff {
+    pub fn is_empty(&self) -> bool {
+        self.added.is_empty()
+            && self.dropped.is_empty()
+            && self.enabled.is_empty()
+            && self.disabled.is_empty()
+    }
+}
+
 impl<T: IndexTableIdentifier> fmt::Display for GenericIndexName<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.table, self.descriptor)

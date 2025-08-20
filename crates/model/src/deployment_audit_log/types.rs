@@ -24,7 +24,6 @@ use common::{
         IndexName,
     },
 };
-use database::LegacyIndexDiff;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde::{
@@ -171,8 +170,8 @@ pub enum DeploymentAuditLogEvent {
     },
 }
 
-impl From<LegacyIndexDiff> for DeploymentAuditLogEvent {
-    fn from(value: LegacyIndexDiff) -> Self {
+impl From<IndexDiff> for DeploymentAuditLogEvent {
+    fn from(value: IndexDiff) -> Self {
         let added_indexes = value
             .added
             .into_iter()
