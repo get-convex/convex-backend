@@ -1,5 +1,4 @@
 pub mod database_index;
-mod developer_index_config;
 mod index_config;
 mod index_metadata;
 pub mod index_validation_error;
@@ -11,11 +10,6 @@ use std::sync::LazyLock;
 use value::IdentifierFieldName;
 
 pub use self::{
-    developer_index_config::{
-        DeveloperIndexConfig,
-        SerializedDeveloperIndexConfig,
-        SerializedNamedDeveloperIndexConfig,
-    },
     index_config::IndexConfig,
     index_metadata::{
         index_metadata_serialize_tablet_id,

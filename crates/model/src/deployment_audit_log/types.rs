@@ -5,12 +5,7 @@ use std::{
 };
 
 use common::{
-    bootstrap_model::index::{
-        DeveloperIndexConfig,
-        IndexMetadata,
-        SerializedDeveloperIndexConfig,
-        SerializedNamedDeveloperIndexConfig,
-    },
+    bootstrap_model::index::IndexMetadata,
     components::ComponentPath,
     http::RequestDestination,
     log_streaming::{
@@ -54,6 +49,11 @@ use crate::{
         SerializedComponentDiff,
     },
     config::types::ConfigDiff,
+    deployment_audit_log::developer_index_config::{
+        DeveloperIndexConfig,
+        SerializedDeveloperIndexConfig,
+        SerializedNamedDeveloperIndexConfig,
+    },
     environment_variables::types::EnvVarName,
     snapshot_imports::types::{
         ImportFormat,

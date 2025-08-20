@@ -1,12 +1,6 @@
 use std::fmt::Debug;
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use value::codegen_convex_serialization;
-
-use super::{
+use common::bootstrap_model::index::{
     database_index::{
         DatabaseIndexSpec,
         SerializedDatabaseIndexSpec,
@@ -21,6 +15,11 @@ use super::{
     },
     IndexConfig,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use value::codegen_convex_serialization;
 
 // Index config that's specified by the developer
 #[derive(Debug, Clone, PartialEq, Eq)]
