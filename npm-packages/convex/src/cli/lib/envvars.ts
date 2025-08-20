@@ -29,6 +29,16 @@ export async function writeConvexUrlToEnvFile(
   ctx: Context,
   value: string,
 ): Promise<ConvexUrlWriteConfig> {
+  // Check if any of the expected environment variables already has the correct value
+  const { envVar: suggestedEnvVar } = await suggestedEnvVarName(ctx);
+  
+  // Check process.env for the suggested env var or any of the expected names
+  for (const envVarName of [suggestedEnvVar, ...EXPECTED_NAMES]) {
+    if (process.env[envVarName] === value) {
+      return null;
+    }
+  }
+
   const writeConfig = await envVarWriteConfig(ctx, value);
 
   if (writeConfig === null) {
