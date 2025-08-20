@@ -455,14 +455,14 @@ pub async fn initialize_application_system_table<RT: Runtime>(
             .filter(|index| !index.name.is_by_id_or_creation_time())
             .map(|index| {
                 let IndexConfig::Database {
-                    developer_config,
+                    spec,
                     on_disk_state: _,
                 } = &index.config
                 else {
                     // This isn't a strict requirement; it's just not implemented or needed.
                     anyhow::bail!("system tables indexes must be Database");
                 };
-                anyhow::Ok((index.name.clone(), developer_config.fields.clone()))
+                anyhow::Ok((index.name.clone(), spec.fields.clone()))
             })
             .try_collect()?;
 

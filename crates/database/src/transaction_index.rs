@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
         database_index::{
-            DeveloperDatabaseIndexConfig,
+            DatabaseIndexSpec,
             IndexedFields,
         },
         IndexConfig,
@@ -390,7 +390,7 @@ impl TransactionIndex {
     ) -> anyhow::Result<PreloadedIndexRange> {
         let index = self.require_enabled(reads, tablet_index_name, printable_index_name)?;
         let IndexConfig::Database {
-            developer_config: DeveloperDatabaseIndexConfig { ref fields, .. },
+            spec: DatabaseIndexSpec { ref fields, .. },
             ..
         } = index.metadata().config
         else {

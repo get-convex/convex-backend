@@ -2575,7 +2575,7 @@ impl<RT: Runtime> Application<RT> {
             {
                 if !index_metadata
                     .config
-                    .same_config(&existing_index_metadata.config)
+                    .same_spec(&existing_index_metadata.config)
                 {
                     IndexModel::new(&mut tx)
                         .drop_index(existing_index_metadata.id())

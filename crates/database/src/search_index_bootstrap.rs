@@ -125,10 +125,10 @@ impl IndexesToBootstrap {
             match index_metadata.config {
                 IndexConfig::Vector {
                     on_disk_state,
-                    ref developer_config,
+                    ref spec,
                     ..
                 } => {
-                    let qdrant_schema = QdrantSchema::new(developer_config);
+                    let qdrant_schema = QdrantSchema::new(spec);
                     let ts = match on_disk_state {
                         VectorIndexState::Backfilled {
                             snapshot: ref snapshot_info,
@@ -161,7 +161,7 @@ impl IndexesToBootstrap {
                     }
                 },
                 IndexConfig::Text {
-                    ref developer_config,
+                    ref spec,
                     on_disk_state,
                 } => {
                     let text_index = match on_disk_state {
@@ -209,7 +209,7 @@ impl IndexesToBootstrap {
                             }
                         },
                     };
-                    let tantivy_schema = TantivySearchIndexSchema::new(developer_config);
+                    let tantivy_schema = TantivySearchIndexSchema::new(spec);
                     let text_index_bootstrap_data = TextIndexBootstrapData {
                         index_id: index_id.internal_id(),
                         text_index,

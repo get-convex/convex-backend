@@ -10,11 +10,11 @@ use std::{
 use common::{
     bootstrap_model::index::{
         database_index::{
+            DatabaseIndexSpec,
             DatabaseIndexState,
-            DeveloperDatabaseIndexConfig,
             IndexedFields,
         },
-        text_index::DeveloperTextIndexConfig,
+        text_index::TextIndexSpec,
         DeveloperIndexConfig,
         IndexConfig,
         TabletIndexMetadata,
@@ -199,7 +199,7 @@ impl IndexRegistry {
                 for index in self.indexes_by_table(document.id().tablet_id) {
                     // Only yield fields from database indexes.
                     if let IndexConfig::Database {
-                        developer_config: DeveloperDatabaseIndexConfig { fields },
+                        spec: DatabaseIndexSpec { fields },
                         on_disk_state: _,
                     } = &index.metadata.config
                     {
@@ -261,14 +261,14 @@ impl IndexRegistry {
             .flat_map(|index| {
                 let key = match &index.metadata.config {
                     IndexConfig::Database {
-                        developer_config: DeveloperDatabaseIndexConfig { fields },
+                        spec: DatabaseIndexSpec { fields },
                         ..
                     } => Some(DocumentIndexKeyValue::Standard(
                         document.index_key_bytes(&fields[..], self.persistence_version()),
                     )),
                     IndexConfig::Text {
-                        developer_config:
-                            DeveloperTextIndexConfig {
+                        spec:
+                            TextIndexSpec {
                                 search_field,
                                 filter_fields,
                             },
@@ -527,9 +527,9 @@ impl IndexRegistry {
                 let index_id = index.id().internal_id();
                 let index_name = index.name.clone();
                 match &index.config {
-                    IndexConfig::Database {
-                        developer_config, ..
-                    } => Some((index_id, (index_name, developer_config.fields.clone()))),
+                    IndexConfig::Database { spec, .. } => {
+                        Some((index_id, (index_name, spec.fields.clone())))
+                    },
                     IndexConfig::Text { .. } | IndexConfig::Vector { .. } => None,
                 }
             })
@@ -818,9 +818,9 @@ mod tests {
         bootstrap_model::index::{
             database_index::IndexedFields,
             text_index::{
-                DeveloperTextIndexConfig,
                 TextIndexSnapshot,
                 TextIndexSnapshotData,
+                TextIndexSpec,
                 TextIndexState,
                 TextSnapshotVersion,
             },
@@ -858,7 +858,7 @@ mod tests {
             IndexMetadata::new_enabled(by_name.clone(), vec!["name".parse()?].try_into()?),
             IndexMetadata::new_text_index(
                 by_content.clone(),
-                DeveloperTextIndexConfig {
+                TextIndexSpec {
                     search_field: FieldPath::from_str("content")?,
                     filter_fields: vec![FieldPath::from_str("author")?].into_iter().collect(),
                 },

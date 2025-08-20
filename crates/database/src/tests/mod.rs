@@ -16,7 +16,7 @@ use common::{
     bootstrap_model::{
         index::{
             database_index::{
-                DeveloperDatabaseIndexConfig,
+                DatabaseIndexSpec,
                 IndexedFields,
             },
             IndexConfig,
@@ -400,8 +400,8 @@ fn get_pending_index_fields(
     let index_c_d = IndexModel::new(tx)
         .pending_index_metadata(namespace, index_name)?
         .expect("index should exist");
-    must_let!(let IndexConfig::Database { developer_config, .. } = &index_c_d.config);
-    must_let!(let DeveloperDatabaseIndexConfig { fields } = developer_config);
+    must_let!(let IndexConfig::Database { spec, .. } = &index_c_d.config);
+    must_let!(let DatabaseIndexSpec { fields } = spec);
     Ok(fields.clone())
 }
 

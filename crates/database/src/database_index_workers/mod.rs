@@ -496,7 +496,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let (index_ts, indexed_fields) = match &mut index_metadata.config {
             IndexConfig::Database {
                 on_disk_state,
-                developer_config,
+                spec,
             } => {
                 let DatabaseIndexState::Backfilling(state) = on_disk_state else {
                     anyhow::bail!(
@@ -509,7 +509,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 (
                     tx.begin_timestamp()
                         .prior_ts(state.index_created_lower_bound)?,
-                    developer_config.fields.clone(),
+                    spec.fields.clone(),
                 )
             },
             _ => anyhow::bail!(

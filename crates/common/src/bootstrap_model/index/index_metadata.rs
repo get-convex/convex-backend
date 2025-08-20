@@ -16,23 +16,23 @@ use value::{
 use super::{
     database_index::{
         DatabaseIndexBackfillState,
+        DatabaseIndexSpec,
         DatabaseIndexState,
-        DeveloperDatabaseIndexConfig,
         IndexedFields,
     },
     index_config::SerializedIndexConfig,
     vector_index::{
-        DeveloperVectorIndexConfig,
         VectorDimensions,
         VectorIndexBackfillState,
+        VectorIndexSpec,
         VectorIndexState,
     },
     IndexConfig,
 };
 use crate::{
     bootstrap_model::index::text_index::{
-        DeveloperTextIndexConfig,
         TextIndexBackfillState,
+        TextIndexSpec,
         TextIndexState,
     },
     document::{
@@ -79,7 +79,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         Self {
             name,
             config: IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
                     index_created_lower_bound,
                     retention_started: false,
@@ -104,7 +104,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
     ) -> Self {
         Self::new_text_index(
             name,
-            DeveloperTextIndexConfig {
+            TextIndexSpec {
                 search_field,
                 filter_fields,
             },
@@ -119,7 +119,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
     ) -> Self {
         Self::new_text_index(
             name,
-            DeveloperTextIndexConfig {
+            TextIndexSpec {
                 search_field,
                 filter_fields,
             },
@@ -136,7 +136,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         Self {
             name,
             config: IndexConfig::Vector {
-                developer_config: DeveloperVectorIndexConfig {
+                spec: VectorIndexSpec {
                     dimensions,
                     vector_field,
                     filter_fields,
@@ -155,7 +155,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         Self {
             name,
             config: IndexConfig::Vector {
-                developer_config: DeveloperVectorIndexConfig {
+                spec: VectorIndexSpec {
                     dimensions,
                     vector_field,
                     filter_fields,
@@ -167,13 +167,13 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
 
     pub fn new_text_index(
         name: GenericIndexName<T>,
-        developer_config: DeveloperTextIndexConfig,
+        spec: TextIndexSpec,
         on_disk_state: TextIndexState,
     ) -> Self {
         Self {
             name,
             config: IndexConfig::Text {
-                developer_config,
+                spec,
                 on_disk_state,
             },
         }
@@ -183,7 +183,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         Self {
             name,
             config: IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 on_disk_state: DatabaseIndexState::Enabled,
             },
         }

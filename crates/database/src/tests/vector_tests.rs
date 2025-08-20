@@ -10,10 +10,10 @@ use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::{
         vector_index::{
-            DeveloperVectorIndexConfig,
             VectorIndexBackfillState,
             VectorIndexSnapshot,
             VectorIndexSnapshotData,
+            VectorIndexSpec,
             VectorIndexState,
         },
         IndexConfig,
@@ -261,7 +261,7 @@ impl<RT: Runtime> Scenario<RT> {
 
     pub async fn get_vector_index_configs(
         &self,
-    ) -> anyhow::Result<Vec<(DeveloperVectorIndexConfig, VectorIndexState)>> {
+    ) -> anyhow::Result<Vec<(VectorIndexSpec, VectorIndexState)>> {
         let mut tx = self.database.begin_system().await?;
         let mut model = IndexModel::new(&mut tx);
         Ok(model
@@ -270,11 +270,11 @@ impl<RT: Runtime> Scenario<RT> {
             .into_iter()
             .filter_map(|idx| {
                 if let IndexConfig::Vector {
-                    developer_config,
+                    spec,
                     on_disk_state,
                 } = idx.config.clone()
                 {
-                    Some((developer_config, on_disk_state))
+                    Some((spec, on_disk_state))
                 } else {
                     None
                 }

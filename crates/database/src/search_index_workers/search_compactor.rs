@@ -135,11 +135,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                     if backfill_snapshot_ts.is_none() {
                         continue;
                     } else {
-                        Self::find_segments_to_compact(
-                            segments,
-                            &config.developer_config,
-                            &self.config,
-                        )?
+                        Self::find_segments_to_compact(segments, &config.spec, &self.config)?
                     }
                 },
                 SearchOnDiskState::SnapshottedAt(SearchSnapshot {
@@ -153,11 +149,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                             ..
                         },
                     ..
-                } => Self::find_segments_to_compact(
-                    segments,
-                    &config.developer_config,
-                    &self.config,
-                )?,
+                } => Self::find_segments_to_compact(segments, &config.spec, &self.config)?,
                 _ => {
                     tracing::info!(
                         "Skipping {:?} index for compaction: {name:?} because it is not \
@@ -185,7 +177,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 let job = CompactionJob {
                     index_id,
                     index_name: name.clone(),
-                    developer_config: config.developer_config.clone(),
+                    spec: config.spec.clone(),
                     on_disk_state: config.on_disk_state,
                     segments_to_compact,
                     compaction_reason,
@@ -218,9 +210,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         let total_compacted_segments = segments_to_compact.len();
         log_compaction_total_segments(total_compacted_segments, Self::search_type());
 
-        let new_segment = self
-            .compact(&job.developer_config, segments_to_compact.clone())
-            .await?;
+        let new_segment = self.compact(&job.spec, segments_to_compact.clone()).await?;
         let stats = new_segment.statistics()?;
 
         let total_documents = stats.num_documents();
@@ -234,7 +224,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 segments_to_compact.clone(),
                 new_segment.clone(),
                 *SEARCH_WORKER_PASSIVE_PAGES_PER_SECOND,
-                T::new_schema(&job.developer_config),
+                T::new_schema(&job.spec),
             )
             .await?;
         let total_compacted_segments = total_compacted_segments as u64;
@@ -243,23 +233,20 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             "Compacted {:#?} segments to {:#?}",
             segments_to_compact
                 .iter()
-                .map(|segment| Self::format(segment, &job.developer_config))
+                .map(|segment| Self::format(segment, &job.spec))
                 .collect::<anyhow::Result<Vec<_>>>()?,
-            Self::format(&new_segment, &job.developer_config)?,
+            Self::format(&new_segment, &job.spec)?,
         );
         timer.finish();
         Ok(total_compacted_segments)
     }
 
-    fn format(
-        segment: &T::Segment,
-        developer_config: &T::DeveloperConfig,
-    ) -> anyhow::Result<String> {
+    fn format(segment: &T::Segment, spec: &T::Spec) -> anyhow::Result<String> {
         let stats = segment.statistics()?;
         Ok(format!(
             "(id: {}, size: {}, documents : {}, deletes: {}, type: {:?})",
             segment.id(),
-            segment.total_size_bytes(developer_config)?,
+            segment.total_size_bytes(spec)?,
             stats.num_documents(),
             stats.num_deleted_documents(),
             Self::search_type(),
@@ -268,13 +255,13 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
 
     fn get_compactable_segments<'a>(
         segments: Vec<&'a T::Segment>,
-        developer_config: &T::DeveloperConfig,
+        spec: &T::Spec,
         compaction_config: &CompactionConfig,
     ) -> anyhow::Result<Option<Vec<&'a T::Segment>>> {
         let mut total_size: u64 = 0;
         let segments_with_size: Vec<_> = segments
             .into_iter()
-            .map(|segment| anyhow::Ok((segment, segment.total_size_bytes(developer_config)?)))
+            .map(|segment| anyhow::Ok((segment, segment.total_size_bytes(spec)?)))
             .try_collect()?;
         // Sort segments in ascending size order and take as many as we can fit in the
         // max segment
@@ -304,7 +291,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
 
     fn find_segments_to_compact<'a>(
         segments: &'a Vec<T::Segment>,
-        developer_config: &'a T::DeveloperConfig,
+        spec: &'a T::Spec,
         compaction_config: &CompactionConfig,
     ) -> anyhow::Result<Option<(Vec<T::Segment>, CompactionReason)>> {
         fn to_owned<R: Clone>(borrowed: Vec<&R>) -> Vec<R> {
@@ -313,7 +300,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
 
         let segments_and_sizes = segments
             .iter()
-            .map(|segment| Ok((segment, segment.total_size_bytes(developer_config)?)))
+            .map(|segment| Ok((segment, segment.total_size_bytes(spec)?)))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let (small_segments, large_segments): (Vec<_>, Vec<_>) = segments_and_sizes
@@ -329,7 +316,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         // Compact small segments first because it's quick and reducing the total number
         // of segments helps us minimize query costs.
         let compact_small =
-            Self::get_compactable_segments(small_segments, developer_config, compaction_config)?;
+            Self::get_compactable_segments(small_segments, spec, compaction_config)?;
         if let Some(compact_small) = compact_small {
             return Ok(Some((
                 to_owned(compact_small),
@@ -344,7 +331,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 .into_iter()
                 .map(|segment| segment.0)
                 .collect_vec(),
-            developer_config,
+            spec,
             compaction_config,
         )?;
         if let Some(compact_large) = compact_large {
@@ -393,12 +380,12 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
 
     async fn compact(
         &self,
-        developer_config: &T::DeveloperConfig,
+        spec: &T::Spec,
         segments: Vec<T::Segment>,
     ) -> anyhow::Result<T::Segment> {
         let total_segment_size_bytes: u64 = segments
             .iter()
-            .map(|segment| segment.total_size_bytes(developer_config))
+            .map(|segment| segment.total_size_bytes(spec))
             .try_fold(0u64, |sum, current| {
                 current.and_then(|current| {
                     sum.checked_add(current)
@@ -413,7 +400,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             self.config.max_segment_size_bytes,
             segments
                 .iter()
-                .map(|segment| Self::format(segment, developer_config))
+                .map(|segment| Self::format(segment, spec))
                 .collect_vec(),
         );
 
@@ -425,14 +412,14 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             self.config.max_segment_size_bytes,
             segments
                 .iter()
-                .map(|segment| Self::format(segment, developer_config))
+                .map(|segment| Self::format(segment, spec))
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
 
         T::execute_compaction(
             self.searcher.clone(),
             self.search_storage.clone(),
-            developer_config,
+            spec,
             segments,
         )
         .await
@@ -469,7 +456,7 @@ impl Default for CompactionConfig {
 struct CompactionJob<T: SearchIndex> {
     index_id: ResolvedDocumentId,
     index_name: TabletIndexName,
-    developer_config: T::DeveloperConfig,
+    spec: T::Spec,
     on_disk_state: SearchOnDiskState<T>,
     segments_to_compact: Vec<T::Segment>,
     compaction_reason: CompactionReason,

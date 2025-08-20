@@ -8,17 +8,17 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         database_index::{
+            DatabaseIndexSpec,
             DatabaseIndexState,
-            DeveloperDatabaseIndexConfig,
             IndexedFields,
         },
         index_validation_error,
         text_index::{
-            DeveloperTextIndexConfig,
+            TextIndexSpec,
             TextIndexState,
         },
         vector_index::{
-            DeveloperVectorIndexConfig,
+            VectorIndexSpec,
             VectorIndexState,
         },
         DeveloperIndexConfig,
@@ -387,11 +387,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         let id = doc.id();
         let new_config = match doc.into_value().config {
             IndexConfig::Database {
-                developer_config,
+                spec,
                 on_disk_state,
             } => match on_disk_state {
                 DatabaseIndexState::Enabled => IndexConfig::Database {
-                    developer_config,
+                    spec,
                     on_disk_state: DatabaseIndexState::Backfilled { staged: true },
                 },
                 _ => {
@@ -399,11 +399,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 },
             },
             IndexConfig::Text {
-                developer_config,
+                spec,
                 on_disk_state,
             } => match on_disk_state {
                 TextIndexState::SnapshottedAt(snapshot) => IndexConfig::Text {
-                    developer_config,
+                    spec,
                     on_disk_state: TextIndexState::Backfilled {
                         snapshot,
                         staged: true,
@@ -414,11 +414,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 },
             },
             IndexConfig::Vector {
-                developer_config,
+                spec,
                 on_disk_state,
             } => match on_disk_state {
                 VectorIndexState::SnapshottedAt(snapshot) => IndexConfig::Vector {
-                    developer_config,
+                    spec,
                     on_disk_state: VectorIndexState::Backfilled {
                         snapshot,
                         staged: true,
@@ -718,7 +718,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             self.require_enabled_index_metadata(printable_index_name, resolved_index_name)?;
         match metadata.config.clone() {
             IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 ..
             } => Ok(fields),
             _ => anyhow::bail!(index_not_a_database_index_error(printable_index_name)),
@@ -1091,12 +1091,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             };
             let metadata = match index.into_value().config {
                 IndexConfig::Database {
-                    developer_config: DeveloperDatabaseIndexConfig { fields },
+                    spec: DatabaseIndexSpec { fields },
                     ..
                 } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
                 IndexConfig::Text {
-                    developer_config:
-                        DeveloperTextIndexConfig {
+                    spec:
+                        TextIndexSpec {
                             search_field,
                             filter_fields,
                         },
@@ -1107,8 +1107,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     filter_fields,
                 ),
                 IndexConfig::Vector {
-                    developer_config:
-                        DeveloperVectorIndexConfig {
+                    spec:
+                        VectorIndexSpec {
                             dimensions,
                             vector_field,
                             filter_fields,

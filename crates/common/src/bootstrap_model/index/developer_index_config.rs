@@ -8,16 +8,16 @@ use value::codegen_convex_serialization;
 
 use super::{
     database_index::{
-        DeveloperDatabaseIndexConfig,
-        SerializedDeveloperDatabaseIndexConfig,
+        DatabaseIndexSpec,
+        SerializedDatabaseIndexSpec,
     },
     text_index::{
-        DeveloperTextIndexConfig,
-        SerializedDeveloperTextIndexConfig,
+        SerializedTextIndexSpec,
+        TextIndexSpec,
     },
     vector_index::{
-        DeveloperVectorIndexConfig,
-        SerializedDeveloperVectorIndexConfig,
+        SerializedVectorIndexSpec,
+        VectorIndexSpec,
     },
     IndexConfig,
 };
@@ -27,26 +27,20 @@ use super::{
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum DeveloperIndexConfig {
     /// Standard database index.
-    Database(DeveloperDatabaseIndexConfig),
+    Database(DatabaseIndexSpec),
 
     /// Full text search index.
-    Search(DeveloperTextIndexConfig),
+    Search(TextIndexSpec),
 
-    Vector(DeveloperVectorIndexConfig),
+    Vector(VectorIndexSpec),
 }
 
 impl From<IndexConfig> for DeveloperIndexConfig {
     fn from(value: IndexConfig) -> Self {
         match value {
-            IndexConfig::Database {
-                developer_config, ..
-            } => DeveloperIndexConfig::Database(developer_config),
-            IndexConfig::Text {
-                developer_config, ..
-            } => DeveloperIndexConfig::Search(developer_config),
-            IndexConfig::Vector {
-                developer_config, ..
-            } => DeveloperIndexConfig::Vector(developer_config),
+            IndexConfig::Database { spec, .. } => DeveloperIndexConfig::Database(spec),
+            IndexConfig::Text { spec, .. } => DeveloperIndexConfig::Search(spec),
+            IndexConfig::Vector { spec, .. } => DeveloperIndexConfig::Vector(spec),
         }
     }
 }
@@ -64,9 +58,9 @@ pub struct SerializedNamedDeveloperIndexConfig {
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SerializedDeveloperIndexConfig {
-    Database(SerializedDeveloperDatabaseIndexConfig),
-    Search(SerializedDeveloperTextIndexConfig),
-    Vector(SerializedDeveloperVectorIndexConfig),
+    Database(SerializedDatabaseIndexSpec),
+    Search(SerializedTextIndexSpec),
+    Vector(SerializedVectorIndexSpec),
 }
 
 impl TryFrom<DeveloperIndexConfig> for SerializedDeveloperIndexConfig {

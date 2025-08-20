@@ -195,7 +195,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
             .iter()
             .map(|segment| segment.statistics())
             .collect::<anyhow::Result<Vec<_>>>()?;
-        let schema = T::new_schema(&job.index_config.developer_config);
+        let schema = T::new_schema(&job.index_config.spec);
 
         if let Some(index_backfill_result) = backfill_result {
             inner
@@ -288,7 +288,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let mut metadata = Self::require_index_metadata(&mut tx, index_id).await?;
 
-        let (developer_config, state) = T::extract_metadata(metadata)?;
+        let (spec, state) = T::extract_metadata(metadata)?;
         let snapshot_ts = *state.ts().context("Compacted a segment without a ts?")?;
         let snapshot_ts = tx.begin_timestamp().prior_ts(snapshot_ts)?;
         let mut current_segments = state.segments().clone();
@@ -332,7 +332,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             tx,
             index_id,
             index_name,
-            developer_config,
+            spec,
             state.with_updated_segments(new_segments)?,
         )
         .await?;
@@ -353,12 +353,12 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         mut tx: Transaction<RT>,
         id: ResolvedDocumentId,
         name: TabletIndexName,
-        developer_config: T::DeveloperConfig,
+        spec: T::Spec,
         state: SearchOnDiskState<T>,
     ) -> anyhow::Result<()> {
         let new_metadata = IndexMetadata {
             name,
-            config: T::new_index_config(developer_config, state)?,
+            config: T::new_index_config(spec, state)?,
         };
 
         SystemMetadataModel::new_global(&mut tx)
@@ -421,7 +421,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                 || matches!(job.build_reason, BuildReason::VersionMismatch)
         );
 
-        let (developer_config, state) = T::extract_metadata(metadata)?;
+        let (spec, state) = T::extract_metadata(metadata)?;
         let staged = match &state {
             SearchOnDiskState::Backfilling(backfill_state) => backfill_state.staged,
             SearchOnDiskState::Backfilled {
@@ -464,7 +464,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             tx,
             job.metadata_id,
             job.index_name.clone(),
-            developer_config,
+            spec,
             if backfill_result.is_backfill_complete {
                 SearchOnDiskState::Backfilled {
                     snapshot: SearchSnapshot {
@@ -502,7 +502,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
-        let (developer_config, current_disk_state) = T::extract_metadata(metadata.clone())?;
+        let (spec, current_disk_state) = T::extract_metadata(metadata.clone())?;
 
         let current_segments = current_disk_state.segments();
         let is_merge_required = Self::is_merge_flush_required(
@@ -559,7 +559,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             tx,
             job.metadata_id,
             job.index_name.clone(),
-            developer_config,
+            spec,
             current_disk_state.with_updated_snapshot(*new_ts, new_and_modified_segments)?,
         )
         .await?;

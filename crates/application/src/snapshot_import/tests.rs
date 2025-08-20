@@ -1066,8 +1066,8 @@ a
             .context("index does not exist")?;
         assert_ne!(index.id(), index_id);
         assert!(index.config.is_enabled());
-        must_let!(let IndexConfig::Database { developer_config, .. } = &index.config);
-        assert_eq!(developer_config.fields[0], "a".parse()?);
+        must_let!(let IndexConfig::Database { spec, .. } = &index.config);
+        assert_eq!(spec.fields[0], "a".parse()?);
     }
 
     Ok(())

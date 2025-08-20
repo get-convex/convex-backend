@@ -8,7 +8,7 @@ use crate::paths::FieldPath;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct DeveloperDatabaseIndexConfig {
+pub struct DatabaseIndexSpec {
     /// Ordered field(s) to index. The "unindexed" primary key ordering of
     /// documents by [`DocumentId`] is represented by an empty vector.
     pub fields: IndexedFields,
@@ -17,14 +17,14 @@ pub struct DeveloperDatabaseIndexConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct SerializedDeveloperDatabaseIndexConfig {
+pub struct SerializedDatabaseIndexSpec {
     fields: Vec<String>,
 }
 
-impl TryFrom<DeveloperDatabaseIndexConfig> for SerializedDeveloperDatabaseIndexConfig {
+impl TryFrom<DatabaseIndexSpec> for SerializedDatabaseIndexSpec {
     type Error = anyhow::Error;
 
-    fn try_from(config: DeveloperDatabaseIndexConfig) -> anyhow::Result<Self> {
+    fn try_from(config: DatabaseIndexSpec) -> anyhow::Result<Self> {
         Ok(Self {
             fields: Vec::<FieldPath>::from(config.fields)
                 .into_iter()
@@ -34,10 +34,10 @@ impl TryFrom<DeveloperDatabaseIndexConfig> for SerializedDeveloperDatabaseIndexC
     }
 }
 
-impl TryFrom<SerializedDeveloperDatabaseIndexConfig> for DeveloperDatabaseIndexConfig {
+impl TryFrom<SerializedDatabaseIndexSpec> for DatabaseIndexSpec {
     type Error = anyhow::Error;
 
-    fn try_from(config: SerializedDeveloperDatabaseIndexConfig) -> anyhow::Result<Self> {
+    fn try_from(config: SerializedDatabaseIndexSpec) -> anyhow::Result<Self> {
         Ok(Self {
             fields: config
                 .fields

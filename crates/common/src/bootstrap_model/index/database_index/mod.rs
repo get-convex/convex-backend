@@ -9,8 +9,8 @@ pub use self::{
         SerializedDatabaseIndexBackfillState,
     },
     index_config::{
-        DeveloperDatabaseIndexConfig,
-        SerializedDeveloperDatabaseIndexConfig,
+        DatabaseIndexSpec,
+        SerializedDatabaseIndexSpec,
     },
     index_state::{
         DatabaseIndexState,

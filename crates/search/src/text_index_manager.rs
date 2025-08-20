@@ -521,14 +521,10 @@ impl TextIndexManager {
 
         // Handle index updates for our existing search indexes.
         for index in index_registry.text_indexes_by_table(id.tablet_id) {
-            let IndexConfig::Text {
-                ref developer_config,
-                ..
-            } = index.metadata.config
-            else {
+            let IndexConfig::Text { ref spec, .. } = index.metadata.config else {
                 continue;
             };
-            let tantivy_schema = TantivySearchIndexSchema::new(developer_config);
+            let tantivy_schema = TantivySearchIndexSchema::new(spec);
             let Some(index) = indexes.get_mut(&index.id()) else {
                 continue;
             };

@@ -9,15 +9,15 @@ use common::{
     bootstrap_model::{
         index::{
             database_index::{
+                DatabaseIndexSpec,
                 DatabaseIndexState,
-                DeveloperDatabaseIndexConfig,
             },
             text_index::{
-                DeveloperTextIndexConfig,
+                TextIndexSpec,
                 TextIndexState,
             },
             vector_index::{
-                DeveloperVectorIndexConfig,
+                VectorIndexSpec,
                 VectorIndexState,
             },
             IndexConfig,
@@ -94,7 +94,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
         let name = meta.name.descriptor().to_string();
         Ok(match meta.config {
             IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 on_disk_state,
             } => {
                 let backfill_state = match on_disk_state {
@@ -121,8 +121,8 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
             },
             IndexConfig::Text {
                 on_disk_state,
-                developer_config:
-                    DeveloperTextIndexConfig {
+                spec:
+                    TextIndexSpec {
                         search_field,
                         filter_fields,
                     },
@@ -151,8 +151,8 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                 }
             },
             IndexConfig::Vector {
-                developer_config:
-                    DeveloperVectorIndexConfig {
+                spec:
+                    VectorIndexSpec {
                         dimensions,
                         vector_field,
                         filter_fields,

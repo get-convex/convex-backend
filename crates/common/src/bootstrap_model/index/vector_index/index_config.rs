@@ -13,7 +13,7 @@ use super::VectorDimensions;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct DeveloperVectorIndexConfig {
+pub struct VectorIndexSpec {
     // Dimensions of the vectors
     pub dimensions: VectorDimensions,
 
@@ -27,7 +27,7 @@ pub struct DeveloperVectorIndexConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct SerializedDeveloperVectorIndexConfig {
+pub struct SerializedVectorIndexSpec {
     // Support legacy alpha users with the old dimension field.
     #[serde(alias = "dimension")]
     dimensions: i64,
@@ -35,10 +35,10 @@ pub struct SerializedDeveloperVectorIndexConfig {
     filter_fields: Vec<String>,
 }
 
-impl TryFrom<DeveloperVectorIndexConfig> for SerializedDeveloperVectorIndexConfig {
+impl TryFrom<VectorIndexSpec> for SerializedVectorIndexSpec {
     type Error = anyhow::Error;
 
-    fn try_from(config: DeveloperVectorIndexConfig) -> anyhow::Result<Self> {
+    fn try_from(config: VectorIndexSpec) -> anyhow::Result<Self> {
         Ok(Self {
             dimensions: u32::from(config.dimensions) as i64,
             vector_field: config.vector_field.into(),
@@ -47,10 +47,10 @@ impl TryFrom<DeveloperVectorIndexConfig> for SerializedDeveloperVectorIndexConfi
     }
 }
 
-impl TryFrom<SerializedDeveloperVectorIndexConfig> for DeveloperVectorIndexConfig {
+impl TryFrom<SerializedVectorIndexSpec> for VectorIndexSpec {
     type Error = anyhow::Error;
 
-    fn try_from(config: SerializedDeveloperVectorIndexConfig) -> anyhow::Result<Self> {
+    fn try_from(config: SerializedVectorIndexSpec) -> anyhow::Result<Self> {
         Ok(Self {
             dimensions: VectorDimensions::try_from(u32::try_from(config.dimensions)?)?,
             vector_field: config.vector_field.parse()?,
@@ -63,16 +63,13 @@ impl TryFrom<SerializedDeveloperVectorIndexConfig> for DeveloperVectorIndexConfi
     }
 }
 
-codegen_convex_serialization!(
-    DeveloperVectorIndexConfig,
-    SerializedDeveloperVectorIndexConfig
-);
+codegen_convex_serialization!(VectorIndexSpec, SerializedVectorIndexSpec);
 
-impl TryFrom<pb::searchlight::VectorIndexConfig> for DeveloperVectorIndexConfig {
+impl TryFrom<pb::searchlight::VectorIndexConfig> for VectorIndexSpec {
     type Error = anyhow::Error;
 
     fn try_from(proto: pb::searchlight::VectorIndexConfig) -> anyhow::Result<Self> {
-        Ok(DeveloperVectorIndexConfig {
+        Ok(VectorIndexSpec {
             dimensions: VectorDimensions::try_from(proto.dimension)?,
             vector_field: proto
                 .vector_field_path
@@ -89,8 +86,8 @@ impl TryFrom<pb::searchlight::VectorIndexConfig> for DeveloperVectorIndexConfig 
     }
 }
 
-impl From<DeveloperVectorIndexConfig> for pb::searchlight::VectorIndexConfig {
-    fn from(config: DeveloperVectorIndexConfig) -> Self {
+impl From<VectorIndexSpec> for pb::searchlight::VectorIndexConfig {
+    fn from(config: VectorIndexSpec) -> Self {
         pb::searchlight::VectorIndexConfig {
             dimension: u32::from(config.dimensions),
             vector_field_path: Some(config.vector_field.into()),
