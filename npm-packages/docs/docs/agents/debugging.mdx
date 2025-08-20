@@ -56,19 +56,21 @@ functions. The way to fix this is to explicitly type the return value of the
 workflow. When in doubt, add return types to more `handler` functions, like
 this:
 
-```diff
- export const supportAgentWorkflow = workflow.define({
-   args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
-+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
-     // ...
-   },
- });
+```ts
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
+  // highlight-next-line
+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
+    // ...
+  },
+});
 
- // And regular functions too:
- export const myFunction = action({
-   args: { prompt: v.string() },
-+  handler: async (ctx, { prompt }): Promise<string> => {
-     // ...
-   },
- });
+// And regular functions too:
+export const myFunction = action({
+  args: { prompt: v.string() },
+  // highlight-next-line
+  handler: async (ctx, { prompt }): Promise<string> => {
+    // ...
+  },
+});
 ```

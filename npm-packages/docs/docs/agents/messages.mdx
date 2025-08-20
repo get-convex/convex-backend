@@ -221,13 +221,10 @@ import { components } from "./_generated/api";
 
 export const listThreadMessages = query({
   args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
-  handler: async (ctx, { threadId, paginationOpts }) => {
-    // await authorizeThreadAccess(ctx, threadId);
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
 
-    const paginated = await listMessages(ctx, components.agent, {
-      threadId,
-      paginationOpts,
-    });
+    const paginated = await listMessages(ctx, components.agent, args);
 
     // Here you could filter out / modify the documents
     return paginated;
@@ -239,35 +236,31 @@ export const listThreadMessages = query({
 
 To retrieve the stream deltas, you only have to make a few changes to the query:
 
-```diff
- import { paginationOptsValidator } from "convex/server";
--import { listMessages } from "@convex-dev/agent";
-+import { vStreamArgs, listMessages, syncStreams } from "@convex-dev/agent";
- import { components } from "./_generated/api";
+```ts
+import { paginationOptsValidator } from "convex/server";
+// highlight-next-line
+import { vStreamArgs, listMessages, syncStreams } from "@convex-dev/agent";
+import { components } from "./_generated/api";
 
- export const listThreadMessages = query({
-   args: {
-     threadId: v.string(),
-     paginationOpts: paginationOptsValidator,
-+    streamArgs: vStreamArgs,
-   },
-   handler: async (ctx, { threadId, paginationOpts, streamArgs }) => {
-     // await authorizeThreadAccess(ctx, threadId);
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    paginationOpts: paginationOptsValidator,
+    // highlight-next-line
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
 
-     const paginated = await listMessages(ctx, components.agent, {
-       threadId,
-       paginationOpts
-     });
-+    const streams = await syncStreams(ctx, components.agent, {
-+      threadId,
-+      streamArgs
-+    });
+    const paginated = await listMessages(ctx, components.agent, args);
 
-     // Here you could filter out / modify the documents & stream deltas.
--    return paginated;
-+    return { ...paginated, streams };
-   },
- });
+    // highlight-next-line
+    const streams = await syncStreams(ctx, components.agent, args);
+
+    // highlight-next-line
+    return { ...paginated, streams };
+  },
+});
 ```
 
 You can then use the instructions below along with the `useSmoothText` hook to
