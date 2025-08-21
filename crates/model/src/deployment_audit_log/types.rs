@@ -537,7 +537,7 @@ impl TryFrom<AuditLogIndexDiff> for SerializedIndexDiff {
                     .into_iter()
                     .map(|(name, config)| {
                         let name = name.to_string();
-                        let index_config = SerializedDeveloperIndexConfig::try_from(config)?;
+                        let index_config = SerializedDeveloperIndexConfig::from(config);
                         anyhow::Ok(SerializedNamedDeveloperIndexConfig { name, index_config })
                     })
                     .try_collect()

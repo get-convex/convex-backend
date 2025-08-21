@@ -35,15 +35,13 @@ pub struct SerializedVectorIndexSpec {
     filter_fields: Vec<String>,
 }
 
-impl TryFrom<VectorIndexSpec> for SerializedVectorIndexSpec {
-    type Error = anyhow::Error;
-
-    fn try_from(config: VectorIndexSpec) -> anyhow::Result<Self> {
-        Ok(Self {
+impl From<VectorIndexSpec> for SerializedVectorIndexSpec {
+    fn from(config: VectorIndexSpec) -> Self {
+        Self {
             dimensions: u32::from(config.dimensions) as i64,
             vector_field: config.vector_field.into(),
             filter_fields: config.filter_fields.into_iter().map(String::from).collect(),
-        })
+        }
     }
 }
 

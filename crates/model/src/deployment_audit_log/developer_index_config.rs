@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use anyhow::Ok;
 use common::bootstrap_model::index::{
     database_index::{
         DatabaseIndexSpec,
@@ -21,26 +22,35 @@ use serde::{
 };
 use value::codegen_convex_serialization;
 
-// Index config that's specified by the developer
+// Index config that's specified by the developer - including spec + staged
+// state
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub enum DeveloperIndexConfig {
+pub struct DeveloperIndexConfig {
+    spec: DeveloperIndexSpec,
+    staged: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum DeveloperIndexSpec {
     /// Standard database index.
     Database(DatabaseIndexSpec),
-
     /// Full text search index.
     Search(TextIndexSpec),
-
+    /// Vector search index.
     Vector(VectorIndexSpec),
 }
 
 impl From<IndexConfig> for DeveloperIndexConfig {
     fn from(value: IndexConfig) -> Self {
-        match value {
-            IndexConfig::Database { spec, .. } => DeveloperIndexConfig::Database(spec),
-            IndexConfig::Text { spec, .. } => DeveloperIndexConfig::Search(spec),
-            IndexConfig::Vector { spec, .. } => DeveloperIndexConfig::Vector(spec),
-        }
+        let staged = value.is_staged();
+        let spec = match value {
+            IndexConfig::Database { spec, .. } => DeveloperIndexSpec::Database(spec),
+            IndexConfig::Text { spec, .. } => DeveloperIndexSpec::Search(spec),
+            IndexConfig::Vector { spec, .. } => DeveloperIndexSpec::Vector(spec),
+        };
+        Self { spec, staged }
     }
 }
 
@@ -56,21 +66,35 @@ pub struct SerializedNamedDeveloperIndexConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub enum SerializedDeveloperIndexConfig {
+pub struct SerializedDeveloperIndexConfig {
+    #[serde(flatten)]
+    spec: SerializedDeveloperIndexSpec,
+    #[serde(default)]
+    staged: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum SerializedDeveloperIndexSpec {
     Database(SerializedDatabaseIndexSpec),
     Search(SerializedTextIndexSpec),
     Vector(SerializedVectorIndexSpec),
 }
 
-impl TryFrom<DeveloperIndexConfig> for SerializedDeveloperIndexConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(index_config: DeveloperIndexConfig) -> anyhow::Result<Self> {
-        Ok(match index_config {
-            DeveloperIndexConfig::Database(config) => Self::Database(config.try_into()?),
-            DeveloperIndexConfig::Search(config) => Self::Search(config.try_into()?),
-            DeveloperIndexConfig::Vector(config) => Self::Vector(config.try_into()?),
-        })
+impl From<DeveloperIndexConfig> for SerializedDeveloperIndexConfig {
+    fn from(index_config: DeveloperIndexConfig) -> Self {
+        let spec = match index_config.spec {
+            DeveloperIndexSpec::Database(spec) => {
+                SerializedDeveloperIndexSpec::Database(spec.into())
+            },
+            DeveloperIndexSpec::Search(spec) => SerializedDeveloperIndexSpec::Search(spec.into()),
+            DeveloperIndexSpec::Vector(spec) => SerializedDeveloperIndexSpec::Vector(spec.into()),
+        };
+        Self {
+            spec,
+            staged: index_config.staged,
+        }
     }
 }
 
@@ -78,10 +102,20 @@ impl TryFrom<SerializedDeveloperIndexConfig> for DeveloperIndexConfig {
     type Error = anyhow::Error;
 
     fn try_from(index_config: SerializedDeveloperIndexConfig) -> anyhow::Result<Self> {
-        Ok(match index_config {
-            SerializedDeveloperIndexConfig::Database(config) => Self::Database(config.try_into()?),
-            SerializedDeveloperIndexConfig::Search(config) => Self::Search(config.try_into()?),
-            SerializedDeveloperIndexConfig::Vector(config) => Self::Vector(config.try_into()?),
+        let spec = match index_config.spec {
+            SerializedDeveloperIndexSpec::Database(spec) => {
+                DeveloperIndexSpec::Database(spec.try_into()?)
+            },
+            SerializedDeveloperIndexSpec::Search(spec) => {
+                DeveloperIndexSpec::Search(spec.try_into()?)
+            },
+            SerializedDeveloperIndexSpec::Vector(spec) => {
+                DeveloperIndexSpec::Vector(spec.try_into()?)
+            },
+        };
+        Ok(Self {
+            spec,
+            staged: index_config.staged,
         })
     }
 }
@@ -96,16 +130,35 @@ mod tests {
 
     #[test]
     fn test_developer_index_config_serialization() -> anyhow::Result<()> {
-        let config = DeveloperIndexConfig::Database(DatabaseIndexSpec {
-            fields: IndexedFields::creation_time(),
-        });
-        let serialized = SerializedDeveloperIndexConfig::try_from(config.clone()).unwrap();
+        let config = DeveloperIndexConfig {
+            spec: DeveloperIndexSpec::Database(DatabaseIndexSpec {
+                fields: IndexedFields::creation_time(),
+            }),
+            staged: false,
+        };
+        let serialized = SerializedDeveloperIndexConfig::from(config.clone());
         let json = serde_json::to_value(&serialized)?;
         let expected = serde_json::json!({
             "type": "database",
             "fields": ["_creationTime"],
+            "staged": false,
         });
         assert_eq!(json, expected);
+
+        assert_eq!(
+            config,
+            serde_json::from_value::<SerializedDeveloperIndexConfig>(expected)?.try_into()?,
+        );
+
+        let old_format = serde_json::json!({
+            "type": "database",
+            "fields": ["_creationTime"],
+        });
+        assert_eq!(
+            config,
+            serde_json::from_value::<SerializedDeveloperIndexConfig>(old_format)?.try_into()?,
+        );
+
         Ok(())
     }
 }

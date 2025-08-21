@@ -26,14 +26,12 @@ pub struct SerializedTextIndexSpec {
     filter_fields: Vec<String>,
 }
 
-impl TryFrom<TextIndexSpec> for SerializedTextIndexSpec {
-    type Error = anyhow::Error;
-
-    fn try_from(config: TextIndexSpec) -> anyhow::Result<Self> {
-        Ok(Self {
+impl From<TextIndexSpec> for SerializedTextIndexSpec {
+    fn from(config: TextIndexSpec) -> Self {
+        Self {
             search_field: config.search_field.into(),
             filter_fields: config.filter_fields.into_iter().map(String::from).collect(),
-        })
+        }
     }
 }
 

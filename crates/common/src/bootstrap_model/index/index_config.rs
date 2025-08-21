@@ -212,21 +212,21 @@ impl TryFrom<IndexConfig> for SerializedIndexConfig {
                 spec,
                 on_disk_state,
             } => SerializedIndexConfig::Database {
-                spec: spec.try_into()?,
+                spec: spec.into(),
                 on_disk_state: on_disk_state.try_into()?,
             },
             IndexConfig::Text {
                 spec,
                 on_disk_state,
             } => SerializedIndexConfig::Search {
-                spec: spec.try_into()?,
+                spec: spec.into(),
                 on_disk_state: on_disk_state.try_into()?,
             },
             IndexConfig::Vector {
                 spec,
                 on_disk_state,
             } => SerializedIndexConfig::Vector {
-                spec: spec.try_into()?,
+                spec: spec.into(),
                 on_disk_state: on_disk_state.try_into()?,
             },
         })

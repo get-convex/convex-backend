@@ -21,16 +21,14 @@ pub struct SerializedDatabaseIndexSpec {
     fields: Vec<String>,
 }
 
-impl TryFrom<DatabaseIndexSpec> for SerializedDatabaseIndexSpec {
-    type Error = anyhow::Error;
-
-    fn try_from(config: DatabaseIndexSpec) -> anyhow::Result<Self> {
-        Ok(Self {
+impl From<DatabaseIndexSpec> for SerializedDatabaseIndexSpec {
+    fn from(config: DatabaseIndexSpec) -> Self {
+        Self {
             fields: Vec::<FieldPath>::from(config.fields)
                 .into_iter()
                 .map(String::from)
                 .collect(),
-        })
+        }
     }
 }
 
