@@ -103,7 +103,7 @@ pub struct LocalConfig {
     /// self-hosted Convex will periodically communicate with a remote beacon
     /// server. This is to help Convex understand and improve the product.
     /// If set, the self-host beacon will not be sent.
-    #[clap(long)]
+    #[clap(long, env = "DISABLE_BEACON")]
     pub disable_beacon: bool,
 
     /// A tag to identify the self-hosted instance.

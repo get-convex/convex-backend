@@ -47,7 +47,7 @@ fn main() -> Result<(), MainError> {
             "The self-host Convex backend will periodically communicate with a remote beacon \
              server. This is to help Convex understand and improve the product. You can disable \
              this telemetry by setting the --disable-beacon flag or the DISABLE_BEACON \
-             environment variable if you are self-hosting using the Docker image."
+             environment variable."
         );
     }
     let sentry = sentry::init(sentry::ClientOptions {
