@@ -123,7 +123,12 @@ where
             virtual_system_mapping().clone(),
         )?;
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-        let snapshot = &components.database.snapshot;
+        drop(tx);
+        let mut database = components.database.clone();
+        if database.snapshot.table_summaries.is_none() {
+            database.load_table_summaries().await?;
+        }
+        let snapshot = &database.snapshot;
         let table_summaries = snapshot.must_table_summaries()?;
         let tables: BTreeMap<_, _> = snapshot
             .table_registry
