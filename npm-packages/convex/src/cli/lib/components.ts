@@ -447,44 +447,53 @@ function printDiff(
   if (rootDiff) {
     if (rootDiff.removed_indexes.length > 0) {
       let msg = `${opts.dryRun ? "Would delete" : "Deleted"} table indexes:\n`;
-      for (let i = 0; i < rootDiff.removed_indexes.length; i++) {
-        const index = rootDiff.removed_indexes[i];
-        if (i > 0) {
-          msg += "\n";
-        }
-        msg += `  [-] ${formatIndex(index)}`;
+      for (const index of rootDiff.removed_indexes) {
+        msg += `  [-] ${formatIndex(index)}\n`;
       }
+      msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    const addedStaged = rootDiff.added_indexes.filter((index) => index.staged);
-    const addedEnabled = rootDiff.added_indexes.filter(
-      (index) => !index.staged,
-    );
+    const addedStaged = rootDiff.added_indexes.filter((i) => i.staged);
+    const addedEnabled = rootDiff.added_indexes.filter((i) => !i.staged);
     if (addedEnabled.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} table indexes:\n`;
-      for (let i = 0; i < addedEnabled.length; i++) {
-        const index = addedEnabled[i];
-        if (i > 0) {
-          msg += "\n";
-        }
-        msg += `  [+] ${formatIndex(index)}`;
+      for (const index of addedEnabled) {
+        msg += `  [+] ${formatIndex(index)}\n`;
       }
+      msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
     if (addedStaged.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} staged table indexes:\n`;
-      for (let i = 0; i < addedStaged.length; i++) {
-        const index = addedStaged[i];
-        if (i > 0) {
-          msg += "\n";
-        }
+      for (const index of addedStaged) {
         const table = index.name.split(".")[0];
         const progressLink = deploymentDashboardUrlPage(
           opts.deploymentName,
           `/data?table=${table}&showIndexes=true`,
         );
-        msg += `  [+] ${formatIndex(index)}, see progress: ${progressLink}`;
+        msg += `  [+] ${formatIndex(index)}, see progress: ${progressLink}\n`;
       }
+      msg = msg.slice(0, -1); // strip last new line
+      logFinishedStep(msg);
+    }
+    if (rootDiff.enabled_indexes?.length > 0) {
+      let msg = opts.dryRun
+        ? `These indexes would be enabled:\n`
+        : `These indexes are now enabled:\n`;
+      for (const index of rootDiff.enabled_indexes) {
+        msg += `  [*] ${formatIndex(index)}\n`;
+      }
+      msg = msg.slice(0, -1); // strip last new line
+      logFinishedStep(msg);
+    }
+    if (rootDiff.disabled_indexes?.length > 0) {
+      let msg = opts.dryRun
+        ? `These indexes would be staged:\n`
+        : `These indexes are now staged:\n`;
+      for (const index of rootDiff.disabled_indexes) {
+        msg += `  [*] ${formatIndex(index)}\n`;
+      }
+      msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
   }
