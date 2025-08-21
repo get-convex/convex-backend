@@ -45,26 +45,29 @@ export const cronDiff = looseObject({
 });
 export type CronDiff = z.infer<typeof cronDiff>;
 
-const developerIndexConfig = z.discriminatedUnion("type", [
-  looseObject({
-    name: z.string(),
-    type: z.literal("database"),
-    fields: z.array(z.string()),
-  }),
-  looseObject({
-    name: z.string(),
-    type: z.literal("search"),
-    searchField: z.string(),
-    filterFields: z.array(z.string()),
-  }),
-  looseObject({
-    name: z.string(),
-    type: z.literal("vector"),
-    dimensions: z.number(),
-    vectorField: z.string(),
-    filterFields: z.array(z.string()),
-  }),
-]);
+const developerIndexConfig = z.intersection(
+  z.discriminatedUnion("type", [
+    looseObject({
+      name: z.string(),
+      type: z.literal("database"),
+      fields: z.array(z.string()),
+    }),
+    looseObject({
+      name: z.string(),
+      type: z.literal("search"),
+      searchField: z.string(),
+      filterFields: z.array(z.string()),
+    }),
+    looseObject({
+      name: z.string(),
+      type: z.literal("vector"),
+      dimensions: z.number(),
+      vectorField: z.string(),
+      filterFields: z.array(z.string()),
+    }),
+  ]),
+  z.object({ staged: z.boolean().optional() }),
+);
 export type DeveloperIndexConfig = z.infer<typeof developerIndexConfig>;
 
 export const indexDiff = looseObject({

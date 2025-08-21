@@ -57,6 +57,7 @@ import {
   DEFINITION_FILENAME_TS,
 } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
+import { deploymentDashboardUrlPage } from "./dashboard.js";
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
   // Default to `.ts` but fallback to `.js` if not present.
   let componentRootPath = path.resolve(
@@ -419,7 +420,7 @@ export async function runComponentsPush(
   const finishPushResponse = await pushSpan.enterAsync("finishPush", (span) =>
     finishPush(ctx, span, startPushResponse, options),
   );
-  printDiff(ctx, finishPushResponse, options);
+  printDiff(finishPushResponse, options);
   pushSpan.end();
 
   // Asynchronously report that the push completed.
@@ -429,9 +430,8 @@ export async function runComponentsPush(
 }
 
 function printDiff(
-  ctx: Context,
   finishPushResponse: FinishPushDiff,
-  opts: { verbose: boolean; dryRun: boolean },
+  opts: { verbose: boolean; dryRun: boolean; deploymentName: string | null },
 ) {
   if (opts.verbose) {
     const diffString = JSON.stringify(finishPushResponse, null, 2);
@@ -454,14 +454,36 @@ function printDiff(
       }
       logFinishedStep(msg);
     }
-    if (rootDiff.indexDiff.added_indexes.length > 0) {
+    const addedStaged = rootDiff.indexDiff.added_indexes.filter(
+      (index) => index.staged,
+    );
+    const addedEnabled = rootDiff.indexDiff.added_indexes.filter(
+      (index) => !index.staged,
+    );
+    if (addedEnabled.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} table indexes:\n`;
-      for (let i = 0; i < rootDiff.indexDiff.added_indexes.length; i++) {
-        const index = rootDiff.indexDiff.added_indexes[i];
+      for (let i = 0; i < addedEnabled.length; i++) {
+        const index = addedEnabled[i];
         if (i > 0) {
           msg += "\n";
         }
         msg += `  [+] ${formatIndex(index)}`;
+      }
+      logFinishedStep(msg);
+    }
+    if (addedStaged.length > 0) {
+      let msg = `${opts.dryRun ? "Would add" : "Added"} staged table indexes:\n`;
+      for (let i = 0; i < addedStaged.length; i++) {
+        const index = addedStaged[i];
+        if (i > 0) {
+          msg += "\n";
+        }
+        const table = index.name.split(".")[0];
+        const progressLink = deploymentDashboardUrlPage(
+          opts.deploymentName,
+          `/data?table=${table}&showIndexes=true`,
+        );
+        msg += `  [+] ${formatIndex(index)}, see progress: ${progressLink}`;
       }
       logFinishedStep(msg);
     }
