@@ -527,10 +527,8 @@ pub struct SerializedIndexDiff {
     pub removed_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
 }
 
-impl TryFrom<AuditLogIndexDiff> for SerializedIndexDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(diff: AuditLogIndexDiff) -> anyhow::Result<Self> {
+impl From<AuditLogIndexDiff> for SerializedIndexDiff {
+    fn from(diff: AuditLogIndexDiff) -> Self {
         let convert_to_serialized =
             |indexes: Vec<(GenericIndexName<TableName>, DeveloperIndexConfig)>| {
                 indexes
@@ -538,16 +536,16 @@ impl TryFrom<AuditLogIndexDiff> for SerializedIndexDiff {
                     .map(|(name, config)| {
                         let name = name.to_string();
                         let index_config = SerializedDeveloperIndexConfig::from(config);
-                        anyhow::Ok(SerializedNamedDeveloperIndexConfig { name, index_config })
+                        SerializedNamedDeveloperIndexConfig { name, index_config }
                     })
-                    .try_collect()
+                    .collect()
             };
-        let added_indexes = convert_to_serialized(diff.added_indexes)?;
-        let removed_indexes = convert_to_serialized(diff.removed_indexes)?;
-        Ok(Self {
+        let added_indexes = convert_to_serialized(diff.added_indexes);
+        let removed_indexes = convert_to_serialized(diff.removed_indexes);
+        Self {
             added_indexes,
             removed_indexes,
-        })
+        }
     }
 }
 

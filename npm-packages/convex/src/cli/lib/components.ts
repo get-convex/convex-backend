@@ -420,7 +420,7 @@ export async function runComponentsPush(
   const finishPushResponse = await pushSpan.enterAsync("finishPush", (span) =>
     finishPush(ctx, span, startPushResponse, options),
   );
-  printDiff(finishPushResponse, options);
+  printDiff(startPushResponse, finishPushResponse, options);
   pushSpan.end();
 
   // Asynchronously report that the push completed.
@@ -430,6 +430,7 @@ export async function runComponentsPush(
 }
 
 function printDiff(
+  startPushResponse: StartPushResponse,
   finishPushResponse: FinishPushDiff,
   opts: { verbose: boolean; dryRun: boolean; deploymentName: string | null },
 ) {
@@ -438,15 +439,16 @@ function printDiff(
     logMessage(diffString);
     return;
   }
+  const indexDiffs = startPushResponse.schemaChange.indexDiffs;
   const { componentDiffs } = finishPushResponse;
 
   // Print out index diffs for the root component.
-  let rootDiff = componentDiffs[""];
-  if (rootDiff && rootDiff.indexDiff) {
-    if (rootDiff.indexDiff.removed_indexes.length > 0) {
+  let rootDiff = indexDiffs[""] || componentDiffs[""]?.indexDiff;
+  if (rootDiff) {
+    if (rootDiff.removed_indexes.length > 0) {
       let msg = `${opts.dryRun ? "Would delete" : "Deleted"} table indexes:\n`;
-      for (let i = 0; i < rootDiff.indexDiff.removed_indexes.length; i++) {
-        const index = rootDiff.indexDiff.removed_indexes[i];
+      for (let i = 0; i < rootDiff.removed_indexes.length; i++) {
+        const index = rootDiff.removed_indexes[i];
         if (i > 0) {
           msg += "\n";
         }
@@ -454,10 +456,8 @@ function printDiff(
       }
       logFinishedStep(msg);
     }
-    const addedStaged = rootDiff.indexDiff.added_indexes.filter(
-      (index) => index.staged,
-    );
-    const addedEnabled = rootDiff.indexDiff.added_indexes.filter(
+    const addedStaged = rootDiff.added_indexes.filter((index) => index.staged);
+    const addedEnabled = rootDiff.added_indexes.filter(
       (index) => !index.staged,
     );
     if (addedEnabled.length > 0) {
