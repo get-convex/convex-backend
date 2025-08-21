@@ -29,12 +29,6 @@ const RequestBodySchema = z.object({
   teamId: z.number(),
   projectId: z.number().optional(),
   deploymentName: z.string().optional(),
-  user: z.object({
-    email: z.string(),
-    email_verified: z.boolean(),
-    name: z.string().optional(),
-    nickname: z.string().optional(),
-  }),
 });
 
 export default async function handler(
@@ -214,7 +208,6 @@ export default async function handler(
     captureException(error, {
       extra: {
         requestBody: body,
-        user: body.user,
       },
     });
     return res.status(500).json({ error: "Internal Server Error" });
