@@ -443,7 +443,7 @@ function printDiff(
   const { componentDiffs } = finishPushResponse;
 
   // Print out index diffs for the root component.
-  let rootDiff = indexDiffs[""] || componentDiffs[""]?.indexDiff;
+  let rootDiff = indexDiffs?.[""] || componentDiffs[""]?.indexDiff;
   if (rootDiff) {
     if (rootDiff.removed_indexes.length > 0) {
       let msg = `${opts.dryRun ? "Would delete" : "Deleted"} table indexes:\n`;
@@ -476,7 +476,7 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    if (rootDiff.enabled_indexes?.length > 0) {
+    if (rootDiff.enabled_indexes && rootDiff.enabled_indexes.length > 0) {
       let msg = opts.dryRun
         ? `These indexes would be enabled:\n`
         : `These indexes are now enabled:\n`;
@@ -486,7 +486,7 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    if (rootDiff.disabled_indexes?.length > 0) {
+    if (rootDiff.disabled_indexes && rootDiff.disabled_indexes.length > 0) {
       let msg = opts.dryRun
         ? `These indexes would be staged:\n`
         : `These indexes are now staged:\n`;
