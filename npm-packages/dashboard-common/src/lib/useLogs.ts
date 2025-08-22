@@ -5,6 +5,7 @@ import {
   FunctionExecutionCompletion,
   LogLine,
   LogLevel,
+  UsageStats,
 } from "system-udfs/convex/_system/frontend/common";
 import uniqueId from "lodash/uniqueId";
 import {
@@ -59,6 +60,7 @@ export type UdfLogOutcome = {
   cachedResult?: boolean;
   kind: "outcome";
   error?: string;
+  usageStats?: UsageStats;
 };
 
 export type UdfLog = UdfLogCommon &
@@ -170,6 +172,7 @@ export function processLogs(rawLogs: FunctionExecution[]): UdfLog[] {
         executionTimeMs: entry.executionTime * 1000,
         cachedResult: entry.cachedResult,
         kind: "outcome",
+        usageStats: entry.usageStats,
         timestamp: entry.timestamp * 1000,
         localizedTimestamp: formatDateTime(new Date(entry.timestamp * 1000)),
         id: uniqueId(),
