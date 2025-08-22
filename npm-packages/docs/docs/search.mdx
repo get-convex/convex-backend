@@ -14,10 +14,10 @@ on their semantic meaning. It uses vector embeddings to calculate similarity and
 retrieve documents that are similar to a given query. Vector search is a key
 part of common AI techniques like RAG.
 
-[Full Text Search](/search/search.mdx) enables keyword and phrase search within
-your documents. It supports prefix matching to enable typeahead search. Convex
-full text search is also reactive and always up to date like all Convex queries,
-making it easy to build reliable quick search boxes.
+[Full Text Search](/search/text-search.mdx) enables keyword and phrase search
+within your documents. It supports prefix matching to enable typeahead search.
+Convex full text search is also reactive and always up to date like all Convex
+queries, making it easy to build reliable quick search boxes.
 
 [Convex Actions](functions/actions) easily enable you to call AI apis, save data
 to your database, and drive your user interface. See examples of how you can use

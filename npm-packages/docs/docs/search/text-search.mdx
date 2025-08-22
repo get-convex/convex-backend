@@ -47,6 +47,12 @@ Every search index definition consists of:
 3. [Optional] A list of `filterField`s
    - These are additional fields that are indexed for fast equality filtering
      within your search index.
+4. [Optional] A boolean `staged` flag
+   - If set to `true`, the index will be backfilled asynchronously from the
+     deploy similar to
+     [staged database indexes](/database/reading-data/indexes#staged-indexes).
+     This is useful for large tables where the index backfill time is
+     significant. Defaults to `false`.
 
 To add a search index onto a table, use the
 [`searchIndex`](/api/classes/server.TableDefinition#searchindex) method on your
@@ -64,6 +70,7 @@ export default defineSchema({
   }).searchIndex("search_body", {
     searchField: "body",
     filterFields: ["channel"],
+    staged: false,
   }),
 });
 ```

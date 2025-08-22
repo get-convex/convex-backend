@@ -56,8 +56,8 @@ Indexes are created in [`npx convex dev`](/cli.md#run-the-convex-dev-server) and
 
 You may notice that the first deploy that defines an index is a bit slower than
 normal. This is because Convex needs to _backfill_ your index. The more data in
-your table, the longer it will take Convex to organize it in index order. If
-this is problematic for your workflow, [contact us](/production/contact.md).
+your table, the longer it will take Convex to organize it in index order. If you
+need to add indexes to large tables, use a [staged index](#staged-indexes).
 
 You can feel free to query an index in the same deploy that defines it. Convex
 will ensure that the index is backfilled before the new query and mutation
@@ -294,6 +294,45 @@ const topScoringPlayers = await ctx.db
   .withIndex("by_country_highest_score", (q) => q.eq("country", "CA"))
   .order("desc")
   .take(10);
+```
+
+## Staged indexes
+
+By default, index creation happens synchronously when you deploy code. For large
+tables, the process of
+[backfilling the index](indexes-and-query-perf#backfilling-and-maintaining-indexes)
+for the existing table can be slow. Staged indexes are a way to create an index
+on a large table asynchronously without blocking deploy. This can be useful if
+you are working on multiple features at once.
+
+To create a staged index, use the following syntax in your `schema.ts`.
+
+```ts
+export default defineSchema({
+  messages: defineTable({
+    channel: v.id("channels"),
+  }).index("by_channel", { fields: ["channel"], staged: true }),
+});
+```
+
+<Admonition type="caution" title="Staged indexes cannot be used until enabled">
+
+Staged indexes cannot be used in queries until you enable them. To enable them,
+they must first finish backfilling.
+
+</Admonition>
+
+You can check the backfill progress via the
+[_Indexes_ pane](/dashboard/deployments/data/#view-the-indexes-of-a-table) on
+the dashboard data page. Once it is complete, you can enable the index and use
+it by removing the `staged` option.
+
+```ts
+export default defineSchema({
+  messages: defineTable({
+    channel: v.id("channels"),
+  }).index("by_channel", { fields: ["channel"] }),
+});
 ```
 
 ## Limits
