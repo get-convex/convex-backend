@@ -23,7 +23,7 @@ use std::{
 
 use atomic_refcell::AtomicRefCell;
 use common::{
-    bootstrap_model::index::vector_index::DeveloperVectorIndexConfig,
+    bootstrap_model::index::vector_index::VectorIndexSpec,
     document::ResolvedDocument,
     knobs::VECTOR_INDEX_THREADS,
     persistence::DocumentStream,
@@ -132,7 +132,7 @@ pub enum QdrantVectorIndexType {
 }
 
 impl QdrantSchema {
-    pub fn new(index_config: &DeveloperVectorIndexConfig) -> Self {
+    pub fn new(index_config: &VectorIndexSpec) -> Self {
         Self {
             dimension: u32::from(index_config.dimensions) as usize,
             vector_field: index_config.vector_field.clone(),

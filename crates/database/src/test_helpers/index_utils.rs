@@ -187,19 +187,13 @@ fn descriptor<T: IndexTableIdentifier>(metadata: &IndexMetadata<T>) -> IndexDesc
 
 pub fn get_index_fields<T: IndexTableIdentifier>(index_metadata: IndexMetadata<T>) -> Vec<String> {
     match index_metadata.config {
-        IndexConfig::Database {
-            developer_config, ..
-        } => developer_config
+        IndexConfig::Database { spec, .. } => spec
             .fields
             .into_iter()
             .map(|field_path| field_path.into())
             .collect(),
-        IndexConfig::Text {
-            developer_config, ..
-        } => vec![developer_config.search_field.into()],
-        IndexConfig::Vector {
-            developer_config, ..
-        } => vec![developer_config.vector_field.into()],
+        IndexConfig::Text { spec, .. } => vec![spec.search_field.into()],
+        IndexConfig::Vector { spec, .. } => vec![spec.vector_field.into()],
     }
 }
 

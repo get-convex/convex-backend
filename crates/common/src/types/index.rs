@@ -27,7 +27,6 @@ use crate::{
     bootstrap_model::index::{
         index_validation_error,
         DeveloperIndexMetadata,
-        IndexMetadata,
     },
     document::ParsedDocument,
     index::IndexKey,
@@ -187,7 +186,7 @@ impl<T: IndexTableIdentifier + FromStr<Err = anyhow::Error>> FromStr for Generic
 pub struct IndexDiff {
     /// missing -> exists
     /// missing -> staged
-    pub added: Vec<IndexMetadata<TableName>>,
+    pub added: Vec<DeveloperIndexMetadata>,
     /// staged -> staged
     /// exist -> exist
     pub identical: Vec<ParsedDocument<DeveloperIndexMetadata>>,
@@ -198,6 +197,15 @@ pub struct IndexDiff {
     pub enabled: Vec<ParsedDocument<DeveloperIndexMetadata>>,
     /// exist -> staged
     pub disabled: Vec<ParsedDocument<DeveloperIndexMetadata>>,
+}
+
+impl IndexDiff {
+    pub fn is_empty(&self) -> bool {
+        self.added.is_empty()
+            && self.dropped.is_empty()
+            && self.enabled.is_empty()
+            && self.disabled.is_empty()
+    }
 }
 
 impl<T: IndexTableIdentifier> fmt::Display for GenericIndexName<T> {

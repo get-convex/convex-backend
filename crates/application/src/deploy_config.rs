@@ -100,7 +100,10 @@ use model::{
         SourceMap,
     },
     source_packages::{
-        types::SourcePackage,
+        types::{
+            NodeVersion,
+            SourcePackage,
+        },
         upload_download::download_package,
     },
     udf_config::types::UdfConfig,
@@ -664,6 +667,7 @@ impl<RT: Runtime> Application<RT> {
         udf_server_version: Version,
         schema_id: Option<String>,
         node_dependencies: Option<Vec<NodeDependencyJson>>,
+        node_version: Option<NodeVersion>,
     ) -> anyhow::Result<(PushAnalytics, PushMetrics)> {
         let begin_build_external_deps = Instant::now();
         // Upload external node dependencies separately
@@ -682,7 +686,7 @@ impl<RT: Runtime> Application<RT> {
             .unwrap_or_default();
 
         let source_package = self
-            .upload_package(&modules, external_deps_id_and_pkg)
+            .upload_package(&modules, external_deps_id_and_pkg, node_version)
             .await?;
         let end_upload_source_package = Instant::now();
         // Verify that we have not exceeded the max zipped or unzipped file size
@@ -819,6 +823,8 @@ pub struct StartPushRequest {
     pub component_definitions: Vec<ComponentDefinitionConfigJson>,
 
     pub node_dependencies: Vec<NodeDependencyJson>,
+
+    pub node_version: Option<String>,
 }
 
 impl StartPushRequest {
@@ -839,6 +845,7 @@ impl StartPushRequest {
                 .into_iter()
                 .map(NodeDependency::from)
                 .collect(),
+            node_version: self.node_version.map(|v| v.parse()).transpose()?,
         })
     }
 }

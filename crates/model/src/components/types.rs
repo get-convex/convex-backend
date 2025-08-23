@@ -33,6 +33,7 @@ use crate::{
         AnalyzedModule,
         SerializedAnalyzedModule,
     },
+    source_packages::types::NodeVersion,
     udf_config::types::UdfConfig,
 };
 
@@ -45,6 +46,9 @@ pub struct ProjectConfig {
 
     // TODO(CX-6483): Add support for components to declare their own external dependencies.
     pub node_dependencies: Vec<NodeDependency>,
+
+    // Version of Node.js to use in the node executor.
+    pub node_version: Option<NodeVersion>,
 }
 
 #[derive(Debug)]

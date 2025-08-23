@@ -737,11 +737,38 @@ where
         ))
     })?;
 
+    // TODO(ari): This can be cleaned up into one if statement, but I was lazy for
+    // the moment. Once the migration is done, there will be only one issuer to
+    // check
     if issuer.contains("api.workos.com") {
         anyhow::ensure!(
             *issuer
                 == format!(
                     "https://api.workos.com/user_management/{}",
+                    workos_client_id
+                ),
+            ErrorMetadata::unauthenticated(
+                "AccessTokenInvalid",
+                format!("Issuer {} does not match WorkOS client ID", issuer)
+            )
+        )
+    } else if issuer.contains("api.auth.convex.dev") {
+        anyhow::ensure!(
+            *issuer
+                == format!(
+                    "https://api.auth.convex.dev/user_management/{}",
+                    workos_client_id
+                ),
+            ErrorMetadata::unauthenticated(
+                "AccessTokenInvalid",
+                format!("Issuer {} does not match WorkOS client ID", issuer)
+            )
+        )
+    } else if issuer.contains("apiauth.convex.dev") {
+        anyhow::ensure!(
+            *issuer
+                == format!(
+                    "https://apiauth.convex.dev/user_management/{}",
                     workos_client_id
                 ),
             ErrorMetadata::unauthenticated(

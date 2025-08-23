@@ -49,6 +49,7 @@ async fn test_max_size_push(rt: TestRuntime) -> anyhow::Result<()> {
                 },
                 component_definitions: vec![],
                 node_dependencies: vec![],
+                node_version: None,
             })
             .await?;
     }
@@ -71,6 +72,7 @@ async fn test_max_size_push_no_components(rt: TestRuntime) -> anyhow::Result<()>
                     .map(|m| m.try_into().unwrap())
                     .collect(),
                 "1.3939.3939".parse().unwrap(),
+                None,
                 None,
                 None,
             )

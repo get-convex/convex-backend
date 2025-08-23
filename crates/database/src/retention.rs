@@ -1469,7 +1469,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let index: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
         let index = index.into_value();
         let IndexConfig::Database {
-            developer_config,
+            spec,
             on_disk_state,
         } = index.config
         else {
@@ -1487,7 +1487,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             }
         }
 
-        all_indexes.insert(index_id, (index.name, developer_config.fields));
+        all_indexes.insert(index_id, (index.name, spec.fields));
         Ok(())
     }
 

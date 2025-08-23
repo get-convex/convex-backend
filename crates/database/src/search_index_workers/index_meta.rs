@@ -42,12 +42,12 @@ pub trait SegmentType<T: SearchIndex> {
 
     fn statistics(&self) -> anyhow::Result<T::Statistics>;
 
-    fn total_size_bytes(&self, config: &T::DeveloperConfig) -> anyhow::Result<u64>;
+    fn total_size_bytes(&self, config: &T::Spec) -> anyhow::Result<u64>;
 }
 
 #[async_trait]
 pub trait SearchIndex: Clone + Debug {
-    type DeveloperConfig: Clone + Send;
+    type Spec: Clone + Send;
     type Segment: SegmentType<Self> + Clone + Debug + Send + 'static;
     type NewSegment: Send;
 
@@ -65,13 +65,13 @@ pub trait SearchIndex: Clone + Debug {
 
     // TODO(CX-6589): Make this infallible
     fn new_index_config(
-        developer_config: Self::DeveloperConfig,
+        spec: Self::Spec,
         new_state: SearchOnDiskState<Self>,
     ) -> anyhow::Result<IndexConfig>;
 
     fn extract_metadata(
         metadata: ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)>;
+    ) -> anyhow::Result<(Self::Spec, SearchOnDiskState<Self>)>;
 
     /// Determines the order in which we walk the document log when constructing
     /// partial segments that main contain deletes.
@@ -105,7 +105,7 @@ pub trait SearchIndex: Clone + Debug {
         multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>>;
 
-    fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema;
+    fn new_schema(config: &Self::Spec) -> Self::Schema;
 
     fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>>;
 
@@ -126,7 +126,7 @@ pub trait SearchIndex: Clone + Debug {
     async fn execute_compaction(
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
-        config: &Self::DeveloperConfig,
+        config: &Self::Spec,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment>;
 
@@ -152,7 +152,7 @@ pub trait SegmentStatistics: Default + Debug {
     }
 }
 pub struct SearchIndexConfig<T: SearchIndex> {
-    pub developer_config: T::DeveloperConfig,
+    pub spec: T::Spec,
     pub on_disk_state: SearchOnDiskState<T>,
 }
 

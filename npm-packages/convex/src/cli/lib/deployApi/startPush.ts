@@ -9,6 +9,7 @@ import {
 } from "./definitionConfig.js";
 import { authInfo } from "./types.js";
 import { looseObject } from "./utils.js";
+import { indexDiff } from "./finishPush.js";
 
 export const startPushRequest = looseObject({
   adminKey: z.string(),
@@ -26,6 +27,7 @@ export type StartPushRequest = z.infer<typeof startPushRequest>;
 export const schemaChange = looseObject({
   allocatedComponentIds: z.any(),
   schemaIds: z.any(),
+  indexDiffs: z.record(componentDefinitionPath, indexDiff).optional(),
 });
 export type SchemaChange = z.infer<typeof schemaChange>;
 

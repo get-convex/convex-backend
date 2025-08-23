@@ -495,7 +495,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let index_path = index_path.path().to_owned();
         let by_id = job.by_id;
         let rate_limit_pages_per_second = job.build_reason.read_max_pages_per_second();
-        let developer_config = job.index_config.developer_config.clone();
+        let spec = job.index_config.spec.clone();
         let params = self.params.clone();
         let handle = self
             .runtime
@@ -507,7 +507,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     by_id,
                     build_type,
                     snapshot_ts,
-                    developer_config,
+                    spec,
                     index_path,
                     previous_segments,
                     build_index_args,
@@ -526,7 +526,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         by_id: IndexId,
         build_type: MultipartBuildType,
         snapshot_ts: RepeatableTimestamp,
-        developer_config: T::DeveloperConfig,
+        spec: T::Spec,
         index_path: PathBuf,
         previous_segments: Vec<T::Segment>,
         build_index_args: T::BuildIndexArgs,
@@ -543,7 +543,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let mut new_cursor = None;
         let mut is_backfill_complete = true;
         let mut is_size_exceeded = false;
-        let qdrant_schema = T::new_schema(&developer_config);
+        let qdrant_schema = T::new_schema(&spec);
 
         let mut lower_bound_ts: Option<Timestamp> = None;
         let (documents, previous_segments) = match build_type {

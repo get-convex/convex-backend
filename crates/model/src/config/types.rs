@@ -17,10 +17,12 @@ use common::{
         SerializedAuthInfo,
     },
     obj,
-    types::ModuleEnvironment,
+    types::{
+        IndexDiff,
+        ModuleEnvironment,
+    },
 };
 use database::{
-    LegacyIndexDiff,
     SchemaDiff,
     SerializedSchemaDiff,
 };
@@ -288,8 +290,8 @@ pub struct ConfigIndexDiff {
     pub dropped: Vec<String>,
 }
 
-impl From<LegacyIndexDiff> for ConfigIndexDiff {
-    fn from(value: LegacyIndexDiff) -> Self {
+impl From<IndexDiff> for ConfigIndexDiff {
+    fn from(value: IndexDiff) -> Self {
         Self {
             added: value
                 .added

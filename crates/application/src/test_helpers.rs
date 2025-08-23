@@ -429,7 +429,7 @@ impl<RT: Runtime> Application<RT> {
         let mut tx = self.begin(Identity::system()).await?;
         let udf_config = UdfConfig::new_for_test(&self.runtime(), "1000.0.0".parse()?);
         // TODO(rakeeb): add external packages to udf test modules
-        let source_package = self.upload_package(&test_source, None).await?;
+        let source_package = self.upload_package(&test_source, None, None).await?;
         let analyze_results = self
             .analyze(
                 udf_config.clone(),

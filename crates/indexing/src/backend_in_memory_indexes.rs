@@ -270,14 +270,10 @@ impl BackendInMemoryIndexes {
                 .zip(&mut index_maps)
                 .zip(iter::repeat_n(doc, indexes.len()))
             {
-                let IndexConfig::Database {
-                    developer_config, ..
-                } = &index.config
-                else {
+                let IndexConfig::Database { spec, .. } = &index.config else {
                     unreachable!()
                 };
-                let key =
-                    doc.index_key_owned(&developer_config.fields, snapshot.persistence().version());
+                let key = doc.index_key_owned(&spec.fields, snapshot.persistence().version());
                 index_map.insert(key, rev.ts, doc);
             }
         }
@@ -302,7 +298,7 @@ impl BackendInMemoryIndexes {
     ) {
         for index_doc in index_registry.enabled_indexes_for_table(tablet_id) {
             let IndexConfig::Database {
-                developer_config,
+                spec,
                 on_disk_state,
                 ..
             } = &index_doc.config
@@ -312,7 +308,7 @@ impl BackendInMemoryIndexes {
             assert_eq!(*on_disk_state, DatabaseIndexState::Enabled); // ensured by IndexRegistry
             let mut index_map = DatabaseIndexMap::new_at(snapshot_timestamp);
             for (ts, doc) in &documents {
-                let key = doc.index_key_owned(&developer_config.fields, persistence_version);
+                let key = doc.index_key_owned(&spec.fields, persistence_version);
                 index_map.insert(key, *ts, doc.clone());
             }
             self.in_memory_indexes

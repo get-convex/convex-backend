@@ -95,7 +95,8 @@ pub async fn start_beacon(
                 tracing::info!(
                     "Beacon request with json {sent_json} sent successfully to {url}. This \
                      anonymized data is used to help Convex understand and improve the product. \
-                     You can disable this telemetry by setting the --disable-beacon flag."
+                     You can disable this telemetry by setting the --disable-beacon flag or the \
+                     DISABLE_BEACON environment variable."
                 );
             } else {
                 tracing::warn!("Beacon request failed with status: {}", response.status());

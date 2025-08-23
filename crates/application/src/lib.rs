@@ -280,6 +280,7 @@ use model::{
     },
     source_packages::{
         types::{
+            NodeVersion,
             PackageSize,
             SourcePackage,
         },
@@ -2031,7 +2032,11 @@ impl<RT: Runtime> Application<RT> {
             };
             let app_modules = config.app_definition.modules().cloned().collect();
             let app_pkg = self
-                .upload_package(&app_modules, external_deps_id_and_pkg.clone())
+                .upload_package(
+                    &app_modules,
+                    external_deps_id_and_pkg.clone(),
+                    config.node_version,
+                )
                 .await?;
             drop(permit);
             Ok((external_deps_id_and_pkg, app_pkg))
@@ -2045,7 +2050,7 @@ impl<RT: Runtime> Application<RT> {
             let upload_limit = upload_limit.clone();
             let component_pkg_future = async move {
                 let permit = upload_limit.acquire().await?;
-                let component_pkg = app.upload_package(&component_modules, None).await?;
+                let component_pkg = app.upload_package(&component_modules, None, None).await?;
                 drop(permit);
                 anyhow::Ok((definition_path, component_pkg))
             };
@@ -2242,6 +2247,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         modules: &Vec<ModuleConfig>,
         external_deps_id_and_pkg: Option<(ExternalDepsPackageId, ExternalDepsPackage)>,
+        node_version: Option<NodeVersion>,
     ) -> anyhow::Result<SourcePackage> {
         // If there are any node actions, turn on the lambdas.
         if modules
@@ -2289,6 +2295,7 @@ impl<RT: Runtime> Application<RT> {
             sha256,
             external_deps_package_id,
             package_size,
+            node_version,
         })
     }
 
@@ -2324,7 +2331,9 @@ impl<RT: Runtime> Application<RT> {
         // Write (and commit) the module source to S3.
         // This will become a dangling reference since the _modules entry won't
         // be committed to the database, but we have to deal with those anyway.
-        let source_package = self.upload_package(&vec![module.clone()], None).await?;
+        let source_package = self
+            .upload_package(&vec![module.clone()], None, None)
+            .await?;
 
         let mut tx = self.begin(identity.clone()).await?;
         let (user_environment_variables, system_env_var_overrides) = if component.is_root() {
@@ -2575,7 +2584,7 @@ impl<RT: Runtime> Application<RT> {
             {
                 if !index_metadata
                     .config
-                    .same_config(&existing_index_metadata.config)
+                    .same_spec(&existing_index_metadata.config)
                 {
                     IndexModel::new(&mut tx)
                         .drop_index(existing_index_metadata.id())

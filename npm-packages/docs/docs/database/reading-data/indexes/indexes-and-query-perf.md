@@ -173,7 +173,9 @@ The same is true for Convex indexes! When you define a new index, the first time
 you run `npx convex deploy` Convex will need to loop through all of your
 documents and index each one. This is why the first deploy after the creation of
 a new index will be slightly slower than normal; Convex has to do a bit of work
-for each document in your table.
+for each document in your table. If the table is particularly large, consider
+using a [staged index](/database/reading-data/indexes#staged-indexes) to
+complete the backfill asynchronously from the deploy.
 
 Similarly, even after an index is defined, Convex will have to do a bit of extra
 work to keep this index up to date as the data changes. Every time a document is

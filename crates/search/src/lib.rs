@@ -37,7 +37,7 @@ use aggregation::PostingListMatchAggregator;
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        text_index::DeveloperTextIndexConfig,
+        text_index::TextIndexSpec,
         IndexConfig,
     },
     document::ResolvedDocument,
@@ -257,7 +257,7 @@ impl From<&TantivySearchIndexSchema> for pb::searchlight::SearchIndexConfig {
 }
 
 impl TantivySearchIndexSchema {
-    pub fn new(index_config: &DeveloperTextIndexConfig) -> Self {
+    pub fn new(index_config: &TextIndexSpec) -> Self {
         let analyzer = convex_en();
 
         let mut schema_builder = Schema::builder();
@@ -305,21 +305,17 @@ impl TantivySearchIndexSchema {
         index: &Index,
         printable_index_name: &IndexName,
     ) -> anyhow::Result<TantivySearchIndexSchema> {
-        let IndexConfig::Text {
-            ref developer_config,
-            ..
-        } = index.metadata().config
-        else {
+        let IndexConfig::Text { ref spec, .. } = index.metadata().config else {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "IndexNotASearchIndexError",
                 format!("Index {} is not a search index", printable_index_name),
             ));
         };
-        Ok(Self::new(developer_config))
+        Ok(Self::new(spec))
     }
 
-    pub fn to_index_config(&self) -> DeveloperTextIndexConfig {
-        DeveloperTextIndexConfig {
+    pub fn to_index_config(&self) -> TextIndexSpec {
+        TextIndexSpec {
             search_field: self.search_field_path.clone(),
             filter_fields: self.filter_fields.keys().cloned().collect(),
         }
@@ -836,7 +832,7 @@ pub enum SearchFileType {
 mod test {
     use std::collections::BTreeSet;
 
-    use common::bootstrap_model::index::text_index::DeveloperTextIndexConfig;
+    use common::bootstrap_model::index::text_index::TextIndexSpec;
 
     use crate::{
         TantivySearchIndexSchema,
@@ -848,7 +844,7 @@ mod test {
     /// tantivy.
     #[test]
     fn test_field_ids_dont_change() -> anyhow::Result<()> {
-        let schema = TantivySearchIndexSchema::new(&DeveloperTextIndexConfig {
+        let schema = TantivySearchIndexSchema::new(&TextIndexSpec {
             search_field: "mySearchField".parse()?,
             filter_fields: BTreeSet::new(),
         });

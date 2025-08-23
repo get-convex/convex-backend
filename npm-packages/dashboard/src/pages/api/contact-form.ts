@@ -15,13 +15,6 @@ const RequestBodySchema = z.object({
   deploymentName: z.string().optional(),
 });
 
-const UserSchema = z.object({
-  email: z.string(),
-  email_verified: z.boolean(),
-  name: z.string().optional(),
-  nickname: z.string().optional(),
-});
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ResponseData>,
@@ -30,16 +23,6 @@ export default async function handler(
   if (!session) {
     captureMessage("No session found");
     return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const { user } = session;
-
-  let validatedUser: z.infer<typeof UserSchema>;
-  try {
-    validatedUser = UserSchema.parse(user);
-  } catch (error: any) {
-    captureException(error);
-    return res.status(500).json({ error: "Internal Server Error" });
   }
 
   let body: z.infer<typeof RequestBodySchema>;
@@ -64,7 +47,6 @@ export default async function handler(
       },
       body: JSON.stringify({
         ...body,
-        user: validatedUser,
       }),
     });
 
