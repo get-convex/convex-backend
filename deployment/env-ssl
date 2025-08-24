@@ -1,0 +1,14 @@
+# Convex Self-Hosted Configuration with Cloud SQL SSL
+CONVEX_CLOUD_ORIGIN=https://api.jbci-convex-dev.com
+CONVEX_SITE_ORIGIN=https://jbci-convex-dev.com  
+NEXT_PUBLIC_DEPLOYMENT_URL=https://api.jbci-convex-dev.com
+
+# PostgreSQL connection with SSL certificate verification
+POSTGRES_URL=postgresql://convex_user:97RVwP7X%2BoW7b9SzLqavvUxT4UlJhkD4z5RltU%2FHNz4%3D@35.221.121.252:5432
+
+# SSL configuration for PostgreSQL
+PGSSLMODE=verify-ca
+PGSSLROOTCERT=/etc/ssl/certs/server-ca.pem
+
+# Debug logging
+RUST_LOG=info

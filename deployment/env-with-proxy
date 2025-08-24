@@ -1,0 +1,14 @@
+# Convex Self-Hosted Configuration with Cloud SQL Auth Proxy
+CONVEX_CLOUD_ORIGIN=https://api.jbci-convex-dev.com
+CONVEX_SITE_ORIGIN=https://jbci-convex-dev.com  
+NEXT_PUBLIC_DEPLOYMENT_URL=https://api.jbci-convex-dev.com
+
+# PostgreSQL connection through Cloud SQL Auth Proxy
+# Proxy runs on cloudsql-proxy:5432 and handles TLS termination
+POSTGRES_URL=postgresql://convex_user:97RVwP7X%2BoW7b9SzLqavvUxT4UlJhkD4z5RltU%2FHNz4%3D@cloudsql-proxy:5432
+
+# SSL is handled by the proxy, so we can disable it for the direct connection
+DO_NOT_REQUIRE_SSL=1
+
+# Optional: Enable debug logging
+RUST_LOG=info

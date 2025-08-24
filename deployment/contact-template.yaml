@@ -1,0 +1,44 @@
+# Google Cloud Domains 登録用連絡先情報
+# jbci-dify.comと同じ連絡先情報を使用
+
+registrantContact:
+  email: "s.kishiya@jbci-ai.com"
+  phoneNumber: "+81.312345678"
+  postalAddress:
+    addressLines:
+      - "1-1-1 Tokyo"
+    administrativeArea: "Tokyo"
+    locality: "Tokyo"
+    organization: "JBCI"
+    postalCode: "100-0001"
+    recipients:
+      - "JBCI Tech Team"
+    regionCode: "JP"
+
+adminContact:
+  email: "s.kishiya@jbci-ai.com"
+  phoneNumber: "+81.312345678"
+  postalAddress:
+    addressLines:
+      - "1-1-1 Tokyo"
+    administrativeArea: "Tokyo"
+    locality: "Tokyo"
+    organization: "JBCI"
+    postalCode: "100-0001"
+    recipients:
+      - "JBCI Tech Team"
+    regionCode: "JP"
+
+technicalContact:
+  email: "s.kishiya@jbci-ai.com"
+  phoneNumber: "+81.312345678"
+  postalAddress:
+    addressLines:
+      - "1-1-1 Tokyo"
+    administrativeArea: "Tokyo"
+    locality: "Tokyo"
+    organization: "JBCI"
+    postalCode: "100-0001"
+    recipients:
+      - "JBCI Tech Team"
+    regionCode: "JP"

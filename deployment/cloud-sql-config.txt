@@ -1,0 +1,7 @@
+# Google Cloud SQL Configuration for Convex
+INSTANCE_NAME=convex-postgres
+PRIVATE_IP=35.221.121.252
+DB_NAME=convex_self_hosted
+DB_USER=convex_user
+DB_PASSWORD=97RVwP7X+oW7b9SzLqavvUxT4UlJhkD4z5RltU/HNz4=
+POSTGRES_URL=postgresql://convex_user:97RVwP7X+oW7b9SzLqavvUxT4UlJhkD4z5RltU/HNz4=@35.221.121.252:5432

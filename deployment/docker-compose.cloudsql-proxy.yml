@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  cloudsql-proxy:
+    image: gcr.io/cloudsql-docker/gce-proxy:1.33.2
+    container_name: convex-cloudsql-proxy
+    command: [
+      "/cloud_sql_proxy",
+      "-credential_file=/secrets/cloudsql-key.json",
+      "-instances=${PROJECT_ID}:${REGION}:${INSTANCE_NAME}=tcp:0.0.0.0:5432"
+    ]
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./keys/convex-cloudsql-proxy-key.json:/secrets/cloudsql-key.json:ro
+    environment:
+      - PROJECT_ID=${PROJECT_ID:-your-project-id}
+      - REGION=${REGION:-asia-northeast1}
+      - INSTANCE_NAME=${INSTANCE_NAME:-convex-postgres}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 5432 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudsql-network
+
+networks:
+  cloudsql-network:
+    driver: bridge
+
+# Usage:
+# 1. Set environment variables:
+#    export PROJECT_ID=your-project-id
+#    export REGION=asia-northeast1
+#    export INSTANCE_NAME=convex-postgres
+#
+# 2. Run the proxy:
+#    docker-compose -f docker-compose.cloudsql-proxy.yml up -d
+#
+# 3. Connect to PostgreSQL:
+#    psql -h localhost -p 5432 -U your-db-user -d your-database
