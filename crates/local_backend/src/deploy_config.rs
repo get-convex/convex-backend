@@ -26,12 +26,15 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use keybroker::Identity;
-use model::config::{
-    types::{
-        ConfigFile,
-        ModuleConfig,
+use model::{
+    config::{
+        types::{
+            ConfigFile,
+            ModuleConfig,
+        },
+        ConfigModel,
     },
-    ConfigModel,
+    source_packages::SourcePackageModel,
 };
 use runtime::prod::ProdRuntime;
 use serde::{
@@ -39,7 +42,10 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
-use value::ConvexObject;
+use value::{
+    ConvexObject,
+    TableNamespace,
+};
 
 use crate::{
     admin::{
@@ -68,6 +74,7 @@ pub struct GetConfigHashesResponse {
     pub config: JsonValue,
     pub module_hashes: Vec<ModuleHashJson>,
     pub udf_server_version: Option<String>,
+    pub node_version: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -233,11 +240,17 @@ pub async fn get_config_hashes(
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.to_internal_json();
 
+    let node_version = SourcePackageModel::new(&mut tx, TableNamespace::Global)
+        .get_latest()
+        .await?
+        .and_then(|v| v.node_version.map(|v| v.into()));
+
     let udf_server_version = udf_config.map(|config| format!("{}", config.server_version));
     Ok(Json(GetConfigHashesResponse {
         config,
         module_hashes,
         udf_server_version,
+        node_version,
     }))
 }
 

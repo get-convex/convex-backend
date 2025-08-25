@@ -44,6 +44,16 @@ impl FromStr for NodeVersion {
     }
 }
 
+impl From<NodeVersion> for String {
+    fn from(value: NodeVersion) -> String {
+        match value {
+            NodeVersion::V18x => "18".to_string(),
+            NodeVersion::V20x => "20".to_string(),
+            NodeVersion::V22x => "22".to_string(),
+        }
+    }
+}
+
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourcePackage {
