@@ -73,6 +73,32 @@ describe("HTTPClient", () => {
     expect(result[0].description).toStrictEqual(EXAMPLE_DATA[0].description);
   });
 
+  test("Run a text search with several filters in a query", async () => {
+    const result = await httpClient.query(
+      api.textSearch.fullTextSearchQuerySeveralFilters,
+      {
+        query: "al pastor",
+        theLetterA: "a",
+        cuisine: "mexican",
+        bOrC: "b",
+      },
+    );
+    expect(result[0].description).toStrictEqual(EXAMPLE_DATA[0].description);
+  });
+
+  test("Run a text search with several filters in a query that returns nothing", async () => {
+    const result = await httpClient.query(
+      api.textSearch.fullTextSearchQuerySeveralFilters,
+      {
+        query: "al pastor",
+        theLetterA: "MATCHES NOTHING",
+        cuisine: "mexican",
+        bOrC: "b",
+      },
+    );
+    expect(result).toHaveLength(0);
+  });
+
   test("Run a paginated text search with a filter in a query", async () => {
     const firstPage = await httpClient.query(
       api.textSearch.paginatedFullTextSearchQuery,

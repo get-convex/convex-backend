@@ -5,6 +5,8 @@ export const EXAMPLE_DATA = [
     description:
       'Al pastor (from Spanish, "shepherd style"), tacos al pastor, or tacos de trompo is a preparation of spit-grilled slices of pork originating in the Central Mexican region of Puebla and Mexico City, although today it is a common menu item found in taquerías throughout Mexico. The method of preparing and cooking al pastor is based on the lamb shawarma brought by Lebanese immigrants to the region. Al pastor features a flavor palate that uses traditional Mexican adobada (marinade). It is a popular street food that has spread to the United States. In some places of northern Mexico and coastal Mexico, such as in Baja California, taco al pastor is known as taco de trompo or taco de adobada.',
     cuisine: "mexican",
+    theLetterA: "a",
+    bOrC: "b",
     embedding: [
       -0.0031041119, 0.0029732254, -0.01904157, -0.016107125, 0.003435368,
       0.010845809, -0.016934458, -0.026603904, -0.024794113, -0.035187475,
@@ -319,6 +321,8 @@ export const EXAMPLE_DATA = [
     description:
       'Cacio e pepe is a pasta dish from the cuisine of the city of Rome.  Cacio e pepe means "cheese and pepper" in several central Italian dialects. In keeping with its name, the dish contains grated Pecorino Romano cheese and black pepper, together with spaghetti, or traditionally tonnarelli. All the ingredients keep well for a long time, which made the dish practical for shepherds without fixed abode. Rough-surfaced pasta is recommended, to make the sauce adhere well.',
     cuisine: "italian",
+    theLetterA: "a",
+    bOrC: "c",
     embedding: [
       0.0027501548, 0.0070374557, 0.017309602, 0.009744169, 0.015317995,
       -0.003572194, -0.022816595, -0.028711217, -0.042986624, -0.025022065,

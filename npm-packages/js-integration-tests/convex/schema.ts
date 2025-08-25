@@ -65,6 +65,8 @@ export default defineSchema({
   foods: defineTable({
     description: v.string(),
     cuisine: v.string(),
+    theLetterA: v.string(),
+    bOrC: v.string(),
     embedding: v.array(v.float64()),
   })
     .vectorIndex("by_embedding", {
@@ -74,8 +76,9 @@ export default defineSchema({
     })
     .searchIndex("by_description", {
       searchField: "description",
-      filterFields: ["cuisine"],
+      filterFields: ["theLetterA", "cuisine", "bOrC"],
     }),
+
   // This table serves as a test to ensure virtual ids can be represented
   // within schemas as foreign keys.
   virtualForeignKeys: defineTable({
