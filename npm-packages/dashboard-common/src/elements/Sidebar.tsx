@@ -18,6 +18,7 @@ export type SidebarItem = {
   isActive?: (currentPage: string) => boolean;
   disabled?: boolean;
   tooltip?: string;
+  target?: "_blank";
 };
 
 export type SidebarGroup = {
