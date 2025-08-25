@@ -20,7 +20,14 @@ import {
   useTokenUsage,
 } from "hooks/usageMetrics";
 import { Team, ProjectDetails } from "generatedApi";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
 import { useProjects } from "api/projects";
@@ -34,6 +41,7 @@ import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { DateRange, useCurrentBillingPeriod } from "api/usage";
+import { cn } from "@ui/cn";
 import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,
@@ -140,7 +148,7 @@ export function TeamUsage({ team }: { team: Team }) {
     projectId === null;
 
   return (
-    <div>
+    <div className="[--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">
       <div className="flex justify-between">
         <h2>Usage</h2>
         {subscription !== undefined && (
@@ -238,15 +246,17 @@ export function TeamUsage({ team }: { team: Team }) {
                 showEntitlements={showEntitlements}
               />
 
-              <Sheet padding={false} className="pb-4">
-                <div className="mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-                  <h3>Functions breakdown by project</h3>
-
-                  <FunctionBreakdownSelector
-                    value={functionBreakdownTabIndex}
-                    onChange={setFunctionBreakdownTabIndex}
-                  />
-                </div>
+              <TeamUsageSection
+                header={
+                  <>
+                    <h3>Functions breakdown by project</h3>
+                    <FunctionBreakdownSelector
+                      value={functionBreakdownTabIndex}
+                      onChange={setFunctionBreakdownTabIndex}
+                    />
+                  </>
+                }
+              >
                 <div className="px-4">
                   {!metricsByFunction || !projects ? (
                     <ChartLoading />
@@ -266,7 +276,7 @@ export function TeamUsage({ team }: { team: Team }) {
                     />
                   )}
                 </div>
-              </Sheet>
+              </TeamUsageSection>
             </div>
           </>
         )}
@@ -517,17 +527,20 @@ function DatabaseUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-          <h3>Database</h3>
-
-          <Tab.List className="flex gap-2">
-            <UsageTab>Storage</UsageTab>
-            <UsageTab>Bandwidth</UsageTab>
-            <UsageTab>Document Count</UsageTab>
-          </Tab.List>
-        </div>
+    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TeamUsageSection
+        ref={ref}
+        header={
+          <>
+            <h3>Database</h3>
+            <Tab.List className="flex gap-2">
+              <UsageTab>Storage</UsageTab>
+              <UsageTab>Bandwidth</UsageTab>
+              <UsageTab>Document Count</UsageTab>
+            </Tab.List>
+          </>
+        }
+      >
         <Tab.Panels className="px-4">
           <Tab.Panel>
             {showEntitlements && (
@@ -582,8 +595,8 @@ function DatabaseUsage({
             )}
           </Tab.Panel>
         </Tab.Panels>
-      </Tab.Group>
-    </Sheet>
+      </TeamUsageSection>
+    </Tab.Group>
   );
 }
 
@@ -632,10 +645,10 @@ function FunctionCallsUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4">
-        <h3>Daily function calls</h3>
-      </div>
+    <TeamUsageSection
+      ref={ref}
+      header={<h3 className="py-2">Daily function calls</h3>}
+    >
       <div className="px-4">
         {showEntitlements && (
           <UsageOverview
@@ -656,7 +669,7 @@ function FunctionCallsUsage({
           />
         )}
       </div>
-    </Sheet>
+    </TeamUsageSection>
   );
 }
 
@@ -706,10 +719,10 @@ function ActionComputeUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4">
-        <h3>Action Compute</h3>
-      </div>
+    <TeamUsageSection
+      ref={ref}
+      header={<h3 className="py-2">Action Compute</h3>}
+    >
       <div className="px-4">
         {showEntitlements && (
           <UsageOverview
@@ -730,7 +743,7 @@ function ActionComputeUsage({
           />
         )}
       </div>
-    </Sheet>
+    </TeamUsageSection>
   );
 }
 
@@ -799,16 +812,19 @@ function FilesUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-          <h3>Files</h3>
-
-          <Tab.List className="flex gap-2">
-            <UsageTab>Storage</UsageTab>
-            <UsageTab>Bandwidth</UsageTab>
-          </Tab.List>
-        </div>
+    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TeamUsageSection
+        ref={ref}
+        header={
+          <>
+            <h3>Files</h3>
+            <Tab.List className="flex gap-2">
+              <UsageTab>Storage</UsageTab>
+              <UsageTab>Bandwidth</UsageTab>
+            </Tab.List>
+          </>
+        }
+      >
         <Tab.Panels className="px-4">
           <Tab.Panel>
             {showEntitlements && (
@@ -854,8 +870,8 @@ function FilesUsage({
             )}
           </Tab.Panel>
         </Tab.Panels>
-      </Tab.Group>
-    </Sheet>
+      </TeamUsageSection>
+    </Tab.Group>
   );
 }
 function VectorUsage({
@@ -922,16 +938,19 @@ function VectorUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-          <h3>Vector Indexes</h3>
-
-          <Tab.List className="flex gap-2">
-            <UsageTab>Storage</UsageTab>
-            <UsageTab>Bandwidth</UsageTab>
-          </Tab.List>
-        </div>
+    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TeamUsageSection
+        ref={ref}
+        header={
+          <>
+            <h3>Vector Indexes</h3>
+            <Tab.List className="flex gap-2">
+              <UsageTab>Storage</UsageTab>
+              <UsageTab>Bandwidth</UsageTab>
+            </Tab.List>
+          </>
+        }
+      >
         <Tab.Panels className="px-4">
           <Tab.Panel>
             {showEntitlements && (
@@ -975,8 +994,8 @@ function VectorUsage({
             )}
           </Tab.Panel>
         </Tab.Panels>
-      </Tab.Group>
-    </Sheet>
+      </TeamUsageSection>
+    </Tab.Group>
   );
 }
 
@@ -984,3 +1003,31 @@ function useHasSubscription(teamId?: number): boolean | undefined {
   const { subscription: orbSub } = useTeamOrbSubscription(teamId);
   return orbSub === undefined ? undefined : orbSub !== null;
 }
+
+const TeamUsageSection = forwardRef<
+  HTMLDivElement,
+  React.PropsWithChildren<{ header: React.ReactNode }>
+>(function TeamUsageSection({ header, children }, ref) {
+  return (
+    <section
+      className="scroll-mt-(--section-sticky-top) [--section-sticky-top:calc(var(--team-usage-toolbar-height)_+_--spacing(3))]"
+      ref={ref}
+    >
+      <header
+        className={cn(
+          "sticky top-(--section-sticky-top) z-10",
+
+          // This pseudo-element makes sure that the contents of the elements aren’t visible above the section header when it is sticky
+          "before:absolute before:inset-x-0 before:-top-4 before:h-12 before:bg-background-primary",
+        )}
+      >
+        <div className="relative flex w-full flex-wrap items-center justify-between gap-4 rounded-t-lg border bg-background-secondary p-4 py-2">
+          {header}
+        </div>
+      </header>
+      <Sheet padding={false} className="rounded-t-none border-t-0 py-4">
+        {children}
+      </Sheet>
+    </section>
+  );
+});
