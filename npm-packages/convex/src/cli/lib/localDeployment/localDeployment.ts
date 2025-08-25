@@ -84,6 +84,7 @@ export async function handleLocalDeployment(
     options.backendVersion === undefined
       ? {
           kind: "latest",
+          allowedVersion: existingDeploymentForProject?.config.backendVersion,
         }
       : { kind: "version", version: options.backendVersion },
   );
