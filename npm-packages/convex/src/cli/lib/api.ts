@@ -24,7 +24,7 @@ export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
 export type DeploymentType = AccountRequiredDeploymentType | "anonymous";
 
 export type Project = {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   isDemo: boolean;

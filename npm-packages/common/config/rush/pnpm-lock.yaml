@@ -390,7 +390,7 @@ importers:
         specifier: ^0.11.0
         version: 0.11.0(react@18.3.1)
       convex:
-        specifier: ^1.25.4
+        specifier: ^1.25.0
         version: 1.25.4(@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(react@18.3.1)
       react:
         specifier: ^18.0.0 || ^19.0.0-0 || ^19.0.0
@@ -726,6 +726,15 @@ importers:
       open:
         specifier: ^8.3.0
         version: 8.4.2
+      openapi-fetch:
+        specifier: ~0.14.0
+        version: 0.14.0
+      openapi-typescript:
+        specifier: ~7.8.0
+        version: 7.8.0(typescript@5.0.4)
+      openapi-typescript-helpers:
+        specifier: ~0.0.15
+        version: 0.0.15
       openid-client:
         specifier: ^5.3.1
         version: 5.7.1

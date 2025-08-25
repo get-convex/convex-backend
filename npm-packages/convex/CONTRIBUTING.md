@@ -42,3 +42,9 @@ the 'package-json-redirects' strategy described at
 https://github.com/andrewbranch/example-subpath-exports-ts-compat in an effort
 to make the convex npm package as compatible as possible while making the
 published package mirror the filesystem of this repository.
+
+# Build notes
+
+management-api.json is a programmatically updated file that generates
+src/cli/generatedApi.ts, but generating this file is a manual process. Run
+`npm run generateManagementApiSpec` to update it.
