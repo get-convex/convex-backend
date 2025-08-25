@@ -207,13 +207,7 @@ fn deserialize_issuer_url(original_url: String) -> anyhow::Result<IssuerUrl> {
     };
     if url.starts_with("http://") {
         let parsed_url = IssuerUrl::new(url)?;
-        if parsed_url.url().host_str() == Some("localhost")
-            || parsed_url.url().host_str() == Some("127.0.0.1")
-        {
-            return Ok(parsed_url);
-        } else {
-            anyhow::bail!("Invalid provider domain URL \"{original_url}\": must use HTTPS");
-        }
+        return Ok(parsed_url);
     };
     if !url.starts_with("https://") {
         anyhow::bail!("Invalid provider domain URL \"{original_url}\": must use HTTPS");
@@ -369,9 +363,9 @@ mod tests {
     }
 
     #[test]
-    fn test_auth_info_http_fails() -> anyhow::Result<()> {
+    fn test_auth_info_file_fails() -> anyhow::Result<()> {
         let serialized = serde_json::from_str::<SerializedAuthInfo>(
-            r#"{"applicationID": "123", "domain": "http://example.com"}"#,
+            r#"{"applicationID": "123", "domain": "file://example.com"}"#,
         )?;
         AuthInfo::try_from(serialized).unwrap_err();
         Ok(())
@@ -396,12 +390,6 @@ mod tests {
             panic!("Expected Oidc AuthInfo");
         };
         assert_eq!(domain.to_string(), "http://127.0.0.1:3211");
-
-        // fails because host is not localhost
-        let serialized = serde_json::from_str::<SerializedAuthInfo>(
-            r#"{"applicationID": "123", "domain": "http://localhost.foo.com:3211"}"#,
-        )?;
-        AuthInfo::try_from(serialized).unwrap_err();
 
         Ok(())
     }
