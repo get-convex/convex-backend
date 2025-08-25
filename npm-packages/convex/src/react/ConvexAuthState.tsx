@@ -66,7 +66,7 @@ export function useConvexAuth(): {
  * and a function to fetch a JWT access token.
  *
  * If the `useAuth` prop function updates causing a rerender then auth state
- * wil transition to loading and the `fetchAccessToken()` function called again.
+ * will transition to loading and the `fetchAccessToken()` function called again.
  *
  * See [Custom Auth Integration](https://docs.convex.dev/auth/advanced/custom-auth) for more information.
  *
