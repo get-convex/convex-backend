@@ -34,7 +34,7 @@ To use a local big-brain (runs both backend and big brain locally):
 1. Run `just run-big-brain`
 2. Copy the `Test with:` line output by big-brain:
 
-`2023-07-12T19:07:07.422400Z INFO big_brain::model: Test with: CONVEX_PROVISION_HOST=http://0.0.0.0:8050 npx convex dev --override-auth-url "https://convexdev-test.us.auth0.com/" --override-auth-client "XXXXXXXXX"`
+`2023-07-12T19:07:07.422400Z INFO big_brain::model: Test with: CONVEX_PROVISION_HOST=http://0.0.0.0:8050 npx convex dev --override-auth-url "https://cheerful-lake-55-staging.authkit.app/" " --override-auth-client "XXXXXXXXX"`
 
 3. Paste it into another terminal that's in your convex directory.
 

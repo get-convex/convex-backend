@@ -61,7 +61,7 @@ function LogInButton({ code, isChef }: { code: string; isChef: boolean }) {
   const [clicked, setClicked] = useState(false);
 
   return (
-    // Using <a> instead of <Button>/<Link> to fix an issue where Auth0 would refuse to redirect
+    // Using <a> instead of <Button>/<Link> to fix an issue where auth would refuse to redirect
     // to GitHub when following the link.
     <a
       className={cn(

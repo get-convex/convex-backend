@@ -1161,7 +1161,7 @@ export function deploymentFetch(
 
 /**
  * Whether this is likely to be a WebContainer,
- * WebContainers can't complete the Auth0 login but where that login flow
+ * WebContainers can't complete the WorkOS  login but where that login flow
  * fails has changed with the environment.
  */
 export function isWebContainer(): boolean {

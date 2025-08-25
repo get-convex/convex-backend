@@ -107,16 +107,15 @@ For this, we will proxy big brain via a cors proxy. Set these values in
 `.env.local`. Some must be copied from
 [Production vercel env vars](https://vercel.com/convex-dev/dashboard/settings/environment-variables)
 
-<!--TODO: Ari update these-->
-
 ```
 NEXT_PUBLIC_BIG_BRAIN_URL=http://localhost:8080/https://api.convex.dev
-AUTH0_CLIENT_ID=nANKpAFe4scUPxW77869QHVKYAgrPwy7
-AUTH0_ISSUER_BASE_URL=https://auth.convex.dev
+WORKOS_LOGIN_URL=https://login.convex.dev
+WORKOS_LOGOUT_URL=http://127.0.0.1/login
+WORKOS_CLIENT_ID=client_01K0YV0SNPRYJ5AV4AS0VG7T1J
 DISABLE_BIG_BRAIN_SSR=1
 
-AUTH0_SECRET={copy from production env vars}
-AUTH0_CLIENT_SECRET={copy from production env vars}
+WORKOS_COOKIE_PASSWORD={copy from production env vars}
+WORKOS_API_SECRET={copy from production env vars}
 ```
 
 Run the CORS Anywhere proxy locally:

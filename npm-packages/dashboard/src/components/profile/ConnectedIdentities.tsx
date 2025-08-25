@@ -123,25 +123,10 @@ export function IdentityDisplayName({
   identity: AuthIdentityResponse;
 }) {
   let main: string | undefined;
-  let { provider } = identity;
-  let { userId } = identity;
+  const { provider } = identity;
+  const { userId } = identity;
 
-  // Special handling for OIDC
-  if (provider === "oidc" && typeof userId === "string") {
-    const [oidcProvider, ...rest] = userId.split("|");
-    if (rest.length > 0) {
-      provider = oidcProvider;
-      userId = rest[rest.length - 1];
-    }
-  }
-
-  const { profileData } = identity;
-
-  if (provider === "google-oauth2") {
-    main = profileData.email ?? undefined;
-  } else if (provider === "github") {
-    main = profileData.username ?? profileData.nickname ?? undefined;
-  } else if (provider === "vercel") {
+  if (provider === "vercel") {
     const [account, u] = userId.split(":user:");
     const accountId = account.split(":")[1];
     main = `account:${accountId.slice(0, 8)} user:${u.slice(0, 8)}`;

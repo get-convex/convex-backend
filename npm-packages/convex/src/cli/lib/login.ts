@@ -31,12 +31,6 @@ import {
 } from "./utils/globalConfig.js";
 import { updateBigBrainAuthAfterLogin } from "./deploymentSelection.js";
 
-const SCOPE = "openid email profile";
-/// This value was created long ago, and cannot be changed easily.
-/// It's just a fixed string used for identifying the Auth0 token, so it's fine
-/// and not user-facing.
-const AUDIENCE = "https://console.convex.dev/api/";
-
 // Per https://github.com/panva/node-openid-client/tree/main/docs#customizing
 custom.setHttpOptionsDefaults({
   timeout: parseInt(process.env.OPENID_CLIENT_TIMEOUT || "10000"),
@@ -92,7 +86,7 @@ export async function checkAuthorization(
 
 async function performDeviceAuthorization(
   ctx: Context,
-  auth0Client: BaseClient,
+  authClient: BaseClient,
   shouldOpen: boolean,
 ): Promise<string> {
   // Device authorization flow follows this guide: https://github.com/auth0/auth0-device-flow-cli-sample/blob/9f0f3b76a6cd56ea8d99e76769187ea5102d519d/cli.js
@@ -126,12 +120,9 @@ async function performDeviceAuthorization(
   // Get authentication URL
   let handle;
   try {
-    handle = await auth0Client.deviceAuthorization({
-      scope: SCOPE,
-      audience: AUDIENCE,
-    });
+    handle = await authClient.deviceAuthorization();
   } catch {
-    // We couldn't get verification URL from Auth0, proceed with manual auth
+    // We couldn't get verification URL from the auth provider, proceed with manual auth
     return promptString(ctx, {
       message:
         "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
@@ -223,29 +214,34 @@ async function performDeviceAuthorization(
 
 async function performPasswordAuthentication(
   ctx: Context,
-  issuer: string,
   clientId: string,
   username: string,
   password: string,
 ): Promise<string> {
+  if (!process.env.WORKOS_API_SECRET) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "WORKOS_API_SECRET environment variable is not set",
+    });
+  }
+
   // Unfortunately, `openid-client` doesn't support the resource owner password credentials flow so we need to manually send the requests.
   const options: Parameters<typeof throwingFetch>[1] = {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       grant_type: "password",
-      username: username,
+      email: username,
       password: password,
-      scope: SCOPE,
       client_id: clientId,
-      audience: AUDIENCE,
-      // Note that there is no client secret provided, as Auth0 refuses to require it for untrusted apps.
+      client_secret: process.env.WORKOS_API_SECRET,
     }),
   };
 
   try {
     const response = await throwingFetch(
-      new URL("/oauth/token", issuer).href,
+      "https://apiauth.convex.dev/user_management/authenticate",
       options,
     );
     const data = await response.json();
@@ -326,7 +322,7 @@ export async function performLogin(
   }
 
   const issuer = overrideAuthUrl ?? "https://auth.convex.dev";
-  let auth0;
+  let authIssuer;
   let accessToken: string;
 
   if (loginFlow === "paste" || (loginFlow === "auto" && isWebContainer())) {
@@ -336,7 +332,7 @@ export async function performLogin(
     });
   } else {
     try {
-      auth0 = await Issuer.discover(issuer);
+      authIssuer = await Issuer.discover(issuer);
     } catch {
       // Couldn't contact https://auth.convex.dev/.well-known/openid-configuration,
       // proceed with manual auth.
@@ -348,9 +344,9 @@ export async function performLogin(
   }
 
   // typical path
-  if (auth0) {
+  if (authIssuer) {
     const clientId = overrideAuthClient ?? "HFtA247jp9iNs08NTLIB7JsNPMmRIyfi";
-    const auth0Client = new auth0.Client({
+    const authClient = new authIssuer.Client({
       client_id: clientId,
       token_endpoint_auth_method: "none",
       id_token_signed_response_alg: "RS256",
@@ -361,7 +357,6 @@ export async function performLogin(
     } else if (overrideAuthUsername && overrideAuthPassword) {
       accessToken = await performPasswordAuthentication(
         ctx,
-        issuer,
         clientId,
         overrideAuthUsername,
         overrideAuthPassword,
@@ -369,7 +364,7 @@ export async function performLogin(
     } else {
       accessToken = await performDeviceAuthorization(
         ctx,
-        auth0Client,
+        authClient,
         open ?? true,
       );
     }

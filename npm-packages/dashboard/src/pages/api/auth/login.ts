@@ -13,13 +13,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     // Get the returnTo parameter from the query string
     const returnTo = (req.query.returnTo as string) || "/";
-    const queryConnection = req.query.connection as string;
-    const provider =
-      queryConnection === "github"
-        ? "GitHubOAuth"
-        : queryConnection === "google-oauth2"
-          ? "GoogleOAuth"
-          : "authkit";
+    const provider = "authkit";
 
     const authorizationUrl = workos.userManagement.getAuthorizationUrl({
       // Specify that we'd like AuthKit to handle the authentication flow
