@@ -446,6 +446,7 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
   switch (bbAuth.kind) {
     case "accessToken":
       break;
+    case "deploymentKey":
     case "projectKey":
     case "previewDeployKey":
       // If we have a key configured as auth, we do not need to check opt ins.

@@ -11,6 +11,7 @@ import {
   deploymentTypeFromAdminKey,
   getDeploymentTypeFromConfiguredDeployment,
   isAnonymousDeployment,
+  isDeploymentKey,
   isPreviewDeployKey,
   isProjectKey,
   stripDeploymentTypePrefix,
@@ -36,8 +37,11 @@ import * as dotenv from "dotenv";
  * * An access token (corresponds to device authorization, usually stored in `~/.convex/config.json`)
  * * A preview deploy key (set via the `CONVEX_DEPLOY_KEY` environment variable)
  * * A project key (set via the `CONVEX_DEPLOY_KEY` environment variable)
+ * * A deployment key if a deployment key (set via `CONVEX_DEPLOY_KEY` environment variable)
  *
  * Project keys take precedence over the the access token.
+ * Deployment keys take precedence over the the access token.
+ * This makes using one of these keys while logged in or logged out work the same.
  *
  * We check for the `CONVEX_DEPLOY_KEY` in the `--env-file` if it's provided.
  * Otherwise, we check in the `.env` and `.env.local` files.
@@ -63,6 +67,7 @@ export async function initializeBigBrainAuth(
       getBigBrainAuth(ctx, {
         previewDeployKey: null,
         projectKey: null,
+        deploymentKey: null,
       }),
     );
     return;
@@ -84,6 +89,7 @@ export async function initializeBigBrainAuth(
       const bigBrainAuth = getBigBrainAuth(ctx, {
         previewDeployKey: isPreviewDeployKey(deployKey) ? deployKey : null,
         projectKey: isProjectKey(deployKey) ? deployKey : null,
+        deploymentKey: isDeploymentKey(deployKey) ? deployKey : null,
       });
       ctx._updateBigBrainAuth(bigBrainAuth);
     }
@@ -96,6 +102,7 @@ export async function initializeBigBrainAuth(
     const bigBrainAuth = getBigBrainAuth(ctx, {
       previewDeployKey: isPreviewDeployKey(deployKey) ? deployKey : null,
       projectKey: isProjectKey(deployKey) ? deployKey : null,
+      deploymentKey: isDeploymentKey(deployKey) ? deployKey : null,
     });
     ctx._updateBigBrainAuth(bigBrainAuth);
     return;
@@ -104,6 +111,7 @@ export async function initializeBigBrainAuth(
     getBigBrainAuth(ctx, {
       previewDeployKey: null,
       projectKey: null,
+      deploymentKey: null,
     }),
   );
   return;
@@ -136,6 +144,7 @@ function getBigBrainAuth(
   opts: {
     previewDeployKey: string | null;
     projectKey: string | null;
+    deploymentKey: string | null;
   },
 ): BigBrainAuth | null {
   if (process.env.CONVEX_OVERRIDE_ACCESS_TOKEN) {
@@ -151,6 +160,14 @@ function getBigBrainAuth(
       header: `Bearer ${opts.projectKey}`,
       kind: "projectKey",
       projectKey: opts.projectKey,
+    };
+  }
+  if (opts.deploymentKey !== null) {
+    // Deployment keys take precedence over global config.
+    return {
+      header: `Bearer ${opts.deploymentKey}`,
+      kind: "deploymentKey",
+      deploymentKey: opts.deploymentKey,
     };
   }
   const globalConfig = readGlobalConfig(ctx);
