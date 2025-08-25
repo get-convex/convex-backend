@@ -487,6 +487,17 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
   return true;
 }
 
+export async function getTeamsForUser(ctx: Context) {
+  const teams = await bigBrainAPI<{ id: number; name: string; slug: string }[]>(
+    {
+      ctx,
+      method: "GET",
+      url: "teams",
+    },
+  );
+  return teams;
+}
+
 export async function ensureLoggedIn(
   ctx: Context,
   options?: {

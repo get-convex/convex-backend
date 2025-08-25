@@ -14,7 +14,7 @@ export async function bigBrainStart(
   return bigBrainAPI({
     ctx,
     method: "POST",
-    url: "/api/local_deployment/start",
+    url: "local_deployment/start",
     data,
   });
 }
@@ -29,7 +29,7 @@ export async function bigBrainPause(
   return bigBrainAPI({
     ctx,
     method: "POST",
-    url: "/api/local_deployment/pause",
+    url: "local_deployment/pause",
     data,
   });
 }
@@ -43,7 +43,7 @@ export async function bigBrainRecordActivity(
   return bigBrainAPI({
     ctx,
     method: "POST",
-    url: "/api/local_deployment/record_activity",
+    url: "local_deployment/record_activity",
     data,
   });
 }
@@ -54,7 +54,7 @@ export async function bigBrainEnableFeatureMetadata(
   return bigBrainAPI({
     ctx,
     method: "POST",
-    url: "/api/local_deployment/enable_feature_metadata",
+    url: "local_deployment/enable_feature_metadata",
     data: {},
   });
 }
@@ -69,7 +69,7 @@ export async function bigBrainGenerateAdminKeyForAnonymousDeployment(
   return bigBrainAPI({
     ctx,
     method: "POST",
-    url: "/api/local_deployment/generate_admin_key",
+    url: "local_deployment/generate_admin_key",
     data,
   });
 }
@@ -94,7 +94,7 @@ export async function projectHasExistingCloudDev(
   >({
     ctx,
     method: "POST",
-    url: "/api/deployment/existing_dev",
+    url: "deployment/existing_dev",
     data: { projectSlug, teamSlug },
   });
   if (response.kind === "Exists") {
