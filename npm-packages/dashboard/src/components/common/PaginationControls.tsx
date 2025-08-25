@@ -5,6 +5,7 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
+import { cn } from "@ui/cn";
 
 interface PaginationControlsProps {
   currentPage: number;
@@ -24,7 +25,7 @@ export function PaginationControls({
   }
 
   return (
-    <div className={`flex items-center justify-center gap-2 ${className}`}>
+    <div className={cn("flex items-center justify-center gap-2", className)}>
       {/* First page button */}
       <Button
         variant="neutral"
