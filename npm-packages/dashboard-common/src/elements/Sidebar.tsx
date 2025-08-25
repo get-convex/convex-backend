@@ -93,7 +93,6 @@ export function Sidebar({
         tipSide="right"
         className={classNames(
           sidebarLinkClassNames({
-            isHoverable: true,
             small: true,
           }),
           "sm:flex hidden",
@@ -184,8 +183,6 @@ export function SidebarLink({
 export function sidebarLinkClassNames(props: {
   // defaults to false
   isActive?: boolean;
-  // defaults to true
-  isHoverable?: boolean;
   // default to false
   isDisabled?: boolean;
   // defaults to normal sans font
@@ -206,9 +203,7 @@ export function sidebarLinkClassNames(props: {
     (props.fitWidth ?? true) ? "min-w-fit" : null,
     props.font === "mono" && "font-mono px-1 py-1",
     props.small ? "p-1.5" : "px-3 py-2",
-    !props.isDisabled && (props.isHoverable ?? true)
-      ? "cursor-pointer hover:bg-background-primary"
-      : null,
+    !props.isDisabled ? "cursor-pointer hover:bg-background-primary" : null,
     "focus-visible:outline-0 focus-visible:ring-2 focus-visible:ring-util-accent",
     (props.isActive ?? false) ? "font-semibold bg-background-tertiary" : null,
     props.isDisabled
