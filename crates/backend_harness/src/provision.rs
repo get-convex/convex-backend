@@ -358,7 +358,7 @@ fn start_local_funrun(
         Command::new(funrun_binary)
             .arg("--register-database")
             .arg(format!(
-                "local=sqlite://{}",
+                "local=sqlite=sqlite://{}",
                 db_path.to_str().expect("Invalid db path")
             ))
             .arg("--metrics-addr")

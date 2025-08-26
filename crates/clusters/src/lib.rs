@@ -111,6 +111,16 @@ pub fn parse_cluster_name_to_url(s: &str) -> anyhow::Result<(String, Url)> {
     Ok((cluster_name.to_owned(), url.parse()?))
 }
 
+// Parse a single line with format "db-name=db-driver=URL".
+pub fn parse_cluster_name_to_driver_and_url(
+    s: &str,
+) -> anyhow::Result<(String, (DbDriverTag, Url))> {
+    let [cluster_name, db_driver, url] = s.splitn(3, '=').collect::<Vec<_>>()[..] else {
+        anyhow::bail!("invalid `db-name=db-driver=URL` entry: wrong number of `=` found in `{s}`")
+    };
+    Ok((cluster_name.to_owned(), (db_driver.parse()?, url.parse()?)))
+}
+
 /// Path to a file containing one `db-name=URL` entry per line. The URL
 /// should be of the format `mysql://user:pass@host:port`, where `user`
 /// and `pass` should be percent-encoded.
@@ -127,4 +137,24 @@ pub fn parse_cluster_urls(contents: String) -> anyhow::Result<HashMap<String, Ur
         })
         .map(parse_cluster_name_to_url)
         .collect::<anyhow::Result<HashMap<String, Url>>>()
+}
+
+/// Path to a file containing one `db-name=db-driver=URL` entry per line. The
+/// URL should be of the format `mysql://user:pass@host:port`, where `user`
+/// and `pass` should be percent-encoded.
+pub fn parse_cluster_urls_with_driver(
+    contents: String,
+) -> anyhow::Result<HashMap<String, (DbDriverTag, Url)>> {
+    contents
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+        .map(parse_cluster_name_to_driver_and_url)
+        .collect::<anyhow::Result<HashMap<String, (DbDriverTag, Url)>>>()
 }
