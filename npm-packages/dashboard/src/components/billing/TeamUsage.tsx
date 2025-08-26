@@ -285,6 +285,22 @@ function FunctionBreakdownSection({
     itemsPerPage: 20,
   });
 
+  // Reset the page number when the filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    team,
+    projectId,
+    componentPrefix,
+    dateRange?.from,
+    dateRange?.to,
+    shownBillingPeriod.type,
+    shownBillingPeriod.from,
+    shownBillingPeriod.to,
+    functionBreakdownTabIndex,
+    setCurrentPage, // stable
+  ]);
+
   const isFunctionBreakdownBandwidthAvailable =
     shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
 
