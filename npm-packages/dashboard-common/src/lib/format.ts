@@ -10,6 +10,9 @@ type TableDefinition = {
   indexes: Index[];
   searchIndexes: SearchIndex[];
   vectorIndexes?: VectorIndex[];
+  stagedDbIndexes?: Index[];
+  stagedSearchIndexes?: SearchIndex[];
+  stagedVectorIndexes?: VectorIndex[];
   documentType: ValidatorJSON | null;
 };
 
@@ -241,27 +244,33 @@ function displayValidator(validator: ValidatorJSON): string {
   }
 }
 
-function displayIndexes(indexes: Index[]): string {
+function displayIndexes(indexes: Index[], type: "staged" | "active"): string {
   return indexes
-    .map(
-      (index) =>
-        `.index("${index.indexDescriptor}", [${index.fields
-          // Filter out system fields that start with underscore. Ideally these are filtered out in backend (CX-3805), but for now we do it here.
-          .filter((field) => (field.length > 0 ? field[0] !== "_" : true))
-          .map((field) => `"${field}"`)
-          .join(",")}])`,
-    )
+    .map((index) => {
+      const fields = `[${index.fields
+        // Filter out system fields that start with underscore. Ideally these are filtered out in backend (CX-3805), but for now we do it here.
+        .filter((field) => (field.length > 0 ? field[0] !== "_" : true))
+        .map((field) => `"${field}"`)
+        .join(",")}]`;
+      return type === "staged"
+        ? `.index("${index.indexDescriptor}", { fields: ${fields}, staged: true })`
+        : `.index("${index.indexDescriptor}", ${fields})`;
+    })
     .join("");
 }
 
-function displaySearchIndexes(searchIndexes: SearchIndex[]): string {
+function displaySearchIndexes(
+  searchIndexes: SearchIndex[],
+  type: "staged" | "active",
+): string {
   return searchIndexes
     .map(
       (searchIndex) =>
         `.searchIndex("${searchIndex.indexDescriptor}", {searchField: "${
           searchIndex.searchField
         }"
-        ${appendFilterFieldsOrEmpty(searchIndex)}})`,
+        ${appendFilterFieldsOrEmpty(searchIndex)}
+        ${appendStagedOrEmpty(type)}})`,
     )
     .join("");
 }
@@ -274,13 +283,21 @@ function appendFilterFieldsOrEmpty(index: SearchIndex | VectorIndex): string {
     : "";
 }
 
-function displayVectorIndexes(vectorIndexes: VectorIndex[]): string {
+function appendStagedOrEmpty(type: "staged" | "active"): string {
+  return type === "staged" ? ", staged: true" : "";
+}
+
+function displayVectorIndexes(
+  vectorIndexes: VectorIndex[],
+  type: "staged" | "active",
+): string {
   return vectorIndexes
     .map(
       (vectorIndex) => `.vectorIndex("${vectorIndex.indexDescriptor}"
         , {vectorField: "${vectorIndex.vectorField}"
         , dimensions: ${vectorIndex.dimensions}
         ${appendFilterFieldsOrEmpty(vectorIndex)}
+        ${appendStagedOrEmpty(type)}
       })`,
     )
     .join("");
@@ -291,9 +308,14 @@ function displayTableDefinition(tableDefinition: TableDefinition): string {
     tableDefinition.documentType ?? { type: "any" },
   );
   return `${tableDefinition.tableName}: defineTable(${documentType}
-  )${displayIndexes(tableDefinition.indexes)}${displaySearchIndexes(
-    tableDefinition.searchIndexes,
-  )}${displayVectorIndexes(tableDefinition.vectorIndexes ?? [])}`;
+  )${
+    displayIndexes(tableDefinition.indexes, "active") +
+    displayIndexes(tableDefinition.stagedDbIndexes ?? [], "staged") +
+    displaySearchIndexes(tableDefinition.searchIndexes, "active") +
+    displaySearchIndexes(tableDefinition.stagedSearchIndexes ?? [], "staged") +
+    displayVectorIndexes(tableDefinition.vectorIndexes ?? [], "active") +
+    displayVectorIndexes(tableDefinition.stagedVectorIndexes ?? [], "staged")
+  }`;
 }
 
 export function displaySchema(schema: SchemaJson, relativePath = "") {
