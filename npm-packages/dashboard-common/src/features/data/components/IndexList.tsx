@@ -15,6 +15,7 @@ import { Fragment } from "react";
 import { ProgressBar } from "@ui/ProgressBar";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
+import { Callout } from "@ui/Callout";
 
 export function IndexList({ tableName }: { tableName: string }) {
   const { selectedNent } = useNents();
@@ -38,34 +39,61 @@ export function IndexesList({
     return <Loading />;
   }
 
+  const recommendStagedIndexes = (indexes ?? []).some(
+    (index) =>
+      index.backfill.state === "backfilling" &&
+      !index.staged &&
+      index.backfill.stats?.totalDocs &&
+      index.backfill.stats.totalDocs > 10_000,
+  );
+
   const groupedIndexes = groupBy(indexes, getIndexType);
 
   return (
-    <div className="flex flex-col gap-10">
-      <IndexListSection
-        title="Indexes"
-        description="Indexes allow you to speed up your document queries by telling Convex how to organize your documents."
-        learnMoreUrl="https://docs.convex.dev/database/reading-data/indexes/"
-        indexes={groupedIndexes.database ?? []}
-        icon={FingerPrintIcon}
-        tableName={tableName}
-      />
-      <IndexListSection
-        title="Search indexes"
-        description="Search indexes allows you to find Convex documents that approximately match a textual search query."
-        learnMoreUrl="https://docs.convex.dev/search/text-search"
-        indexes={groupedIndexes.search ?? []}
-        icon={MagnifyingGlassIcon}
-        tableName={tableName}
-      />
-      <IndexListSection
-        title="Vector indexes"
-        description="Vector search allows you to find Convex documents similar to a provided vector."
-        learnMoreUrl="https://docs.convex.dev/search/vector-search"
-        indexes={groupedIndexes.vector ?? []}
-        icon={ArrowTopRightIcon}
-        tableName={tableName}
-      />
+    <div className="flex flex-col gap-6">
+      {recommendStagedIndexes && (
+        <Callout variant="hint">
+          <p>
+            <strong className="font-semibold">Hint</strong>: When adding an
+            index to a large table, consider using a{" "}
+            <a
+              href="https://docs.convex.dev/database/reading-data/indexes/#staged-indexes"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              staged index
+            </a>{" "}
+            to avoid blocking deploy.
+          </p>
+        </Callout>
+      )}
+      <div className="flex flex-col gap-10">
+        <IndexListSection
+          title="Indexes"
+          description="Indexes allow you to speed up your document queries by telling Convex how to organize your documents."
+          learnMoreUrl="https://docs.convex.dev/database/reading-data/indexes/"
+          indexes={groupedIndexes.database ?? []}
+          icon={FingerPrintIcon}
+          tableName={tableName}
+        />
+        <IndexListSection
+          title="Search indexes"
+          description="Search indexes allows you to find Convex documents that approximately match a textual search query."
+          learnMoreUrl="https://docs.convex.dev/search/text-search"
+          indexes={groupedIndexes.search ?? []}
+          icon={MagnifyingGlassIcon}
+          tableName={tableName}
+        />
+        <IndexListSection
+          title="Vector indexes"
+          description="Vector search allows you to find Convex documents similar to a provided vector."
+          learnMoreUrl="https://docs.convex.dev/search/vector-search"
+          indexes={groupedIndexes.vector ?? []}
+          icon={ArrowTopRightIcon}
+          tableName={tableName}
+        />
+      </div>
     </div>
   );
 }

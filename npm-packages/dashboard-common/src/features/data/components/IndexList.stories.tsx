@@ -156,16 +156,38 @@ export const WithUpdatingIndexes: Story = {
   },
 };
 
-export const WithLongIndex: Story = {
+export const WithComplexIndex: Story = {
   args: {
     indexes: [
       {
         table: "my-table",
-        name: "by_channel_and_message_and_author_and_modification_date",
-        fields: ["channel", "message", "author", "modificationDate"],
+        name: "by_channel_and_message_and_author_and_author_username_and_modification_date",
+        fields: [
+          "channel",
+          "message",
+          "author",
+          "author_username",
+          "modificationDate",
+        ],
         backfill: {
           state: "backfilling",
-          stats: { numDocsIndexed: 0, totalDocs: 100 },
+          stats: { numDocsIndexed: 50, totalDocs: 100 },
+        },
+      },
+    ],
+  },
+};
+
+export const RecommendStagedIndex: Story = {
+  args: {
+    indexes: [
+      {
+        table: "my-table",
+        name: "by_name",
+        fields: ["name"],
+        backfill: {
+          state: "backfilling",
+          stats: { numDocsIndexed: 5000, totalDocs: 100_000 },
         },
       },
     ],
