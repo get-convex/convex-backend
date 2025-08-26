@@ -162,11 +162,15 @@ function IndexListRow({ index }: { index: Index }) {
 
   return (
     <article className="flex flex-col gap-2 text-sm text-content-secondary">
-      <header className="flex items-center gap-2">
-        <h6 className="truncate font-mono text-sm font-medium text-content-primary">
-          {index.name}
+      <header className="flex items-center gap-1">
+        <div className="flex items-baseline gap-1">
+          <h6 className="truncate font-mono text-sm font-medium text-content-primary">
+            {index.name}
+          </h6>
+
           {isStaged && (
             <Tooltip
+              className="ml-1 flex gap-1"
               tip={
                 <div className="text-sm">
                   <p className="mb-2">
@@ -180,11 +184,16 @@ function IndexListRow({ index }: { index: Index }) {
                 </div>
               }
             >
-              <span className="ml-2 text-xs font-normal">(staged)</span>
+              <span className="text-xs text-content-tertiary underline decoration-dotted">
+                Staged
+              </span>
+              <QuestionMarkCircledIcon className="text-content-tertiary" />
             </Tooltip>
           )}
-        </h6>
-        <div className={cn("grow border-b", isStaged && "border-dashed")} />
+        </div>
+        <div
+          className={cn("ml-1 grow border-b", isStaged && "border-dashed")}
+        />
       </header>
 
       <div className="flex flex-col gap-1 pl-2">
