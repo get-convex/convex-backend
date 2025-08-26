@@ -1,0 +1,190 @@
+---
+title: Nuxt Quickstart
+sidebar_label: Nuxt
+description: "Add Convex to a Nuxt project"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/tasks.ts";
+import schema from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/convex/schema.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/nuxt/app/app.vue";
+
+Learn how to query data from Convex in a Nuxt app.
+
+This quickstart guide uses a [community-maintained](/client/vue/nuxt.md) Nuxt
+client for Convex.
+
+<StepByStep>
+  <Step title="Create a Nuxt application">
+    Create a Nuxt application using the `npm create nuxt@latest my-nuxt-app` command.
+
+    Convex will work with any of the official modules but to follow this quickstart skip installing them for now.
+
+    <br></br>
+
+    ```sh
+    npm create nuxt@latest my-nuxt-app
+    ```
+
+  </Step>
+
+  <Step title="Install the Convex library">
+    To get started, install the `convex` package and the `convex-nuxt` module to your Nuxt application.
+
+    ```sh
+    cd my-nuxt-app && npm install convex && npx nuxi module add convex-nuxt
+    ```
+
+  </Step>
+
+  <Step title="Add the Convex URL">
+    Add the Convex URL to your `nuxt.config.ts` file.
+
+    ```ts noDialect title="nuxt.config.ts"
+    export default defineNuxtConfig({
+      compatibilityDate: '2025-07-15',
+      devtools: { enabled: true },
+      modules: ['convex-nuxt'],
+      // highlight-start
+      convex: {
+        url: process.env.CONVEX_URL
+      },
+      // highlight-end
+    })
+    ```
+
+  </Step>
+
+  <Step title="Set up a Convex dev deployment">
+    Next, run `npx convex dev`. This
+    will prompt you to log in with GitHub,
+    create a project, and save your production and deployment URLs.
+
+    It will also create a `convex/` folder for you
+    to write your backend API functions in. The `dev` command
+    will then continue running to sync your functions
+    with your dev deployment in the cloud.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="Create sample data for your database">
+    In a new terminal window, create a `sampleData.jsonl`
+    file with some sample data.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="Add the sample data to your database">
+    Now that your project is ready, add a `tasks` table
+    with the sample data into your Convex database with
+    the `import` command.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="(optional) Define a schema">
+    Add a new file `schema.ts` in the `convex/` folder
+    with a description of your data.
+
+    This will declare the types of your data for optional
+    typechecking with TypeScript, and it will be also
+    enforced at runtime.
+
+    <br></br>
+
+    <Snippet
+      source={schema}
+      title="convex/schema.ts"
+    />
+
+  </Step>
+
+  <Step title="Expose a database query">
+    Add a new file `tasks.ts` in the `convex/` folder
+    with a query function that loads the data.
+
+    Exporting a query function from this file
+    declares an API function named after the file
+    and the export name, `api.tasks.get`.
+
+    <Snippet
+      source={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="Display the data in your app">
+    In `app.vue` use `useQuery` to subscribe your `api.tasks.get`
+    API function.
+
+    <Snippet
+      source={App}
+      title="app/app.vue"
+    />
+
+  </Step>
+
+  <Step title="Update script to start development server">
+    By default, Convex stores environment variables in `.env.local`, and Nuxt
+    looks for environment variables in `.env`.
+
+    To use the default `npm run dev` command,
+    update your `package.json` to use the `--dotenv .env.local` flag.
+
+    ```json title="package.json"
+    {
+      "name": "nuxt-app",
+      "private": true,
+      "type": "module",
+      "scripts": {
+        "build": "nuxt build",
+        // highlight-next-line
+        "dev": "nuxt dev --dotenv .env.local",
+        "generate": "nuxt generate",
+        "preview": "nuxt preview",
+        "postinstall": "nuxt prepare"
+      },
+      "dependencies": {
+        "convex": "^1.25.2",
+        "convex-nuxt": "^0.1.3",
+        "nuxt": "^3.17.6",
+        "vue": "^3.5.17",
+        "vue-router": "^4.5.1"
+      }
+    }
+    ```
+
+  </Step>
+
+  <Step title="Start the app">
+    Start the app, open [http://localhost:3000](http://localhost:3000) in a browser,
+    and see the list of tasks.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+For more examples, take a look at the
+[Nuxt Convex module repository](https://github.com/chris-visser/convex-nuxt).
+
+See the complete
+[Nuxt npm package documentation](https://www.npmjs.com/package/convex-nuxt).
