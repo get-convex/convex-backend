@@ -3409,12 +3409,18 @@
           "teamId",
           "deploymentName",
           "prodUrl",
-          "projectsRemaining",
-          "adminKey"
+          "projectsRemaining"
         ],
         "properties": {
           "adminKey": {
-            "$ref": "#/components/schemas/AdminKey"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AdminKey"
+              }
+            ]
           },
           "deploymentName": {
             "type": "string"
@@ -3556,7 +3562,6 @@
               "createTime",
               "deploymentType",
               "projectId",
-              "creator",
               "kind"
             ],
             "properties": {
@@ -3565,7 +3570,14 @@
                 "format": "int64"
               },
               "creator": {
-                "$ref": "#/components/schemas/MemberId"
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MemberId"
+                  }
+                ]
               },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"

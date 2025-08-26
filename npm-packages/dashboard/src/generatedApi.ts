@@ -1745,7 +1745,7 @@ export interface components {
             team: components["schemas"]["TeamSlug"];
         };
         CreateProjectResponse: {
-            adminKey: components["schemas"]["AdminKey"];
+            adminKey?: null | components["schemas"]["AdminKey"];
             deploymentName: string;
             prodUrl: string;
             projectId: components["schemas"]["ProjectId"];
@@ -1783,7 +1783,7 @@ export interface components {
         DeploymentResponse: {
             /** Format: int64 */
             createTime: number;
-            creator: components["schemas"]["MemberId"];
+            creator?: null | components["schemas"]["MemberId"];
             deploymentType: components["schemas"]["DeploymentType"];
             /** Format: int64 */
             id: number;
