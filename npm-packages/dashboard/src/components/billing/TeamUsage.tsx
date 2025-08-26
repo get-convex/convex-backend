@@ -373,6 +373,7 @@ function useUsageByProject(
           total: sumBy(rows, metric.getTotal),
         }),
       )
+      .filter((project) => project.total > 0) // Ignore projects with no data for this metric
       .sort((a, b) => b.total - a.total);
   }, [projects, callsByDeployment, metric]);
 }
@@ -454,10 +455,6 @@ function FunctionUsageBreakdownByProject({
 }) {
   const { deployments } = useDeployments(project?.id);
   const isLoadingDeployments = project && !deployments;
-
-  if (projectTotal === 0) {
-    return null;
-  }
 
   return (
     <div className="mb-4">
