@@ -17,6 +17,8 @@ export type SidebarItem = {
   href: string;
   isActive?: (currentPage: string) => boolean;
   disabled?: boolean;
+  /** muted = disabled appearance but still a clickable link */
+  muted?: boolean;
   tooltip?: string;
   target?: "_blank";
 };
@@ -113,6 +115,7 @@ export function SidebarLink({
   Icon,
   isActive,
   disabled,
+  muted,
   proBadge,
   small,
   tip,
@@ -126,6 +129,7 @@ export function SidebarLink({
   isActive: boolean;
   Icon?: React.FC<{ className?: string }>;
   disabled?: boolean;
+  muted?: boolean;
   proBadge?: boolean;
   small?: boolean;
   tip?: string;
@@ -151,6 +155,7 @@ export function SidebarLink({
       aria-disabled={disabled}
       className={sidebarLinkClassNames({
         isActive,
+        isMuted: muted || disabled,
         isDisabled: disabled,
         small,
       })}
@@ -184,6 +189,8 @@ export function sidebarLinkClassNames(props: {
   // defaults to false
   isActive?: boolean;
   // default to false
+  isMuted?: boolean;
+  // default to false
   isDisabled?: boolean;
   // defaults to normal sans font
   font?: "mono";
@@ -203,12 +210,12 @@ export function sidebarLinkClassNames(props: {
     (props.fitWidth ?? true) ? "min-w-fit" : null,
     props.font === "mono" && "font-mono px-1 py-1",
     props.small ? "p-1.5" : "px-3 py-2",
-    !props.isDisabled ? "cursor-pointer hover:bg-background-primary" : null,
+    props.isDisabled
+      ? "cursor-not-allowed"
+      : "cursor-pointer hover:bg-background-primary",
     "focus-visible:outline-0 focus-visible:ring-2 focus-visible:ring-util-accent",
     (props.isActive ?? false) ? "font-semibold bg-background-tertiary" : null,
-    props.isDisabled
-      ? "text-content-tertiary cursor-not-allowed w-fit text-left"
-      : null,
+    props.isMuted && !props.isActive ? "text-content-tertiary" : null,
   );
 }
 

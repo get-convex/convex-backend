@@ -106,7 +106,7 @@ export function DeploymentDashboardLayout({
             ? `https://dashboard.convex.dev/d/${deploymentName}/history`
             : `${uriPrefix}/history`,
           target: isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined,
-          disabled: !auditLogsEnabled,
+          muted: !auditLogsEnabled,
           tooltip: auditLogsEnabled
             ? undefined
             : "Deployment history is only available on the Pro plan.",
