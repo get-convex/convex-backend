@@ -121,6 +121,7 @@ export async function runNonComponentsPush(
   const { diffString, stats } = diffConfig(
     remoteConfigWithModuleHashes,
     localConfig,
+    true,
   );
   if (diffString === "" && schemaState?.state === "active") {
     if (verbose) {

@@ -58,6 +58,7 @@ export interface ProjectConfig {
   functions: string;
   node: {
     externalPackages: string[];
+    nodeVersion?: string;
   };
   generateCommonJSApi: boolean;
   // deprecated
@@ -82,6 +83,7 @@ export interface Config {
   nodeDependencies: NodeDependency[];
   schemaId?: string;
   udfServerVersion?: string;
+  nodeVersion?: string;
 }
 
 export interface ConfigWithModuleHashes {
@@ -127,18 +129,32 @@ export async function parseProjectConfig(
     obj.node = {
       externalPackages: [],
     };
-  } else if (typeof obj.node.externalPackages === "undefined") {
-    obj.node.externalPackages = [];
-  } else if (
-    !Array.isArray(obj.node.externalPackages) ||
-    !obj.node.externalPackages.every((item: any) => typeof item === "string")
-  ) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem data",
-      printedMessage:
-        "Expected `node.externalPackages` in `convex.json` to be an array of strings",
-    });
+  } else {
+    if (typeof obj.node.externalPackages === "undefined") {
+      obj.node.externalPackages = [];
+    } else if (
+      !Array.isArray(obj.node.externalPackages) ||
+      !obj.node.externalPackages.every((item: any) => typeof item === "string")
+    ) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage:
+          "Expected `node.externalPackages` in `convex.json` to be an array of strings",
+      });
+    }
+
+    if (
+      typeof obj.node.nodeVersion !== "undefined" &&
+      typeof obj.node.nodeVersion !== "string"
+    ) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage:
+          "Expected `node.nodeVersion` in `convex.json` to be a string",
+      });
+    }
   }
   if (typeof obj.generateCommonJSApi === "undefined") {
     obj.generateCommonJSApi = false;
@@ -209,29 +225,34 @@ export async function parseProjectConfig(
 function parseBackendConfig(obj: any): {
   functions: string;
   authInfo?: AuthInfo[];
+  nodeVersion?: string;
 } {
-  if (typeof obj !== "object") {
+  function throwParseError(message: string) {
     // Unexpected error
     // eslint-disable-next-line no-restricted-syntax
-    throw new ParseError("Expected an object");
+    throw new ParseError(message);
   }
-  const { functions, authInfo } = obj;
+  if (typeof obj !== "object") {
+    throwParseError("Expected an object");
+  }
+  const { functions, authInfo, nodeVersion } = obj;
   if (typeof functions !== "string") {
-    // Unexpected error
-    // eslint-disable-next-line no-restricted-syntax
-    throw new ParseError("Expected functions to be a string");
+    throwParseError("Expected functions to be a string");
   }
 
   // Allow the `authInfo` key to be omitted
   if ((authInfo ?? null) !== null && !isAuthInfos(authInfo)) {
-    // Unexpected error
-    // eslint-disable-next-line no-restricted-syntax
-    throw new ParseError("Expected authInfo to be type AuthInfo[]");
+    throwParseError("Expected authInfo to be type AuthInfo[]");
+  }
+
+  if (typeof nodeVersion !== "undefined" && typeof nodeVersion !== "string") {
+    throwParseError("Expected nodeVersion to be a string");
   }
 
   return {
     functions,
     ...((authInfo ?? null) !== null ? { authInfo: authInfo } : {}),
+    ...((nodeVersion ?? null) !== null ? { nodeVersion: nodeVersion } : {}),
   };
 }
 
@@ -452,6 +473,7 @@ export async function configFromProjectConfig(
       // This could be different than the version of `convex` the app runs with
       // if the CLI is installed globally.
       udfServerVersion: version,
+      nodeVersion: projectConfig.node.nodeVersion,
     },
     bundledModuleInfos,
   };
@@ -661,10 +683,11 @@ export async function pullConfig(
     const backendConfig = parseBackendConfig(data.config);
     const projectConfig = {
       ...backendConfig,
-      // This field is not stored in the backend, which is ok since it is also
-      // not used to diff configs.
       node: {
+        // This field is not stored in the backend, which is ok since it is also
+        // not used to diff configs.
         externalPackages: [],
+        nodeVersion: data.nodeVersion,
       },
       // This field is not stored in the backend, it only affects the client.
       generateCommonJSApi: false,
@@ -754,6 +777,7 @@ export function configJSON(
     adminKey,
     pushMetrics,
     bundledModuleInfos,
+    nodeVersion: config.nodeVersion,
   };
 }
 
@@ -968,12 +992,20 @@ function compareModules(
 export function diffConfig(
   oldConfig: ConfigWithModuleHashes,
   newConfig: Config,
-): { diffString: string; stats: ModuleDiffStats } {
-  const { diffString, stats } = compareModules(
-    oldConfig.moduleHashes,
-    newConfig.modules,
-  );
-  let diff = diffString;
+  // We don't want to diff modules on the components push path
+  // because it has its own diffing logic.
+  shouldDiffModules: boolean,
+): { diffString: string; stats?: ModuleDiffStats } {
+  let diff = "";
+  let stats: ModuleDiffStats | undefined;
+  if (shouldDiffModules) {
+    const { diffString, stats: moduleStats } = compareModules(
+      oldConfig.moduleHashes,
+      newConfig.modules,
+    );
+    diff = diffString;
+    stats = moduleStats;
+  }
   const droppedAuth = [];
   if (
     oldConfig.projectConfig.authInfo !== undefined &&
@@ -1035,6 +1067,16 @@ export function diffConfig(
   if (versionMessage) {
     diff += "Change the server's function version:\n";
     diff += versionMessage;
+  }
+
+  if (oldConfig.projectConfig.node.nodeVersion !== newConfig.nodeVersion) {
+    diff += "Change the server's version for Node.js actions:\n";
+    if (oldConfig.projectConfig.node.nodeVersion) {
+      diff += `[-] ${oldConfig.projectConfig.node.nodeVersion}\n`;
+    }
+    if (newConfig.nodeVersion) {
+      diff += `[+] ${newConfig.nodeVersion}\n`;
+    }
   }
 
   return { diffString: diff, stats };
