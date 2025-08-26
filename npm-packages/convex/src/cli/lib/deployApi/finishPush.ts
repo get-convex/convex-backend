@@ -73,8 +73,8 @@ export type DeveloperIndexConfig = z.infer<typeof developerIndexConfig>;
 export const indexDiff = looseObject({
   added_indexes: z.array(developerIndexConfig),
   removed_indexes: z.array(developerIndexConfig),
-  enabled_indexes: z.array(developerIndexConfig).optional(),
-  disabled_indexes: z.array(developerIndexConfig).optional(),
+  enabled_indexes: z.array(developerIndexConfig),
+  disabled_indexes: z.array(developerIndexConfig),
 });
 export type IndexDiff = z.infer<typeof indexDiff>;
 

@@ -476,7 +476,7 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    if (rootDiff.enabled_indexes && rootDiff.enabled_indexes.length > 0) {
+    if (rootDiff.enabled_indexes.length > 0) {
       let msg = opts.dryRun
         ? `These indexes would be enabled:\n`
         : `These indexes are now enabled:\n`;
@@ -486,7 +486,7 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    if (rootDiff.disabled_indexes && rootDiff.disabled_indexes.length > 0) {
+    if (rootDiff.disabled_indexes.length > 0) {
       let msg = opts.dryRun
         ? `These indexes would be staged:\n`
         : `These indexes are now staged:\n`;

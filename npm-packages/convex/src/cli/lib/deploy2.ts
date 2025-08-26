@@ -157,9 +157,9 @@ export async function waitForSchema(
           msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready)...`;
           // Set a more specific message if the backfill is taking a long time
           if (Date.now() - start > 10_000) {
-            const rootDiff = startPush.schemaChange.indexDiffs?.[""];
+            const rootDiff = startPush.schemaChange.indexDiffs[""];
             const indexName = (
-              rootDiff?.added_indexes[0] || rootDiff?.enabled_indexes?.[0]
+              rootDiff.added_indexes[0] || rootDiff.enabled_indexes[0]
             )?.name;
             if (indexName) {
               const table = indexName.split(".")[0];
