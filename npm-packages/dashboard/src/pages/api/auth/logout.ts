@@ -38,8 +38,12 @@ export default async function handler(
         `https://${process.env.WORKOS_REDIRECT_URI_OVERRIDE}`
       }/login`,
     });
+    const secure =
+      // We only use secure cookies in production because development environments might use HTTP
+      // (most browsers tolerate secure cookies on localhost, but not Safari)
+      process.env.NODE_ENV === "production" ? " Secure;" : "";
     res.setHeader("Set-Cookie", [
-      "wos-session=deleted; Max-Age=-1; Path=/; HttpOnly; Secure; SameSite=Lax",
+      `wos-session=deleted; Max-Age=-1; Path=/; HttpOnly;${secure} SameSite=Lax`,
     ]);
     res.redirect(logoutUrl);
   } catch (error) {
