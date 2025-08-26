@@ -90,7 +90,16 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
           confirmText="Delete"
           variant="danger"
           dialogTitle="Delete Email"
-          dialogBody="Deleting this email will remove it from your account."
+          dialogBody={
+            <div className="flex flex-col gap-1">
+              <p>Deleting this email will remove it from your account.</p>
+              <p>
+                Note: If you login again later with a connected identity
+                associated with this email, this email will be re-added to your
+                account.
+              </p>
+            </div>
+          }
           error={error}
           validationText={email.email}
         />
