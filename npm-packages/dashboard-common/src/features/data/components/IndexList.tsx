@@ -5,7 +5,7 @@ import {
   ArrowTopRightIcon,
 } from "@radix-ui/react-icons";
 import { FingerPrintIcon } from "@heroicons/react/24/outline";
-import { Index, IndexType } from "@common/features/data/lib/api";
+import { Index } from "@common/features/data/lib/api";
 import { useNents } from "@common/lib/useNents";
 import { Loading } from "@ui/Loading";
 import { Spinner } from "@ui/Spinner";
@@ -49,7 +49,6 @@ export function IndexesList({
         indexes={groupedIndexes.database ?? []}
         icon={FingerPrintIcon}
         tableName={tableName}
-        indexType="database"
       />
       <IndexListSection
         title="Search indexes"
@@ -58,7 +57,6 @@ export function IndexesList({
         indexes={groupedIndexes.search ?? []}
         icon={MagnifyingGlassIcon}
         tableName={tableName}
-        indexType="search"
       />
       <IndexListSection
         title="Vector indexes"
@@ -67,7 +65,6 @@ export function IndexesList({
         indexes={groupedIndexes.vector ?? []}
         icon={ArrowTopRightIcon}
         tableName={tableName}
-        indexType="vector"
       />
     </div>
   );
@@ -80,7 +77,6 @@ function IndexListSection({
   indexes,
   icon: Icon,
   tableName,
-  indexType,
 }: {
   title: string;
   description: string;
@@ -88,7 +84,6 @@ function IndexListSection({
   indexes: Index[];
   icon: React.FC<{ className?: string }>;
   tableName: string;
-  indexType: IndexType;
 }) {
   const indexesByName = groupBy(indexes, "name");
 
@@ -125,7 +120,6 @@ function IndexListSection({
             <IndexListRow
               key={`${index.name} ${indexesByName[index.name].indexOf(index)}`}
               index={index}
-              indexType={indexType}
             />
           ))}
         </div>
@@ -134,43 +128,7 @@ function IndexListSection({
   );
 }
 
-function stagedIndexSyntaxForType(indexType: IndexType) {
-  switch (indexType) {
-    case "database":
-      return ".stagedIndex()";
-    case "search":
-      return ".stagedSearchIndex()";
-    case "vector":
-      return ".stagedVectorIndex()";
-    default: {
-      indexType satisfies never;
-      return "unknown";
-    }
-  }
-}
-
-function indexSyntaxForType(indexType: IndexType) {
-  switch (indexType) {
-    case "database":
-      return ".index()";
-    case "search":
-      return ".searchIndex()";
-    case "vector":
-      return ".vectorIndex()";
-    default: {
-      indexType satisfies never;
-      return "unknown";
-    }
-  }
-}
-
-function IndexListRow({
-  index,
-  indexType,
-}: {
-  index: Index;
-  indexType: IndexType;
-}) {
+function IndexListRow({ index }: { index: Index }) {
   const { fields } = index;
   const isStaged = index.staged === true;
 
@@ -185,9 +143,11 @@ function IndexListRow({
                 <div className="text-sm">
                   <p className="mb-2">
                     Staged indexes are not queryable. To enable this index,
-                    replace <code>{stagedIndexSyntaxForType(indexType)}</code>{" "}
-                    with <code>{indexSyntaxForType(indexType)}</code> in your{" "}
-                    <code>schema.ts</code> file.
+                    remove{" "}
+                    <code className="whitespace-nowrap">
+                      {"{ staged: true }"}
+                    </code>{" "}
+                    in your <code>schema.ts</code> file.
                   </p>
                 </div>
               }
@@ -320,7 +280,9 @@ function IndexBackfillProgress({
   );
 }
 
-function getIndexType(index: Index): IndexType | "unknown" {
+function getIndexType(
+  index: Index,
+): "database" | "search" | "vector" | "unknown" {
   if (Array.isArray(index.fields)) {
     return "database";
   }
