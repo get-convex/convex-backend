@@ -42,6 +42,8 @@ import { useRouter } from "next/router";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { DateRange, useCurrentBillingPeriod } from "api/usage";
 import { cn } from "@ui/cn";
+import { usePagination } from "hooks/usePagination";
+import { PaginationControls } from "elements/PaginationControls";
 import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,
@@ -62,7 +64,6 @@ import {
 } from "./TeamUsageByFunctionChart";
 import { UsageBarChart, UsageStackedBarChart } from "./UsageBarChart";
 import {
-  TeamUsageError,
   UsageChartUnavailable,
   UsageDataNotAvailable,
   UsageNoDataError,
@@ -103,18 +104,6 @@ export function TeamUsage({ team }: { team: Team }) {
     shownBillingPeriod.type !== "currentBillingPeriod"
       ? { from: shownBillingPeriod.from, to: shownBillingPeriod.to }
       : null;
-
-  const metricsByFunction = useUsageTeamMetricsByFunction(
-    team.id,
-    dateRange,
-    projectId,
-    componentPrefix,
-  );
-
-  const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
-
-  const isFunctionBreakdownBandwidthAvailable =
-    shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
 
   const { subscription } = useTeamOrbSubscription(team?.id);
 
@@ -246,37 +235,13 @@ export function TeamUsage({ team }: { team: Team }) {
                 showEntitlements={showEntitlements}
               />
 
-              <TeamUsageSection
-                header={
-                  <>
-                    <h3>Functions breakdown by project</h3>
-                    <FunctionBreakdownSelector
-                      value={functionBreakdownTabIndex}
-                      onChange={setFunctionBreakdownTabIndex}
-                    />
-                  </>
-                }
-              >
-                <div className="px-4">
-                  {!metricsByFunction || !projects ? (
-                    <ChartLoading />
-                  ) : functionBreakdownTabIndex === 0 ||
-                    isFunctionBreakdownBandwidthAvailable ? (
-                    <FunctionUsageBreakdown
-                      team={team}
-                      projects={projects}
-                      metricsByDeployment={metricsByFunction}
-                      metric={
-                        FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex]
-                      }
-                    />
-                  ) : (
-                    <UsageDataNotAvailable
-                      entity={`Breakdown by ${FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex].name}`}
-                    />
-                  )}
-                </div>
-              </TeamUsageSection>
+              <FunctionBreakdownSection
+                team={team}
+                dateRange={dateRange}
+                projectId={projectId}
+                componentPrefix={componentPrefix}
+                shownBillingPeriod={shownBillingPeriod}
+              />
             </div>
           </>
         )}
@@ -284,25 +249,114 @@ export function TeamUsage({ team }: { team: Team }) {
   );
 }
 
-function useUsageByProject(
-  callsByDeployment: AggregatedFunctionMetrics[],
-  projects: ProjectDetails[],
-  metric: FunctionBreakdownMetric,
-): {
+function FunctionBreakdownSection({
+  team,
+  dateRange,
+  projectId,
+  componentPrefix,
+  shownBillingPeriod,
+}: {
+  team: Team;
+  dateRange: DateRange | null;
+  projectId: number | null;
+  componentPrefix: string | null;
+  shownBillingPeriod: Period;
+}) {
+  const projects = useProjects(team.id);
+
+  const metricsByFunction = useUsageTeamMetricsByFunction(
+    team.id,
+    dateRange,
+    projectId,
+    componentPrefix,
+  );
+
+  const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
+  const metric = FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex];
+  const usageByProject = useUsageByProject(metricsByFunction, projects, metric);
+
+  const {
+    visibleItems: visibleProjects,
+    totalPages,
+    currentPage,
+    setCurrentPage,
+  } = usePagination({
+    items: usageByProject ?? [],
+    itemsPerPage: 20,
+  });
+
+  const isFunctionBreakdownBandwidthAvailable =
+    shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
+
+  return (
+    <TeamUsageSection
+      header={
+        <>
+          <h3>Functions breakdown by project</h3>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <FunctionBreakdownSelector
+              value={functionBreakdownTabIndex}
+              onChange={setFunctionBreakdownTabIndex}
+            />
+
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </>
+      }
+    >
+      <div className="px-4">
+        {!metricsByFunction || !projects ? (
+          <ChartLoading />
+        ) : functionBreakdownTabIndex === 0 ||
+          isFunctionBreakdownBandwidthAvailable ? (
+          <FunctionUsageBreakdown
+            team={team}
+            usageByProject={visibleProjects}
+            metricsByDeployment={metricsByFunction}
+            metric={metric}
+          />
+        ) : (
+          <UsageDataNotAvailable
+            entity={`Breakdown by ${FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex].name}`}
+          />
+        )}
+      </div>
+    </TeamUsageSection>
+  );
+}
+
+type UsageInProject = {
   key: string;
   project: ProjectDetails | null;
   rows: AggregatedFunctionMetrics[];
   total: number;
-}[] {
+};
+
+function useUsageByProject(
+  callsByDeployment: AggregatedFunctionMetrics[] | undefined,
+  projects: ProjectDetails[] | undefined,
+  metric: FunctionBreakdownMetric,
+): UsageInProject[] | undefined {
   return useMemo(() => {
+    if (callsByDeployment === undefined || projects === undefined) {
+      return undefined;
+    }
+
     const byProject = groupBy(callsByDeployment, (row) => row.projectId);
     return Object.entries(byProject)
-      .map(([projectId, rows]) => ({
-        key: projectId,
-        project: projects.find((p) => p.id === rows[0].projectId) ?? null,
-        rows,
-        total: sumBy(rows, metric.getTotal),
-      }))
+      .map(
+        ([projectId, rows]): UsageInProject => ({
+          key: projectId,
+          project: projects.find((p) => p.id === rows[0].projectId) ?? null,
+          rows,
+          total: sumBy(rows, metric.getTotal),
+        }),
+      )
       .sort((a, b) => b.total - a.total);
   }, [projects, callsByDeployment, metric]);
 }
@@ -312,39 +366,27 @@ function ChartLoading() {
 }
 
 function FunctionUsageBreakdown({
-  projects,
+  usageByProject,
   team,
   metricsByDeployment,
   metric,
 }: {
-  projects: ProjectDetails[];
+  usageByProject: UsageInProject[];
   metricsByDeployment: AggregatedFunctionMetrics[];
   metric: FunctionBreakdownMetric;
   team: Team;
 }) {
-  const usageByProject = useUsageByProject(
-    metricsByDeployment,
-    projects,
-    metric,
+  const maxValue = useMemo(
+    () => Math.max(...metricsByDeployment.map(metric.getTotal)),
+    [metricsByDeployment, metric],
   );
 
   if (usageByProject.length === 0) {
     return <UsageNoDataError entity={metric.name} />;
   }
 
-  const maxValue = Math.max(...metricsByDeployment.map(metric.getTotal));
-
   if (maxValue === 0) {
     return <UsageNoDataError entity={metric.name} />;
-  }
-
-  if (usageByProject.length > 100) {
-    return (
-      <TeamUsageError
-        title="Too many projects to show the full breakdown"
-        description="To view detailed breakdowns, please select a specific project in the header at the top."
-      />
-    );
   }
 
   return (

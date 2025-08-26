@@ -47,7 +47,7 @@ export function PaginationControls({
       />
 
       {/* Page indicator */}
-      <span className="text-sm text-content-secondary">
+      <span className="text-sm text-content-secondary tabular-nums">
         Page {currentPage} of {totalPages}
       </span>
 
