@@ -1,5 +1,4 @@
-import React from "react";
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
 import { useConvexAuth } from "./ConvexAuthState.js";
 
 /**
@@ -17,12 +16,20 @@ export function Authenticated({ children }: { children: ReactNode }) {
 
 /**
  * Renders children if the client is using authentication but is not authenticated.
+ * If `loadingEqualsUnauthenticated` is `true`, also renders children while the
+ * client is authenticating.
  *
  * @public
  */
-export function Unauthenticated({ children }: { children: ReactNode }) {
+export function Unauthenticated({
+  children,
+  loadingEqualsUnauthenticated = false,
+}: {
+  children: ReactNode;
+  loadingEqualsUnauthenticated?: boolean;
+}) {
   const { isLoading, isAuthenticated } = useConvexAuth();
-  if (isLoading || isAuthenticated) {
+  if ((isLoading && !loadingEqualsUnauthenticated) || isAuthenticated) {
     return null;
   }
   return <>{children}</>;
