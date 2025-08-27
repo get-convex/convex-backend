@@ -99,7 +99,7 @@ export function ScheduledFunctionsContentToolbar({
             "You do not have permission to cancel scheduled runs in production."
           }
         >
-          Cancel All
+          Cancel All {currentOpenFunction && "(for the selected function)"}
         </Button>
 
         <div className="ml-auto">
