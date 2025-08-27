@@ -542,9 +542,9 @@ pub struct ConsoleAccessToken {
 
 impl ConsoleAccessToken {
     #[cfg(any(test, feature = "testing"))]
-    pub fn new(email: String, sub: String) -> Self {
+    pub fn new(email: Option<String>, sub: String) -> Self {
         Self {
-            email: Some(email),
+            email,
             sub,
             name: None,
             vercel: None,
