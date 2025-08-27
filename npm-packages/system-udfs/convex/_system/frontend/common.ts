@@ -63,6 +63,11 @@ export type FunctionExecutionCompletion = {
   requestId: string;
   executionId: string;
   usageStats?: UsageStats;
+  caller: string;
+  environment: string;
+  identityType: string;
+  parentExecutionId: string | null;
+  executionTimestamp?: number;
 };
 
 export type FunctionExecutionProgess = {
