@@ -1415,39 +1415,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/set_jwt_cookie": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["set_jwt_cookie"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/link_identity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Link a secondary identity to a user's account */
-        post: operations["link_identity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/unlink_identity": {
         parameters: {
             query?: never;
@@ -1482,17 +1449,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/update_primary_identity": {
+    "/identities": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description List simplified identities grouped by WorkOS user ID */
+        get: operations["identities"];
         put?: never;
-        /** @description Change the primary identity for a user's account by unlinking and relinking. */
-        post: operations["update_primary_identity"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1706,10 +1673,6 @@ export interface components {
         CancelInvitationArgs: {
             email: string;
         };
-        ChangePrimaryIdentityRequest: {
-            newPrimaryProvider: string;
-            newPrimaryUserId: string;
-        };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
         };
@@ -1875,6 +1838,11 @@ export interface components {
             /** Format: int64 */
             tokensUsed: number;
         };
+        IdentityResponse: {
+            email?: string | null;
+            id: string;
+            providers: string[];
+        };
         InstanceAuthForDashboardInteractionsResponse: {
             adminKey: components["schemas"]["SerializedAccessToken"];
             instanceUrl: string;
@@ -1911,9 +1879,6 @@ export interface components {
         };
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
-        };
-        LinkIdentityRequest: {
-            fromProfile: boolean;
         };
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
@@ -2267,7 +2232,6 @@ export type AuthorizeDiscordAccountRequest = components['schemas']['AuthorizeDis
 export type AuthorizeResponse = components['schemas']['AuthorizeResponse'];
 export type BillingContactResponse = components['schemas']['BillingContactResponse'];
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
-export type ChangePrimaryIdentityRequest = components['schemas']['ChangePrimaryIdentityRequest'];
 export type ChangeSubscriptionPlanArgs = components['schemas']['ChangeSubscriptionPlanArgs'];
 export type CheckOauthAppArgs = components['schemas']['CheckOauthAppArgs'];
 export type CloudBackupId = components['schemas']['CloudBackupId'];
@@ -2297,12 +2261,12 @@ export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResp
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
 export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse'];
+export type IdentityResponse = components['schemas']['IdentityResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
-export type LinkIdentityRequest = components['schemas']['LinkIdentityRequest'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
@@ -4356,30 +4320,6 @@ export interface operations {
             };
         };
     };
-    set_jwt_cookie: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: never;
-    };
-    link_identity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LinkIdentityRequest"];
-            };
-        };
-        responses: never;
-    };
     unlink_identity: {
         parameters: {
             query?: never;
@@ -4413,19 +4353,24 @@ export interface operations {
             };
         };
     };
-    update_primary_identity: {
+    identities: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangePrimaryIdentityRequest"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResponse"][];
+                };
             };
         };
-        responses: never;
     };
     list_oauth_apps_for_team: {
         parameters: {

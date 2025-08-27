@@ -2468,29 +2468,6 @@
         }
       }
     },
-    "/set_jwt_cookie": {
-      "post": {
-        "operationId": "set_jwt_cookie",
-        "responses": {}
-      }
-    },
-    "/link_identity": {
-      "post": {
-        "description": "Link a secondary identity to a user's account",
-        "operationId": "link_identity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LinkIdentityRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {}
-      }
-    },
     "/unlink_identity": {
       "post": {
         "description": "Unlink a secondary identity from a user's account",
@@ -2529,21 +2506,25 @@
         }
       }
     },
-    "/update_primary_identity": {
-      "post": {
-        "description": "Change the primary identity for a user's account by unlinking and relinking.",
-        "operationId": "update_primary_identity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangePrimaryIdentityRequest"
+    "/identities": {
+      "get": {
+        "description": "List simplified identities grouped by WorkOS user ID",
+        "operationId": "identities",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdentityResponse"
+                  }
+                }
               }
             }
-          },
-          "required": true
-        },
-        "responses": {}
+          }
+        }
       }
     },
     "/teams/{team_id}/oauth_apps": {
@@ -3253,21 +3234,6 @@
         },
         "additionalProperties": false
       },
-      "ChangePrimaryIdentityRequest": {
-        "type": "object",
-        "required": [
-          "newPrimaryProvider",
-          "newPrimaryUserId"
-        ],
-        "properties": {
-          "newPrimaryProvider": {
-            "type": "string"
-          },
-          "newPrimaryUserId": {
-            "type": "string"
-          }
-        }
-      },
       "ChangeSubscriptionPlanArgs": {
         "type": "object",
         "required": [
@@ -3934,6 +3900,30 @@
           }
         }
       },
+      "IdentityResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "providers"
+        ],
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "InstanceAuthForDashboardInteractionsResponse": {
         "oneOf": [
           {
@@ -4062,17 +4052,6 @@
             "items": {
               "$ref": "#/components/schemas/InvoiceResponse"
             }
-          }
-        }
-      },
-      "LinkIdentityRequest": {
-        "type": "object",
-        "required": [
-          "fromProfile"
-        ],
-        "properties": {
-          "fromProfile": {
-            "type": "boolean"
           }
         }
       },
