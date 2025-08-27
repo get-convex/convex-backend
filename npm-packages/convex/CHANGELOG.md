@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.26.2
+
+- Fix for pushing schemas to older (self-hosted) deployment builds.
+
+## 1.26.0
 
 - Add support for staged indexes. Instead of blocking on push, a staged index
   backfills while you push more changes to a deployment, then can be used once
