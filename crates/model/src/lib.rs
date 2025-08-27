@@ -199,6 +199,11 @@ use crate::{
     exports::ExportsTable,
     external_packages::EXTERNAL_PACKAGES_TABLE,
     log_sinks::LOG_SINKS_TABLE,
+    schema_validation_progress::{
+        SchemaValidationProgressTable,
+        SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
+        SCHEMA_VALIDATION_PROGRESS_TABLE,
+    },
 };
 
 pub mod airbyte_import;
@@ -222,6 +227,7 @@ mod metrics;
 pub mod migrations;
 pub mod modules;
 pub mod scheduled_jobs;
+pub mod schema_validation_progress;
 pub mod session_requests;
 pub mod snapshot_imports;
 pub mod source_packages;
@@ -265,9 +271,10 @@ enum DefaultTableNumber {
     CanonicalUrls = 34,
     CronNextRun = 35,
     IndexBackfills = 36,
+    SchemaValidationProgress = 37,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 37 - emma
+    // Next Number - 38 - emma
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -310,6 +317,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::CanonicalUrls => &CanonicalUrlsTable,
             DefaultTableNumber::CronNextRun => &CronNextRunTable,
             DefaultTableNumber::IndexBackfills => &IndexBackfillTable,
+            DefaultTableNumber::SchemaValidationProgress => &SchemaValidationProgressTable,
         }
     }
 }
@@ -557,6 +565,7 @@ pub fn component_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &ModulesTable,
         &UdfConfigTable,
         &SourcePackagesTable,
+        &SchemaValidationProgressTable,
     ]
 }
 
@@ -626,6 +635,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         FUNCTION_HANDLES_TABLE.clone() => 102,
         CANONICAL_URLS_TABLE.clone() => 116,
         INDEX_BACKFILLS_TABLE.clone() => 120,
+        SCHEMA_VALIDATION_PROGRESS_TABLE.clone() => 122,
     }
 });
 
@@ -652,6 +662,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         BY_COMPONENT_PATH_INDEX.name() => 102,
         EXPORTS_BY_REQUESTOR.name() => 110,
         INDEX_BACKFILLS_BY_INDEX_ID.name() => 120,
+        SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID.name() => 122,
     }
 });
 
