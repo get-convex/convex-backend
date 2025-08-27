@@ -45,7 +45,7 @@ export function LogLinesOutput({ output }: { output: Output[] }) {
   ) : null;
 }
 
-function messagesToString(output: Output): string {
+export function messagesToString(output: Output): string {
   return output.messages
     .map((message) => {
       let newMessage: string = message;
@@ -54,7 +54,7 @@ function messagesToString(output: Output): string {
         message.startsWith("'") &&
         message.endsWith("'")
       ) {
-        newMessage = slashUnescape(message);
+        newMessage = slashUnescape(message).slice(1, -1);
       }
       return newMessage;
     })
@@ -64,8 +64,12 @@ function messagesToString(output: Output): string {
 const slashReplacements: Record<string, string> = {
   "\\\\": "\\",
   "\\n": "\n",
+  "\\'": "'",
 };
 
 function slashUnescape(contents: string) {
-  return contents.replace(/\\(\\|n)/g, (replace) => slashReplacements[replace]);
+  return contents.replace(
+    /\\(\\|n|')/g,
+    (replace) => slashReplacements[replace],
+  );
 }
