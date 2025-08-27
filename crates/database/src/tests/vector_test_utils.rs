@@ -273,7 +273,11 @@ impl VectorFixtures {
         )
     }
 
-    pub async fn run_compaction_during_flush(&self, pause: PauseController) -> anyhow::Result<()> {
+    pub async fn run_compaction_during_flush(
+        &self,
+        pause: PauseController,
+        flusher_type: FlusherType,
+    ) -> anyhow::Result<()> {
         let flusher = new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
@@ -283,7 +287,7 @@ impl VectorFixtures {
             0,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             8,
-            FlusherType::LiveFlush,
+            flusher_type,
         );
         let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
         let flush = flusher.step();

@@ -494,7 +494,9 @@ mod tests {
 
         // Run the compactor / flusher concurrently in a way where the compactor
         // wins the race.
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+            .await?;
 
         // Verify we propagate the new deletes to the compacted segment and retain our
         // new segment.
@@ -545,7 +547,9 @@ mod tests {
 
         // For last iteration, run the compactor / flusher concurrently in a way where
         // the compactor wins the race.
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::Backfill)
+            .await?;
 
         // There should be 2 segments left: the compacted segment and the new segment
         // from flush
@@ -603,7 +607,9 @@ mod tests {
 
         // Run the compactor / flusher concurrently in a way where the compactor
         // wins the race.
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+            .await?;
 
         // Verify we propagate the new deletes to the compacted segment and retain our
         // new segment.
@@ -680,7 +686,9 @@ mod tests {
         }
         fixtures.db.commit(tx).await?;
 
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+            .await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
         assert_eq!(1, segments.len());
