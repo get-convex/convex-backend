@@ -1983,6 +1983,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
+name = "const_format"
+version = "0.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "126f97965c8ad46d6d9163268ff28432e8f6a1196a55578867832e3049df63dd"
+dependencies = [
+ "const_format_proc_macros",
+ "konst",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d57c2eccfb16dbac1f4e61e206105db5820c9d26c3c472bc17c774259ef7744"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-xid",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4952,6 +4973,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "konst"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330f0e13e6483b8c34885f7e6c9f19b1a7bd449c673fbb948a51c99d66ef74f4"
+dependencies = [
+ "konst_macro_rules",
+]
+
+[[package]]
+name = "konst_macro_rules"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4933f3f57a8e9d9da04db23fb153356ecaf00cbd14aee46279c33dc80925c37"
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6718,6 +6754,7 @@ dependencies = [
  "bytes",
  "cmd_util",
  "common",
+ "const_format",
  "fastrace",
  "futures",
  "futures-async-stream",
