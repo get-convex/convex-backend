@@ -86,10 +86,10 @@ jobs:
       - name: NPM install globals
         run: npm ci --prefix scripts
 
-      - name: Install JS
+      - name: Build JS required by Isolate
         run: |
           just rush install
-          just rush build
+          just rush build -t component-tests -t convex -t system-udfs -t udf-runtime -t udf-tests
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@cargo-nextest
