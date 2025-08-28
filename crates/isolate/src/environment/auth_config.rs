@@ -245,9 +245,9 @@ impl AuthConfigEnvironment {
         let default_str = strings::default.create(&mut scope)?;
         let config_val: v8::Local<v8::Value> = namespace
             .get(&mut scope, default_str.into())
-            .ok_or(AuthConfigMissingExportError)?;
+            .ok_or_else(missing_export_error)?;
         if config_val.is_null_or_undefined() {
-            anyhow::bail!(AuthConfigMissingExportError);
+            anyhow::bail!(missing_export_error());
         }
 
         let config_str = json_stringify(&mut scope, config_val)?;
@@ -258,19 +258,15 @@ impl AuthConfigEnvironment {
         check_for_common_confusions(&config_str)?;
 
         let config: AuthConfig = serde_json::from_str::<SerializedAuthConfig>(&config_str)
-            .map_err(|error| AuthConfigNotMatchingSchemaError {
-                error: strip_position(&error.to_string()),
-            })?
+            .map_err(|error| config_not_matching_schema_error(strip_position(&error.to_string())))?
             .try_into()?;
         Ok(config)
     }
 }
 
 fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
-    let raw_config: JsonValue =
-        serde_json::from_str(config_str).map_err(|error| AuthConfigNotMatchingSchemaError {
-            error: strip_position(&error.to_string()),
-        })?;
+    let raw_config: JsonValue = serde_json::from_str(config_str)
+        .map_err(|error| config_not_matching_schema_error(strip_position(&error.to_string())))?;
 
     if let JsonValue::Object(ref config_obj) = raw_config {
         if let Some(JsonValue::Array(providers)) = config_obj.get("providers") {
@@ -287,57 +283,50 @@ fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown");
                     if has_bad_application_id {
-                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
-                            error: format!(
-                                "Provider at index {} must have applicationID property spelled \
-                                 lowercase 'application', capital I, capital D.",
-                                index
-                            ),
-                        });
+                        anyhow::bail!(config_not_matching_schema_error(format!(
+                            "Provider at index {} must have applicationID property spelled \
+                             lowercase 'application', capital I, capital D.",
+                            index
+                        )));
                     }
                     if type_value != "customJwt" && type_value != "oidc" && type_value != "unknown"
                     {
-                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
-                            error: format!(
-                                "Provider at index {} has unexpected 'type' value '{}'",
-                                index, type_value
-                            ),
-                        });
+                        anyhow::bail!(config_not_matching_schema_error(format!(
+                            "Provider at index {} has unexpected 'type' value '{}'",
+                            index, type_value
+                        )));
                     }
 
                     if type_value == "customJwt" && has_domain {
-                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
-                            error: format!(
-                                "Provider at index {} is a customJwt so cannot have a 'domain' \
-                                 specified",
-                                index,
-                            ),
-                        });
+                        anyhow::bail!(config_not_matching_schema_error(format!(
+                            "Provider at index {} is a customJwt so cannot have a 'domain' \
+                             specified",
+                            index,
+                        )));
                     }
 
                     let is_oidc = type_value == "oidc" || type_value == "unknown";
                     if is_oidc && has_issuer {
-                        anyhow::bail!(AuthConfigNotMatchingSchemaError {
-                            error: format!(
-                                "Provider at index {} is oidc so cannot have an 'issuer' \
-                                 specified.",
-                                index,
-                            ),
-                        });
+                        anyhow::bail!(config_not_matching_schema_error(format!(
+                            "Provider at index {} is oidc so cannot have an 'issuer' specified.",
+                            index,
+                        )));
                     }
 
                     if !has_application_id
                         && (issuer == Some("https://api.workos.com/")
                             || issuer == Some("https://api.workos.com"))
                     {
-                        anyhow::bail!(InsecureConfiguration {
-                            error: format!(
-                                "Provider at index {} has an issuer that is shared among many \
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "InsecureConfiguration",
+                            format!(
+                                "This auth configuration appears potentially insecure: Provider \
+                                 at index {} has an issuer that is shared among many \
                                  applications, so must to specify an ApplicationID to check \
                                  against an `aud` field of a JWT.",
                                 index,
                             ),
-                        });
+                        ));
                     }
                 }
             }
@@ -366,7 +355,12 @@ fn json_stringify(
     let json_stringify_fn = v8::Local::<v8::Function>::try_from(json_stringify_fn).unwrap();
     let result = json_stringify_fn
         .call(scope, value, &[value])
-        .ok_or(AuthConfigUnserializableError)?;
+        .ok_or_else(|| {
+            ErrorMetadata::bad_request(
+                "AuthConfigUnserializableError",
+                format!("auth config file can only contain strings {SEE_AUTH_DOCS}"),
+            )
+        })?;
     let result: v8::Local<v8::String> = result.try_into()?;
     helpers::to_rust_string(scope, &result)
 }
@@ -374,24 +368,18 @@ fn json_stringify(
 const SEE_AUTH_DOCS: &str =
     "To learn more, see the auth documentation at https://docs.convex.dev/auth.";
 
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
-#[error("auth config file is missing default export. {SEE_AUTH_DOCS}")]
-pub struct AuthConfigMissingExportError;
-
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
-#[error("auth config file can only contain strings {SEE_AUTH_DOCS}")]
-pub struct AuthConfigUnserializableError;
-
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
-#[error("auth config file must include a list of provider credentials: {error}")]
-pub struct AuthConfigNotMatchingSchemaError {
-    error: String,
+pub fn missing_export_error() -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "AuthConfigMissingExportError",
+        format!("auth config file is missing default export. {SEE_AUTH_DOCS}"),
+    )
 }
 
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
-#[error("This auth configuration appears potentially insecure: {error}")]
-pub struct InsecureConfiguration {
-    error: String,
+pub fn config_not_matching_schema_error(error: String) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "AuthConfigNotMatchingSchemaError",
+        format!("auth config file must include a list of provider credentials: {error}"),
+    )
 }
 
 #[cfg(test)]
