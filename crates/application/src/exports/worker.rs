@@ -191,7 +191,6 @@ impl<RT: Runtime> ExportWorker<RT> {
 
         let database_snapshot = self.database.latest_database_snapshot()?;
         let snapshot_ts = *database_snapshot.timestamp();
-        tracing::info!(%snapshot_ts, "Export {id} beginning...");
         let components = ExportComponents {
             runtime: self.runtime.clone(),
             database: database_snapshot,
@@ -260,6 +259,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         let (object_key, usage) = {
             let export_future = async {
                 if let Some(token) = resumption_token {
+                    tracing::info!(?token, "Export {id} resuming...");
                     match self
                         .export_provider
                         .resume_export(self.instance_name.clone(), token, id, &update_progress)
@@ -271,10 +271,12 @@ impl<RT: Runtime> ExportWorker<RT> {
                             report_error(&mut err).await;
                         },
                     }
+                    tracing::warn!("Export failed to resume");
                     // If we couldn't resume, just start a new export. We don't
                     // bother deleting the resumption token here - just assume
                     // it'll get rewritten soon.
                 }
+                tracing::info!(%snapshot_ts, "Export {id} beginning...");
                 self.export_provider
                     .export(
                         &components,
