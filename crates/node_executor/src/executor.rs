@@ -41,7 +41,6 @@ use futures::{
     Stream,
     StreamExt,
 };
-use http::Uri;
 use isolate::{
     deserialize_udf_custom_error,
     deserialize_udf_result,
@@ -615,7 +614,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
 
                 json!({
                     "type": "build_deps",
-                    "uploadUrl": JsonValue::from(r.upload_url.to_string()),
+                    "uploadUrl": JsonValue::String(r.upload_url),
                     "deps": JsonValue::Array(deps),
                 })
             },
@@ -653,7 +652,7 @@ impl From<SourcePackage> for JsonValue {
 #[derive(Debug, Clone)]
 pub struct Package {
     // Short-lived URI for fetching the source package, if desired.
-    pub uri: Uri,
+    pub uri: String,
 
     // Stable key for caching the package.
     pub key: ObjectKey,
@@ -666,7 +665,7 @@ impl From<Package> for JsonValue {
     fn from(value: Package) -> Self {
         // TODO: this is missing sha256 field
         json!({
-            "uri": value.uri.to_string(),
+            "uri": value.uri,
             "key": String::from(value.key),
             "sha256": base64::encode_urlsafe(&*value.sha256),
         })
@@ -875,7 +874,7 @@ pub struct AnalyzedNodeFunction {
 #[derive(Debug)]
 pub struct BuildDepsRequest {
     pub deps: Vec<NodeDependency>,
-    pub upload_url: Uri,
+    pub upload_url: String,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

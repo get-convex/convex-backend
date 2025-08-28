@@ -65,7 +65,6 @@ use futures::{
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
-use http::Uri;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -80,6 +79,7 @@ use tokio_util::{
     io::StreamReader,
     sync::PollSender,
 };
+use url::Url;
 use value::sha256::{
     Sha256,
     Sha256Digest,
@@ -166,10 +166,13 @@ pub trait Storage: Send + Sync + Debug {
         part_tokens: Vec<ClientDrivenUploadPartToken>,
     ) -> anyhow::Result<ObjectKey>;
 
-    /// Gets a signed url for an object.
-    async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<Uri>;
+    /// Gets a URL that can be used to fetch an object.
+    async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<String>;
     /// Creates a presigned url for uploading an object.
-    async fn presigned_upload_url(&self, expires_in: Duration) -> anyhow::Result<(ObjectKey, Uri)>;
+    async fn presigned_upload_url(
+        &self,
+        expires_in: Duration,
+    ) -> anyhow::Result<(ObjectKey, String)>;
     async fn get_object_attributes(
         &self,
         key: &ObjectKey,
@@ -789,7 +792,7 @@ impl<RT: Runtime> LocalDirStorage<RT> {
         &self.dir
     }
 
-    fn path_for_key(&self, key: ObjectKey) -> String {
+    fn filename_for_key(&self, key: ObjectKey) -> String {
         String::from(key) + ".blob"
     }
 
@@ -846,7 +849,7 @@ impl TryFrom<ClientDrivenUploadToken> for ClientDrivenUpload {
 impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     async fn start_upload(&self) -> anyhow::Result<Box<BufferedUpload>> {
         let object_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
-        let key = self.path_for_key(object_key.clone());
+        let key = self.filename_for_key(object_key.clone());
         let filepath = self.dir.join(key);
 
         // The filename constraints on the local file system are a bit stricter than S3,
@@ -874,7 +877,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
 
     async fn start_client_driven_upload(&self) -> anyhow::Result<ClientDrivenUploadToken> {
         let object_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
-        let key = self.path_for_key(object_key.clone());
+        let key = self.filename_for_key(object_key.clone());
         let filepath = self.dir.join(key);
 
         // The filename constraints on the local file system are a bit stricter than S3,
@@ -930,37 +933,18 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         Ok(object_key)
     }
 
-    async fn signed_url(&self, key: ObjectKey, _expires_in: Duration) -> anyhow::Result<Uri> {
-        let key = self.path_for_key(key);
+    async fn signed_url(&self, key: ObjectKey, _expires_in: Duration) -> anyhow::Result<String> {
+        let key = self.filename_for_key(key);
         let path = self.dir.join(key);
-        let path = path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Dir isn't valid UTF8: {:?}", self.dir))?;
-        let uri = if cfg!(windows) {
-            // On windows, the Uri::builder does not work properly.
-            // file://localhostC:\\Users\\nipunn\\src\\convex\\convex_local_storage\\modules\\4c4a018d-e534-491e-aa99-a9c16eb97add.blob
-            //
-            // url::Url works, but does not parse into a good Uri without localhost
-            // authority file:///C:/Users/nipunn/src/convex/convex_local_storage/modules/9fb14d74-f91a-47bc-8be3-f646a460fcde.blob
-            //
-            // throw away the C: prefix
-            let path = path.split_once(':').context("Missing drive letter")?.1;
-            // Switch backslashes to URI syntax
-            let path = path.replace('\\', "/");
-            format!("file://localhost{path}")
-                .parse()
-                .context("Could not parse path")?
-        } else {
-            Uri::builder()
-                .scheme("file")
-                .authority("localhost")
-                .path_and_query(path)
-                .build()?
-        };
-        Ok(uri)
+        let url = Url::from_file_path(&path)
+            .map_err(|()| anyhow::anyhow!("Dir isn't valid UTF8: {:?}", self.dir))?;
+        Ok(url.into())
     }
 
-    async fn presigned_upload_url(&self, expires_in: Duration) -> anyhow::Result<(ObjectKey, Uri)> {
+    async fn presigned_upload_url(
+        &self,
+        expires_in: Duration,
+    ) -> anyhow::Result<(ObjectKey, String)> {
         let object_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
         Ok((
             object_key.clone(),
@@ -969,13 +953,13 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     }
 
     fn cache_key(&self, key: &ObjectKey) -> StorageCacheKey {
-        let key = self.path_for_key(key.clone());
+        let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
         StorageCacheKey(path.to_string_lossy().to_string())
     }
 
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey {
-        let key = self.path_for_key(key.clone());
+        let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
         path.to_string_lossy().to_string().into()
     }
@@ -1043,7 +1027,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     }
 
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
-        let key = self.path_for_key(key.clone());
+        let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
         fs::remove_file(path)?;
         Ok(())
@@ -1263,7 +1247,10 @@ mod local_storage_tests {
         time::Duration,
     };
 
-    use anyhow::Context;
+    use anyhow::{
+        anyhow,
+        Context,
+    };
     use bytes::Bytes;
     use common::runtime::testing::TestRuntime;
     use futures::{
@@ -1271,6 +1258,7 @@ mod local_storage_tests {
         StreamExt,
         TryStreamExt,
     };
+    use url::Url;
 
     use super::{
         stream_object_with_retries,
@@ -1335,7 +1323,11 @@ mod local_storage_tests {
 
         // Get via signed_url
         let uri = storage.signed_url(key, Duration::from_secs(10)).await?;
-        let mut f = File::open(uri.path())?;
+        let mut f = File::open(
+            uri.parse::<Url>()?
+                .to_file_path()
+                .map_err(|()| anyhow!("not a file path?"))?,
+        )?;
         let mut buf = String::new();
         f.read_to_string(&mut buf)?;
         assert_eq!(&buf, "pinna park");

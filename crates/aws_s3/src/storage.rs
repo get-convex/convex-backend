@@ -53,7 +53,6 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use http::Uri;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -340,7 +339,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
         s3_upload.complete().await
     }
 
-    async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<Uri> {
+    async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<String> {
         let timer = sign_url_timer();
         let s3_key = S3Key(self.key_prefix.clone() + &key);
         let presigning_config = PresigningConfig::builder().expires_in(expires_in).build()?;
@@ -352,16 +351,13 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             .presigned(presigning_config)
             .await?;
         timer.finish();
-        // The AWS SDK has "temporarily"(‽) reverted to using untyped `&str` while they
-        // migrate HTTP library versions. This parsing should never fail, as it's still
-        // a valid URI under the hood.
-        presigned_request
-            .uri()
-            .parse()
-            .context("Failed parsing URI from AWS")
+        Ok(presigned_request.uri().to_owned())
     }
 
-    async fn presigned_upload_url(&self, expires_in: Duration) -> anyhow::Result<(ObjectKey, Uri)> {
+    async fn presigned_upload_url(
+        &self,
+        expires_in: Duration,
+    ) -> anyhow::Result<(ObjectKey, String)> {
         let key: ObjectKey = self.runtime.new_uuid_v4().to_string().try_into()?;
         let s3_key = S3Key(self.key_prefix.clone() + &key);
         let presigning_config = PresigningConfig::builder().expires_in(expires_in).build()?;
@@ -373,16 +369,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             .key(&s3_key.0)
             .presigned(presigning_config)
             .await?;
-        // The AWS SDK has "temporarily"(‽) reverted to using untyped `&str` while they
-        // migrate HTTP library versions. This parsing should never fail, as it's still
-        // a valid URI under the hood.
-        Ok((
-            key,
-            presigned_request
-                .uri()
-                .parse()
-                .context("Failed parsing URI from AWS")?,
-        ))
+        Ok((key, presigned_request.uri().to_owned()))
     }
 
     fn cache_key(&self, key: &ObjectKey) -> StorageCacheKey {

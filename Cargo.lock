@@ -940,7 +940,6 @@ dependencies = [
  "errors",
  "fastrace",
  "futures",
- "http 1.3.1",
  "metrics",
  "pb",
  "runtime",
@@ -5959,7 +5958,6 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "home",
- "http 1.3.1",
  "isolate",
  "keybroker",
  "maplit",
@@ -8705,7 +8703,6 @@ dependencies = [
  "fastrace",
  "futures",
  "futures-async-stream",
- "http 1.3.1",
  "http-body-util",
  "parking_lot",
  "pb",
@@ -8716,6 +8713,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "url",
  "value",
 ]
 

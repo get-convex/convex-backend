@@ -10,6 +10,7 @@ import fetch from "node-fetch";
 import { createHash } from "node:crypto";
 import { logDebug, logDurationMs } from "./log";
 import { performance } from "node:perf_hooks";
+import { fileURLToPath } from "node:url";
 
 export type SourcePackage = {
   // Deprecated fields
@@ -40,7 +41,7 @@ async function download(
 ): Promise<fs.ReadStream | NodeJS.ReadableStream> {
   const url = new URL(uri);
   if (url.protocol === "file:") {
-    return fs.createReadStream(url.pathname);
+    return fs.createReadStream(fileURLToPath(uri));
   } else {
     const response = await fetch(uri);
     if (!response.ok) {
