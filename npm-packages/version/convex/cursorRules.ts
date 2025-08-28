@@ -7,18 +7,11 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { hashSha256 } from "./util/hash";
 import { getLatestCursorRules } from "./util/cursorRules";
-import { isStale } from "./util/isStale";
 import { Doc } from "./_generated/dataModel";
 
 export const refresh = internalAction({
   args: {},
   handler: async (ctx): Promise<Doc<"cursorRules"> | null> => {
-    // Skip if we have a recent cached version
-    const cached = await ctx.runQuery(internal.cursorRules.getCached);
-    if (cached && !isStale(cached)) {
-      return cached;
-    }
-
     try {
       const rules = await getLatestCursorRules();
 

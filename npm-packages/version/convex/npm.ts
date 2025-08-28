@@ -6,18 +6,11 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { type } from "arktype";
-import { isStale } from "./util/isStale";
 import { Doc } from "./_generated/dataModel";
 
 export const refresh = internalAction({
   args: {},
   handler: async (ctx): Promise<Doc<"npmVersion"> | null> => {
-    // Skip if we have a recent cached version
-    const cached = await ctx.runQuery(internal.npm.getCached);
-    if (cached && !isStale(cached)) {
-      return cached;
-    }
-
     try {
       const response = await fetch("https://registry.npmjs.org/convex/latest");
       if (!response.ok) {
