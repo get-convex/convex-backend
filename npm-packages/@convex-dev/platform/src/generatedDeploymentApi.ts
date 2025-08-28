@@ -27,10 +27,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/list_environment_variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List environment variables
+         * @description Get all environment variables in a deployment.
+         */
+        get: operations["list_environment_variables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ListEnvVarsResponse: {
+            environmentVariables: {
+                [key: string]: string;
+            };
+        };
         UpdateEnvVarRequest: {
             name: string;
             value?: string | null;
@@ -45,6 +70,7 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type ListEnvVarsResponse = components['schemas']['ListEnvVarsResponse'];
 export type UpdateEnvVarRequest = components['schemas']['UpdateEnvVarRequest'];
 export type UpdateEnvVarsRequest = components['schemas']['UpdateEnvVarsRequest'];
 export type $defs = Record<string, never>;
@@ -67,6 +93,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_environment_variables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvVarsResponse"];
+                };
             };
         };
     };
