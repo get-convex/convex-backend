@@ -19,7 +19,6 @@ common = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
-http = { workspace = true }
 metrics = { workspace = true }
 pb = { workspace = true }
 serde_json = { workspace = true }

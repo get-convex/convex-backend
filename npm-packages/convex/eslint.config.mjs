@@ -28,6 +28,7 @@ export default [
       "tmpDist*",
       "**/tmpPackage*",
       "**/custom-vitest-environment.ts",
+      "src/cli/generatedApi.ts",
       // TODO use a separate config for files that doesn't use TypeScript
       "**/*.js",
       "vitest.config.js",

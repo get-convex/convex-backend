@@ -1113,7 +1113,7 @@ impl CommitterClient {
         &self,
         transaction: Transaction<RT>,
         write_source: WriteSource,
-    ) -> BoxFuture<anyhow::Result<Timestamp>> {
+    ) -> BoxFuture<'_, anyhow::Result<Timestamp>> {
         self._commit(transaction, write_source).boxed()
     }
 

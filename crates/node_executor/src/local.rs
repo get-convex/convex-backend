@@ -109,7 +109,7 @@ impl InnerLocalNodeExecutor {
 
     async fn check_server_health(client: &Client, port: u16) -> anyhow::Result<bool> {
         match client
-            .get(format!("http://127.0.0.1:{}/health", port))
+            .get(format!("http://127.0.0.1:{port}/health"))
             .timeout(Duration::from_secs(1))
             .send()
             .await

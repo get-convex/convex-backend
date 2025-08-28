@@ -38,7 +38,7 @@ test("findLatestVersionWithBinary", async () => {
       } as Response),
     );
 
-    const expected = await findLatestVersionWithBinary(ctx);
+    const expected = await findLatestVersionWithBinary(ctx, true);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=30",
@@ -56,7 +56,7 @@ test("findLatestVersionWithBinary", async () => {
     );
     stderrSpy.mockClear();
 
-    await expect(findLatestVersionWithBinary(ctx)).rejects.toThrow();
+    await expect(findLatestVersionWithBinary(ctx, true)).rejects.toThrow();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=30",

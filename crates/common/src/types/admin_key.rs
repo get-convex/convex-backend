@@ -70,7 +70,7 @@ impl AdminKey {
         }
 
         // return instance info and key part
-        format!("{}|{}", instance_info, key_part)
+        format!("{instance_info}|{key_part}")
     }
 
     // We're not using `Display` to avoid accidentally printing the key.
@@ -180,7 +180,7 @@ pub fn split_admin_key(admin_key: &str) -> Option<(&str, &str)> {
 }
 
 pub fn format_admin_key(instance_name: &str, encrypted_part: &str) -> String {
-    format!("{}|{}", instance_name, encrypted_part)
+    format!("{instance_name}|{encrypted_part}")
 }
 
 pub fn remove_type_prefix_from_admin_key(admin_key: &str) -> String {

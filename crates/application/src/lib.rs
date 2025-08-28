@@ -4,6 +4,7 @@
 #![feature(coroutines)]
 #![feature(round_char_boundary)]
 #![feature(duration_constructors)]
+#![feature(duration_constructors_lite)]
 #![feature(assert_matches)]
 
 use std::{
@@ -35,7 +36,7 @@ use anyhow::Context;
 use authentication::{
     application_auth::ApplicationAuth,
     validate_id_token,
-    Auth0IdToken,
+    AuthIdToken,
 };
 use aws_s3::storage::S3Storage;
 use bytes::Bytes;
@@ -2796,8 +2797,8 @@ impl<RT: Runtime> Application<RT> {
                     .await?;
 
                 let identity_result = validate_id_token(
-                    // This isn't necessarily an ID token or from Auth0, it's any JWT.
-                    Auth0IdToken(id_token.clone()),
+                    // This is any JWT.
+                    AuthIdToken(id_token.clone()),
                     cached_http_client_for(ClientPurpose::ProviderMetadata),
                     auth_info_values.clone(),
                     system_time,

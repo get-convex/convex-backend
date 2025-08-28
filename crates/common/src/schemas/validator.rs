@@ -143,7 +143,7 @@ impl Display for Validator {
             Validator::Set(validator) => write!(f, "v.set({validator})"),
             Validator::Map(keys, values) => write!(f, "v.map({keys}, {values})"),
             Validator::Record(keys, values) => write!(f, "v.record({keys}, {values})"),
-            Validator::Object(object_validator) => write!(f, "{}", object_validator),
+            Validator::Object(object_validator) => write!(f, "{object_validator}"),
             Validator::Union(validators) => {
                 display_sequence(f, ["v.union(", ")"], validators.iter())
             },
@@ -815,7 +815,7 @@ impl ValidationContext {
 impl Display for ValidationContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(context) = &self.0 {
-            write!(f, "Path: {}", context)
+            write!(f, "Path: {context}")
         } else {
             Ok(())
         }
@@ -849,7 +849,7 @@ impl Display for LiteralValidator {
             },
         }
         .map_err(|_| fmt::Error)?;
-        write!(f, "{}", string)
+        write!(f, "{string}")
     }
 }
 
@@ -884,7 +884,6 @@ impl TryFrom<ConvexValue> for LiteralValidator {
     any(test, feature = "testing"),
     proptest(params = "BTreeSet<TableName>")
 )]
-
 pub struct ObjectValidator(
     #[cfg_attr(
         any(test, feature = "testing"),

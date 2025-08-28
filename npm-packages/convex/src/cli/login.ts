@@ -1,7 +1,11 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logFailure, logFinishedStep, logMessage } from "../bundler/log.js";
-import { checkAuthorization, performLogin } from "./lib/login.js";
+import {
+  checkAuthorization,
+  performLogin,
+  getTeamsForUser,
+} from "./lib/login.js";
 import { loadUuidForAnonymousUser } from "./lib/localDeployment/filePaths.js";
 import {
   handleLinkToProject,
@@ -23,6 +27,47 @@ import {
   shouldAllowAnonymousDevelopment,
 } from "./lib/deploymentSelection.js";
 import { removeAnonymousPrefix } from "./lib/deployment.js";
+import {
+  readGlobalConfig,
+  globalConfigPath,
+} from "./lib/utils/globalConfig.js";
+
+const loginStatus = new Command("status")
+  .description("Check login status and list accessible teams")
+  .allowExcessArguments(false)
+  .action(async () => {
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
+
+    const globalConfig = readGlobalConfig(ctx);
+    const hasToken = globalConfig?.accessToken !== null;
+
+    if (hasToken) {
+      logMessage(`Convex account token found in: ${globalConfigPath()}`);
+    } else {
+      logMessage("No token found locally");
+      return;
+    }
+
+    const isLoggedIn = await checkAuthorization(ctx, false);
+
+    if (!isLoggedIn) {
+      logMessage("Status: Not logged in");
+      return;
+    }
+
+    logMessage("Status: Logged in");
+    const teams = await getTeamsForUser(ctx);
+    logMessage(
+      `Teams: ${teams.length} team${teams.length === 1 ? "" : "s"} accessible`,
+    );
+    for (const team of teams) {
+      logMessage(`  - ${team.name} (${team.slug})`);
+    }
+  });
 
 export const login = new Command("login")
   .description("Login to Convex")
@@ -62,6 +107,8 @@ export const login = new Command("login")
   .addOption(new Option("--dump-access-token").hideHelp())
   // Hidden option for tests to check if the user is logged in.
   .addOption(new Option("--check-login").hideHelp())
+  .addCommand(loginStatus)
+  .addHelpCommand(false)
   .action(async (options, cmd: Command) => {
     const ctx = await oneoffContext({
       url: undefined,
@@ -274,7 +321,7 @@ async function getProjectsRemaining(ctx: Context, teamSlug: string) {
   const response = await bigBrainAPI<{ projectsRemaining: number }>({
     ctx,
     method: "GET",
-    url: `/api/teams/${teamSlug}/projects_remaining`,
+    url: `teams/${teamSlug}/projects_remaining`,
   });
 
   return response.projectsRemaining;

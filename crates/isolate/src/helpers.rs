@@ -180,11 +180,11 @@ fn deserialize_udf_custom_error_data(
 
 pub fn format_uncaught_error(message: String, name: String) -> String {
     if !name.is_empty() && !message.is_empty() {
-        format!("Uncaught {}: {}", name, message)
+        format!("Uncaught {name}: {message}")
     } else if !name.is_empty() {
-        format!("Uncaught {}", name)
+        format!("Uncaught {name}")
     } else if !message.is_empty() {
-        format!("Uncaught {}", message)
+        format!("Uncaught {message}")
     } else {
         "Uncaught".to_string()
     }

@@ -1104,31 +1104,20 @@ mod validator_subset {
     fn assert_is_strict_subset(subset: Validator, superset: Validator) -> anyhow::Result<()> {
         assert!(
             subset.is_subset(&superset),
-            "{} must be a subset of {}",
-            subset,
-            superset
+            "{subset} must be a subset of {superset}"
         );
         assert!(
             !superset.is_subset(&subset),
-            "{} must be a strict subset of {}, but both are equivalent",
-            subset,
-            superset
+            "{subset} must be a strict subset of {superset}, but both are equivalent"
         );
         Ok(())
     }
 
     fn assert_is_equivalent(left: Validator, right: Validator) -> anyhow::Result<()> {
-        assert!(
-            left.is_subset(&right),
-            "{} must be a subset of {}",
-            left,
-            right
-        );
+        assert!(left.is_subset(&right), "{left} must be a subset of {right}");
         assert!(
             right.is_subset(&left),
-            "{} must be a equivalent to {} but is only a subset",
-            left,
-            right
+            "{left} must be a equivalent to {right} but is only a subset"
         );
         Ok(())
     }
@@ -1136,15 +1125,11 @@ mod validator_subset {
     fn assert_is_unrelated(left: Validator, right: Validator) -> anyhow::Result<()> {
         assert!(
             !left.is_subset(&right),
-            "{} must not be a subset of {}",
-            left,
-            right
+            "{left} must not be a subset of {right}"
         );
         assert!(
             !right.is_subset(&left),
-            "{} must not be a subset of {}",
-            right,
-            left
+            "{right} must not be a subset of {left}"
         );
         Ok(())
     }

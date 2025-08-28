@@ -803,10 +803,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
         let execution = FunctionExecution {
             params: UdfParams::Function {
-                error: match outcome.result {
-                    Ok(_) => None,
-                    Err(e) => Some(e),
-                },
+                error: outcome.result.err(),
                 identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
@@ -898,10 +895,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
         let execution = FunctionExecution {
             params: UdfParams::Function {
-                error: match outcome.result {
-                    Ok(_) => None,
-                    Err(e) => Some(e),
-                },
+                error: outcome.result.err(),
                 identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
@@ -1830,11 +1824,11 @@ fn udf_execution_time_metric(identifier: &UdfIdentifier) -> MetricName {
 
 // TODO: Thread component path through here.
 fn table_rows_read_metric(table_name: &TableName) -> MetricName {
-    format!("table:{}:rows_read", table_name)
+    format!("table:{table_name}:rows_read")
 }
 
 fn table_rows_written_metric(table_name: &TableName) -> MetricName {
-    format!("table:{}:rows_written", table_name)
+    format!("table:{table_name}:rows_written")
 }
 
 fn scheduled_job_next_ts_metric() -> &'static str {
@@ -1845,7 +1839,7 @@ fn udf_metric_name(identifier: &UdfIdentifier) -> String {
     let (component, id) = identifier.clone().into_component_and_udf_path();
     match component {
         Some(component) => {
-            format!("{}/{}", component, id)
+            format!("{component}/{id}")
         },
         None => id,
     }

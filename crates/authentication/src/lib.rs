@@ -1,6 +1,5 @@
 use std::{
     str::FromStr,
-    sync::LazyLock,
     time::SystemTime,
 };
 
@@ -10,7 +9,6 @@ use biscuit::{
     ClaimPresenceOptions,
     Presence,
     TemporalOptions,
-    Validation,
     ValidationOptions,
     JWT,
 };
@@ -42,7 +40,6 @@ use serde::{
     Serialize,
 };
 use sync_types::AuthenticationToken;
-use url::Url;
 
 pub mod access_token_auth;
 pub mod application_auth;
@@ -76,7 +73,7 @@ fn enhance_no_provider_error(auth_infos: &[AuthInfo], should_redact: bool) -> St
                 domain,
                 application_id,
                 ..
-            } => format!("OIDC(domain={}, app_id={})", domain, application_id),
+            } => format!("OIDC(domain={domain}, app_id={application_id})"),
             AuthInfo::CustomJwt {
                 issuer,
                 application_id,
@@ -105,23 +102,6 @@ fn enhance_no_provider_error(auth_infos: &[AuthInfo], should_redact: bool) -> St
     }
 }
 
-/// Issuer for API access tokens
-pub static CONVEX_AUTH_URL: LazyLock<Url> =
-    LazyLock::new(|| Url::parse("https://auth.convex.dev/").unwrap());
-
-const CONFIG_URL_SUFFIX: &str = ".well-known/jwks.json";
-/// Audience for API access tokens
-///
-/// This value was created long ago, and cannot be changed easily.
-/// It's just a fixed string used for identifying the Auth0 token, so it's fine
-/// and not user-facing. These API access tokens are constructed from multiple
-/// clients (eg dashboard/cli)
-pub const CONVEX_CONSOLE_API_AUDIENCE: &str = "https://console.convex.dev/api/";
-// This is the client ID for the Auth0 application used for the dashboard.
-// For... reasons, it's hard to get some clients to set the audience to the
-// console one, so accept this one as well.
-pub const ALTERNATE_CONVEX_API_AUDIENCE: &str = "nANKpAFe4scUPxW77869QHVKYAgrPwy7";
-
 /// Extract the bearer token from an `Authorization: Bearer` header.
 pub async fn extract_bearer_token(header: Option<String>) -> anyhow::Result<Option<String>> {
     let Some(header) = header else {
@@ -146,18 +126,18 @@ pub fn token_to_authorization_header(token: AuthenticationToken) -> anyhow::Resu
                         anyhow::anyhow!("Failed to serialize acting user attributes {e}")
                     })?,
                 );
-                Ok(Some(format!("Convex {}:{}", key, encoded)))
+                Ok(Some(format!("Convex {key}:{encoded}")))
             },
-            None => Ok(Some(format!("Convex {}", key))),
+            None => Ok(Some(format!("Convex {key}"))),
         },
-        AuthenticationToken::User(key) => Ok(Some(format!("Bearer {}", key))),
+        AuthenticationToken::User(key) => Ok(Some(format!("Bearer {key}"))),
         AuthenticationToken::None => Ok(None),
     }
 }
 
 /// Validate a token against a list of Convex auth providers.
 pub async fn validate_id_token<F, E>(
-    token_str: Auth0IdToken,
+    token_str: AuthIdToken,
     // The http client is injected here so we can unit test this filter without needing to actually
     // serve an HTTP response from an identity provider.
     http_client: impl Fn(HttpRequest) -> F + 'static,
@@ -301,9 +281,8 @@ where
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
                         format!(
-                            "Invalid JWKS response body from '{}'. The response is not valid JSON \
-                             or doesn't match the expected JWKS format.",
-                            jwks_uri
+                            "Invalid JWKS response body from '{jwks_uri}'. The response is not \
+                             valid JSON or doesn't match the expected JWKS format."
                         ),
                     )
                 })?;
@@ -317,9 +296,8 @@ where
 
                     let detailed_msg = if let Some(kid) = kid {
                         format!(
-                            "Could not decode token. The JWT's 'kid' (key ID) header is '{}', \
-                             does this key match any key in the provider's JWKS?",
-                            kid
+                            "Could not decode token. The JWT's 'kid' (key ID) header is '{kid}', \
+                             does this key match any key in the provider's JWKS?"
                         )
                     } else {
                         "Could not decode token. JWT may be missing a 'kid' (key ID) header."
@@ -346,7 +324,7 @@ where
                 if token_issuer.starts_with("https://") || token_issuer.starts_with("http://") {
                     token_issuer.to_string()
                 } else {
-                    format!("https://{}", token_issuer)
+                    format!("https://{token_issuer}")
                 };
 
             if token_issuer_with_protocol.trim_end_matches('/')
@@ -354,7 +332,7 @@ where
             {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
-                    format!("Invalid issuer: {} != {}", token_issuer, issuer)
+                    format!("Invalid issuer: {token_issuer} != {issuer}")
                 ));
             }
             if let Some(application_id) = application_id {
@@ -389,12 +367,12 @@ where
             decoded_token
                 .validate(validation_options)
                 .map_err(|original_error| {
-                    eprintln!("Original validation error: {:?}", original_error);
+                    eprintln!("Original validation error: {original_error:?}");
                     let msg = original_error.to_string();
 
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
-                        format!("Could not validate token: {}", msg),
+                        format!("Could not validate token: {msg}"),
                     )
                 })?;
             UserIdentity::from_custom_jwt(decoded_token, token_str.0).context(
@@ -446,9 +424,8 @@ where
         ErrorMetadata::unauthenticated(
             "InvalidAuthHeader",
             format!(
-                "Could not fetch JWKS from URL '{}': {}. Check that the URL is correct and \
-                 accessible.",
-                jwks_uri, e
+                "Could not fetch JWKS from URL '{jwks_uri}': {e}. Check that the URL is correct \
+                 and accessible."
             ),
         )
     })?;
@@ -487,9 +464,8 @@ where
         anyhow::bail!(ErrorMetadata::unauthenticated(
             "InvalidAuthHeader",
             format!(
-                "Invalid Content-Type '{}' when fetching JWKS from '{}'. Expected \
-                 'application/json' or 'application/jwk-set+json'.",
-                content_type, jwks_uri
+                "Invalid Content-Type '{content_type}' when fetching JWKS from '{jwks_uri}'. \
+                 Expected 'application/json' or 'application/jwk-set+json'."
             )
         ));
     }
@@ -500,20 +476,9 @@ where
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthAccessToken(pub String);
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Auth0IdToken(pub String);
+pub struct AuthIdToken(pub String);
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeviceToken(pub String);
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ConsoleClaims {
-    // Auth0 requires that any custom claims overlapping with the OIDC spec be namespaced behind a
-    // domain name.
-    #[serde(rename = "https://convex.dev/email")]
-    email: String,
-    // This is a custom claim that is only included when the user logs in via Vercel.
-    #[serde(rename = "https://convex.dev/vercel")]
-    vercel: Option<Vec<VercelClaims>>,
-}
-
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct WorkOSClaims {
     #[serde(rename = "workos_first_name")]
@@ -522,6 +487,9 @@ pub struct WorkOSClaims {
     last_name: Option<String>,
     #[serde(rename = "workos_email")]
     email: Option<String>,
+
+    #[serde(flatten)]
+    vercel: Option<VercelClaims>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -535,11 +503,14 @@ pub struct VercelClaims {
     // The installation_id is the id of the vercel integration installation.
     // We use it to decide which team a member should belong to if they're logging
     // in via Vercel.
+    #[serde(rename = "vercel_installation_id")]
     installation_id: String,
     // Obfuscated id of the vercel team.
+    #[serde(rename = "vercel_account_id")]
     account_id: String,
     // The user role is the role of the user in the vercel team.
     // We use it to decide whether the user should be an admin or developer.
+    #[serde(rename = "vercel_user_role")]
     user_role: VercelUserRole,
 }
 
@@ -557,38 +528,23 @@ impl VercelClaims {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum AuthProvider {
-    WorkOS,
-    Auth0,
-    None,
-}
-
 #[derive(Clone, Debug)]
 pub struct ConsoleAccessToken {
-    auth_provider: AuthProvider,
     email: Option<String>,
     sub: String,
     name: Option<String>,
-    nickname: Option<String>,
-    vercel: Option<Vec<VercelClaims>>,
+    vercel: Option<VercelClaims>,
 }
 
 impl ConsoleAccessToken {
     #[cfg(any(test, feature = "testing"))]
-    pub fn new(email: String, sub: String) -> Self {
+    pub fn new(email: Option<String>, sub: String) -> Self {
         Self {
-            auth_provider: AuthProvider::None,
-            email: Some(email),
+            email,
             sub,
             name: None,
-            nickname: None,
             vercel: None,
         }
-    }
-
-    pub fn is_auth0(&self) -> bool {
-        self.auth_provider == AuthProvider::Auth0
     }
 
     pub fn email(&self) -> Option<&str> {
@@ -605,26 +561,20 @@ impl From<ConsoleAccessToken> for UserInfo {
         Self {
             email: value.email,
             name: value.name,
-            nickname: value.nickname,
             vercel: value.vercel,
         }
     }
 }
 
 #[derive(Deserialize, Clone, Debug)]
-/// Relevant fields returned from the Auth0 userinfo endpoint
+/// Relevant fields in the WorkOS JWT
 pub struct UserInfo {
-    nickname: Option<String>,
     name: Option<String>,
     email: Option<String>,
-    vercel: Option<Vec<VercelClaims>>,
+    vercel: Option<VercelClaims>,
 }
 
 impl UserInfo {
-    pub fn nickname(&self) -> Option<&String> {
-        self.nickname.as_ref()
-    }
-
     pub fn name(&self) -> Option<&String> {
         self.name.as_ref()
     }
@@ -633,7 +583,7 @@ impl UserInfo {
         self.email.as_deref()
     }
 
-    pub fn vercel_info(&self) -> Option<&Vec<VercelClaims>> {
+    pub fn vercel_info(&self) -> Option<&VercelClaims> {
         self.vercel.as_ref()
     }
 }
@@ -663,262 +613,31 @@ impl AuthenticatedLogin {
         &self.sub
     }
 
-    pub fn is_workos_login(&self) -> bool {
-        self.sub.starts_with("user_")
-    }
-
     pub fn user_info(&self) -> Option<&UserInfo> {
         self.user_info.as_ref()
     }
 
-    pub fn vercel_info(&self) -> Option<&Vec<VercelClaims>> {
+    pub fn vercel_info(&self) -> Option<&VercelClaims> {
         self.user_info.as_ref().and_then(|ui| ui.vercel_info())
     }
 }
 
-pub fn is_workos_user_id(user_id: &str) -> bool {
-    user_id.starts_with("user_")
-}
-
 pub fn names_to_full_name(first_name: Option<String>, last_name: Option<String>) -> Option<String> {
     match (first_name, last_name) {
-        (Some(first), Some(last)) => Some(format!("{} {}", first, last)),
+        (Some(first), Some(last)) => Some(format!("{first} {last}")),
         (Some(first), None) => Some(first),
         (None, Some(last)) => Some(last),
         (None, None) => None,
     }
 }
 
-fn jwks_url(base_url: &Url) -> Url {
-    base_url
-        .join(CONFIG_URL_SUFFIX)
-        .expect("Appending JWKS suffix to a valid URL should always succeed")
-}
-
 pub async fn validate_access_token<F, E>(
     access_token: &AuthAccessToken,
-    auth_url: &Url,
     http_client: impl Fn(HttpRequest) -> F + 'static,
     system_time: SystemTime,
     workos_client_id: &str,
     workos_api_key: &str,
     workos_auth_urls: &Vec<String>,
-) -> anyhow::Result<ConsoleAccessToken>
-where
-    F: Future<Output = Result<HttpResponse, E>>,
-    E: std::error::Error + 'static + Send + Sync,
-{
-    // Decode JWT to extract issuer claim to determine provider type
-    let encoded_token = JWT::<biscuit::Empty, biscuit::Empty>::new_encoded(&access_token.0);
-    let payload = encoded_token
-        .unverified_payload()
-        .context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be decoded to determine provider type",
-        ))?;
-
-    let is_auth0 = match payload.registered.audience {
-        None => false,
-        Some(biscuit::SingleOrMultiple::Multiple(auds)) => auds.iter().any(|audience| {
-            audience == CONVEX_CONSOLE_API_AUDIENCE || audience == ALTERNATE_CONVEX_API_AUDIENCE
-        }),
-        Some(biscuit::SingleOrMultiple::Single(audience)) => {
-            audience == CONVEX_CONSOLE_API_AUDIENCE || audience == ALTERNATE_CONVEX_API_AUDIENCE
-        },
-    };
-
-    if is_auth0 {
-        return validate_access_token_auth0(access_token, auth_url, http_client, system_time).await;
-    }
-    let issuer = payload.registered.issuer.as_ref().ok_or_else(|| {
-        anyhow::anyhow!(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token missing issuer claim"
-        ))
-    })?;
-
-    // TODO(ari): This can be cleaned up into one if statement, but I was lazy for
-    // the moment. Once the migration is done, there will be only one issuer to
-    // check
-    if issuer.contains("api.workos.com") {
-        anyhow::ensure!(
-            *issuer
-                == format!(
-                    "https://api.workos.com/user_management/{}",
-                    workos_client_id
-                ),
-            ErrorMetadata::unauthenticated(
-                "AccessTokenInvalid",
-                format!("Issuer {} does not match WorkOS client ID", issuer)
-            )
-        )
-    } else if issuer.contains("api.auth.convex.dev") {
-        anyhow::ensure!(
-            *issuer
-                == format!(
-                    "https://api.auth.convex.dev/user_management/{}",
-                    workos_client_id
-                ),
-            ErrorMetadata::unauthenticated(
-                "AccessTokenInvalid",
-                format!("Issuer {} does not match WorkOS client ID", issuer)
-            )
-        )
-    } else if issuer.contains("apiauth.convex.dev") {
-        anyhow::ensure!(
-            *issuer
-                == format!(
-                    "https://apiauth.convex.dev/user_management/{}",
-                    workos_client_id
-                ),
-            ErrorMetadata::unauthenticated(
-                "AccessTokenInvalid",
-                format!("Issuer {} does not match WorkOS client ID", issuer)
-            )
-        )
-    } else {
-        anyhow::ensure!(
-            workos_auth_urls.iter().any(|url| {
-                let normalized_url = url.trim_end_matches('/');
-                let normalized_issuer = issuer.trim_end_matches('/');
-                normalized_url == normalized_issuer
-            }),
-            ErrorMetadata::unauthenticated(
-                "AccessTokenInvalid",
-                format!("Issuer {} not in allowed WorkOS auth URLs", issuer)
-            )
-        );
-    }
-
-    validate_access_token_workos(
-        access_token,
-        http_client,
-        system_time,
-        workos_client_id,
-        workos_api_key,
-    )
-    .await
-}
-
-async fn validate_access_token_auth0<F, E>(
-    access_token: &AuthAccessToken,
-    auth_url: &Url,
-    http_client: impl Fn(HttpRequest) -> F + 'static,
-    system_time: SystemTime,
-) -> anyhow::Result<ConsoleAccessToken>
-where
-    F: Future<Output = Result<HttpResponse, E>>,
-    E: std::error::Error + 'static + Send + Sync,
-{
-    let encoded_token = JWT::<ConsoleClaims, biscuit::Empty>::new_encoded(&access_token.0);
-    let jwks_request = http::Request::builder()
-        .uri(jwks_url(auth_url).to_string())
-        .method(http::Method::GET)
-        .header(
-            http::header::ACCEPT,
-            const { http::HeaderValue::from_static("application/json") },
-        )
-        .body(vec![])?;
-    let (response, body) = http_client(jwks_request).await?.into_parts();
-    if response.status != http::StatusCode::OK {
-        anyhow::bail!(
-            "Error from auth jwks request {} {}: {}",
-            response.status,
-            response.status.canonical_reason().unwrap_or("Unknown"),
-            String::from_utf8_lossy(&body),
-        )
-    }
-    let jwks: JWKSet<biscuit::Empty> = serde_json::de::from_slice(&body).with_context(|| {
-        format!(
-            "Invalid auth jwks response body: {}",
-            String::from_utf8_lossy(&body)
-        )
-    })?;
-
-    let algorithm = encoded_token
-        .unverified_header()
-        .context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be decoded",
-        ))?
-        .registered
-        .algorithm;
-    // Encountering this error message while running `npx convex` against a dev
-    // environment? Make sure you’re using the `--override-auth-url` and
-    // `--override-auth-client` options as indicated in `README.md`.
-    let decoded_token = encoded_token
-        .decode_with_jwks(&jwks, Some(algorithm))
-        .context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be decoded",
-        ))?;
-
-    let mut validation_options = ValidationOptions {
-        claim_presence_options: ClaimPresenceOptions {
-            issuer: Presence::Required,
-            audience: Presence::Required,
-            subject: Presence::Required,
-            expiry: Presence::Required,
-            ..Default::default()
-        },
-        temporal_options: TemporalOptions {
-            epsilon: chrono::Duration::seconds(5),
-            now: Some(chrono::DateTime::from(system_time)),
-        },
-        issuer: Validation::Validate(auth_url.to_string()),
-        audience: Validation::Validate(CONVEX_CONSOLE_API_AUDIENCE.to_string()),
-        ..ValidationOptions::default()
-    };
-    let validation_result = decoded_token.validate(validation_options.clone());
-
-    if matches!(
-        validation_result,
-        Err(biscuit::errors::Error::ValidationError(
-            biscuit::errors::ValidationError::InvalidAudience(_)
-        ))
-    ) {
-        validation_options.audience =
-            Validation::Validate(ALTERNATE_CONVEX_API_AUDIENCE.to_string());
-        decoded_token
-            .validate(validation_options)
-            .context(ErrorMetadata::unauthenticated(
-                "AccessTokenInvalid",
-                "Access Token could not be validated",
-            ))?;
-    } else {
-        validation_result.context(ErrorMetadata::unauthenticated(
-            "AccessTokenInvalid",
-            "Access Token could not be validated",
-        ))?;
-    }
-    let claims = decoded_token
-        .payload()
-        .context(ErrorMetadata::unauthenticated(
-            "Unauthenticated",
-            "Could not deserialize jwt claims",
-        ))?;
-    Ok(ConsoleAccessToken {
-        auth_provider: AuthProvider::Auth0,
-        email: Some(claims.private.email.clone()),
-        sub: claims
-            .registered
-            .subject
-            .as_ref()
-            .expect("Already validated subject is present")
-            .to_owned(),
-        vercel: claims.private.vercel.clone(),
-        // TODO(sarah) read these from the token if possible
-        nickname: None,
-        name: None,
-    })
-}
-
-async fn validate_access_token_workos<F, E>(
-    access_token: &AuthAccessToken,
-    http_client: impl Fn(HttpRequest) -> F + 'static,
-    system_time: SystemTime,
-    workos_client_id: &str,
-    workos_api_key: &str,
 ) -> anyhow::Result<ConsoleAccessToken>
 where
     F: Future<Output = Result<HttpResponse, E>>,
@@ -934,7 +653,7 @@ where
     let encoded_token = JWT::<WorkOSClaims, biscuit::Empty>::new_encoded(&access_token.0);
 
     // Fetch WorkOS JWKS
-    let jwks_url = format!("https://api.workos.com/sso/jwks/{}", workos_client_id);
+    let jwks_url = format!("https://apiauth.convex.dev/sso/jwks/{workos_client_id}");
     let jwks_data = fetch_jwks(&jwks_url, &http_client).await?;
     let jwks: JWKSet<biscuit::Empty> =
         serde_json::de::from_slice(&jwks_data).with_context(|| {
@@ -990,6 +709,47 @@ where
             "Could not deserialize jwt claims",
         ))?;
 
+    let issuer = claims.registered.issuer.as_ref().ok_or_else(|| {
+        anyhow::anyhow!(ErrorMetadata::unauthenticated(
+            "AccessTokenInvalid",
+            "Access Token missing issuer claim"
+        ))
+    })?;
+
+    let allowed_issuer_domains = vec![
+        "https://api.workos.com/user_management/".to_string(),
+        "https://apiauth.convex.dev/user_management/".to_string(),
+        "https://api.auth.convex.dev/user_management/".to_string(),
+    ];
+
+    let matching_issuer_domain = allowed_issuer_domains
+        .iter()
+        .find(|domain| issuer.starts_with(domain.as_str()));
+    match matching_issuer_domain {
+        Some(matching_issuer) => {
+            anyhow::ensure!(
+                *issuer == format!("{matching_issuer}{workos_client_id}"),
+                ErrorMetadata::unauthenticated(
+                    "AccessTokenInvalid",
+                    format!("Issuer {issuer} does not match WorkOS client ID")
+                )
+            )
+        },
+        None => {
+            anyhow::ensure!(
+                workos_auth_urls.iter().any(|url| {
+                    let normalized_url = url.trim_end_matches('/');
+                    let normalized_issuer = issuer.trim_end_matches('/');
+                    normalized_url == normalized_issuer
+                }),
+                ErrorMetadata::unauthenticated(
+                    "AccessTokenInvalid",
+                    format!("Issuer {issuer} not in allowed WorkOS auth URLs")
+                )
+            );
+        },
+    }
+
     let full_name = names_to_full_name(
         claims.private.first_name.clone(),
         claims.private.last_name.clone(),
@@ -1001,11 +761,9 @@ where
     };
 
     Ok(ConsoleAccessToken {
-        auth_provider: AuthProvider::WorkOS,
         email: claims.private.email.clone(),
         sub,
-        vercel: None, // WorkOS doesn't have Vercel claims yet
-        nickname: None,
+        vercel: claims.private.vercel.clone(),
         name: full_name,
     })
 }
@@ -1060,19 +818,13 @@ mod tests {
         TokenUrl,
         UserInfoUrl,
     };
-    use serde::{
-        Deserialize,
-        Serialize,
-    };
 
     use crate::{
         validate_access_token,
         validate_id_token,
-        Auth0IdToken,
         AuthAccessToken,
+        AuthIdToken,
         WorkOSClaims,
-        CONVEX_AUTH_URL,
-        CONVEX_CONSOLE_API_AUDIENCE,
     };
 
     // Implement AdditionalClaims for WorkOSClaims so it can be used with
@@ -1119,7 +871,7 @@ mod tests {
                 let path = request.uri().path();
                 let uri_str = request.uri().to_string();
 
-                if path.contains(&format!("/sso/jwks/{}", client_id_)) {
+                if path.contains(&format!("/sso/jwks/{client_id_}")) {
                     // Return JWKS for WorkOS
                     Ok(http::Response::builder()
                         .status(http::StatusCode::OK)
@@ -1220,7 +972,7 @@ mod tests {
         .unwrap()
         .to_string();
         validate_id_token(
-            Auth0IdToken(id_token),
+            AuthIdToken(id_token),
             fake_http_client(provider_metadata, jwks),
             vec![AuthInfo::Oidc {
                 application_id: (*audience).clone(),
@@ -1236,92 +988,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_access_token_auth() -> anyhow::Result<()> {
-        // Test Auth0 flow
-        let issuer_url = IssuerUrl::from_url(CONVEX_AUTH_URL.clone());
-        let audience = Audience::new(CONVEX_CONSOLE_API_AUDIENCE.to_string());
         let jwks = serde_json::to_string(&CoreJsonWebKeySet::new(vec![
             TEST_SIGNING_KEY.as_verification_key()
         ]))
         .unwrap();
 
-        // Cheat a little and just make an ID Token here, as an ID token is still an
-        // access token. Add on some additional claims so it fits our desired format.
-        // (This is to avoid pulling in yet another library just to create a JWT).
-        #[derive(Debug, Deserialize, Serialize, Clone)]
-        struct CvxClaims {
-            #[serde(rename = "https://convex.dev/email")]
-            pub email: String,
-            pub scope: String,
-        }
-        impl AdditionalClaims for CvxClaims {}
-        let id_token = IdToken::<
-            CvxClaims,
-            CoreGenderClaim,
-            CoreJweContentEncryptionAlgorithm,
-            CoreJwsSigningAlgorithm,
-        >::new(
-            IdTokenClaims::new(
-                issuer_url.clone(),
-                vec![audience.clone()],
-                Utc::now() + Duration::seconds(120),
-                Utc::now(),
-                StandardClaims::new(SubjectIdentifier::new("1234-abcd".to_string())),
-                CvxClaims {
-                    email: "foo@bar.com".to_string(),
-                    scope: "list:instances manage:instances".to_string(),
-                },
-            ),
-            &*TEST_SIGNING_KEY,
-            CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,
-            None,
-            None,
-        )
-        .unwrap()
-        .to_string();
-        // Validates correctly
-        validate_access_token(
-            &AuthAccessToken(id_token.clone()),
-            &CONVEX_AUTH_URL,
-            fake_http_client(String::new(), jwks.clone()),
-            SystemTime::now(),
-            "",
-            "",
-            &vec![],
-        )
-        .await
-        .unwrap();
-        // Try again with a different audience
-        validate_access_token(
-            &AuthAccessToken(id_token.clone()),
-            &CONVEX_AUTH_URL.join("foo").unwrap(),
-            fake_http_client(String::new(), jwks.clone()),
-            SystemTime::now(),
-            "",
-            "",
-            &vec![],
-        )
-        .await
-        .unwrap_err();
-        // Try again with a different audience
-        validate_access_token(
-            &AuthAccessToken(id_token.clone()),
-            &CONVEX_AUTH_URL,
-            fake_http_client(String::new(), jwks.clone()),
-            (Utc::now() + Duration::seconds(200)).into(),
-            "",
-            "",
-            &vec![],
-        )
-        .await
-        .unwrap_err();
-
         // Test WorkOS flow - using the real WorkOSClaims struct
-
         let workos_client_id = "test_client_123";
         let workos_api_key = "sk_test_123";
         let workos_issuer = IssuerUrl::new(format!(
-            "https://api.workos.com/user_management/{}",
-            workos_client_id
+            "https://apiauth.convex.dev/user_management/{workos_client_id}"
         ))
         .unwrap();
 
@@ -1342,6 +1018,7 @@ mod tests {
                     email: Some("user@example.com".to_string()),
                     first_name: Some("Test".to_string()),
                     last_name: Some("User".to_string()),
+                    vercel: None,
                 },
             ),
             &*TEST_SIGNING_KEY,
@@ -1355,7 +1032,6 @@ mod tests {
         // Test successful validation with existing external_id
         let console_token_with_external_id = validate_access_token(
             &AuthAccessToken(workos_token_with_external_id.clone()),
-            &CONVEX_AUTH_URL, // Not used for WorkOS
             fake_workos_http_client(workos_client_id, jwks.clone()),
             SystemTime::now(),
             workos_client_id,
@@ -1375,7 +1051,6 @@ mod tests {
             console_token_with_external_id.name,
             Some("Test User".to_string())
         );
-        assert_eq!(console_token_with_external_id.nickname, None);
         assert!(console_token_with_external_id.vercel.is_none());
 
         // Test with missing external_id (requires API calls to fetch identities)
@@ -1395,6 +1070,7 @@ mod tests {
                     email: Some("user2@example.com".to_string()),
                     first_name: Some("Test".to_string()),
                     last_name: Some("User2".to_string()),
+                    vercel: None,
                 },
             ),
             &*TEST_SIGNING_KEY,
@@ -1408,7 +1084,6 @@ mod tests {
         // Test successful validation with API calls to fetch external_id
         let console_token_without_external_id = validate_access_token(
             &AuthAccessToken(workos_token_without_external_id.clone()),
-            &CONVEX_AUTH_URL, // Not used for WorkOS
             fake_workos_http_client(workos_client_id, jwks.clone()),
             SystemTime::now(),
             workos_client_id,
@@ -1428,13 +1103,11 @@ mod tests {
             console_token_without_external_id.name,
             Some("Test User2".to_string())
         );
-        assert_eq!(console_token_without_external_id.nickname, None);
         assert!(console_token_without_external_id.vercel.is_none());
 
         // Test WorkOS token expiry
         let expiry_error = validate_access_token(
             &AuthAccessToken(workos_token_with_external_id.clone()),
-            &CONVEX_AUTH_URL,
             fake_workos_http_client(workos_client_id, jwks.clone()),
             (Utc::now() + Duration::seconds(200)).into(),
             workos_client_id,
@@ -1445,13 +1118,12 @@ mod tests {
         .unwrap_err();
 
         // Verify the expiry error contains expected message
-        let expiry_error_msg = format!("{:?}", expiry_error);
+        let expiry_error_msg = format!("{expiry_error:?}");
         assert!(expiry_error_msg.contains("Access Token could not be validated"));
 
         // Test missing WorkOS API key
         let api_key_error = validate_access_token(
             &AuthAccessToken(workos_token_with_external_id.clone()),
-            &CONVEX_AUTH_URL,
             fake_workos_http_client(workos_client_id, jwks.clone()),
             SystemTime::now(),
             workos_client_id,
@@ -1462,7 +1134,7 @@ mod tests {
         .unwrap_err();
 
         // Verify the API key error contains expected message
-        let api_key_error_msg = format!("{:?}", api_key_error);
+        let api_key_error_msg = format!("{api_key_error:?}");
         assert!(api_key_error_msg.contains("WORKOS_API_KEY is not set"));
 
         Ok(())

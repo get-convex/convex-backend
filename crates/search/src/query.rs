@@ -866,11 +866,11 @@ impl<T: Clone + Ord> SearchTermTries<T> {
             let tries = self
                 .terms
                 .get_mut(path)
-                .unwrap_or_else(|| panic!("Missing tries for {}", path));
+                .unwrap_or_else(|| panic!("Missing tries for {path}"));
             let trie = tries
                 .tries
                 .get_mut(&(prefix, max_distance))
-                .unwrap_or_else(|| panic!("Missing trie for ({}, {})", prefix, max_distance));
+                .unwrap_or_else(|| panic!("Missing trie for ({prefix}, {max_distance})"));
             let value_to_count = trie
                 .get_mut(token)
                 .unwrap_or_else(|| panic!("Missing values for a token of length {}", token.len()));
@@ -1046,7 +1046,7 @@ impl TextSearchSubscriptions {
         let conditions = self
             .filter_conditions
             .get_mut(index)
-            .unwrap_or_else(|| panic!("Missing condition index entry for {}", index));
+            .unwrap_or_else(|| panic!("Missing condition index entry for {index}"));
         assert!(conditions.remove(&id).is_some());
         if conditions.is_empty() {
             self.filter_conditions.remove(index);
@@ -1054,7 +1054,7 @@ impl TextSearchSubscriptions {
         let terms = self
             .fuzzy_searches
             .get_mut(index)
-            .unwrap_or_else(|| panic!("Missing fuzzy search index entry for {}", index));
+            .unwrap_or_else(|| panic!("Missing fuzzy search index entry for {index}"));
         terms.remove(id, &reads.text_queries);
     }
 

@@ -37,10 +37,46 @@
           }
         }
       }
+    },
+    "/list_environment_variables": {
+      "get": {
+        "summary": "List environment variables",
+        "description": "Get all environment variables in a deployment.\nIn the future this might not include \"secret\" environment\nvariables.",
+        "operationId": "list_environment_variables",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvVarsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ListEnvVarsResponse": {
+        "type": "object",
+        "required": [
+          "environmentVariables"
+        ],
+        "properties": {
+          "environmentVariables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "UpdateEnvVarRequest": {
         "type": "object",
         "required": [

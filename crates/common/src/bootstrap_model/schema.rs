@@ -31,8 +31,5 @@ pub fn parse_schema_id(
 }
 
 pub fn invalid_schema_id(schema_id: &str) -> ErrorMetadata {
-    ErrorMetadata::bad_request(
-        "InvalidSchemaId",
-        format!("Invalid schema id: {}", schema_id),
-    )
+    ErrorMetadata::bad_request("InvalidSchemaId", format!("Invalid schema id: {schema_id}"))
 }

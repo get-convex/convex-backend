@@ -45,9 +45,10 @@ type SchemaStateResponse = {
 type PrepareSchemaResponse = {
   added: IndexMetadata[];
   dropped: IndexMetadata[];
-  enabled: IndexMetadata[];
-  disabled: IndexMetadata[];
   schemaId: string;
+  // added August 22 2025
+  enabled?: IndexMetadata[];
+  disabled?: IndexMetadata[];
 };
 
 export async function pushSchema(
@@ -266,7 +267,7 @@ function logIndexChanges(
       `${dryRun ? "Would add" : "Added"} staged table indexes:\n${indexDiff}`,
     );
   }
-  if (indexes.enabled.length > 0) {
+  if (indexes.enabled && indexes.enabled.length > 0) {
     let indexDiff = "";
     for (const index of indexes.enabled) {
       indexDiff += `  [*] ${stringifyIndex(index)}\n`;
@@ -278,7 +279,7 @@ function logIndexChanges(
       : `These indexes are now enabled`;
     logFinishedStep(`${text}:\n${indexDiff}`);
   }
-  if (indexes.disabled.length > 0) {
+  if (indexes.disabled && indexes.disabled.length > 0) {
     let indexDiff = "";
     for (const index of indexes.disabled) {
       indexDiff += `  [*] ${stringifyIndex(index)}\n`;

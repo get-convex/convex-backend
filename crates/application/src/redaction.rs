@@ -240,7 +240,7 @@ pub mod tests {
         ) {
             let redacted = RedactedJsError::from_js_error(js_error, true, request_id.clone());
             let formatted = format!("{redacted}");
-            assert_eq!(formatted, format!("[Request ID: {}] Server Error", request_id));
+            assert_eq!(formatted, format!("[Request ID: {request_id}] Server Error"));
         }
 
         #[test]
@@ -252,7 +252,7 @@ pub mod tests {
             let formatted = format!("{redacted}");
             assert_eq!(
                 formatted,
-                format!("[Request ID: {}] Server Error\n{}", request_id, js_error)
+                format!("[Request ID: {request_id}] Server Error\n{js_error}")
             );
         }
 
@@ -265,7 +265,7 @@ pub mod tests {
             let http_response_parts = redacted.to_http_response_parts();
             let code = get_code(http_response_parts);
 
-            assert_eq!(code, format!("[Request ID: {}] Server Error", request_id));
+            assert_eq!(code, format!("[Request ID: {request_id}] Server Error"));
         }
 
         #[test]

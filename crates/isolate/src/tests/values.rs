@@ -67,9 +67,9 @@ async fn test_compare(rt: TestRuntime, values: Vec<ConvexValue>) -> anyhow::Resu
     let sorted_result_vec = sorted_result.to_vec();
     for (i, value) in sorted_result_vec.iter().enumerate() {
         if value != &sorted_values[i] {
-            println!("js sort: {:?}", sorted_result_vec);
-            println!("rust sort: {:?}", sorted_values);
-            println!("js value at index {:?}: {:?}", i, value);
+            println!("js sort: {sorted_result_vec:?}");
+            println!("rust sort: {sorted_values:?}");
+            println!("js value at index {i:?}: {value:?}");
             println!("rust value at index {:?}: {:?}", i, sorted_values[i]);
         }
         assert_eq!(value, &sorted_values[i]);

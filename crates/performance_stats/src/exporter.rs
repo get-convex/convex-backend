@@ -29,6 +29,7 @@ use crate::memory_allocator::heap_profile;
 
 pub type FlushMetrics<RT: Runtime> = impl FnOnce() -> BoxFuture<'static, ()>;
 
+#[define_opaque(FlushMetrics)]
 pub fn register_prometheus_exporter<RT: Runtime>(
     rt: RT,
     bind_addr: SocketAddr,

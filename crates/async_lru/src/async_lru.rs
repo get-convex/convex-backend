@@ -782,19 +782,16 @@ mod tests {
     fn assert_is_our_error(result: anyhow::Result<Arc<u32>>) {
         let err = result.unwrap_err();
         assert!(
-            format!("{:?}", err).contains("NO!"),
-            "Expected our test error, but instead got: {:?}",
-            err,
+            format!("{err:?}").contains("NO!"),
+            "Expected our test error, but instead got: {err:?}",
         );
         assert!(
-            format!("{:?}", err).contains("original error"),
-            "Expected our test error, but instead got: {:?}",
-            err,
+            format!("{err:?}").contains("original error"),
+            "Expected our test error, but instead got: {err:?}",
         );
         assert!(
-            format!("{:?}", err).contains("Orig Error"),
-            "Expected our test error, but instead got: {:?}",
-            err,
+            format!("{err:?}").contains("Orig Error"),
+            "Expected our test error, but instead got: {err:?}",
         );
     }
 }

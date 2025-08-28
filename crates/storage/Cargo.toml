@@ -25,7 +25,6 @@ derive_more = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
-http = { workspace = true }
 http-body-util = { workspace = true }
 pb = { workspace = true }
 runtime = { workspace = true, optional = true }
@@ -35,6 +34,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true }
 value = { workspace = true }
 
 [dev-dependencies]

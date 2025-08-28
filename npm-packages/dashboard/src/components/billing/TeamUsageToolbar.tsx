@@ -21,7 +21,7 @@ export function TeamUsageToolbar({
 }) {
   const { query, replace } = useRouter();
   return (
-    <div className="sticky top-0 z-10 mb-6 flex flex-wrap items-center gap-2 border-b bg-background-primary py-6">
+    <div className="sticky top-0 z-20 mb-6 flex h-(--team-usage-toolbar-height) flex-wrap content-center items-center gap-2 border-b bg-background-primary">
       <UsagePeriodSelector
         period={shownBillingPeriod}
         onChange={setSelectedBillingPeriod}

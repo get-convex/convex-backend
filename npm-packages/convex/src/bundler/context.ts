@@ -40,6 +40,10 @@ export type BigBrainAuth = {
       projectKey: string;
     }
   | {
+      kind: "deploymentKey";
+      deploymentKey: string;
+    }
+  | {
       kind: "previewDeployKey";
       previewDeployKey: string;
     }

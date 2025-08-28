@@ -245,7 +245,7 @@ impl TryFrom<ClientMessage> for JsonValue {
             } => ClientMessageJson::Mutation {
                 request_id,
                 udf_path: String::from(udf_path),
-                args: JsonValue::Array(args.into_iter().map(JsonValue::from).collect::<Vec<_>>()),
+                args: JsonValue::Array(args.into_iter().collect::<Vec<_>>()),
                 component_path,
             },
             ClientMessage::Action {
@@ -256,7 +256,7 @@ impl TryFrom<ClientMessage> for JsonValue {
             } => ClientMessageJson::Action {
                 request_id,
                 udf_path: String::from(udf_path),
-                args: JsonValue::Array(args.into_iter().map(JsonValue::from).collect::<Vec<_>>()),
+                args: JsonValue::Array(args.into_iter().collect::<Vec<_>>()),
                 component_path,
             },
             ClientMessage::Authenticate {
@@ -615,7 +615,7 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
                 "type": "FatalError",
                 "error": error_message,
             }),
-            ServerMessage::Ping {} => json!({
+            ServerMessage::Ping => json!({
                 "type": "Ping"
             }),
         }

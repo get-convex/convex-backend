@@ -14,10 +14,12 @@ import {
   usePaginatedDeploymentEvents,
 } from "@common/lib/useDeploymentAuditLog";
 import { Loading } from "@ui/Loading";
-import { toast } from "@common/lib/utils";
 import { Sheet } from "@ui/Sheet";
 import { PageContent } from "@common/elements/PageContent";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { Callout } from "@ui/Callout";
+import { Button } from "@ui/Button";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
 
 const INITIAL_EVENTS_TO_LOAD = 10;
 const PAGE_SIZE = 10;
@@ -55,26 +57,45 @@ function History() {
   if (auditLogsEnabled === undefined) {
     return <Loading />;
   }
-  if (!auditLogsEnabled) {
-    toast(
-      "info",
-      "Deployment history is only available on the Pro plan.",
-      "upsell",
-    );
-    void router.push(`${teamsURI}/settings/billing`);
-    return null;
-  }
 
   return (
     <div className="flex h-full w-full flex-col gap-4 p-6 py-4">
       <h3>Deployment History</h3>
-      <DateRangePicker
-        minDate={minStartDate}
-        maxDate={maxEndDate}
-        date={{ from: startDate, to: endDate }}
-        setDate={setDate}
-      />
-      <HistoryList filters={filters} />
+      {auditLogsEnabled ? (
+        <>
+          <DateRangePicker
+            minDate={minStartDate}
+            maxDate={maxEndDate}
+            date={{ from: startDate, to: endDate }}
+            setDate={setDate}
+          />
+          <HistoryList filters={filters} />
+        </>
+      ) : (
+        <div className="max-w-prose">
+          <Sheet>
+            <Callout variant="upsell">
+              <div className="flex w-fit flex-col gap-2">
+                <p>
+                  The deployment history page is only available on the Pro plan.
+                </p>
+                <Button
+                  href={`${teamsURI}/settings/billing`}
+                  size="xs"
+                  className="w-fit"
+                >
+                  Upgrade Now
+                </Button>
+              </div>
+            </Callout>
+            <LocalDevCallout
+              className="mt-6 flex-col"
+              tipText="Tip: Run this to enable the deployment history locally:"
+              command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement audit_logs_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+            />
+          </Sheet>
+        </div>
+      )}
     </div>
   );
 }

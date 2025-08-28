@@ -5,7 +5,7 @@ import {
   ArrowTopRightIcon,
 } from "@radix-ui/react-icons";
 import { FingerPrintIcon } from "@heroicons/react/24/outline";
-import { Index, IndexType } from "@common/features/data/lib/api";
+import { Index } from "@common/features/data/lib/api";
 import { useNents } from "@common/lib/useNents";
 import { Loading } from "@ui/Loading";
 import { Spinner } from "@ui/Spinner";
@@ -15,6 +15,7 @@ import { Fragment } from "react";
 import { ProgressBar } from "@ui/ProgressBar";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
+import { Callout } from "@ui/Callout";
 
 export function IndexList({ tableName }: { tableName: string }) {
   const { selectedNent } = useNents();
@@ -38,37 +39,61 @@ export function IndexesList({
     return <Loading />;
   }
 
+  const recommendStagedIndexes = (indexes ?? []).some(
+    (index) =>
+      index.backfill.state === "backfilling" &&
+      !index.staged &&
+      index.backfill.stats?.totalDocs &&
+      index.backfill.stats.totalDocs > 10_000,
+  );
+
   const groupedIndexes = groupBy(indexes, getIndexType);
 
   return (
-    <div className="flex flex-col gap-10">
-      <IndexListSection
-        title="Indexes"
-        description="Indexes allow you to speed up your document queries by telling Convex how to organize your documents."
-        learnMoreUrl="https://docs.convex.dev/database/reading-data/indexes/"
-        indexes={groupedIndexes.database ?? []}
-        icon={FingerPrintIcon}
-        tableName={tableName}
-        indexType="database"
-      />
-      <IndexListSection
-        title="Search indexes"
-        description="Search indexes allows you to find Convex documents that approximately match a textual search query."
-        learnMoreUrl="https://docs.convex.dev/search/text-search"
-        indexes={groupedIndexes.search ?? []}
-        icon={MagnifyingGlassIcon}
-        tableName={tableName}
-        indexType="search"
-      />
-      <IndexListSection
-        title="Vector indexes"
-        description="Vector search allows you to find Convex documents similar to a provided vector."
-        learnMoreUrl="https://docs.convex.dev/search/vector-search"
-        indexes={groupedIndexes.vector ?? []}
-        icon={ArrowTopRightIcon}
-        tableName={tableName}
-        indexType="vector"
-      />
+    <div className="flex flex-col gap-6">
+      {recommendStagedIndexes && (
+        <Callout variant="hint">
+          <p>
+            <strong className="font-semibold">Hint</strong>: When adding an
+            index to a large table, consider using a{" "}
+            <a
+              href="https://docs.convex.dev/database/reading-data/indexes/#staged-indexes"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              staged index
+            </a>{" "}
+            to avoid blocking deploy.
+          </p>
+        </Callout>
+      )}
+      <div className="flex flex-col gap-10">
+        <IndexListSection
+          title="Indexes"
+          description="Indexes allow you to speed up your document queries by telling Convex how to organize your documents."
+          learnMoreUrl="https://docs.convex.dev/database/reading-data/indexes/"
+          indexes={groupedIndexes.database ?? []}
+          icon={FingerPrintIcon}
+          tableName={tableName}
+        />
+        <IndexListSection
+          title="Search indexes"
+          description="Search indexes allows you to find Convex documents that approximately match a textual search query."
+          learnMoreUrl="https://docs.convex.dev/search/text-search"
+          indexes={groupedIndexes.search ?? []}
+          icon={MagnifyingGlassIcon}
+          tableName={tableName}
+        />
+        <IndexListSection
+          title="Vector indexes"
+          description="Vector search allows you to find Convex documents similar to a provided vector."
+          learnMoreUrl="https://docs.convex.dev/search/vector-search"
+          indexes={groupedIndexes.vector ?? []}
+          icon={ArrowTopRightIcon}
+          tableName={tableName}
+        />
+      </div>
     </div>
   );
 }
@@ -80,7 +105,6 @@ function IndexListSection({
   indexes,
   icon: Icon,
   tableName,
-  indexType,
 }: {
   title: string;
   description: string;
@@ -88,7 +112,6 @@ function IndexListSection({
   indexes: Index[];
   icon: React.FC<{ className?: string }>;
   tableName: string;
-  indexType: IndexType;
 }) {
   const indexesByName = groupBy(indexes, "name");
 
@@ -125,7 +148,6 @@ function IndexListSection({
             <IndexListRow
               key={`${index.name} ${indexesByName[index.name].indexOf(index)}`}
               index={index}
-              indexType={indexType}
             />
           ))}
         </div>
@@ -134,69 +156,44 @@ function IndexListSection({
   );
 }
 
-function stagedIndexSyntaxForType(indexType: IndexType) {
-  switch (indexType) {
-    case "database":
-      return ".stagedIndex()";
-    case "search":
-      return ".stagedSearchIndex()";
-    case "vector":
-      return ".stagedVectorIndex()";
-    default: {
-      indexType satisfies never;
-      return "unknown";
-    }
-  }
-}
-
-function indexSyntaxForType(indexType: IndexType) {
-  switch (indexType) {
-    case "database":
-      return ".index()";
-    case "search":
-      return ".searchIndex()";
-    case "vector":
-      return ".vectorIndex()";
-    default: {
-      indexType satisfies never;
-      return "unknown";
-    }
-  }
-}
-
-function IndexListRow({
-  index,
-  indexType,
-}: {
-  index: Index;
-  indexType: IndexType;
-}) {
+function IndexListRow({ index }: { index: Index }) {
   const { fields } = index;
   const isStaged = index.staged === true;
 
   return (
     <article className="flex flex-col gap-2 text-sm text-content-secondary">
-      <header className="flex items-center gap-2">
-        <h6 className="truncate font-mono text-sm font-medium text-content-primary">
-          {index.name}
+      <header className="flex items-center gap-1">
+        <div className="flex items-baseline gap-1">
+          <h6 className="truncate font-mono text-sm font-medium text-content-primary">
+            {index.name}
+          </h6>
+
           {isStaged && (
             <Tooltip
+              className="ml-1 flex gap-1"
               tip={
                 <div className="text-sm">
                   <p className="mb-2">
                     Staged indexes are not queryable. To enable this index,
-                    replace <code>{stagedIndexSyntaxForType(indexType)}</code>{" "}
-                    with <code>{indexSyntaxForType(indexType)}</code> in your{" "}
-                    <code>schema.ts</code> file.
+                    remove{" "}
+                    <code className="whitespace-nowrap">
+                      {"{ staged: true }"}
+                    </code>{" "}
+                    in your <code>schema.ts</code> file.
                   </p>
                 </div>
               }
             >
-              <span className="ml-2 text-xs font-normal">(staged)</span>
+              <span className="text-xs text-content-tertiary underline decoration-dotted">
+                Staged
+              </span>
+              <QuestionMarkCircledIcon className="text-content-tertiary" />
             </Tooltip>
           )}
-        </h6>
-        <div className={cn("grow border-b", isStaged && "border-dashed")} />
+        </div>
+        <div
+          className={cn("ml-1 grow border-b", isStaged && "border-dashed")}
+        />
       </header>
 
       <div className="flex flex-col gap-1 pl-2">
@@ -320,7 +317,9 @@ function IndexBackfillProgress({
   );
 }
 
-function getIndexType(index: Index): IndexType | "unknown" {
+function getIndexType(
+  index: Index,
+): "database" | "search" | "vector" | "unknown" {
   if (Array.isArray(index.fields)) {
     return "database";
   }

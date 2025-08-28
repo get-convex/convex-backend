@@ -11,6 +11,8 @@ import {
   debugIsolateEndpointBundles,
   getFunctionsDirectoryPath,
   readProjectConfig,
+  pullConfig,
+  diffConfig,
 } from "./config.js";
 import {
   finishPush,
@@ -304,6 +306,7 @@ async function startComponentsPushAndCodegen(
     appDefinition,
     componentDefinitions,
     nodeDependencies: appImplementation.externalNodeDependencies,
+    nodeVersion: projectConfig.node.nodeVersion,
   };
   if (options.writePushRequest) {
     const pushRequestPath = path.resolve(options.writePushRequest);
@@ -395,6 +398,7 @@ export async function runComponentsPush(
   const reporter = new Reporter();
   const pushSpan = Span.root(reporter, "runComponentsPush");
   pushSpan.setProperty("cli_version", version);
+  const verbose = options.verbose || options.dryRun;
 
   await ensureHasConvexDependency(ctx, "push");
 
@@ -416,6 +420,37 @@ export async function runComponentsPush(
   await pushSpan.enterAsync("waitForSchema", (span) =>
     waitForSchema(ctx, span, startPushResponse, options),
   );
+
+  const remoteConfigWithModuleHashes = await pullConfig(
+    ctx,
+    undefined,
+    undefined,
+    options.url,
+    options.adminKey,
+  );
+
+  const { config: localConfig } = await configFromProjectConfig(
+    ctx,
+    projectConfig,
+    configPath,
+    options.verbose,
+  );
+
+  changeSpinner("Diffing local code and deployment state");
+  const { diffString } = diffConfig(
+    remoteConfigWithModuleHashes,
+    localConfig,
+    false,
+  );
+
+  if (verbose) {
+    logFinishedStep(
+      `Remote config ${
+        options.dryRun ? "would" : "will"
+      } be overwritten with the following changes:\n  ` +
+        diffString.replace(/\n/g, "\n  "),
+    );
+  }
 
   const finishPushResponse = await pushSpan.enterAsync("finishPush", (span) =>
     finishPush(ctx, span, startPushResponse, options),

@@ -911,7 +911,7 @@ impl KeyBroker {
                 self.admin_key_encryptor
                     .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
             })
-            .with_context(|| format!("Couldn't decode the AdminKeyProto {}", key))?;
+            .with_context(|| format!("Couldn't decode the AdminKeyProto {key}"))?;
         let instance_name = instance_name
             .or(instance_name_from_encrypted_part.as_deref())
             .context("Invalid admin key format")?;

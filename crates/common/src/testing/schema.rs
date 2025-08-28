@@ -33,7 +33,7 @@ static TOO_MANY_INDEXES: LazyLock<Vec<JsonValue>> = LazyLock::new(|| {
 
 static TOO_MANY_INDEX_FIELDS: LazyLock<Vec<String>> = LazyLock::new(|| {
     (0..MAX_INDEX_FIELDS_SIZE + 1)
-        .map(|i| format!("field_{}", i))
+        .map(|i| format!("field_{i}"))
         .collect()
 });
 
@@ -792,7 +792,7 @@ fn test_too_many_fields() {
 #[test]
 fn test_too_many_search_filter_fields() {
     let fields: Vec<_> = (0..MAX_TEXT_INDEX_FILTER_FIELDS_SIZE + 1)
-        .map(|i| format!("field_{}", i))
+        .map(|i| format!("field_{i}"))
         .collect();
     let value = json!({
         "tables": [
@@ -936,7 +936,7 @@ fn test_many_vector_indexes() -> anyhow::Result<()> {
 #[test]
 fn test_too_many_vector_filter_fields() {
     let fields: Vec<_> = (0..MAX_VECTOR_INDEX_FILTER_FIELDS_SIZE + 1)
-        .map(|i| format!("field_{}", i))
+        .map(|i| format!("field_{i}"))
         .collect();
     let value = json!({
         "tables": [

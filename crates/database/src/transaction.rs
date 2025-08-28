@@ -579,10 +579,7 @@ impl<RT: Runtime> Transaction<RT> {
 
     pub fn is_system(&mut self, namespace: TableNamespace, table_number: TableNumber) -> bool {
         let tablet_id =
-            match self.table_mapping().namespace(namespace).number_to_tablet()(table_number) {
-                Err(_) => None,
-                Ok(id) => Some(id),
-            };
+            self.table_mapping().namespace(namespace).number_to_tablet()(table_number).ok();
         tablet_id.is_some_and(|id| self.table_mapping().is_system_tablet(id))
     }
 

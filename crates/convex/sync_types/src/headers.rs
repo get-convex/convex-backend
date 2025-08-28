@@ -21,8 +21,7 @@ impl Credentials for ConvexAdminAuthorization {
     fn decode(value: &HeaderValue) -> Option<Self> {
         debug_assert!(
             value.as_bytes().starts_with(b"Convex "),
-            "HeaderValue to decode should start with \"Convex ..\", received = {:?}",
-            value,
+            "HeaderValue to decode should start with \"Convex ..\", received = {value:?}",
         );
 
         Some(Self(value.clone()))

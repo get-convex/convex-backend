@@ -47,6 +47,11 @@ pub enum Export {
         /// Expiration timestamp in nanos
         expiration_ts: u64,
         progress_message: Option<String>,
+        #[cfg_attr(
+            any(test, feature = "testing"),
+            proptest(strategy = "proptest::option::of(arbitrary_resumption_token())")
+        )]
+        resumption_token: Option<serde_json::Map<String, serde_json::Value>>,
     },
     Completed {
         /// Timestamp for the successful (final) attempt at Export.
@@ -82,6 +87,18 @@ pub enum Export {
     },
 }
 
+#[cfg(any(test, feature = "testing"))]
+fn arbitrary_resumption_token(
+) -> impl proptest::strategy::Strategy<Value = serde_json::Map<String, serde_json::Value>> {
+    use proptest::{
+        collection::btree_map,
+        prelude::*,
+    };
+    use value::FieldName;
+    btree_map(any::<FieldName>(), any::<String>(), 0..4)
+        .prop_map(|obj| obj.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state")]
 #[serde(rename_all = "snake_case")]
@@ -99,6 +116,8 @@ pub enum SerializedExport {
         requestor: String,
         expiration_ts: i64,
         progress_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        resumption_token: Option<serde_json::Map<String, serde_json::Value>>,
     },
     Completed {
         start_ts: u64,
@@ -150,6 +169,7 @@ impl TryFrom<Export> for SerializedExport {
                 expiration_ts,
                 requestor,
                 progress_message,
+                resumption_token,
             } => SerializedExport::InProgress {
                 start_ts: start_ts.into(),
                 format: format.into(),
@@ -157,6 +177,7 @@ impl TryFrom<Export> for SerializedExport {
                 requestor: requestor.to_string(),
                 expiration_ts: expiration_ts as i64,
                 progress_message,
+                resumption_token,
             },
             Export::Completed {
                 start_ts,
@@ -228,6 +249,7 @@ impl TryFrom<SerializedExport> for Export {
                 expiration_ts,
                 requestor,
                 progress_message,
+                resumption_token,
             } => Export::InProgress {
                 start_ts: start_ts.try_into()?,
                 format: format.into(),
@@ -235,6 +257,7 @@ impl TryFrom<SerializedExport> for Export {
                 requestor: requestor.parse()?,
                 expiration_ts: expiration_ts as u64,
                 progress_message,
+                resumption_token,
             },
             SerializedExport::Completed {
                 start_ts,
@@ -396,6 +419,7 @@ impl Export {
                 requestor,
                 expiration_ts,
                 progress_message: None,
+                resumption_token: None,
             }),
             Self::Completed { .. }
             | Self::InProgress { .. }
@@ -406,28 +430,41 @@ impl Export {
         }
     }
 
-    pub fn update_progress(self, msg: String) -> anyhow::Result<Export> {
+    pub fn update_progress(mut self, msg: String) -> anyhow::Result<Export> {
         match self {
             Self::InProgress {
-                format,
-                component,
-                requestor,
-                expiration_ts,
-                start_ts,
-                progress_message: _,
-            } => Ok(Self::InProgress {
-                start_ts,
-                format,
-                component,
-                requestor,
-                expiration_ts,
-                progress_message: Some(msg),
-            }),
+                ref mut progress_message,
+                ..
+            } => {
+                *progress_message = Some(msg);
+                Ok(self)
+            },
             Self::Completed { .. }
             | Self::Requested { .. }
             | Self::Failed { .. }
             | Self::Canceled { .. } => Err(anyhow::anyhow!(
                 "Can only update progress on an export that is InProgress"
+            )),
+        }
+    }
+
+    pub fn update_resumption_token(
+        mut self,
+        token: serde_json::Map<String, serde_json::Value>,
+    ) -> anyhow::Result<Export> {
+        match self {
+            Self::InProgress {
+                ref mut resumption_token,
+                ..
+            } => {
+                *resumption_token = Some(token);
+                Ok(self)
+            },
+            Self::Completed { .. }
+            | Self::Requested { .. }
+            | Self::Failed { .. }
+            | Self::Canceled { .. } => Err(anyhow::anyhow!(
+                "Can only set resumption token on an export that is InProgress"
             )),
         }
     }
@@ -446,6 +483,7 @@ impl Export {
                 expiration_ts,
                 start_ts: _, // replace start_ts with the actual database TS
                 progress_message: _,
+                resumption_token: _,
             } => {
                 anyhow::ensure!(snapshot_ts <= complete_ts);
                 Ok(Self::Completed {

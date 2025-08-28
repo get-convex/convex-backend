@@ -234,10 +234,9 @@ impl SearchResultIterator {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "SearchQueryScannedTooManyDocumentsError",
                 format!(
-                    "Search query scanned too many documents (fetched {}). Consider using a \
-                     smaller limit, paginating the query, or using a filter field to limit the \
-                     number of documents pulled from the search index.",
-                    MAX_CANDIDATE_REVISIONS
+                    "Search query scanned too many documents (fetched {MAX_CANDIDATE_REVISIONS}). \
+                     Consider using a smaller limit, paginating the query, or using a filter \
+                     field to limit the number of documents pulled from the search index."
                 )
             ))
         }

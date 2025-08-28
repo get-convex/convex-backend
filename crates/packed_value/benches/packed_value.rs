@@ -57,9 +57,8 @@ fn benchmark_values() -> anyhow::Result<Vec<(&'static str, ConvexValue)>> {
          知らず、生れ死ぬる人、いづかたより來りて、いづかたへか去る。又知らず、かりのやどり、\
          誰が爲に心を惱まし、何によりてか目をよろこばしむる。そのあるじとすみかと、\
          無常をあらそひ去るさま、いはゞ朝顏の露にことならず。或は露おちて花のこれり。";
-    let string_512k_pieces: Vec<_> = std::iter::repeat(string_short)
-        .take(524_288 / string_short.len())
-        .collect();
+    let string_512k_pieces: Vec<_> =
+        std::iter::repeat_n(string_short, 524_288 / string_short.len()).collect();
     let string_512k = string_512k_pieces.join(" ");
 
     let bytes_short = vec![

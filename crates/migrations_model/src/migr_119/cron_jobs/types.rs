@@ -619,6 +619,7 @@ mod codegen_cron_schedule {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)] // TODO: remove
 pub enum CronScheduleProductAnalysis {
     Interval {
         seconds: i64,
@@ -782,7 +783,7 @@ impl TryFrom<ConvexObject> for CronJobLog {
         };
         let udf_path: CanonicalizedUdfPath = udf_path
             .parse()
-            .context(format!("Failed to deserialize udf_path {}", udf_path))?;
+            .context(format!("Failed to deserialize udf_path {udf_path}"))?;
         let udf_args = match fields.remove("udfArgs") {
             Some(ConvexValue::Bytes(b)) => {
                 let udf_args_json: JsonValue = serde_json::from_slice(&b)?;

@@ -60,7 +60,7 @@ pub fn http_request(path: &str) -> HttpActionRequest {
     HttpActionRequest {
         head: HttpActionRequestHead {
             headers: HeaderMap::new(),
-            url: Url::parse(&format!("http://127.0.0.1:8001/{}", path)).unwrap(),
+            url: Url::parse(&format!("http://127.0.0.1:8001/{path}")).unwrap(),
             method: Method::GET,
         },
         body: None,
@@ -71,7 +71,7 @@ pub fn http_post_request(path: &str, body: Vec<u8>) -> HttpActionRequest {
     HttpActionRequest {
         head: HttpActionRequestHead {
             headers: HeaderMap::new(),
-            url: Url::parse(&format!("http://127.0.0.1:8001/{}", path)).unwrap(),
+            url: Url::parse(&format!("http://127.0.0.1:8001/{path}")).unwrap(),
             method: Method::POST,
         },
         body: Some(stream::once(async move { Ok(body.into()) }).boxed()),

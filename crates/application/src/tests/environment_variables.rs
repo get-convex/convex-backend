@@ -191,7 +191,7 @@ async fn test_env_variable_cannot_set_system_name(rt: ProdRuntime) -> anyhow::Re
         )
         .await
         .unwrap_err();
-    assert!(format!("{}", error).contains(
+    assert!(format!("{error}").contains(
         "Environment variable with name \"CONVEX_SITE_URL\" is built-in and cannot be overridden"
     ));
 

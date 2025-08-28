@@ -11,17 +11,26 @@ use common::http::{
     HttpResponseError,
 };
 use http::StatusCode;
-use model::environment_variables::types::{
-    EnvVarName,
-    EnvVarValue,
-    EnvironmentVariable,
+use model::environment_variables::{
+    types::{
+        EnvVarName,
+        EnvVarValue,
+        EnvironmentVariable,
+    },
+    EnvironmentVariablesModel,
 };
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
-    admin::must_be_admin_with_write_access,
+    admin::{
+        must_be_admin,
+        must_be_admin_with_write_access,
+    },
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -94,6 +103,43 @@ pub async fn update_environment_variables(
     Ok(StatusCode::OK)
 }
 
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListEnvVarsResponse {
+    environment_variables: std::collections::BTreeMap<String, String>,
+}
+
+/// List environment variables
+///
+/// Get all environment variables in a deployment.
+/// In the future this might not include "secret" environment
+/// variables.
+#[utoipa::path(
+    get,
+    path = "/list_environment_variables",
+    responses(
+        (status = 200, body = ListEnvVarsResponse)
+    ),
+)]
+pub async fn list_environment_variables(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin(&identity)?;
+
+    let mut tx = st.application.begin(identity).await?;
+    let env_vars = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+
+    let environment_variables = env_vars
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect();
+
+    Ok(Json(ListEnvVarsResponse {
+        environment_variables,
+    }))
+}
+
 fn validate_env_var(name: &String, value: &String) -> anyhow::Result<EnvironmentVariable> {
     let name: EnvVarName = name.parse()?;
     let value: EnvVarValue = value.parse()?;
@@ -105,7 +151,10 @@ where
     LocalAppState: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
-    OpenApiRouter::new().routes(utoipa_axum::routes!(update_environment_variables))
+    OpenApiRouter::new().routes(utoipa_axum::routes!(
+        update_environment_variables,
+        list_environment_variables
+    ))
 }
 
 #[cfg(test)]

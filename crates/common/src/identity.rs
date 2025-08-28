@@ -168,7 +168,7 @@ impl FromStr for InertIdentity {
 impl Display for InertIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            InertIdentity::InstanceAdmin(s) => write!(f, "admin:{}", s),
+            InertIdentity::InstanceAdmin(s) => write!(f, "admin:{s}"),
             InertIdentity::System => write!(f, "system"),
             InertIdentity::Unknown => write!(f, "unknown"),
             InertIdentity::User(id) => write!(f, "user:{}", id.deref()),

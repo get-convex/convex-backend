@@ -68,5 +68,3 @@ export type Index = {
     };
   };
 };
-
-export type IndexType = "database" | "search" | "vector";

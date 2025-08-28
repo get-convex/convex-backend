@@ -338,7 +338,7 @@ async fn test_index_range_errors(rt: TestRuntime) -> anyhow::Result<()> {
         let error = t.query_js_error(udf_path, assert_obj!()).await.unwrap();
 
         assert!(
-            format!("{}", error).contains(expected),
+            format!("{error}").contains(expected),
             "\nExpected: {expected}\nActual: {error}"
         );
     }

@@ -1594,7 +1594,7 @@
     },
     "/authorize": {
       "post": {
-        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the Auth0 access token",
+        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the WorkOS access token",
         "operationId": "authorize_device",
         "requestBody": {
           "content": {
@@ -2468,29 +2468,6 @@
         }
       }
     },
-    "/set_jwt_cookie": {
-      "post": {
-        "operationId": "set_jwt_cookie",
-        "responses": {}
-      }
-    },
-    "/link_identity": {
-      "post": {
-        "description": "Link a secondary identity to a user's account",
-        "operationId": "link_identity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LinkIdentityRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {}
-      }
-    },
     "/unlink_identity": {
       "post": {
         "description": "Unlink a secondary identity from a user's account",
@@ -2529,21 +2506,25 @@
         }
       }
     },
-    "/update_primary_identity": {
-      "post": {
-        "description": "Change the primary identity for a user's account by unlinking and relinking.",
-        "operationId": "update_primary_identity",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangePrimaryIdentityRequest"
+    "/identities": {
+      "get": {
+        "description": "List simplified identities grouped by WorkOS user ID",
+        "operationId": "identities",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdentityResponse"
+                  }
+                }
               }
             }
-          },
-          "required": true
-        },
-        "responses": {}
+          }
+        }
       }
     },
     "/teams/{team_id}/oauth_apps": {
@@ -3028,7 +3009,6 @@
           "connection",
           "userId",
           "provider",
-          "profileData",
           "isPrimary"
         ],
         "properties": {
@@ -3043,9 +3023,6 @@
               "string",
               "null"
             ]
-          },
-          "profileData": {
-            "$ref": "#/components/schemas/ProfileData"
           },
           "provider": {
             "type": "string"
@@ -3066,7 +3043,7 @@
         "properties": {
           "authnToken": {
             "type": "string",
-            "description": "Authentication token is expected to be the access token from auth0"
+            "description": "Authentication token is expected to be the access token from WorkOS"
           },
           "clientId": {
             "type": "string"
@@ -3126,7 +3103,7 @@
           },
           "authnToken": {
             "type": "string",
-            "description": "Authentication token is expected to be the access token from auth0"
+            "description": "Authentication token is expected to be the access token from WorkOS"
           },
           "deploymentId": {
             "oneOf": [
@@ -3256,21 +3233,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "ChangePrimaryIdentityRequest": {
-        "type": "object",
-        "required": [
-          "newPrimaryProvider",
-          "newPrimaryUserId"
-        ],
-        "properties": {
-          "newPrimaryProvider": {
-            "type": "string"
-          },
-          "newPrimaryUserId": {
-            "type": "string"
-          }
-        }
       },
       "ChangeSubscriptionPlanArgs": {
         "type": "object",
@@ -3413,12 +3375,18 @@
           "teamId",
           "deploymentName",
           "prodUrl",
-          "projectsRemaining",
-          "adminKey"
+          "projectsRemaining"
         ],
         "properties": {
           "adminKey": {
-            "$ref": "#/components/schemas/AdminKey"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AdminKey"
+              }
+            ]
           },
           "deploymentName": {
             "type": "string"
@@ -3560,7 +3528,6 @@
               "createTime",
               "deploymentType",
               "projectId",
-              "creator",
               "kind"
             ],
             "properties": {
@@ -3569,7 +3536,14 @@
                 "format": "int64"
               },
               "creator": {
-                "$ref": "#/components/schemas/MemberId"
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MemberId"
+                  }
+                ]
               },
               "deploymentType": {
                 "$ref": "#/components/schemas/DeploymentType"
@@ -3926,6 +3900,30 @@
           }
         }
       },
+      "IdentityResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "providers"
+        ],
+        "properties": {
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "InstanceAuthForDashboardInteractionsResponse": {
         "oneOf": [
           {
@@ -4054,17 +4052,6 @@
             "items": {
               "$ref": "#/components/schemas/InvoiceResponse"
             }
-          }
-        }
-      },
-      "LinkIdentityRequest": {
-        "type": "object",
-        "required": [
-          "fromProfile"
-        ],
-        "properties": {
-          "fromProfile": {
-            "type": "boolean"
           }
         }
       },
@@ -4417,47 +4404,6 @@
       "PreviewDeploymentIdentifier": {
         "type": "string"
       },
-      "ProfileData": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "nickname": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "username": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "vercel_account_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "vercel_installation_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      },
       "ProfileEmailArgs": {
         "type": "object",
         "required": [
@@ -4678,7 +4624,7 @@
         "properties": {
           "accessToken": {
             "type": "string",
-            "description": "Authentication token is expected to be the access token from auth0"
+            "description": "Authentication token is expected to be the access token from WorkOS"
           },
           "newName": {
             "$ref": "#/components/schemas/DeviceName"
@@ -4713,7 +4659,7 @@
       },
       "SerializedAccessToken": {
         "type": "string",
-        "description": "ConvexAccessToken is our own internal notion of authorization.\nIt is versioned.\n\nV1 - uses an auth0_access_token for authorization.\n\nSerialization is done by SerializedAccessToken::new\nThe ConvexAccessToken is serialized (json) and base64\nencoded for obfuscation before sending it to the client\n\nDeserialization is done by SerializedAccessToken::decode\nThis reverses the process and returns a ConvexAccessToken which\ncan be match'd by the extractor.\n\n`SerializedAccessToken` is intentionally the only struct that is\nleft public.\n\nThe json is externally tagged. Expect it to look like\n{\"v1\": \"auth0token\"}"
+        "description": "ConvexAccessToken is our own internal notion of authorization.\nIt is versioned.\n\nV1 - uses an WorkOS access token for authorization.\n\nSerialization is done by SerializedAccessToken::new\nThe ConvexAccessToken is serialized (json) and base64\nencoded for obfuscation before sending it to the client\n\nDeserialization is done by SerializedAccessToken::decode\nThis reverses the process and returns a ConvexAccessToken which\ncan be match'd by the extractor.\n\n`SerializedAccessToken` is intentionally the only struct that is\nleft public.\n\nThe json is externally tagged. Expect it to look like\n{\"v1\": \"workostoken\"}"
       },
       "SetSpendingLimitArgs": {
         "type": "object",
@@ -5051,13 +4997,9 @@
       "UnlinkIdentityRequest": {
         "type": "object",
         "required": [
-          "provider",
           "userId"
         ],
         "properties": {
-          "provider": {
-            "type": "string"
-          },
           "userId": {
             "type": "string"
           }

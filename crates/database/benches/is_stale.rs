@@ -298,7 +298,7 @@ fn bench_is_stale_standard_index(c: &mut Criterion) {
         });
 
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("writes_{}", num_writes)),
+            BenchmarkId::from_parameter(format!("writes_{num_writes}")),
             &num_writes,
             |b, &_num_writes| {
                 b.to_async(&rt).iter(|| async {
@@ -324,7 +324,7 @@ fn bench_is_stale_search_index(c: &mut Criterion) {
         });
 
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("writes_{}", num_writes)),
+            BenchmarkId::from_parameter(format!("writes_{num_writes}")),
             &num_writes,
             |b, &_num_writes| {
                 b.to_async(&rt).iter(|| async {
@@ -372,7 +372,7 @@ fn bench_is_stale_no_conflict(c: &mut Criterion) {
         });
 
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("writes_{}", num_writes)),
+            BenchmarkId::from_parameter(format!("writes_{num_writes}")),
             &num_writes,
             |b, &_num_writes| {
                 b.to_async(&rt).iter(|| async {

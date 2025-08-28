@@ -238,8 +238,8 @@ impl QdrantSchema {
             ErrorMetadata::bad_request(
                 "TooManyElementsInVectorQueryError",
                 format!(
-                    "Vector query against {index_name} has too many conditions. Max: {} Actual: {}",
-                    MAX_FILTER_LENGTH, filter_length
+                    "Vector query against {index_name} has too many conditions. Max: \
+                     {MAX_FILTER_LENGTH} Actual: {filter_length}"
                 )
             )
         );

@@ -41,7 +41,13 @@ export type Mounts = {
     insertRow: FunctionReference<
       "mutation",
       "public",
-      { cuisine: string; description: string; embedding: Array<number> },
+      {
+        bOrC: string;
+        cuisine: string;
+        description: string;
+        embedding: Array<number>;
+        theLetterA: string;
+      },
       any
     >;
     populate: FunctionReference<"action", "public", {}, any>;

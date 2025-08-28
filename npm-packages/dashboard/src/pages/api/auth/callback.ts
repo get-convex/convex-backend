@@ -36,9 +36,13 @@ export default async function handler(
     const { sealedSession } = authenticateResponse;
 
     // Store the session in a cookie
+    const secure =
+      // We only use secure cookies in production because development environments might use HTTP
+      // (most browsers tolerate secure cookies on localhost, but not Safari)
+      process.env.NODE_ENV === "production" ? " Secure;" : "";
     res.setHeader(
       "Set-Cookie",
-      `wos-session=${sealedSession}; Path=/; HttpOnly; Secure; SameSite=Lax`,
+      `wos-session=${sealedSession}; Path=/; HttpOnly;${secure} SameSite=Lax`,
     );
 
     // Use the information in `user` for further business logic.

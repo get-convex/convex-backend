@@ -45,6 +45,7 @@ use usage_tracking::{
     StorageCallTracker,
     UsageCounter,
 };
+use value::ResolvedDocumentId;
 
 use crate::{
     exports::metrics::log_export_failed,
@@ -175,9 +176,18 @@ impl<RT: Runtime> ExportWorker<RT> {
         export: ParsedDocument<Export>,
     ) -> anyhow::Result<()> {
         let id = export.id();
-        let format = export.format();
-        let requestor = export.requestor();
-        drop(export); // Drop this to prevent accidentally using stale state
+        let Export::InProgress {
+            format,
+            requestor,
+            resumption_token,
+            ..
+        } = export.into_value()
+        else {
+            anyhow::bail!(
+                "export_and_mark_complete should only be called with an InProgress export"
+            );
+        };
+        // Drop the rest of `export` to prevent accidentally using stale state
 
         let database_snapshot = self.database.latest_database_snapshot()?;
         let snapshot_ts = *database_snapshot.timestamp();
@@ -189,46 +199,94 @@ impl<RT: Runtime> ExportWorker<RT> {
             file_storage: self.file_storage.clone(),
             instance_name: self.instance_name.clone(),
         };
-        let (object_key, usage) = {
+        async fn modify_export<RT: Runtime>(
+            database: &Database<RT>,
+            id: ResolvedDocumentId,
+            what: &'static str,
+            f: impl FnOnce(Export) -> anyhow::Result<Export> + Send + Clone,
+        ) -> anyhow::Result<()> {
+            database
+                .execute_with_occ_retries(
+                    Identity::system(),
+                    FunctionUsageTracker::new(),
+                    what,
+                    move |tx| {
+                        let f = f.clone();
+                        async move {
+                            let export: ParsedDocument<Export> =
+                                tx.get(id).await?.context(ExportCanceled)?.parse()?;
+                            let export = export.into_value();
+                            if let Export::Canceled { .. } = export {
+                                anyhow::bail!(ExportCanceled);
+                            }
+                            SystemMetadataModel::new_global(tx)
+                                .replace(id, f(export)?.try_into()?)
+                                .await?;
+                            Ok(())
+                        }
+                        .boxed()
+                        .into()
+                    },
+                )
+                .await?;
+            Ok(())
+        }
+        let update_progress = |msg| {
             let database_ = self.database.clone();
-            let export_future = self.export_provider.export(
-                &components,
-                format,
-                requestor,
-                id.to_string(),
-                Box::new(move |msg| {
-                    let database_ = database_.clone();
-                    async move {
-                        tracing::info!("Export {id} progress: {msg}");
-                        database_
-                            .execute_with_occ_retries(
-                                Identity::system(),
-                                FunctionUsageTracker::new(),
-                                "export_worker_update_progress",
-                                move |tx| {
-                                    let msg = msg.clone();
-                                    async move {
-                                        let export: ParsedDocument<Export> =
-                                            tx.get(id).await?.context(ExportCanceled)?.parse()?;
-                                        let export = export.into_value();
-                                        if let Export::Canceled { .. } = export {
-                                            anyhow::bail!(ExportCanceled);
-                                        }
-                                        SystemMetadataModel::new_global(tx)
-                                            .replace(id, export.update_progress(msg)?.try_into()?)
-                                            .await?;
-                                        Ok(())
-                                    }
-                                    .boxed()
-                                    .into()
-                                },
-                            )
-                            .await?;
-                        Ok(())
+            async move {
+                tracing::info!("Export {id} progress: {msg}");
+                modify_export(&database_, id, "export_worker_update_progress", |export| {
+                    export.update_progress(msg)
+                })
+                .await?;
+                Ok(())
+            }
+            .boxed()
+        };
+        let save_resumption_token = |token| {
+            let database_ = self.database.clone();
+            async move {
+                modify_export(
+                    &database_,
+                    id,
+                    "export_worker_save_resumption_token",
+                    |export| export.update_resumption_token(token),
+                )
+                .await?;
+                Ok(())
+            }
+            .boxed()
+        };
+        let (object_key, usage) = {
+            let export_future = async {
+                if let Some(token) = resumption_token {
+                    match self
+                        .export_provider
+                        .resume_export(self.instance_name.clone(), token, id, &update_progress)
+                        .await
+                    {
+                        Ok(Some(result)) => return Ok(result),
+                        Ok(None) => {},
+                        Err(mut err) => {
+                            report_error(&mut err).await;
+                        },
                     }
-                    .boxed()
-                }),
-            );
+                    // If we couldn't resume, just start a new export. We don't
+                    // bother deleting the resumption token here - just assume
+                    // it'll get rewritten soon.
+                }
+                self.export_provider
+                    .export(
+                        &components,
+                        format,
+                        requestor,
+                        id,
+                        &update_progress,
+                        &save_resumption_token,
+                    )
+                    .await
+            };
+            tokio::pin!(export_future);
 
             let database_ = self.database.clone();
             // In parallel, monitor the export document to check for cancellation

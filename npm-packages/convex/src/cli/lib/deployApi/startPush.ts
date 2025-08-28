@@ -21,6 +21,8 @@ export const startPushRequest = looseObject({
   componentDefinitions: z.array(componentDefinitionConfig),
 
   nodeDependencies: z.array(nodeDependency),
+
+  nodeVersion: z.optional(z.string()),
 });
 export type StartPushRequest = z.infer<typeof startPushRequest>;
 

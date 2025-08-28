@@ -496,7 +496,7 @@ impl Limiter {
         Ok(request_guard)
     }
 
-    fn start(&self) -> RequestGuard {
+    fn start(&self) -> RequestGuard<'_> {
         self.total_outstanding.fetch_add(1, Ordering::SeqCst);
         // Update the gauge to account for the newly waiting request.
         self.update_gauges();
@@ -1495,13 +1495,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         deps: Vec<NodeDependency>,
     ) -> anyhow::Result<Result<ExternalDepsPackage, JsError>> {
-        let (object_key, upload_uri) = self
+        let (object_key, upload_url) = self
             .modules_storage
             .presigned_upload_url(*BUILD_DEPS_TIMEOUT)
             .await?;
         let request = BuildDepsRequest {
             deps: deps.clone(),
-            upload_url: upload_uri,
+            upload_url,
         };
         let build_deps_res = self.node_actions.build_deps(request).await?;
         Ok(

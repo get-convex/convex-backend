@@ -371,15 +371,15 @@ impl Display for ConvexValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ConvexValue::Null => write!(f, "null"),
-            ConvexValue::Int64(n) => write!(f, "{}", n),
-            ConvexValue::Float64(n) => write!(f, "{:?}", n),
-            ConvexValue::Boolean(b) => write!(f, "{:?}", b),
-            ConvexValue::String(s) => write!(f, "{:?}", s),
-            ConvexValue::Bytes(b) => write!(f, "{}", b),
-            ConvexValue::Array(arr) => write!(f, "{}", arr),
-            ConvexValue::Set(set) => write!(f, "{}", set),
-            ConvexValue::Map(map) => write!(f, "{}", map),
-            ConvexValue::Object(m) => write!(f, "{}", m),
+            ConvexValue::Int64(n) => write!(f, "{n}"),
+            ConvexValue::Float64(n) => write!(f, "{n:?}"),
+            ConvexValue::Boolean(b) => write!(f, "{b:?}"),
+            ConvexValue::String(s) => write!(f, "{s:?}"),
+            ConvexValue::Bytes(b) => write!(f, "{b}"),
+            ConvexValue::Array(arr) => write!(f, "{arr}"),
+            ConvexValue::Set(set) => write!(f, "{set}"),
+            ConvexValue::Map(map) => write!(f, "{map}"),
+            ConvexValue::Object(m) => write!(f, "{m}"),
         }
     }
 }

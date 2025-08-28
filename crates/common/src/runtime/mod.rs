@@ -591,7 +591,9 @@ impl<T: Send> MutexWithTimeout<T> {
         }
     }
 
-    pub async fn acquire_lock_with_timeout(&self) -> anyhow::Result<tokio::sync::MutexGuard<T>> {
+    pub async fn acquire_lock_with_timeout(
+        &self,
+    ) -> anyhow::Result<tokio::sync::MutexGuard<'_, T>> {
         let acquire_lock = async { Ok(self.mutex.lock().await) };
         select_biased! {
             result = acquire_lock.fuse() => result,

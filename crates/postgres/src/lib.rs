@@ -5,6 +5,8 @@
 #![feature(let_chains)]
 mod connection;
 mod metrics;
+mod sql;
+
 #[cfg(test)]
 mod tests;
 
@@ -14,14 +16,15 @@ use std::{
     collections::{
         BTreeMap,
         BTreeSet,
-        HashMap,
     },
     env,
     error::Error,
-    fmt::Write,
     fs,
     future::Future,
-    ops::Bound,
+    ops::{
+        Bound,
+        Deref,
+    },
     path::Path,
     pin::Pin,
     sync::{
@@ -111,10 +114,8 @@ use futures::{
     FutureExt as _,
 };
 use futures_async_stream::try_stream;
-use itertools::{
-    iproduct,
-    Itertools,
-};
+use itertools::Itertools;
+use postgres_protocol::escape::escape_literal;
 use rustls::{
     ClientConfig,
     KeyLogFile,
@@ -160,6 +161,13 @@ use crate::{
 };
 
 const ROWS_PER_COPY_BATCH: usize = 1_000_000;
+const CHUNK_SIZE: usize = 8;
+const NUM_DOCUMENT_PARAMS: usize = 6;
+const NUM_INDEX_PARAMS: usize = 8;
+// Maximum number of writes within a single transaction. This is the sum of
+// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
+const MAX_INSERT_SIZE: usize = 56000;
+static PIPELINE_QUERIES: LazyLock<usize> = LazyLock::new(|| env_config("PIPELINE_QUERIES", 16));
 
 pub struct PostgresPersistence {
     newly_created: AtomicBool,
@@ -169,6 +177,38 @@ pub struct PostgresPersistence {
     read_pool: Arc<ConvexPgPool>,
     version: PersistenceVersion,
     schema: SchemaName,
+    instance_name: PgInstanceName,
+    multitenant: bool,
+}
+
+/// Instance name that has been escaped for use as a Postgres literal
+#[derive(Clone, Debug)]
+pub struct PgInstanceName {
+    raw: String,
+    escaped: String,
+}
+
+impl Deref for PgInstanceName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.raw
+    }
+}
+
+impl<T: ToString> From<T> for PgInstanceName {
+    fn from(raw: T) -> Self {
+        Self::new(raw.to_string())
+    }
+}
+
+impl PgInstanceName {
+    pub fn new(raw: String) -> Self {
+        Self {
+            escaped: escape_literal(&raw),
+            raw,
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -183,8 +223,9 @@ pub enum ConnectError {
 pub struct PostgresOptions {
     pub allow_read_only: bool,
     pub version: PersistenceVersion,
-    /// If `None` uses the default schema (usually `public`)
     pub schema: Option<String>,
+    pub instance_name: PgInstanceName,
+    pub multitenant: bool,
     /// If true, the schema is only partially initialized - enough to call
     /// `write`, but read queries will be slow or broken.
     ///
@@ -195,16 +236,20 @@ pub struct PostgresOptions {
 
 pub struct PostgresReaderOptions {
     pub version: PersistenceVersion,
-    /// If `None` uses the default schema (usually `public`)
     pub schema: Option<String>,
+    pub instance_name: PgInstanceName,
+    pub multitenant: bool,
 }
 
 async fn get_current_schema(pool: &ConvexPgPool) -> anyhow::Result<String> {
+    let instance_name = PgInstanceName::new("".to_string());
     let mut client = pool
         .get_connection(
             "get_current_schema",
             // This is invalid but we don't use `@db_name`
             const { &SchemaName::EMPTY },
+            // This is invalid but we don't use '@instance_name'
+            &instance_name,
         )
         .await?;
     let row = client
@@ -246,27 +291,28 @@ impl PostgresPersistence {
             SchemaName::new(&get_current_schema(&pool).await?)?
         };
         let newly_created = {
-            let mut client = pool.get_connection("init_sql", &schema).await?;
+            let mut client = pool
+                .get_connection("init_sql", &schema, &options.instance_name)
+                .await?;
             // Only create a new schema if one was specified and it's not
             // already present. This avoids requiring extra permissions to run
             // `CREATE SCHEMA IF NOT EXISTS` if it's already been created.
             if let Some(raw_schema) = options.schema
                 && client
                     .with_retry(async move |client| {
-                        client.query_opt(CHECK_SCHEMA_SQL, &[&raw_schema]).await
+                        client
+                            .query_opt(sql::CHECK_SCHEMA_SQL, &[&raw_schema])
+                            .await
                     })
                     .await?
                     .is_none()
             {
-                client
-                    .batch_execute(CREATE_SCHEMA_SQL)
-                    .await
-                    .map_err(anyhow::Error::from)?;
+                client.batch_execute(sql::CREATE_SCHEMA_SQL).await?;
             }
             let skip_index_creation = options.skip_index_creation;
             client
                 .with_retry(async move |client| {
-                    for &(stmt, is_create_index) in INIT_SQL {
+                    for &(stmt, is_create_index) in sql::init_sql(options.multitenant) {
                         if is_create_index && skip_index_creation {
                             continue;
                         }
@@ -275,19 +321,30 @@ impl PostgresPersistence {
                     Ok(())
                 })
                 .await?;
-            if !options.allow_read_only && Self::is_read_only(&client).await? {
+            if !options.allow_read_only
+                && Self::is_read_only(&client, options.multitenant, &options.instance_name).await?
+            {
                 return Err(ConnectError::ReadOnly);
             }
-            Self::check_newly_created(&client).await?
+            Self::check_newly_created(&client, options.multitenant, &options.instance_name).await?
         };
 
-        let lease = Lease::acquire(pool.clone(), &schema, lease_lost_shutdown).await?;
+        let lease = Lease::acquire(
+            pool.clone(),
+            &schema,
+            options.instance_name.clone(),
+            options.multitenant,
+            lease_lost_shutdown,
+        )
+        .await?;
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
             read_pool: pool,
             version: options.version,
             schema,
+            instance_name: options.instance_name,
+            multitenant: options.multitenant,
         })
     }
 
@@ -303,11 +360,24 @@ impl PostgresPersistence {
             read_pool: pool,
             version: options.version,
             schema: SchemaName::new(&schema)?,
+            instance_name: options.instance_name,
+            multitenant: options.multitenant,
         })
     }
 
-    async fn is_read_only(client: &PostgresConnection<'_>) -> anyhow::Result<bool> {
-        Ok(client.query_opt(CHECK_IS_READ_ONLY, &[]).await?.is_some())
+    async fn is_read_only(
+        client: &PostgresConnection<'_>,
+        multitenant: bool,
+        instance_name: &PgInstanceName,
+    ) -> anyhow::Result<bool> {
+        let mut params = vec![];
+        if multitenant {
+            params.push(&instance_name.raw as &(dyn ToSql + Sync));
+        }
+        Ok(client
+            .query_opt(sql::check_is_read_only(multitenant), &params)
+            .await?
+            .is_some())
     }
 
     pub fn create_pool(pg_config: tokio_postgres::Config) -> anyhow::Result<Arc<ConvexPgPool>> {
@@ -345,8 +415,19 @@ impl PostgresPersistence {
         Ok(ConvexPgPool::new(pg_config, connector))
     }
 
-    async fn check_newly_created(client: &PostgresConnection<'_>) -> anyhow::Result<bool> {
-        Ok(client.query_opt(CHECK_NEWLY_CREATED, &[]).await?.is_none())
+    async fn check_newly_created(
+        client: &PostgresConnection<'_>,
+        multitenant: bool,
+        instance_name: &PgInstanceName,
+    ) -> anyhow::Result<bool> {
+        let mut params = vec![];
+        if multitenant {
+            params.push(&instance_name.raw as &(dyn ToSql + Sync));
+        }
+        Ok(client
+            .query_opt(sql::check_newly_created(multitenant), &params)
+            .await?
+            .is_none())
     }
 }
 
@@ -361,6 +442,8 @@ impl Persistence for PostgresPersistence {
             read_pool: self.read_pool.clone(),
             version: self.version,
             schema: self.schema.clone(),
+            instance_name: self.instance_name.clone(),
+            multitenant: self.multitenant,
         })
     }
 
@@ -393,19 +476,23 @@ impl Persistence for PostgresPersistence {
 
         // True, the below might end up failing and not changing anything.
         self.newly_created.store(false, SeqCst);
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
         self.lease
             .transact(move |tx| {
                 async move {
                     let (insert_documents, insert_indexes) = try_join!(
                         match conflict_strategy {
-                            ConflictStrategy::Error => tx.prepare_cached(INSERT_DOCUMENT),
+                            ConflictStrategy::Error =>
+                                tx.prepare_cached(sql::insert_document(multitenant)),
                             ConflictStrategy::Overwrite =>
-                                tx.prepare_cached(INSERT_OVERWRITE_DOCUMENT),
+                                tx.prepare_cached(sql::insert_overwrite_document(multitenant)),
                         },
                         match conflict_strategy {
-                            ConflictStrategy::Error => tx.prepare_cached(INSERT_INDEX),
+                            ConflictStrategy::Error =>
+                                tx.prepare_cached(sql::insert_index(multitenant)),
                             ConflictStrategy::Overwrite =>
-                                tx.prepare_cached(INSERT_OVERWRITE_INDEX),
+                                tx.prepare_cached(sql::insert_overwrite_index(multitenant)),
                         },
                     )?;
 
@@ -425,6 +512,13 @@ impl Persistence for PostgresPersistence {
                                 vec.push(param);
                             }
                         }
+                        let mut doc_params = doc_params
+                            .iter()
+                            .map(|v| v as &(dyn ToSql + Sync))
+                            .collect::<Vec<_>>();
+                        if multitenant {
+                            doc_params.push(&instance_name.raw as &(dyn ToSql + Sync));
+                        }
                         tx.execute_raw(&insert_documents, doc_params).await
                     };
 
@@ -438,6 +532,13 @@ impl Persistence for PostgresPersistence {
                             for (vec, param) in idx_params.iter_mut().zip(index_params(update)) {
                                 vec.push(param);
                             }
+                        }
+                        let mut idx_params = idx_params
+                            .iter()
+                            .map(|v| v as &(dyn ToSql + Sync))
+                            .collect::<Vec<_>>();
+                        if multitenant {
+                            idx_params.push(&instance_name.raw as &(dyn ToSql + Sync));
                         }
                         tx.execute_raw(&insert_indexes, idx_params).await
                     };
@@ -454,15 +555,21 @@ impl Persistence for PostgresPersistence {
     }
 
     async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
         self.lease
             .transact(move |tx| {
                 async move {
                     let statement = if read_only {
-                        SET_READ_ONLY
+                        sql::set_read_only(multitenant)
                     } else {
-                        UNSET_READ_ONLY
+                        sql::unset_read_only(multitenant)
                     };
-                    tx.execute_str(statement, &[]).await?;
+                    let mut params = vec![];
+                    if multitenant {
+                        params.push(&instance_name.raw as &(dyn ToSql + Sync));
+                    }
+                    tx.execute_str(statement, &params).await?;
                     Ok(())
                 }
                 .boxed()
@@ -475,14 +582,22 @@ impl Persistence for PostgresPersistence {
         key: PersistenceGlobalKey,
         value: JsonValue,
     ) -> anyhow::Result<()> {
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
         self.lease
             .transact(move |tx| {
                 async move {
-                    let stmt = tx.prepare_cached(WRITE_PERSISTENCE_GLOBAL).await?;
-                    let params = [
+                    let stmt = tx
+                        .prepare_cached(sql::write_persistence_global(multitenant))
+                        .await?;
+                    let mut params = [
                         Param::PersistenceGlobalKey(key),
                         Param::JsonValue(value.to_string()),
-                    ];
+                    ]
+                    .to_vec();
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
+                    }
                     tx.execute_raw(&stmt, params).await?;
                     Ok(())
                 }
@@ -499,14 +614,20 @@ impl Persistence for PostgresPersistence {
     ) -> anyhow::Result<Vec<IndexEntry>> {
         let mut client = self
             .read_pool
-            .get_connection("load_index_chunk", &self.schema)
+            .get_connection("load_index_chunk", &self.schema, &self.instance_name)
             .await?;
         let mut params = PostgresReader::_index_cursor_params(cursor.as_ref())?;
         let limit = chunk_size as i64;
         params.push(Param::Limit(limit));
+        if self.multitenant {
+            params.push(Param::Text(self.instance_name.to_string()));
+        }
+        let multitenant = self.multitenant;
         let row_stream = client
             .with_retry(async move |client| {
-                let stmt = client.prepare_cached(LOAD_INDEXES_PAGE).await?;
+                let stmt = client
+                    .prepare_cached(sql::load_indexes_page(multitenant))
+                    .await?;
                 client.query_raw(&stmt, &params).await
             })
             .await?;
@@ -519,25 +640,37 @@ impl Persistence for PostgresPersistence {
         &self,
         expired_entries: Vec<IndexEntry>,
     ) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
         self.lease
             .transact(move |tx| {
                 async move {
                     let mut deleted_count = 0;
                     let mut expired_chunks = expired_entries.chunks_exact(CHUNK_SIZE);
                     for chunk in &mut expired_chunks {
-                        let delete_chunk = tx.prepare_cached(DELETE_INDEX_CHUNK).await?;
-                        let params = chunk
+                        let delete_chunk = tx
+                            .prepare_cached(sql::delete_index_chunk(multitenant))
+                            .await?;
+                        let mut params = chunk
                             .iter()
                             .map(|index_entry| {
                                 PostgresReader::_index_cursor_params(Some(index_entry))
                             })
                             .flatten_ok()
                             .collect::<anyhow::Result<Vec<_>>>()?;
+                        if multitenant {
+                            params.push(Param::Text(instance_name.to_string()));
+                        }
                         deleted_count += tx.execute_raw(&delete_chunk, params).await?;
                     }
                     for index_entry in expired_chunks.remainder() {
-                        let delete_index = tx.prepare_cached(DELETE_INDEX).await?;
-                        let params = PostgresReader::_index_cursor_params(Some(index_entry))?;
+                        let delete_index =
+                            tx.prepare_cached(sql::delete_index(multitenant)).await?;
+                        let mut params =
+                            PostgresReader::_index_cursor_params(Some(index_entry))?.to_vec();
+                        if multitenant {
+                            params.push(Param::Text(instance_name.to_string()));
+                        }
                         deleted_count += tx.execute_raw(&delete_index, params).await?;
                     }
                     Ok(deleted_count as usize)
@@ -551,23 +684,35 @@ impl Persistence for PostgresPersistence {
         &self,
         documents: Vec<(Timestamp, InternalDocumentId)>,
     ) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
         self.lease
             .transact(move |tx| {
                 async move {
                     let mut deleted_count = 0;
                     let mut expired_chunks = documents.chunks_exact(CHUNK_SIZE);
                     for chunk in &mut expired_chunks {
-                        let delete_chunk = tx.prepare_cached(DELETE_DOCUMENT_CHUNK).await?;
-                        let params = chunk
+                        let delete_chunk = tx
+                            .prepare_cached(sql::delete_document_chunk(multitenant))
+                            .await?;
+                        let mut params = chunk
                             .iter()
                             .map(PostgresReader::_document_cursor_params)
                             .flatten_ok()
                             .collect::<anyhow::Result<Vec<_>>>()?;
+                        if multitenant {
+                            params.push(Param::Text(instance_name.to_string()));
+                        }
                         deleted_count += tx.execute_raw(&delete_chunk, params).await?;
                     }
                     for document in expired_chunks.remainder() {
-                        let delete_doc = tx.prepare_cached(DELETE_DOCUMENT).await?;
-                        let params = PostgresReader::_document_cursor_params(document)?;
+                        let delete_doc =
+                            tx.prepare_cached(sql::delete_document(multitenant)).await?;
+                        let mut params =
+                            PostgresReader::_document_cursor_params(document)?.to_vec();
+                        if multitenant {
+                            params.push(Param::Text(instance_name.to_string()));
+                        }
                         deleted_count += tx.execute_raw(&delete_doc, params).await?;
                     }
                     Ok(deleted_count as usize)
@@ -584,42 +729,51 @@ impl Persistence for PostgresPersistence {
         let conn = self
             .lease
             .pool
-            .get_connection("import_documents_batch", &self.schema)
+            .get_connection("import_documents_batch", &self.schema, &self.instance_name)
             .await?;
         let stmt = conn
-            .prepare_cached(
-                "COPY @db_name.documents (id, ts, table_id, json_value, deleted, prev_ts) FROM \
-                 STDIN BINARY",
-            )
+            .prepare_cached(sql::import_documents_batch(self.multitenant))
             .await?;
 
         'outer: loop {
             let sink = conn.copy_in(&stmt).await?;
+            let types = [
+                Type::TEXT,
+                Type::BYTEA,
+                Type::INT8,
+                Type::BYTEA,
+                Type::BYTEA,
+                Type::BOOL,
+                Type::INT8,
+            ];
             let writer = BinaryCopyInWriter::new(
                 sink,
-                &[
-                    Type::BYTEA,
-                    Type::INT8,
-                    Type::BYTEA,
-                    Type::BYTEA,
-                    Type::BOOL,
-                    Type::INT8,
-                ],
+                if self.multitenant {
+                    &types
+                } else {
+                    &types[1..]
+                },
             );
             pin_mut!(writer);
 
             let mut batch_count = 0;
 
+            let mut params: Vec<Param> =
+                Vec::with_capacity(NUM_DOCUMENT_PARAMS + self.multitenant as usize);
+            if self.multitenant {
+                params.push(Param::Text(self.instance_name.to_string()));
+            }
             while let Some(chunk) = documents.next().await {
                 let rows = chunk.len();
                 for document in chunk {
-                    let params = document_params(
+                    params.extend(document_params(
                         document.ts,
                         document.id,
                         &document.value,
                         document.prev_ts,
-                    )?;
-                    writer.as_mut().write_raw(params).await?;
+                    )?);
+                    writer.as_mut().write_raw(&params).await?;
+                    params.truncate(self.multitenant as usize);
                 }
                 log_import_batch_rows(rows, "documents");
                 batch_count += rows;
@@ -644,39 +798,48 @@ impl Persistence for PostgresPersistence {
         let conn = self
             .lease
             .pool
-            .get_connection("import_indexes_batch", &self.schema)
+            .get_connection("import_indexes_batch", &self.schema, &self.instance_name)
             .await?;
         let stmt = conn
-            .prepare_cached(
-                "COPY @db_name.indexes (index_id, ts, key_prefix, key_suffix, key_sha256, \
-                 deleted, table_id, document_id) FROM STDIN BINARY",
-            )
+            .prepare_cached(sql::import_indexes_batch(self.multitenant))
             .await?;
 
         'outer: loop {
             let sink = conn.copy_in(&stmt).await?;
+            let types = [
+                Type::TEXT,
+                Type::BYTEA,
+                Type::INT8,
+                Type::BYTEA,
+                Type::BYTEA,
+                Type::BYTEA,
+                Type::BOOL,
+                Type::BYTEA,
+                Type::BYTEA,
+            ];
             let writer = BinaryCopyInWriter::new(
                 sink,
-                &[
-                    Type::BYTEA,
-                    Type::INT8,
-                    Type::BYTEA,
-                    Type::BYTEA,
-                    Type::BYTEA,
-                    Type::BOOL,
-                    Type::BYTEA,
-                    Type::BYTEA,
-                ],
+                if self.multitenant {
+                    &types
+                } else {
+                    &types[1..]
+                },
             );
             pin_mut!(writer);
 
             let mut batch_count = 0;
 
+            let mut params: Vec<Param> =
+                Vec::with_capacity(NUM_INDEX_PARAMS + self.multitenant as usize);
+            if self.multitenant {
+                params.push(Param::Text(self.instance_name.to_string()));
+            }
             while let Some(chunk) = indexes.next().await {
                 let rows = chunk.len();
                 for index in chunk {
-                    let params = index_params(&index);
-                    writer.as_mut().write_raw(params).await?;
+                    params.extend(index_params(&index));
+                    writer.as_mut().write_raw(&params).await?;
+                    params.truncate(self.multitenant as usize);
                 }
                 log_import_batch_rows(rows, "indexes");
                 batch_count += rows;
@@ -699,9 +862,9 @@ impl Persistence for PostgresPersistence {
         let mut client = self
             .lease
             .pool
-            .get_connection("finish_loading", &self.schema)
+            .get_connection("finish_loading", &self.schema, &self.instance_name)
             .await?;
-        for &(stmt, is_create_index) in INIT_SQL {
+        for &(stmt, is_create_index) in sql::init_sql(self.multitenant) {
             if is_create_index {
                 tracing::info!("Running: {stmt}");
                 assert_send(client.with_retry(async move |client| {
@@ -720,6 +883,8 @@ pub struct PostgresReader {
     read_pool: Arc<ConvexPgPool>,
     version: PersistenceVersion,
     schema: SchemaName,
+    instance_name: PgInstanceName,
+    multitenant: bool,
 }
 
 impl PostgresReader {
@@ -806,13 +971,13 @@ impl PostgresReader {
         loop {
             let mut client = self
                 .read_pool
-                .get_connection("load_documents", &self.schema)
+                .get_connection("load_documents", &self.schema, &self.instance_name)
                 .await?;
             let mut rows_loaded = 0;
 
             let (query, params) = match order {
                 Order::Asc => (
-                    LOAD_DOCS_BY_TS_PAGE_ASC,
+                    sql::load_docs_by_ts_page_asc(self.multitenant),
                     [
                         last_ts_param.clone(),
                         last_tablet_id_param.clone(),
@@ -822,7 +987,7 @@ impl PostgresReader {
                     ],
                 ),
                 Order::Desc => (
-                    LOAD_DOCS_BY_TS_PAGE_DESC,
+                    sql::load_docs_by_ts_page_desc(self.multitenant),
                     [
                         Param::Ts(i64::from(range.min_timestamp_inclusive())),
                         last_ts_param.clone(),
@@ -832,6 +997,10 @@ impl PostgresReader {
                     ],
                 ),
             };
+            let mut params = params.to_vec();
+            if self.multitenant {
+                params.push(Param::Text(self.instance_name.to_string()));
+            }
             let row_stream = assert_send(client.with_retry(async move |client| {
                 let stmt = client.prepare_cached(query).await?;
                 client.query_raw(&stmt, &params).await
@@ -961,6 +1130,8 @@ impl PostgresReader {
         tx: mpsc::Sender<IndexScanResult>,
     ) -> anyhow::Result<()> {
         let _timer = metrics::query_index_timer();
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
         let (mut lower, mut upper) = to_sql_bounds(interval.clone());
 
         let mut stats = QueryIndexStats::new();
@@ -974,7 +1145,7 @@ impl PostgresReader {
         loop {
             let mut client = self
                 .read_pool
-                .get_connection("index_scan", &self.schema)
+                .get_connection("index_scan", &self.schema, &self.instance_name)
                 .await?;
             stats.sql_statements += 1;
             let (query, params) = index_query(
@@ -984,6 +1155,8 @@ impl PostgresReader {
                 upper.clone(),
                 order,
                 batch_size,
+                multitenant,
+                &instance_name,
             );
 
             let row_stream = assert_send(client.with_retry(async move |client| {
@@ -1220,16 +1393,18 @@ impl PersistenceReader for PostgresReader {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let timer = metrics::prev_revisions_timer();
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
 
         let mut client = self
             .read_pool
-            .get_connection("previous_revisions", &self.schema)
+            .get_connection("previous_revisions", &self.schema, &self.instance_name)
             .await?;
         let (prev_rev_chunk, prev_rev) = client
-            .with_retry(async |client| {
+            .with_retry(async move |client| {
                 try_join!(
-                    client.prepare_cached(PREV_REV_CHUNK),
-                    client.prepare_cached(PREV_REV)
+                    client.prepare_cached(sql::prev_rev_chunk(multitenant)),
+                    client.prepare_cached(sql::prev_rev(multitenant))
                 )
             })
             .await?;
@@ -1254,14 +1429,20 @@ impl PersistenceReader for PostgresReader {
                 params.push(Param::Ts(i64::from(*ts)));
                 min_ts = cmp::min(*ts, min_ts);
             }
+            if multitenant {
+                params.push(Param::Text(instance_name.to_string()));
+            }
             result_futures.push(client.query_raw(&prev_rev_chunk, params));
         }
         for (id, ts) in chunks.remainder() {
-            let params = vec![
+            let mut params = vec![
                 Param::TableId(id.table()),
                 internal_doc_id_param(*id),
                 Param::Ts(i64::from(*ts)),
             ];
+            if multitenant {
+                params.push(Param::Text(instance_name.to_string()));
+            }
             min_ts = cmp::min(*ts, min_ts);
             result_futures.push(client.query_raw(&prev_rev, params));
         }
@@ -1300,16 +1481,22 @@ impl PersistenceReader for PostgresReader {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
         let timer = metrics::previous_revisions_of_documents_timer();
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
 
         let mut client = self
             .read_pool
-            .get_connection("previous_revisions_of_documents", &self.schema)
+            .get_connection(
+                "previous_revisions_of_documents",
+                &self.schema,
+                &self.instance_name,
+            )
             .await?;
         let (exact_rev_chunk, exact_rev) = client
-            .with_retry(async |client| {
+            .with_retry(async move |client| {
                 try_join!(
-                    client.prepare_cached(EXACT_REV_CHUNK),
-                    client.prepare_cached(EXACT_REV)
+                    client.prepare_cached(sql::exact_rev_chunk(multitenant)),
+                    client.prepare_cached(sql::exact_rev(multitenant))
                 )
             })
             .await?;
@@ -1329,15 +1516,21 @@ impl PersistenceReader for PostgresReader {
                 params.push(Param::Ts(i64::from(*prev_ts)));
                 params.push(Param::Ts(i64::from(*ts)));
             }
+            if multitenant {
+                params.push(Param::Text(instance_name.to_string()));
+            }
             result_futures.push(client.query_raw(&exact_rev_chunk, params));
         }
         for DocumentPrevTsQuery { id, ts, prev_ts } in chunks.remainder() {
-            let params = vec![
+            let mut params = vec![
                 Param::TableId(id.table()),
                 internal_doc_id_param(*id),
                 Param::Ts(i64::from(*prev_ts)),
                 Param::Ts(i64::from(*ts)),
             ];
+            if multitenant {
+                params.push(Param::Text(instance_name.to_string()));
+            }
             result_futures.push(client.query_raw(&exact_rev, params));
         }
         let mut result_stream = stream::iter(result_futures).buffered(*PIPELINE_QUERIES);
@@ -1400,12 +1593,18 @@ impl PersistenceReader for PostgresReader {
     ) -> anyhow::Result<Option<JsonValue>> {
         let mut client = self
             .read_pool
-            .get_connection("get_persistence_global", &self.schema)
+            .get_connection("get_persistence_global", &self.schema, &self.instance_name)
             .await?;
-        let params = vec![Param::PersistenceGlobalKey(key)];
+        let mut params = vec![Param::PersistenceGlobalKey(key)];
+        if self.multitenant {
+            params.push(Param::Text(self.instance_name.to_string()));
+        }
+        let multitenant = self.multitenant;
         let row_stream = client
             .with_retry(async move |client| {
-                let stmt = client.prepare_cached(GET_PERSISTENCE_GLOBAL).await?;
+                let stmt = client
+                    .prepare_cached(sql::get_persistence_global(multitenant))
+                    .await?;
                 client.query_raw(&stmt, &params).await
             })
             .await?;
@@ -1432,14 +1631,14 @@ impl PersistenceReader for PostgresReader {
     async fn table_size_stats(&self) -> anyhow::Result<Vec<PersistenceTableSize>> {
         let mut client = self
             .read_pool
-            .get_connection("table_size_stats", &self.schema)
+            .get_connection("table_size_stats", &self.schema, &self.instance_name)
             .await?;
         let mut stats = vec![];
-        for &table in TABLES {
+        for &table in sql::TABLES {
             let full_name = format!("{}.{table}", self.schema.escaped);
             let row = client
                 .with_retry(async move |client| {
-                    client.query_opt(TABLE_SIZE_QUERY, &[&full_name]).await
+                    client.query_opt(sql::TABLE_SIZE_QUERY, &[&full_name]).await
                 })
                 .await?
                 .context("nothing returned from table size query?")?;
@@ -1470,6 +1669,8 @@ struct Lease {
     pool: Arc<ConvexPgPool>,
     lease_ts: i64,
     schema: SchemaName,
+    instance_name: PgInstanceName,
+    multitenant: bool,
     lease_lost_shutdown: ShutdownSignal,
 }
 
@@ -1479,10 +1680,14 @@ impl Lease {
     async fn acquire(
         pool: Arc<ConvexPgPool>,
         schema: &SchemaName,
+        instance_name: PgInstanceName,
+        multitenant: bool,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer();
-        let mut client = pool.get_connection("lease_acquire", schema).await?;
+        let mut client = pool
+            .get_connection("lease_acquire", schema, &instance_name)
+            .await?;
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("before 1970")
@@ -1490,9 +1695,15 @@ impl Lease {
 
         tracing::info!("attempting to acquire lease");
         let stmt = client
-            .with_retry(async |client| client.prepare_cached(LEASE_ACQUIRE).await)
+            .with_retry(async move |client| {
+                client.prepare_cached(sql::lease_acquire(multitenant)).await
+            })
             .await?;
-        let rows_modified = client.execute(&stmt, &[&ts]).await?;
+        let mut params = vec![&ts as &(dyn ToSql + Sync)];
+        if multitenant {
+            params.push(&instance_name.raw as &(dyn ToSql + Sync));
+        }
+        let rows_modified = client.execute(&stmt, params.as_slice()).await?;
         drop(client);
         anyhow::ensure!(
             rows_modified == 1,
@@ -1505,6 +1716,8 @@ impl Lease {
             pool,
             lease_ts: ts,
             schema: schema.clone(),
+            instance_name,
+            multitenant,
             lease_lost_shutdown,
         })
     }
@@ -1523,7 +1736,10 @@ impl Lease {
             &'b PostgresTransaction,
         ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'b>>,
     {
-        let mut client = self.pool.get_connection("transact", &self.schema).await?;
+        let mut client = self
+            .pool
+            .get_connection("transact", &self.schema, &self.instance_name)
+            .await?;
         // Retry once to open a transaction. We can't use `with_retry` for
         // awkward borrow checker reasons.
         let mut retried_err = None;
@@ -1547,8 +1763,14 @@ impl Lease {
 
         let advisory_lease_check = async {
             let timer = metrics::lease_check_timer();
-            let stmt = tx.prepare_cached(ADVISORY_LEASE_CHECK).await?;
-            let rows = tx.query(&stmt, &[&lease_ts]).await?;
+            let stmt = tx
+                .prepare_cached(sql::advisory_lease_check(self.multitenant))
+                .await?;
+            let mut params = vec![&lease_ts as &(dyn ToSql + Sync)];
+            if self.multitenant {
+                params.push(&self.instance_name.raw as &(dyn ToSql + Sync));
+            }
+            let rows = tx.query(&stmt, params.as_slice()).await?;
             if rows.len() != 1 {
                 self.lease_lost_shutdown.signal(lease_lost_error());
                 return Err(lease_lost_error());
@@ -1563,8 +1785,14 @@ impl Lease {
         // to minimize the time spent holding the row lock, and therefore allow
         // the lease to be stolen as much as possible.
         let timer = metrics::lease_precond_timer();
-        let stmt = tx.prepare_cached(LEASE_PRECOND).await?;
-        let rows = tx.query(&stmt, &[&lease_ts]).await?;
+        let stmt = tx
+            .prepare_cached(sql::lease_precond(self.multitenant))
+            .await?;
+        let mut params = vec![&lease_ts as &(dyn ToSql + Sync)];
+        if self.multitenant {
+            params.push(&self.instance_name.raw as &(dyn ToSql + Sync));
+        }
+        let rows = tx.query(&stmt, params.as_slice()).await?;
         if rows.len() != 1 {
             self.lease_lost_shutdown.signal(lease_lost_error());
             return Err(lease_lost_error());
@@ -1649,6 +1877,7 @@ enum Param {
     Deleted(bool),
     Bytes(Vec<u8>),
     PersistenceGlobalKey(PersistenceGlobalKey),
+    Text(String),
 }
 
 impl ToSql for Param {
@@ -1668,6 +1897,7 @@ impl ToSql for Param {
             Param::Bytes(v) => v.to_sql(ty, out),
             Param::Limit(v) => v.to_sql(ty, out),
             Param::PersistenceGlobalKey(key) => String::from(*key).to_sql(ty, out),
+            Param::Text(v) => v.to_sql(ty, out),
         }
     }
 
@@ -1681,609 +1911,6 @@ impl ToSql for Param {
             || Vec::<u8>::accepts(ty)
     }
 }
-
-const CHECK_SCHEMA_SQL: &str = r"SELECT 1 FROM information_schema.schemata WHERE schema_name = $1";
-const CREATE_SCHEMA_SQL: &str = r"CREATE SCHEMA IF NOT EXISTS @db_name;";
-// This runs (currently) every time a PostgresPersistence is created, so it
-// needs to not only be idempotent but not to affect any already-resident data.
-// IF NOT EXISTS and ON CONFLICT are helpful.
-// Despite the idempotence of IF NOT EXISTS, we still use a conditional check to
-// see if we can avoid running that statement, as it acquires an `ACCESS
-// EXCLUSIVE` lock across the database.
-const INIT_SQL: &[(&str, bool /* is CREATE INDEX */)] = &[
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.documents') IS NULL THEN
-        CREATE TABLE IF NOT EXISTS @db_name.documents (
-            id BYTEA NOT NULL,
-            ts BIGINT NOT NULL,
-
-            table_id BYTEA NOT NULL,
-
-            json_value BYTEA NOT NULL,
-            deleted BOOLEAN DEFAULT false,
-
-            prev_ts BIGINT
-        );
-    END IF;
-END $$;
-"#,
-        false,
-    ),
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.documents_pkey') IS NULL THEN
-        ALTER TABLE @db_name.documents ADD PRIMARY KEY (ts, table_id, id);
-    END IF;
-    IF to_regclass('@db_name.documents_by_table_and_id') IS NULL THEN
-        CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON @db_name.documents (
-            table_id, id, ts
-        );
-    END IF;
-    IF to_regclass('@db_name.documents_by_table_ts_and_id') IS NULL THEN
-        CREATE INDEX IF NOT EXISTS documents_by_table_ts_and_id ON @db_name.documents (
-            table_id, ts, id
-        );
-    END IF;
-END $$;
-"#,
-        true,
-    ),
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.indexes') IS NULL THEN
-        CREATE TABLE IF NOT EXISTS @db_name.indexes (
-            /* ids should be serialized as bytes but we keep it compatible with documents */
-            index_id BYTEA NOT NULL,
-            ts BIGINT NOT NULL,
-            /*
-            Postgres maximum primary key length is 2730 bytes, which
-            is why we split up the key. The first 2500 bytes are stored in key_prefix,
-            and the remaining ones are stored in key suffix if applicable.
-            NOTE: The key_prefix + key_suffix is store all values of IndexKey including
-            the id.
-            */
-            key_prefix BYTEA NOT NULL,
-            key_suffix BYTEA NULL,
-
-            /* key_sha256 of the full key, used in primary key to avoid duplicates in case
-            of key_prefix collision. */
-            key_sha256 BYTEA NOT NULL,
-
-            deleted BOOLEAN,
-
-            /* table_id should be populated iff deleted is false. */
-            table_id BYTEA NULL,
-            /* document_id should be populated iff deleted is false. */
-            document_id BYTEA NULL
-        );
-    END IF;
-END $$;
-"#,
-        false,
-    ),
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.indexes_pkey') IS NULL THEN
-        ALTER TABLE @db_name.indexes ADD PRIMARY KEY (index_id, key_sha256, ts);
-    END IF;
-    /* We only want this index created for new instances; existing ones already have `indexes_by_index_id_key_prefix_key_sha256_ts` */
-    IF to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256_ts') IS NULL AND to_regclass('@db_name.indexes_by_index_id_key_prefix_key_sha256') IS NULL THEN
-        CREATE INDEX IF NOT EXISTS indexes_by_index_id_key_prefix_key_sha256 ON @db_name.indexes (
-            index_id,
-            key_prefix,
-            key_sha256
-        );
-    END IF;
-END $$;
-"#,
-        true,
-    ),
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.leases') IS NULL THEN
-        CREATE TABLE IF NOT EXISTS @db_name.leases (
-            id BIGINT NOT NULL,
-            ts BIGINT NOT NULL,
-
-            PRIMARY KEY (id)
-        );
-    END IF;
-END $$;
-"#,
-        false,
-    ),
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.read_only') IS NULL THEN
-        CREATE TABLE IF NOT EXISTS @db_name.read_only (
-            id BIGINT NOT NULL,
-
-            PRIMARY KEY (id)
-        );
-    END IF;
-END $$;
-"#,
-        false,
-    ),
-    (
-        r#"
-DO $$
-BEGIN
-    IF to_regclass('@db_name.persistence_globals') IS NULL THEN
-        CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
-            key TEXT NOT NULL,
-            json_value BYTEA NOT NULL,
-            PRIMARY KEY (key)
-            );
-    END IF;
-END $$;
-"#,
-        false,
-    ),
-    (
-        r#"
-        INSERT INTO @db_name.leases (id, ts) VALUES (1, 0) ON CONFLICT DO NOTHING;
-    "#,
-        false,
-    ),
-];
-const TABLES: &[&str] = &[
-    "documents",
-    "indexes",
-    "leases",
-    "read_only",
-    "persistence_globals",
-];
-
-/// Load a page of documents in ascending order.
-///
-/// N.B.: it's important to provide only one bound on each side of the index
-/// range - otherwise postgres may choose the wrong bounds for its index scan
-const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
-    WHERE (ts, table_id, id) > ($1, $2, $3)
-    AND ts < $4
-    ORDER BY ts ASC, table_id ASC, id ASC
-    LIMIT $5
-"#;
-
-/// Load a page of documents in descending order.
-/// Note that the parameters are different than LOAD_DOCS_BY_TS_PAGE_ASC.
-const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
-    WHERE ts >= $1
-    AND (ts, table_id, id) < ($2, $3, $4)
-    ORDER BY ts DESC, table_id DESC, id DESC
-    LIMIT $5
-"#;
-
-const INSERT_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted, prev_ts)
-    SELECT * FROM UNNEST(
-        $1::BYTEA[],
-        $2::BIGINT[],
-        $3::BYTEA[],
-        $4::BYTEA[],
-        $5::BOOLEAN[],
-        $6::BIGINT[]
-    )
-"#;
-
-const INSERT_OVERWRITE_DOCUMENT: &str = r#"INSERT INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted, prev_ts)
-    SELECT * FROM UNNEST(
-        $1::BYTEA[],
-        $2::BIGINT[],
-        $3::BYTEA[],
-        $4::BYTEA[],
-        $5::BOOLEAN[],
-        $6::BIGINT[]
-    )
-    ON CONFLICT (id, ts, table_id) DO UPDATE
-    SET deleted = excluded.deleted, json_value = excluded.json_value
-"#;
-
-const LOAD_INDEXES_PAGE: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-SELECT
-    index_id, key_prefix, key_sha256, key_suffix, ts, deleted
-    FROM @db_name.indexes
-    WHERE (index_id, key_prefix, key_sha256, ts) > ($1, $2, $3, $4)
-    ORDER BY index_id ASC, key_prefix ASC, key_sha256 ASC, ts ASC
-    LIMIT $5
-"#;
-
-const INSERT_INDEX: &str = r#"INSERT INTO @db_name.indexes
-    (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-    SELECT * FROM UNNEST(
-        $1::BYTEA[],
-        $2::BIGINT[],
-        $3::BYTEA[],
-        $4::BYTEA[],
-        $5::BYTEA[],
-        $6::BOOLEAN[],
-        $7::BYTEA[],
-        $8::BYTEA[]
-    )
-"#;
-
-// Note that on conflict, there's no need to update any of the columns that are
-// part of the primary key, nor `key_suffix` as `key_sha256` is derived from the
-// prefix and suffix.
-// Only the fields that could have actually changed need to be updated.
-const INSERT_OVERWRITE_INDEX: &str = r#"INSERT INTO @db_name.indexes
-    (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-    SELECT * FROM UNNEST(
-        $1::BYTEA[],
-        $2::BIGINT[],
-        $3::BYTEA[],
-        $4::BYTEA[],
-        $5::BYTEA[],
-        $6::BOOLEAN[],
-        $7::BYTEA[],
-        $8::BYTEA[]
-    )
-    ON CONFLICT ON CONSTRAINT indexes_pkey DO UPDATE
-    SET deleted = excluded.deleted, table_id = excluded.table_id, document_id = excluded.document_id
-"#;
-
-const DELETE_INDEX: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-DELETE FROM @db_name.indexes WHERE
-    (index_id = $1 AND key_prefix = $2 AND key_sha256 = $3 AND ts <= $4)
-"#;
-
-const DELETE_DOCUMENT: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-DELETE FROM @db_name.documents WHERE
-    (table_id = $1 AND id = $2 AND ts <= $3)
-"#;
-
-const DELETE_INDEX_CHUNK: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-DELETE FROM @db_name.indexes WHERE
-    (index_id = $1 AND key_prefix = $2 AND key_sha256 = $3 AND ts <= $4) OR
-    (index_id = $5 AND key_prefix = $6 AND key_sha256 = $7 AND ts <= $8) OR
-    (index_id = $9 AND key_prefix = $10 AND key_sha256 = $11 AND ts <= $12) OR
-    (index_id = $13 AND key_prefix = $14 AND key_sha256 = $15 AND ts <= $16) OR
-    (index_id = $17 AND key_prefix = $18 AND key_sha256 = $19 AND ts <= $20) OR
-    (index_id = $21 AND key_prefix = $22 AND key_sha256 = $23 AND ts <= $24) OR
-    (index_id = $25 AND key_prefix = $26 AND key_sha256 = $27 AND ts <= $28) OR
-    (index_id = $29 AND key_prefix = $30 AND key_sha256 = $31 AND ts <= $32)
-"#;
-
-const DELETE_DOCUMENT_CHUNK: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-DELETE FROM @db_name.documents WHERE
-    (table_id = $1 AND id = $2 AND ts <= $3) OR
-    (table_id = $4 AND id = $5 AND ts <= $6) OR
-    (table_id = $7 AND id = $8 AND ts <= $9) OR
-    (table_id = $10 AND id = $11 AND ts <= $12) OR
-    (table_id = $13 AND id = $14 AND ts <= $15) OR
-    (table_id = $16 AND id = $17 AND ts <= $18) OR
-    (table_id = $19 AND id = $20 AND ts <= $21) OR
-    (table_id = $22 AND id = $23 AND ts <= $24)
-"#;
-
-const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO @db_name.persistence_globals
-    (key, json_value)
-    VALUES ($1, $2)
-    ON CONFLICT (key) DO UPDATE
-    SET json_value = excluded.json_value
-"#;
-
-const GET_PERSISTENCE_GLOBAL: &str =
-    "SELECT json_value FROM @db_name.persistence_globals WHERE key = $1";
-
-const CHUNK_SIZE: usize = 8;
-const NUM_DOCUMENT_PARAMS: usize = 6;
-const NUM_INDEX_PARAMS: usize = 8;
-// Maximum number of writes within a single transaction. This is the sum of
-// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
-const MAX_INSERT_SIZE: usize = 56000;
-static PIPELINE_QUERIES: LazyLock<usize> = LazyLock::new(|| env_config("PIPELINE_QUERIES", 16));
-
-// Gross: after initialization, the first thing database does is insert metadata
-// documents.
-const CHECK_NEWLY_CREATED: &str = "SELECT 1 FROM @db_name.documents LIMIT 1";
-
-// This table has no rows (not read_only) or 1 row (read_only), so if this query
-// returns any results, the persistence is read_only.
-const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM @db_name.read_only LIMIT 1";
-const SET_READ_ONLY: &str = "INSERT INTO @db_name.read_only (id) VALUES (1)";
-const UNSET_READ_ONLY: &str = "DELETE FROM @db_name.read_only WHERE id = 1";
-
-// If this query returns a result, the lease is still valid and will remain so
-// until the end of the transaction.
-const LEASE_PRECOND: &str = "SELECT 1 FROM @db_name.leases WHERE id=1 AND ts=$1 FOR SHARE";
-// Checks if we still hold the lease without blocking another instance from
-// stealing it.
-const ADVISORY_LEASE_CHECK: &str = "SELECT 1 FROM @db_name.leases WHERE id=1 AND ts=$1";
-
-// Acquire the lease unless acquire by someone with a higher timestamp.
-const LEASE_ACQUIRE: &str = "UPDATE @db_name.leases SET ts=$1 WHERE id=1 AND ts<$1";
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone)]
-enum BoundType {
-    Unbounded,
-    Included,
-    Excluded,
-}
-
-// Pre-build queries with various parameters.
-static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> =
-    LazyLock::new(|| {
-        let mut queries = HashMap::new();
-
-        let bounds = [
-            BoundType::Unbounded,
-            BoundType::Included,
-            BoundType::Excluded,
-        ];
-        let orders = [Order::Asc, Order::Desc];
-
-        // Note, we always paginate using (key_prefix, key_sha256), which doesn't
-        // necessary give us the order we need for long keys that have
-        // key_suffix.
-        for (lower, upper, order) in iproduct!(bounds.iter(), bounds.iter(), orders.iter()) {
-            // Construct the where clause imperatively.
-            let mut current_arg = 1..;
-            let mut next_arg = || current_arg.next().unwrap();
-
-            let mut where_clause = String::new();
-            write!(where_clause, "index_id = ${}", next_arg()).unwrap();
-            let ts_arg = next_arg();
-            write!(where_clause, " AND ts <= ${}", ts_arg).unwrap();
-            match lower {
-                BoundType::Unbounded => {},
-                BoundType::Included => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix, key_sha256) >= (${}, ${})",
-                        next_arg(),
-                        next_arg(),
-                    )
-                    .unwrap();
-                },
-                BoundType::Excluded => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix, key_sha256) > (${}, ${})",
-                        next_arg(),
-                        next_arg(),
-                    )
-                    .unwrap();
-                },
-            };
-            match upper {
-                BoundType::Unbounded => {},
-                BoundType::Included => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix, key_sha256) <= (${}, ${})",
-                        next_arg(),
-                        next_arg(),
-                    )
-                    .unwrap();
-                },
-                BoundType::Excluded => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix, key_sha256) < (${}, ${})",
-                        next_arg(),
-                        next_arg(),
-                    )
-                    .unwrap();
-                },
-            };
-            let order_str = match order {
-                Order::Asc => "ASC",
-                Order::Desc => "DESC",
-            };
-            let query = format!(
-                r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_bitmapscan OFF)
-    Set(plan_cache_mode force_generic_plan)
-    IndexScan(indexes indexes_index_id_key_prefix_key_sha256)
-    NestLoop(a d)
-    IndexScan(d documents_pkey)
-*/
-SELECT
-    A.index_id,
-    A.key_prefix,
-    A.key_sha256,
-    A.key_suffix,
-    A.ts,
-    A.deleted,
-    A.document_id,
-    D.table_id,
-    D.json_value,
-    D.prev_ts
-FROM (
-    SELECT DISTINCT ON (key_prefix, key_sha256)
-        index_id,
-        key_prefix,
-        key_sha256,
-        key_suffix,
-        ts,
-        deleted,
-        document_id,
-        table_id
-    FROM @db_name.indexes
-    WHERE {where_clause}
-    ORDER BY key_prefix {order_str}, key_sha256 {order_str}, ts DESC
-    LIMIT ${}
-) A
-LEFT JOIN @db_name.documents D
-    ON  D.ts          = A.ts
-    AND D.table_id    = A.table_id
-    AND D.id          = A.document_id
-ORDER BY key_prefix {order_str}, key_sha256 {order_str}
-"#,
-                next_arg()
-            );
-            queries.insert((*lower, *upper, *order), query);
-        }
-
-        queries
-    });
-
-const PREV_REV_CHUNK: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-WITH
-    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $1 AND id = $2 and ts < $3 ORDER BY ts DESC LIMIT 1),
-    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $6::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $4 AND id = $5 and ts < $6 ORDER BY ts DESC LIMIT 1),
-    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $9::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $7 AND id = $8 and ts < $9 ORDER BY ts DESC LIMIT 1),
-    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $10 AND id = $11 and ts < $12 ORDER BY ts DESC LIMIT 1),
-    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $15::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $13 AND id = $14 and ts < $15 ORDER BY ts DESC LIMIT 1),
-    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $18::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $16 AND id = $17 and ts < $18 ORDER BY ts DESC LIMIT 1),
-    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $21::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $19 AND id = $20 and ts < $21 ORDER BY ts DESC LIMIT 1),
-    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $22 AND id = $23 and ts < $24 ORDER BY ts DESC LIMIT 1)
-SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q1
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q2
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q3
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q4
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q5
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q6
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q7
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q8;
-"#;
-
-const PREV_REV: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts
-FROM @db_name.documents
-WHERE
-    table_id = $1 AND
-    id = $2 AND
-    ts < $3
-ORDER BY ts desc
-LIMIT 1
-"#;
-
-const EXACT_REV_CHUNK: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-WITH
-    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $1 AND id = $2 and ts = $3),
-    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $8::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $5 AND id = $6 and ts = $7),
-    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $9 AND id = $10 and ts = $11),
-    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $16::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $13 AND id = $14 and ts = $15),
-    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $20::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $17 AND id = $18 and ts = $19),
-    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $21 AND id = $22 and ts = $23),
-    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $28::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $25 AND id = $26 and ts = $27),
-    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $32::BIGINT as query_ts FROM @db_name.documents WHERE table_id = $29 AND id = $30 and ts = $31)
-SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q1
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q2
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q3
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q4
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q5
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q6
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q7
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q8;
-"#;
-
-const EXACT_REV: &str = r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts
-FROM @db_name.documents
-WHERE
-    table_id = $1 AND
-    id = $2 AND
-    ts = $3
-"#;
-
-// N.B.: tokio-postgres doesn't know how to create regclass values
-const TABLE_SIZE_QUERY: &str = r"SELECT
-pg_table_size($1::text::regclass),
-pg_indexes_size($1::text::regclass),
-(SELECT reltuples::bigint FROM pg_class WHERE oid = $1::text::regclass)";
 
 static MIN_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; 32]);
 static MAX_SHA256: LazyLock<Vec<u8>> = LazyLock::new(|| vec![255; 32]);
@@ -2348,24 +1975,26 @@ fn index_query(
     upper: Bound<SqlKey>,
     order: Order,
     batch_size: usize,
+    multitenant: bool,
+    instance_name: &PgInstanceName,
 ) -> (&'static str, Vec<Param>) {
     let mut params: Vec<Param> = vec![
         internal_id_param(index_id),
         Param::Ts(read_timestamp.into()),
     ];
 
-    let mut map_bound = |b: Bound<SqlKey>| -> BoundType {
+    let mut map_bound = |b: Bound<SqlKey>| -> sql::BoundType {
         match b {
-            Bound::Unbounded => BoundType::Unbounded,
+            Bound::Unbounded => sql::BoundType::Unbounded,
             Bound::Excluded(sql_key) => {
                 params.push(Param::Bytes(sql_key.prefix));
                 params.push(Param::Bytes(sql_key.sha256));
-                BoundType::Excluded
+                sql::BoundType::Excluded
             },
             Bound::Included(sql_key) => {
                 params.push(Param::Bytes(sql_key.prefix));
                 params.push(Param::Bytes(sql_key.sha256));
-                BoundType::Included
+                sql::BoundType::Included
             },
         }
     };
@@ -2374,7 +2003,14 @@ fn index_query(
     let ut = map_bound(upper);
     params.push(Param::Limit(batch_size as i64));
 
-    let query = INDEX_QUERIES.get(&(lt, ut, order)).unwrap();
+    // Add instance_name parameter if multitenant
+    if multitenant {
+        params.push(Param::Text(instance_name.to_string()));
+    }
+
+    let query = sql::index_queries(multitenant)
+        .get(&(lt, ut, order))
+        .unwrap();
     (query, params)
 }
 

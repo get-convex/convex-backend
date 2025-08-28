@@ -369,7 +369,7 @@ impl<V: Clone> ARTNode<V> {
     }
 
     fn replace_value(&mut self, value: V) -> Option<V> {
-        std::mem::replace(self.get_value_mut(), Some(value))
+        self.get_value_mut().replace(value)
     }
 
     /// Gets the single child of this node if it has only 1 child and is

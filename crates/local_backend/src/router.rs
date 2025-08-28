@@ -69,6 +69,7 @@ use crate::{
     },
     deploy_config2,
     environment_variables::{
+        list_environment_variables,
         platform_router,
         update_environment_variables,
     },
@@ -226,6 +227,7 @@ pub fn router(st: LocalAppState) -> Router {
         .merge(local_only_dashboard_routes)
         // Environment variable routes
         .route("/update_environment_variables", post(update_environment_variables))
+        .route("/list_environment_variables", get(list_environment_variables))
         // Canonical URL routes
         .route("/update_canonical_url", post(update_canonical_url))
         // Scheduled jobs routes

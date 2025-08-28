@@ -191,7 +191,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
     let result = index_registry.update(Some(&original), Some(&rename));
     let err = result.unwrap_err();
     assert!(
-        format!("{:?}", err).contains(&format!(
+        format!("{err:?}").contains(&format!(
             "Can't rename system defined index {}.by_id",
             table.tablet_id
         )),

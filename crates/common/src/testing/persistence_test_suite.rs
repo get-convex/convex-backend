@@ -699,7 +699,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         )
         .map(|r| match r {
             Ok(ik) => ik,
-            Err(err) => panic!("Error: {}", err),
+            Err(err) => panic!("Error: {err}"),
         })
         .collect::<Vec<_>>()
         .await;
@@ -894,7 +894,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
         )
         .map(|r| match r {
             Ok(ik) => ik,
-            Err(err) => panic!("Error: {:?}", err),
+            Err(err) => panic!("Error: {err:?}"),
         })
         .collect::<Vec<_>>()
         .await;
@@ -915,7 +915,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
         )
         .map(|r| match r {
             Ok(ik) => ik,
-            Err(err) => panic!("Error: {:?}", err),
+            Err(err) => panic!("Error: {err:?}"),
         })
         .collect::<Vec<_>>()
         .await;
@@ -994,7 +994,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             )
             .map(|r| match r {
                 Ok(ik) => ik,
-                Err(err) => panic!("Error: {:?}", err),
+                Err(err) => panic!("Error: {err:?}"),
             })
             .collect::<Vec<_>>()
             .await;
@@ -1084,7 +1084,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                     )
                     .map(|r| match r {
                         Ok(ik) => ik,
-                        Err(err) => panic!("Error: {}", err),
+                        Err(err) => panic!("Error: {err}"),
                     })
                     .collect::<Vec<_>>()
                     .await;
@@ -1140,7 +1140,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
     let mut index_to_results: BTreeMap<_, Vec<_>> = BTreeMap::new();
     for i in 0..5 {
         let index_id = id_generator.system_generate(&INDEX_TABLE).internal_id();
-        let fields: IndexedFields = vec![format!("value_{}", i).parse()?].try_into()?;
+        let fields: IndexedFields = vec![format!("value_{i}").parse()?].try_into()?;
 
         for j in 0..5 {
             let doc_id = id_generator.user_generate(&table);
@@ -1192,7 +1192,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
             )
             .map(|r| match r {
                 Ok(ik) => ik,
-                Err(err) => panic!("Error: {}", err),
+                Err(err) => panic!("Error: {err}"),
             })
             .collect::<Vec<_>>()
             .await;

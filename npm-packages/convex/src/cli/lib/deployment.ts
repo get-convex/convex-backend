@@ -218,6 +218,12 @@ export function isProjectKey(adminKey: string) {
   return /^project:.*\|/.test(adminKey);
 }
 
+// "dev deploy keys" and "prod deploy keys" are deployment keys.
+// On the client these are also known as admin keys.
+export function isDeploymentKey(adminKey: string) {
+  return /^(dev|prod):.*\|/.test(adminKey);
+}
+
 // For current keys returns prod|dev|preview,
 // for legacy keys returns "prod".
 // Examples:

@@ -164,7 +164,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             .await;
         let component_query = component
             .serialize_to_string()
-            .map(|s| format!("?component={}", s))
+            .map(|s| format!("?component={s}"))
             .unwrap_or_default();
         files
             .into_iter()

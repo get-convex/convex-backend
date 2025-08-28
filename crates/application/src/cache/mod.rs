@@ -471,11 +471,7 @@ impl<RT: Runtime> CacheManager<RT> {
             // Step 5: Log some stuff and return.
             log_success(num_attempts);
             let usage_stats = usage_tracker.clone().gather_user_stats();
-            let database_bandwidth_bytes = usage_stats
-                .database_egress_size
-                .iter()
-                .map(|(_, size)| size)
-                .sum();
+            let database_bandwidth_bytes = usage_stats.database_egress_size.values().sum();
             log_query_bandwidth_bytes(
                 cache_result.outcome.journal.end_cursor.is_some(),
                 database_bandwidth_bytes,
@@ -515,10 +511,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let r = match op {
             CacheOp::Ready { result } => {
                 if result.outcome.result.is_err() {
-                    panic!(
-                        "Developer error: Cache contained failed execution for {:?}",
-                        key
-                    )
+                    panic!("Developer error: Cache contained failed execution for {key:?}")
                 }
                 (result, BTreeMap::new())
             },
@@ -548,10 +541,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     },
                 };
                 if result.outcome.result.is_err() {
-                    panic!(
-                        "Developer error: CacheOp::Go sent failed execution for {:?}",
-                        key
-                    )
+                    panic!("Developer error: CacheOp::Go sent failed execution for {key:?}")
                 }
                 (result, BTreeMap::new())
             },

@@ -308,7 +308,7 @@ impl TantivySearchIndexSchema {
         let IndexConfig::Text { ref spec, .. } = index.metadata().config else {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "IndexNotASearchIndexError",
-                format!("Index {} is not a search index", printable_index_name),
+                format!("Index {printable_index_name} is not a search index"),
             ));
         };
         Ok(Self::new(spec))
@@ -445,8 +445,10 @@ impl TantivySearchIndexSchema {
             token_queries.push(query);
         }
         let mut exist_filter_conditions = false;
+        let mut num_expected_filter_conditions = 0;
         for CompiledFilterCondition::Must(term) in compiled_query.filter_conditions {
             exist_filter_conditions = true;
+            num_expected_filter_conditions += 1;
             let query = TokenQuery {
                 term,
                 max_distance: 0,
@@ -514,12 +516,12 @@ impl TantivySearchIndexSchema {
         }
         let terms = results_by_term.keys().cloned().collect_vec();
         // If there are no matches, short-circuit and return an empty result.
-        let no_and_tokens_present = results_by_term
+        let not_enough_and_tokens_present = results_by_term
             .iter()
             .filter(|(_, (_, _, token_ord))| *token_ord >= num_text_query_terms)
             .count()
-            == 0;
-        let no_filter_matches = exist_filter_conditions && no_and_tokens_present;
+            < num_expected_filter_conditions;
+        let no_filter_matches = exist_filter_conditions && not_enough_and_tokens_present;
         if terms.is_empty() || no_filter_matches {
             return Ok(vec![]);
         }

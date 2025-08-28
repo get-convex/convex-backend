@@ -3,7 +3,7 @@ set shell := ["bash", "-uc"]
 set positional-arguments
 
 # "-dev" commands run against the local process runner, bypassing Big Brain entirely.
-# "-dev-bb" commands run against local Big Brain. These runs will ask for authentication against our development Auth0 tenant.
+# "-dev-bb" commands run against local Big Brain. These runs will ask for authentication against our staging WorkOS instance.
 # "-prod" commands run against production Big Brain, and require CONVEX_OVERRIDE_ACCESS_TOKEN to be set to the secret value from 1Password.
 
 self-hosted *ARGS:
@@ -43,7 +43,7 @@ check-dev-integration-test: reset_env_vars
 
 dev_bb_login:
   curl http://0.0.0.0:8050 || (echo "Run just run-big-brain in separate terminal" && exit 1)
-  cd ../../npm-packages/scenario-runner && CONVEX_PROVISION_HOST=http://0.0.0.0:8050 npx convex login --override-auth-url "https://convexdev-test.us.auth0.com/" --override-auth-client "YyByEO5qldCzUIcBYCmZai13XvJh9ZjY"
+  cd ../../npm-packages/scenario-runner && CONVEX_PROVISION_HOST=http://0.0.0.0:8050 npx convex login --override-auth-url "https://cheerful-lake-55-staging.authkit.app/" --override-auth-client "client_01K1EFJ1R8YHBZ131A4VDN433S"
 
 check_vars:
     @ [ ! -z ${CONVEX_OVERRIDE_ACCESS_TOKEN+x} ] || (echo "Set CONVEX_OVERRIDE_ACCESS_TOKEN to run LoadGenerator against production" && exit 1)

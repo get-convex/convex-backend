@@ -8,7 +8,9 @@ export const populate = action({
   handler: async (ctx) => {
     for (const doc of EXAMPLE_DATA) {
       await ctx.runMutation(api.foods.insertRow, {
+        theLetterA: doc.theLetterA,
         cuisine: doc.cuisine,
+        bOrC: doc.bOrC,
         description: doc.description,
         embedding: doc.embedding,
       });
@@ -19,7 +21,9 @@ export const populate = action({
 export const insertRow = mutation({
   args: {
     description: v.string(),
+    theLetterA: v.string(),
     cuisine: v.string(),
+    bOrC: v.string(),
     embedding: v.array(v.float64()),
   },
   handler: async (ctx, args) => {

@@ -4,3 +4,5 @@ dist/
 api-extractor-configs/reports
 api-extractor-configs/temp
 tmpDist*
+management-openapi.json
+src/cli/generatedApi.ts

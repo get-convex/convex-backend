@@ -238,7 +238,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                 } else {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "InvalidReference",
-                        format!("Component {:?} not found", id),
+                        format!("Component {id:?} not found"),
                     ))
                 }
             },
@@ -321,7 +321,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                 } else {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "InvalidReference",
-                        format!("Component definition {:?} not found", id),
+                        format!("Component definition {id:?} not found"),
                     ))
                 }
             },

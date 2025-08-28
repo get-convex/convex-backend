@@ -220,7 +220,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
         })
     }
 
-    async fn inner(&self, waiter: SearchWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {
+    async fn inner(&self, waiter: SearchWriterLockWaiter) -> MutexGuard<'_, Inner<RT, T>> {
         let lock_timer = search_writer_lock_wait_timer(waiter, T::search_type());
         let inner = self.inner.lock().await;
         drop(lock_timer);

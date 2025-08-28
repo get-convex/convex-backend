@@ -59,7 +59,7 @@ pub fn get_recent_index_metadata(
         .pending_index_metadata(TableNamespace::test_user(), &expected)?
         .or(IndexModel::new(tx).enabled_index_metadata(TableNamespace::test_user(), &expected)?)
         .map(|doc| doc.into_value())
-        .context(format!("Missing index: {}", expected))
+        .context(format!("Missing index: {expected}"))
 }
 
 fn assert_at_most_one_definition(

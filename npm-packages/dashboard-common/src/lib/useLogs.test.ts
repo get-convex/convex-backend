@@ -30,6 +30,10 @@ function createExecutionCompletion(
     executionTime: 1,
     error: null,
     success: null,
+    caller: "test",
+    environment: "test",
+    identityType: "user",
+    parentExecutionId: null,
     ...overrides,
   };
 }
@@ -129,6 +133,10 @@ describe("processLogs", () => {
         },
         executionTimeMs: rawLogs[0].executionTime * 1000,
         kind: "outcome",
+        caller: "test",
+        environment: "test",
+        identityType: "user",
+        parentExecutionId: null,
       },
     ];
 

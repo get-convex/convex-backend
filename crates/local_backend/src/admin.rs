@@ -81,9 +81,8 @@ fn must_be_admin_internal(
 pub fn bad_admin_key_error(instance_name: Option<String>) -> ErrorMetadata {
     let msg = match instance_name {
         Some(name) => format!(
-            "The provided deploy key was invalid for deployment '{}'. Double check that the \
-             environment this key was generated for matches the desired deployment.",
-            name
+            "The provided deploy key was invalid for deployment '{name}'. Double check that the \
+             environment this key was generated for matches the desired deployment."
         ),
         None => "The provided deploy key was invalid for this deployment. Double check that the \
                  environment this key was generated for matches the desired deployment."

@@ -17,6 +17,7 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
+const_format = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }

@@ -38,7 +38,7 @@ export const getServerSideProps: GetServerSideProps = async ({
     // If not authenticated, render the page normally
     return { props: {} };
   } catch (error) {
-    // Something went wrong with Auth0, so we’ll just render the logged out page
+    // Something went wrong with auth, so we’ll just render the logged out page
     console.error("Auth error:", error);
     return { props: {} };
   }
