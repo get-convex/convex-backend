@@ -1,5 +1,6 @@
 @import "../../node_modules/@convex-dev/design-system/src/styles/shared.css";
-@source "../../node_modules/@convex-dev/design-system/src/";
+@source "../../../@convex-dev/design-system/src/";
+@source "../../../dashboard/src/";
 @source "../"; /* dashboard-common/src */
 
 @font-face {

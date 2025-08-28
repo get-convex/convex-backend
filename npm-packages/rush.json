@@ -565,6 +565,10 @@
       "projectFolder": "@convex-dev/design-system"
     },
     {
+      "packageName": "dashboard-storybook",
+      "projectFolder": "dashboard-storybook"
+    },
+    {
       "packageName": "udf-runtime",
       "projectFolder": "udf-runtime"
     },

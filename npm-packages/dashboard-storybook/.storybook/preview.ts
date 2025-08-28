@@ -1,4 +1,4 @@
-import "../src/styles/global.css";
+import "./preview.css";
 import { Preview } from "@storybook/nextjs";
 import themeDecorator from "./themeDecorator";
 import { RouterContext } from "next/dist/shared/lib/router-context.shared-runtime";
