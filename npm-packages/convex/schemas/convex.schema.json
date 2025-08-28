@@ -32,6 +32,11 @@
               }
             }
           ]
+        },
+        "nodeVersion": {
+          "type": "string",
+          "description": "The Node.js version to use for Node.js actions. The currently supported values are '18', '20', and '22'.\n\nDocumentation: https://docs.convex.dev/production/project-configuration#configuring-the-nodejs-version",
+          "default": "20"
         }
       }
     },
