@@ -308,7 +308,7 @@ impl TantivySearchIndexSchema {
         let IndexConfig::Text { ref spec, .. } = index.metadata().config else {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "IndexNotASearchIndexError",
-                format!("Index {} is not a search index", printable_index_name),
+                format!("Index {printable_index_name} is not a search index"),
             ));
         };
         Ok(Self::new(spec))

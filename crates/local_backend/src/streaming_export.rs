@@ -1034,7 +1034,7 @@ mod test {
                     format!("Shape {shape:?}"),
                 ];
                 for error in schema.iter_errors(&val_json) {
-                    logs.push(format!("Validation error: {}", error));
+                    logs.push(format!("Validation error: {error}"));
                     logs.push(format!("Instance path: {}", error.instance_path));
                 }
                 panic!("schema validation failed:\n{}\n", logs.join("\n"));

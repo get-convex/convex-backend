@@ -410,7 +410,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         scope.throw_exception(exception);
     }
 
-    pub fn scope(&mut self) -> v8::HandleScope {
+    pub fn scope(&mut self) -> v8::HandleScope<'_> {
         v8::HandleScope::new(self.scope)
     }
 

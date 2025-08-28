@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         allow_all_hosts: AllowAllHosts(args.allow_all_hosts),
     };
 
-    log::log(&format!("Starting the connector on {}", addr));
+    log::log(&format!("Starting the connector on {addr}"));
     Server::builder()
         .add_service(
             SourceConnectorServer::new(connector)

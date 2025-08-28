@@ -170,8 +170,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             let mut client = pool.acquire("init_sql", &db_name).await?;
             let table_count: usize = client
                 .query_optional(GET_TABLE_COUNT, vec![])
-                .await
-                .map_err(Into::<anyhow::Error>::into)?
+                .await?
                 .context("GET_TABLE_COUNT query returned no rows?")?
                 .get(0)
                 .context("GET_TABLE_COUNT query returned zero columns?")?;
@@ -180,10 +179,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             // an exclusive lock https://bugs.mysql.com/bug.php?id=63144.
             if table_count < EXPECTED_TABLE_COUNT {
                 tracing::info!("Initializing MySQL Persistence...");
-                client
-                    .execute_many(INIT_SQL)
-                    .await
-                    .map_err(Into::<anyhow::Error>::into)?;
+                client.execute_many(INIT_SQL).await?;
             } else {
                 tracing::info!("MySQL Persistence already initialized");
             }
@@ -239,8 +235,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             .await?;
         client
             .query_optional(GET_TABLE_COUNT, vec![])
-            .await
-            .map_err(Into::<anyhow::Error>::into)?
+            .await?
             .context("GET_TABLE_COUNT query returned no rows?")?
             .get(0)
             .context("GET_TABLE_COUNT query returned zero columns?")
@@ -1702,9 +1697,9 @@ D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id
 static EXACT_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
     smart_chunk_sizes()
         .map(|chunk_size| {
-            let where_clause = iter::repeat("(table_id = ? AND id = ? AND ts = ?)")
-                .take(chunk_size)
-                .join(" OR ");
+            let where_clause =
+                std::iter::repeat_n("(table_id = ? AND id = ? AND ts = ?)", chunk_size)
+                    .join(" OR ");
             (
                 chunk_size,
                 format!(

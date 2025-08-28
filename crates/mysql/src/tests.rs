@@ -399,6 +399,6 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
         .unwrap_err();
     // TODO(ENG-8900): this is arguably a bug - MySQL persistence can't accept a
     // max-size system document
-    assert_contains(&format!("{:#}", err), "packet too large");
+    assert_contains(&format!("{err:#}"), "packet too large");
     Ok(())
 }

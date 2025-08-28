@@ -110,9 +110,8 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
                     // Special cased in Convex CLI!!!
                     "AuthConfigMissingEnvironmentVariable",
                     format!(
-                        "Environment variable {} is used in auth config file but its value was \
-                         not set",
-                        name
+                        "Environment variable {name} is used in auth config file but its value \
+                         was not set"
                     ),
                 ))
             })
@@ -284,32 +283,29 @@ fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
                         .unwrap_or("unknown");
                     if has_bad_application_id {
                         anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {} must have applicationID property spelled \
-                             lowercase 'application', capital I, capital D.",
-                            index
+                            "Provider at index {index} must have applicationID property spelled \
+                             lowercase 'application', capital I, capital D."
                         )));
                     }
                     if type_value != "customJwt" && type_value != "oidc" && type_value != "unknown"
                     {
                         anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {} has unexpected 'type' value '{}'",
-                            index, type_value
+                            "Provider at index {index} has unexpected 'type' value '{type_value}'"
                         )));
                     }
 
                     if type_value == "customJwt" && has_domain {
                         anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {} is a customJwt so cannot have a 'domain' \
+                            "Provider at index {index} is a customJwt so cannot have a 'domain' \
                              specified",
-                            index,
                         )));
                     }
 
                     let is_oidc = type_value == "oidc" || type_value == "unknown";
                     if is_oidc && has_issuer {
                         anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {} is oidc so cannot have an 'issuer' specified.",
-                            index,
+                            "Provider at index {index} is oidc so cannot have an 'issuer' \
+                             specified.",
                         )));
                     }
 
@@ -321,10 +317,9 @@ fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
                             "InsecureConfiguration",
                             format!(
                                 "This auth configuration appears potentially insecure: Provider \
-                                 at index {} has an issuer that is shared among many \
+                                 at index {index} has an issuer that is shared among many \
                                  applications, so must to specify an ApplicationID to check \
                                  against an `aud` field of a JWT.",
-                                index,
                             ),
                         ));
                     }

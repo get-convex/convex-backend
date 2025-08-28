@@ -309,6 +309,7 @@ impl PostgresConnection<'_> {
         .map_err(|e| handle_error(&self.poisoned, e))
     }
 
+    #[define_opaque(QueryStream)]
     pub async fn query_raw<P, I>(
         &self,
         statement: &Statement,

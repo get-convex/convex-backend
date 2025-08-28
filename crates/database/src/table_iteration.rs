@@ -637,7 +637,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
                     ts, value, prev_ts, ..
                 } = old_revisions
                     .remove(&make_query(&q))
-                    .with_context(|| format!("Missing revision at snapshot: {:?}", q))?;
+                    .with_context(|| format!("Missing revision at snapshot: {q:?}"))?;
                 let Some(value) = value else { continue };
                 yield LatestDocument { ts, value, prev_ts };
             }

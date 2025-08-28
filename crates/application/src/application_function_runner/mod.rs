@@ -496,7 +496,7 @@ impl Limiter {
         Ok(request_guard)
     }
 
-    fn start(&self) -> RequestGuard {
+    fn start(&self) -> RequestGuard<'_> {
         self.total_outstanding.fetch_add(1, Ordering::SeqCst);
         // Update the gauge to account for the newly waiting request.
         self.update_gauges();

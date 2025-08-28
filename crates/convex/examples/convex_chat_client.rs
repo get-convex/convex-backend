@@ -99,11 +99,11 @@ async fn main() -> anyhow::Result<()> {
                                         _ => "Anonymous Author",
                                     };
                                     let author_string = if author == &sender_clone {
-                                        format!("{}", author).yellow().bold()
+                                        format!("{author}").yellow().bold()
                                     } else {
-                                        format!("{}", author).red().bold()
+                                        format!("{author}").red().bold()
                                     };
-                                    println!("{}: {:?}", author_string, str);
+                                    println!("{author_string}: {str:?}");
                                 }
                             }
                         }
@@ -163,7 +163,7 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}.", err.red().bold());
             },
             FunctionResult::ConvexError(err) => {
-                println!("{:?}", err);
+                println!("{err:?}");
             },
         };
     }

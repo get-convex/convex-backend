@@ -506,7 +506,7 @@ impl MemoryDeletionTracker {
     ) -> anyhow::Result<()> {
         let tantivy_id = id_tracker
             .lookup(convex_id.0)
-            .with_context(|| format!("Id not found in StaticIdTracker: {:?}", convex_id))?;
+            .with_context(|| format!("Id not found in StaticIdTracker: {convex_id:?}"))?;
         self.alive_bitset.remove(tantivy_id);
         Ok(())
     }

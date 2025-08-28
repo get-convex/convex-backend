@@ -314,7 +314,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         anyhow::bail!("No JsError raised for scheduled nonexistent function");
     };
     assert!(
-        format!("{}", err).contains("schedules a function that does not exist"),
+        format!("{err}").contains("schedules a function that does not exist"),
         "{err:?}"
     );
 
@@ -340,7 +340,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         anyhow::bail!("No JsError raised for scheduled nonexistent function");
     };
     assert!(
-        format!("{}", err).contains("schedules a function that does not exist"),
+        format!("{err}").contains("schedules a function that does not exist"),
         "{err:?}"
     );
     Ok(())

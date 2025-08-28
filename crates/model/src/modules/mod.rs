@@ -237,7 +237,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     environment,
                 };
                 if modules.insert(path.clone(), module_config).is_some() {
-                    panic!("Duplicate application module at {:?}", path);
+                    panic!("Duplicate application module at {path:?}");
                 }
             }
         }

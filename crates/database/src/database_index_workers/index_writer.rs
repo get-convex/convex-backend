@@ -103,7 +103,7 @@ impl Display for IndexSelector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::All(_) => write!(f, "ALL"),
-            Self::Index { name, .. } => write!(f, "{}", name),
+            Self::Index { name, .. } => write!(f, "{name}"),
             Self::ManyIndexes { ref indexes, .. } => {
                 write!(f, "ManyIndexes(")?;
                 let mut first = true;

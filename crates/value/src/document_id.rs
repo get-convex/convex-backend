@@ -156,13 +156,13 @@ impl DeveloperDocumentId {
 
 impl Debug for InternalDocumentId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
 impl Debug for DeveloperDocumentId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -362,7 +362,7 @@ impl Display for InternalId {
 
 impl Debug for InternalId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "InternalId({})", self)
+        write!(f, "InternalId({self})")
     }
 }
 

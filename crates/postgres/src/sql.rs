@@ -703,7 +703,7 @@ pub(crate) static INDEX_QUERIES: LazyLock<[HashMap<(BoundType, BoundType, Order)
             let mut where_clause = String::new();
             write!(where_clause, "index_id = ${}", next_arg()).unwrap();
             let ts_arg = next_arg();
-            write!(where_clause, " AND ts <= ${}", ts_arg).unwrap();
+            write!(where_clause, " AND ts <= ${ts_arg}").unwrap();
             match lower {
                 BoundType::Unbounded => {},
                 BoundType::Included => {
@@ -753,8 +753,8 @@ pub(crate) static INDEX_QUERIES: LazyLock<[HashMap<(BoundType, BoundType, Order)
             let (indexes_instance_clause, documents_instance_clause) = if *multitenant {
                 let instance_arg = next_arg();
                 (
-                    format!(" AND instance_name = ${}", instance_arg),
-                    format!(" AND D.instance_name = ${}", instance_arg),
+                    format!(" AND instance_name = ${instance_arg}"),
+                    format!(" AND D.instance_name = ${instance_arg}"),
                 )
             } else {
                 ("".to_string(), "".to_string())

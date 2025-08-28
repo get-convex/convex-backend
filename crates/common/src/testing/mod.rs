@@ -46,7 +46,7 @@ pub fn generate_with<T: Arbitrary>(args: T::Parameters) -> T {
 
 pub fn assert_contains(error: &impl Display, expected: &str) {
     assert!(
-        format!("{}", error).contains(expected),
+        format!("{error}").contains(expected),
         "\nExpected: {expected}\nActual: {error}"
     );
 }

@@ -285,7 +285,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
             Ok(m) => Some(m),
             Err(e) => {
                 // XXX: This should be a system error!
-                helpers::throw_type_error(self.scope, format!("{:?}", e));
+                helpers::throw_type_error(self.scope, format!("{e:?}"));
                 None
             },
         }
@@ -303,7 +303,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
             Ok(promise) => Some(promise),
             Err(e) => {
                 // XXX: distinguish between system and user errors here.
-                helpers::throw_type_error(scope, format!("{:?}", e));
+                helpers::throw_type_error(scope, format!("{e:?}"));
                 None
             },
         }

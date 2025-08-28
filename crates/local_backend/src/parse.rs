@@ -29,7 +29,7 @@ pub fn parse_udf_path(path: &str) -> anyhow::Result<CanonicalizedUdfPath> {
 }
 
 pub fn invalid_id_error(table_name: &TableName) -> ErrorMetadata {
-    ErrorMetadata::bad_request("InvalidId", format!("Invalid ID for table {}", table_name))
+    ErrorMetadata::bad_request("InvalidId", format!("Invalid ID for table {table_name}"))
 }
 
 /// Parse a string in the format of IDv6 into a [`ResolvedDocumentId`].

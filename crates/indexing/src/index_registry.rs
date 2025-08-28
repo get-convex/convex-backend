@@ -5,6 +5,7 @@ use std::{
     },
     iter,
     ops::Bound as StdBound,
+    slice,
 };
 
 use common::{
@@ -311,10 +312,10 @@ impl IndexRegistry {
             )
             .expect("invalid built-in index name");
 
-            let index_key_value = DocumentIndexKeyValue::Standard(
-                document
-                    .index_key_bytes(&[TABLE_ID_FIELD_PATH.clone()], self.persistence_version()),
-            );
+            let index_key_value = DocumentIndexKeyValue::Standard(document.index_key_bytes(
+                slice::from_ref(&*TABLE_ID_FIELD_PATH),
+                self.persistence_version(),
+            ));
 
             map.insert(index_name, index_key_value);
         }

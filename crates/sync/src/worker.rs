@@ -1005,7 +1005,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         // timers for everything up through the new version.
         let finished_timers = self
             .modify_query_to_transition_timers
-            .extract_if(|version, _| *version <= new_version.query_set);
+            .extract_if(.., |version, _| *version <= new_version.query_set);
         for (_, timer) in finished_timers {
             timer.finish();
         }

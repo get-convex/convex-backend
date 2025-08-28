@@ -692,7 +692,7 @@ fn column_names_in_metadata(
         .0
         .keys()
         .map(|convex_field_name| {
-            format!("_{}", convex_field_name).parse().map_err(|err| {
+            format!("_{convex_field_name}").parse().map_err(|err| {
                 MetadataFieldError::UnsupportedColumnName(convex_field_name.clone(), err)
             })
         })
@@ -1034,7 +1034,7 @@ mod tests {
     ) -> fivetran_sdk::Table {
         for col_name in &primary_key_columns {
             if !columns.contains_key(col_name) {
-                panic!("Unknown column `{}` in the primary key", col_name);
+                panic!("Unknown column `{col_name}` in the primary key");
             }
         }
 

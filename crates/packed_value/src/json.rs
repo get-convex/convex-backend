@@ -21,6 +21,7 @@ use crate::{
     OpenedValue,
 };
 
+#[allow(dead_code)] // TODO: remove
 struct JsonOpenedValue<'a, B: Buffer>(&'a OpenedValue<B>)
 where
     B::BufferString: Clone;
@@ -102,6 +103,7 @@ where
     }
 }
 
+#[allow(dead_code)] // TODO: remove
 pub struct JsonOpenedSet<'a, B: Buffer>(&'a OpenedSet<B>)
 where
     B::BufferString: Clone;
@@ -120,6 +122,7 @@ where
     }
 }
 
+#[allow(dead_code)] // TODO: remove
 pub struct JsonOpenedMap<'a, B: Buffer>(&'a OpenedMap<B>)
 where
     B::BufferString: Clone;
@@ -141,6 +144,7 @@ where
     }
 }
 
+#[allow(dead_code)] // TODO: remove
 pub struct JsonOpenedMapPair<'a, B: Buffer>
 where
     B::BufferString: Clone,

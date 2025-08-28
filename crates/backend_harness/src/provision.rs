@@ -412,10 +412,7 @@ async fn provision(
             )
         },
         BackendProvisioner::ConductorDebug | BackendProvisioner::ConductorRelease => {
-            let release = matches!(
-                backend_provisioner,
-                BackendProvisioner::ConductorRelease { .. }
-            );
+            let release = matches!(backend_provisioner, BackendProvisioner::ConductorRelease);
             let mut build_cmd = Command::new("cargo");
             build_cmd.arg("build").arg("--bin").arg("conductor");
             let udf_use_funrun = env_config("UDF_USE_FUNRUN", true);
@@ -494,10 +491,7 @@ async fn provision(
             )
         },
         BackendProvisioner::OpenSourceDebug | BackendProvisioner::OpenSourceRelease => {
-            let release = matches!(
-                backend_provisioner,
-                BackendProvisioner::OpenSourceRelease { .. }
-            );
+            let release = matches!(backend_provisioner, BackendProvisioner::OpenSourceRelease);
             let mut cmd = Command::new("cargo");
             cmd.arg("build").arg("--bin").arg("convex-local-backend");
             if release {

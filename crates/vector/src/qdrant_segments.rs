@@ -1310,7 +1310,7 @@ mod tests {
         // marked as deleted.
         let disk_segment = unsafe_load_disk_segment(&disk_segment_paths).await?;
         let results = search(&disk_segment, to_delete.1)?;
-        assert!(!results.iter().any(|value| *value == to_delete.0));
+        assert!(!results.contains(&to_delete.0));
 
         Ok(())
     }

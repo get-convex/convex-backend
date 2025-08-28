@@ -698,7 +698,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let Some(component) = component else {
             anyhow::bail!(ErrorMetadata::not_found(
                 "ComponentNotFound",
-                format!("Component with ID {:?} not found", component_id)
+                format!("Component with ID {component_id:?} not found")
             ));
         };
         let mut stack = vec![component];

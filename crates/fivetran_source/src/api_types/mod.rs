@@ -163,6 +163,7 @@ impl Default for SelectionArg {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // TODO: remove
 pub struct GetTableColumnNamesResponse {
     pub by_component: BTreeMap<String, Vec<GetTableColumnNameTable>>,
 }

@@ -238,7 +238,7 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         else {
             anyhow::bail!("No JsError raised for missing default export");
         };
-        assert!(format!("{}", err).contains(expected_error), "{err:?}");
+        assert!(format!("{err}").contains(expected_error), "{err:?}");
     }
 
     Ok(())

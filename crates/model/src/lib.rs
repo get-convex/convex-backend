@@ -18,14 +18,12 @@
 
 #![feature(assert_matches)]
 #![feature(coroutines)]
-#![feature(result_flattening)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]
-#![feature(trait_upcasting)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(iter_from_coroutine)]
 #![feature(duration_constructors)]
@@ -743,7 +741,7 @@ mod test_default_table_numbers {
         let first_seen: BTreeSet<_> = FIRST_SEEN_TABLE.keys().collect();
         assert_eq!(tables, first_seen);
         let max_first_seen = *FIRST_SEEN_TABLE.values().max().unwrap();
-        println!("max_first_seen: {}", max_first_seen);
+        println!("max_first_seen: {max_first_seen}");
         assert!(max_first_seen <= DATABASE_VERSION);
         Ok(())
     }

@@ -639,7 +639,7 @@ impl StorageExt for Arc<dyn Storage> {
                     .map_err(|e| {
                         // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what the
                         // AWS library does internally.
-                        std::io::Error::new(std::io::ErrorKind::Other, e)
+                        std::io::Error::other(e)
                     })
                     .map(|storage_get_stream| storage_get_stream.stream)
             };
@@ -718,7 +718,7 @@ async fn stream_object_with_retries(
                 let output = storage
                     .get_small_range(&key, new_range)
                     .await
-                    .map_err(|e| futures::io::Error::new(std::io::ErrorKind::Other, e))?;
+                    .map_err(futures::io::Error::other)?;
                 stream = output.stream;
                 retries_remaining -= 1;
             },

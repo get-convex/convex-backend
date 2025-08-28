@@ -48,22 +48,28 @@ pub static CRON_JOBS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 });
 
 // Used to find next jobs to execute for crons.
+#[allow(dead_code)] // TODO: remove
 pub static CRON_JOBS_INDEX_BY_NEXT_TS: LazyLock<SystemIndex<CronJobsTable>> =
     LazyLock::new(|| SystemIndex::new("by_next_ts", [&CRON_JOBS_NEXT_TS_FIELD]).unwrap());
 // Used to find cron job by name
+#[allow(dead_code)] // TODO: remove
 pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<SystemIndex<CronJobsTable>> =
     LazyLock::new(|| SystemIndex::new("by_name", [&CRON_JOBS_NAME_FIELD]).unwrap());
+#[allow(dead_code)] // TODO: remove
 static CRON_JOBS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
+#[allow(dead_code)] // TODO: remove
 static CRON_JOBS_NEXT_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "nextTs".parse().expect("invalid nextTs field"));
 
+#[allow(dead_code)] // TODO: remove
 pub static CRON_JOB_LOGS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_cron_job_logs"
         .parse()
         .expect("_cron_job_logs is not a valid system table name")
 });
 
+#[allow(dead_code)] // TODO: remove
 pub static CRON_JOB_LOGS_INDEX_BY_NAME_TS: LazyLock<SystemIndex<CronJobLogsTable>> =
     LazyLock::new(|| {
         SystemIndex::new(
@@ -72,8 +78,10 @@ pub static CRON_JOB_LOGS_INDEX_BY_NAME_TS: LazyLock<SystemIndex<CronJobLogsTable
         )
         .unwrap()
     });
+#[allow(dead_code)] // TODO: remove
 pub static CRON_JOB_LOGS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
+#[allow(dead_code)] // TODO: remove
 static CRON_JOB_LOGS_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "ts".parse().expect("invalid ts field"));
 

@@ -979,7 +979,7 @@ impl Bm25StatisticsProvider for StatsProvider {
 
     fn doc_freq(&self, term: &Term) -> tantivy::Result<u64> {
         self.doc_frequencies.get(term).copied().ok_or_else(|| {
-            tantivy::TantivyError::InvalidArgument(format!("Term not found: {:?}", term))
+            tantivy::TantivyError::InvalidArgument(format!("Term not found: {term:?}"))
         })
     }
 }

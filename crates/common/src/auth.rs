@@ -68,7 +68,7 @@ impl AuthInfo {
             if issuer.starts_with("https://") || issuer.starts_with("http://") {
                 issuer.to_string()
             } else {
-                format!("https://{}", issuer)
+                format!("https://{issuer}")
             };
 
         // Some authentication providers (Auth0, lookin' at you) tell developers that

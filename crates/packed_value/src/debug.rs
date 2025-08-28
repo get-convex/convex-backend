@@ -15,7 +15,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match ConvexValue::try_from(self.clone()) {
-            Ok(v) => write!(f, "{:?}", v),
+            Ok(v) => write!(f, "{v:?}"),
             Err(e) => write!(f, "OpenedValue(invalid: {e}"),
         }
     }
@@ -27,7 +27,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match ConvexValue::try_from(self.clone()) {
-            Ok(v) => write!(f, "{}", v),
+            Ok(v) => write!(f, "{v}"),
             Err(e) => write!(f, "OpenedValue(invalid: {e}"),
         }
     }
@@ -39,7 +39,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match ConvexValue::try_from(self.clone()) {
-            Ok(v) => write!(f, "{:?}", v),
+            Ok(v) => write!(f, "{v:?}"),
             Err(e) => write!(f, "OpenedValue(invalid: {e}"),
         }
     }
@@ -51,7 +51,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match ConvexValue::try_from(self.clone()) {
-            Ok(v) => write!(f, "{}", v),
+            Ok(v) => write!(f, "{v}"),
             Err(e) => write!(f, "OpenedValue(invalid: {e}"),
         }
     }

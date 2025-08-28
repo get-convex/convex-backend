@@ -90,7 +90,7 @@ impl LogInterleaverInner {
                     "{} | {}",
                     pad_right(&prefix, prefix_width).color(color),
                     maybe_line
-                        .unwrap_or_else(|e| format!("error reading from stdout/stderr: {:?}", e))
+                        .unwrap_or_else(|e| format!("error reading from stdout/stderr: {e:?}"))
                         .trim_end(),
                 );
             }

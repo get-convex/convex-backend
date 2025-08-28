@@ -73,7 +73,7 @@ fn enhance_no_provider_error(auth_infos: &[AuthInfo], should_redact: bool) -> St
                 domain,
                 application_id,
                 ..
-            } => format!("OIDC(domain={}, app_id={})", domain, application_id),
+            } => format!("OIDC(domain={domain}, app_id={application_id})"),
             AuthInfo::CustomJwt {
                 issuer,
                 application_id,
@@ -126,11 +126,11 @@ pub fn token_to_authorization_header(token: AuthenticationToken) -> anyhow::Resu
                         anyhow::anyhow!("Failed to serialize acting user attributes {e}")
                     })?,
                 );
-                Ok(Some(format!("Convex {}:{}", key, encoded)))
+                Ok(Some(format!("Convex {key}:{encoded}")))
             },
-            None => Ok(Some(format!("Convex {}", key))),
+            None => Ok(Some(format!("Convex {key}"))),
         },
-        AuthenticationToken::User(key) => Ok(Some(format!("Bearer {}", key))),
+        AuthenticationToken::User(key) => Ok(Some(format!("Bearer {key}"))),
         AuthenticationToken::None => Ok(None),
     }
 }
@@ -281,9 +281,8 @@ where
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
                         format!(
-                            "Invalid JWKS response body from '{}'. The response is not valid JSON \
-                             or doesn't match the expected JWKS format.",
-                            jwks_uri
+                            "Invalid JWKS response body from '{jwks_uri}'. The response is not \
+                             valid JSON or doesn't match the expected JWKS format."
                         ),
                     )
                 })?;
@@ -297,9 +296,8 @@ where
 
                     let detailed_msg = if let Some(kid) = kid {
                         format!(
-                            "Could not decode token. The JWT's 'kid' (key ID) header is '{}', \
-                             does this key match any key in the provider's JWKS?",
-                            kid
+                            "Could not decode token. The JWT's 'kid' (key ID) header is '{kid}', \
+                             does this key match any key in the provider's JWKS?"
                         )
                     } else {
                         "Could not decode token. JWT may be missing a 'kid' (key ID) header."
@@ -326,7 +324,7 @@ where
                 if token_issuer.starts_with("https://") || token_issuer.starts_with("http://") {
                     token_issuer.to_string()
                 } else {
-                    format!("https://{}", token_issuer)
+                    format!("https://{token_issuer}")
                 };
 
             if token_issuer_with_protocol.trim_end_matches('/')
@@ -334,7 +332,7 @@ where
             {
                 anyhow::bail!(ErrorMetadata::unauthenticated(
                     "InvalidAuthHeader",
-                    format!("Invalid issuer: {} != {}", token_issuer, issuer)
+                    format!("Invalid issuer: {token_issuer} != {issuer}")
                 ));
             }
             if let Some(application_id) = application_id {
@@ -369,12 +367,12 @@ where
             decoded_token
                 .validate(validation_options)
                 .map_err(|original_error| {
-                    eprintln!("Original validation error: {:?}", original_error);
+                    eprintln!("Original validation error: {original_error:?}");
                     let msg = original_error.to_string();
 
                     ErrorMetadata::unauthenticated(
                         "InvalidAuthHeader",
-                        format!("Could not validate token: {}", msg),
+                        format!("Could not validate token: {msg}"),
                     )
                 })?;
             UserIdentity::from_custom_jwt(decoded_token, token_str.0).context(
@@ -426,9 +424,8 @@ where
         ErrorMetadata::unauthenticated(
             "InvalidAuthHeader",
             format!(
-                "Could not fetch JWKS from URL '{}': {}. Check that the URL is correct and \
-                 accessible.",
-                jwks_uri, e
+                "Could not fetch JWKS from URL '{jwks_uri}': {e}. Check that the URL is correct \
+                 and accessible."
             ),
         )
     })?;
@@ -467,9 +464,8 @@ where
         anyhow::bail!(ErrorMetadata::unauthenticated(
             "InvalidAuthHeader",
             format!(
-                "Invalid Content-Type '{}' when fetching JWKS from '{}'. Expected \
-                 'application/json' or 'application/jwk-set+json'.",
-                content_type, jwks_uri
+                "Invalid Content-Type '{content_type}' when fetching JWKS from '{jwks_uri}'. \
+                 Expected 'application/json' or 'application/jwk-set+json'."
             )
         ));
     }
@@ -628,7 +624,7 @@ impl AuthenticatedLogin {
 
 pub fn names_to_full_name(first_name: Option<String>, last_name: Option<String>) -> Option<String> {
     match (first_name, last_name) {
-        (Some(first), Some(last)) => Some(format!("{} {}", first, last)),
+        (Some(first), Some(last)) => Some(format!("{first} {last}")),
         (Some(first), None) => Some(first),
         (None, Some(last)) => Some(last),
         (None, None) => None,
@@ -657,7 +653,7 @@ where
     let encoded_token = JWT::<WorkOSClaims, biscuit::Empty>::new_encoded(&access_token.0);
 
     // Fetch WorkOS JWKS
-    let jwks_url = format!("https://apiauth.convex.dev/sso/jwks/{}", workos_client_id);
+    let jwks_url = format!("https://apiauth.convex.dev/sso/jwks/{workos_client_id}");
     let jwks_data = fetch_jwks(&jwks_url, &http_client).await?;
     let jwks: JWKSet<biscuit::Empty> =
         serde_json::de::from_slice(&jwks_data).with_context(|| {
@@ -732,10 +728,10 @@ where
     match matching_issuer_domain {
         Some(matching_issuer) => {
             anyhow::ensure!(
-                *issuer == format!("{}{}", matching_issuer, workos_client_id),
+                *issuer == format!("{matching_issuer}{workos_client_id}"),
                 ErrorMetadata::unauthenticated(
                     "AccessTokenInvalid",
-                    format!("Issuer {} does not match WorkOS client ID", issuer)
+                    format!("Issuer {issuer} does not match WorkOS client ID")
                 )
             )
         },
@@ -748,7 +744,7 @@ where
                 }),
                 ErrorMetadata::unauthenticated(
                     "AccessTokenInvalid",
-                    format!("Issuer {} not in allowed WorkOS auth URLs", issuer)
+                    format!("Issuer {issuer} not in allowed WorkOS auth URLs")
                 )
             );
         },
@@ -875,7 +871,7 @@ mod tests {
                 let path = request.uri().path();
                 let uri_str = request.uri().to_string();
 
-                if path.contains(&format!("/sso/jwks/{}", client_id_)) {
+                if path.contains(&format!("/sso/jwks/{client_id_}")) {
                     // Return JWKS for WorkOS
                     Ok(http::Response::builder()
                         .status(http::StatusCode::OK)
@@ -1001,8 +997,7 @@ mod tests {
         let workos_client_id = "test_client_123";
         let workos_api_key = "sk_test_123";
         let workos_issuer = IssuerUrl::new(format!(
-            "https://apiauth.convex.dev/user_management/{}",
-            workos_client_id
+            "https://apiauth.convex.dev/user_management/{workos_client_id}"
         ))
         .unwrap();
 
@@ -1123,7 +1118,7 @@ mod tests {
         .unwrap_err();
 
         // Verify the expiry error contains expected message
-        let expiry_error_msg = format!("{:?}", expiry_error);
+        let expiry_error_msg = format!("{expiry_error:?}");
         assert!(expiry_error_msg.contains("Access Token could not be validated"));
 
         // Test missing WorkOS API key
@@ -1139,7 +1134,7 @@ mod tests {
         .unwrap_err();
 
         // Verify the API key error contains expected message
-        let api_key_error_msg = format!("{:?}", api_key_error);
+        let api_key_error_msg = format!("{api_key_error:?}");
         assert!(api_key_error_msg.contains("WORKOS_API_KEY is not set"));
 
         Ok(())

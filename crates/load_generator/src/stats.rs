@@ -228,8 +228,8 @@ impl Stats {
             if log_sink_metadata.len() < log_lines as u64 * LOG_LINE_LENGTH as u64 {
                 println!("WARNING: Log sink size is less than expected!");
             }
-            println!("Expected: {} lines", expected_log_lines);
-            println!("Received: {} lines", log_lines);
+            println!("Expected: {expected_log_lines} lines");
+            println!("Received: {log_lines} lines");
             println!(
                 "Drop rate: {:.2}%",
                 100.0 * (1.0 - (log_lines as f64) / (expected_log_lines as f64))

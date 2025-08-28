@@ -398,7 +398,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             let (bucket, s3_key) = key
                 .as_str()
                 .split_once('/')
-                .with_context(|| format!("Invalid fully qualified S3 key {:?}", key))?;
+                .with_context(|| format!("Invalid fully qualified S3 key {key:?}"))?;
             if bytes_range.start >= bytes_range.end {
                 return Ok(StorageGetStream {
                     content_length: 0,
@@ -432,7 +432,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
         let (bucket, s3_key) = key
             .as_str()
             .split_once('/')
-            .with_context(|| format!("Invalid fully qualified S3 key {:?}", key))?;
+            .with_context(|| format!("Invalid fully qualified S3 key {key:?}"))?;
         let result: Result<HeadObjectOutput, aws_sdk_s3::error::SdkError<HeadObjectError>> = self
             .client
             .head_object()

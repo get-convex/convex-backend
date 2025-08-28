@@ -294,7 +294,7 @@ pub async fn public_function_post_with_path(
             "Path or function name not provided in path, e.g. /api/run/messages/list",
         ))
     };
-    println!("{:?}", path);
+    println!("{path:?}");
 
     // messages/list -> ["messages", "list"]
     let mut path_parts = path
@@ -302,7 +302,7 @@ pub async fn public_function_post_with_path(
         .split('/')
         .map(|p| urlencoding::decode(p).map_err(|_e| bad_request_error()))
         .try_collect::<Vec<_>>()?;
-    println!("{:?}", path_parts);
+    println!("{path_parts:?}");
     if path_parts.len() < 2 {
         return Err(bad_request_error().into());
     }

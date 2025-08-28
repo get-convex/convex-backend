@@ -10,12 +10,14 @@ use tantivy::{
 ///
 /// This is similar to tantivy's Intersection but it only uses one scorer to
 /// score.
+#[allow(dead_code)] // TODO: remove
 pub struct Intersection<TDocSet: DocSet> {
     left: TDocSet,
     right: TDocSet,
     score_left: bool,
 }
 
+#[allow(dead_code)] // TODO: remove
 pub fn go_to_first_doc<TDocSet: DocSet>(docsets: &mut [TDocSet]) -> DocId {
     assert!(!docsets.is_empty());
     let mut candidate = docsets.iter().map(TDocSet::doc).max().unwrap();

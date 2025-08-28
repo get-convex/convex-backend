@@ -4,6 +4,7 @@
 #![feature(coroutines)]
 #![feature(round_char_boundary)]
 #![feature(duration_constructors)]
+#![feature(duration_constructors_lite)]
 #![feature(assert_matches)]
 
 use std::{

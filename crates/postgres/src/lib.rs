@@ -307,10 +307,7 @@ impl PostgresPersistence {
                     .await?
                     .is_none()
             {
-                client
-                    .batch_execute(sql::CREATE_SCHEMA_SQL)
-                    .await
-                    .map_err(anyhow::Error::from)?;
+                client.batch_execute(sql::CREATE_SCHEMA_SQL).await?;
             }
             let skip_index_creation = options.skip_index_creation;
             client

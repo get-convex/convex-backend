@@ -97,15 +97,10 @@ impl<R: AsyncRead + Unpin> AsyncRead for AesDecryptor<R> {
         Poll::Ready(
             cipher
                 .decrypt_padded_mut::<Pkcs7>(encrypted_data_read_buf.filled_mut())
-                .map_err(|e| {
-                    io::Error::new(io::ErrorKind::Other, anyhow!(e).context("Unpad error"))
-                })
+                .map_err(|e| io::Error::other(anyhow!(e).context("Unpad error")))
                 .and_then(|decrypted_data| {
                     if decrypted_data.len() > output_buf.remaining() {
-                        Err(io::Error::new(
-                            io::ErrorKind::Other,
-                            anyhow!("Output buffer too small"),
-                        ))
+                        Err(io::Error::other(anyhow!("Output buffer too small")))
                     } else {
                         output_buf.put_slice(decrypted_data);
                         Ok(())

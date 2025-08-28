@@ -117,7 +117,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 let child_component = m.component_in_parent(Some(parent))?.ok_or_else(|| {
                     ErrorMetadata::bad_request(
                         "InvalidReference",
-                        format!("Child component {:?} not found", child_component),
+                        format!("Child component {child_component:?} not found"),
                     )
                 })?;
                 let child_id = ComponentId::Child(child_component.id().into());

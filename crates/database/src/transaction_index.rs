@@ -974,7 +974,7 @@ mod tests {
                 Ok(_) => panic!("Should have failed!"),
                 Err(ref err) => {
                     assert!(
-                        format!("{:?}", err).contains("Index messages.by_name not found."),
+                        format!("{err:?}").contains("Index messages.by_name not found."),
                         "Actual: {err:?}"
                     )
                 },
@@ -1005,8 +1005,7 @@ mod tests {
             Ok(_) => panic!("Should have failed!"),
             Err(ref err) => {
                 assert!(
-                    format!("{:?}", err)
-                        .contains("Index messages.by_name is currently backfilling"),
+                    format!("{err:?}").contains("Index messages.by_name is currently backfilling"),
                     "Actual: {err:?}"
                 )
             },
@@ -1089,7 +1088,7 @@ mod tests {
             match result {
                 Ok(_) => panic!("Should have failed!"),
                 Err(ref err) => {
-                    assert!(format!("{:?}", err).contains("Index messages.by_name not found."),)
+                    assert!(format!("{err:?}").contains("Index messages.by_name not found."),)
                 },
             };
         }

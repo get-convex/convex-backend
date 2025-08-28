@@ -46,7 +46,7 @@ impl Deref for ConvexBytes {
 impl fmt::Display for ConvexBytes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let encoded = base64::encode(&self.0);
-        write!(f, "b{:?}", encoded)
+        write!(f, "b{encoded:?}")
     }
 }
 

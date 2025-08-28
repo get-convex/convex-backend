@@ -419,7 +419,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     Ok(key) => self.snapshot_imports_storage.get_fq_object(&key).await?,
                     Err(key) => self.snapshot_imports_storage.get(&key).await?,
                 };
-                reader.with_context(|| format!("Missing import object {:?}", object_key))
+                reader.with_context(|| format!("Missing import object {object_key:?}"))
             }
         };
         let objects = parse_objects(format.clone(), component_path.clone(), body_stream).boxed();
