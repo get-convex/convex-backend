@@ -77,7 +77,7 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         DeveloperDocumentId::new(index_table_id.table_number, index_id)
     }
 
-    async fn existing_backfill_metadata(
+    pub(crate) async fn existing_backfill_metadata(
         &mut self,
         index_id: DeveloperDocumentId,
     ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {

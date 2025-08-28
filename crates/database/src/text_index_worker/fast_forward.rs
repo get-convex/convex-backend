@@ -130,6 +130,7 @@ pub mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
+        let index_id = index_id.internal_id();
         let worker = fixtures.new_backfill_text_flusher();
 
         // Backfill the index

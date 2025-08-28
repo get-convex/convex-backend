@@ -321,7 +321,11 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+        let IndexData {
+            index_name,
+            index_id,
+            ..
+        } = fixtures.backfilling_vector_index().await?;
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
@@ -339,6 +343,13 @@ mod tests {
         let segment = segments.first().unwrap();
         let segment = fixtures.load_segment(segment).await?;
         assert_eq!(segment.total_point_count(), 1);
+        // Should have written backfill progress, and it is halfway done.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 1);
+        assert_eq!(progress.total_docs, Some(2));
 
         // Should be no longer in backfilling state now after step
         worker.step().await?;
@@ -347,6 +358,13 @@ mod tests {
         let segment = segments.get(1).unwrap();
         let segment = fixtures.load_segment(segment).await?;
         assert_eq!(segment.total_point_count(), 1);
+        // Should have written backfill progress, and it is complete.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 2);
+        assert_eq!(progress.total_docs, Some(2));
 
         Ok(())
     }

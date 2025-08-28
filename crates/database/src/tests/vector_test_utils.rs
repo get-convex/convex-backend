@@ -64,6 +64,7 @@ use tempfile::TempDir;
 use value::{
     assert_obj,
     ConvexValue,
+    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -82,6 +83,7 @@ use vector::{
 
 use super::DbFixtures;
 use crate::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
     search_index_workers::{
         search_compactor::CompactionConfig,
         search_flusher::FLUSH_RUNNING_LABEL,
@@ -100,6 +102,7 @@ use crate::{
         },
     },
     Database,
+    IndexBackfillMetadata,
     IndexModel,
     TestFacingModel,
     Transaction,
@@ -221,6 +224,16 @@ impl VectorFixtures {
         let result = add_document_vec_array(&mut tx, table_name, vector).await?;
         self.db.commit(tx).await?;
         Ok(result)
+    }
+
+    pub async fn index_backfill_progress(
+        &self,
+        index_id: DeveloperDocumentId,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
+        let mut tx = self.db.begin_system().await?;
+        IndexBackfillModel::new(&mut tx)
+            .existing_backfill_metadata(index_id)
+            .await
     }
 
     pub async fn new_compactor(&self) -> anyhow::Result<VectorIndexCompactor<TestRuntime>> {

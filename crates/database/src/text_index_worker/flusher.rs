@@ -543,19 +543,38 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
-        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let IndexData {
+            index_name,
+            index_id,
+            ..
+        } = fixtures.insert_backfilling_text_index().await?;
 
         fixtures.add_document("some text").await?;
         fixtures.add_document("some other text").await?;
-
         let flusher = fixtures
             .new_search_flusher_builder()
             .set_incremental_multipart_threshold_bytes(0)
             .build();
+
         // Build the first segment, which stops because the document size is > 0
         flusher.step().await?;
+        // Should have written backfill progress, and it is halfway done.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 1);
+        assert_eq!(progress.total_docs, Some(2));
+
         // Build the second segment and finalize the index metadata.
         flusher.step().await?;
+        // Should have written backfill progress, and it is complete.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 2);
+        assert_eq!(progress.total_docs, Some(2));
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
         assert_eq!(segments.len(), 2);
