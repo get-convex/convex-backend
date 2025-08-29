@@ -11,6 +11,9 @@ import { useNents } from "@common/lib/useNents";
 export const pageSize = 25;
 const dataPageInactivityTimeMinutes = 1;
 
+// Declared outside of the hook to be referentially stable without useMemo
+const dataOnError: GenericDocument[] = [];
+
 export const useQueryFilteredTable = (tableName: string) => {
   const router = useRouter();
 
@@ -43,7 +46,7 @@ export const useQueryFilteredTable = (tableName: string) => {
     [results],
   );
   const data =
-    errors.length > 0 ? [] : (maybeStaleResults as GenericDocument[]);
+    errors.length > 0 ? dataOnError : (maybeStaleResults as GenericDocument[]);
 
   const [
     numRowsReadEstimate,
