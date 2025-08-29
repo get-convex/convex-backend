@@ -83,10 +83,20 @@ export function useDeleteAccount() {
   });
 }
 
-export function useListIdentities() {
+export function useIdentities() {
   const { data: identities } = useBBQuery({
-    path: "/list_identities",
+    path: "/identities",
     pathParams: undefined,
   });
   return identities;
+}
+
+export function useUnlinkIdentity() {
+  return useBBMutation({
+    path: "/unlink_identity",
+    pathParams: undefined,
+    mutateKey: "/identities",
+    successToast: "Identity unlinked.",
+    toastOnError: false,
+  });
 }
