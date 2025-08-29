@@ -206,7 +206,12 @@ function AutomaticBackupSelector({
               try {
                 if (periodicBackup === null) {
                   // Enable automatic backups
-                  const defaultCronspec = "0 0 * * *";
+
+                  // We randomize the default cron spec to spread out the backups
+                  // of users that don’t specify a custom time
+                  const randomHour = Math.floor(Math.random() * 24);
+                  const randomMinute = Math.floor(Math.random() * 60);
+                  const defaultCronspec = `${randomMinute} ${randomHour} * * *`;
                   await configurePeriodicBackup({ cronspec: defaultCronspec });
                 } else {
                   // Disable automatic backups
@@ -307,7 +312,7 @@ export function BackupScheduleSelector({
         <BackupScheduleSelectorInner
           defaultValue={date}
           defaultPeriodicity={isWeekly ? "weekly" : "daily"}
-          defaultDayOfWeek={dayOfWeekNum ?? 0}
+          defaultDayOfWeek={dayOfWeekNum}
           onClose={close}
           deployment={deployment}
         />
@@ -325,7 +330,7 @@ export function BackupScheduleSelectorInner({
 }: {
   defaultValue: Date;
   defaultPeriodicity: "daily" | "weekly";
-  defaultDayOfWeek: number;
+  defaultDayOfWeek: number | null;
   onClose: () => void;
   deployment: DeploymentResponse;
 }) {
@@ -339,7 +344,13 @@ export function BackupScheduleSelectorInner({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [periodicity, setPeriodicity] = useState(defaultPeriodicity);
-  const [selectedDow, setSelectedDow] = useState(defaultDayOfWeek);
+  const [selectedDow, setSelectedDow] = useState(
+    () =>
+      defaultDayOfWeek ??
+      // We randomize the default day of week to spread out the backups
+      // of users that don’t specify a custom time
+      Math.floor(Math.random() * 7),
+  );
 
   return (
     <form
