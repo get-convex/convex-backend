@@ -802,8 +802,10 @@ impl TryFrom<LiteralValidator> for JsonValue {
         let v = match s {
             LiteralValidator::Float64(f) => {
                 let f: f64 = f.into();
-                let n = serde_json::Number::from_f64(f)
-                    .ok_or_else(|| anyhow::anyhow!("Number failed to serialize from f64: {f}"))?;
+                let n = serde_json::Number::from_f64(f).context(ErrorMetadata::bad_request(
+                    "UnsupportedFloatLiteral",
+                    "Infinite or NaN values are not supported in literal validators.",
+                ))?;
                 JsonValue::Number(n)
             },
             LiteralValidator::Int64(i) => JsonValue::from(ConvexValue::Int64(i)),
@@ -845,5 +847,29 @@ impl TryFrom<ObjectValidator> for BTreeMap<String, FieldTypeJson> {
             map.insert(field.to_string(), FieldTypeJson::try_from(field_type)?);
         }
         Ok(map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use errors::ErrorMetadataAnyhowExt;
+    use serde_json::Value as JsonValue;
+
+    use crate::schemas::validator::LiteralValidator;
+
+    #[test]
+    fn test_infinite_literal_is_user_error() -> anyhow::Result<()> {
+        let validator = LiteralValidator::Float64(f64::INFINITY.into());
+        let error = JsonValue::try_from(validator).unwrap_err();
+        assert!(error.is_bad_request());
+        Ok(())
+    }
+
+    #[test]
+    fn test_nan_literal_is_user_error() -> anyhow::Result<()> {
+        let validator = LiteralValidator::Float64(f64::NAN.into());
+        let error = JsonValue::try_from(validator).unwrap_err();
+        assert!(error.is_bad_request());
+        Ok(())
     }
 }
