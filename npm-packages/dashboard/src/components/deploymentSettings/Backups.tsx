@@ -15,7 +15,7 @@ import {
   useConfigurePeriodicBackup,
 } from "api/backups";
 import { useCurrentProject } from "api/projects";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   DeploymentResponse,
   Team,
@@ -266,6 +266,13 @@ export function BackupScheduleSelector({
   const [minutesUtc, hoursUtc, , , dayOfWeekPart = "*"] = parts;
   const isWeekly = dayOfWeekPart !== "*";
   const dayOfWeekNum = isWeekly ? Number(dayOfWeekPart) : null;
+  const defaultDayOfWeek = useMemo(
+    () =>
+      // We randomize the default day of week to spread out the backups
+      // of users that don’t specify a custom time
+      Math.floor(Math.random() * 7),
+    [],
+  );
   const date = new Date();
   date.setUTCHours(+hoursUtc, +minutesUtc);
 
@@ -312,7 +319,7 @@ export function BackupScheduleSelector({
         <BackupScheduleSelectorInner
           defaultValue={date}
           defaultPeriodicity={isWeekly ? "weekly" : "daily"}
-          defaultDayOfWeek={dayOfWeekNum}
+          defaultDayOfWeek={dayOfWeekNum ?? defaultDayOfWeek}
           onClose={close}
           deployment={deployment}
         />
@@ -330,7 +337,7 @@ export function BackupScheduleSelectorInner({
 }: {
   defaultValue: Date;
   defaultPeriodicity: "daily" | "weekly";
-  defaultDayOfWeek: number | null;
+  defaultDayOfWeek: number;
   onClose: () => void;
   deployment: DeploymentResponse;
 }) {
@@ -344,13 +351,7 @@ export function BackupScheduleSelectorInner({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [periodicity, setPeriodicity] = useState(defaultPeriodicity);
-  const [selectedDow, setSelectedDow] = useState(
-    () =>
-      defaultDayOfWeek ??
-      // We randomize the default day of week to spread out the backups
-      // of users that don’t specify a custom time
-      Math.floor(Math.random() * 7),
-  );
+  const [selectedDow, setSelectedDow] = useState(defaultDayOfWeek);
 
   return (
     <form
