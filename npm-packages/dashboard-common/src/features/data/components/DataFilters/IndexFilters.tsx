@@ -5,7 +5,7 @@ import { GenericDocument } from "convex/server";
 import { ValidatorJSON } from "convex/values";
 import {
   FilterByIndexRange,
-  FilterExpression,
+  DatabaseFilterExpression,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
@@ -68,15 +68,15 @@ const BY_ID_INDEX = {
 };
 
 type IndexFiltersProps = {
-  shownFilters: FilterExpression;
+  shownFilters: DatabaseFilterExpression;
   defaultDocument: GenericDocument;
   indexes: Index[] | undefined;
   tableName: string;
   activeSchema: SchemaJson | null;
   getValidatorForField: (fieldName?: string) => ValidatorJSON | undefined;
-  onFiltersChange: (next: FilterExpression) => void;
-  applyFiltersWithHistory: (next: FilterExpression) => Promise<void>;
-  setDraftFilters: (next: FilterExpression) => void;
+  onFiltersChange: (next: DatabaseFilterExpression) => void;
+  applyFiltersWithHistory: (next: DatabaseFilterExpression) => Promise<void>;
+  setDraftFilters: (next: DatabaseFilterExpression) => void;
   onChangeOrder: (newOrder: "asc" | "desc") => void;
   onChangeIndexFilter: (filter: IndexFilterState, idx: number) => void;
   onError: (idx: number, errors: string[]) => void;
@@ -191,7 +191,7 @@ export function IndexFilters({
                         : defaultDocument[field],
                 })),
               },
-            } as FilterExpression;
+            } as DatabaseFilterExpression;
             setDraftFilters(newFilters);
             onFiltersChange(newFilters);
           }}

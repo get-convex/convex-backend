@@ -12,7 +12,7 @@ import {
   Filter,
   FilterByIndex,
   FilterByIndexRange,
-  FilterExpression,
+  DatabaseFilterExpression,
   FilterValidationError,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import {
@@ -69,11 +69,11 @@ export function DataFilters({
   tableName: string;
   tableFields: string[];
   componentId: string | null;
-  filters?: FilterExpression;
-  onFiltersChange(next: FilterExpression): void;
+  filters?: DatabaseFilterExpression;
+  onFiltersChange(next: DatabaseFilterExpression): void;
   dataFetchErrors?: FilterValidationError[];
-  draftFilters?: FilterExpression;
-  setDraftFilters(next: FilterExpression): void;
+  draftFilters?: DatabaseFilterExpression;
+  setDraftFilters(next: DatabaseFilterExpression): void;
   activeSchema: SchemaJson | null;
   numRows?: number;
   numRowsLoaded: number;
@@ -475,10 +475,10 @@ function useDataFilters({
 }: {
   tableName: string;
   componentId: string | null;
-  filters?: FilterExpression;
-  onFiltersChange(next: FilterExpression): void;
-  draftFilters?: FilterExpression;
-  setDraftFilters(next: FilterExpression): void;
+  filters?: DatabaseFilterExpression;
+  onFiltersChange(next: DatabaseFilterExpression): void;
+  draftFilters?: DatabaseFilterExpression;
+  setDraftFilters(next: DatabaseFilterExpression): void;
   activeSchema: SchemaJson | null;
 }) {
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
@@ -506,7 +506,7 @@ function useDataFilters({
       ({
         clauses: [],
         index: getDefaultIndex(),
-      } as FilterExpression),
+      } as DatabaseFilterExpression),
     [draftFilters],
   );
 
@@ -610,7 +610,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(idx + 1),
         ],
         index: shownFilters.index || getDefaultIndex(),
-      } as FilterExpression;
+      } as DatabaseFilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters, setInvalidFilters, log],
@@ -630,7 +630,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(idx),
         ],
         index: shownFilters.index || getDefaultIndex(),
-      } as FilterExpression;
+      } as DatabaseFilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters, log],

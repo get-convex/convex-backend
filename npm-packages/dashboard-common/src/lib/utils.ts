@@ -2,7 +2,7 @@ import * as base64 from "js-base64";
 import { ReactNode } from "react";
 import { toast as sonnerToast } from "sonner";
 import * as IdEncoding from "id-encoding";
-import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { DatabaseFilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 
 export function dismissToast(id: string) {
   sonnerToast.dismiss(id);
@@ -89,7 +89,7 @@ export function documentHref(
   pathname: string;
   query: { [key: string]: string };
 } {
-  const filter: FilterExpression = {
+  const filter: DatabaseFilterExpression = {
     clauses: [
       {
         id: "0",

@@ -8,6 +8,7 @@ import {
   SchemaJson,
   ValidFilterByType,
   applyIndexFilters,
+  applySearchIndexFilters,
   applyTypeFilters,
   findErrorsInFilters,
   findIndexByName,
@@ -18,7 +19,9 @@ import {
   parseAndFilterToSingleTable,
   partitionFiltersByOperator,
   validateIndexFilter,
+  validateSearchIndexFilter,
 } from "./filters";
+import { SearchIndex } from "../../../../../convex/dist/internal-cjs-types/server";
 
 const samplePage: GenericDocument[] = [
   { variableType: "stringValue" },
@@ -526,6 +529,155 @@ describe("filters", () => {
     });
   });
 
+  describe("applySearchIndexFilters", () => {
+    // Mock query builder that tracks operations
+    class MockSearchBuilder {
+      operations: { op: string; field?: string; value?: any }[] = [];
+
+      search(field: string, value: string) {
+        this.operations.push({ op: "search", field, value });
+        return this;
+      }
+
+      eq(field: string, value: any) {
+        this.operations.push({ op: "eq", field, value });
+        return this;
+      }
+    }
+
+    it("should apply search index filters correctly", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = {
+        userId: { enabled: true, value: "user123" },
+        organizationId: { enabled: true, value: 42 },
+      };
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+        { op: "eq", field: "userId", value: "user123" },
+        { op: "eq", field: "organizationId", value: 42 },
+      ]);
+    });
+
+    it("should handle empty filters object", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = {};
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+      ]);
+    });
+
+    it("should only apply filters for fields that exist in the filter", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = {
+        userId: {
+          enabled: true,
+          value: "user123",
+        },
+        // organizationId is missing
+      };
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+        { op: "eq", field: "userId", value: "user123" },
+      ]);
+    });
+
+    it("should only apply filters for enabled fields", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = {
+        userId: {
+          enabled: true,
+          value: "user123",
+        },
+        organizationId: {
+          enabled: false,
+          value: "org123",
+        },
+      };
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+        { op: "eq", field: "userId", value: "user123" },
+      ]);
+    });
+
+    it("should handle search index with no filter fields", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = {};
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: [],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+      ]);
+    });
+  });
+
   describe("validateIndexFilter", () => {
     it("should return undefined for valid index filter", () => {
       const indexName = "testIndex";
@@ -607,7 +759,7 @@ describe("filters", () => {
       expect(result).toEqual({
         filter: -1,
         error:
-          "Invalid index filter selection - found an enabled clause after an disabled clause.",
+          "Invalid index filter selection: found an enabled clause after an disabled clause.",
       });
     });
 
@@ -637,7 +789,132 @@ describe("filters", () => {
       expect(result).toEqual({
         filter: -1,
         error:
-          "Invalid index filter selection - found a range filter after a non-range filter.",
+          "Invalid index filter selection: found a range filter after a non-range filter.",
+      });
+    });
+  });
+
+  describe("validateSearchIndexFilter", () => {
+    it("should return undefined for valid search index filter", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organization"],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        {
+          userId: { enabled: true, value: BigInt(123) },
+          organization: { enabled: true, value: "exampleOrg" },
+        },
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual(undefined);
+    });
+
+    it("should return an error when search index does not exist", () => {
+      const indexName = "testIndex";
+      const selectedIndex = undefined;
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        {},
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error: "Index testIndex does not exist.",
+      });
+    });
+
+    it("should return error when a search index filter references a field that is not part of the index", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        {
+          userId: { enabled: true, value: BigInt(123) },
+          organization: { enabled: true, value: "exampleOrg" },
+        },
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error:
+          "Invalid index filter selection: found a filter for field `organization` which is not part of the filter fields of the search index `testIndex`.",
+      });
+    });
+
+    it("should not return an error when a disabled search index filter references a field that is not part of the index", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        {
+          userId: { enabled: true, value: BigInt(123) },
+          organization: { enabled: false, value: "exampleOrg" },
+        },
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual(undefined);
+    });
+
+    it("should return error when a search index filter references the search field", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        {
+          description: { enabled: true, value: "test" },
+        },
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error:
+          "Invalid index filter selection: found a filter for field `description` which is not part of the filter fields of the search index `testIndex`.",
+      });
+    });
+
+    it("should return error when querying a search index in descending order", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: [],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        {},
+        selectedIndex,
+        "desc",
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error: "Trying to query search index `testIndex` in descending order.",
       });
     });
   });
@@ -676,7 +953,7 @@ describe("filters", () => {
             },
           ],
           schemaValidation: true,
-        }),
+        } satisfies SchemaJson),
         expected: {
           tables: [
             {
@@ -698,17 +975,17 @@ describe("filters", () => {
               tableName: "table1",
               indexes: [],
               searchIndexes: [],
-              documentType: {},
+              documentType: null,
             },
             {
               tableName: "table2",
               indexes: [],
               searchIndexes: [],
-              documentType: {},
+              documentType: null,
             },
           ],
           schemaValidation: true,
-        }),
+        } satisfies SchemaJson),
         expected: {
           tables: [],
           schemaValidation: true,
@@ -764,12 +1041,23 @@ describe("filters", () => {
                   fields: ["name"],
                 },
               ],
-              searchIndexes: [],
+              searchIndexes: [
+                {
+                  indexDescriptor: "search_index",
+                  searchField: "name",
+                  filterFields: [],
+                },
+                {
+                  indexDescriptor: "search_index_with_filter",
+                  searchField: "name",
+                  filterFields: ["organizationId"],
+                },
+              ],
               documentType: { type: "any" },
             },
           ],
           schemaValidation: true,
-        }),
+        } satisfies SchemaJson),
       };
 
       const indexes = getAvailableIndexes("testTable", schemaData);
@@ -778,6 +1066,16 @@ describe("filters", () => {
         {
           indexDescriptor: "by_name",
           fields: ["name"],
+        },
+        {
+          indexDescriptor: "search_index",
+          searchField: "name",
+          filterFields: [],
+        },
+        {
+          indexDescriptor: "search_index_with_filter",
+          searchField: "name",
+          filterFields: ["organizationId"],
         },
         {
           indexDescriptor: "by_creation_time",
@@ -807,7 +1105,7 @@ describe("filters", () => {
             },
           ],
           schemaValidation: true,
-        }),
+        } satisfies SchemaJson),
       };
 
       const indexes = getAvailableIndexes("testTable", schemaData);
