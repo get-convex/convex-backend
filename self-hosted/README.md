@@ -327,6 +327,18 @@ export MYSQL_URL=mysql://<your-username>:<your-password>@aws.connect.psdb.cloud
 docker compose up
 ```
 
+### Database Names
+
+The database name that the Convex backend uses is equivalent to the instance name (replacing `-` with `_`). If no instance name is set, the Docker image defaults to `convex-self-hosted`, and the Convex backend will connect to the database `convex_self_hosted`.
+
+For the docker container, you can set the instance name via the `INSTANCE_NAME` envrionment variable.
+
+```sh
+export POSTGRES_URL='<connection string>'
+export INSTANCE_NAME='your-instance-name'
+psql $POSTGRES_URL -c "CREATE DATABASE your_instance_name;"
+```
+
 ## Using S3 Storage
 
 By default, the backend stores file data on the filesystem within the docker
