@@ -23,6 +23,9 @@ impl TryFrom<crate::convex_identity::AuthenticationToken> for AuthenticationToke
                 AuthenticationToken::Admin(key, acting_as)
             },
             AuthenticationTokenProto::User(token) => AuthenticationToken::User(token),
+            AuthenticationTokenProto::PlaintextUser(token) => {
+                AuthenticationToken::PlaintextUser(token)
+            },
             AuthenticationTokenProto::None(_) => AuthenticationToken::None,
         };
         Ok(token)
@@ -40,6 +43,9 @@ impl From<AuthenticationToken> for crate::convex_identity::AuthenticationToken {
                 })
             },
             AuthenticationToken::User(token) => AuthenticationTokenProto::User(token),
+            AuthenticationToken::PlaintextUser(token) => {
+                AuthenticationTokenProto::PlaintextUser(token)
+            },
             AuthenticationToken::None => AuthenticationTokenProto::None(()),
         };
         Self {

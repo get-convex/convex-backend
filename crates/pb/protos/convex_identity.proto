@@ -9,6 +9,7 @@ message AuthenticationToken {
   oneof identity  {
     AdminAuthenticationToken admin = 1;
     string user = 2;
+    string plaintext_user = 4;
     google.protobuf.Empty none = 3;
   }
 }
@@ -26,11 +27,16 @@ message UncheckedIdentity {
     UserIdentity user_identity = 3;   
     ActingUser acting_user = 4;
     UnknownIdentity unknown = 5;
+    PlaintextUserIdentity plaintext_user_identity = 6;
   }
 }
 
 message UnknownIdentity {
   optional errors.ErrorMetadata error_message = 1;
+}
+
+message PlaintextUserIdentity {
+  optional string token = 1;
 }
 
 message AdminIdentity {

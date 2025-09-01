@@ -27,11 +27,32 @@ export type AuthTokenFetcher = (args: {
 }) => Promise<string | null | undefined>;
 
 /**
+ * An async function returning a plaintext authentication token.
+ * 
+ * The token will be sent directly to the server without any client-side
+ * validation or JWT processing. The server is responsible for validating
+ * the token.
+ *
+ * `forceRefreshToken` is `true` if the server rejected a previously
+ * returned token.
+ *
+ * @public
+ */
+export type PlaintextAuthTokenFetcher = (args: {
+  forceRefreshToken: boolean;
+}) => Promise<string | null | undefined>;
+
+/**
  * What is provided to the client.
  */
 type AuthConfig = {
   fetchToken: AuthTokenFetcher;
   onAuthChange: (isAuthenticated: boolean) => void;
+  mode: "jwt";
+} | {
+  fetchToken: PlaintextAuthTokenFetcher;
+  onAuthChange: (isAuthenticated: boolean) => void;
+  mode: "plaintext";
 };
 
 /**
@@ -87,7 +108,7 @@ export class AuthenticationManager {
   // Shared by the BaseClient so that the auth manager can easily inspect it
   private readonly syncState: LocalSyncState;
   // Passed down by BaseClient, sends a message to the server
-  private readonly authenticate: (token: string) => IdentityVersion;
+  private readonly authenticate: (token: string, mode?: "jwt" | "plaintext") => IdentityVersion;
   private readonly stopSocket: () => Promise<void>;
   private readonly tryRestartSocket: () => void;
   private readonly pauseSocket: () => void;
@@ -102,7 +123,7 @@ export class AuthenticationManager {
   constructor(
     syncState: LocalSyncState,
     callbacks: {
-      authenticate: (token: string) => IdentityVersion;
+      authenticate: (token: string, mode?: "jwt" | "plaintext") => IdentityVersion;
       stopSocket: () => Promise<void>;
       tryRestartSocket: () => void;
       pauseSocket: () => void;
@@ -129,10 +150,29 @@ export class AuthenticationManager {
     fetchToken: AuthTokenFetcher,
     onChange: (isAuthenticated: boolean) => void,
   ) {
+    await this.setConfigInternal({
+      fetchToken,
+      onAuthChange: onChange,
+      mode: "jwt",
+    });
+  }
+
+  async setConfigInsecure(
+    fetchToken: PlaintextAuthTokenFetcher,
+    onChange: (isAuthenticated: boolean) => void,
+  ) {
+    await this.setConfigInternal({
+      fetchToken,
+      onAuthChange: onChange,
+      mode: "plaintext",
+    });
+  }
+
+  private async setConfigInternal(config: AuthConfig) {
     this.resetAuthState();
     this._logVerbose("pausing WS for auth token fetch");
     this.pauseSocket();
-    const token = await this.fetchTokenAndGuardAgainstRace(fetchToken, {
+    const token = await this.fetchTokenAndGuardAgainstRace(config.fetchToken, {
       forceRefreshToken: false,
     });
     if (token.isFromOutdatedConfig) {
@@ -141,14 +181,14 @@ export class AuthenticationManager {
     if (token.value) {
       this.setAuthState({
         state: "waitingForServerConfirmationOfCachedToken",
-        config: { fetchToken, onAuthChange: onChange },
+        config,
         hasRetried: false,
       });
-      this.authenticate(token.value);
+      this.authenticate(token.value, config.mode);
     } else {
       this.setAuthState({
         state: "initialRefetch",
-        config: { fetchToken, onAuthChange: onChange },
+        config,
       });
       // Try again with `forceRefreshToken: true`
       await this.refetchToken();
@@ -258,7 +298,7 @@ export class AuthenticationManager {
     }
 
     if (token.value && this.syncState.isNewAuth(token.value)) {
-      this.authenticate(token.value);
+      this.authenticate(token.value, this.authState.config.mode);
       this.setAuthState({
         state: "waitingForServerConfirmationOfFreshToken",
         config: this.authState.config,
@@ -303,7 +343,7 @@ export class AuthenticationManager {
           token: token.value,
           config: this.authState.config,
         });
-        this.authenticate(token.value);
+        this.authenticate(token.value, this.authState.config.mode);
       } else {
         this.setAuthState({
           state: "notRefetching",
@@ -329,6 +369,17 @@ export class AuthenticationManager {
     if (this.authState.state === "noAuth") {
       return;
     }
+    
+    // For plaintext authentication, we don't schedule automatic refreshes
+    if (this.authState.config.mode === "plaintext") {
+      this._logVerbose("plaintext auth mode, no scheduled token refresh");
+      this.setAuthState({
+        state: "notRefetching",
+        config: this.authState.config,
+      });
+      return;
+    }
+
     const decodedToken = this.decodeToken(token);
     if (!decodedToken) {
       // This is no longer really possible, because

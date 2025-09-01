@@ -2808,6 +2808,11 @@ impl<RT: Runtime> Application<RT> {
 
                 Identity::user(identity_result?)
             },
+            AuthenticationToken::PlaintextUser(token) => {
+                // For plaintext authentication, create a PlaintextUser identity
+                // The server is responsible for validating the token
+                Identity::PlaintextUser(token)
+            },
             AuthenticationToken::None => Identity::Unknown(None),
         };
         Ok(identity)

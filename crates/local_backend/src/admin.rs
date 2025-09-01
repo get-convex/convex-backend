@@ -67,7 +67,10 @@ fn must_be_admin_internal(
     let admin_identity = match identity {
         Identity::InstanceAdmin(admin_identity) => admin_identity,
         Identity::ActingUser(admin_identity, _user_identity_attributes) => admin_identity,
-        Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => {
+        Identity::System(_)
+        | Identity::User(_)
+        | Identity::PlaintextUser(_)
+        | Identity::Unknown(_) => {
             return Err(bad_admin_key_error(identity.instance_name()).into());
         },
     };

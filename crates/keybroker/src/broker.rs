@@ -65,6 +65,7 @@ use pb::{
     convex_identity::{
         unchecked_identity::Identity as UncheckedIdentityProto,
         ActingUser,
+        PlaintextUserIdentity,
         UnknownIdentity,
     },
     convex_keys::{
@@ -144,6 +145,8 @@ pub enum Identity {
     // ActingUser keeps track of the ID of the admin acting as a user,
     // and that user's fake attributes
     ActingUser(AdminIdentity, UserIdentityAttributes),
+    // PlaintextUser holds a plaintext authentication token for server-side validation
+    PlaintextUser(String),
     // Unknown(None) means no identity was provided.
     // Unknown(Some(error_message)) means an error occurred while parsing the identity.
     // We allow the request to go through, but keep the error to throw when code tries to
@@ -159,6 +162,7 @@ impl From<Identity> for AuthenticationToken {
                 AuthenticationToken::Admin(identity.key, Some(user))
             },
             Identity::InstanceAdmin(identity) => AuthenticationToken::Admin(identity.key, None),
+            Identity::PlaintextUser(token) => AuthenticationToken::PlaintextUser(token),
             _ => AuthenticationToken::None,
         }
     }
@@ -178,6 +182,11 @@ impl From<Identity> for pb::convex_identity::UncheckedIdentity {
                 UncheckedIdentityProto::ActingUser(ActingUser {
                     admin_identity: Some(admin_identity.into()),
                     attributes: Some(attributes.into()),
+                })
+            },
+            Identity::PlaintextUser(token) => {
+                UncheckedIdentityProto::PlaintextUserIdentity(PlaintextUserIdentity {
+                    token: Some(token),
                 })
             },
             Identity::Unknown(error_message) => UncheckedIdentityProto::Unknown(UnknownIdentity {
@@ -216,6 +225,10 @@ impl Identity {
                     attributes.ok_or_else(|| anyhow::anyhow!("Missing user attributes"))?;
                 Ok(Identity::ActingUser(admin_identity, attributes.try_into()?))
             },
+            UncheckedIdentityProto::PlaintextUserIdentity(PlaintextUserIdentity { token }) => {
+                let token = token.ok_or_else(|| anyhow::anyhow!("Missing plaintext token"))?;
+                Ok(Identity::PlaintextUser(token))
+            },
             UncheckedIdentityProto::Unknown(UnknownIdentity { error_message }) => Ok(
                 Identity::Unknown(error_message.map(|e| e.try_into()).transpose()?),
             ),
@@ -252,6 +265,7 @@ impl From<Identity> for InertIdentity {
             Identity::InstanceAdmin(i) => InertIdentity::InstanceAdmin(i.instance_name),
             Identity::System(_) => InertIdentity::System,
             Identity::Unknown(_) => InertIdentity::Unknown,
+            Identity::PlaintextUser(_) => InertIdentity::Unknown,
             Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
             Identity::ActingUser(identity, user) => match identity.principal {
                 AdminIdentityPrincipal::Member(member_id) => {
@@ -273,6 +287,7 @@ impl PartialEq for Identity {
             (Self::User(l), Self::User(r)) => {
                 l.attributes.token_identifier == r.attributes.token_identifier
             },
+            (Self::PlaintextUser(l), Self::PlaintextUser(r)) => l == r,
             (Self::Unknown(_), Self::Unknown(_)) => true,
             (
                 Self::ActingUser(l_admin_identity, l_attributes),
@@ -281,6 +296,7 @@ impl PartialEq for Identity {
             (Self::InstanceAdmin(_), _)
             | (Self::System(_), _)
             | (Self::User(_), _)
+            | (Self::PlaintextUser(_), _)
             | (Self::Unknown(_), _)
             | (Self::ActingUser(..), _) => false,
         }
@@ -297,6 +313,7 @@ impl Identity {
             Identity::Unknown(error_message) => {
                 IdentityCacheKey::Unknown(error_message.map(|e| e.to_string()))
             },
+            Identity::PlaintextUser(_) => IdentityCacheKey::Unknown(None),
             Identity::User(user) => IdentityCacheKey::User(user.attributes),
             // Identity of the impersonator not relevant for caching. Only the one being
             // impersonated.
