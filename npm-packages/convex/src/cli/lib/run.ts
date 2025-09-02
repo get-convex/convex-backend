@@ -86,13 +86,13 @@ export async function runFunctionAndLog(
           const path =
             separatorPos === -1
               ? ""
-              : identifier.substring(0, separatorPos + 1);
+              : identifier.substring(0, separatorPos).replace(/\.js$/, "");
           const name =
             separatorPos === -1
               ? identifier
               : identifier.substring(separatorPos + 1);
 
-          return `• ${chalk.gray(path)}${name}`;
+          return `• ${chalk.gray(`${path}:`)}${name}`;
         });
 
       const availableFunctionsMessage =
