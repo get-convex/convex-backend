@@ -28,7 +28,7 @@
     "@types/object-inspect": "^1.8.1",
     "@types/lodash": "~4.17.0",
     "@types/node": "^18.17.0",
-    "convex-test": "^0.0.37",
+    "convex-test": "^0.0.38",
     "eslint": "^8.29.0",
     "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
     "eslint-plugin-react": "^7.37.2",

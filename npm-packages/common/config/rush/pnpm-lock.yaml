@@ -4899,8 +4899,8 @@ importers:
         specifier: ^6.7.4
         version: 6.21.0(eslint@8.57.1)(typescript@5.0.4)
       convex-test:
-        specifier: ^0.0.37
-        version: 0.0.37(convex@..+convex)
+        specifier: ^0.0.38
+        version: 0.0.38(convex@..+convex)
       eslint:
         specifier: ^8.29.0
         version: 8.57.1
@@ -13229,8 +13229,8 @@ packages:
       zod:
         optional: true
 
-  convex-test@0.0.37:
-    resolution: {integrity: sha512-gC2ReAGgPAlCCWKNHAjJnEr/IMi1oo5ux9g5cLL68m401Ne1xXc43TfVAD+m/FiGDztmsHtfPr61EWn51mCRjw==}
+  convex-test@0.0.38:
+    resolution: {integrity: sha512-1o/3GvUR9gMLjiqq7SxchI/0OYQaWwbQC4INmB1SNt1WLBjUgEM8+brgpqrZwJ+Vb1DdGZokCVeihwT5IPk49w==}
     peerDependencies:
       convex: ^1.16.4
 
@@ -36462,7 +36462,7 @@ snapshots:
       typescript: 5.0.4
       zod: 3.24.3
 
-  convex-test@0.0.37(convex@..+convex):
+  convex-test@0.0.38(convex@..+convex):
     dependencies:
       convex: link:../../convex
 
