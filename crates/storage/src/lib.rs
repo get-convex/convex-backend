@@ -21,6 +21,7 @@ use std::{
         Write,
     },
     mem,
+    ops::Range,
     path::{
         Path,
         PathBuf,
@@ -191,7 +192,7 @@ pub trait Storage: Send + Sync + Debug {
     fn get_small_range(
         &self,
         key: &FullyQualifiedObjectKey,
-        bytes_range: std::ops::Range<u64>,
+        bytes_range: Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>>;
     fn storage_type_proto(&self) -> pb::searchlight::StorageType;
     /// Return a cache key suitable for the given ObjectKey, even in
@@ -557,12 +558,18 @@ pub trait StorageExt {
         key: &FullyQualifiedObjectKey,
         bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
     ) -> anyhow::Result<Option<StorageGetStream>>;
+    /// Requires that `byte_range` be in-bounds for the object
+    fn get_fq_object_exact_range(
+        &self,
+        key: &FullyQualifiedObjectKey,
+        byte_range: Range<u64>,
+    ) -> StorageGetStream;
 
     // Implementation detail
     async fn get_small_range_with_retries(
         &self,
         key: &FullyQualifiedObjectKey,
-        small_byte_range: std::ops::Range<u64>,
+        small_byte_range: Range<u64>,
     ) -> anyhow::Result<StorageGetStream>;
 }
 
@@ -620,6 +627,20 @@ impl StorageExt for Arc<dyn Storage> {
             },
             attributes.size,
         );
+        Ok(Some(self.get_fq_object_exact_range(
+            key,
+            start_byte..end_byte_bound,
+        )))
+    }
+
+    fn get_fq_object_exact_range(
+        &self,
+        key: &FullyQualifiedObjectKey,
+        Range {
+            start: start_byte,
+            end: end_byte_bound,
+        }: Range<u64>,
+    ) -> StorageGetStream {
         let num_chunks = 1 + (end_byte_bound - start_byte) / DOWNLOAD_CHUNK_SIZE;
         // A list of futures, each of which resolves to a stream.
         let mut chunk_futures = vec![];
@@ -636,11 +657,11 @@ impl StorageExt for Arc<dyn Storage> {
                 self_
                     .get_small_range_with_retries(&key_, chunk_start..chunk_end)
                     .await
-                    .map_err(|e| {
-                        // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what the
-                        // AWS library does internally.
-                        std::io::Error::other(e)
-                    })
+                    .map_err(
+                        // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what
+                        // the AWS library does internally.
+                        io::Error::other,
+                    )
                     .map(|storage_get_stream| storage_get_stream.stream)
             };
             chunk_futures.push(stream_fut);
@@ -652,17 +673,17 @@ impl StorageExt for Arc<dyn Storage> {
             .buffered(MAX_CONCURRENT_CHUNK_DOWNLOADS)
             // Flatten the `Stream<Item = io::Result<Stream<Item = io::Result<Bytes>>>>` into a single `Stream<Item = io::Result<Bytes>>`
             .try_flatten();
-        Ok(Some(StorageGetStream {
+        StorageGetStream {
             content_length: (end_byte_bound - start_byte) as i64,
             stream: Box::pin(byte_stream),
-        }))
+        }
     }
 
     #[fastrace::trace]
     async fn get_small_range_with_retries(
         &self,
         key: &FullyQualifiedObjectKey,
-        small_byte_range: std::ops::Range<u64>,
+        small_byte_range: Range<u64>,
     ) -> anyhow::Result<StorageGetStream> {
         let output = self.get_small_range(key, small_byte_range.clone()).await?;
         let content_length = output.content_length;
@@ -683,12 +704,12 @@ impl StorageExt for Arc<dyn Storage> {
 const STORAGE_GET_RETRIES: usize = 5;
 
 #[allow(clippy::blocks_in_conditions)]
-#[try_stream(ok = Bytes, error = futures::io::Error)]
+#[try_stream(ok = Bytes, error = io::Error)]
 async fn stream_object_with_retries(
-    mut stream: BoxStream<'static, futures::io::Result<Bytes>>,
+    mut stream: BoxStream<'static, io::Result<Bytes>>,
     storage: Arc<dyn Storage>,
     key: FullyQualifiedObjectKey,
-    small_byte_range: std::ops::Range<u64>,
+    small_byte_range: Range<u64>,
     mut retries_remaining: usize,
 ) {
     let mut bytes_yielded = 0;
@@ -718,7 +739,7 @@ async fn stream_object_with_retries(
                 let output = storage
                     .get_small_range(&key, new_range)
                     .await
-                    .map_err(futures::io::Error::other)?;
+                    .map_err(io::Error::other)?;
                 stream = output.stream;
                 retries_remaining -= 1;
             },
@@ -980,7 +1001,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     fn get_small_range(
         &self,
         key: &FullyQualifiedObjectKey,
-        bytes_range: std::ops::Range<u64>,
+        bytes_range: Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>> {
         let path = Path::new(key.as_str()).to_owned();
         async move {
@@ -1242,7 +1263,10 @@ mod buffered_upload_tests {
 mod local_storage_tests {
     use std::{
         fs::File,
-        io::Read,
+        io::{
+            self,
+            Read,
+        },
         sync::Arc,
         time::Duration,
     };
@@ -1384,8 +1408,8 @@ mod local_storage_tests {
         let object_key = test_upload.complete().await?;
         let disconnected_stream = stream::iter(vec![
             Ok(vec![1, 2, 3].into()),
-            Err(futures::io::Error::new(
-                futures::io::ErrorKind::ConnectionAborted,
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
                 anyhow::anyhow!("err"),
             )),
         ])

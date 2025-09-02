@@ -187,6 +187,7 @@ quote = "1.0"
 rand = "0.9"
 rand_chacha = "0.9.0"
 rand_distr = "0.5"
+rc-zip = { version = "5", features = [ "deflate", "deflate64", "zstd" ] }
 ref-cast = "1.0.20"
 regex = "1"
 reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }
