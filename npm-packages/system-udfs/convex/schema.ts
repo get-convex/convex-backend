@@ -430,6 +430,11 @@ export default defineSchema({
   }).index("by_name_and_ts", ["name", "ts"]),
   _udf_config: defineTable({ serverVersion: v.string() }),
   _schemas: defineTable(schemaMetadata).index("by_state", ["state"]),
+  _schema_validation_progress: defineTable({
+    schemaId: v.id("_schemas"),
+    numDocsValidated: v.int64(),
+    totalDocs: v.union(v.int64(), v.null()),
+  }).index("by_schema_id", ["schemaId"]),
   _log_sinks: logSinksTable,
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,
