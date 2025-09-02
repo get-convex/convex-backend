@@ -3,12 +3,9 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
-    io::Cursor,
     sync::Arc,
 };
 
-use anyhow::Context as _;
-use async_zip_reader::ZipReader;
 use common::components::ComponentId;
 use database::{
     BootstrapComponentsModel,
@@ -27,8 +24,8 @@ use serde_json::json;
 use storage::{
     LocalDirStorage,
     Storage,
-    StorageExt as _,
 };
+use storage_zip_reader::StorageZipArchive;
 use tokio::io::AsyncReadExt as _;
 use value::{
     assert_obj,
@@ -136,22 +133,15 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     // Check we can get the stored zip.
-    let storage_stream = storage
-        .get(&zip_object_key)
-        .await?
-        .context("object missing from storage")?;
-    let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
+    let zip_reader = StorageZipArchive::open(storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeMap::new();
-    let filenames: Vec<_> = zip_reader.file_names().await?;
-    for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.by_index(i).await?;
+    for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
-        entry_reader
-            .read()
+        zip_reader
+            .read_entry(entry.clone())
             .read_to_string(&mut entry_contents)
             .await?;
-        zip_entries.insert(filename, entry_contents);
+        zip_entries.insert(entry.name.clone(), entry_contents);
     }
     assert_eq!(zip_entries, expected_export_entries);
 
@@ -198,22 +188,15 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
     .await?;
 
     // Check we can get the stored zip.
-    let storage_stream = storage
-        .get(&zip_object_key)
-        .await?
-        .context("object missing from storage")?;
-    let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
+    let zip_reader = StorageZipArchive::open(storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeSet::new();
-    let filenames: Vec<_> = zip_reader.file_names().await?;
-    for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.by_index(i).await?;
+    for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
-        entry_reader
-            .read()
+        zip_reader
+            .read_entry(entry.clone())
             .read_to_string(&mut entry_contents)
             .await?;
-        zip_entries.insert(filename);
+        zip_entries.insert(entry.name.clone());
     }
     assert_eq!(zip_entries, expected_export_entries);
 

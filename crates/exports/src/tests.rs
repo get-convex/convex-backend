@@ -1,12 +1,10 @@
 use std::{
     collections::BTreeMap,
-    io::Cursor,
     str,
     sync::Arc,
 };
 
 use anyhow::Context;
-use async_zip_reader::ZipReader;
 use bytes::Bytes;
 use common::{
     components::ComponentPath,
@@ -47,8 +45,8 @@ use serde_json::json;
 use storage::{
     LocalDirStorage,
     Storage,
-    StorageExt,
 };
+use storage_zip_reader::StorageZipArchive;
 use tokio::io::AsyncReadExt;
 use usage_tracking::FunctionUsageTracker;
 use value::{
@@ -188,23 +186,16 @@ async fn test_export_zip(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     // Check we can get the stored zip.
-    let storage_stream = export_components
-        .storage
-        .get(&zip_object_key)
-        .await?
-        .context("object missing from storage")?;
-    let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
+    let zip_reader =
+        StorageZipArchive::open(export_components.storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeMap::new();
-    let filenames: Vec<_> = zip_reader.file_names().await?;
-    for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.by_index(i).await?;
+    for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
-        entry_reader
-            .read()
+        zip_reader
+            .read_entry(entry.clone())
             .read_to_string(&mut entry_contents)
             .await?;
-        zip_entries.insert(filename, entry_contents);
+        zip_entries.insert(entry.name.clone(), entry_contents);
     }
     assert_eq!(zip_entries, expected_export_entries);
 
@@ -290,23 +281,16 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     // Check we can get the stored zip.
-    let storage_stream = export_components
-        .storage
-        .get(&zip_object_key)
-        .await?
-        .context("object missing from storage")?;
-    let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
+    let zip_reader =
+        StorageZipArchive::open(export_components.storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeMap::new();
-    let filenames: Vec<_> = zip_reader.file_names().await?;
-    for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.by_index(i).await?;
+    for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
-        entry_reader
-            .read()
+        zip_reader
+            .read_entry(entry.clone())
             .read_to_string(&mut entry_contents)
             .await?;
-        zip_entries.insert(filename, entry_contents);
+        zip_entries.insert(entry.name.clone(), entry_contents);
     }
     assert_eq!(zip_entries, expected_export_entries);
 
@@ -360,25 +344,15 @@ async fn test_export_many_storage_files(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     // Check that all the files made it into the zip.
-    let storage_stream = export_components
-        .storage
-        .get(&zip_object_key)
-        .await?
-        .context("object missing from storage")?;
-    let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
-    let filenames: Vec<_> = zip_reader.file_names().await?;
+    let zip_reader =
+        StorageZipArchive::open(export_components.storage.clone(), &zip_object_key).await?;
     for (i, id) in ids.into_iter().enumerate() {
-        let zip_index = filenames
-            .iter()
-            .position(|f| *f == format!("_storage/{id}"))
+        let entry = zip_reader
+            .by_name(format!("_storage/{id}"))
             .context("storage file missing")?;
-        let entry_reader = zip_reader.by_index(zip_index).await?;
+        let mut entry_reader = zip_reader.read_entry(entry.clone());
         let mut entry_contents = String::new();
-        entry_reader
-            .read()
-            .read_to_string(&mut entry_contents)
-            .await?;
+        entry_reader.read_to_string(&mut entry_contents).await?;
         assert_eq!(entry_contents, format!("file{i}"));
     }
 

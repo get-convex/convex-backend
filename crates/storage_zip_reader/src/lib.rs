@@ -23,6 +23,7 @@ use common::types::{
 };
 use errors::ErrorMetadata;
 use futures::Stream;
+pub use rc_zip;
 use rc_zip::{
     fsm::{
         ArchiveFsm,

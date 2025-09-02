@@ -92,10 +92,7 @@ use shape_inference::{
     export_context::GeneratedSchema,
     ProdConfigWithOptionalFields,
 };
-use storage::{
-    Storage,
-    StorageExt,
-};
+use storage::Storage;
 use sync_types::{
     backoff::Backoff,
     Timestamp,
@@ -412,17 +409,17 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                 snapshot_import.component_path.clone(),
             )
         };
-        let body_stream = move || {
-            let object_key = object_key.clone();
-            async move {
-                let reader = match object_key.clone() {
-                    Ok(key) => self.snapshot_imports_storage.get_fq_object(&key).await?,
-                    Err(key) => self.snapshot_imports_storage.get(&key).await?,
-                };
-                reader.with_context(|| format!("Missing import object {object_key:?}"))
-            }
+        let fq_key = match &object_key {
+            Ok(key) => key.clone(),
+            Err(key) => self.snapshot_imports_storage.fully_qualified_key(key),
         };
-        let objects = parse_objects(format.clone(), component_path.clone(), body_stream).boxed();
+        let objects = parse_objects(
+            format.clone(),
+            component_path.clone(),
+            self.snapshot_imports_storage.clone(),
+            fq_key,
+        )
+        .boxed();
 
         let component_id = prepare_component_for_import(&self.database, &component_path).await?;
         // Remapping could be more extensive here, it's just relatively simple to handle

@@ -6,7 +6,6 @@ exclude = [ "crates/py_client", "crates/python_client_tests" ]
 [workspace.dependencies]
 application = { path = "crates/application" }
 async_lru = { path = "crates/async_lru" }
-async_zip_reader = { path = "crates/async_zip_reader" }
 authentication = { path = "crates/authentication" }
 aws_s3 = { path = "crates/aws_s3" }
 aws_utils = { path = "crates/aws_utils" }
@@ -55,6 +54,7 @@ shape_inference = { path = "crates/shape_inference" }
 sodium_secretbox = { path = "crates/sodium_secretbox" }
 sqlite = { path = "crates/sqlite" }
 storage = { path = "crates/storage" }
+storage_zip_reader = { path = "crates/storage_zip_reader" }
 sync = { path = "crates/sync" }
 sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
 text_search = { path = "crates/text_search" }

@@ -79,7 +79,6 @@ use serde_json::{
 use storage::{
     LocalDirStorage,
     Storage,
-    StorageExt,
     StorageUseCase,
     Upload,
 };
@@ -148,19 +147,23 @@ async fn run_parse_objects<RT: Runtime>(
     let mut upload = storage.start_upload().await?;
     upload.write(Bytes::copy_from_slice(v.as_bytes())).await?;
     let object_key = upload.complete().await?;
-    let stream = || async { storage.get(&object_key).await?.context("missing object") };
-    parse_objects(format, ComponentPath::root(), stream)
-        .filter_map(|line| async move {
-            match line {
-                Ok(super::ImportUnit::Object(object)) => Some(Ok(object)),
-                Ok(super::ImportUnit::NewTable(..)) => None,
-                Ok(super::ImportUnit::GeneratedSchema(..)) => None,
-                Ok(super::ImportUnit::StorageFileChunk(..)) => None,
-                Err(e) => Some(Err(e)),
-            }
-        })
-        .try_collect()
-        .await
+    parse_objects(
+        format,
+        ComponentPath::root(),
+        storage.clone(),
+        storage.fully_qualified_key(&object_key),
+    )
+    .filter_map(|line| async move {
+        match line {
+            Ok(super::ImportUnit::Object(object)) => Some(Ok(object)),
+            Ok(super::ImportUnit::NewTable(..)) => None,
+            Ok(super::ImportUnit::GeneratedSchema(..)) => None,
+            Ok(super::ImportUnit::StorageFileChunk(..)) => None,
+            Err(e) => Some(Err(e)),
+        }
+    })
+    .try_collect()
+    .await
 }
 
 fn stream_from_str(str: &str) -> BoxStream<'static, anyhow::Result<Bytes>> {
@@ -1387,11 +1390,11 @@ async fn test_utf8_bom_jsonarray(rt: TestRuntime) -> anyhow::Result<()> {
     upload.write(Bytes::from(content_with_bom)).await?;
     let object_key = upload.complete().await?;
 
-    let stream = || async { storage.get(&object_key).await?.context("missing object") };
     let result = parse_objects(
         ImportFormat::JsonArray("test_table".parse()?),
         ComponentPath::root(),
-        stream,
+        storage.clone(),
+        storage.fully_qualified_key(&object_key),
     )
     .try_collect::<Vec<_>>()
     .await;
@@ -1427,11 +1430,11 @@ async fn test_utf8_bom_jsonlines(rt: TestRuntime) -> anyhow::Result<()> {
     upload.write(Bytes::from(content_with_bom)).await?;
     let object_key = upload.complete().await?;
 
-    let stream = || async { storage.get(&object_key).await?.context("missing object") };
     let result = parse_objects(
         ImportFormat::JsonLines("test_table".parse()?),
         ComponentPath::root(),
-        stream,
+        storage.clone(),
+        storage.fully_qualified_key(&object_key),
     )
     .try_collect::<Vec<_>>()
     .await;
@@ -1508,11 +1511,11 @@ async fn test_utf8_bom_jsonlines_empty_lines(rt: TestRuntime) -> anyhow::Result<
     upload.write(Bytes::from(content_with_bom)).await?;
     let object_key = upload.complete().await?;
 
-    let stream = || async { storage.get(&object_key).await?.context("missing object") };
     let result = parse_objects(
         ImportFormat::JsonLines("test_table".parse()?),
         ComponentPath::root(),
-        stream,
+        storage.clone(),
+        storage.fully_qualified_key(&object_key),
     )
     .try_collect::<Vec<_>>()
     .await;

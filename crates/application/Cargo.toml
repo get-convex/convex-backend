@@ -32,6 +32,7 @@ testing = [
     "value/testing",
     "vector/testing",
     "exports/testing",
+    "storage_zip_reader/testing",
 ]
 
 [dependencies]
@@ -41,7 +42,6 @@ async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
 async_zip = { workspace = true }
-async_zip_reader = { workspace = true }
 authentication = { workspace = true }
 aws_s3 = { workspace = true }
 bytes = { workspace = true }
@@ -95,6 +95,7 @@ slugify = "0.1.0"
 smallvec = { workspace = true }
 sourcemap = { workspace = true }
 storage = { workspace = true }
+storage_zip_reader = { workspace = true }
 strum = { workspace = true }
 sync_types = { workspace = true }
 tempfile = { workspace = true }
@@ -115,9 +116,7 @@ vector = { workspace = true }
 libc = { workspace = true }
 
 [dev-dependencies]
-authentication = { workspace = true, features = [
-    "testing",
-] }
+authentication = { workspace = true, features = ["testing"] }
 common = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
@@ -140,10 +139,9 @@ runtime = { workspace = true, features = ["testing"] }
 search = { workspace = true, features = ["testing"] }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
+storage_zip_reader = { workspace = true, features = ["testing"] }
 udf = { workspace = true, features = ["testing"] }
-usage_tracking = { workspace = true, features = [
-    "testing",
-] }
+usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }
 vector = { workspace = true, features = ["testing"] }
 
