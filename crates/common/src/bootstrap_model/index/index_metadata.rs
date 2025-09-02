@@ -146,6 +146,24 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
+    pub fn inject_last_segment_ts_into_backfilling_vector_index(&mut self) -> anyhow::Result<()> {
+        match self {
+            Self {
+                name: _,
+                config:
+                    IndexConfig::Vector {
+                        spec: _,
+                        on_disk_state: VectorIndexState::Backfilling(state),
+                    },
+            } => {
+                state.last_segment_ts = Some(Timestamp::MIN);
+                Ok(())
+            },
+            _ => Err(anyhow::anyhow!("Not a vector index in backfilling state")),
+        }
+    }
+
     pub fn new_staged_backfilling_vector_index(
         name: GenericIndexName<T>,
         vector_field: FieldPath,

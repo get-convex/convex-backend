@@ -161,11 +161,14 @@ pub struct SearchSnapshot<T: SearchIndex> {
     pub data: SnapshotData<T::Segment>,
 }
 
+#[derive(Debug)]
 pub struct BackfillState<T: SearchIndex> {
     pub segments: Vec<T::Segment>,
     pub cursor: Option<InternalId>,
     pub backfill_snapshot_ts: Option<Timestamp>,
     pub staged: bool,
+    /// The timestamp of the most recently-written-to segment
+    pub last_segment_ts: Option<Timestamp>,
 }
 
 pub enum SearchOnDiskState<T: SearchIndex> {

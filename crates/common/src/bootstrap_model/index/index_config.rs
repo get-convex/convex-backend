@@ -318,6 +318,7 @@ mod tests {
                 on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState {
                     cursor: None,
                     backfill_snapshot_ts: Some(10i64.try_into()?),
+                    last_segment_ts: None,
                     segments: vec![FragmentedVectorSegment {
                         segment_key: "abc".to_string().try_into()?,
                         id_tracker_key: "def".to_string().try_into()?,

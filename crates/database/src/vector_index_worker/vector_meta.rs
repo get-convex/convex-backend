@@ -331,6 +331,7 @@ impl From<VectorIndexBackfillState> for BackfillState<VectorSearchIndex> {
             cursor: value.cursor,
             backfill_snapshot_ts: value.backfill_snapshot_ts,
             staged: value.staged,
+            last_segment_ts: value.last_segment_ts,
         }
     }
 }
@@ -342,6 +343,7 @@ impl From<BackfillState<VectorSearchIndex>> for VectorIndexBackfillState {
             cursor: value.cursor,
             backfill_snapshot_ts: value.backfill_snapshot_ts,
             staged: value.staged,
+            last_segment_ts: value.last_segment_ts,
         }
     }
 }

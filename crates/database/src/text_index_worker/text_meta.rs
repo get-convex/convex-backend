@@ -454,8 +454,12 @@ impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
         Self {
             segments: value.segments,
             cursor: value.cursor.clone().map(|value| value.cursor),
-            backfill_snapshot_ts: value.cursor.map(|value| value.backfill_snapshot_ts),
+            backfill_snapshot_ts: value
+                .cursor
+                .as_ref()
+                .and_then(|value| value.backfill_snapshot_ts),
             staged: value.staged,
+            last_segment_ts: value.cursor.and_then(|value| value.last_segment_ts),
         }
     }
 }
@@ -467,7 +471,8 @@ impl From<BackfillState<TextSearchIndex>> for TextIndexBackfillState {
         {
             Some(TextBackfillCursor {
                 cursor,
-                backfill_snapshot_ts,
+                backfill_snapshot_ts: Some(backfill_snapshot_ts),
+                last_segment_ts: value.last_segment_ts,
             })
         } else {
             None

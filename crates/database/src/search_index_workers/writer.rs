@@ -480,6 +480,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                         .new_cursor
                         .map(|cursor| cursor.internal_id()),
                     backfill_snapshot_ts: Some(*backfill_complete_ts),
+                    last_segment_ts: None,
                     staged,
                 })
             },
