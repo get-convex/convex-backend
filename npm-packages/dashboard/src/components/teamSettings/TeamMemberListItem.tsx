@@ -201,9 +201,15 @@ export function TeamMemberListItem({
               isMemberMe ? (
                 `You are about to leave ${team.name}, are you sure you want to continue?`
               ) : (
-                <>
-                  You are about to remove {confirmationDisplayName} from{" "}
-                  {team.name}, are you sure you want to continue?
+                <div className="flex flex-col gap-1">
+                  <p>
+                    You are about to remove {confirmationDisplayName} from{" "}
+                    {team.name}, are you sure you want to continue?{" "}
+                  </p>
+                  <p className="font-semibold">
+                    All development deployments created by this member will be
+                    deleted.
+                  </p>
                   {team.managedBy && (
                     <Callout>
                       Note that this member may be able to re-join the team
@@ -212,7 +218,7 @@ export function TeamMemberListItem({
                       team.
                     </Callout>
                   )}
-                </>
+                </div>
               )
             }
             confirmText="Confirm"
