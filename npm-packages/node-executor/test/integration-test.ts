@@ -487,6 +487,7 @@ async function test_download() {
   const sourceDir = path.join(os.tmpdir(), `source/test_modules_key`);
   assert.equal(local.dir, sourceDir);
   assert.equal(local.modules.has("a.js"), true);
+  assert.equal(local.modules.has("someFolder/someFile.js"), true);
   // Non-node modules
   assert.equal(local.modules.has("third_party.js"), false);
   assert.equal(local.modules.has("d.js"), false);

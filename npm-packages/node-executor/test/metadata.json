@@ -10,6 +10,7 @@
     "diamond.js",
     "left.js",
     "logging.js",
+    "someFolder/someFile.js",
     "right.js",
     "shared.js",
     "third_party.js",
@@ -29,6 +30,7 @@
     ["logging.js", "isolate"],
     ["right.js", "isolate"],
     ["shared.js", "isolate"],
+    ["someFolder/someFile.js", "node"],
     ["third_party.js", "isolate"],
     ["transitive.js", "isolate"]
   ]

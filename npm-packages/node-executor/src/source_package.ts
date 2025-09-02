@@ -329,7 +329,16 @@ async function processSourcePackageStream(
   const startWrites = performance.now();
   const entries = await unzipFile(zipBuffer, dir, null);
   const actualModulePaths = entries
-    .filter((entry) => entry !== "metadata.json")
+    .filter(
+      (entry) =>
+        entry !== "metadata.json" &&
+        // Some ZIP implementations store entries for directories themselves
+        // (https://unix.stackexchange.com/a/743512/485280)
+        // The Rust implementation we use in production doesn’t do it, but some
+        // implementations (including the `archiver` npm package used in
+        // node-executor integration tests) do so, so we are filtering them out.
+        !entry.endsWith("/"),
+    )
     .map((entry) => entry.substring("modules/".length));
   await fs.promises.chmod(`${dir}/metadata.json`, "444");
   const metadataJson = parseMetadataFile(
