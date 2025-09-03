@@ -2806,7 +2806,21 @@ impl<RT: Runtime> Application<RT> {
                 )
                 .await;
 
-                Identity::user(identity_result?)
+                match identity_result {
+                    Ok(user_identity) => Identity::user(user_identity),
+                    Err(error) => {
+                        // For authentication errors, store them in Identity::Unknown so that
+                        // getUserIdentityDebug can access and log them instead of failing the
+                        // request
+                        if let Some(error_metadata) = error.downcast_ref::<ErrorMetadata>() {
+                            if matches!(error_metadata.code, errors::ErrorCode::Unauthenticated) {
+                                return Ok(Identity::Unknown(Some(error_metadata.clone())));
+                            }
+                        }
+                        // For other errors (non-authentication), propagate them normally
+                        return Err(error);
+                    },
+                }
             },
             AuthenticationToken::PlaintextUser(token) => {
                 // For plaintext authentication, create a PlaintextUser identity
