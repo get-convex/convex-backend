@@ -50,6 +50,7 @@ import type * as _system_frontend_listDeploymentEventsFromTime from "../_system/
 import type * as _system_frontend_listEnvironmentVariables from "../_system/frontend/listEnvironmentVariables.js";
 import type * as _system_frontend_listTableScan from "../_system/frontend/listTableScan.js";
 import type * as _system_frontend_modules from "../_system/frontend/modules.js";
+import type * as _system_frontend_node from "../_system/frontend/node.js";
 import type * as _system_frontend_paginatedDeploymentEvents from "../_system/frontend/paginatedDeploymentEvents.js";
 import type * as _system_frontend_paginatedScheduledJobs from "../_system/frontend/paginatedScheduledJobs.js";
 import type * as _system_frontend_paginatedTableDocuments from "../_system/frontend/paginatedTableDocuments.js";
@@ -62,6 +63,7 @@ import type * as _system_paginationLimits from "../_system/paginationLimits.js";
 import type * as _system_repl_wrappers from "../_system/repl/wrappers.js";
 import type * as _system_secretSystemTables from "../_system/secretSystemTables.js";
 import type * as _system_server from "../_system/server.js";
+import type * as tableDefs_awsLambdaVersions from "../tableDefs/awsLambdaVersions.js";
 import type * as tableDefs_deploymentAuditLogTable from "../tableDefs/deploymentAuditLogTable.js";
 import type * as tableDefs_snapshotImport from "../tableDefs/snapshotImport.js";
 
@@ -111,6 +113,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/listEnvironmentVariables": typeof _system_frontend_listEnvironmentVariables;
   "_system/frontend/listTableScan": typeof _system_frontend_listTableScan;
   "_system/frontend/modules": typeof _system_frontend_modules;
+  "_system/frontend/node": typeof _system_frontend_node;
   "_system/frontend/paginatedDeploymentEvents": typeof _system_frontend_paginatedDeploymentEvents;
   "_system/frontend/paginatedScheduledJobs": typeof _system_frontend_paginatedScheduledJobs;
   "_system/frontend/paginatedTableDocuments": typeof _system_frontend_paginatedTableDocuments;
@@ -123,6 +126,7 @@ declare const fullApi: ApiFromModules<{
   "_system/repl/wrappers": typeof _system_repl_wrappers;
   "_system/secretSystemTables": typeof _system_secretSystemTables;
   "_system/server": typeof _system_server;
+  "tableDefs/awsLambdaVersions": typeof tableDefs_awsLambdaVersions;
   "tableDefs/deploymentAuditLogTable": typeof tableDefs_deploymentAuditLogTable;
   "tableDefs/snapshotImport": typeof tableDefs_snapshotImport;
 }>;
