@@ -13,7 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "tsdown": "^0.13.0",
+    "tsdown": "^0.14.2",
     "@workos-inc/authkit-react": "^0.11.0",
     "vitest": "^3.2.4"
   },
