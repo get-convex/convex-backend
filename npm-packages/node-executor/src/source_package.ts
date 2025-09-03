@@ -304,6 +304,10 @@ async function processExternalPackageStream(
 
 type LocalSourcePackage = {
   dir: string;
+  /**
+   * The modules included in the package and that could contain Convex functions.
+   * This doesn’t include bundler chunks (files in /_deps/).
+   */
   modules: Set<CanonicalizedModulePath>;
   dynamicallyDownloaded: boolean;
 };
@@ -440,7 +444,10 @@ function modulesFromMetadataJson(
 ): Set<CanonicalizedModulePath> {
   const modules: Set<string> = new Set();
   for (const path of metadataJson.modulePaths) {
-    if (path.endsWith(".js")) {
+    if (path.startsWith("_deps/")) {
+      // Ignore bundler chunks since they don’t contain Convex function definitions.
+      continue;
+    } else if (path.endsWith(".js")) {
       // Only load node files.
       const environment = metadataJson.moduleEnvironments.get(path);
       if (!environment) {

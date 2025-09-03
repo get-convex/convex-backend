@@ -485,12 +485,18 @@ async function test_download() {
 
   const local = await maybeDownloadAndLinkPackages(sourcePackage);
   const sourceDir = path.join(os.tmpdir(), `source/test_modules_key`);
+
   assert.equal(local.dir, sourceDir);
   assert.equal(local.modules.has("a.js"), true);
   assert.equal(local.modules.has("someFolder/someFile.js"), true);
+
   // Non-node modules
   assert.equal(local.modules.has("third_party.js"), false);
   assert.equal(local.modules.has("d.js"), false);
+
+  // We don’t include _deps in `.modules` since they can’t contain Convex functions
+  assert.equal(local.modules.has("_deps/node/sample_node.js"), false);
+  assert.equal(local.modules.has("_deps/sample_isolate.js"), false);
 
   // Assert external deps package exists after download
   const externalDepsDir = path.join(
