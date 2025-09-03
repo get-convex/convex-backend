@@ -178,6 +178,6 @@ When pushing a new Node.js version to the server, the new code for your
 functions may be executed in the old Node.js version for up a few minutes.
 
 Node.js 18 reached its end-of-life on April 30, 2025 and we will no longer
-support new deployments on it Convex after September 1, 2025. All projects
+support new deployments on it Convex after September 10, 2025. All projects
 created after this date will be on Node.js 20. All projects that are still on
 Node.js 18 after October 22, 2025 will automatically be migrated to Node.js 20.
