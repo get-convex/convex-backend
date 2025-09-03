@@ -3,13 +3,14 @@ pub mod types;
 use std::sync::LazyLock;
 
 use common::document::CREATION_TIME_FIELD_PATH;
-use database::system_tables::{
-    SystemIndex,
-    SystemTable,
-};
 use value::{
     FieldPath,
     TableName,
+};
+
+use crate::system_tables::{
+    SystemIndex,
+    SystemTable,
 };
 
 pub static SCHEMA_VALIDATION_PROGRESS_TABLE: LazyLock<TableName> = LazyLock::new(|| {

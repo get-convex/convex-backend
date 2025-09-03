@@ -97,6 +97,7 @@ use database::{
     IndexModel,
     IndexTable,
     IndexWorkerMetadataTable,
+    SchemaValidationProgressTable,
     SchemasTable,
     TablesTable,
     Transaction,
@@ -110,6 +111,8 @@ use database::{
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_STATE_INDEX,
     SCHEMAS_TABLE,
+    SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
+    SCHEMA_VALIDATION_PROGRESS_TABLE,
     TABLES_BY_NAME_INDEX,
 };
 use database_globals::{
@@ -197,11 +200,6 @@ use crate::{
     exports::ExportsTable,
     external_packages::EXTERNAL_PACKAGES_TABLE,
     log_sinks::LOG_SINKS_TABLE,
-    schema_validation_progress::{
-        SchemaValidationProgressTable,
-        SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
-        SCHEMA_VALIDATION_PROGRESS_TABLE,
-    },
 };
 
 pub mod airbyte_import;
@@ -225,7 +223,6 @@ mod metrics;
 pub mod migrations;
 pub mod modules;
 pub mod scheduled_jobs;
-pub mod schema_validation_progress;
 pub mod session_requests;
 pub mod snapshot_imports;
 pub mod source_packages;
@@ -551,8 +548,8 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     system_tables
 }
 
-/// NOTE: Does not include _schemas because that's not an app system table,
-/// but it is created for each component.
+/// NOTE: Does not include _schemas or _schema_validation_progress because they
+/// are in bootstrapped system tables, but they are created for each component.
 pub fn component_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     vec![
         &FileStorageTable,
@@ -563,7 +560,6 @@ pub fn component_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &ModulesTable,
         &UdfConfigTable,
         &SourcePackagesTable,
-        &SchemaValidationProgressTable,
     ]
 }
 

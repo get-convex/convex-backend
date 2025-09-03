@@ -136,6 +136,12 @@ pub use self::{
             SCHEMAS_TABLE,
             SCHEMA_STATE_FIELD,
         },
+        schema_validation_progress::{
+            types::SchemaValidationProgressMetadata,
+            SchemaValidationProgressTable,
+            SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
+            SCHEMA_VALIDATION_PROGRESS_TABLE,
+        },
         system_metadata::SystemMetadataModel,
         table::{
             TableModel,
