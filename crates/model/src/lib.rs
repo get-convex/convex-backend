@@ -18,14 +18,12 @@
 
 #![feature(assert_matches)]
 #![feature(coroutines)]
-#![feature(result_flattening)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]
-#![feature(trait_upcasting)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(iter_from_coroutine)]
 #![feature(duration_constructors)]
@@ -99,6 +97,7 @@ use database::{
     IndexModel,
     IndexTable,
     IndexWorkerMetadataTable,
+    SchemaValidationProgressTable,
     SchemasTable,
     TablesTable,
     Transaction,
@@ -112,6 +111,8 @@ use database::{
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_STATE_INDEX,
     SCHEMAS_TABLE,
+    SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
+    SCHEMA_VALIDATION_PROGRESS_TABLE,
     TABLES_BY_NAME_INDEX,
 };
 use database_globals::{
@@ -265,9 +266,10 @@ enum DefaultTableNumber {
     CanonicalUrls = 34,
     CronNextRun = 35,
     IndexBackfills = 36,
+    SchemaValidationProgress = 37,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 37 - emma
+    // Next Number - 38 - emma
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -310,6 +312,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::CanonicalUrls => &CanonicalUrlsTable,
             DefaultTableNumber::CronNextRun => &CronNextRunTable,
             DefaultTableNumber::IndexBackfills => &IndexBackfillTable,
+            DefaultTableNumber::SchemaValidationProgress => &SchemaValidationProgressTable,
         }
     }
 }
@@ -455,14 +458,14 @@ pub async fn initialize_application_system_table<RT: Runtime>(
             .filter(|index| !index.name.is_by_id_or_creation_time())
             .map(|index| {
                 let IndexConfig::Database {
-                    developer_config,
+                    spec,
                     on_disk_state: _,
                 } = &index.config
                 else {
                     // This isn't a strict requirement; it's just not implemented or needed.
                     anyhow::bail!("system tables indexes must be Database");
                 };
-                anyhow::Ok((index.name.clone(), developer_config.fields.clone()))
+                anyhow::Ok((index.name.clone(), spec.fields.clone()))
             })
             .try_collect()?;
 
@@ -545,8 +548,8 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     system_tables
 }
 
-/// NOTE: Does not include _schemas because that's not an app system table,
-/// but it is created for each component.
+/// NOTE: Does not include _schemas or _schema_validation_progress because they
+/// are in bootstrapped system tables, but they are created for each component.
 pub fn component_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     vec![
         &FileStorageTable,
@@ -626,6 +629,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         FUNCTION_HANDLES_TABLE.clone() => 102,
         CANONICAL_URLS_TABLE.clone() => 116,
         INDEX_BACKFILLS_TABLE.clone() => 120,
+        SCHEMA_VALIDATION_PROGRESS_TABLE.clone() => 122,
     }
 });
 
@@ -652,6 +656,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         BY_COMPONENT_PATH_INDEX.name() => 102,
         EXPORTS_BY_REQUESTOR.name() => 110,
         INDEX_BACKFILLS_BY_INDEX_ID.name() => 120,
+        SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID.name() => 122,
     }
 });
 
@@ -732,7 +737,7 @@ mod test_default_table_numbers {
         let first_seen: BTreeSet<_> = FIRST_SEEN_TABLE.keys().collect();
         assert_eq!(tables, first_seen);
         let max_first_seen = *FIRST_SEEN_TABLE.values().max().unwrap();
-        println!("max_first_seen: {}", max_first_seen);
+        println!("max_first_seen: {max_first_seen}");
         assert!(max_first_seen <= DATABASE_VERSION);
         Ok(())
     }

@@ -31,7 +31,7 @@ impl<T> Clone for Reader<T> {
 }
 
 impl<T> Reader<T> {
-    pub fn lock(&self) -> RwLockReadGuard<T> {
+    pub fn lock(&self) -> RwLockReadGuard<'_, T> {
         self.inner.read()
     }
 }
@@ -47,11 +47,11 @@ impl<T> Writer<T> {
         }
     }
 
-    pub fn write(&mut self) -> RwLockWriteGuard<T> {
+    pub fn write(&mut self) -> RwLockWriteGuard<'_, T> {
         self.inner.write()
     }
 
-    pub fn read(&self) -> RwLockReadGuard<T> {
+    pub fn read(&self) -> RwLockReadGuard<'_, T> {
         self.inner.read()
     }
 }

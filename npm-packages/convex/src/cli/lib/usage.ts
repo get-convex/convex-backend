@@ -49,7 +49,11 @@ export async function usageStateWarning(
   // Skip the warning if the user doesn’t have an auth token
   // (which can happen for instance when using a deploy key)
   const auth = ctx.bigBrainAuth();
-  if (auth === null || auth.kind === "projectKey") {
+  if (
+    auth === null ||
+    auth.kind === "projectKey" ||
+    auth.kind === "deploymentKey"
+  ) {
     return;
   }
   const { teamId, team } = await fetchTeamAndProject(ctx, targetDeployment);

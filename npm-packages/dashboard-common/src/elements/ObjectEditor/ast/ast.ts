@@ -216,7 +216,7 @@ export class Walker {
             this.validator = undefined;
             break;
           default: {
-            const _typeCheck: never = originalValidator;
+            originalValidator satisfies never;
           }
         }
       }

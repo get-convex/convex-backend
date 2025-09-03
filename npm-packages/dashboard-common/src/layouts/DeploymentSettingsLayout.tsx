@@ -114,7 +114,7 @@ function DeploymentSettingsText() {
       }
       return <>Preview Deployment Settings</>;
     default: {
-      const _typecheck: never = deployment.deploymentType;
+      deployment.deploymentType satisfies never;
       throw new Error("Unknown deployment type");
     }
   }

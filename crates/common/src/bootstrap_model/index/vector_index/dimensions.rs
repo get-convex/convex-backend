@@ -44,8 +44,8 @@ impl TryFrom<u32> for VectorDimensions {
             ErrorMetadata::bad_request(
                 "InvalidVectorDimensionError",
                 format!(
-                    "Dimensions {} must be between {} and {}.",
-                    value, MIN_VECTOR_DIMENSIONS, MAX_VECTOR_DIMENSIONS
+                    "Dimensions {value} must be between {MIN_VECTOR_DIMENSIONS} and \
+                     {MAX_VECTOR_DIMENSIONS}."
                 )
             )
         );

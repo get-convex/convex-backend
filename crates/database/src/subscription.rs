@@ -655,7 +655,7 @@ impl SubscriptionMap {
             let (_, range_map) = self
                 .indexed
                 .get_mut(index)
-                .unwrap_or_else(|| panic!("Missing index entry for {}", index));
+                .unwrap_or_else(|| panic!("Missing index entry for {index}"));
             range_map.remove(id);
             if range_map.is_empty() {
                 self.indexed.remove(index);
@@ -842,7 +842,7 @@ mod tests {
 
     fn add_prefix(token: String, max_distance: FuzzyDistance) -> String {
         let prefix = (0..=*max_distance).map(|_| "ü").join("");
-        format!("{}{}", prefix, token)
+        format!("{prefix}{token}")
     }
 
     fn add_typos(token: String, distance: u8) -> String {

@@ -232,7 +232,7 @@ impl IntervalSet {
         };
     }
 
-    fn interval_preceding(&self, k: &[u8]) -> Option<IntervalRef> {
+    fn interval_preceding(&self, k: &[u8]) -> Option<IntervalRef<'_>> {
         match self {
             Self::All => Some(IntervalRef::all()),
             Self::Intervals(intervals) => {
@@ -698,15 +698,11 @@ mod tests {
             assert!(r1.start < r2.start, "intervals not kept in sorted order");
             assert!(
                 r1.is_disjoint(r2),
-                "{:?} and {:?} both appear but intersect",
-                r1,
-                r2
+                "{r1:?} and {r2:?} both appear but intersect"
             );
             assert!(
                 !r1.is_adjacent(r2),
-                "{:?} and {:?} both appear but are adjacent",
-                r1,
-                r2
+                "{r1:?} and {r2:?} both appear but are adjacent"
             );
         }
 
@@ -715,8 +711,7 @@ mod tests {
         for point in points {
             assert!(
                 intervals.iter().any(|i| i.contains(&point)) == r.contains(&point),
-                "some interval contains {:?} but the IntervalSet does not",
-                point,
+                "some interval contains {point:?} but the IntervalSet does not",
             );
         }
 

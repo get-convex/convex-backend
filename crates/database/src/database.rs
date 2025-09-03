@@ -2284,12 +2284,9 @@ fn occ_write_source_string(
     let preamble = if is_same_write_source {
         "Another call to this mutation".to_string()
     } else {
-        format!("A call to \"{}\"", source)
+        format!("A call to \"{source}\"")
     };
-    format!(
-        "{preamble} changed the document with ID \"{}\"",
-        document_id
-    )
+    format!("{preamble} changed the document with ID \"{document_id}\"")
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -2331,7 +2328,7 @@ impl ConflictingReadWithWriteSource {
         }
 
         let msg = occ_msg
-            .map(|write_source| format!("{}.\n", write_source))
+            .map(|write_source| format!("{write_source}.\n"))
             .unwrap_or_default();
         let index = format!("{table_name}.{}", self.read.index.descriptor());
         let msg = format!(

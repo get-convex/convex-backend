@@ -35,7 +35,7 @@
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
-    "convex": "^1.25.4"
+    "convex": "^1.26.2"
   },
   "devDependencies": {
     "@tanstack/eslint-plugin-query": "^5.74.7",
@@ -55,7 +55,7 @@
     "tshy": "^3.0.0",
     "typescript": "~5.0.3",
     "vite": "^6.3.5",
-    "vitest": "^3.1.4"
+    "vitest": "^3.2.4"
   },
   "exports": {
     ".": {
@@ -75,7 +75,7 @@
   "types": "./dist/commonjs/index.d.ts",
   "dependencies": {
     "@auth/core": "^0.37.0",
-    "@convex-dev/auth": "^0.0.87",
+    "@convex-dev/auth": "^0.0.88",
     "convex-helpers": "^0.1.85"
   },
   "overrides": {

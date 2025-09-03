@@ -28,6 +28,20 @@ static AWS_S3_FORCE_PATH_STYLE: LazyLock<bool> = LazyLock::new(|| {
         .unwrap_or_default()
 });
 
+static AWS_S3_DISABLE_SSE: LazyLock<bool> = LazyLock::new(|| {
+    env::var("AWS_S3_DISABLE_SSE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_default()
+});
+
+static AWS_S3_DISABLE_CHECKSUMS: LazyLock<bool> = LazyLock::new(|| {
+    env::var("AWS_S3_DISABLE_CHECKSUMS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_default()
+});
+
 /// Similar aws_config::from_env but returns an error if credentials or
 /// region is are not. It also doesn't spew out log lines every time
 /// credentials are accessed.
@@ -90,4 +104,14 @@ pub async fn preflight_credentials() -> anyhow::Result<aws_credential_types::Cre
             anyhow::bail!("{}Underlying error: {}", help, err)
         }
     }
+}
+  
+/// Returns true if server-side encryption headers should be disabled
+pub fn is_sse_disabled() -> bool {
+    *AWS_S3_DISABLE_SSE
+}
+
+/// Returns true if checksum headers should be disabled
+pub fn are_checksums_disabled() -> bool {
+    *AWS_S3_DISABLE_CHECKSUMS
 }

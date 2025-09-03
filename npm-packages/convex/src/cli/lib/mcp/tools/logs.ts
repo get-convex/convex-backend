@@ -25,25 +25,8 @@ const inputSchema = z.object({
     ),
 });
 
-const structuredLogLine = z.object({
-  messages: z.array(z.string()),
-  level: z.enum(["LOG", "DEBUG", "INFO", "WARN", "ERROR"]),
-  timestamp: z.number(),
-  isTruncated: z.boolean(),
-});
-
-const logEntry = z.object({
-  identifier: z.string(),
-  udfType: z.enum(["Query", "Mutation", "Action", "HttpAction"]),
-  logLines: z.array(z.union([z.string(), structuredLogLine])).optional(),
-  timestamp: z.number(),
-  executionTime: z.number(),
-  error: z.string().nullable(),
-  kind: z.enum(["Completion", "Progress"]),
-});
-
 const outputSchema = z.object({
-  entries: z.array(logEntry),
+  entries: z.array(z.any()),
   newCursor: z.number(),
 });
 

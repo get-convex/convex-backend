@@ -8,20 +8,19 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         database_index::{
+            DatabaseIndexSpec,
             DatabaseIndexState,
-            DeveloperDatabaseIndexConfig,
             IndexedFields,
         },
         index_validation_error,
         text_index::{
-            DeveloperTextIndexConfig,
+            TextIndexSpec,
             TextIndexState,
         },
         vector_index::{
-            DeveloperVectorIndexConfig,
+            VectorIndexSpec,
             VectorIndexState,
         },
-        DeveloperIndexConfig,
         DeveloperIndexMetadata,
         IndexConfig,
         IndexMetadata,
@@ -41,7 +40,6 @@ use common::{
         IndexDiff,
         IndexId,
         IndexName,
-        IndexTableIdentifier,
         StableIndexName,
         TableName,
         TabletIndexName,
@@ -64,6 +62,7 @@ use value::{
 
 use crate::{
     bootstrap_model::index_backfills::IndexBackfillModel,
+    patch_value,
     query::TableFilter,
     reads::TransactionReadSet,
     system_tables::{
@@ -282,12 +281,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             .identical
             .iter()
             .filter(|index| !index.config.is_enabled())
-            .map(|doc| {
-                doc.clone()
-                    .into_value()
-                    .map_table(&self.tx.table_mapping().tablet_to_name())
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .map(|doc| doc.clone().into_value())
+            .collect();
 
         index_diff
             .identical
@@ -336,6 +331,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             added,
             identical,
             dropped,
+            enabled,
+            disabled,
         } = &index_diff;
 
         // New indexes should all have been added in prepare_schema, something has gone
@@ -345,21 +342,24 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             "Trying to add new indexes when committing"
         );
 
-        let only_dropped_tables = LegacyIndexDiff {
-            added: vec![],
-            dropped: dropped.clone(),
-        };
-        self.apply_index_diff(namespace, &only_dropped_tables)
-            .await?;
+        for index in dropped {
+            self.drop_index(index.id()).await?;
+        }
 
         // Added indexes should have backfilled via build_indexes
-        // (for < 0.14.0 CLIs) or in apply_config (for >= 0.14.0 CLIs).
+        let mut table_model = TableModel::new(self.tx);
         let indexes_to_enable = identical
             .iter()
-            .filter(|index| !index.config.is_enabled())
+            .filter(|index| !index.config.is_enabled() && !index.config.is_staged())
+            .chain(enabled.iter())
             .cloned()
-            .collect();
+            .map(|doc| table_model.doc_table_name_to_id(namespace, doc))
+            .collect::<anyhow::Result<Vec<_>>>()?;
         self.enable_backfilled_indexes(indexes_to_enable).await?;
+
+        for index in disabled {
+            self.disable_index(index.clone()).await?;
+        }
 
         Ok(index_diff)
     }
@@ -378,22 +378,149 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn apply_index_diff(
+    async fn disable_index(
         &mut self,
-        namespace: TableNamespace,
-        diff: &LegacyIndexDiff,
+        doc: ParsedDocument<DeveloperIndexMetadata>,
     ) -> anyhow::Result<()> {
-        if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
-            anyhow::bail!(unauthorized_error("modify_indexes"));
-        }
-        for index in &diff.dropped {
-            self.drop_index(index.id()).await?;
-        }
-        for index in &diff.added {
-            self.add_application_index(namespace, index.clone()).await?;
-        }
-
+        tracing::info!("Disabling index: {doc:?}");
+        let id = doc.id();
+        let new_config = match doc.into_value().config {
+            IndexConfig::Database {
+                spec,
+                on_disk_state,
+            } => match on_disk_state {
+                DatabaseIndexState::Enabled => IndexConfig::Database {
+                    spec,
+                    on_disk_state: DatabaseIndexState::Backfilled { staged: true },
+                },
+                _ => {
+                    anyhow::bail!("Index is not enabled, so it cannot be disabled");
+                },
+            },
+            IndexConfig::Text {
+                spec,
+                on_disk_state,
+            } => match on_disk_state {
+                TextIndexState::SnapshottedAt(snapshot) => IndexConfig::Text {
+                    spec,
+                    on_disk_state: TextIndexState::Backfilled {
+                        snapshot,
+                        staged: true,
+                    },
+                },
+                _ => {
+                    anyhow::bail!("Index is not enabled, so it cannot be disabled");
+                },
+            },
+            IndexConfig::Vector {
+                spec,
+                on_disk_state,
+            } => match on_disk_state {
+                VectorIndexState::SnapshottedAt(snapshot) => IndexConfig::Vector {
+                    spec,
+                    on_disk_state: VectorIndexState::Backfilled {
+                        snapshot,
+                        staged: true,
+                    },
+                },
+                _ => {
+                    anyhow::bail!("Index is not enabled, so it cannot be disabled");
+                },
+            },
+        };
+        anyhow::ensure!(new_config.is_backfilled(), "Index is not backfilled");
+        SystemMetadataModel::new_global(self.tx)
+            .patch(id, patch_value!("config" =>  Some(new_config.try_into()?))?)
+            .await?;
         Ok(())
+    }
+
+    /// Collect all the indexes in the new schema.
+    ///
+    /// An earlier step (JSON conversion) is responsible for ensuring that index
+    /// names are unique.
+    async fn indexes_in_new_schema(
+        &mut self,
+        tables_in_schema: &BTreeMap<TableName, TableDefinition>,
+    ) -> anyhow::Result<BTreeMap<IndexName, IndexMetadata<TableName>>> {
+        let mut indexes_in_schema: BTreeMap<IndexName, IndexMetadata<TableName>> = BTreeMap::new();
+        for (table_name, table_schema) in tables_in_schema {
+            for (index_descriptor, index_schema) in &table_schema.indexes {
+                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                let exists = indexes_in_schema.insert(
+                    index_name.clone(),
+                    IndexMetadata::new_backfilling(
+                        *self.tx.begin_timestamp(),
+                        index_name.clone(),
+                        index_schema.fields.clone(),
+                    ),
+                );
+                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
+            }
+            for (index_descriptor, index_schema) in &table_schema.staged_db_indexes {
+                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                let exists = indexes_in_schema.insert(
+                    index_name.clone(),
+                    IndexMetadata::new_staged_backfilling(
+                        *self.tx.begin_timestamp(),
+                        index_name.clone(),
+                        index_schema.fields.clone(),
+                    ),
+                );
+                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
+            }
+            for (index_descriptor, index_schema) in &table_schema.text_indexes {
+                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                let exists = indexes_in_schema.insert(
+                    index_name.clone(),
+                    IndexMetadata::new_backfilling_text_index(
+                        index_name.clone(),
+                        index_schema.search_field.clone(),
+                        index_schema.filter_fields.clone(),
+                    ),
+                );
+                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
+            }
+            for (index_descriptor, index_schema) in &table_schema.staged_text_indexes {
+                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                let exists = indexes_in_schema.insert(
+                    index_name.clone(),
+                    IndexMetadata::new_staged_backfilling_text_index(
+                        index_name.clone(),
+                        index_schema.search_field.clone(),
+                        index_schema.filter_fields.clone(),
+                    ),
+                );
+                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
+            }
+            for (index_descriptor, index_schema) in &table_schema.vector_indexes {
+                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                let exists = indexes_in_schema.insert(
+                    index_name.clone(),
+                    IndexMetadata::new_backfilling_vector_index(
+                        index_name.clone(),
+                        index_schema.vector_field.clone(),
+                        index_schema.dimension,
+                        index_schema.filter_fields.clone(),
+                    ),
+                );
+                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
+            }
+            for (index_descriptor, index_schema) in &table_schema.staged_vector_indexes {
+                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
+                let exists = indexes_in_schema.insert(
+                    index_name.clone(),
+                    IndexMetadata::new_staged_backfilling_vector_index(
+                        index_name.clone(),
+                        index_schema.vector_field.clone(),
+                        index_schema.dimension,
+                        index_schema.filter_fields.clone(),
+                    ),
+                );
+                anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
+            }
+        }
+        Ok(indexes_in_schema)
     }
 
     ///  Given a set of tables from a not yet fully committed schema,
@@ -403,64 +530,36 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     pub async fn get_index_diff(
         &mut self,
         namespace: TableNamespace,
-        tables_in_schema: &BTreeMap<TableName, TableDefinition>,
+        tables_in_new_schema: &BTreeMap<TableName, TableDefinition>,
     ) -> anyhow::Result<IndexDiff> {
-        let mut indexes_in_schema: Vec<IndexMetadata<TableName>> = Vec::new();
-        for (table_name, table_schema) in tables_in_schema {
-            // Collect the database indexes.
-            for (index_descriptor, index_schema) in &table_schema.indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                indexes_in_schema.push(IndexMetadata::new_backfilling(
-                    *self.tx.begin_timestamp(),
-                    index_name.clone(),
-                    index_schema.fields.clone(),
-                ))
-            }
-
-            // Collect the search indexes.
-            for (index_descriptor, index_schema) in &table_schema.text_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                indexes_in_schema.push(IndexMetadata::new_backfilling_text_index(
-                    index_name.clone(),
-                    index_schema.search_field.clone(),
-                    index_schema.filter_fields.clone(),
-                ))
-            }
-            for (index_descriptor, index_schema) in &table_schema.vector_indexes {
-                let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                indexes_in_schema.push(IndexMetadata::new_backfilling_vector_index(
-                    index_name.clone(),
-                    index_schema.vector_field.clone(),
-                    index_schema.dimension,
-                    index_schema.filter_fields.clone(),
-                ));
-            }
-        }
+        let indexes_in_schema = self.indexes_in_new_schema(tables_in_new_schema).await?;
+        let indexes_no_longer_in_schema: HashMap<
+            IndexName,
+            Vec<ParsedDocument<DeveloperIndexMetadata>>,
+        > = self
+            .get_application_indexes(namespace)
+            .await?
+            .into_iter()
+            .fold(HashMap::new(), |mut acc, index| {
+                if !indexes_in_schema.contains_key(&index.name) {
+                    acc.entry(index.name.clone()).or_default().push(index);
+                }
+                acc
+            });
 
         let mut diff = IndexDiff::default();
-
-        let mut remaining_indexes: HashMap<IndexName, Vec<ParsedDocument<DeveloperIndexMetadata>>> =
-            HashMap::new();
-        for index in self.get_application_indexes(namespace).await? {
-            remaining_indexes
-                .entry(index.name.clone())
-                .or_default()
-                .push(index);
-        }
-
-        for new_index in indexes_in_schema {
-            remaining_indexes.remove(&new_index.name);
-
+        for (_, new_index) in indexes_in_schema {
             match self.compare_new_and_existing_indexes(namespace, new_index)? {
                 IndexComparison::Added(index) => diff.added.push(index),
                 IndexComparison::Identical(index) => diff.identical.push(index),
+                IndexComparison::Disabled(index) => diff.disabled.push(index),
+                IndexComparison::Enabled(index) => diff.enabled.push(index),
                 IndexComparison::Replaced {
                     replaced,
                     replacement,
                 } => {
-                    for doc in replaced {
-                        diff.dropped
-                            .push(TableModel::new(self.tx).doc_table_id_to_name(doc)?);
+                    for index in replaced {
+                        diff.dropped.push(index);
                     }
                     match replacement {
                         ReplacementIndex::NewOrUpdated(index) => diff.added.push(index),
@@ -470,7 +569,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             }
         }
 
-        for (name, mut indexes) in remaining_indexes {
+        for (name, mut indexes) in indexes_no_longer_in_schema {
             anyhow::ensure!(
                 !name.is_system_owned(),
                 "Preparing to drop a system index: {:?}",
@@ -482,6 +581,34 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(diff)
     }
 
+    fn identical_or_replaced(
+        &mut self,
+        mut existing_index: ParsedDocument<DeveloperIndexMetadata>,
+        new_index: DeveloperIndexMetadata,
+    ) -> IndexComparison {
+        if existing_index.config.same_spec(&new_index.config) {
+            if existing_index.config.is_staged() == new_index.config.is_staged() {
+                IndexComparison::Identical(existing_index)
+            } else {
+                // Staged status changed - use the previous on-disk state
+                // Toggle the staged status and return enabled/disabled to
+                // inform callsite.
+                if existing_index.config.is_staged() {
+                    existing_index.config.set_staged(false);
+                    IndexComparison::Enabled(existing_index)
+                } else {
+                    existing_index.config.set_staged(true);
+                    IndexComparison::Disabled(existing_index)
+                }
+            }
+        } else {
+            IndexComparison::Replaced {
+                replaced: vec![existing_index],
+                replacement: ReplacementIndex::NewOrUpdated(new_index),
+            }
+        }
+    }
+
     fn compare_new_and_existing_indexes(
         &mut self,
         namespace: TableNamespace,
@@ -489,37 +616,39 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     ) -> anyhow::Result<IndexComparison> {
         let pending_index = self.pending_index_metadata(namespace, &new_index.name)?;
         let enabled_index = self.enabled_index_metadata(namespace, &new_index.name)?;
-
-        fn identical_or_replaced(
-            existing_index: ParsedDocument<TabletIndexMetadata>,
-            new_index: DeveloperIndexMetadata,
-        ) -> IndexComparison {
-            if identical_dev_configs(&existing_index, &new_index) {
-                IndexComparison::Identical(existing_index)
-            } else {
-                IndexComparison::Replaced {
-                    replaced: vec![existing_index],
-                    replacement: ReplacementIndex::NewOrUpdated(new_index),
-                }
-            }
-        }
+        let mut table_model = TableModel::new(self.tx);
+        let pending_index = pending_index
+            .map(|doc| table_model.doc_table_id_to_name(doc))
+            .transpose()?;
+        let enabled_index = enabled_index
+            .map(|doc| table_model.doc_table_id_to_name(doc))
+            .transpose()?;
 
         Ok(match (enabled_index, pending_index) {
             (None, None) => IndexComparison::Added(new_index),
-            (Some(enabled_index), None) => identical_or_replaced(enabled_index, new_index),
-            (None, Some(pending_index)) => identical_or_replaced(pending_index, new_index),
+            (Some(enabled_index), None) => self.identical_or_replaced(enabled_index, new_index),
+            (None, Some(pending_index)) => self.identical_or_replaced(pending_index, new_index),
             (Some(enabled_index), Some(pending_index)) => {
-                if identical_dev_configs(&pending_index, &new_index) {
-                    IndexComparison::Replaced {
+                let mut comparison = self.identical_or_replaced(pending_index.clone(), new_index);
+                if let IndexComparison::Replaced {
+                    replaced,
+                    replacement: _,
+                } = &mut comparison
+                {
+                    // If the pending index has been mutated, we need to replace both the
+                    // pending and enabled indexes.
+                    anyhow::ensure!(*replaced == vec![pending_index.clone()]);
+                    *replaced = vec![enabled_index, pending_index];
+                } else if let IndexComparison::Identical(index) = &mut comparison {
+                    // If the pending index is identical to the new index, we need to replace
+                    // the enabled index with the pending index.
+                    anyhow::ensure!(index == &pending_index);
+                    comparison = IndexComparison::Replaced {
                         replaced: vec![enabled_index],
                         replacement: ReplacementIndex::Identical(pending_index),
-                    }
-                } else {
-                    IndexComparison::Replaced {
-                        replaced: vec![enabled_index, pending_index],
-                        replacement: ReplacementIndex::NewOrUpdated(new_index),
-                    }
+                    };
                 }
+                comparison
             },
         })
     }
@@ -553,26 +682,24 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             added.len(),
             dropped.len(),
         );
-        let only_new_and_mutated = LegacyIndexDiff { added, dropped };
-        // Dropped will be removed in apply_config when the rest of the schema is
-        // committed.
-        if !only_new_and_mutated.is_empty() {
-            self.apply_index_diff(namespace, &only_new_and_mutated)
+        for index in &dropped {
+            self.drop_index(index.id()).await?;
+        }
+        for index in &diff.added {
+            self.add_application_index(namespace, index.clone()).await?;
+        }
+
+        // Replace all the enabled/disabled ones in-place to update their `staged`
+        // status. The actual enabling/disabling will be done at finish_push
+        // (apply_config).
+        for index in diff.enabled.iter().chain(diff.disabled.iter()) {
+            let (id, value) = index.clone().into_id_and_value();
+            let new_config = value.config.try_into()?;
+            SystemMetadataModel::new_global(self.tx)
+                .patch(id, patch_value!("config" =>  Some(new_config))?)
                 .await?;
         }
-        Ok(diff)
-    }
 
-    pub async fn build_indexes(
-        &mut self,
-        namespace: TableNamespace,
-        schema: &DatabaseSchema,
-    ) -> anyhow::Result<LegacyIndexDiff> {
-        let diff: LegacyIndexDiff = self.get_index_diff(namespace, &schema.tables).await?.into();
-        if diff.is_empty() {
-            return Ok(diff);
-        }
-        self.apply_index_diff(namespace, &diff).await?;
         Ok(diff)
     }
 
@@ -588,7 +715,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             self.require_enabled_index_metadata(printable_index_name, resolved_index_name)?;
         match metadata.config.clone() {
             IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 ..
             } => Ok(fields),
             _ => anyhow::bail!(index_not_a_database_index_error(printable_index_name)),
@@ -961,12 +1088,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             };
             let metadata = match index.into_value().config {
                 IndexConfig::Database {
-                    developer_config: DeveloperDatabaseIndexConfig { fields },
+                    spec: DatabaseIndexSpec { fields },
                     ..
                 } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
                 IndexConfig::Text {
-                    developer_config:
-                        DeveloperTextIndexConfig {
+                    spec:
+                        TextIndexSpec {
                             search_field,
                             filter_fields,
                         },
@@ -977,8 +1104,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     filter_fields,
                 ),
                 IndexConfig::Vector {
-                    developer_config:
-                        DeveloperVectorIndexConfig {
+                    spec:
+                        VectorIndexSpec {
                             dimensions,
                             vector_field,
                             filter_fields,
@@ -1055,21 +1182,17 @@ impl IndexCategory {
     }
 }
 
-fn identical_dev_configs<T: IndexTableIdentifier, Y: IndexTableIdentifier>(
-    existing: &ParsedDocument<IndexMetadata<T>>,
-    new: &IndexMetadata<Y>,
-) -> bool {
-    DeveloperIndexConfig::from(existing.config.clone())
-        == DeveloperIndexConfig::from(new.config.clone())
-}
-
 enum IndexComparison {
     Added(DeveloperIndexMetadata),
-    Identical(ParsedDocument<TabletIndexMetadata>),
+    Identical(ParsedDocument<DeveloperIndexMetadata>),
     Replaced {
-        replaced: Vec<ParsedDocument<TabletIndexMetadata>>,
+        replaced: Vec<ParsedDocument<DeveloperIndexMetadata>>,
         replacement: ReplacementIndex,
     },
+    /// Enable a staged index
+    Enabled(ParsedDocument<DeveloperIndexMetadata>),
+    /// Disable a staged index
+    Disabled(ParsedDocument<DeveloperIndexMetadata>),
 }
 
 enum ReplacementIndex {
@@ -1077,47 +1200,5 @@ enum ReplacementIndex {
     /// changed.
     NewOrUpdated(DeveloperIndexMetadata),
     /// The replacement index is in storage and its definition has not changed.
-    Identical(ParsedDocument<TabletIndexMetadata>),
-}
-
-// A LegacyIndexDiff includes mutated indexes in both added and dropped. We need
-// to eventually migrate away from this behavior and special case mutations.
-// For now that means we need to retain this legacy diffing behavior.
-#[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
-pub struct LegacyIndexDiff {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::vec(
-            proptest::prelude::any::<IndexMetadata<TableName>>(),
-            0..4,
-        )")
-    )]
-    pub added: Vec<IndexMetadata<TableName>>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::vec(
-            proptest::prelude::any::<ParsedDocument<IndexMetadata<TableName>>>(),
-            0..4,
-        )")
-    )]
-    pub dropped: Vec<ParsedDocument<IndexMetadata<TableName>>>,
-}
-
-impl LegacyIndexDiff {
-    pub fn is_empty(&self) -> bool {
-        self.added.is_empty() && self.dropped.is_empty()
-    }
-}
-
-impl From<IndexDiff> for LegacyIndexDiff {
-    fn from(diff: IndexDiff) -> Self {
-        Self {
-            added: diff.added,
-            dropped: diff.dropped,
-        }
-    }
+    Identical(ParsedDocument<DeveloperIndexMetadata>),
 }

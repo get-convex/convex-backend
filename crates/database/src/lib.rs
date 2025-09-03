@@ -1,13 +1,11 @@
 #![feature(assert_matches)]
 #![feature(coroutines)]
-#![feature(result_flattening)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]
-#![feature(trait_upcasting)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(cow_is_borrowed)]
 #![feature(try_find)]
@@ -16,9 +14,8 @@
 mod bootstrap_model;
 mod committer;
 mod database;
+mod database_index_workers;
 mod execution_size;
-mod index_worker;
-mod index_workers;
 mod metrics;
 pub mod patch;
 pub mod persistence_helpers;
@@ -27,6 +24,7 @@ pub mod query;
 pub mod reads;
 mod retention;
 mod search_index_bootstrap;
+mod search_index_workers;
 mod snapshot_manager;
 mod stack_traces;
 pub mod streaming_export_selection;
@@ -58,8 +56,11 @@ pub mod test_helpers;
 pub mod tests;
 pub mod text_index_worker;
 pub use component_registry::ComponentRegistry;
+pub use database_index_workers::{
+    index_writer::IndexWriter,
+    IndexWorker,
+};
 pub use execution_size::FunctionExecutionSize;
-pub use index_worker::IndexWorker;
 pub use patch::PatchValue;
 pub use preloaded::PreloadedIndexRange;
 pub use reads::{
@@ -112,7 +113,6 @@ pub use self::{
         index::{
             IndexModel,
             IndexTable,
-            LegacyIndexDiff,
         },
         index_backfills::{
             types::IndexBackfillMetadata,
@@ -136,6 +136,12 @@ pub use self::{
             SCHEMAS_TABLE,
             SCHEMA_STATE_FIELD,
         },
+        schema_validation_progress::{
+            types::SchemaValidationProgressMetadata,
+            SchemaValidationProgressTable,
+            SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
+            SCHEMA_VALIDATION_PROGRESS_TABLE,
+        },
         system_metadata::SystemMetadataModel,
         table::{
             TableModel,
@@ -157,17 +163,7 @@ pub use self::{
         StreamingExportFilter,
         MAX_OCC_FAILURES,
     },
-    index_worker::{
-        IndexSelector,
-        IndexWriter,
-    },
-    index_workers::{
-        fast_forward::{
-            load_metadata_fast_forward_ts,
-            FastForwardIndexWorker,
-        },
-        search_worker::SearchIndexWorkers,
-    },
+    database_index_workers::index_writer::IndexSelector,
     query::{
         soft_data_limit,
         DeveloperQuery,
@@ -178,6 +174,13 @@ pub use self::{
         FollowerRetentionManager,
         LeaderRetentionManager,
         RetentionType,
+    },
+    search_index_workers::{
+        fast_forward::{
+            load_metadata_fast_forward_ts,
+            FastForwardIndexWorker,
+        },
+        search_worker::SearchIndexWorkers,
     },
     snapshot_manager::{
         Snapshot,

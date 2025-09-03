@@ -70,7 +70,7 @@ async fn get_index_diff_with_table_but_no_index_and_one_new_index_returns_added_
 
     let schema_table_only = db_schema_with_indexes!(table_name => {});
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_table_only)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema_table_only)
         .await?;
 
     let schema_with_index = db_schema_with_indexes!(table_name => {
@@ -99,7 +99,7 @@ async fn get_index_diff_with_one_existing_index_that_is_removed_returns_dropped_
     });
 
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_with_index)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema_with_index)
         .await?;
 
     let schema_without_index = db_schema_with_indexes!(table_name => {});
@@ -126,7 +126,7 @@ async fn get_index_diff_with_one_existing_index_when_table_is_removed_returns_dr
     });
 
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_with_index)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema_with_index)
         .await?;
 
     let schema_without_index = db_schema_with_indexes!();
@@ -153,7 +153,10 @@ async fn get_index_diff_with_one_existing_index_that_is_mutated_returns_mutated_
     });
 
     IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema_with_single_field_index)
+        .prepare_new_and_mutated_indexes(
+            TableNamespace::test_user(),
+            &schema_with_single_field_index,
+        )
         .await?;
 
     let schema_with_multi_field_index = db_schema_with_indexes!(table_name => {
@@ -313,5 +316,175 @@ async fn test_same_index_name_across_two_tables(rt: TestRuntime) -> anyhow::Resu
     expect_diff!(diff ;
         added:[(table_name1, index_name, vec!["a"]), (table_name2, index_name, vec!["a"])],
         dropped:[]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_add_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+
+    let mut tx = new_tx(rt).await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; added:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_enable_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["a.q", "b.q"])
+        text_indexes: ("index2", "b.q")
+        vector_indexes: ("index3", "c.q")
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; enabled:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_disable_enabled_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["a.q", "b.q"])
+        text_indexes: ("index2", "b.q")
+        vector_indexes: ("index3", "c.q")
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; disabled:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_remove_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q", "b.q"])
+        staged_text_indexes: ("index2", "b.q")
+        staged_vector_indexes: ("index3", "c.q")
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {});
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ; dropped:[
+        ("table", "index1", vec!["a.q", "b.q"]),
+        ("table", "index2", vec!["b.q"]),
+        ("table", "index3", vec!["c.q"]),
+    ]);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_change_staged_index(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q"])
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["b.q"])
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ;
+        added:[("table", "index1", vec!["b.q"])],
+        dropped: [("table", "index1", vec!["a.q"])]
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_change_staged_index_while_enabling(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["a.q"])
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["b.q"])
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ;
+        added:[("table", "index1", vec!["b.q"])],
+        dropped: [("table", "index1", vec!["a.q"])]
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_change_index_while_disabling(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let schema = db_schema_with_indexes!("table" => {
+        indexes: ("index1", vec!["a.q"])
+    });
+    deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
+
+    let schema = db_schema_with_indexes!("table" => {
+        staged_db_indexes: ("index1", vec!["b.q"])
+    });
+    let mut tx = db.begin_system().await?;
+    let diff = IndexModel::new(&mut tx)
+        .get_index_diff(TableNamespace::test_user(), &schema.tables)
+        .await?;
+
+    expect_diff!(diff ;
+        added:[("table", "index1", vec!["b.q"])],
+        dropped: [("table", "index1", vec!["a.q"])]
+    );
     Ok(())
 }

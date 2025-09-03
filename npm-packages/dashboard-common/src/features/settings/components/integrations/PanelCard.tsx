@@ -122,7 +122,7 @@ function exportSetupLink(kind: ExportIntegrationType): string {
     case "fivetran":
       return "https://fivetran.com/integrations/convex";
     default: {
-      const _typeCheck: never = kind;
+      kind satisfies never;
       return "";
     }
   }
@@ -190,7 +190,7 @@ function renderModal(
         </Modal>
       );
     default: {
-      const _typeCheck: never = integration;
+      integration satisfies never;
       return null;
     }
   }

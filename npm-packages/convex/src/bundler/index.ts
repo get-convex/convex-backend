@@ -300,8 +300,14 @@ export async function bundleAuthConfig(ctx: Context, dir: string) {
     ? authConfigTsPath
     : authConfigPath;
   if (!ctx.fs.exists(chosenPath)) {
+    logVerbose(
+      chalk.yellow(
+        `Found no auth config file at ${authConfigTsPath} or ${authConfigPath} so there are no configured auth providers`,
+      ),
+    );
     return [];
   }
+  logVerbose(chalk.yellow(`Bundling auth config found at ${chosenPath}`));
   const result = await bundle(ctx, dir, [chosenPath], true, "browser");
   return result.modules;
 }

@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         allow_all_hosts: AllowAllHosts(args.allow_all_hosts),
     };
 
-    log(&format!("Starting the destination on {}", addr));
+    log(&format!("Starting the destination on {addr}"));
 
     Server::builder()
         .add_service(

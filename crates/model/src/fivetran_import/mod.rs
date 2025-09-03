@@ -10,7 +10,7 @@ use chrono::{
 };
 use common::{
     bootstrap_model::index::{
-        database_index::DeveloperDatabaseIndexConfig,
+        database_index::DatabaseIndexSpec,
         DeveloperIndexMetadata,
         IndexConfig,
     },
@@ -174,7 +174,7 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
             })?;
 
         let IndexConfig::Database {
-            developer_config: DeveloperDatabaseIndexConfig { fields },
+            spec: DatabaseIndexSpec { fields },
             ..
         } = index.config
         else {
@@ -248,7 +248,7 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
         }
 
         let IndexConfig::Database {
-            developer_config: DeveloperDatabaseIndexConfig { fields },
+            spec: DatabaseIndexSpec { fields },
             ..
         } = index.config
         else {

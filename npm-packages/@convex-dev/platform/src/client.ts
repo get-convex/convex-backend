@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 
-import type { paths as ConvexPaths } from "./generatedApi.js";
+import type { paths as ConvexManagementPaths } from "./generatedManagementApi.js";
+import type { paths as ConvexDeploymentPaths } from "./generatedDeploymentApi.js";
 import { version } from "./version.js";
 
 export const productionProvisionHost = "https://api.convex.dev";
@@ -8,15 +9,14 @@ export const provisionHost =
   (globalThis as any)?.process?.env?.CONVEX_PROVISION_HOST ||
   productionProvisionHost;
 
-// This API spec is rooted here
-const baseUrl = `${provisionHost}/v1`;
-
 export type ConvexAuth = {
   kind: "accessToken";
   accessToken: string;
 };
 
-export function createConvexClient(accessToken: string) {
+export function createManagementClient(accessToken: string) {
+  const baseUrl = `${provisionHost}/v1`;
+
   const auth = {
     kind: "accessToken",
     accessToken,
@@ -28,7 +28,26 @@ export function createConvexClient(accessToken: string) {
     "Convex-Client": `convex-platform-${version}`,
   };
 
-  const client = createClient<ConvexPaths>({
+  const client = createClient<ConvexManagementPaths>({
+    baseUrl,
+    headers,
+  });
+  return client;
+}
+
+export function createDeploymentClient(nameOrUrl: string, token: string) {
+  const deploymentUrl = nameOrUrl.startsWith("http")
+    ? nameOrUrl
+    : `https://${nameOrUrl}.convex.cloud`;
+  const baseUrl = `${deploymentUrl}/api/v1`;
+
+  const headers: Record<string, string> = {
+    // Yep, even API keys go use Bearer. Everyone else does it.
+    Authorization: `Convex ${token}`,
+    "Convex-Client": `convex-platform-${version}`,
+  };
+
+  const client = createClient<ConvexDeploymentPaths>({
     baseUrl,
     headers,
   });

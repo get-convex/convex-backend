@@ -167,11 +167,36 @@ to "reserve" capacity for a big request that can be scheduled in advance. In
 this case, we're marking capacity that has already been consumed. This prevents
 future requests from starting until the "debt" is paid off.
 
+When using the Agent component, we can do this in the "usageHandler", which is
+called after the AI generates a response.
+
 ```ts
-await rateLimiter.limit(ctx, "tokenUsage", {
-  key: userId,
-  count: usage.totalTokens,
-  reserve: true, // because of this, it will never fail
+import { Agent, type Config } from "@convex-dev/rate-limiter";
+
+const sharedConfig = {
+  usageHandler: async (ctx, { usage, userId }) => {
+    if (!userId) {
+      return;
+    }
+    // We consume the token usage here, once we know the full usage.
+    // This is too late for the first generation, but prevents further requests
+    // until we've paid off that debt.
+    await rateLimiter.limit(ctx, "tokenUsage", {
+      key: userId,
+      // You could weight different kinds of tokens differently here.
+      count: usage.totalTokens,
+      // Reserving the tokens means it won't fail here, but will allow it
+      // to go negative, disallowing further requests at the `check` call below.
+      reserve: true,
+    });
+  },
+} satisfies Config;
+
+// use it in your agent definitions
+const agent = new Agent(components.agent, {
+  name,
+  languageModel,
+  ...sharedConfig,
 });
 ```
 

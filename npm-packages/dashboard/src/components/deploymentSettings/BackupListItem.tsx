@@ -94,7 +94,7 @@ export function BackupListItem({
   } else if (backup.state === "failed") {
     backupStateDescription = "This backup failed.";
   } else {
-    const _: never = backup.state;
+    backup.state satisfies never;
   }
 
   return (
@@ -463,7 +463,7 @@ function DeleteOrCancelBackupModal({
               } else if (action === "cancel") {
                 await doCancel();
               } else {
-                const _: never = action;
+                action satisfies never;
               }
             } finally {
               setIsSubmitting(false);

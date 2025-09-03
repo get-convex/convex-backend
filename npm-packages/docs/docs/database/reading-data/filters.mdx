@@ -16,7 +16,7 @@ the full list of available filtering methods
 [in the reference docs](/api/interfaces/server.FilterBuilder).
 
 If you need to filter to documents containing some keywords, use a
-[search query](/search/search.mdx).
+[search query](/search/text-search.mdx).
 
 <Admonition type="caution" title="Use indexes instead">
   Filters effectively loop over your table looking for documents that match.

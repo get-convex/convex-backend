@@ -440,8 +440,7 @@ impl TransactionReadSet {
 
                 assert_eq!(
                     *existing_fields, fields,
-                    "trying to change index fields for index {:?}!",
-                    index_name
+                    "trying to change index fields for index {index_name:?}!"
                 );
 
                 let range_num_intervals_before = range_set.len();

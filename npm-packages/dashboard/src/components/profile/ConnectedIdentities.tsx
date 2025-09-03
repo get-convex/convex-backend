@@ -1,346 +1,189 @@
-import { useAuth0 } from "hooks/useAuth0";
-import {
-  useListIdentities,
-  useSetLinkIdentityCookie,
-  useUnlinkIdentity,
-  useChangePrimaryIdentity,
-} from "api/profile";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useIdentities, useUnlinkIdentity } from "api/profile";
 import { Sheet } from "@ui/Sheet";
-import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { UserProfile } from "@auth0/nextjs-auth0/client";
-import { AuthIdentityResponse } from "generatedApi";
+import { IdentityResponse } from "generatedApi";
 import { LoadingTransition } from "@ui/Loading";
 import GoogleLogo from "logos/google.svg";
 import GithubLogo from "logos/github-logo.svg";
 import VercelLogo from "logos/vercel.svg";
 import { Tooltip } from "@ui/Tooltip";
-import { useSessionStorage } from "react-use";
+import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
-import { Menu, MenuItem } from "@ui/Menu";
-import { DotsVerticalIcon } from "@radix-ui/react-icons";
-
-export const linkIdentityStateKey = "linkIdentityState";
-export type LinkIdentityState = {
-  returnTo?: string;
-};
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 export function ConnectedIdentities() {
-  const { user } = useAuth0();
-  const identities = useListIdentities();
+  const identities = useIdentities();
   const unlinkIdentity = useUnlinkIdentity();
-  const changePrimaryIdentity = useChangePrimaryIdentity();
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
-  const [changingPrimaryId, setChangingPrimaryId] = useState<string | null>(
-    null,
-  );
-  const [error, setError] = useState<string | undefined>();
-  const [, setLinkIdentityState] = useSessionStorage<LinkIdentityState>(
-    linkIdentityStateKey,
-    {},
-  );
-  const [providerToLink, setProviderToLink] = useState<string | null>(null);
+  const [confirmUnlinkId, setConfirmUnlinkId] = useState<string | null>(null);
 
-  // Find which providers are already connected
-  const connectedProviders = new Set(
-    identities?.map((identity) => {
-      let { provider } = identity;
-      const { userId } = identity;
-      if (provider === "oidc" && typeof userId === "string") {
-        const [oidcProvider] = userId.split("|");
-        provider = oidcProvider;
-      }
-      return provider;
-    }) ?? [],
-  );
-
-  const setLinkIdentityCookie = useSetLinkIdentityCookie();
-
-  const handleLinkClick = async (provider: string) => {
-    await setLinkIdentityCookie();
-    setLinkIdentityState({
-      returnTo: "/profile",
-    });
-    setProviderToLink(provider);
+  const handleUnlinkClick = (identityId: string) => {
+    setConfirmUnlinkId(identityId);
   };
 
-  // Handle this in a useEffect to make sure that the identity state had time
-  // to propogate to session storage before redirecting.
-  useEffect(() => {
-    if (providerToLink) {
-      let connection = providerToLink;
-      if (providerToLink === "google") connection = "google-oauth2";
-      window.location.href = `/api/auth/login?connection=${connection}&returnTo=/link_identity?resume=fromProfile&returnTo=/profile`;
-    }
-  }, [providerToLink]);
+  const handleConfirmUnlink = async () => {
+    if (!confirmUnlinkId) return;
 
-  // Find the identity being changed to primary
-  const candidatePrimaryIdentity = identities?.find(
-    (i) => i.userId === changingPrimaryId,
-  );
+    setUnlinkingId(confirmUnlinkId);
+    setConfirmUnlinkId(null);
+    try {
+      await unlinkIdentity({ userId: confirmUnlinkId });
+      window.location.href = "/api/auth/logout";
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
 
   return (
     <Sheet className="flex flex-col gap-4">
       <h3>Identities</h3>
       <p className="max-w-prose text-sm">
-        These are the identities associated with your account. You can change
-        your primary identity and unlink secondary identities here.
+        These are the identities associated with your account. Identities are
+        used to login to Convex, and are distinct from the emails connected to
+        your account for communication purposes.
+      </p>
+      <p>
+        When you login with an identity, it's email is automatically associated
+        with your account.
       </p>
       <LoadingTransition loadingProps={{ className: "h-[13rem]" }}>
-        {user && identities && (
+        {identities && (
           <div className="flex w-full flex-col gap-4">
-            <div className="flex flex-col">
-              {identities?.map((identity) => {
-                const { isPrimary } = identity;
-                return (
-                  <div
-                    key={identity.userId}
-                    className="flex flex-wrap items-center justify-between gap-4 border-b py-2 last:border-b-0"
-                  >
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <ProviderLogo
-                        provider={identity.provider}
-                        userId={identity.userId}
-                      />
-                      <span className="min-w-0 flex-1 text-sm">
-                        <IdentityDisplayName
-                          user={user}
-                          isPrimary={isPrimary}
-                          identity={identity}
-                        />
-                      </span>
-                      {isPrimary && (
-                        <div className="rounded-sm border p-1 text-xs">
-                          Primary
-                        </div>
-                      )}
-                    </div>
-                    <Menu
-                      placement="bottom-end"
-                      buttonProps={{
-                        variant: "neutral",
-                        icon: <DotsVerticalIcon />,
-                        "aria-label": "Identity options",
-                        size: "xs",
-                      }}
-                    >
-                      <MenuItem
-                        action={() => setChangingPrimaryId(identity.userId)}
-                        disabled={isPrimary || identity.connection === "vercel"}
-                        tip={
-                          isPrimary
-                            ? "This is already your primary identity."
-                            : identity.connection === "vercel"
-                              ? "You cannot set a Vercel identity as your primary identity."
-                              : undefined
-                        }
-                        tipSide="right"
-                      >
-                        Set as primary
-                      </MenuItem>
-                      <MenuItem
-                        action={() => setUnlinkingId(identity.userId)}
-                        disabled={isPrimary}
-                        variant="danger"
-                        tip={
-                          isPrimary
-                            ? "You cannot unlink your primary identity. To unlink this identity, you must first set a new primary identity."
-                            : undefined
-                        }
-                        tipSide="right"
-                      >
-                        Unlink
-                      </MenuItem>
-                    </Menu>
-                    {unlinkingId === identity.userId && (
-                      <ConfirmationDialog
-                        onClose={() => {
-                          setUnlinkingId(null);
-                          setError(undefined);
-                        }}
-                        onConfirm={async () => {
-                          try {
-                            await unlinkIdentity({
-                              userId: identity.userId,
-                              provider: identity.provider,
-                            });
-                            setUnlinkingId(null);
-                            window.location.href = "/api/auth/logout";
-                          } catch (e: any) {
-                            setError(e.message);
-                            throw e;
-                          }
-                        }}
-                        confirmText="Unlink"
-                        variant="danger"
-                        dialogTitle="Unlink Identity"
-                        dialogBody="Unlinking this identity will remove it from your account. You will not be able to use it to log in unless you link it again. You will be logged out of the dashboard after unlinking your identity. However, your other sessions will remain logged in. Be sure to log out of the CLI or Chef if necessary."
-                        error={error}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <h4 className="mt-4">Link an additional account</h4>
-            <p className="max-w-prose text-sm">
-              You can add additional log in methods to your Convex account.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                icon={<GithubLogo className="dark:fill-white" />}
-                variant="neutral"
-                className="w-fit"
-                disabled={connectedProviders.has("github")}
-                tip={
-                  connectedProviders.has("github")
-                    ? "You cannot link multiple GitHub accounts to Convex. Please contact support to merge your accounts."
-                    : undefined
-                }
-                onClick={() => handleLinkClick("github")}
-              >
-                Link GitHub account
-              </Button>
-              <Button
-                size="sm"
-                icon={<GoogleLogo className="dark:fill-white" />}
-                variant="neutral"
-                className="w-fit"
-                onClick={() => handleLinkClick("google-oauth2")}
-              >
-                Link Google account
-              </Button>
-            </div>
-            {/* Render the confirmation dialog for changing primary identity at the root */}
-            {changingPrimaryId && candidatePrimaryIdentity && (
-              <ConfirmationDialog
-                onClose={() => {
-                  setChangingPrimaryId(null);
-                  setError(undefined);
-                }}
-                onConfirm={async () => {
-                  try {
-                    await changePrimaryIdentity({
-                      newPrimaryProvider: candidatePrimaryIdentity.provider,
-                      newPrimaryUserId: candidatePrimaryIdentity.userId,
-                    });
-                    setChangingPrimaryId(null);
-                    window.location.href = "/api/auth/logout";
-                  } catch (e: any) {
-                    setError(e.message);
-                    throw e;
-                  }
-                }}
-                confirmText="Confirm"
-                variant="primary"
-                dialogTitle="Change Primary Identity"
-                dialogBody="Changing your primary identity will log you out of the dashboard. You will be logged out of the dashboard and need to log in again after changing your primary identity."
-                error={error}
+            {identities.map((identity) => (
+              <IdentityCard
+                key={identity.id}
+                identity={identity}
+                canUnlink={identities.length > 1}
+                onUnlink={() => handleUnlinkClick(identity.id)}
+                isUnlinking={unlinkingId === identity.id}
               />
-            )}
+            ))}
           </div>
         )}
       </LoadingTransition>
+
+      {confirmUnlinkId !== null && (
+        <ConfirmationDialog
+          dialogTitle="Unlink Identity"
+          dialogBody={
+            <div className="flex flex-col gap-1">
+              <p>
+                Are you sure you want to unlink this identity? You will no
+                longer be able to sign in with the providers associated with
+                this identity unless the email associated with this identity is
+                verified to your account.
+              </p>
+              <p>
+                Once you unlink this identity, you will be logged out of the
+                dashboard.
+              </p>
+            </div>
+          }
+          confirmText="Unlink"
+          onConfirm={handleConfirmUnlink}
+          onClose={() => setConfirmUnlinkId(null)}
+        />
+      )}
     </Sheet>
   );
 }
 
-export function IdentityDisplayName({
+function IdentityCard({
   identity,
-  user,
-  isPrimary,
+  canUnlink,
+  onUnlink,
+  isUnlinking,
 }: {
-  user: UserProfile;
-  identity: AuthIdentityResponse;
-  isPrimary: boolean;
+  identity: IdentityResponse;
+  canUnlink: boolean;
+  onUnlink: () => void;
+  isUnlinking: boolean;
 }) {
-  let main: string | undefined;
-  let { provider } = identity;
-  let { userId } = identity;
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {/* Email or User ID */}
+        <div className="min-w-0">
+          {identity.email ? (
+            <span className="text-sm font-medium">{identity.email}</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-content-secondary">
+                {identity.id}
+              </span>
+              <Tooltip tip="Email could not be retrieved from identity provider">
+                <InfoCircledIcon className="h-4 w-4 text-content-tertiary" />
+              </Tooltip>
+            </div>
+          )}
+        </div>
 
-  // Special handling for OIDC
-  if (provider === "oidc" && typeof userId === "string") {
-    const [oidcProvider, ...rest] = userId.split("|");
-    if (rest.length > 0) {
-      provider = oidcProvider;
-      userId = rest[rest.length - 1];
-    }
-  }
+        {/* Provider icons */}
+        <div className="flex space-x-1">
+          {identity.providers.map((provider) => (
+            <div key={provider} className="relative">
+              <ProviderLogo provider={provider} />
+            </div>
+          ))}
+        </div>
+      </div>
 
-  const profileData = isPrimary
-    ? {
-        email: user?.email,
-        username: user?.nickname,
-      }
-    : identity.profileData;
-
-  if (provider === "google-oauth2") {
-    main = profileData.email ?? undefined;
-  } else if (provider === "github") {
-    main = profileData.username ?? profileData.nickname ?? undefined;
-  } else if (provider === "vercel") {
-    const [account, u] = userId.split(":user:");
-    const accountId = account.split(":")[1];
-    main = `account:${accountId.slice(0, 8)} user:${u.slice(0, 8)}`;
-  } else {
-    main = userId;
-  }
-
-  return <p className="max-w-full truncate">{main || userId}</p>;
+      {/* Unlink button */}
+      <div className="flex-shrink-0">
+        <Button
+          variant="danger"
+          size="xs"
+          onClick={onUnlink}
+          loading={isUnlinking}
+          disabled={!canUnlink}
+          tip={canUnlink ? undefined : "You cannot unlink your only identity"}
+        >
+          Unlink
+        </Button>
+      </div>
+    </div>
+  );
 }
 
-function ProviderLogo({
-  provider,
-  userId,
-}: {
-  provider: string;
-  userId: string;
-}) {
-  // Special handling for OIDC
-  let resolvedProvider = provider;
-  if (provider === "oidc" && typeof userId === "string") {
-    const [oidcProvider] = userId.split("|");
-    resolvedProvider = oidcProvider;
-  }
+function ProviderLogo({ provider }: { provider: string }) {
   const logo = (() => {
-    switch (resolvedProvider) {
-      case "google-oauth2":
+    switch (provider) {
+      case "google":
         return (
-          <div className="flex size-[1.75rem] min-w-[1.75rem] items-center justify-center">
+          <div className="flex size-10 min-w-10 items-center justify-center rounded-full border bg-white">
             <GoogleLogo className="size-6" />
           </div>
         );
       case "github":
         return (
-          <div className="flex size-[1.75rem] min-w-[1.75rem] items-center justify-center">
-            <GithubLogo className="size-6 dark:fill-white" />
+          <div className="flex size-10 min-w-10 items-center justify-center rounded-full border bg-white">
+            <GithubLogo className="size-6 dark:fill-black" />
           </div>
         );
       case "vercel":
         return (
-          <div className="flex size-[1.75rem] min-w-[1.75rem] items-center justify-center">
-            <VercelLogo className="size-6 dark:fill-white" />
+          <div className="flex size-10 min-w-10 items-center justify-center rounded-full border bg-white">
+            <VercelLogo className="size-6 dark:fill-black" />
           </div>
         );
       default:
         return (
-          <div className="rounded-sm border p-1 text-xs opacity-60">
-            {providerToDisplayName[resolvedProvider] || resolvedProvider}
+          <div className="flex size-10 min-w-10 items-center justify-center rounded-full border bg-gray-100">
+            <span className="text-sm font-medium uppercase">
+              {provider.slice(0, 2)}
+            </span>
           </div>
         );
     }
   })();
 
   return (
-    <Tooltip tip={providerToDisplayName[resolvedProvider] || resolvedProvider}>
-      {logo}
-    </Tooltip>
+    <Tooltip tip={providerToDisplayName[provider] || provider}>{logo}</Tooltip>
   );
 }
 
-export const providerToDisplayName: Record<string, string> = {
-  "google-oauth2": "Google",
+const providerToDisplayName: Record<string, string> = {
+  google: "Google",
   github: "GitHub",
   vercel: "Vercel",
 };

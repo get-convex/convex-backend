@@ -21,16 +21,16 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@eslint/js": "~9.30.0",
+    "@eslint/js": "~9.32.0",
     "@types/node": "^18.17.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vercel/node": "^5.0.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "9.30.1",
+    "eslint": "9.32.0",
     "shx": "~0.3.4",
     "typescript": "~5.0.3",
-    "typescript-eslint": "~8.35.0",
+    "typescript-eslint": "~8.38.0",
     "vite": "^6.3.5"
   }
 }

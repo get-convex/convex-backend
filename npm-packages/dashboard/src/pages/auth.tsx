@@ -1,5 +1,5 @@
 import { LoginLayout } from "layouts/LoginLayout";
-import { useAuth0 } from "hooks/useAuth0";
+import { useWorkOS } from "hooks/useWorkOS";
 import classNames from "classnames";
 import { Snippet } from "@common/elements/Snippet";
 import { Loading } from "@ui/Loading";
@@ -13,7 +13,7 @@ export { getServerSideProps } from "lib/ssr";
 
 // TODO -- gtag & etc on this page.
 function Auth() {
-  const { isAuthenticated } = useAuth0();
+  const { isAuthenticated } = useWorkOS();
 
   const [accessToken] = useAccessToken();
 

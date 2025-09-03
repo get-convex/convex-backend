@@ -15,7 +15,11 @@ Add the following command to your MCP servers configuration:
 
 `npx -y convex@latest mcp start`
 
-See editor specific instructions:
+For Cursor you can use this quick link to install:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+or see editor specific instructions:
 
 - [Cursor](/ai/using-cursor.mdx#setup-the-convex-mcp-server)
 - [Windsurf](/ai/using-windsurf.mdx#setup-the-convex-mcp-server)

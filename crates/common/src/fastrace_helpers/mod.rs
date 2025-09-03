@@ -363,13 +363,13 @@ mod tests {
 
         // Invalid configs.
         let err = "a=a".parse::<SamplingConfig>().unwrap_err();
-        assert!(format!("{}", err).contains("Failed to parse sampling rate"));
+        assert!(format!("{err}").contains("Failed to parse sampling rate"));
 
         let err = "a:a:a=1.0".parse::<SamplingConfig>().unwrap_err();
-        assert!(format!("{}", err).contains("Too many parts"));
+        assert!(format!("{err}").contains("Too many parts"));
 
         let err = "a:a=a=1.0".parse::<SamplingConfig>().unwrap_err();
-        assert!(format!("{}", err).contains("Too many parts"));
+        assert!(format!("{err}").contains("Too many parts"));
 
         Ok(())
     }
@@ -445,10 +445,10 @@ mod tests {
         let err = "{ defaultFraction: 1.0 }"
             .parse::<SamplingConfig>()
             .unwrap_err();
-        assert!(format!("{}", err).contains("Failed to parse sampling config as JSON"));
+        assert!(format!("{err}").contains("Failed to parse sampling config as JSON"));
 
         let err = r#"{ "defaultFraction": 4.0 }"#.parse::<SamplingConfig>().unwrap_err();
-        assert!(format!("{}", err).contains("Invalid fraction 4 in default"));
+        assert!(format!("{err}").contains("Invalid fraction 4 in default"));
 
         let err = r#"{
             "defaultFraction": 1.0,
@@ -456,7 +456,7 @@ mod tests {
         }"#
         .parse::<SamplingConfig>()
         .unwrap_err();
-        assert!(format!("{}", err).contains("Invalid route regexp"));
+        assert!(format!("{err}").contains("Invalid route regexp"));
 
         Ok(())
     }

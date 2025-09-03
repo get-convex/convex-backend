@@ -188,7 +188,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           return <span>disabled the deployment</span>;
         default:
           // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-          const _: never = event.metadata.new_state;
+          event.metadata.new_state satisfies never;
           return null;
       }
 
@@ -221,7 +221,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           break;
         default:
           // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-          const _: never = event.metadata.import_format;
+          event.metadata.import_format satisfies never;
           return null;
       }
       return <span>imported a snapshot from a {format} file</span>;
@@ -229,7 +229,7 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
 
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-      const _: never = event;
+      event satisfies never;
       return null;
   }
 }
@@ -435,7 +435,7 @@ function PushContentForComponents({
       break;
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-      const _: never = diffType.type;
+      diffType.type satisfies never;
   }
   const authElement = auth ? AuthElement({ diff: auth }) : null;
   return (
@@ -569,7 +569,7 @@ function SnapshotImportIntoTable({
     default:
       console.error(`Unexpected import_mode ${import_mode}`);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-      const _: never = import_mode;
+      import_mode satisfies never;
       return null;
   }
 

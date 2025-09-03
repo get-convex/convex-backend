@@ -1,4 +1,3 @@
-import { useAuth0 } from "hooks/useAuth0";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { TextInput } from "@ui/TextInput";
@@ -26,7 +25,6 @@ import { ConnectedIdentities } from "components/profile/ConnectedIdentities";
 export { getServerSideProps } from "lib/ssr";
 
 function Profile() {
-  const { user } = useAuth0();
   const profile = useProfile();
   const emails = useProfileEmails();
 
@@ -57,7 +55,7 @@ function Profile() {
       <Head>
         <title>Profile | Convex Dashboard</title>
       </Head>
-      {emails && profile && user && (
+      {emails && profile && (
         <div className="scrollbar w-full overflow-auto">
           <div className="mx-auto flex max-w-prose min-w-[22rem] flex-col justify-center gap-4 p-4">
             <Sheet className="flex w-full flex-col gap-4">

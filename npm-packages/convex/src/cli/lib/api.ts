@@ -24,7 +24,7 @@ export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
 export type DeploymentType = AccountRequiredDeploymentType | "anonymous";
 
 export type Project = {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   isDemo: boolean;
@@ -182,7 +182,7 @@ async function hasAccessToProject(
   try {
     await bigBrainAPIMaybeThrows({
       ctx,
-      url: `/api/teams/${selector.teamSlug}/projects/${selector.projectSlug}/deployments`,
+      url: `teams/${selector.teamSlug}/projects/${selector.projectSlug}/deployments`,
       method: "GET",
     });
     return true;
@@ -256,7 +256,7 @@ async function getTeamAndProjectSlugForDeployment(
   try {
     const body = await bigBrainAPIMaybeThrows({
       ctx,
-      url: `/api/deployment/${selector.deploymentName}/team_and_project`,
+      url: `deployment/${selector.deploymentName}/team_and_project`,
       method: "GET",
     });
     return { teamSlug: body.team, projectSlug: body.project };

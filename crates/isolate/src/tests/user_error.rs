@@ -43,17 +43,17 @@ async fn test_not_found(rt: TestRuntime) -> anyhow::Result<()> {
         // structure. This way we could provide additional context to the user on
         // error, especially in "development mode," without having to store it all
         // in the database.
-        assert!(format!("{}", err).contains("Couldn't find JavaScript module"));
+        assert!(format!("{err}").contains("Couldn't find JavaScript module"));
 
         let err = t
             .query_js_error_no_validation("userError:aPrivateFunction", assert_obj!())
             .await?;
-        assert!(format!("{}", err).contains(r#"Couldn't find "aPrivateFunction" in module"#));
+        assert!(format!("{err}").contains(r#"Couldn't find "aPrivateFunction" in module"#));
 
         let err = t
             .query_js_error_no_validation("userError:aNonexistentFunction", assert_obj!())
             .await?;
-        assert!(format!("{}", err).contains(r#"Couldn't find "aNonexistentFunction" in module"#));
+        assert!(format!("{err}").contains(r#"Couldn't find "aNonexistentFunction" in module"#));
         Ok(())
     })
     .await

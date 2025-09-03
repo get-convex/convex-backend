@@ -23,7 +23,6 @@ use common::{
     http::cli_cors,
     knobs::{
         AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT,
-        MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
         MAX_BACKEND_RPC_REQUEST_SIZE,
         MAX_ECHO_BYTES,
         MAX_PUSH_BYTES,
@@ -44,6 +43,8 @@ use tower_http::{
     decompression::RequestDecompressionLayer,
 };
 use udf::HTTP_ACTION_BODY_LIMIT;
+use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
     app_metrics::{
@@ -57,13 +58,9 @@ use crate::{
     },
     canonical_urls::update_canonical_url,
     dashboard::{
-        check_admin_key,
-        delete_component,
-        delete_tables,
-        get_indexes,
-        get_source_code,
+        common_dashboard_api_router,
+        local_only_dashboard_router,
         run_test_function,
-        shapes2,
     },
     deploy_config::{
         get_config,
@@ -71,7 +68,11 @@ use crate::{
         push_config,
     },
     deploy_config2,
-    environment_variables::update_environment_variables,
+    environment_variables::{
+        list_environment_variables,
+        platform_router,
+        update_environment_variables,
+    },
     http_actions::http_action_handler,
     log_sinks::{
         add_axiom_sink,
@@ -98,17 +99,7 @@ use crate::{
         storage_get_url,
         vector_search,
     },
-    public_api::{
-        public_action_post,
-        public_function_post,
-        public_function_post_with_path,
-        public_get_query_ts,
-        public_mutation_post,
-        public_query_at_ts_post,
-        public_query_batch_post,
-        public_query_get,
-        public_query_post,
-    },
+    public_api::public_api_router,
     scheduling::{
         cancel_all_jobs,
         cancel_job,
@@ -161,6 +152,47 @@ use crate::{
     RouterState,
 };
 
+// TODO security per endpoint
+
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Convex Deployment API",
+        version = "1.0.0",
+        description = "Admin API for interacting with deployments",
+    ),
+    servers(
+        (url = "/api/v1", description = "Deployment API")
+    )
+)]
+struct PlatformApiDoc;
+
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Convex Public HTTP routes",
+        version = "1.0.0",
+        description = "Endpoints that require no authentication"
+    ),
+    servers(
+        (url = "/api", description = "Deployment API")
+    )
+)]
+struct PublicApiDoc;
+
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Convex Dashboard HTTP routes",
+        version = "1.0.0",
+        description = "Endpoints intended for dashboard use"
+    ),
+    servers(
+        (url = "/api", description = "Deployment API")
+    )
+)]
+struct DashboardApiDoc;
+
 pub async fn add_extension<S, B>(
     State(st): State<S>,
     mut request: http::Request<B>,
@@ -178,16 +210,32 @@ pub fn router(st: LocalAppState) -> Router {
         // header). Passes version in the URL because websockets can't do it in header.
         .route("/{client_version}/sync", get(sync));
 
+    // routes are added by common_dashboard_routes below
+    let (_, common_dashboard_openapi_spec) =
+        OpenApiRouter::with_openapi(DashboardApiDoc::openapi())
+            .merge(common_dashboard_api_router())
+            .split_for_parts();
+    let (local_only_dashboard_routes, local_only_openapi_spec) =
+        OpenApiRouter::with_openapi(DashboardApiDoc::openapi())
+            .merge(local_only_dashboard_router())
+            .split_for_parts();
+
+    let mut dashboard_openapi_spec = common_dashboard_openapi_spec;
+    dashboard_openapi_spec.merge(local_only_openapi_spec);
+    let dashboard_openapi_json = dashboard_openapi_spec.to_pretty_json().unwrap();
     let dashboard_routes = common_dashboard_routes()
+        .merge(local_only_dashboard_routes)
+        // Environment variable routes
+        .route("/update_environment_variables", post(update_environment_variables))
+        .route("/list_environment_variables", get(list_environment_variables))
+        // Canonical URL routes
+        .route("/update_canonical_url", post(update_canonical_url))
         // Scheduled jobs routes
         .route("/cancel_all_jobs", post(cancel_all_jobs))
         .route("/cancel_job", post(cancel_job))
-        // Environment variable routes
-        .route("/update_environment_variables", post(update_environment_variables))
-        // Canonical URL routes
-        .route("/update_canonical_url", post(update_canonical_url))
-        // Local-only route to check if the admin key is valid
-        .route("/check_admin_key", get(check_admin_key))
+        .route("/dashboard_openapi.json", axum::routing::get({
+            move || async { dashboard_openapi_json }
+        }))
         .layer(ServiceBuilder::new());
 
     let cli_routes = Router::new()
@@ -226,6 +274,16 @@ pub fn router(st: LocalAppState) -> Router {
         .route("/set_expiration/{snapshot_id}", post(set_export_expiration))
         .route("/cancel/{snapshot_id}", post(cancel_export));
 
+    let (platform_routes, platform_openapi) =
+        OpenApiRouter::with_openapi(PlatformApiDoc::openapi())
+            .merge(platform_router())
+            .split_for_parts();
+    let platform_openapi_spec = platform_openapi.to_pretty_json().unwrap();
+    let platform_routes = Router::new().merge(platform_routes).route(
+        "/openapi.json",
+        axum::routing::get(move || async { platform_openapi_spec }),
+    );
+
     let api_routes = Router::new()
         .merge(cli_routes)
         .merge(dashboard_routes)
@@ -239,12 +297,26 @@ pub fn router(st: LocalAppState) -> Router {
         )
         .nest("/export", snapshot_export_routes)
         .nest("/logs", log_sink_routes())
-        .nest("/streaming_import", streaming_import_routes());
+        .nest("/streaming_import", streaming_import_routes())
+        .nest("/v1", platform_routes);
 
     // Endpoints migrated to use the RouterState trait instead of application.
+    let (public_routes, public_openapi) = OpenApiRouter::with_openapi(PublicApiDoc::openapi())
+        .merge(public_api_router())
+        .split_for_parts();
+    let public_openapi_spec = public_openapi.to_pretty_json().unwrap();
+
     let migrated_api_routes = Router::new()
         .merge(browser_routes)
-        .merge(public_api_routes())
+        .merge(public_routes)
+        .route("/sync", get(sync))
+        .route(
+            "/public_openapi.json",
+            axum::routing::get({
+                let spec = public_openapi_spec.clone();
+                move || async move { spec }
+            }),
+        )
         .nest("/storage", storage_api_routes());
     let migrated = Router::new()
         .nest("/api", migrated_api_routes)
@@ -268,19 +340,15 @@ pub fn router(st: LocalAppState) -> Router {
         .merge(migrated)
 }
 
-pub fn public_api_routes() -> Router<RouterState> {
-    Router::new()
-        .route("/sync", get(sync))
-        .route("/query", get(public_query_get))
-        .route("/query", post(public_query_post))
-        .route("/query_at_ts", post(public_query_at_ts_post))
-        .route("/query_ts", post(public_get_query_ts))
-        .route("/query_batch", post(public_query_batch_post))
-        .route("/mutation", post(public_mutation_post))
-        .route("/action", post(public_action_post))
-        .route("/function", post(public_function_post))
-        .route("/run/{*rest}", post(public_function_post_with_path))
-        .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
+pub fn public_api_routes<S>() -> Router<S>
+where
+    RouterState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    let (routes, _openapi_spec) = OpenApiRouter::with_openapi(PlatformApiDoc::openapi())
+        .merge(public_api_router())
+        .split_for_parts();
+    routes.route("/sync", get(sync))
 }
 
 pub fn storage_api_routes() -> Router<RouterState> {
@@ -362,12 +430,12 @@ where
     LocalAppState: FromRef<S>,
     S: Clone + Send + Sync + 'static,
 {
+    let (dashboard_routes_from_openapi, _dashboard_openapi_spec) =
+        OpenApiRouter::with_openapi(DashboardApiDoc::openapi())
+            .merge(common_dashboard_api_router())
+            .split_for_parts();
     Router::new()
-        .route("/shapes2", get(shapes2))
-        .route("/get_indexes", get(get_indexes))
-        .route("/delete_tables", post(delete_tables))
-        .route("/delete_component", post(delete_component))
-        .route("/get_source_code", get(get_source_code))
+        .merge(dashboard_routes_from_openapi)
         // Metrics routes
         .nest("/app_metrics", app_metrics_routes())
 }
@@ -476,4 +544,82 @@ pub fn cors() -> CorsLayer {
         ])
         .allow_origin(AllowOrigin::mirror_request())
         .max_age(Duration::from_secs(86400))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use anyhow::Context;
+    use axum::body::Body;
+    use axum_extra::headers::authorization::Credentials;
+    use http::Request;
+    use runtime::prod::ProdRuntime;
+
+    use crate::test_helpers::setup_backend_for_test;
+
+    const DASHBOARD_SPEC_FILE: &str =
+        "../../npm-packages/dashboard/dashboard-deployment-openapi.json";
+    const PUBLIC_SPEC_FILE: &str =
+        "../../npm-packages/@convex-dev/platform/public-deployment-openapi.json";
+    const PLATFORM_SPEC_FILE: &str =
+        "../../npm-packages/@convex-dev/platform/deployment-openapi.json";
+
+    #[convex_macro::prod_rt_test]
+    async fn test_api_specs_match(rt: ProdRuntime) -> anyhow::Result<()> {
+        let backend = setup_backend_for_test(rt).await?;
+
+        let dashboard_req = Request::builder()
+            .uri("/api/dashboard_openapi.json")
+            .method("GET")
+            .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
+            .body(Body::empty())?;
+
+        let public_req = Request::builder()
+            .uri("/api/public_openapi.json")
+            .method("GET")
+            .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
+            .body(Body::empty())?;
+
+        let platform_req = Request::builder()
+            .uri("/api/v1/openapi.json")
+            .method("GET")
+            .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
+            .body(Body::empty())?;
+
+        let actual_dashboard: serde_json::Value = backend.expect_success(dashboard_req).await?;
+        let actual_public: serde_json::Value = backend.expect_success(public_req).await?;
+        let actual_platform: serde_json::Value = backend.expect_success(platform_req).await?;
+
+        let actual_dashboard = serde_json::to_string_pretty(&actual_dashboard)?;
+        let actual_public = serde_json::to_string_pretty(&actual_public)?;
+        let actual_platform = serde_json::to_string_pretty(&actual_platform)?;
+
+        let expected_dashboard = fs::read_to_string(DASHBOARD_SPEC_FILE)
+            .context(format!("Couldn't read {DASHBOARD_SPEC_FILE}"))?;
+        let expected_public = fs::read_to_string(PUBLIC_SPEC_FILE)
+            .context(format!("Couldn't read {PUBLIC_SPEC_FILE}"))?;
+        let expected_platform = fs::read_to_string(PLATFORM_SPEC_FILE)
+            .context(format!("Couldn't read {PLATFORM_SPEC_FILE}"))?;
+
+        if expected_dashboard != actual_dashboard
+            || expected_public != actual_public
+            || expected_platform != actual_platform
+        {
+            fs::write(DASHBOARD_SPEC_FILE, &actual_dashboard)?;
+            fs::write(PUBLIC_SPEC_FILE, &actual_public)?;
+            fs::write(PLATFORM_SPEC_FILE, &actual_platform)?;
+            panic!(
+                "{DASHBOARD_SPEC_FILE} or {PUBLIC_SPEC_FILE} or {PLATFORM_SPEC_FILE} does not \
+                 match result of http route changes. This test will automatically update \
+                 dashboard-deployment-openapi.json, deployment-public-openapi.json, and \
+                 deployment-openapi.json so you can run again: `cargo test -p local_backend \
+                 test_api_specs_match`"
+            );
+        }
+        Ok(())
+    }
 }

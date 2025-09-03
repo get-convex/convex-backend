@@ -177,7 +177,7 @@ function getGenerateButtonText(deploymentType: DeploymentTypeType) {
       return "Generate Preview Deploy Key";
     }
     default: {
-      const _typecheck: never = deploymentType;
+      deploymentType satisfies never;
       return "Generate Deploy Key";
     }
   }

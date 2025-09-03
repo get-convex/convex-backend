@@ -46,6 +46,7 @@ use common::{
 use config::LocalConfig;
 use database::Database;
 use events::usage::NoOpUsageEventLogger;
+use exports::interface::InProcessExportProvider;
 use file_storage::{
     FileStorage,
     TransactionalFileStorage,
@@ -241,6 +242,7 @@ pub async fn make_app(
         fetch_client,
         config.local_log_sink.clone(),
         preempt_tx.clone(),
+        Arc::new(InProcessExportProvider),
     )
     .await?;
 

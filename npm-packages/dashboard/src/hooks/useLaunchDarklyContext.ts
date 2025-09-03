@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { LDMultiKindContext } from "launchdarkly-js-sdk-common";
 import { useMemo } from "react";
-import { User } from "hooks/useAuth0";
 import { createGlobalState } from "react-use";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
@@ -14,7 +13,7 @@ export const useGlobalLDContext = createGlobalState<
   LDMultiKindContext | undefined
 >();
 
-export const useLDContext = (user?: User) => {
+export const useLDContext = () => {
   const router = useRouter();
   const team = useCurrentTeam();
   const profile = useProfile();
@@ -26,7 +25,6 @@ export const useLDContext = (user?: User) => {
   return useMemo(() => {
     if (
       !router.isReady ||
-      !user ||
       !profile ||
       (router.query.team && !team) ||
       (router.query.project && !project)
@@ -36,7 +34,7 @@ export const useLDContext = (user?: User) => {
     const ctx: LDMultiKindContext = {
       kind: "multi",
       user: {
-        key: user.sub!,
+        key: profile.id.toString(),
         email: profile.email,
         id: profile.id,
         _meta: {
@@ -65,15 +63,14 @@ export const useLDContext = (user?: User) => {
     router.isReady,
     router.query.team,
     router.query.project,
-    user,
     profile,
     team,
     project,
   ]);
 };
 
-export const useLDContextWithDeployment = (user?: User) => {
-  const ctx = useLDContext(user);
+export const useLDContextWithDeployment = () => {
+  const ctx = useLDContext();
   const serverVersion = useQuery(udfs.getVersion.default);
   const deployment = useCurrentDeployment();
 

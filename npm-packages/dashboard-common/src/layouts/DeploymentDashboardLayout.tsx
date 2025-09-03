@@ -16,7 +16,11 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useCollapseSidebarState } from "@common/lib/useCollapseSidebarState";
 import { PulseIcon } from "@common/elements/icons";
-import { Sidebar, useCurrentPage } from "@common/elements/Sidebar";
+import {
+  Sidebar,
+  SidebarGroup,
+  useCurrentPage,
+} from "@common/elements/Sidebar";
 import { FunctionRunnerWrapper } from "@common/features/functionRunner/components/FunctionRunnerWrapper";
 import { FunctionsProvider } from "@common/lib/functions/FunctionsProvider";
 import { useIsGlobalRunnerShown } from "@common/features/functionRunner/lib/functionRunner";
@@ -86,7 +90,7 @@ export function DeploymentDashboardLayout({
     },
   ];
 
-  const sidebarItems = [
+  const sidebarItems: SidebarGroup[] = [
     {
       key: "explore",
       items: exploreDeploymentPages,
@@ -102,7 +106,7 @@ export function DeploymentDashboardLayout({
             ? `https://dashboard.convex.dev/d/${deploymentName}/history`
             : `${uriPrefix}/history`,
           target: isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined,
-          disabled: !auditLogsEnabled,
+          muted: !auditLogsEnabled,
           tooltip: auditLogsEnabled
             ? undefined
             : "Deployment history is only available on the Pro plan.",

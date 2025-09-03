@@ -1,0 +1,499 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Convex Public HTTP routes",
+    "description": "Endpoints that require no authentication",
+    "license": {
+      "name": "LicenseRef-FSL-1.1-Apache-2.0",
+      "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Deployment API"
+    }
+  ],
+  "paths": {
+    "/query": {
+      "get": {
+        "summary": "Execute query (GET)",
+        "description": "Execute a query function via GET request.",
+        "operationId": "public_query_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Function path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "args",
+            "in": "query",
+            "description": "Function arguments as JSON string",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Response format",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Execute query (POST)",
+        "description": "Execute a query function via POST request.",
+        "operationId": "public_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UdfPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/query_ts": {
+      "post": {
+        "summary": "Get latest timestamp",
+        "description": "Get the latest timestamp for queries.",
+        "operationId": "public_get_query_ts",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/query_at_ts": {
+      "post": {
+        "summary": "Execute query at timestamp",
+        "description": "Execute a query function at a specific timestamp.",
+        "operationId": "public_query_at_ts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UdfPostWithTsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/query_batch": {
+      "post": {
+        "summary": "Execute query batch",
+        "description": "Execute multiple query functions in a batch.",
+        "operationId": "public_query_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryBatchArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryBatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mutation": {
+      "post": {
+        "summary": "Execute mutation",
+        "description": "Execute a mutation function.",
+        "operationId": "public_mutation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UdfPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/action": {
+      "post": {
+        "summary": "Execute action",
+        "description": "Execute an action function.",
+        "operationId": "public_action_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UdfPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/function": {
+      "post": {
+        "summary": "Execute any function",
+        "description": "Execute a query, mutation, or action function by name.",
+        "operationId": "public_function_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UdfPostRequestWithComponent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/run/{*functionIdentifier}": {
+      "post": {
+        "summary": "Execute function by URL path",
+        "description": "Execute a query, mutation, or action function by path in URL.",
+        "operationId": "public_function_post_with_path",
+        "parameters": [
+          {
+            "name": "functionIdentifier",
+            "in": "path",
+            "description": "Function path like messages/list",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UdfPostRequestArgsOnly"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UdfResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QueryBatchArgs": {
+        "type": "object",
+        "required": [
+          "queries"
+        ],
+        "properties": {
+          "queries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UdfPostRequest"
+            }
+          }
+        }
+      },
+      "QueryBatchResponse": {
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UdfResponse"
+            }
+          }
+        }
+      },
+      "SerializedTs": {
+        "type": "string"
+      },
+      "Ts": {
+        "type": "object",
+        "required": [
+          "ts"
+        ],
+        "properties": {
+          "ts": {
+            "$ref": "#/components/schemas/SerializedTs"
+          }
+        }
+      },
+      "UdfPostRequest": {
+        "type": "object",
+        "required": [
+          "path",
+          "args"
+        ],
+        "properties": {
+          "args": {
+            "type": "object"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "UdfPostRequestArgsOnly": {
+        "type": "object",
+        "required": [
+          "args"
+        ],
+        "properties": {
+          "args": {
+            "type": "object"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UdfPostRequestWithComponent": {
+        "type": "object",
+        "description": "This struct should only be used for endpoints that allow calling functions\ninside components. Requires admin key.",
+        "required": [
+          "path",
+          "args"
+        ],
+        "properties": {
+          "args": {
+            "type": "object"
+          },
+          "componentPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "UdfPostWithTsRequest": {
+        "type": "object",
+        "required": [
+          "path",
+          "args",
+          "ts"
+        ],
+        "properties": {
+          "args": {
+            "type": "object"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "ts": {
+            "$ref": "#/components/schemas/SerializedTs"
+          }
+        }
+      },
+      "UdfResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "status"
+            ],
+            "properties": {
+              "logLines": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "success"
+                ]
+              },
+              "value": {
+                "$ref": "#/components/schemas/Value"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "errorMessage",
+              "status"
+            ],
+            "properties": {
+              "errorData": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  }
+                ]
+              },
+              "errorMessage": {
+                "type": "string"
+              },
+              "logLines": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "error"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Value": {}
+    }
+  }
+}

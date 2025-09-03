@@ -395,8 +395,24 @@ const config: Config = {
         docsPluginId: "classic", // configured for preset-classic
         config: {
           management: {
-            specPath: "../@convex-dev/platform/platform-openapi.json",
+            specPath: "../@convex-dev/platform/management-openapi.json",
             outputDir: "docs/management-api",
+            sidebarOptions: {
+              groupPathsBy: "tag",
+            },
+            hideSendButton: false,
+          } satisfies OpenApiPlugin.Options,
+          publicDeployment: {
+            specPath: "../@convex-dev/platform/public-deployment-openapi.json",
+            outputDir: "docs/public-deployment-api",
+            sidebarOptions: {
+              groupPathsBy: "tag",
+            },
+            hideSendButton: false,
+          } satisfies OpenApiPlugin.Options,
+          deployment: {
+            specPath: "../@convex-dev/platform/deployment-openapi.json",
+            outputDir: "docs/deployment-api",
             sidebarOptions: {
               groupPathsBy: "tag",
             },

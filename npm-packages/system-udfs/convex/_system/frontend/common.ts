@@ -28,6 +28,17 @@ export type StructuredLogLine = {
 };
 export type LogLine = string | StructuredLogLine;
 
+export type UsageStats = {
+  actionMemoryUsedMb: number | null;
+  databaseReadBytes: number;
+  databaseWriteBytes: number;
+  databaseReadDocuments: number;
+  storageReadBytes: number;
+  storageWriteBytes: number;
+  vectorIndexReadBytes: number;
+  vectorIndexWriteBytes: number;
+};
+
 export type FunctionExecutionCompletion = {
   kind: "Completion";
   componentPath?: string;
@@ -51,6 +62,12 @@ export type FunctionExecutionCompletion = {
 
   requestId: string;
   executionId: string;
+  usageStats?: UsageStats;
+  caller: string;
+  environment: string;
+  identityType: string;
+  parentExecutionId: string | null;
+  executionTimestamp?: number;
 };
 
 export type FunctionExecutionProgess = {

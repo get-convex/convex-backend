@@ -35,7 +35,10 @@ export function deploymentDashboardUrlPage(
   configuredDeployment: string | null,
   page: string,
 ): string {
-  return `${DASHBOARD_HOST}/d/${configuredDeployment}${page}`;
+  const deploymentFrag = configuredDeployment
+    ? `/d/${configuredDeployment}`
+    : "";
+  return `${DASHBOARD_HOST}${deploymentFrag}${page}`;
 }
 
 export function deploymentDashboardUrl(

@@ -30,7 +30,6 @@ use common::{
     types::{
         GenericIndexName,
         IndexDescriptor,
-        IndexId,
         IndexName,
         TabletIndexName,
     },
@@ -49,6 +48,7 @@ use storage::Storage;
 use sync_types::Timestamp;
 use value::{
     assert_obj,
+    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -56,7 +56,8 @@ use value::{
 };
 
 use crate::{
-    index_workers::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
+    search_index_workers::{
         search_compactor::CompactionConfig,
         FlusherType,
     },
@@ -78,6 +79,7 @@ use crate::{
         TextIndexMetadataWriter,
     },
     Database,
+    IndexBackfillMetadata,
     IndexModel,
     ResolvedQuery,
     TestFacingModel,
@@ -211,6 +213,16 @@ impl TextFixtures {
         Ok(index_data)
     }
 
+    pub async fn index_backfill_progress(
+        &self,
+        index_id: DeveloperDocumentId,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
+        let mut tx = self.db.begin_system().await?;
+        IndexBackfillModel::new(&mut tx)
+            .existing_backfill_metadata(index_id)
+            .await
+    }
+
     pub async fn backfill(&self) -> anyhow::Result<()> {
         backfill_text_indexes(
             self.rt.clone(),
@@ -257,7 +269,7 @@ impl TextFixtures {
 
         let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;
         Ok(IndexData {
-            index_id: index_id.internal_id(),
+            index_id,
             resolved_index_name,
             index_name: index_name.clone(),
             namespace: self.namespace,
@@ -397,7 +409,7 @@ const TABLE_NAME: &str = "table";
 const SEARCH_FIELD: &str = "text";
 
 pub struct IndexData {
-    pub index_id: IndexId,
+    pub index_id: ResolvedDocumentId,
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
     pub namespace: TableNamespace,

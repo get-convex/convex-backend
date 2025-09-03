@@ -65,10 +65,7 @@ use storage::{
 };
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use usage_tracking::{
-    FunctionUsageTracker,
-    UsageCounter,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
     InternalId,
     TableNamespace,
@@ -82,6 +79,7 @@ use self::{
 };
 
 mod export_storage;
+pub mod interface;
 mod metrics;
 #[cfg(test)]
 mod tests;
@@ -98,7 +96,6 @@ pub struct ExportComponents<RT: Runtime> {
     pub database: DatabaseSnapshot<RT>,
     pub storage: Arc<dyn Storage>,
     pub file_storage: Arc<dyn Storage>,
-    pub usage_tracking: UsageCounter,
     pub instance_name: String,
 }
 
@@ -126,7 +123,12 @@ where
             virtual_system_mapping().clone(),
         )?;
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-        let snapshot = &components.database.snapshot;
+        drop(tx);
+        let mut database = components.database.clone();
+        if database.snapshot.table_summaries.is_none() {
+            database.load_table_summaries().await?;
+        }
+        let snapshot = &database.snapshot;
         let table_summaries = snapshot.must_table_summaries()?;
         let tables: BTreeMap<_, _> = snapshot
             .table_registry

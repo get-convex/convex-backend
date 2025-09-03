@@ -15,9 +15,9 @@ fn display_composite<K: Display, V: Display, I: Iterator<Item = (Option<K>, V)>>
             write!(f, ", ")?;
         }
         if let Some(key) = key {
-            write!(f, "{}: ", key)?;
+            write!(f, "{key}: ")?;
         }
-        write!(f, "{}", value)?;
+        write!(f, "{value}")?;
         first = false;
     }
     write!(f, "{}", enclosing[1])

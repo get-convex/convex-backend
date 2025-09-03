@@ -36,7 +36,7 @@ the table list to see the Agent data. The organization of the tables matches the
 The most useful tables are:
 
 - `threads` has one row per thread
-- `messages` has a separate row for each CoreMessage - e.g. a user message,
+- `messages` has a separate row for each ModelMessage - e.g. a user message,
   assistant tool call, tool result, assistant message, etc. The most important
   fields are `agentName` for which agent it's associated with, `status`, `order`
   and `stepOrder` which are used to order the messages, and `message` which is
@@ -56,19 +56,21 @@ functions. The way to fix this is to explicitly type the return value of the
 workflow. When in doubt, add return types to more `handler` functions, like
 this:
 
-```diff
- export const supportAgentWorkflow = workflow.define({
-   args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
-+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
-     // ...
-   },
- });
+```ts
+export const supportAgentWorkflow = workflow.define({
+  args: { prompt: v.string(), userId: v.string(), threadId: v.string() },
+  // highlight-next-line
+  handler: async (step, { prompt, userId, threadId }): Promise<string> => {
+    // ...
+  },
+});
 
- // And regular functions too:
- export const myFunction = action({
-   args: { prompt: v.string() },
-+  handler: async (ctx, { prompt }): Promise<string> => {
-     // ...
-   },
- });
+// And regular functions too:
+export const myFunction = action({
+  args: { prompt: v.string() },
+  // highlight-next-line
+  handler: async (ctx, { prompt }): Promise<string> => {
+    // ...
+  },
+});
 ```

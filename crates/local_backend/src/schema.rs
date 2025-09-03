@@ -9,15 +9,15 @@ use common::{
     bootstrap_model::{
         index::{
             database_index::{
+                DatabaseIndexSpec,
                 DatabaseIndexState,
-                DeveloperDatabaseIndexConfig,
             },
             text_index::{
-                DeveloperTextIndexConfig,
+                TextIndexSpec,
                 TextIndexState,
             },
             vector_index::{
-                DeveloperVectorIndexConfig,
+                VectorIndexSpec,
                 VectorIndexState,
             },
             IndexConfig,
@@ -37,10 +37,10 @@ use common::{
         },
         HttpResponseError,
     },
+    types::IndexDiff,
 };
 use database::{
     IndexModel,
-    LegacyIndexDiff,
     SchemaModel,
 };
 use errors::ErrorMetadata;
@@ -83,6 +83,7 @@ pub struct IndexMetadataResponse {
     // `{ searchField: string, filterFields: string }` for a search index.
     fields: JsonValue,
     backfill: BackfillResponse,
+    staged: bool,
 }
 
 impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
@@ -93,7 +94,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
         let name = meta.name.descriptor().to_string();
         Ok(match meta.config {
             IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 on_disk_state,
             } => {
                 let backfill_state = match on_disk_state {
@@ -115,12 +116,13 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     backfill: BackfillResponse {
                         state: backfill_state,
                     },
+                    staged: on_disk_state.is_staged(),
                 }
             },
             IndexConfig::Text {
                 on_disk_state,
-                developer_config:
-                    DeveloperTextIndexConfig {
+                spec:
+                    TextIndexSpec {
                         search_field,
                         filter_fields,
                     },
@@ -145,11 +147,12 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     backfill: BackfillResponse {
                         state: backfill_state,
                     },
+                    staged: on_disk_state.is_staged(),
                 }
             },
             IndexConfig::Vector {
-                developer_config:
-                    DeveloperVectorIndexConfig {
+                spec:
+                    VectorIndexSpec {
                         dimensions,
                         vector_field,
                         filter_fields,
@@ -173,6 +176,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     backfill: BackfillResponse {
                         state: backfill_state,
                     },
+                    staged: on_disk_state.is_staged(),
                 }
             },
         })
@@ -192,11 +196,13 @@ pub struct PrepareSchemaArgs {
 pub struct PrepareSchemaResponse {
     added: Vec<IndexMetadataResponse>,
     dropped: Vec<IndexMetadataResponse>,
+    enabled: Vec<IndexMetadataResponse>,
+    disabled: Vec<IndexMetadataResponse>,
     schema_id: String,
 }
 
 impl PrepareSchemaResponse {
-    fn new(diff: LegacyIndexDiff, schema_id: ResolvedDocumentId) -> anyhow::Result<Self> {
+    fn new(diff: IndexDiff, schema_id: ResolvedDocumentId) -> anyhow::Result<Self> {
         Ok(PrepareSchemaResponse {
             added: diff
                 .added
@@ -205,6 +211,18 @@ impl PrepareSchemaResponse {
                 .try_collect()?,
             dropped: diff
                 .dropped
+                .into_iter()
+                .map(|doc| doc.into_value())
+                .map(IndexMetadataResponse::try_from)
+                .try_collect()?,
+            enabled: diff
+                .enabled
+                .into_iter()
+                .map(|doc| doc.into_value())
+                .map(IndexMetadataResponse::try_from)
+                .try_collect()?,
+            disabled: diff
+                .disabled
                 .into_iter()
                 .map(|doc| doc.into_value())
                 .map(IndexMetadataResponse::try_from)
@@ -248,7 +266,7 @@ pub async fn prepare_schema_handler(
     let table_namespace = TableNamespace::root_component();
     // In dry_run we only commit the schema, to enable CLI to check if the schema is
     // valid.
-    let index_diff: LegacyIndexDiff = if dry_run {
+    let index_diff = if dry_run {
         let mut tx = st.application.begin(identity.clone()).await?;
         IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(table_namespace, &schema)
@@ -257,8 +275,7 @@ pub async fn prepare_schema_handler(
         IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(table_namespace, &schema)
             .await?
-    }
-    .into();
+    };
 
     let (schema_id, schema_state) = SchemaModel::new(&mut tx, table_namespace)
         .submit_pending(schema)
@@ -345,7 +362,7 @@ pub async fn schema_state(
     let doc = tx.get(schema_id).await?.ok_or_else(|| {
         anyhow::anyhow!(ErrorMetadata::not_found(
             "SchemaNotFound",
-            format!("Schema with id {} not found", schema_id),
+            format!("Schema with id {schema_id} not found"),
         ))
     })?;
     let SchemaMetadata { state, .. } = doc.into_value().into_value().try_into()?;

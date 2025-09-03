@@ -6,7 +6,11 @@ use application::{
     },
 };
 use axum::{
-    extract::State,
+    debug_handler,
+    extract::{
+        FromRef,
+        State,
+    },
     response::IntoResponse,
 };
 use common::{
@@ -36,6 +40,8 @@ use serde::{
 };
 use serde_json::Value as JsonValue;
 use sync_types::Timestamp;
+use utoipa::ToSchema;
+use utoipa_axum::router::OpenApiRouter;
 use value::{
     export::ValueFormat,
     ConvexValue,
@@ -51,32 +57,34 @@ use crate::{
     RouterState,
 };
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UdfPostRequest {
     pub path: String,
+    #[schema(value_type = Object)]
     pub args: UdfArgsJson,
 
     pub format: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Ts {
     pub ts: SerializedTs,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UdfPostWithTsRequest {
     pub path: String,
+    #[schema(value_type = Object)]
     pub args: UdfArgsJson,
     pub ts: SerializedTs,
 
     pub format: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct SerializedTs(String);
 
 impl From<Timestamp> for SerializedTs {
@@ -107,7 +115,7 @@ pub struct UdfArgsQuery {
     pub format: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, ToSchema)]
 #[serde(tag = "status")]
 #[serde(rename_all = "camelCase")]
 pub enum UdfResponse {
@@ -116,6 +124,7 @@ pub enum UdfResponse {
         value: JsonValue,
 
         #[serde(skip_serializing_if = "RedactedLogLines::is_empty")]
+        #[schema(value_type = Vec<String>)]
         log_lines: RedactedLogLines,
     },
     #[serde(rename_all = "camelCase")]
@@ -127,6 +136,7 @@ pub enum UdfResponse {
 
         #[serde(skip_serializing_if = "RedactedLogLines::is_empty")]
         #[serde(default = "RedactedLogLines::empty")]
+        #[schema(value_type = Vec<String>)]
         log_lines: RedactedLogLines,
     },
 }
@@ -180,7 +190,16 @@ impl UdfResponse {
     }
 }
 
-/// Executes an arbitrary query/mutation/action from its name.
+/// Execute any function
+///
+/// Execute a query, mutation, or action function by name.
+#[utoipa::path(
+    post,
+    path = "/function",
+    request_body = UdfPostRequestWithComponent,
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 pub async fn public_function_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -231,15 +250,26 @@ pub async fn public_function_post(
     Ok(Json(response))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct UdfPostRequestArgsOnly {
+    #[schema(value_type = Object)]
     pub args: UdfArgsJson,
     pub format: Option<String>,
 }
 
-/// Executes an arbitrary query/mutation/action from its name. This is different
-/// from `public_function_post` because it takes the udf path in the API
-/// request and doesn't require admin auth.
+/// Execute function by URL path
+///
+/// Execute a query, mutation, or action function by path in URL.
+#[utoipa::path(
+    post,
+    path = "/run/{*functionIdentifier}",
+    params(
+        ("functionIdentifier" = String, Path, description = "Function path like messages/list")
+    ),
+    request_body = UdfPostRequestArgsOnly,
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 pub async fn public_function_post_with_path(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -264,6 +294,7 @@ pub async fn public_function_post_with_path(
             "Path or function name not provided in path, e.g. /api/run/messages/list",
         ))
     };
+    println!("{path:?}");
 
     // messages/list -> ["messages", "list"]
     let mut path_parts = path
@@ -271,6 +302,7 @@ pub async fn public_function_post_with_path(
         .split('/')
         .map(|p| urlencoding::decode(p).map_err(|_e| bad_request_error()))
         .try_collect::<Vec<_>>()?;
+    println!("{path_parts:?}");
     if path_parts.len() < 2 {
         return Err(bad_request_error().into());
     }
@@ -325,6 +357,20 @@ pub fn export_value(
     Ok(value.export(format))
 }
 
+/// Execute query (GET)
+///
+/// Execute a query function via GET request.
+#[utoipa::path(
+    get,
+    path = "/query",
+    params(
+        ("path" = String, Query, description = "Function path"),
+        ("args" = String, Query, description = "Function arguments as JSON string"),
+        ("format" = Option<String>, Query, description = "Response format")
+    ),
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 #[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
     State(st): State<RouterState>,
@@ -370,6 +416,16 @@ pub async fn public_query_get(
     Ok(Json(response))
 }
 
+/// Execute query (POST)
+///
+/// Execute a query function via POST request.
+#[utoipa::path(
+    post,
+    path = "/query",
+    request_body = UdfPostRequest,
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 #[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(st): State<RouterState>,
@@ -415,6 +471,15 @@ pub async fn public_query_post(
     Ok(Json(response))
 }
 
+/// Get latest timestamp
+///
+/// Get the latest timestamp for queries.
+#[utoipa::path(
+    post,
+    path = "/query_ts",
+    responses((status = 200, body = Ts)),
+)]
+#[debug_handler]
 pub async fn public_get_query_ts(
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -424,6 +489,16 @@ pub async fn public_get_query_ts(
     Ok(Json(Ts { ts: ts.into() }))
 }
 
+/// Execute query at timestamp
+///
+/// Execute a query function at a specific timestamp.
+#[utoipa::path(
+    post,
+    path = "/query_at_ts",
+    request_body = UdfPostWithTsRequest,
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 #[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_at_ts_post(
     State(st): State<RouterState>,
@@ -470,16 +545,26 @@ pub async fn public_query_at_ts_post(
     Ok(Json(response))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct QueryBatchArgs {
     queries: Vec<UdfPostRequest>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct QueryBatchResponse {
     results: Vec<UdfResponse>,
 }
 
+/// Execute query batch
+///
+/// Execute multiple query functions in a batch.
+#[utoipa::path(
+    post,
+    path = "/query_batch",
+    request_body = QueryBatchArgs,
+    responses((status = 200, body = QueryBatchResponse)),
+)]
+#[debug_handler]
 pub async fn public_query_batch_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -528,6 +613,16 @@ pub async fn public_query_batch_post(
     Ok(Json(QueryBatchResponse { results }))
 }
 
+/// Execute mutation
+///
+/// Execute a mutation function.
+#[utoipa::path(
+    post,
+    path = "/mutation",
+    request_body = UdfPostRequest,
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 #[fastrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(st): State<RouterState>,
@@ -575,6 +670,16 @@ pub async fn public_mutation_post(
     Ok(Json(response))
 }
 
+/// Execute action
+///
+/// Execute an action function.
+#[utoipa::path(
+    post,
+    path = "/action",
+    request_body = UdfPostRequest,
+    responses((status = 200, body = UdfResponse)),
+)]
+#[debug_handler]
 #[fastrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(st): State<RouterState>,
@@ -619,6 +724,24 @@ pub async fn public_action_post(
         )?,
     };
     Ok(Json(response))
+}
+
+// The public (stable, no auth required) API of a deployment.
+pub fn public_api_router<S>() -> OpenApiRouter<S>
+where
+    RouterState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    OpenApiRouter::new()
+        .routes(utoipa_axum::routes!(public_query_get))
+        .routes(utoipa_axum::routes!(public_query_post))
+        .routes(utoipa_axum::routes!(public_get_query_ts))
+        .routes(utoipa_axum::routes!(public_query_at_ts_post))
+        .routes(utoipa_axum::routes!(public_query_batch_post))
+        .routes(utoipa_axum::routes!(public_mutation_post))
+        .routes(utoipa_axum::routes!(public_action_post))
+        .routes(utoipa_axum::routes!(public_function_post))
+        .routes(utoipa_axum::routes!(public_function_post_with_path))
 }
 
 #[cfg(test)]

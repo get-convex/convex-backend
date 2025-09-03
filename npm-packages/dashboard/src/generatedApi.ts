@@ -975,7 +975,7 @@ export interface paths {
         put?: never;
         /** This endpoint is a placeholder for generating our own access tokens.
          *     Right now, it is a no-op for the token.
-         *     Version 1 of the token is the Auth0 access token */
+         *     Version 1 of the token is the WorkOS access token */
         post: operations["authorize_device"];
         delete?: never;
         options?: never;
@@ -1351,22 +1351,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/usage/current_billing_period": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_team_current_billing_period"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/usage/query": {
         parameters: {
             query?: never;
@@ -1375,6 +1359,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["query_usage_databricks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/usage/current_billing_period": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_team_current_billing_period"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1415,39 +1415,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/set_jwt_cookie": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["set_jwt_cookie"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/link_identity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Link a secondary identity to a user's account */
-        post: operations["link_identity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/unlink_identity": {
         parameters: {
             query?: never;
@@ -1482,17 +1449,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/update_primary_identity": {
+    "/identities": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description List simplified identities grouped by WorkOS user ID */
+        get: operations["identities"];
         put?: never;
-        /** @description Change the primary identity for a user's account by unlinking and relinking. */
-        post: operations["update_primary_identity"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1660,12 +1627,12 @@ export interface components {
         AuthIdentityResponse: {
             connection: string;
             isPrimary: boolean;
-            profileData: components["schemas"]["ProfileData"];
+            parentUserId?: string | null;
             provider: string;
             userId: string;
         };
         AuthorizeAppArgs: {
-            /** @description Authentication token is expected to be the access token from auth0 */
+            /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
             clientId: string;
             codeChallenge?: string | null;
@@ -1678,7 +1645,7 @@ export interface components {
         AuthorizeAppMode: "AuthorizationCode";
         AuthorizeArgs: {
             anonymousId?: string | null;
-            /** @description Authentication token is expected to be the access token from auth0 */
+            /** @description Authentication token is expected to be the access token from WorkOS */
             authnToken: string;
             deploymentId?: null | components["schemas"]["DeploymentId"];
             deviceName?: null | components["schemas"]["DeviceName"];
@@ -1705,10 +1672,6 @@ export interface components {
         };
         CancelInvitationArgs: {
             email: string;
-        };
-        ChangePrimaryIdentityRequest: {
-            newPrimaryProvider: string;
-            newPrimaryUserId: string;
         };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
@@ -1745,7 +1708,7 @@ export interface components {
             team: components["schemas"]["TeamSlug"];
         };
         CreateProjectResponse: {
-            adminKey: components["schemas"]["AdminKey"];
+            adminKey?: null | components["schemas"]["AdminKey"];
             deploymentName: string;
             prodUrl: string;
             projectId: components["schemas"]["ProjectId"];
@@ -1783,7 +1746,7 @@ export interface components {
         DeploymentResponse: {
             /** Format: int64 */
             createTime: number;
-            creator: components["schemas"]["MemberId"];
+            creator?: null | components["schemas"]["MemberId"];
             deploymentType: components["schemas"]["DeploymentType"];
             /** Format: int64 */
             id: number;
@@ -1875,6 +1838,11 @@ export interface components {
             /** Format: int64 */
             tokensUsed: number;
         };
+        IdentityResponse: {
+            email?: string | null;
+            id: string;
+            providers: string[];
+        };
         InstanceAuthForDashboardInteractionsResponse: {
             adminKey: components["schemas"]["SerializedAccessToken"];
             instanceUrl: string;
@@ -1911,9 +1879,6 @@ export interface components {
         };
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
-        };
-        LinkIdentityRequest: {
-            fromProfile: boolean;
         };
         ListEnvVariableResponse: {
             configs: components["schemas"]["EnvVariableConfigJson"][];
@@ -1999,14 +1964,6 @@ export interface components {
             plans: components["schemas"]["PlanResponse"][];
         };
         PreviewDeploymentIdentifier: string;
-        ProfileData: {
-            email?: string | null;
-            name?: string | null;
-            nickname?: string | null;
-            username?: string | null;
-            vercel_account_id?: string | null;
-            vercel_installation_id?: string | null;
-        };
         ProfileEmailArgs: {
             email: string;
         };
@@ -2062,7 +2019,7 @@ export interface components {
             memberId: components["schemas"]["MemberId"];
         };
         RenameAccessTokenArgs: {
-            /** @description Authentication token is expected to be the access token from auth0 */
+            /** @description Authentication token is expected to be the access token from WorkOS */
             accessToken: string;
             newName: components["schemas"]["DeviceName"];
         };
@@ -2076,7 +2033,7 @@ export interface components {
         /** @description ConvexAccessToken is our own internal notion of authorization.
          *     It is versioned.
          *
-         *     V1 - uses an auth0_access_token for authorization.
+         *     V1 - uses an WorkOS access token for authorization.
          *
          *     Serialization is done by SerializedAccessToken::new
          *     The ConvexAccessToken is serialized (json) and base64
@@ -2090,7 +2047,7 @@ export interface components {
          *     left public.
          *
          *     The json is externally tagged. Expect it to look like
-         *     {"v1": "auth0token"} */
+         *     {"v1": "workostoken"} */
         SerializedAccessToken: string;
         SetSpendingLimitArgs: {
             /** Format: int64 */
@@ -2182,7 +2139,6 @@ export interface components {
             discordId: components["schemas"]["DiscordId"];
         };
         UnlinkIdentityRequest: {
-            provider: string;
             userId: string;
         };
         UpdateBillingAddressArgs: {
@@ -2276,7 +2232,6 @@ export type AuthorizeDiscordAccountRequest = components['schemas']['AuthorizeDis
 export type AuthorizeResponse = components['schemas']['AuthorizeResponse'];
 export type BillingContactResponse = components['schemas']['BillingContactResponse'];
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
-export type ChangePrimaryIdentityRequest = components['schemas']['ChangePrimaryIdentityRequest'];
 export type ChangeSubscriptionPlanArgs = components['schemas']['ChangeSubscriptionPlanArgs'];
 export type CheckOauthAppArgs = components['schemas']['CheckOauthAppArgs'];
 export type CloudBackupId = components['schemas']['CloudBackupId'];
@@ -2306,12 +2261,12 @@ export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResp
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
 export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse'];
+export type IdentityResponse = components['schemas']['IdentityResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
-export type LinkIdentityRequest = components['schemas']['LinkIdentityRequest'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
@@ -2329,7 +2284,6 @@ export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig']
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
-export type ProfileData = components['schemas']['ProfileData'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
 export type ProjectId = components['schemas']['ProjectId'];
@@ -4265,27 +4219,6 @@ export interface operations {
             };
         };
     };
-    get_team_current_billing_period: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamCurrentBillingPeriodResponse"];
-                };
-            };
-        };
-    };
     query_usage_databricks: {
         parameters: {
             query: {
@@ -4313,6 +4246,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[][];
+                };
+            };
+        };
+    };
+    get_team_current_billing_period: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCurrentBillingPeriodResponse"];
                 };
             };
         };
@@ -4366,30 +4320,6 @@ export interface operations {
             };
         };
     };
-    set_jwt_cookie: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: never;
-    };
-    link_identity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LinkIdentityRequest"];
-            };
-        };
-        responses: never;
-    };
     unlink_identity: {
         parameters: {
             query?: never;
@@ -4423,19 +4353,24 @@ export interface operations {
             };
         };
     };
-    update_primary_identity: {
+    identities: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangePrimaryIdentityRequest"];
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResponse"][];
+                };
             };
         };
-        responses: never;
     };
     list_oauth_apps_for_team: {
         parameters: {

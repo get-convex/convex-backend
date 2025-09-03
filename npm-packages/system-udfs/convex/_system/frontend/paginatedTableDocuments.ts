@@ -17,6 +17,7 @@ import {
   ValidFilterByBuiltin,
   ValidFilterByOr,
   applyIndexFilters,
+  applySearchIndexFilters,
   applyTypeFilters,
   findErrorsInFilters,
   findIndexByName,
@@ -24,6 +25,7 @@ import {
   isValidFilter,
   partitionFiltersByOperator,
   validateIndexFilter,
+  validateSearchIndexFilter,
 } from "./lib/filters";
 import { queryGeneric } from "../secretSystemTables";
 import { getSchemaByState } from "./getSchemas";
@@ -33,6 +35,7 @@ import { Expression } from "convex/server";
 import { ExpressionOrValue } from "convex/server";
 import { Value } from "convex/values";
 import { UNDEFINED_PLACEHOLDER } from "./lib/values";
+import { SearchIndex } from "../../../../convex/dist/internal-cjs-types/server";
 
 export default queryGeneric({
   args: {
@@ -87,7 +90,9 @@ export default queryGeneric({
 
     const indexFilter = parsedFilters?.index;
     const hasIndexFilter =
-      indexFilter && indexFilter.clauses.filter((c) => c.enabled).length > 0;
+      indexFilter &&
+      ("search" in indexFilter ||
+        indexFilter.clauses.filter((c) => c.enabled).length > 0);
     if (indexFilter) {
       // Let's find out if we can use an index from the schema.
       const schemaData = await getSchemaByState(
@@ -101,12 +106,20 @@ export default queryGeneric({
       // Find the selected index by name
       const selectedIndex = findIndexByName(indexFilter.name, indexes);
 
-      // Validate the index filter
-      const validationError = validateIndexFilter(
-        indexFilter.name,
-        indexFilter.clauses,
-        selectedIndex,
-      );
+      // Validate the filter filter
+      const isSearchIndex = "search" in indexFilter;
+      const validationError = isSearchIndex
+        ? validateSearchIndexFilter(
+            indexFilter.name,
+            indexFilter.filters,
+            selectedIndex,
+            order,
+          )
+        : validateIndexFilter(
+            indexFilter.name,
+            indexFilter.clauses,
+            selectedIndex,
+          );
 
       if (validationError) {
         return {
@@ -116,11 +129,20 @@ export default queryGeneric({
         };
       }
 
-      query = queryInitializer
-        .withIndex(indexFilter.name, (q) =>
-          applyIndexFilters(q, indexFilter.clauses, selectedIndex as Index),
-        )
-        .order(order);
+      query = isSearchIndex
+        ? queryInitializer.withSearchIndex(indexFilter.name, (q) =>
+            applySearchIndexFilters(
+              q,
+              indexFilter.search,
+              indexFilter.filters,
+              selectedIndex as SearchIndex,
+            ),
+          )
+        : queryInitializer
+            .withIndex(indexFilter.name, (q) =>
+              applyIndexFilters(q, indexFilter.clauses, selectedIndex as Index),
+            )
+            .order(order);
     }
 
     const [builtinFilters, typeFilters] =

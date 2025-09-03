@@ -12,12 +12,12 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
         text_index::{
-            DeveloperTextIndexConfig,
             FragmentedTextSegment,
             TextBackfillCursor,
             TextIndexBackfillState,
             TextIndexSnapshot,
             TextIndexSnapshotData,
+            TextIndexSpec,
             TextIndexState,
             TextSnapshotVersion,
         },
@@ -68,7 +68,7 @@ use storage::Storage;
 use sync_types::Timestamp;
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         index_meta::{
             BackfillState,
             SearchIndex,
@@ -101,7 +101,7 @@ impl SegmentType<TextSearchIndex> for FragmentedTextSegment {
 
     fn total_size_bytes(
         &self,
-        _config: &<TextSearchIndex as SearchIndex>::DeveloperConfig,
+        _config: &<TextSearchIndex as SearchIndex>::Spec,
     ) -> anyhow::Result<u64> {
         Ok(self.size_bytes_total)
     }
@@ -116,23 +116,23 @@ pub struct BuildTextIndexArgs {
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
     type BuildIndexArgs = BuildTextIndexArgs;
-    type DeveloperConfig = DeveloperTextIndexConfig;
     type NewSegment = NewTextSegment;
     type PreviousSegments = PreviousTextSegments;
     type Schema = TantivySearchIndexSchema;
     type Segment = FragmentedTextSegment;
+    type Spec = TextIndexSpec;
     type Statistics = TextStatistics;
 
     fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self>> {
         let IndexConfig::Text {
             on_disk_state,
-            developer_config,
+            spec,
         } = config
         else {
             return None;
         };
         Some(SearchIndexConfig {
-            developer_config,
+            spec,
             on_disk_state: match on_disk_state {
                 TextIndexState::Backfilling(snapshot) => {
                     SearchOnDiskState::Backfilling(snapshot.into())
@@ -168,7 +168,7 @@ impl SearchIndex for TextSearchIndex {
         snapshot.data.is_version_current()
     }
 
-    fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema {
+    fn new_schema(config: &Self::Spec) -> Self::Schema {
         TantivySearchIndexSchema::new(config)
     }
 
@@ -263,27 +263,27 @@ impl SearchIndex for TextSearchIndex {
 
     fn extract_metadata(
         metadata: ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)> {
-        let (on_disk_state, developer_config) = match metadata.into_value().config {
+    ) -> anyhow::Result<(Self::Spec, SearchOnDiskState<Self>)> {
+        let (on_disk_state, spec) = match metadata.into_value().config {
             IndexConfig::Database { .. } | IndexConfig::Vector { .. } => {
                 anyhow::bail!("Index type changed!")
             },
             IndexConfig::Text {
-                developer_config,
+                spec,
                 on_disk_state,
-            } => (on_disk_state, developer_config),
+            } => (on_disk_state, spec),
         };
-        Ok((developer_config, SearchOnDiskState::from(on_disk_state)))
+        Ok((spec, SearchOnDiskState::from(on_disk_state)))
     }
 
     fn new_index_config(
-        developer_config: Self::DeveloperConfig,
+        spec: Self::Spec,
         new_state: SearchOnDiskState<Self>,
     ) -> anyhow::Result<IndexConfig> {
         let on_disk_state = TextIndexState::from(new_state);
         Ok(IndexConfig::Text {
             on_disk_state,
-            developer_config,
+            spec,
         })
     }
 
@@ -294,7 +294,7 @@ impl SearchIndex for TextSearchIndex {
     async fn execute_compaction(
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
-        _config: &Self::DeveloperConfig,
+        _config: &Self::Spec,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment> {
         searcher
@@ -454,8 +454,12 @@ impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
         Self {
             segments: value.segments,
             cursor: value.cursor.clone().map(|value| value.cursor),
-            backfill_snapshot_ts: value.cursor.map(|value| value.backfill_snapshot_ts),
+            backfill_snapshot_ts: value
+                .cursor
+                .as_ref()
+                .and_then(|value| value.backfill_snapshot_ts),
             staged: value.staged,
+            last_segment_ts: value.cursor.and_then(|value| value.last_segment_ts),
         }
     }
 }
@@ -467,7 +471,8 @@ impl From<BackfillState<TextSearchIndex>> for TextIndexBackfillState {
         {
             Some(TextBackfillCursor {
                 cursor,
-                backfill_snapshot_ts,
+                backfill_snapshot_ts: Some(backfill_snapshot_ts),
+                last_segment_ts: value.last_segment_ts,
             })
         } else {
             None

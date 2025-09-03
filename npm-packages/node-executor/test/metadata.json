@@ -1,5 +1,7 @@
 {
   "modulePaths": [
+    "_deps/node/sample_node.js",
+    "_deps/sample_isolate.js",
     "a.js",
     "b.js",
     "c.js",
@@ -10,6 +12,7 @@
     "diamond.js",
     "left.js",
     "logging.js",
+    "someFolder/someFile.js",
     "right.js",
     "shared.js",
     "third_party.js",
@@ -17,6 +20,8 @@
     "transitive.js"
   ],
   "moduleEnvironments": [
+    ["_deps/node/sample_node.js", "node"],
+    ["_deps/sample_isolate.js", "isolate"],
     ["a.js", "node"],
     ["b.js", "isolate"],
     ["c.js", "isolate"],
@@ -29,6 +34,7 @@
     ["logging.js", "isolate"],
     ["right.js", "isolate"],
     ["shared.js", "isolate"],
+    ["someFolder/someFile.js", "node"],
     ["third_party.js", "isolate"],
     ["transitive.js", "isolate"]
   ]

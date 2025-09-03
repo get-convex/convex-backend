@@ -41,7 +41,7 @@ export function ProblemForInsight({
       return <OCCProblem insight={occInsight} explain={explain} />;
     }
     default: {
-      const _exhaustiveCheck: never = insight;
+      insight satisfies never;
       return null;
     }
   }

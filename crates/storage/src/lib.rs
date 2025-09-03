@@ -21,6 +21,7 @@ use std::{
         Write,
     },
     mem,
+    ops::Range,
     path::{
         Path,
         PathBuf,
@@ -65,7 +66,6 @@ use futures::{
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
-use http::Uri;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -80,6 +80,7 @@ use tokio_util::{
     io::StreamReader,
     sync::PollSender,
 };
+use url::Url;
 use value::sha256::{
     Sha256,
     Sha256Digest,
@@ -166,10 +167,13 @@ pub trait Storage: Send + Sync + Debug {
         part_tokens: Vec<ClientDrivenUploadPartToken>,
     ) -> anyhow::Result<ObjectKey>;
 
-    /// Gets a signed url for an object.
-    async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<Uri>;
+    /// Gets a URL that can be used to fetch an object.
+    async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<String>;
     /// Creates a presigned url for uploading an object.
-    async fn presigned_upload_url(&self, expires_in: Duration) -> anyhow::Result<(ObjectKey, Uri)>;
+    async fn presigned_upload_url(
+        &self,
+        expires_in: Duration,
+    ) -> anyhow::Result<(ObjectKey, String)>;
     async fn get_object_attributes(
         &self,
         key: &ObjectKey,
@@ -188,7 +192,7 @@ pub trait Storage: Send + Sync + Debug {
     fn get_small_range(
         &self,
         key: &FullyQualifiedObjectKey,
-        bytes_range: std::ops::Range<u64>,
+        bytes_range: Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>>;
     fn storage_type_proto(&self) -> pb::searchlight::StorageType;
     /// Return a cache key suitable for the given ObjectKey, even in
@@ -554,12 +558,18 @@ pub trait StorageExt {
         key: &FullyQualifiedObjectKey,
         bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
     ) -> anyhow::Result<Option<StorageGetStream>>;
+    /// Requires that `byte_range` be in-bounds for the object
+    fn get_fq_object_exact_range(
+        &self,
+        key: &FullyQualifiedObjectKey,
+        byte_range: Range<u64>,
+    ) -> StorageGetStream;
 
     // Implementation detail
     async fn get_small_range_with_retries(
         &self,
         key: &FullyQualifiedObjectKey,
-        small_byte_range: std::ops::Range<u64>,
+        small_byte_range: Range<u64>,
     ) -> anyhow::Result<StorageGetStream>;
 }
 
@@ -617,6 +627,20 @@ impl StorageExt for Arc<dyn Storage> {
             },
             attributes.size,
         );
+        Ok(Some(self.get_fq_object_exact_range(
+            key,
+            start_byte..end_byte_bound,
+        )))
+    }
+
+    fn get_fq_object_exact_range(
+        &self,
+        key: &FullyQualifiedObjectKey,
+        Range {
+            start: start_byte,
+            end: end_byte_bound,
+        }: Range<u64>,
+    ) -> StorageGetStream {
         let num_chunks = 1 + (end_byte_bound - start_byte) / DOWNLOAD_CHUNK_SIZE;
         // A list of futures, each of which resolves to a stream.
         let mut chunk_futures = vec![];
@@ -633,11 +657,11 @@ impl StorageExt for Arc<dyn Storage> {
                 self_
                     .get_small_range_with_retries(&key_, chunk_start..chunk_end)
                     .await
-                    .map_err(|e| {
-                        // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what the
-                        // AWS library does internally.
-                        std::io::Error::new(std::io::ErrorKind::Other, e)
-                    })
+                    .map_err(
+                        // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what
+                        // the AWS library does internally.
+                        io::Error::other,
+                    )
                     .map(|storage_get_stream| storage_get_stream.stream)
             };
             chunk_futures.push(stream_fut);
@@ -649,17 +673,17 @@ impl StorageExt for Arc<dyn Storage> {
             .buffered(MAX_CONCURRENT_CHUNK_DOWNLOADS)
             // Flatten the `Stream<Item = io::Result<Stream<Item = io::Result<Bytes>>>>` into a single `Stream<Item = io::Result<Bytes>>`
             .try_flatten();
-        Ok(Some(StorageGetStream {
+        StorageGetStream {
             content_length: (end_byte_bound - start_byte) as i64,
             stream: Box::pin(byte_stream),
-        }))
+        }
     }
 
     #[fastrace::trace]
     async fn get_small_range_with_retries(
         &self,
         key: &FullyQualifiedObjectKey,
-        small_byte_range: std::ops::Range<u64>,
+        small_byte_range: Range<u64>,
     ) -> anyhow::Result<StorageGetStream> {
         let output = self.get_small_range(key, small_byte_range.clone()).await?;
         let content_length = output.content_length;
@@ -680,12 +704,12 @@ impl StorageExt for Arc<dyn Storage> {
 const STORAGE_GET_RETRIES: usize = 5;
 
 #[allow(clippy::blocks_in_conditions)]
-#[try_stream(ok = Bytes, error = futures::io::Error)]
+#[try_stream(ok = Bytes, error = io::Error)]
 async fn stream_object_with_retries(
-    mut stream: BoxStream<'static, futures::io::Result<Bytes>>,
+    mut stream: BoxStream<'static, io::Result<Bytes>>,
     storage: Arc<dyn Storage>,
     key: FullyQualifiedObjectKey,
-    small_byte_range: std::ops::Range<u64>,
+    small_byte_range: Range<u64>,
     mut retries_remaining: usize,
 ) {
     let mut bytes_yielded = 0;
@@ -715,7 +739,7 @@ async fn stream_object_with_retries(
                 let output = storage
                     .get_small_range(&key, new_range)
                     .await
-                    .map_err(|e| futures::io::Error::new(std::io::ErrorKind::Other, e))?;
+                    .map_err(io::Error::other)?;
                 stream = output.stream;
                 retries_remaining -= 1;
             },
@@ -789,7 +813,7 @@ impl<RT: Runtime> LocalDirStorage<RT> {
         &self.dir
     }
 
-    fn path_for_key(&self, key: ObjectKey) -> String {
+    fn filename_for_key(&self, key: ObjectKey) -> String {
         String::from(key) + ".blob"
     }
 
@@ -846,7 +870,7 @@ impl TryFrom<ClientDrivenUploadToken> for ClientDrivenUpload {
 impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     async fn start_upload(&self) -> anyhow::Result<Box<BufferedUpload>> {
         let object_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
-        let key = self.path_for_key(object_key.clone());
+        let key = self.filename_for_key(object_key.clone());
         let filepath = self.dir.join(key);
 
         // The filename constraints on the local file system are a bit stricter than S3,
@@ -874,7 +898,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
 
     async fn start_client_driven_upload(&self) -> anyhow::Result<ClientDrivenUploadToken> {
         let object_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
-        let key = self.path_for_key(object_key.clone());
+        let key = self.filename_for_key(object_key.clone());
         let filepath = self.dir.join(key);
 
         // The filename constraints on the local file system are a bit stricter than S3,
@@ -930,37 +954,18 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         Ok(object_key)
     }
 
-    async fn signed_url(&self, key: ObjectKey, _expires_in: Duration) -> anyhow::Result<Uri> {
-        let key = self.path_for_key(key);
+    async fn signed_url(&self, key: ObjectKey, _expires_in: Duration) -> anyhow::Result<String> {
+        let key = self.filename_for_key(key);
         let path = self.dir.join(key);
-        let path = path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Dir isn't valid UTF8: {:?}", self.dir))?;
-        let uri = if cfg!(windows) {
-            // On windows, the Uri::builder does not work properly.
-            // file://localhostC:\\Users\\nipunn\\src\\convex\\convex_local_storage\\modules\\4c4a018d-e534-491e-aa99-a9c16eb97add.blob
-            //
-            // url::Url works, but does not parse into a good Uri without localhost
-            // authority file:///C:/Users/nipunn/src/convex/convex_local_storage/modules/9fb14d74-f91a-47bc-8be3-f646a460fcde.blob
-            //
-            // throw away the C: prefix
-            let path = path.split_once(':').context("Missing drive letter")?.1;
-            // Switch backslashes to URI syntax
-            let path = path.replace('\\', "/");
-            format!("file://localhost{path}")
-                .parse()
-                .context("Could not parse path")?
-        } else {
-            Uri::builder()
-                .scheme("file")
-                .authority("localhost")
-                .path_and_query(path)
-                .build()?
-        };
-        Ok(uri)
+        let url = Url::from_file_path(&path)
+            .map_err(|()| anyhow::anyhow!("Dir isn't valid UTF8: {:?}", self.dir))?;
+        Ok(url.into())
     }
 
-    async fn presigned_upload_url(&self, expires_in: Duration) -> anyhow::Result<(ObjectKey, Uri)> {
+    async fn presigned_upload_url(
+        &self,
+        expires_in: Duration,
+    ) -> anyhow::Result<(ObjectKey, String)> {
         let object_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
         Ok((
             object_key.clone(),
@@ -969,13 +974,13 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     }
 
     fn cache_key(&self, key: &ObjectKey) -> StorageCacheKey {
-        let key = self.path_for_key(key.clone());
+        let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
         StorageCacheKey(path.to_string_lossy().to_string())
     }
 
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey {
-        let key = self.path_for_key(key.clone());
+        let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
         path.to_string_lossy().to_string().into()
     }
@@ -996,7 +1001,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     fn get_small_range(
         &self,
         key: &FullyQualifiedObjectKey,
-        bytes_range: std::ops::Range<u64>,
+        bytes_range: Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>> {
         let path = Path::new(key.as_str()).to_owned();
         async move {
@@ -1043,7 +1048,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     }
 
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
-        let key = self.path_for_key(key.clone());
+        let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
         fs::remove_file(path)?;
         Ok(())
@@ -1258,12 +1263,18 @@ mod buffered_upload_tests {
 mod local_storage_tests {
     use std::{
         fs::File,
-        io::Read,
+        io::{
+            self,
+            Read,
+        },
         sync::Arc,
         time::Duration,
     };
 
-    use anyhow::Context;
+    use anyhow::{
+        anyhow,
+        Context,
+    };
     use bytes::Bytes;
     use common::runtime::testing::TestRuntime;
     use futures::{
@@ -1271,6 +1282,7 @@ mod local_storage_tests {
         StreamExt,
         TryStreamExt,
     };
+    use url::Url;
 
     use super::{
         stream_object_with_retries,
@@ -1335,7 +1347,11 @@ mod local_storage_tests {
 
         // Get via signed_url
         let uri = storage.signed_url(key, Duration::from_secs(10)).await?;
-        let mut f = File::open(uri.path())?;
+        let mut f = File::open(
+            uri.parse::<Url>()?
+                .to_file_path()
+                .map_err(|()| anyhow!("not a file path?"))?,
+        )?;
         let mut buf = String::new();
         f.read_to_string(&mut buf)?;
         assert_eq!(&buf, "pinna park");
@@ -1392,8 +1408,8 @@ mod local_storage_tests {
         let object_key = test_upload.complete().await?;
         let disconnected_stream = stream::iter(vec![
             Ok(vec![1, 2, 3].into()),
-            Err(futures::io::Error::new(
-                futures::io::ErrorKind::ConnectionAborted,
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
                 anyhow::anyhow!("err"),
             )),
         ])

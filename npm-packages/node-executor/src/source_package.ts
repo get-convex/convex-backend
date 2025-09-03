@@ -10,6 +10,7 @@ import fetch from "node-fetch";
 import { createHash } from "node:crypto";
 import { logDebug, logDurationMs } from "./log";
 import { performance } from "node:perf_hooks";
+import { fileURLToPath } from "node:url";
 
 export type SourcePackage = {
   // Deprecated fields
@@ -40,7 +41,7 @@ async function download(
 ): Promise<fs.ReadStream | NodeJS.ReadableStream> {
   const url = new URL(uri);
   if (url.protocol === "file:") {
-    return fs.createReadStream(url.pathname);
+    return fs.createReadStream(fileURLToPath(uri));
   } else {
     const response = await fetch(uri);
     if (!response.ok) {
@@ -303,6 +304,10 @@ async function processExternalPackageStream(
 
 type LocalSourcePackage = {
   dir: string;
+  /**
+   * The modules included in the package and that could contain Convex functions.
+   * This doesn’t include bundler chunks (files in /_deps/).
+   */
   modules: Set<CanonicalizedModulePath>;
   dynamicallyDownloaded: boolean;
 };
@@ -328,7 +333,16 @@ async function processSourcePackageStream(
   const startWrites = performance.now();
   const entries = await unzipFile(zipBuffer, dir, null);
   const actualModulePaths = entries
-    .filter((entry) => entry !== "metadata.json")
+    .filter(
+      (entry) =>
+        entry !== "metadata.json" &&
+        // Some ZIP implementations store entries for directories themselves
+        // (https://unix.stackexchange.com/a/743512/485280)
+        // The Rust implementation we use in production doesn’t do it, but some
+        // implementations (including the `archiver` npm package used in
+        // node-executor integration tests) do so, so we are filtering them out.
+        !entry.endsWith("/"),
+    )
     .map((entry) => entry.substring("modules/".length));
   await fs.promises.chmod(`${dir}/metadata.json`, "444");
   const metadataJson = parseMetadataFile(
@@ -430,7 +444,10 @@ function modulesFromMetadataJson(
 ): Set<CanonicalizedModulePath> {
   const modules: Set<string> = new Set();
   for (const path of metadataJson.modulePaths) {
-    if (path.endsWith(".js")) {
+    if (path.startsWith("_deps/")) {
+      // Ignore bundler chunks since they don’t contain Convex function definitions.
+      continue;
+    } else if (path.endsWith(".js")) {
       // Only load node files.
       const environment = metadataJson.moduleEnvironments.get(path);
       if (!environment) {

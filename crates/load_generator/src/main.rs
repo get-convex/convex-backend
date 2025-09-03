@@ -177,7 +177,7 @@ enum Mode {
 
 fn parse_workload_config(path: &str) -> anyhow::Result<Workload> {
     let s = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read workload config file at {}", path))?;
+        .with_context(|| format!("Failed to read workload config file at {path}"))?;
     let workload = serde_json::from_str(&s)?;
     Ok(workload)
 }

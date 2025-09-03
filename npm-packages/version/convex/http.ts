@@ -5,7 +5,6 @@ import {
 } from "convex/server";
 import { ActionCtx, httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { isStale } from "./util/isStale";
 import { generateMessage } from "./util/message";
 
 const http = httpRouter();
@@ -129,10 +128,6 @@ export async function getCachedAndScheduleRefresh<
   const cached = await ctx.runQuery(module.getCached, {});
   if (!cached) {
     return await ctx.runAction(module.refresh, {});
-  }
-
-  if (isStale(cached)) {
-    await ctx.scheduler.runAfter(0, module.refresh, {});
   }
 
   return cached;

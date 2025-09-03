@@ -59,7 +59,7 @@ pub fn get_recent_index_metadata(
         .pending_index_metadata(TableNamespace::test_user(), &expected)?
         .or(IndexModel::new(tx).enabled_index_metadata(TableNamespace::test_user(), &expected)?)
         .map(|doc| doc.into_value())
-        .context(format!("Missing index: {}", expected))
+        .context(format!("Missing index: {expected}"))
 }
 
 fn assert_at_most_one_definition(
@@ -145,10 +145,14 @@ pub fn index_descriptors_and_fields(diff: &IndexDiff) -> Vec<Vec<(IndexDescripto
         added,
         identical: _,
         dropped,
+        enabled,
+        disabled,
     } = diff.clone();
     let dropped = values(dropped);
+    let enabled = values(enabled);
+    let disabled = values(disabled);
 
-    vec![added, dropped]
+    vec![added, dropped, enabled, disabled]
         .into_iter()
         .map(descriptors_and_fields)
         .collect()
@@ -163,10 +167,12 @@ pub fn values<T: IndexTableIdentifier>(
 pub fn descriptors_and_fields<T: IndexTableIdentifier>(
     metadata: Vec<IndexMetadata<T>>,
 ) -> Vec<(IndexDescriptor, Vec<String>)> {
-    metadata
+    let mut descriptors: Vec<_> = metadata
         .iter()
         .map(|index| (descriptor(index), get_index_fields(index.clone())))
-        .collect()
+        .collect();
+    descriptors.sort();
+    descriptors
 }
 
 pub fn descriptors<T: IndexTableIdentifier>(
@@ -181,29 +187,13 @@ fn descriptor<T: IndexTableIdentifier>(metadata: &IndexMetadata<T>) -> IndexDesc
 
 pub fn get_index_fields<T: IndexTableIdentifier>(index_metadata: IndexMetadata<T>) -> Vec<String> {
     match index_metadata.config {
-        IndexConfig::Database {
-            developer_config, ..
-        } => developer_config
+        IndexConfig::Database { spec, .. } => spec
             .fields
-            .iter()
-            .flat_map(|field_path| field_path.fields().iter().map(|field| field.to_string()))
+            .into_iter()
+            .map(|field_path| field_path.into())
             .collect(),
-        IndexConfig::Text {
-            developer_config, ..
-        } => developer_config
-            .search_field
-            .fields()
-            .iter()
-            .map(|field| field.to_string())
-            .collect(),
-        IndexConfig::Vector {
-            developer_config, ..
-        } => developer_config
-            .vector_field
-            .fields()
-            .iter()
-            .map(|field| field.to_string())
-            .collect(),
+        IndexConfig::Text { spec, .. } => vec![spec.search_field.into()],
+        IndexConfig::Vector { spec, .. } => vec![spec.vector_field.into()],
     }
 }
 

@@ -1,5 +1,5 @@
 import { ChevronDownIcon, MixerHorizontalIcon } from "@radix-ui/react-icons";
-import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { DatabaseFilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
 import { cn } from "@ui/cn";
 
@@ -10,7 +10,7 @@ export function FilterButton({
   onClick,
   open,
 }: {
-  filters?: FilterExpression;
+  filters?: DatabaseFilterExpression;
   onClick(): void;
   open: boolean;
 }) {

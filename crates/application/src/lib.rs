@@ -4,6 +4,7 @@
 #![feature(coroutines)]
 #![feature(round_char_boundary)]
 #![feature(duration_constructors)]
+#![feature(duration_constructors_lite)]
 #![feature(assert_matches)]
 
 use std::{
@@ -21,6 +22,7 @@ use std::{
     },
 };
 
+use ::exports::interface::ExportProvider;
 use ::log_streaming::{
     LogManager,
     LogManagerClient,
@@ -34,7 +36,7 @@ use anyhow::Context;
 use authentication::{
     application_auth::ApplicationAuth,
     validate_id_token,
-    Auth0IdToken,
+    AuthIdToken,
 };
 use aws_s3::storage::S3Storage;
 use bytes::Bytes;
@@ -84,6 +86,7 @@ use common::{
     },
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
+        ENABLE_INDEX_BACKFILL,
         MAX_JOBS_CANCEL_BATCH,
         MAX_USER_MODULES,
     },
@@ -278,6 +281,7 @@ use model::{
     },
     source_packages::{
         types::{
+            NodeVersion,
             PackageSize,
             SourcePackage,
         },
@@ -547,7 +551,7 @@ pub struct Application<RT: Runtime> {
     instance_name: String,
     scheduled_job_runner: ScheduledJobRunner,
     cron_job_executor: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    index_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    index_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     fast_forward_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     search_worker: Arc<Mutex<SearchIndexWorkers>>,
     search_and_vector_bootstrap_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
@@ -686,6 +690,7 @@ impl<RT: Runtime> Application<RT> {
         fetch_client: Arc<dyn FetchClient>,
         local_log_sink: Option<String>,
         lease_lost_shutdown: ShutdownSignal,
+        export_provider: Arc<dyn ExportProvider<RT>>,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -696,13 +701,18 @@ impl<RT: Runtime> Application<RT> {
             CONVEX_SITE.clone() => convex_site.parse()?
         };
 
-        let index_worker = IndexWorker::new(
-            runtime.clone(),
-            persistence.clone(),
-            database.retention_validator(),
-            database.clone(),
-        );
-        let index_worker = Arc::new(Mutex::new(runtime.spawn("index_worker", index_worker)));
+        let mut index_worker = Arc::new(Mutex::new(None));
+        if *ENABLE_INDEX_BACKFILL {
+            let index_worker_fut = IndexWorker::new(
+                runtime.clone(),
+                persistence.clone(),
+                database.retention_validator(),
+                database.clone(),
+            );
+            index_worker = Arc::new(Mutex::new(Some(
+                runtime.spawn("index_worker", index_worker_fut),
+            )));
+        };
         let fast_forward_worker =
             FastForwardIndexWorker::create_and_start(runtime.clone(), database.clone());
         let fast_forward_worker = Arc::new(Mutex::new(
@@ -805,6 +815,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             application_storage.exports_storage.clone(),
             application_storage.files_storage.clone(),
+            export_provider,
             database.usage_counter(),
             instance_name.clone(),
         );
@@ -1774,7 +1785,11 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         for table_schema in schema.tables.values_mut() {
-            for index_schema in table_schema.indexes.values_mut() {
+            for index_schema in table_schema
+                .indexes
+                .values_mut()
+                .chain(table_schema.staged_db_indexes.values_mut())
+            {
                 index_schema.fields =
                     self._validate_user_defined_index_fields(index_schema.fields.clone())?;
             }
@@ -2018,7 +2033,11 @@ impl<RT: Runtime> Application<RT> {
             };
             let app_modules = config.app_definition.modules().cloned().collect();
             let app_pkg = self
-                .upload_package(&app_modules, external_deps_id_and_pkg.clone())
+                .upload_package(
+                    &app_modules,
+                    external_deps_id_and_pkg.clone(),
+                    config.node_version,
+                )
                 .await?;
             drop(permit);
             Ok((external_deps_id_and_pkg, app_pkg))
@@ -2032,7 +2051,7 @@ impl<RT: Runtime> Application<RT> {
             let upload_limit = upload_limit.clone();
             let component_pkg_future = async move {
                 let permit = upload_limit.acquire().await?;
-                let component_pkg = app.upload_package(&component_modules, None).await?;
+                let component_pkg = app.upload_package(&component_modules, None, None).await?;
                 drop(permit);
                 anyhow::Ok((definition_path, component_pkg))
             };
@@ -2229,6 +2248,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         modules: &Vec<ModuleConfig>,
         external_deps_id_and_pkg: Option<(ExternalDepsPackageId, ExternalDepsPackage)>,
+        node_version: Option<NodeVersion>,
     ) -> anyhow::Result<SourcePackage> {
         // If there are any node actions, turn on the lambdas.
         if modules
@@ -2276,6 +2296,7 @@ impl<RT: Runtime> Application<RT> {
             sha256,
             external_deps_package_id,
             package_size,
+            node_version,
         })
     }
 
@@ -2311,7 +2332,9 @@ impl<RT: Runtime> Application<RT> {
         // Write (and commit) the module source to S3.
         // This will become a dangling reference since the _modules entry won't
         // be committed to the database, but we have to deal with those anyway.
-        let source_package = self.upload_package(&vec![module.clone()], None).await?;
+        let source_package = self
+            .upload_package(&vec![module.clone()], None, None)
+            .await?;
 
         let mut tx = self.begin(identity.clone()).await?;
         let (user_environment_variables, system_env_var_overrides) = if component.is_root() {
@@ -2562,7 +2585,7 @@ impl<RT: Runtime> Application<RT> {
             {
                 if !index_metadata
                     .config
-                    .same_config(&existing_index_metadata.config)
+                    .same_spec(&existing_index_metadata.config)
                 {
                     IndexModel::new(&mut tx)
                         .drop_index(existing_index_metadata.id())
@@ -2774,8 +2797,8 @@ impl<RT: Runtime> Application<RT> {
                     .await?;
 
                 let identity_result = validate_id_token(
-                    // This isn't necessarily an ID token or from Auth0, it's any JWT.
-                    Auth0IdToken(id_token.clone()),
+                    // This is any JWT.
+                    AuthIdToken(id_token.clone()),
                     cached_http_client_for(ClientPurpose::ProviderMetadata),
                     auth_info_values.clone(),
                     system_time,
@@ -3442,7 +3465,10 @@ impl<RT: Runtime> Application<RT> {
         self.table_summary_worker.shutdown().await?;
         self.system_table_cleanup_worker.lock().shutdown();
         self.schema_worker.lock().shutdown();
-        self.index_worker.lock().shutdown();
+        let index_worker = self.index_worker.lock().take();
+        if let Some(index_worker) = index_worker {
+            shutdown_and_join(index_worker).await?;
+        }
         self.search_worker.lock().shutdown();
         self.search_and_vector_bootstrap_worker.lock().shutdown();
         self.fast_forward_worker.lock().shutdown();

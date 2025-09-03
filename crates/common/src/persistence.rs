@@ -515,7 +515,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
     /// Returns all timestamps and documents in ascending (ts, tablet_id, id)
     /// order. Only should be used for testing
     #[cfg(any(test, feature = "testing"))]
-    fn load_all_documents(&self) -> DocumentStream {
+    fn load_all_documents(&self) -> DocumentStream<'_> {
         self.load_documents(
             TimestampRange::all(),
             Order::Asc,

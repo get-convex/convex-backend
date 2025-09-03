@@ -1,4 +1,3 @@
-import { useUser } from "@auth0/nextjs-auth0/client";
 import {
   ChatBubbleIcon,
   ChevronLeftIcon,
@@ -20,6 +19,7 @@ import { useProfile } from "api/profile";
 import { useAuthHeader } from "hooks/fetching";
 import { createGlobalState } from "react-use";
 import * as Yup from "yup";
+import { useWorkOS } from "hooks/useWorkOS";
 
 export const useSupportFormOpen = createGlobalState<
   { defaultMessage: string; defaultSubject: string } | boolean
@@ -28,7 +28,7 @@ export const useSupportFormOpen = createGlobalState<
 export function SupportWidget() {
   const team = useCurrentTeam();
   const { subscription } = useTeamOrbSubscription(team?.id);
-  const { user } = useUser();
+  const { user } = useWorkOS();
   const [openState, setOpenState] = useSupportFormOpen();
 
   const canSubmitTicket =

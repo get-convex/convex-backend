@@ -23,7 +23,6 @@ use common::{
 use database::{
     unauthorized_error,
     IndexModel,
-    LegacyIndexDiff,
     SchemaModel,
     Transaction,
 };
@@ -118,7 +117,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             // TODO(CX-3851): Consider logging the mutated indexes separately.
             // This now includes added, mutated and dropped indexes. Mutated
             // indexes are shown both in 'added' and in 'dropped'
-            index_diff: LegacyIndexDiff::from(index_diff).into(),
+            index_diff: index_diff.into(),
             schema_diff,
         };
 

@@ -38,20 +38,23 @@ impl TextIndexBackfillState {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TextBackfillCursor {
     pub cursor: InternalId,
-    pub backfill_snapshot_ts: Timestamp,
+    pub backfill_snapshot_ts: Option<Timestamp>,
+    pub last_segment_ts: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SerializedTextBackfillCursor {
     pub document_cursor: String,
-    pub backfill_snapshot_ts: i64,
+    pub backfill_snapshot_ts: Option<i64>,
+    pub last_segment_ts: Option<i64>,
 }
 
 impl From<TextBackfillCursor> for SerializedTextBackfillCursor {
     fn from(value: TextBackfillCursor) -> Self {
         Self {
             document_cursor: value.cursor.to_string(),
-            backfill_snapshot_ts: value.backfill_snapshot_ts.into(),
+            backfill_snapshot_ts: value.backfill_snapshot_ts.map(|ts| ts.into()),
+            last_segment_ts: value.last_segment_ts.map(|ts| ts.into()),
         }
     }
 }
@@ -62,7 +65,11 @@ impl TryFrom<SerializedTextBackfillCursor> for TextBackfillCursor {
     fn try_from(value: SerializedTextBackfillCursor) -> Result<Self, Self::Error> {
         Ok(Self {
             cursor: InternalId::from_str(&value.document_cursor)?,
-            backfill_snapshot_ts: Timestamp::try_from(value.backfill_snapshot_ts)?,
+            backfill_snapshot_ts: value
+                .backfill_snapshot_ts
+                .map(Timestamp::try_from)
+                .transpose()?,
+            last_segment_ts: value.last_segment_ts.map(Timestamp::try_from).transpose()?,
         })
     }
 }

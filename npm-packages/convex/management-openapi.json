@@ -1,0 +1,181 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Convex CLI API",
+    "description": "CLI-specific endpoints for Convex development tools.",
+    "license": {
+      "name": "LicenseRef-Convex",
+      "identifier": "LicenseRef-Convex"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/teams": {
+      "get": {
+        "operationId": "get_teams_for_member",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Team"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_slug}/projects": {
+      "get": {
+        "operationId": "get_cli_projects_for_team",
+        "parameters": [
+          {
+            "name": "team_slug",
+            "in": "path",
+            "description": "Team slug identifier",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectDetails"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MemberId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "ProjectDetails": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "isDemo",
+          "teamId",
+          "createTime"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "isDemo": {
+            "type": "boolean"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ProjectName"
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "ProjectId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "ProjectName": {
+        "type": "string"
+      },
+      "ProjectSlug": {
+        "type": "string"
+      },
+      "ReferralCode": {
+        "type": "string"
+      },
+      "Team": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "suspended",
+          "referralCode"
+        ],
+        "properties": {
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "managedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "$ref": "#/components/schemas/TeamName"
+          },
+          "referralCode": {
+            "$ref": "#/components/schemas/ReferralCode"
+          },
+          "referredBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamId"
+              }
+            ]
+          },
+          "slug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "suspended": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TeamId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "TeamName": {
+        "type": "string"
+      },
+      "TeamSlug": {
+        "type": "string"
+      }
+    }
+  }
+}

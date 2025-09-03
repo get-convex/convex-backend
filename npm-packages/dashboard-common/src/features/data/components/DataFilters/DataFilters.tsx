@@ -12,7 +12,7 @@ import {
   Filter,
   FilterByIndex,
   FilterByIndexRange,
-  FilterExpression,
+  DatabaseFilterExpression,
   FilterValidationError,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import {
@@ -44,6 +44,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { useQuery } from "convex/react";
 import { api } from "system-udfs/convex/_generated/api";
+import { Index } from "@common/features/data/lib/api";
 import { IndexFilterState } from "./IndexFilterEditor";
 import { IndexFilters, getDefaultIndex } from "./IndexFilters";
 
@@ -68,11 +69,11 @@ export function DataFilters({
   tableName: string;
   tableFields: string[];
   componentId: string | null;
-  filters?: FilterExpression;
-  onFiltersChange(next: FilterExpression): void;
+  filters?: DatabaseFilterExpression;
+  onFiltersChange(next: DatabaseFilterExpression): void;
   dataFetchErrors?: FilterValidationError[];
-  draftFilters?: FilterExpression;
-  setDraftFilters(next: FilterExpression): void;
+  draftFilters?: DatabaseFilterExpression;
+  setDraftFilters(next: DatabaseFilterExpression): void;
   activeSchema: SchemaJson | null;
   numRows?: number;
   numRowsLoaded: number;
@@ -82,10 +83,10 @@ export function DataFilters({
 }) {
   const { selectedNent } = useNents();
   const indexes =
-    useQuery(api._system.frontend.indexes.default, {
+    (useQuery(api._system.frontend.indexes.default, {
       tableName,
       tableNamespace: selectedNent?.id ?? null,
-    }) ?? undefined;
+    }) satisfies undefined | null | Index[]) ?? undefined;
   const {
     isDirty,
     hasInvalidFilters,
@@ -474,10 +475,10 @@ function useDataFilters({
 }: {
   tableName: string;
   componentId: string | null;
-  filters?: FilterExpression;
-  onFiltersChange(next: FilterExpression): void;
-  draftFilters?: FilterExpression;
-  setDraftFilters(next: FilterExpression): void;
+  filters?: DatabaseFilterExpression;
+  onFiltersChange(next: DatabaseFilterExpression): void;
+  draftFilters?: DatabaseFilterExpression;
+  setDraftFilters(next: DatabaseFilterExpression): void;
   activeSchema: SchemaJson | null;
 }) {
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
@@ -505,7 +506,7 @@ function useDataFilters({
       ({
         clauses: [],
         index: getDefaultIndex(),
-      } as FilterExpression),
+      } as DatabaseFilterExpression),
     [draftFilters],
   );
 
@@ -609,7 +610,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(idx + 1),
         ],
         index: shownFilters.index || getDefaultIndex(),
-      } as FilterExpression;
+      } as DatabaseFilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters, setInvalidFilters, log],
@@ -629,7 +630,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(idx),
         ],
         index: shownFilters.index || getDefaultIndex(),
-      } as FilterExpression;
+      } as DatabaseFilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters, log],

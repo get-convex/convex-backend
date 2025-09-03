@@ -37,7 +37,7 @@ use aggregation::PostingListMatchAggregator;
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        text_index::DeveloperTextIndexConfig,
+        text_index::TextIndexSpec,
         IndexConfig,
     },
     document::ResolvedDocument,
@@ -257,7 +257,7 @@ impl From<&TantivySearchIndexSchema> for pb::searchlight::SearchIndexConfig {
 }
 
 impl TantivySearchIndexSchema {
-    pub fn new(index_config: &DeveloperTextIndexConfig) -> Self {
+    pub fn new(index_config: &TextIndexSpec) -> Self {
         let analyzer = convex_en();
 
         let mut schema_builder = Schema::builder();
@@ -305,21 +305,17 @@ impl TantivySearchIndexSchema {
         index: &Index,
         printable_index_name: &IndexName,
     ) -> anyhow::Result<TantivySearchIndexSchema> {
-        let IndexConfig::Text {
-            ref developer_config,
-            ..
-        } = index.metadata().config
-        else {
+        let IndexConfig::Text { ref spec, .. } = index.metadata().config else {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "IndexNotASearchIndexError",
-                format!("Index {} is not a search index", printable_index_name),
+                format!("Index {printable_index_name} is not a search index"),
             ));
         };
-        Ok(Self::new(developer_config))
+        Ok(Self::new(spec))
     }
 
-    pub fn to_index_config(&self) -> DeveloperTextIndexConfig {
-        DeveloperTextIndexConfig {
+    pub fn to_index_config(&self) -> TextIndexSpec {
+        TextIndexSpec {
             search_field: self.search_field_path.clone(),
             filter_fields: self.filter_fields.keys().cloned().collect(),
         }
@@ -449,8 +445,10 @@ impl TantivySearchIndexSchema {
             token_queries.push(query);
         }
         let mut exist_filter_conditions = false;
+        let mut num_expected_filter_conditions = 0;
         for CompiledFilterCondition::Must(term) in compiled_query.filter_conditions {
             exist_filter_conditions = true;
+            num_expected_filter_conditions += 1;
             let query = TokenQuery {
                 term,
                 max_distance: 0,
@@ -518,12 +516,12 @@ impl TantivySearchIndexSchema {
         }
         let terms = results_by_term.keys().cloned().collect_vec();
         // If there are no matches, short-circuit and return an empty result.
-        let no_and_tokens_present = results_by_term
+        let not_enough_and_tokens_present = results_by_term
             .iter()
             .filter(|(_, (_, _, token_ord))| *token_ord >= num_text_query_terms)
             .count()
-            == 0;
-        let no_filter_matches = exist_filter_conditions && no_and_tokens_present;
+            < num_expected_filter_conditions;
+        let no_filter_matches = exist_filter_conditions && not_enough_and_tokens_present;
         if terms.is_empty() || no_filter_matches {
             return Ok(vec![]);
         }
@@ -836,7 +834,7 @@ pub enum SearchFileType {
 mod test {
     use std::collections::BTreeSet;
 
-    use common::bootstrap_model::index::text_index::DeveloperTextIndexConfig;
+    use common::bootstrap_model::index::text_index::TextIndexSpec;
 
     use crate::{
         TantivySearchIndexSchema,
@@ -848,7 +846,7 @@ mod test {
     /// tantivy.
     #[test]
     fn test_field_ids_dont_change() -> anyhow::Result<()> {
-        let schema = TantivySearchIndexSchema::new(&DeveloperTextIndexConfig {
+        let schema = TantivySearchIndexSchema::new(&TextIndexSpec {
             search_field: "mySearchField".parse()?,
             filter_fields: BTreeSet::new(),
         });

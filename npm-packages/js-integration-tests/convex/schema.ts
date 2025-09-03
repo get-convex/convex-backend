@@ -65,6 +65,8 @@ export default defineSchema({
   foods: defineTable({
     description: v.string(),
     cuisine: v.string(),
+    theLetterA: v.string(),
+    bOrC: v.string(),
     embedding: v.array(v.float64()),
   })
     .vectorIndex("by_embedding", {
@@ -74,13 +76,29 @@ export default defineSchema({
     })
     .searchIndex("by_description", {
       searchField: "description",
-      filterFields: ["cuisine"],
+      filterFields: ["theLetterA", "cuisine", "bOrC"],
     }),
+
   // This table serves as a test to ensure virtual ids can be represented
   // within schemas as foreign keys.
   virtualForeignKeys: defineTable({
     foreignKeyField: v.id("_scheduled_functions"),
   }),
+
+  stagedIndexes: defineTable({
+    name: v.string(),
+    embedding: v.array(v.float64()),
+  })
+    .index("by_name", { fields: ["name"], staged: true })
+    .searchIndex("search_by_name", {
+      searchField: "name",
+      staged: true,
+    })
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+      staged: true,
+    }),
 });
 
 // Keep this in sync with the schema! It's important for cleaning up data between tests.
@@ -94,4 +112,5 @@ export const ALL_TABLE_NAMES = [
   "any",
   "testTypes",
   "foods",
+  "stagedIndexes",
 ] as const;

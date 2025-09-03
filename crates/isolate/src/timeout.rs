@@ -90,7 +90,7 @@ impl<RT: Runtime> TimeoutInner<RT> {
                     let _ = future::select(expired, pause_done.recv()).await;
                 }))
             },
-            TimeoutState::Finished { .. } => Ok(None),
+            TimeoutState::Finished => Ok(None),
         }
     }
 }
@@ -173,7 +173,7 @@ impl<RT: Runtime> Timeout<RT> {
         let (tx, rx) = broadcast(1);
         let pause_start = {
             let mut inner = self.inner.lock();
-            let TimeoutState::Running {} = inner.state else {
+            let TimeoutState::Running = inner.state else {
                 panic!("Overlapping calls to timeout.pause()");
             };
             let pause_start = inner.rt.monotonic_now();
@@ -193,7 +193,7 @@ impl<RT: Runtime> Timeout<RT> {
     pub fn finish(&mut self) {
         {
             let mut inner = self.inner.lock();
-            if matches!(inner.state, TimeoutState::Finished { .. }) {
+            if matches!(inner.state, TimeoutState::Finished) {
                 return;
             }
             inner.state = TimeoutState::Finished;

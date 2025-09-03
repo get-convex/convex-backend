@@ -4,7 +4,7 @@ import { createGlobalState, usePrevious } from "react-use";
 
 import { useEffect, useContext } from "react";
 import {
-  FilterExpression,
+  DatabaseFilterExpression,
   FilterExpressionSchema,
   isValidFilter,
 } from "system-udfs/convex/_system/frontend/lib/filters";
@@ -14,7 +14,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 // Global state keeping track of filters for all tables.
 export const useFilterMap = createGlobalState(
-  {} as Record<string, FilterExpression | undefined>,
+  {} as Record<string, DatabaseFilterExpression | undefined>,
 );
 
 const useInitializeFilters = (
@@ -44,7 +44,7 @@ const useInitializeFilters = (
       setFilterMap({ ...filterMap, [tableName]: undefined });
     }
 
-    function populateQueryFilters(newFilters: FilterExpression) {
+    function populateQueryFilters(newFilters: DatabaseFilterExpression) {
       query.filters = encodeURI(JSON.stringify(newFilters));
       void replace(
         {
@@ -68,7 +68,7 @@ const useInitializeFilters = (
     }
 
     const decodedFilters = decode(query.filters as string);
-    let f: FilterExpression;
+    let f: DatabaseFilterExpression;
     try {
       f = JSON.parse(decodedFilters);
       FilterExpressionSchema.parse(f);
@@ -112,7 +112,7 @@ export const useTableFilters = (
   return {
     filters: filterMap[tableName],
     // Make sure a new object is created so the hook is re-rendered
-    applyFiltersWithHistory: async (newFilters?: FilterExpression) => {
+    applyFiltersWithHistory: async (newFilters?: DatabaseFilterExpression) => {
       if (newFilters) {
         const newFilterMap = { ...filterMap, [tableName]: newFilters };
         if (
@@ -140,7 +140,7 @@ export const useTableFilters = (
   };
 };
 
-function hasValidEnabledFilters(filters?: FilterExpression) {
+function hasValidEnabledFilters(filters?: DatabaseFilterExpression) {
   return (
     !!filters &&
     (filters.clauses.filter(isValidFilter).filter((f) => f.enabled !== false)
@@ -149,7 +149,7 @@ function hasValidEnabledFilters(filters?: FilterExpression) {
   );
 }
 
-export function areAllFiltersValid(filters?: FilterExpression) {
+export function areAllFiltersValid(filters?: DatabaseFilterExpression) {
   return filters === undefined || filters.clauses.every(isValidFilter);
 }
 
@@ -157,20 +157,20 @@ export function useFilterHistory(
   tableName: string,
   componentId: string | null,
 ): {
-  filterHistory: FilterExpression[];
-  appendFilterHistory: (value: FilterExpression) => void;
+  filterHistory: DatabaseFilterExpression[];
+  appendFilterHistory: (value: DatabaseFilterExpression) => void;
 } {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const [filterHistory, setFilterHistory] = useGlobalLocalStorage(
     `filterHistory/${deployment?.name}/${componentId ? `${componentId}/` : ""}${tableName}`,
-    [] as FilterExpression[],
+    [] as DatabaseFilterExpression[],
   );
 
   return {
     filterHistory,
     appendFilterHistory: (value) => {
-      setFilterHistory((prev: FilterExpression[]) => {
+      setFilterHistory((prev: DatabaseFilterExpression[]) => {
         if (
           (prev.length > 0 && isEqual(prev[0], value)) ||
           (value.clauses.length === 0 &&

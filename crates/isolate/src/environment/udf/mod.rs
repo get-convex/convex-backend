@@ -431,10 +431,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         let execution_time;
         (self, execution_time) = isolate_context.take_environment();
-        let success_result_value = match result.as_ref() {
-            Ok(v) => Some(v),
-            _ => None,
-        };
+        let success_result_value = result.as_ref().ok();
         Self::add_warnings_to_log_lines(
             &self.path.clone().for_logging(),
             &self.arguments,

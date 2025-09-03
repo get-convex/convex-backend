@@ -36,6 +36,7 @@ use crate::{
         ListSnapshotValue,
     },
     convex_api::{
+        ComponentPath,
         DocumentDeltasCursor,
         FieldName,
         ListSnapshotCursor,
@@ -54,14 +55,14 @@ type JsonDocument = BTreeMap<String, JsonValue>;
 
 #[derive(Debug, Clone)]
 struct FakeSource {
-    tables: BTreeMap<String, Vec<JsonDocument>>,
+    tables_by_component: BTreeMap<ComponentPath, BTreeMap<String, Vec<JsonDocument>>>,
     changelog: Vec<DocumentDeltasValue>,
 }
 
 impl Default for FakeSource {
     fn default() -> Self {
         FakeSource {
-            tables: btreemap! {},
+            tables_by_component: btreemap! {},
             changelog: vec![],
         }
     }
@@ -70,22 +71,25 @@ impl Default for FakeSource {
 impl FakeSource {
     fn seeded() -> Self {
         let mut source = Self::default();
-        for table_name in ["table1", "table2", "table3"] {
-            for i in 0..25 {
-                source.insert(
-                    table_name,
-                    btreemap! {
-                        "name".to_string() => json!(format!("Document {} of {}", i, table_name)),
-                        "index".to_string() => json!(i),
-                    },
-                )
+        for component in [ComponentPath::root(), ComponentPath::test_component()] {
+            for table_name in ["table1", "table2", "table3"] {
+                for i in 0..25 {
+                    source.insert(
+                        component.clone(),
+                        table_name,
+                        btreemap! {
+                            "name".to_string() => json!(format!("Document {} of {}", i, table_name)),
+                            "index".to_string() => json!(i),
+                        },
+                    );
+                }
             }
         }
 
         source
     }
 
-    fn insert(&mut self, table_name: &str, mut value: JsonDocument) {
+    pub fn insert(&mut self, component: ComponentPath, table_name: &str, mut value: JsonDocument) {
         if value.contains_key("_id") {
             panic!("ID specified while inserting a new row");
         }
@@ -95,22 +99,35 @@ impl FakeSource {
         );
         value.insert("_creationTime".to_string(), json!(0));
 
-        self.tables
+        self.tables_by_component
+            .entry(component.clone())
+            .or_default()
             .entry(table_name.to_string())
             .or_default()
             .push(value.clone().into_iter().collect());
 
         self.changelog.push(DocumentDeltasValue {
-            component: "".to_string(), // TODO(nicolas) Add component support
             table: table_name.to_string(),
             deleted: false,
-            ts: 0, // unused by the Fivetran connector
+            component: component.to_string(),
             fields: value,
+            ts: 0, // Ignored by the connector
         });
     }
 
-    fn patch(&mut self, table_name: &str, index: usize, changed_fields: JsonValue) {
-        let table = self.tables.get_mut(table_name).unwrap();
+    fn patch(
+        &mut self,
+        component: ComponentPath,
+        table_name: &str,
+        index: usize,
+        changed_fields: JsonValue,
+    ) {
+        let table = self
+            .tables_by_component
+            .entry(component.clone())
+            .or_default()
+            .get_mut(table_name)
+            .unwrap();
         let element = table.get_mut(index).unwrap();
         for (key, value) in changed_fields.as_object().unwrap().iter() {
             if key.starts_with('_') {
@@ -121,16 +138,21 @@ impl FakeSource {
         }
 
         self.changelog.push(DocumentDeltasValue {
-            component: "".to_string(), // TODO(nicolas) Add component support
             table: table_name.to_string(),
             deleted: false,
-            ts: 0, // unused by the Fivetran connector
+            component: component.to_string(),
             fields: element.clone(),
+            ts: 0, // Ignored by the connector
         });
     }
 
-    fn delete(&mut self, table_name: &str, index: usize) {
-        let table = self.tables.get_mut(table_name).unwrap();
+    fn delete(&mut self, component: ComponentPath, table_name: &str, index: usize) {
+        let table = self
+            .tables_by_component
+            .entry(component.clone())
+            .or_default()
+            .get_mut(table_name)
+            .unwrap();
         let id = table
             .get(index)
             .unwrap()
@@ -141,11 +163,11 @@ impl FakeSource {
             .to_string();
         table.remove(index);
         self.changelog.push(DocumentDeltasValue {
-            component: "".to_string(), // TODO(nicolas) Add component support
             table: table_name.to_string(),
             deleted: true,
-            ts: 0, // unused by the Fivetran connector
+            component: component.to_string(),
             fields: btreemap! { "_id".to_string() => json!(id) },
+            ts: 0, // Ignored by the connector
         })
     }
 }
@@ -162,20 +184,29 @@ impl Source for FakeSource {
         Ok(())
     }
 
-    async fn get_tables_and_columns(&self) -> anyhow::Result<BTreeMap<TableName, Vec<FieldName>>> {
-        let result = self
-            .tables
+    async fn get_table_column_names(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ComponentPath, BTreeMap<TableName, Vec<FieldName>>>> {
+        let tables_by_component = self
+            .tables_by_component
             .iter()
-            .map(|(table_name, rows)| {
-                let field_names = rows
+            .map(|(component, tables)| {
+                let table_to_fields: BTreeMap<TableName, Vec<FieldName>> = tables
                     .iter()
-                    .flat_map(|row| row.keys())
-                    .map(|f| FieldName(f.to_string()))
+                    .map(|(table_name, rows)| {
+                        let field_names = rows
+                            .iter()
+                            .flat_map(|row| row.keys())
+                            .map(|f| FieldName(f.to_string()))
+                            .collect();
+                        (TableName(table_name.to_string()), field_names)
+                    })
                     .collect();
-                (TableName(table_name.to_string()), field_names)
+                (component.clone(), table_to_fields)
             })
             .collect();
-        Ok(result)
+
+        Ok(tables_by_component)
     }
 
     async fn list_snapshot(
@@ -190,17 +221,19 @@ impl Source for FakeSource {
         let cursor: usize = cursor.map(|c| c.0.parse().unwrap()).unwrap_or(0);
         let values_per_call = 10;
         let values: Vec<ListSnapshotValue> = self
-            .tables
+            .tables_by_component
             .iter()
-            .flat_map(|(table, docs)| {
-                docs.iter()
-                    .map(|fields| ListSnapshotValue {
-                        component: "".to_string(), // TODO(nicolas) Add component support
-                        table: table.to_string(),
-                        fields: fields.clone(),
-                        ts: 0, // unused by the Fivetran connector
-                    })
-                    .collect::<Vec<_>>()
+            .flat_map(|(component, tables)| {
+                tables.iter().flat_map(|(table, docs)| {
+                    docs.iter()
+                        .map(|fields| ListSnapshotValue {
+                            component: component.to_string(),
+                            table: table.to_string(),
+                            ts: 0, // ignored by the connector
+                            fields: fields.clone(),
+                        })
+                        .collect::<Vec<_>>()
+                })
             })
             .skip(cursor * values_per_call)
             .take(values_per_call)
@@ -245,7 +278,7 @@ struct FakeDestination {
 
 #[derive(Default, Debug, PartialEq, Clone)]
 struct FakeDestinationData {
-    tables: BTreeMap<String, Vec<BTreeMap<String, FivetranValue>>>,
+    tables_by_component: BTreeMap<String, BTreeMap<String, Vec<BTreeMap<String, FivetranValue>>>>,
 }
 
 impl FakeDestination {
@@ -269,23 +302,26 @@ impl FakeDestination {
                     op_type,
                     row,
                 } => {
-                    if schema_name.is_some() {
-                        panic!("Schemas not supported by the fake");
-                    }
-                    if !self.current_data.tables.contains_key(&table_name) {
-                        self.current_data.tables.insert(table_name.clone(), vec![]);
+                    let Some(schema_name) = schema_name else {
+                        panic!("FakeDestination expects to receive a schema name");
+                    };
+
+                    let tables = self
+                        .current_data
+                        .tables_by_component
+                        .entry(schema_name)
+                        .or_default();
+
+                    if !tables.contains_key(&table_name) {
+                        tables.insert(table_name.clone(), vec![]);
                     }
 
                     if op_type == RecordType::Truncate {
-                        self.current_data.tables.remove(&table_name);
+                        tables.remove(&table_name);
                         continue;
                     }
 
-                    let table = self
-                        .current_data
-                        .tables
-                        .get_mut(&table_name)
-                        .expect("Unknown table name");
+                    let table = tables.get_mut(&table_name).expect("Unknown table name");
                     let id = row.get("_id").unwrap();
                     let position = table.iter().position(|row| row.get("_id").unwrap() == id);
 
@@ -323,14 +359,31 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
         .await?;
 
     assert_eq!(
-        source.tables.len(),
-        destination.checkpointed_data.tables.len()
-    );
-    assert_eq!(
-        source.tables.get("table1").unwrap().len(),
+        source
+            .tables_by_component
+            .get(&ComponentPath::root())
+            .unwrap()
+            .len(),
         destination
             .checkpointed_data
-            .tables
+            .tables_by_component
+            .get("convex")
+            .unwrap()
+            .len()
+    );
+    assert_eq!(
+        source
+            .tables_by_component
+            .get(&ComponentPath::root())
+            .unwrap()
+            .get("table1")
+            .unwrap()
+            .len(),
+        destination
+            .checkpointed_data
+            .tables_by_component
+            .get("convex")
+            .unwrap()
             .get("table1")
             .unwrap()
             .len(),
@@ -339,7 +392,9 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
     assert_eq!(
         destination
             .checkpointed_data
-            .tables
+            .tables_by_component
+            .get("convex")
+            .unwrap()
             .get("table1")
             .unwrap()
             .first()
@@ -352,7 +407,9 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
     assert_eq!(
         destination
             .checkpointed_data
-            .tables
+            .tables_by_component
+            .get("convex")
+            .unwrap()
             .get("table1")
             .unwrap()
             .get(21)
@@ -370,11 +427,11 @@ async fn initial_sync_empty_source_works() -> anyhow::Result<()> {
     let source = FakeSource::default();
     let mut destination = FakeDestination::default();
 
-    assert_eq!(source.tables.len(), 0);
+    assert_eq!(source.tables_by_component.len(), 0);
     destination
         .receive(sync(source.clone(), destination.latest_state()))
         .await?;
-    assert_eq!(destination.checkpointed_data.tables.len(), 0);
+    assert_eq!(destination.checkpointed_data.tables_by_component.len(), 0);
     let state = destination.latest_state().context("missing state")?;
     assert!(matches!(
         state.checkpoint,
@@ -395,8 +452,8 @@ async fn assert_in_sync(source: impl Source + 'static, destination: &FakeDestina
         .await
         .expect("Unexpected error during parallel synchronization");
     assert_eq!(
-        destination.checkpointed_data.tables,
-        parallel_destination.checkpointed_data.tables
+        destination.checkpointed_data.tables_by_component,
+        parallel_destination.checkpointed_data.tables_by_component
     );
 }
 
@@ -407,8 +464,8 @@ async fn assert_not_in_sync(source: impl Source + 'static, destination: &FakeDes
         .await
         .expect("Unexpected error during parallel synchronization");
     assert_ne!(
-        destination.checkpointed_data.tables,
-        parallel_destination.checkpointed_data.tables
+        destination.checkpointed_data.tables_by_component,
+        parallel_destination.checkpointed_data.tables_by_component
     );
 }
 
@@ -439,7 +496,15 @@ async fn sync_after_adding_a_document() -> anyhow::Result<()> {
     let state = destination.latest_state();
 
     source.insert(
+        ComponentPath::root(),
         "table1",
+        btreemap! {
+            "name".to_string() => json!("New document"),
+        },
+    );
+    source.insert(
+        ComponentPath::test_component(),
+        "table2",
         btreemap! {
             "name".to_string() => json!("New document"),
         },
@@ -461,8 +526,17 @@ async fn sync_after_modifying_a_document() -> anyhow::Result<()> {
     let state = destination.latest_state();
 
     source.patch(
+        ComponentPath::root(),
         "table1",
         13,
+        json!({
+            "name": "New name",
+        }),
+    );
+    source.patch(
+        ComponentPath::test_component(),
+        "table2",
+        9,
         json!({
             "name": "New name",
         }),
@@ -482,7 +556,8 @@ async fn sync_after_deleting_a_document() -> anyhow::Result<()> {
         .receive(sync(source.clone(), destination.latest_state()))
         .await?;
 
-    source.delete("table1", 8);
+    source.delete(ComponentPath::root(), "table1", 8);
+    source.delete(ComponentPath::test_component(), "table3", 5);
     destination
         .receive(sync(source.clone(), destination.latest_state()))
         .await?;
@@ -497,8 +572,8 @@ async fn resync_after_sync_and_delete() -> anyhow::Result<()> {
     let mut destination = FakeDestination::default();
 
     destination.receive(sync(source.clone(), None)).await?;
-    source.delete("table1", 8);
-
+    source.delete(ComponentPath::root(), "table1", 8);
+    source.delete(ComponentPath::test_component(), "table3", 5);
     // The sync + delete + resync tests to ensure that the connector
     // correctly truncates the destination before a resync.
     destination.receive(sync(source.clone(), None)).await?;
@@ -553,9 +628,11 @@ impl Source for UnreliableSource {
         self.source.document_deltas(cursor).await
     }
 
-    async fn get_tables_and_columns(&self) -> anyhow::Result<BTreeMap<TableName, Vec<FieldName>>> {
+    async fn get_table_column_names(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ComponentPath, BTreeMap<TableName, Vec<FieldName>>>> {
         self.maybe_fail()?;
-        self.source.get_tables_and_columns().await
+        self.source.get_table_column_names().await
     }
 }
 

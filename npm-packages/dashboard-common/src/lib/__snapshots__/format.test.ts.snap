@@ -111,6 +111,30 @@ export default defineSchema({
 });"
 `;
 
+exports[`displaySchemaFromShapes displaySchema with staged indexes 1`] = `
+"import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  table_with_staged: defineTable(v.any())
+    .index("staged_index", {
+      fields: ["field2"],
+      staged: true,
+    })
+    .searchIndex("staged_search_index", {
+      searchField: "description",
+      filterFields: ["category"],
+      staged: true,
+    })
+    .vectorIndex("staged_vector_index", {
+      vectorField: "vector_data",
+      dimensions: 1024,
+      filterFields: ["type", "status"],
+      staged: true,
+    }),
+});"
+`;
+
 exports[`displaySchemaFromShapes displaySchema without vector indexes 1`] = `
 "import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";

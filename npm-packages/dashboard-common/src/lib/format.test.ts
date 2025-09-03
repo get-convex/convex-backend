@@ -460,6 +460,43 @@ describe("displaySchemaFromShapes", () => {
     };
     expect(displaySchema(schemaJson)).toMatchSnapshot();
   });
+
+  test("displaySchema with staged indexes", () => {
+    const schemaJson: SchemaJson = {
+      tables: [
+        {
+          tableName: "table_with_staged",
+          indexes: [],
+          searchIndexes: [],
+          vectorIndexes: [],
+          stagedDbIndexes: [
+            { indexDescriptor: "staged_index", fields: ["field2"] },
+          ],
+          stagedSearchIndexes: [
+            {
+              indexDescriptor: "staged_search_index",
+              searchField: "description",
+              filterFields: ["category"],
+            },
+          ],
+          stagedVectorIndexes: [
+            {
+              indexDescriptor: "staged_vector_index",
+              vectorField: "vector_data",
+              dimensions: 1024,
+              filterFields: ["type", "status"],
+            },
+          ],
+          documentType: {
+            type: "any",
+          },
+        },
+      ],
+      schemaValidation: true,
+    };
+    expect(displaySchema(schemaJson)).toMatchSnapshot();
+  });
+
   test("schema validation false", () => {
     const schemaJson = { tables: [], schemaValidation: false };
     expect(displaySchema(schemaJson)).toMatchSnapshot();

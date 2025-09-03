@@ -95,16 +95,16 @@ use vector::{
 
 use crate::{
     committer::AFTER_PENDING_WRITE_SNAPSHOT,
-    index_workers::{
-        search_compactor::CompactionConfig,
-        writer::SearchIndexMetadataWriter,
-        FlusherType,
-    },
     query::{
         PaginationOptions,
         TableFilter,
     },
     search_index_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
+    search_index_workers::{
+        search_compactor::CompactionConfig,
+        writer::SearchIndexMetadataWriter,
+        FlusherType,
+    },
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,

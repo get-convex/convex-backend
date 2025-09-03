@@ -577,8 +577,7 @@ function EntryAction({
       return <span>generated a client secret for an OAuth application</span>;
     }
     default:
-      // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
-      const notAllowed: never = action;
+      action satisfies never;
       captureMessage(`Unhandled audit log action: ${action}`);
       return <UnhandledAction action={action} />;
   }
@@ -808,8 +807,8 @@ function DeploymentSettingsLink({
   const project = projects.find((p) => p.id === deployment.projectId);
   if (!project) {
     captureMessage(
-      `Malformed deploy key audit log entry: 
-      deployment ${deploymentId} has project id ${deployment.projectId} 
+      `Malformed deploy key audit log entry:
+      deployment ${deploymentId} has project id ${deployment.projectId}
       which is not found within the projects of team ${team.id}`,
     );
     return <span>a deployment</span>;

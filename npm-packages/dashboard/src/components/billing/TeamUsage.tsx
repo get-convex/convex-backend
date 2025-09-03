@@ -20,7 +20,14 @@ import {
   useTokenUsage,
 } from "hooks/usageMetrics";
 import { Team, ProjectDetails } from "generatedApi";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
 import { useProjects } from "api/projects";
@@ -34,6 +41,9 @@ import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { DateRange, useCurrentBillingPeriod } from "api/usage";
+import { cn } from "@ui/cn";
+import { usePagination } from "hooks/usePagination";
+import { PaginationControls } from "elements/PaginationControls";
 import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,
@@ -54,7 +64,6 @@ import {
 } from "./TeamUsageByFunctionChart";
 import { UsageBarChart, UsageStackedBarChart } from "./UsageBarChart";
 import {
-  TeamUsageError,
   UsageChartUnavailable,
   UsageDataNotAvailable,
   UsageNoDataError,
@@ -96,18 +105,6 @@ export function TeamUsage({ team }: { team: Team }) {
       ? { from: shownBillingPeriod.from, to: shownBillingPeriod.to }
       : null;
 
-  const metricsByFunction = useUsageTeamMetricsByFunction(
-    team.id,
-    dateRange,
-    projectId,
-    componentPrefix,
-  );
-
-  const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
-
-  const isFunctionBreakdownBandwidthAvailable =
-    shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
-
   const { subscription } = useTeamOrbSubscription(team?.id);
 
   const teamSummary = useUsageTeamSummary(
@@ -140,7 +137,7 @@ export function TeamUsage({ team }: { team: Team }) {
     projectId === null;
 
   return (
-    <div>
+    <div className="[--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">
       <div className="flex justify-between">
         <h2>Usage</h2>
         {subscription !== undefined && (
@@ -238,35 +235,13 @@ export function TeamUsage({ team }: { team: Team }) {
                 showEntitlements={showEntitlements}
               />
 
-              <Sheet padding={false} className="pb-4">
-                <div className="mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-                  <h3>Functions breakdown by project</h3>
-
-                  <FunctionBreakdownSelector
-                    value={functionBreakdownTabIndex}
-                    onChange={setFunctionBreakdownTabIndex}
-                  />
-                </div>
-                <div className="px-4">
-                  {!metricsByFunction || !projects ? (
-                    <ChartLoading />
-                  ) : functionBreakdownTabIndex === 0 ||
-                    isFunctionBreakdownBandwidthAvailable ? (
-                    <FunctionUsageBreakdown
-                      team={team}
-                      projects={projects}
-                      metricsByDeployment={metricsByFunction}
-                      metric={
-                        FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex]
-                      }
-                    />
-                  ) : (
-                    <UsageDataNotAvailable
-                      entity={`Breakdown by ${FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex].name}`}
-                    />
-                  )}
-                </div>
-              </Sheet>
+              <FunctionBreakdownSection
+                team={team}
+                dateRange={dateRange}
+                projectId={projectId}
+                componentPrefix={componentPrefix}
+                shownBillingPeriod={shownBillingPeriod}
+              />
             </div>
           </>
         )}
@@ -274,25 +249,131 @@ export function TeamUsage({ team }: { team: Team }) {
   );
 }
 
-function useUsageByProject(
-  callsByDeployment: AggregatedFunctionMetrics[],
-  projects: ProjectDetails[],
-  metric: FunctionBreakdownMetric,
-): {
+function FunctionBreakdownSection({
+  team,
+  dateRange,
+  projectId,
+  componentPrefix,
+  shownBillingPeriod,
+}: {
+  team: Team;
+  dateRange: DateRange | null;
+  projectId: number | null;
+  componentPrefix: string | null;
+  shownBillingPeriod: Period;
+}) {
+  const projects = useProjects(team.id);
+
+  const metricsByFunction = useUsageTeamMetricsByFunction(
+    team.id,
+    dateRange,
+    projectId,
+    componentPrefix,
+  );
+
+  const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
+  const metric = FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex];
+  const usageByProject = useUsageByProject(metricsByFunction, projects, metric);
+
+  const {
+    visibleItems: visibleProjects,
+    totalPages,
+    currentPage,
+    setCurrentPage,
+  } = usePagination({
+    items: usageByProject ?? [],
+    itemsPerPage: 20,
+  });
+
+  // Reset the page number when the filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    team,
+    projectId,
+    componentPrefix,
+    dateRange?.from,
+    dateRange?.to,
+    shownBillingPeriod.type,
+    shownBillingPeriod.from,
+    shownBillingPeriod.to,
+    functionBreakdownTabIndex,
+    setCurrentPage, // stable
+  ]);
+
+  const isFunctionBreakdownBandwidthAvailable =
+    shownBillingPeriod === null || shownBillingPeriod.from >= "2024-01-01";
+
+  return (
+    <TeamUsageSection
+      header={
+        <>
+          <h3>Functions breakdown by project</h3>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <FunctionBreakdownSelector
+              value={functionBreakdownTabIndex}
+              onChange={setFunctionBreakdownTabIndex}
+            />
+
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </>
+      }
+    >
+      <div className="px-4">
+        {!metricsByFunction || !projects ? (
+          <ChartLoading />
+        ) : functionBreakdownTabIndex === 0 ||
+          isFunctionBreakdownBandwidthAvailable ? (
+          <FunctionUsageBreakdown
+            team={team}
+            usageByProject={visibleProjects}
+            metricsByDeployment={metricsByFunction}
+            metric={metric}
+          />
+        ) : (
+          <UsageDataNotAvailable
+            entity={`Breakdown by ${FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex].name}`}
+          />
+        )}
+      </div>
+    </TeamUsageSection>
+  );
+}
+
+type UsageInProject = {
   key: string;
   project: ProjectDetails | null;
   rows: AggregatedFunctionMetrics[];
   total: number;
-}[] {
+};
+
+function useUsageByProject(
+  callsByDeployment: AggregatedFunctionMetrics[] | undefined,
+  projects: ProjectDetails[] | undefined,
+  metric: FunctionBreakdownMetric,
+): UsageInProject[] | undefined {
   return useMemo(() => {
+    if (callsByDeployment === undefined || projects === undefined) {
+      return undefined;
+    }
+
     const byProject = groupBy(callsByDeployment, (row) => row.projectId);
     return Object.entries(byProject)
-      .map(([projectId, rows]) => ({
-        key: projectId,
-        project: projects.find((p) => p.id === rows[0].projectId) ?? null,
-        rows,
-        total: sumBy(rows, metric.getTotal),
-      }))
+      .map(
+        ([projectId, rows]): UsageInProject => ({
+          key: projectId,
+          project: projects.find((p) => p.id === rows[0].projectId) ?? null,
+          rows,
+          total: sumBy(rows, metric.getTotal),
+        }),
+      )
+      .filter((project) => project.total > 0) // Ignore projects with no data for this metric
       .sort((a, b) => b.total - a.total);
   }, [projects, callsByDeployment, metric]);
 }
@@ -302,39 +383,27 @@ function ChartLoading() {
 }
 
 function FunctionUsageBreakdown({
-  projects,
+  usageByProject,
   team,
   metricsByDeployment,
   metric,
 }: {
-  projects: ProjectDetails[];
+  usageByProject: UsageInProject[];
   metricsByDeployment: AggregatedFunctionMetrics[];
   metric: FunctionBreakdownMetric;
   team: Team;
 }) {
-  const usageByProject = useUsageByProject(
-    metricsByDeployment,
-    projects,
-    metric,
+  const maxValue = useMemo(
+    () => Math.max(...metricsByDeployment.map(metric.getTotal)),
+    [metricsByDeployment, metric],
   );
 
   if (usageByProject.length === 0) {
     return <UsageNoDataError entity={metric.name} />;
   }
 
-  const maxValue = Math.max(...metricsByDeployment.map(metric.getTotal));
-
   if (maxValue === 0) {
     return <UsageNoDataError entity={metric.name} />;
-  }
-
-  if (usageByProject.length > 100) {
-    return (
-      <TeamUsageError
-        title="Too many projects to show the full breakdown"
-        description="To view detailed breakdowns, please select a specific project in the header at the top."
-      />
-    );
   }
 
   return (
@@ -386,10 +455,6 @@ function FunctionUsageBreakdownByProject({
 }) {
   const { deployments } = useDeployments(project?.id);
   const isLoadingDeployments = project && !deployments;
-
-  if (projectTotal === 0) {
-    return null;
-  }
 
   return (
     <div className="mb-4">
@@ -517,17 +582,20 @@ function DatabaseUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-          <h3>Database</h3>
-
-          <Tab.List className="flex gap-2">
-            <UsageTab>Storage</UsageTab>
-            <UsageTab>Bandwidth</UsageTab>
-            <UsageTab>Document Count</UsageTab>
-          </Tab.List>
-        </div>
+    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TeamUsageSection
+        ref={ref}
+        header={
+          <>
+            <h3>Database</h3>
+            <Tab.List className="flex gap-2">
+              <UsageTab>Storage</UsageTab>
+              <UsageTab>Bandwidth</UsageTab>
+              <UsageTab>Document Count</UsageTab>
+            </Tab.List>
+          </>
+        }
+      >
         <Tab.Panels className="px-4">
           <Tab.Panel>
             {showEntitlements && (
@@ -582,8 +650,8 @@ function DatabaseUsage({
             )}
           </Tab.Panel>
         </Tab.Panels>
-      </Tab.Group>
-    </Sheet>
+      </TeamUsageSection>
+    </Tab.Group>
   );
 }
 
@@ -632,10 +700,10 @@ function FunctionCallsUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4">
-        <h3>Daily function calls</h3>
-      </div>
+    <TeamUsageSection
+      ref={ref}
+      header={<h3 className="py-2">Daily function calls</h3>}
+    >
       <div className="px-4">
         {showEntitlements && (
           <UsageOverview
@@ -656,7 +724,7 @@ function FunctionCallsUsage({
           />
         )}
       </div>
-    </Sheet>
+    </TeamUsageSection>
   );
 }
 
@@ -706,10 +774,10 @@ function ActionComputeUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4">
-        <h3>Action Compute</h3>
-      </div>
+    <TeamUsageSection
+      ref={ref}
+      header={<h3 className="py-2">Action Compute</h3>}
+    >
       <div className="px-4">
         {showEntitlements && (
           <UsageOverview
@@ -730,7 +798,7 @@ function ActionComputeUsage({
           />
         )}
       </div>
-    </Sheet>
+    </TeamUsageSection>
   );
 }
 
@@ -799,16 +867,19 @@ function FilesUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-          <h3>Files</h3>
-
-          <Tab.List className="flex gap-2">
-            <UsageTab>Storage</UsageTab>
-            <UsageTab>Bandwidth</UsageTab>
-          </Tab.List>
-        </div>
+    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TeamUsageSection
+        ref={ref}
+        header={
+          <>
+            <h3>Files</h3>
+            <Tab.List className="flex gap-2">
+              <UsageTab>Storage</UsageTab>
+              <UsageTab>Bandwidth</UsageTab>
+            </Tab.List>
+          </>
+        }
+      >
         <Tab.Panels className="px-4">
           <Tab.Panel>
             {showEntitlements && (
@@ -854,8 +925,8 @@ function FilesUsage({
             )}
           </Tab.Panel>
         </Tab.Panels>
-      </Tab.Group>
-    </Sheet>
+      </TeamUsageSection>
+    </Tab.Group>
   );
 }
 function VectorUsage({
@@ -922,16 +993,19 @@ function VectorUsage({
   }, [router.events]);
 
   return (
-    <Sheet ref={ref} padding={false} className="pb-4">
-      <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-        <div className="relative mb-4 flex w-full flex-wrap items-center justify-between gap-4 border-b p-4 py-2">
-          <h3>Vector Indexes</h3>
-
-          <Tab.List className="flex gap-2">
-            <UsageTab>Storage</UsageTab>
-            <UsageTab>Bandwidth</UsageTab>
-          </Tab.List>
-        </div>
+    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TeamUsageSection
+        ref={ref}
+        header={
+          <>
+            <h3>Vector Indexes</h3>
+            <Tab.List className="flex gap-2">
+              <UsageTab>Storage</UsageTab>
+              <UsageTab>Bandwidth</UsageTab>
+            </Tab.List>
+          </>
+        }
+      >
         <Tab.Panels className="px-4">
           <Tab.Panel>
             {showEntitlements && (
@@ -975,8 +1049,8 @@ function VectorUsage({
             )}
           </Tab.Panel>
         </Tab.Panels>
-      </Tab.Group>
-    </Sheet>
+      </TeamUsageSection>
+    </Tab.Group>
   );
 }
 
@@ -984,3 +1058,31 @@ function useHasSubscription(teamId?: number): boolean | undefined {
   const { subscription: orbSub } = useTeamOrbSubscription(teamId);
   return orbSub === undefined ? undefined : orbSub !== null;
 }
+
+const TeamUsageSection = forwardRef<
+  HTMLDivElement,
+  React.PropsWithChildren<{ header: React.ReactNode }>
+>(function TeamUsageSection({ header, children }, ref) {
+  return (
+    <section
+      className="scroll-mt-(--section-sticky-top) [--section-sticky-top:calc(var(--team-usage-toolbar-height)_+_--spacing(3))]"
+      ref={ref}
+    >
+      <header
+        className={cn(
+          "sticky top-(--section-sticky-top) z-10",
+
+          // This pseudo-element makes sure that the contents of the elements aren’t visible above the section header when it is sticky
+          "before:absolute before:inset-x-0 before:-top-4 before:h-12 before:bg-background-primary",
+        )}
+      >
+        <div className="relative flex w-full flex-wrap items-center justify-between gap-4 rounded-t-lg border bg-background-secondary p-4 py-2">
+          {header}
+        </div>
+      </header>
+      <Sheet padding={false} className="rounded-t-none border-t-0 py-4">
+        {children}
+      </Sheet>
+    </section>
+  );
+});

@@ -30,6 +30,28 @@ pub enum TextIndexState {
     SnapshottedAt(TextIndexSnapshot),
 }
 
+impl TextIndexState {
+    pub fn is_staged(&self) -> bool {
+        match self {
+            Self::Backfilling(index_state) => index_state.staged,
+            Self::Backfilled { staged, .. } => *staged,
+            Self::SnapshottedAt(_) => false,
+        }
+    }
+
+    pub fn set_staged(&mut self, staged_new: bool) {
+        match self {
+            Self::Backfilling(index_state) => {
+                index_state.staged = staged_new;
+            },
+            Self::Backfilled { staged, .. } => {
+                *staged = staged_new;
+            },
+            Self::SnapshottedAt(_) => {},
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum SerializedTextIndexState {

@@ -67,6 +67,6 @@ export default function (algorithm: z.infer<typeof getKeyLength>): number {
       );
     }
   }
-  const _: never = algorithm;
+  algorithm satisfies never;
   throw new TypeError("unreachable");
 }

@@ -337,7 +337,7 @@ impl<RT: Runtime> Isolate<RT> {
         Ok((self.handle.clone(), state))
     }
 
-    pub fn handle_scope(&mut self) -> v8::HandleScope<()> {
+    pub fn handle_scope(&mut self) -> v8::HandleScope<'_, ()> {
         v8::HandleScope::new(&mut self.v8_isolate)
     }
 

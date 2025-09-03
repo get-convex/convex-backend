@@ -339,7 +339,7 @@ function deploymentListOrder(
     case "dev":
       return isMine ? 2 : 3;
     default: {
-      const _typecheck: never = deploymentType;
+      deploymentType satisfies never;
       throw new Error("Unexpected deployment type");
     }
   }

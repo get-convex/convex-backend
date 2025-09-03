@@ -5,17 +5,17 @@ use std::{
     },
     iter,
     ops::Bound as StdBound,
+    slice,
 };
 
 use common::{
     bootstrap_model::index::{
         database_index::{
+            DatabaseIndexSpec,
             DatabaseIndexState,
-            DeveloperDatabaseIndexConfig,
             IndexedFields,
         },
-        text_index::DeveloperTextIndexConfig,
-        DeveloperIndexConfig,
+        text_index::TextIndexSpec,
         IndexConfig,
         TabletIndexMetadata,
         INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR,
@@ -199,7 +199,7 @@ impl IndexRegistry {
                 for index in self.indexes_by_table(document.id().tablet_id) {
                     // Only yield fields from database indexes.
                     if let IndexConfig::Database {
-                        developer_config: DeveloperDatabaseIndexConfig { fields },
+                        spec: DatabaseIndexSpec { fields },
                         on_disk_state: _,
                     } = &index.metadata.config
                     {
@@ -261,14 +261,14 @@ impl IndexRegistry {
             .flat_map(|index| {
                 let key = match &index.metadata.config {
                     IndexConfig::Database {
-                        developer_config: DeveloperDatabaseIndexConfig { fields },
+                        spec: DatabaseIndexSpec { fields },
                         ..
                     } => Some(DocumentIndexKeyValue::Standard(
                         document.index_key_bytes(&fields[..], self.persistence_version()),
                     )),
                     IndexConfig::Text {
-                        developer_config:
-                            DeveloperTextIndexConfig {
+                        spec:
+                            TextIndexSpec {
                                 search_field,
                                 filter_fields,
                             },
@@ -312,10 +312,10 @@ impl IndexRegistry {
             )
             .expect("invalid built-in index name");
 
-            let index_key_value = DocumentIndexKeyValue::Standard(
-                document
-                    .index_key_bytes(&[TABLE_ID_FIELD_PATH.clone()], self.persistence_version()),
-            );
+            let index_key_value = DocumentIndexKeyValue::Standard(document.index_key_bytes(
+                slice::from_ref(&*TABLE_ID_FIELD_PATH),
+                self.persistence_version(),
+            ));
 
             map.insert(index_name, index_key_value);
         }
@@ -348,9 +348,8 @@ impl IndexRegistry {
                     );
                 }
                 anyhow::ensure!(
-                    DeveloperIndexConfig::from(old_metadata.config.clone())
-                        == DeveloperIndexConfig::from(new_metadata.config.clone()),
-                    "Can't modify developer index config for existing indexes {}",
+                    old_metadata.config.same_spec(&new_metadata.config),
+                    "Can't modify index spec for existing indexes {}",
                     old_metadata.name
                 );
             }
@@ -527,9 +526,9 @@ impl IndexRegistry {
                 let index_id = index.id().internal_id();
                 let index_name = index.name.clone();
                 match &index.config {
-                    IndexConfig::Database {
-                        developer_config, ..
-                    } => Some((index_id, (index_name, developer_config.fields.clone()))),
+                    IndexConfig::Database { spec, .. } => {
+                        Some((index_id, (index_name, spec.fields.clone())))
+                    },
                     IndexConfig::Text { .. } | IndexConfig::Vector { .. } => None,
                 }
             })
@@ -642,7 +641,13 @@ impl IndexRegistry {
             return Ok(enabled.clone());
         }
         match self.get_pending(index_name) {
-            Some(_) => anyhow::bail!(index_backfilling_error(printable_index_name)),
+            Some(index) => {
+                if index.metadata.config.is_staged() {
+                    anyhow::bail!(index_staged_error(printable_index_name))
+                } else {
+                    anyhow::bail!(index_backfilling_error(printable_index_name))
+                }
+            },
             None => {
                 anyhow::bail!(index_not_found_error(printable_index_name))
             },
@@ -786,7 +791,14 @@ impl Index {
 pub fn index_backfilling_error(name: &IndexName) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "IndexBackfillingError",
-        format!("Index {name} is currently backfilling and not available to query yet.",),
+        format!("Index {name} is currently backfilling and not available to query yet."),
+    )
+}
+
+pub fn index_staged_error(name: &IndexName) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "IndexStagedError",
+        format!("Index {name} is currently staged and not available to query until it is enabled."),
     )
 }
 
@@ -805,9 +817,9 @@ mod tests {
         bootstrap_model::index::{
             database_index::IndexedFields,
             text_index::{
-                DeveloperTextIndexConfig,
                 TextIndexSnapshot,
                 TextIndexSnapshotData,
+                TextIndexSpec,
                 TextIndexState,
                 TextSnapshotVersion,
             },
@@ -845,7 +857,7 @@ mod tests {
             IndexMetadata::new_enabled(by_name.clone(), vec!["name".parse()?].try_into()?),
             IndexMetadata::new_text_index(
                 by_content.clone(),
-                DeveloperTextIndexConfig {
+                TextIndexSpec {
                     search_field: FieldPath::from_str("content")?,
                     filter_fields: vec![FieldPath::from_str("author")?].into_iter().collect(),
                 },

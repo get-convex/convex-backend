@@ -75,7 +75,7 @@ async fn test_system_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         .unwrap();
     assert!(found_index
         .config
-        .same_config(&validated_index_metadata.config));
+        .same_spec(&validated_index_metadata.config));
 
     // Add the same index, should be no-op
     application
@@ -86,7 +86,7 @@ async fn test_system_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         .unwrap();
     assert!(found_index
         .config
-        .same_config(&validated_index_metadata.config));
+        .same_spec(&validated_index_metadata.config));
 
     // Add different index field, should update
     let field_path: FieldPath = "field".parse()?;
@@ -108,7 +108,7 @@ async fn test_system_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     );
     assert!(found_index
         .config
-        .same_config(&validated_index_metadata.config));
+        .same_spec(&validated_index_metadata.config));
 
     // Add many indexes
     let new_index_name: IndexName = IndexName::new_reserved(
@@ -122,13 +122,20 @@ async fn test_system_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         ._add_system_indexes(&Identity::system(), indexes)
         .await?;
     wait_for_backfill(&rt, &application, TableNamespace::test_user(), &index_name).await?;
+    wait_for_backfill(
+        &rt,
+        &application,
+        TableNamespace::test_user(),
+        &new_index_name,
+    )
+    .await?;
     let mut tx = application.begin(Identity::system()).await?;
     let found_index = IndexModel::new(&mut tx)
         .enabled_index_metadata(TableNamespace::test_user(), &index_name)?
         .unwrap();
     assert!(found_index
         .config
-        .same_config(&validated_index_metadata.config));
+        .same_spec(&validated_index_metadata.config));
     assert!(IndexModel::new(&mut tx)
         .enabled_index_metadata(TableNamespace::test_user(), &new_index_name)?
         .is_some());

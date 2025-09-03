@@ -64,6 +64,7 @@ use tempfile::TempDir;
 use value::{
     assert_obj,
     ConvexValue,
+    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -82,7 +83,8 @@ use vector::{
 
 use super::DbFixtures;
 use crate::{
-    index_workers::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
+    search_index_workers::{
         search_compactor::CompactionConfig,
         search_flusher::FLUSH_RUNNING_LABEL,
         FlusherType,
@@ -100,7 +102,9 @@ use crate::{
         },
     },
     Database,
+    IndexBackfillMetadata,
     IndexModel,
+    SystemMetadataModel,
     TestFacingModel,
     Transaction,
     UserFacingModel,
@@ -223,6 +227,16 @@ impl VectorFixtures {
         Ok(result)
     }
 
+    pub async fn index_backfill_progress(
+        &self,
+        index_id: DeveloperDocumentId,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
+        let mut tx = self.db.begin_system().await?;
+        IndexBackfillModel::new(&mut tx)
+            .existing_backfill_metadata(index_id)
+            .await
+    }
+
     pub async fn new_compactor(&self) -> anyhow::Result<VectorIndexCompactor<TestRuntime>> {
         self.new_compactor_with_searchlight(self.searcher.clone())
             .await
@@ -273,7 +287,11 @@ impl VectorFixtures {
         )
     }
 
-    pub async fn run_compaction_during_flush(&self, pause: PauseController) -> anyhow::Result<()> {
+    pub async fn run_compaction_during_flush(
+        &self,
+        pause: PauseController,
+        flusher_type: FlusherType,
+    ) -> anyhow::Result<()> {
         let flusher = new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
@@ -283,7 +301,7 @@ impl VectorFixtures {
             0,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             8,
-            FlusherType::LiveFlush,
+            flusher_type,
         );
         let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
         let flush = flusher.step();
@@ -347,6 +365,22 @@ impl VectorFixtures {
         }
         let metadata = metadata.context("Index is neither pending nor enabled!")?;
         Ok(metadata)
+    }
+
+    pub async fn inject_last_segment_ts_into_backfilling_vector_index(
+        &self,
+        index_name: IndexName,
+        index_id: ResolvedDocumentId,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.db.begin_system().await?;
+        let mut index_metadata = self.get_index_metadata(index_name).await?.into_value();
+        index_metadata.inject_last_segment_ts_into_backfilling_vector_index()?;
+        let mut model = SystemMetadataModel::new(&mut tx, namespace);
+        model.replace(index_id, index_metadata.try_into()?).await?;
+        self.db.commit(tx).await?;
+
+        Ok(())
     }
 
     pub async fn get_segments_metadata(
@@ -447,6 +481,7 @@ pub struct IndexData {
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
     pub namespace: TableNamespace,
+    pub metadata: IndexMetadata<TableName>,
 }
 
 fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
@@ -495,6 +530,7 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
         resolved_index_name,
         index_name: index_name.clone(),
         namespace,
+        metadata: index_metadata,
     })
 }
 

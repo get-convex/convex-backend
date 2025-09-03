@@ -39,7 +39,7 @@ pub fn approaching_limit_warning(
         unit.unwrap_or(""),
         unit.unwrap_or(""),
         message_suffix
-            .map(|suffix| format!(" {}", suffix))
+            .map(|suffix| format!(" {suffix}"))
             .unwrap_or("".to_string()),
     );
     let warning = SystemWarning {

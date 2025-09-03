@@ -1,8 +1,3 @@
-# OpenAPI spec
-dashboard-openapi.json
-filtered-openapi.json
-./src/generatedApi.ts
-
 # Node
 node_modules/
 dist/

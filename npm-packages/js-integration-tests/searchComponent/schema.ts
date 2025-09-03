@@ -5,6 +5,8 @@ export default defineSchema({
   foods: defineTable({
     description: v.string(),
     cuisine: v.string(),
+    theLetterA: v.string(),
+    bOrC: v.string(),
     embedding: v.array(v.float64()),
   })
     .vectorIndex("by_embedding", {

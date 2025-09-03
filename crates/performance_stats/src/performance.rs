@@ -25,7 +25,7 @@ pub fn print_histogram(mut timings: Vec<Duration>) {
     let percentile = |p: f64| timings[(timings.len() as f64 * (p / 100.)) as usize];
     println!("Total: {}", timings.len());
     println!("Min  : {:.2?}", timings[0]);
-    println!("Mean : {:.2?}", mean);
+    println!("Mean : {mean:.2?}");
     println!("p10  : {:.2?}", percentile(10.));
     println!("p50  : {:.2?}", percentile(50.));
     println!("p75  : {:.2?}", percentile(75.));

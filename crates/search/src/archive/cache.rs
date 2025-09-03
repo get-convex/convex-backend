@@ -148,7 +148,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let archive = search_storage
             .get(&key)
             .await?
-            .context(format!("{:?} not found in search storage", key))?
+            .context(format!("{key:?} not found in search storage"))?
             .into_tokio_reader();
         let extract_archive_timer = metrics::extract_archive_timer();
         let extract_archive_result = self

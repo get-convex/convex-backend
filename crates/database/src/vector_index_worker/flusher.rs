@@ -12,7 +12,7 @@ use storage::Storage;
 
 use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
-    index_workers::{
+    search_index_workers::{
         search_flusher::{
             SearchFlusher,
             SearchIndexLimits,
@@ -177,7 +177,7 @@ mod tests {
     };
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
-        index_workers::{
+        search_index_workers::{
             search_compactor::CompactionConfig,
             FlusherType,
         },
@@ -321,7 +321,11 @@ mod tests {
     ) -> anyhow::Result<()> {
         let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-        let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+        let IndexData {
+            index_name,
+            index_id,
+            ..
+        } = fixtures.backfilling_vector_index().await?;
         fixtures
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
@@ -339,6 +343,13 @@ mod tests {
         let segment = segments.first().unwrap();
         let segment = fixtures.load_segment(segment).await?;
         assert_eq!(segment.total_point_count(), 1);
+        // Should have written backfill progress, and it is halfway done.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 1);
+        assert_eq!(progress.total_docs, Some(2));
 
         // Should be no longer in backfilling state now after step
         worker.step().await?;
@@ -347,6 +358,78 @@ mod tests {
         let segment = segments.get(1).unwrap();
         let segment = fixtures.load_segment(segment).await?;
         assert_eq!(segment.total_point_count(), 1);
+        // Should have written backfill progress, and it is complete.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 2);
+        assert_eq!(progress.total_docs, Some(2));
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn flusher_restarts_backfill_if_last_segment_ts_is_set(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = VectorFixtures::new(rt.clone()).await?;
+
+        let IndexData {
+            index_name,
+            index_id,
+            namespace,
+            ..
+        } = fixtures.backfilling_vector_index().await?;
+        fixtures
+            .add_document_vec_array(index_name.table(), [3f64, 4f64])
+            .await?;
+        fixtures
+            .add_document_vec_array(index_name.table(), [5f64, 6f64])
+            .await?;
+        let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
+        // Build 1 segment with 1 document indexed.
+        worker.step().await?;
+        let segments = fixtures
+            .get_segments_from_backfilling_index(index_name.clone())
+            .await?;
+        assert_eq!(segments.len(), 1);
+        let segment = segments.first().unwrap();
+        let segment = fixtures.load_segment(segment).await?;
+        assert_eq!(segment.total_point_count(), 1);
+        // Should have written backfill progress, and it is halfway done.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 1);
+        assert_eq!(progress.total_docs, Some(2));
+
+        // Inject `last_segment_ts`.
+        fixtures
+            .inject_last_segment_ts_into_backfilling_vector_index(
+                index_name.clone(),
+                index_id,
+                namespace,
+            )
+            .await?;
+        // In the next step, we should rebuild the first segment again, since
+        // `last_segment_ts` is not supported here.
+        worker.step().await?;
+        let segments = fixtures
+            .get_segments_from_backfilling_index(index_name.clone())
+            .await?;
+        assert_eq!(segments.len(), 1);
+        let segment = segments.first().unwrap();
+        let segment = fixtures.load_segment(segment).await?;
+        assert_eq!(segment.total_point_count(), 1);
+        // Should have written backfill progress, and it is halfway done.
+        let progress = fixtures
+            .index_backfill_progress(index_id.developer_id)
+            .await?
+            .unwrap();
+        assert_eq!(progress.num_docs_indexed, 1);
+        assert_eq!(progress.total_docs, Some(2));
 
         Ok(())
     }
@@ -494,7 +577,9 @@ mod tests {
 
         // Run the compactor / flusher concurrently in a way where the compactor
         // wins the race.
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+            .await?;
 
         // Verify we propagate the new deletes to the compacted segment and retain our
         // new segment.
@@ -545,7 +630,9 @@ mod tests {
 
         // For last iteration, run the compactor / flusher concurrently in a way where
         // the compactor wins the race.
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::Backfill)
+            .await?;
 
         // There should be 2 segments left: the compacted segment and the new segment
         // from flush
@@ -603,7 +690,9 @@ mod tests {
 
         // Run the compactor / flusher concurrently in a way where the compactor
         // wins the race.
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+            .await?;
 
         // Verify we propagate the new deletes to the compacted segment and retain our
         // new segment.
@@ -680,7 +769,9 @@ mod tests {
         }
         fixtures.db.commit(tx).await?;
 
-        fixtures.run_compaction_during_flush(pause).await?;
+        fixtures
+            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+            .await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
         assert_eq!(1, segments.len());

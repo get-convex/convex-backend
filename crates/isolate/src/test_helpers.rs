@@ -394,6 +394,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                     sha256,
                     package_size,
                     external_deps_package_id: None,
+                    node_version: None,
                 }),
                 analyze_results,
                 None,

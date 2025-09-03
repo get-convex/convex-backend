@@ -6,8 +6,8 @@ use std::{
 use common::{
     bootstrap_model::index::{
         database_index::{
+            DatabaseIndexSpec,
             DatabaseIndexState,
-            DeveloperDatabaseIndexConfig,
             IndexedFields,
         },
         IndexConfig,
@@ -191,7 +191,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
     let result = index_registry.update(Some(&original), Some(&rename));
     let err = result.unwrap_err();
     assert!(
-        format!("{:?}", err).contains(&format!(
+        format!("{err:?}").contains(&format!(
             "Can't rename system defined index {}.by_id",
             table.tablet_id
         )),
@@ -267,10 +267,10 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
     let result = index_registry.update(Some(&original), Some(&changed_fields));
     assert!(result.is_err());
     assert!(format!("{:?}", result.unwrap_err())
-        .contains("Can't modify developer index config for existing indexes"));
+        .contains("Can't modify index spec for existing indexes"));
     let current_metadata = index_registry.enabled_index_metadata(&by_name).unwrap();
-    must_let!(let IndexConfig::Database { developer_config, .. } = &current_metadata.config);
-    must_let!(let DeveloperDatabaseIndexConfig { fields } = developer_config);
+    must_let!(let IndexConfig::Database { spec, .. } = &current_metadata.config);
+    must_let!(let DatabaseIndexSpec { fields } = spec);
     assert_eq!(*fields, vec!["name".parse()?].try_into()?,);
 
     // Changing which table the index is indexing is not allowed.
@@ -308,7 +308,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
     let current_metadata = index_registry.enabled_index_metadata(&by_name).unwrap();
     must_let!(
         let IndexConfig::Database {
-            developer_config: DeveloperDatabaseIndexConfig { fields },
+            spec: DatabaseIndexSpec { fields },
             ..
         } = &current_metadata.config
     );
@@ -360,8 +360,8 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
         ))
     );
     let current_index = index_registry.get_pending(&by_name).unwrap();
-    must_let!(let IndexConfig::Database { developer_config, .. } = &current_index.metadata.config);
-    must_let!(let DeveloperDatabaseIndexConfig { fields } = developer_config);
+    must_let!(let IndexConfig::Database { spec, .. } = &current_index.metadata.config);
+    must_let!(let DatabaseIndexSpec { fields } = spec);
     assert_eq!(*fields, vec!["name".parse()?].try_into()?,);
 
     Ok(())

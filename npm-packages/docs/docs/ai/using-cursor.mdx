@@ -34,9 +34,17 @@ The Convex CLI comes with a
 in. The Convex MCP server gives your AI coding agent access to the your Convex
 deployment to query and optimize your project.
 
-To get started with Cursor, open "Cursor Settings > MCP", click on "Add new
-global MCP server", and add a "convex" section to "mcpServers" in the `mcp.json`
-file that's opened.
+### Quick Install
+
+You can click this handy deep-link below:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+### Manual Install
+
+To get started with Cursor, open "Cursor Settings > Tools & Integrations", click
+on "New MCP Server", and add a "convex" section to "mcpServers" in the
+`mcp.json` file that's opened.
 
 ```json
 {
@@ -49,18 +57,15 @@ file that's opened.
 }
 ```
 
+You can also install the Convex MCP
+[for just one project](https://docs.cursor.com/en/context/mcp#configuration-locations).
+
 After adding the server, ensure the "convex" server is enabled and lit up green
-(you may need to click "Disabled" to enable it). Here's an example of Cursor
-configured successfully:
-
-![Chat UI](/img/cursor-with-convex/convex_mcp_setup.webp)
-
-If you're running into issues, confirm you're using Cursor version **0.47** or
-later (check under "Cursor > About Cursor" on macOS).
+(it make take a minute the first time while the NPM package downloads).
 
 Now start asking it questions like:
 
-- Evaluate and convex schema and suggest improvements
+- Evaluate my convex schema and suggest improvements
 - What are this app's public endpoints?
 - Run the `my_convex_function` query
 

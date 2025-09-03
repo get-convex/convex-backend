@@ -530,9 +530,8 @@ impl CryptoOps {
         anyhow::ensure!(
             byte_length <= max_byte_length,
             type_error(format!(
-                "Byte length ({}) exceeds the number of bytes of entropy available via this API \
-                 ({})",
-                byte_length, max_byte_length
+                "Byte length ({byte_length}) exceeds the number of bytes of entropy available via \
+                 this API ({max_byte_length})"
             ))
         );
         let byte_length = byte_length as usize;

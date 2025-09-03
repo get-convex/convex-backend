@@ -16,7 +16,7 @@ use common::{
     bootstrap_model::{
         index::{
             database_index::{
-                DeveloperDatabaseIndexConfig,
+                DatabaseIndexSpec,
                 IndexedFields,
             },
             IndexConfig,
@@ -102,7 +102,7 @@ use value::{
 };
 
 use crate::{
-    index_worker::{
+    database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
     },
@@ -295,7 +295,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     };
 
     let changes = IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     assert_eq!(changes.added.len(), 2);
     assert_eq!(changes.added[0].name.to_string(), "table.a_and_b");
@@ -354,7 +354,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     };
 
     let changes = IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::test_user(), &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     assert_eq!(
         changes
@@ -400,8 +400,8 @@ fn get_pending_index_fields(
     let index_c_d = IndexModel::new(tx)
         .pending_index_metadata(namespace, index_name)?
         .expect("index should exist");
-    must_let!(let IndexConfig::Database { developer_config, .. } = &index_c_d.config);
-    must_let!(let DeveloperDatabaseIndexConfig { fields } = developer_config);
+    must_let!(let IndexConfig::Database { spec, .. } = &index_c_d.config);
+    must_let!(let DatabaseIndexSpec { fields } = spec);
     Ok(fields.clone())
 }
 
@@ -431,13 +431,13 @@ async fn test_delete_conflict(rt: TestRuntime) -> anyhow::Result<()> {
     must_let!(let Err(e) = database.commit(tx1).await);
     assert!(e.is_occ());
     assert!(
-        format!("{}", e).contains(
+        format!("{e}").contains(
             "Documents read from or written to the \"key\" table changed while this mutation"
         ),
         "Got:\n\n{e}"
     );
     assert!(
-        format!("{}", e).contains(&format!(
+        format!("{e}").contains(&format!(
             "A call to \"foo/bar:baz\" changed the document with ID \"{id}\"",
         )),
         "Got:\n\n{e}"
@@ -1659,16 +1659,15 @@ fn assert_single_pending_index_error(result: anyhow::Result<ResolvedDocumentId>)
         .to_string();
     assert!(
         err.contains("Cannot create a second pending index"),
-        "Unexpected error {}",
-        err
+        "Unexpected error {err}"
     );
 }
 
 fn new_index_and_field_path(index: usize) -> anyhow::Result<(IndexName, FieldPath)> {
-    let field_name = format!("field_{}", index);
+    let field_name = format!("field_{index}");
     let index_name = IndexName::new(
         "table".parse()?,
-        IndexDescriptor::new(format!("by_{}", field_name))?,
+        IndexDescriptor::new(format!("by_{field_name}"))?,
     )?;
     Ok((index_name, field_name.parse()?))
 }
@@ -1730,8 +1729,7 @@ fn assert_too_many_indexes_error(result: anyhow::Result<ResolvedDocumentId>) {
         err.contains(&format!(
             "Table \"table\" cannot have more than {MAX_INDEXES_PER_TABLE} indexes."
         )),
-        "Unexpected error {}",
-        err
+        "Unexpected error {err}"
     );
 }
 

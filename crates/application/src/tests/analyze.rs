@@ -85,7 +85,7 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
             environment: ModuleEnvironment::Node,
         },
     ];
-    let source_package = application.upload_package(&modules, None).await?;
+    let source_package = application.upload_package(&modules, None, None).await?;
     let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
     let modules = application
         .analyze(
@@ -198,7 +198,7 @@ export { hello, internalHello };
         },
     ];
 
-    let source_package = application.upload_package(&modules, None).await?;
+    let source_package = application.upload_package(&modules, None, None).await?;
     let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
     let modules = application
         .analyze(
@@ -265,7 +265,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
             environment: ModuleEnvironment::Isolate,
         },
     ];
-    let source_package = application.upload_package(&modules, None).await?;
+    let source_package = application.upload_package(&modules, None, None).await?;
     let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
     let modules = application
         .analyze(
@@ -299,7 +299,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         source_map: None,
         environment: ModuleEnvironment::Isolate,
     }];
-    let source_package = application.upload_package(&modules, None).await?;
+    let source_package = application.upload_package(&modules, None, None).await?;
     let result = application
         .analyze(
             udf_config.clone(),
@@ -314,7 +314,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         anyhow::bail!("No JsError raised for scheduled nonexistent function");
     };
     assert!(
-        format!("{}", err).contains("schedules a function that does not exist"),
+        format!("{err}").contains("schedules a function that does not exist"),
         "{err:?}"
     );
 
@@ -325,7 +325,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         source_map: None,
         environment: ModuleEnvironment::Isolate,
     }];
-    let source_package = application.upload_package(&modules, None).await?;
+    let source_package = application.upload_package(&modules, None, None).await?;
     let result = application
         .analyze(
             udf_config,
@@ -340,7 +340,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         anyhow::bail!("No JsError raised for scheduled nonexistent function");
     };
     assert!(
-        format!("{}", err).contains("schedules a function that does not exist"),
+        format!("{err}").contains("schedules a function that does not exist"),
         "{err:?}"
     );
     Ok(())

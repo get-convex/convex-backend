@@ -7,7 +7,7 @@ use search::searcher::Searcher;
 use storage::Storage;
 
 use crate::{
-    index_workers::{
+    search_index_workers::{
         search_compactor::{
             CompactionConfig,
             SearchIndexCompactor,

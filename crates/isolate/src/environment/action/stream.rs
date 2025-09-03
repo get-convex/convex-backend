@@ -70,7 +70,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let boundary = multer::parse_boundary(&content_type).with_context(|| {
             ErrorMetadata::bad_request(
                 "InvalidMultiPartForm",
-                format!("multi-part form invalid boundary: '{}'", content_type),
+                format!("multi-part form invalid boundary: '{content_type}'"),
             )
         })?;
         let mut multipart = multer::Multipart::with_constraints(
@@ -136,7 +136,7 @@ fn map_multer_error(e: multer::Error) -> anyhow::Error {
         | multer::Error::DecodeContentType(_)
         | multer::Error::NoBoundary => ErrorMetadata::bad_request(
             "InvalidMultiPartForm",
-            format!("invalid multi-part form: '{}'", e),
+            format!("invalid multi-part form: '{e}'"),
         )
         .into(),
         _ => e.into(),

@@ -8,53 +8,72 @@ use value::codegen_convex_serialization;
 
 use super::{
     database_index::{
+        DatabaseIndexSpec,
         DatabaseIndexState,
-        DeveloperDatabaseIndexConfig,
+        SerializedDatabaseIndexSpec,
         SerializedDatabaseIndexState,
-        SerializedDeveloperDatabaseIndexConfig,
     },
     text_index::{
-        DeveloperTextIndexConfig,
-        SerializedDeveloperTextIndexConfig,
+        SerializedTextIndexSpec,
         SerializedTextIndexState,
+        TextIndexSpec,
         TextIndexState,
     },
     vector_index::{
-        DeveloperVectorIndexConfig,
-        SerializedDeveloperVectorIndexConfig,
+        SerializedVectorIndexSpec,
         SerializedVectorIndexState,
         VectorIndexSnapshotData,
+        VectorIndexSpec,
         VectorIndexState,
     },
 };
 
 /// Configuration that depends on the type of index.
+///
+/// Split into two parts:
+///   spec: Specification of the identity of index.
+///   state: State of index that can change over time.
+///
+/// If spec changes (eg fields), it's a *different* index.
+/// State can change over time (eg. backfill state or staged flag)
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum IndexConfig {
     /// Standard database index.
     Database {
-        developer_config: DeveloperDatabaseIndexConfig,
-
-        /// Whether the index is fully backfilled or not on disk.
+        spec: DatabaseIndexSpec,
         on_disk_state: DatabaseIndexState,
     },
 
     /// Full text search index.
     Text {
-        developer_config: DeveloperTextIndexConfig,
-
-        /// Whether the index is fully backfilled or not on disk.
+        spec: TextIndexSpec,
         on_disk_state: TextIndexState,
     },
 
     Vector {
-        developer_config: DeveloperVectorIndexConfig,
+        spec: VectorIndexSpec,
         on_disk_state: VectorIndexState,
     },
 }
 
 impl IndexConfig {
+    pub fn is_staged(&self) -> bool {
+        match self {
+            Self::Database { on_disk_state, .. } => on_disk_state.is_staged(),
+            Self::Text { on_disk_state, .. } => on_disk_state.is_staged(),
+            Self::Vector { on_disk_state, .. } => on_disk_state.is_staged(),
+        }
+    }
+
+    pub fn set_staged(&mut self, staged: bool) {
+        match self {
+            Self::Database { on_disk_state, .. } => on_disk_state.set_staged(staged),
+            Self::Text { on_disk_state, .. } => on_disk_state.set_staged(staged),
+            Self::Vector { on_disk_state, .. } => on_disk_state.set_staged(staged),
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         match self {
             IndexConfig::Database { on_disk_state, .. } => {
@@ -83,35 +102,43 @@ impl IndexConfig {
         }
     }
 
-    pub fn same_config(&self, config: &IndexConfig) -> bool {
+    pub fn is_backfilled(&self) -> bool {
+        match self {
+            IndexConfig::Database { on_disk_state, .. } => {
+                matches!(on_disk_state, DatabaseIndexState::Backfilled { .. })
+            },
+            IndexConfig::Text { on_disk_state, .. } => {
+                matches!(on_disk_state, TextIndexState::Backfilled { .. })
+            },
+            IndexConfig::Vector { on_disk_state, .. } => {
+                matches!(on_disk_state, VectorIndexState::Backfilled { .. })
+            },
+        }
+    }
+
+    pub fn same_spec(&self, config: &IndexConfig) -> bool {
         match (self, config) {
             (
+                IndexConfig::Database { spec, .. },
                 IndexConfig::Database {
-                    developer_config, ..
-                },
-                IndexConfig::Database {
-                    developer_config: config_to_compare,
+                    spec: spec_to_compare,
                     ..
                 },
-            ) => developer_config == config_to_compare,
+            ) => spec == spec_to_compare,
             (
+                IndexConfig::Text { spec, .. },
                 IndexConfig::Text {
-                    developer_config, ..
-                },
-                IndexConfig::Text {
-                    developer_config: config_to_compare,
+                    spec: spec_to_compare,
                     ..
                 },
-            ) => developer_config == config_to_compare,
+            ) => spec == spec_to_compare,
             (
+                IndexConfig::Vector { spec, .. },
                 IndexConfig::Vector {
-                    developer_config, ..
-                },
-                IndexConfig::Vector {
-                    developer_config: config_to_compare,
+                    spec: spec_to_compare,
                     ..
                 },
-            ) => developer_config == config_to_compare,
+            ) => spec == spec_to_compare,
             (..) => false,
         }
     }
@@ -138,13 +165,13 @@ impl IndexConfig {
             },
             IndexConfig::Vector {
                 on_disk_state,
-                developer_config,
+                spec,
             } => match on_disk_state {
                 VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled { .. } => Ok(0),
                 VectorIndexState::SnapshottedAt(snapshot) => match &snapshot.data {
                     VectorIndexSnapshotData::MultiSegment(segments) => segments
                         .iter()
-                        .map(|segment| segment.non_deleted_size_bytes(developer_config.dimensions))
+                        .map(|segment| segment.non_deleted_size_bytes(spec.dimensions))
                         .sum::<anyhow::Result<_>>(),
                     VectorIndexSnapshotData::Unknown(_) => Ok(0),
                 },
@@ -159,19 +186,19 @@ pub enum SerializedIndexConfig {
     #[serde(rename_all = "camelCase")]
     Database {
         #[serde(flatten)]
-        developer_config: SerializedDeveloperDatabaseIndexConfig,
+        spec: SerializedDatabaseIndexSpec,
         on_disk_state: SerializedDatabaseIndexState,
     },
     #[serde(rename_all = "camelCase")]
     Search {
         #[serde(flatten)]
-        developer_config: SerializedDeveloperTextIndexConfig,
+        spec: SerializedTextIndexSpec,
         on_disk_state: SerializedTextIndexState,
     },
     #[serde(rename_all = "camelCase")]
     Vector {
         #[serde(flatten)]
-        developer_config: SerializedDeveloperVectorIndexConfig,
+        spec: SerializedVectorIndexSpec,
         on_disk_state: SerializedVectorIndexState,
     },
 }
@@ -182,24 +209,24 @@ impl TryFrom<IndexConfig> for SerializedIndexConfig {
     fn try_from(config: IndexConfig) -> anyhow::Result<Self> {
         Ok(match config {
             IndexConfig::Database {
-                developer_config,
+                spec,
                 on_disk_state,
             } => SerializedIndexConfig::Database {
-                developer_config: developer_config.try_into()?,
+                spec: spec.into(),
                 on_disk_state: on_disk_state.try_into()?,
             },
             IndexConfig::Text {
-                developer_config,
+                spec,
                 on_disk_state,
             } => SerializedIndexConfig::Search {
-                developer_config: developer_config.try_into()?,
+                spec: spec.into(),
                 on_disk_state: on_disk_state.try_into()?,
             },
             IndexConfig::Vector {
-                developer_config,
+                spec,
                 on_disk_state,
             } => SerializedIndexConfig::Vector {
-                developer_config: developer_config.try_into()?,
+                spec: spec.into(),
                 on_disk_state: on_disk_state.try_into()?,
             },
         })
@@ -212,24 +239,24 @@ impl TryFrom<SerializedIndexConfig> for IndexConfig {
     fn try_from(config: SerializedIndexConfig) -> anyhow::Result<Self> {
         Ok(match config {
             SerializedIndexConfig::Database {
-                developer_config,
+                spec,
                 on_disk_state,
             } => IndexConfig::Database {
-                developer_config: developer_config.try_into()?,
+                spec: spec.try_into()?,
                 on_disk_state: on_disk_state.try_into()?,
             },
             SerializedIndexConfig::Search {
-                developer_config,
+                spec,
                 on_disk_state,
             } => IndexConfig::Text {
-                developer_config: developer_config.try_into()?,
+                spec: spec.try_into()?,
                 on_disk_state: on_disk_state.try_into()?,
             },
             SerializedIndexConfig::Vector {
-                developer_config,
+                spec,
                 on_disk_state,
             } => IndexConfig::Vector {
-                developer_config: developer_config.try_into()?,
+                spec: spec.try_into()?,
                 on_disk_state: on_disk_state.try_into()?,
             },
         })
@@ -248,9 +275,9 @@ mod tests {
 
     use crate::bootstrap_model::index::{
         vector_index::{
-            DeveloperVectorIndexConfig,
             FragmentedVectorSegment,
             VectorIndexBackfillState,
+            VectorIndexSpec,
             VectorIndexState,
         },
         IndexConfig,
@@ -283,7 +310,7 @@ mod tests {
         assert_eq!(
             deserialized,
             IndexConfig::Vector {
-                developer_config: DeveloperVectorIndexConfig {
+                spec: VectorIndexSpec {
                     dimensions: 1536.try_into()?,
                     vector_field: "embedding.field".parse()?,
                     filter_fields: btreeset! { "filter1".parse()?, "filter2".parse()? },
@@ -291,6 +318,7 @@ mod tests {
                 on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState {
                     cursor: None,
                     backfill_snapshot_ts: Some(10i64.try_into()?),
+                    last_segment_ts: None,
                     segments: vec![FragmentedVectorSegment {
                         segment_key: "abc".to_string().try_into()?,
                         id_tracker_key: "def".to_string().try_into()?,

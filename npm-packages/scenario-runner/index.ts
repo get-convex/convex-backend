@@ -139,7 +139,7 @@ async function runScenario(
       );
       break;
     default: {
-      const _typeCheck: never = scenarioSpec;
+      scenarioSpec satisfies never;
       throw new Error(`Invalid scenario: ${scenarioMessage}`);
     }
   }

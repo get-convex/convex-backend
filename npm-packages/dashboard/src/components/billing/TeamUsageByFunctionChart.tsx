@@ -378,7 +378,7 @@ function DeploymentTypeIndicator({
         </>
       );
     default: {
-      const _typecheck: never = deploymentType;
+      deploymentType satisfies never;
       return null;
     }
   }
@@ -411,7 +411,7 @@ function useOrderedAndGroupedRows(
         const { componentPath } = row;
         let key;
         let deployment = null;
-        const isSystem = row.function.startsWith("_system");
+        const isSystem = row.function.startsWith("_system/");
         const isCloudBackups = row.function === "_system_job/cloud_backup";
         const name = isSystem ? "" : row.function;
         if (project) {

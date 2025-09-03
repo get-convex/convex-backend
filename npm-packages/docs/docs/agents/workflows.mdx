@@ -119,7 +119,7 @@ will get the error result.
 You can expose the agent's capabilities as Convex functions to be used as steps
 in a workflow.
 
-To create a thread as a standalone mutation, similar to `agent.createThread`:
+To create a thread as a standalone mutation, similar to `createThread`:
 
 ```ts
 export const createThread = supportAgent.createThreadMutation();
@@ -129,7 +129,7 @@ For an action that generates text in a thread, similar to `thread.generateText`:
 
 ```ts
 export const getSupport = supportAgent.asTextAction({
-  maxSteps: 10,
+  stopWhen: stepCountIs(10),
 });
 ```
 

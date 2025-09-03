@@ -368,12 +368,14 @@ impl Snapshot {
         // TODO: We are currently using document size * index count as a rough
         // approximation for how much storage indexes use, but we should fix this to
         // only charge for the fields that are indexed.
-        for index in self.index_registry.all_enabled_indexes() {
-            // Only count storage for active tables, and avoid an error below
-            // where `document_storage_by_table` is missing hidden tables.
-            if !table_mapping.is_active(*index.name.table()) {
-                continue;
-            }
+        for index in self.index_registry.all_indexes().filter(|index| {
+            // Only count storage for active tables (not hidden)
+            // Only count storage for indexes that are fully backfilled or enabled.
+            let active = table_mapping.is_active(*index.name.table());
+            let enabled = index.config.is_enabled();
+            let backfilled_staged = index.config.is_backfilled() && index.config.is_staged();
+            active && (enabled || backfilled_staged)
+        }) {
             let table_namespace = table_mapping.tablet_namespace(*index.name.table())?;
             let index_name = index
                 .name

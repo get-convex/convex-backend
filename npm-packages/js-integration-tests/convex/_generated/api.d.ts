@@ -43,6 +43,7 @@ import type * as scheduler from "../scheduler.js";
 import type * as secretSystemTables from "../secretSystemTables.js";
 import type * as sets from "../sets.js";
 import type * as stacktraceNode from "../stacktraceNode.js";
+import type * as stagedIndexes from "../stagedIndexes.js";
 import type * as storeObject from "../storeObject.js";
 import type * as systemTables from "../systemTables.js";
 import type * as textSearch from "../textSearch.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   secretSystemTables: typeof secretSystemTables;
   sets: typeof sets;
   stacktraceNode: typeof stacktraceNode;
+  stagedIndexes: typeof stagedIndexes;
   storeObject: typeof storeObject;
   systemTables: typeof systemTables;
   textSearch: typeof textSearch;
@@ -201,7 +203,13 @@ export declare const components: {
       insertRow: FunctionReference<
         "mutation",
         "internal",
-        { cuisine: string; description: string; embedding: Array<number> },
+        {
+          bOrC: string;
+          cuisine: string;
+          description: string;
+          embedding: Array<number>;
+          theLetterA: string;
+        },
         any
       >;
       populate: FunctionReference<"action", "internal", {}, any>;

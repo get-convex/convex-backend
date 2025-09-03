@@ -23,6 +23,7 @@ testing = [
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 async_zip = { workspace = true }
 bytes = { workspace = true }
 common = { workspace = true }
@@ -48,12 +49,10 @@ usage_tracking = { workspace = true }
 value = { workspace = true }
 
 [dev-dependencies]
-async_zip_reader = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
-events = { workspace = true }
 file_storage = { workspace = true }
 headers = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }
@@ -63,9 +62,8 @@ pretty_assertions = { workspace = true }
 runtime = { workspace = true }
 shape_inference = { workspace = true, features = ["testing"] }
 storage = { workspace = true, features = ["testing"] }
-usage_tracking = { workspace = true, features = [
-    "testing",
-] }
+storage_zip_reader = { workspace = true }
+usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }
 
 [lints]

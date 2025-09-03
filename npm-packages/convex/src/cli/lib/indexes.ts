@@ -28,6 +28,7 @@ type IndexMetadata = {
   backfill: {
     state: "in_progress" | "done";
   };
+  staged: boolean;
 };
 
 type SchemaState =
@@ -45,6 +46,9 @@ type PrepareSchemaResponse = {
   added: IndexMetadata[];
   dropped: IndexMetadata[];
   schemaId: string;
+  // added August 22 2025
+  enabled?: IndexMetadata[];
+  disabled?: IndexMetadata[];
 };
 
 export async function pushSchema(
@@ -53,7 +57,7 @@ export async function pushSchema(
   adminKey: string,
   schemaDir: string,
   dryRun: boolean,
-  deploymentName?: string | null,
+  deploymentName: string | null,
 ): Promise<{ schemaId?: string; schemaState?: SchemaState }> {
   if (
     !ctx.fs.exists(path.resolve(schemaDir, "schema.ts")) &&
@@ -87,8 +91,8 @@ export async function pushSchema(
     return await logAndHandleFetchError(ctx, err);
   }
 
+  logIndexChanges(data, dryRun, deploymentName);
   const schemaId = data.schemaId;
-
   const schemaState = await waitForReadySchema(
     ctx,
     origin,
@@ -96,7 +100,6 @@ export async function pushSchema(
     schemaId,
     deploymentName,
   );
-  logIndexChanges(ctx, data, dryRun);
   return { schemaId, schemaState };
 }
 
@@ -106,7 +109,7 @@ async function waitForReadySchema(
   origin: string,
   adminKey: string,
   schemaId: string,
-  deploymentName?: string | null,
+  deploymentName: string | null,
 ): Promise<SchemaState> {
   const path = `api/schema_state/${schemaId}`;
   const depFetch = deploymentFetch(ctx, {
@@ -129,13 +132,14 @@ async function waitForReadySchema(
   // Set the spinner to the default progress message before the first `fetch` call returns.
   const start = Date.now();
 
-  setSchemaProgressSpinner(ctx, null, start, deploymentName);
+  setSchemaProgressSpinner(null, start, deploymentName);
 
   const data = await poll(fetch, (data: SchemaStateResponse) => {
-    setSchemaProgressSpinner(ctx, data, start, deploymentName);
+    setSchemaProgressSpinner(data, start, deploymentName);
     return (
-      data.indexes.every((index) => index.backfill.state === "done") &&
-      data.schemaState.state !== "pending"
+      data.indexes.every(
+        (index) => index.backfill.state === "done" || index.staged,
+      ) && data.schemaState.state !== "pending"
     );
   });
 
@@ -174,10 +178,9 @@ async function waitForReadySchema(
 }
 
 function setSchemaProgressSpinner(
-  ctx: Context,
   data: SchemaStateResponse | null,
   start: number,
-  deploymentName?: string | null,
+  deploymentName: string | null,
 ) {
   if (!data) {
     changeSpinner("Pushing code to your deployment...");
@@ -199,7 +202,7 @@ function setSchemaProgressSpinner(
   if (!indexesDone && !schemaDone) {
     msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready) and checking that documents match your schema...`;
   } else if (!indexesDone) {
-    if (Date.now() - start > 10_000 && deploymentName) {
+    if (Date.now() - start > 10_000) {
       for (const index of data.indexes) {
         if (index.backfill.state === "in_progress") {
           const dashboardUrl = deploymentDashboardUrlPage(
@@ -207,7 +210,7 @@ function setSchemaProgressSpinner(
             `/data?table=${index.table}&showIndexes=true`,
           );
           msg = `Backfilling index ${index.name} (${indexesCompleted}/${numIndexes} ready), \
-see progress on the dashboard here: ${dashboardUrl}`;
+see progress: ${dashboardUrl}`;
           break;
         }
       }
@@ -221,12 +224,9 @@ see progress on the dashboard here: ${dashboardUrl}`;
 }
 
 function logIndexChanges(
-  ctx: Context,
-  indexes: {
-    added: IndexMetadata[];
-    dropped: IndexMetadata[];
-  },
+  indexes: PrepareSchemaResponse,
   dryRun: boolean,
+  deploymentName: string | null,
 ) {
   if (indexes.dropped.length > 0) {
     let indexDiff = "";
@@ -239,9 +239,11 @@ function logIndexChanges(
       `${dryRun ? "Would delete" : "Deleted"} table indexes:\n${indexDiff}`,
     );
   }
-  if (indexes.added.length > 0) {
+  const addedStaged = indexes.added.filter((index) => index.staged);
+  const addedEnabled = indexes.added.filter((index) => !index.staged);
+  if (addedEnabled.length > 0) {
     let indexDiff = "";
-    for (const index of indexes.added) {
+    for (const index of addedEnabled) {
       indexDiff += `  [+] ${stringifyIndex(index)}\n`;
     }
     // strip last new line
@@ -249,6 +251,45 @@ function logIndexChanges(
     logFinishedStep(
       `${dryRun ? "Would add" : "Added"} table indexes:\n${indexDiff}`,
     );
+  }
+  if (addedStaged.length > 0) {
+    let indexDiff = "";
+    for (const index of addedStaged) {
+      const progressLink = deploymentDashboardUrlPage(
+        deploymentName,
+        `/data?table=${index.table}&showIndexes=true`,
+      );
+      indexDiff += `  [+] ${stringifyIndex(index)}, see progress: ${progressLink}\n`;
+    }
+    // strip last new line
+    indexDiff = indexDiff.slice(0, -1);
+    logFinishedStep(
+      `${dryRun ? "Would add" : "Added"} staged table indexes:\n${indexDiff}`,
+    );
+  }
+  if (indexes.enabled && indexes.enabled.length > 0) {
+    let indexDiff = "";
+    for (const index of indexes.enabled) {
+      indexDiff += `  [*] ${stringifyIndex(index)}\n`;
+    }
+    // strip last new line
+    indexDiff = indexDiff.slice(0, -1);
+    const text = dryRun
+      ? `These indexes would be enabled`
+      : `These indexes are now enabled`;
+    logFinishedStep(`${text}:\n${indexDiff}`);
+  }
+  if (indexes.disabled && indexes.disabled.length > 0) {
+    let indexDiff = "";
+    for (const index of indexes.disabled) {
+      indexDiff += `  [*] ${stringifyIndex(index)}\n`;
+    }
+    // strip last new line
+    indexDiff = indexDiff.slice(0, -1);
+    const text = dryRun
+      ? `These indexes would be staged`
+      : `These indexes are now staged`;
+    logFinishedStep(`${text}:\n${indexDiff}`);
   }
 }
 

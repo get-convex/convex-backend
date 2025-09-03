@@ -11,6 +11,8 @@ import {
   debugIsolateEndpointBundles,
   getFunctionsDirectoryPath,
   readProjectConfig,
+  pullConfig,
+  diffConfig,
 } from "./config.js";
 import {
   finishPush,
@@ -57,6 +59,7 @@ import {
   DEFINITION_FILENAME_TS,
 } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
+import { deploymentDashboardUrlPage } from "./dashboard.js";
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
   // Default to `.ts` but fallback to `.js` if not present.
   let componentRootPath = path.resolve(
@@ -303,6 +306,7 @@ async function startComponentsPushAndCodegen(
     appDefinition,
     componentDefinitions,
     nodeDependencies: appImplementation.externalNodeDependencies,
+    nodeVersion: projectConfig.node.nodeVersion,
   };
   if (options.writePushRequest) {
     const pushRequestPath = path.resolve(options.writePushRequest);
@@ -394,6 +398,7 @@ export async function runComponentsPush(
   const reporter = new Reporter();
   const pushSpan = Span.root(reporter, "runComponentsPush");
   pushSpan.setProperty("cli_version", version);
+  const verbose = options.verbose || options.dryRun;
 
   await ensureHasConvexDependency(ctx, "push");
 
@@ -416,10 +421,41 @@ export async function runComponentsPush(
     waitForSchema(ctx, span, startPushResponse, options),
   );
 
+  const remoteConfigWithModuleHashes = await pullConfig(
+    ctx,
+    undefined,
+    undefined,
+    options.url,
+    options.adminKey,
+  );
+
+  const { config: localConfig } = await configFromProjectConfig(
+    ctx,
+    projectConfig,
+    configPath,
+    options.verbose,
+  );
+
+  changeSpinner("Diffing local code and deployment state");
+  const { diffString } = diffConfig(
+    remoteConfigWithModuleHashes,
+    localConfig,
+    false,
+  );
+
+  if (verbose) {
+    logFinishedStep(
+      `Remote config ${
+        options.dryRun ? "would" : "will"
+      } be overwritten with the following changes:\n  ` +
+        diffString.replace(/\n/g, "\n  "),
+    );
+  }
+
   const finishPushResponse = await pushSpan.enterAsync("finishPush", (span) =>
     finishPush(ctx, span, startPushResponse, options),
   );
-  printDiff(ctx, finishPushResponse, options);
+  printDiff(startPushResponse, finishPushResponse, options);
   pushSpan.end();
 
   // Asynchronously report that the push completed.
@@ -429,40 +465,70 @@ export async function runComponentsPush(
 }
 
 function printDiff(
-  ctx: Context,
+  startPushResponse: StartPushResponse,
   finishPushResponse: FinishPushDiff,
-  opts: { verbose: boolean; dryRun: boolean },
+  opts: { verbose: boolean; dryRun: boolean; deploymentName: string | null },
 ) {
   if (opts.verbose) {
     const diffString = JSON.stringify(finishPushResponse, null, 2);
     logMessage(diffString);
     return;
   }
+  const indexDiffs = startPushResponse.schemaChange.indexDiffs;
   const { componentDiffs } = finishPushResponse;
 
   // Print out index diffs for the root component.
-  let rootDiff = componentDiffs[""];
-  if (rootDiff && rootDiff.indexDiff) {
-    if (rootDiff.indexDiff.removed_indexes.length > 0) {
+  let rootDiff = indexDiffs?.[""] || componentDiffs[""]?.indexDiff;
+  if (rootDiff) {
+    if (rootDiff.removed_indexes.length > 0) {
       let msg = `${opts.dryRun ? "Would delete" : "Deleted"} table indexes:\n`;
-      for (let i = 0; i < rootDiff.indexDiff.removed_indexes.length; i++) {
-        const index = rootDiff.indexDiff.removed_indexes[i];
-        if (i > 0) {
-          msg += "\n";
-        }
-        msg += `  [-] ${formatIndex(index)}`;
+      for (const index of rootDiff.removed_indexes) {
+        msg += `  [-] ${formatIndex(index)}\n`;
       }
+      msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    if (rootDiff.indexDiff.added_indexes.length > 0) {
+    const addedStaged = rootDiff.added_indexes.filter((i) => i.staged);
+    const addedEnabled = rootDiff.added_indexes.filter((i) => !i.staged);
+    if (addedEnabled.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} table indexes:\n`;
-      for (let i = 0; i < rootDiff.indexDiff.added_indexes.length; i++) {
-        const index = rootDiff.indexDiff.added_indexes[i];
-        if (i > 0) {
-          msg += "\n";
-        }
-        msg += `  [+] ${formatIndex(index)}`;
+      for (const index of addedEnabled) {
+        msg += `  [+] ${formatIndex(index)}\n`;
       }
+      msg = msg.slice(0, -1); // strip last new line
+      logFinishedStep(msg);
+    }
+    if (addedStaged.length > 0) {
+      let msg = `${opts.dryRun ? "Would add" : "Added"} staged table indexes:\n`;
+      for (const index of addedStaged) {
+        const table = index.name.split(".")[0];
+        const progressLink = deploymentDashboardUrlPage(
+          opts.deploymentName,
+          `/data?table=${table}&showIndexes=true`,
+        );
+        msg += `  [+] ${formatIndex(index)}, see progress: ${progressLink}\n`;
+      }
+      msg = msg.slice(0, -1); // strip last new line
+      logFinishedStep(msg);
+    }
+    if (rootDiff.enabled_indexes && rootDiff.enabled_indexes.length > 0) {
+      let msg = opts.dryRun
+        ? `These indexes would be enabled:\n`
+        : `These indexes are now enabled:\n`;
+      for (const index of rootDiff.enabled_indexes) {
+        msg += `  [*] ${formatIndex(index)}\n`;
+      }
+      msg = msg.slice(0, -1); // strip last new line
+      logFinishedStep(msg);
+    }
+    if (rootDiff.disabled_indexes && rootDiff.disabled_indexes.length > 0) {
+      let msg = opts.dryRun
+        ? `These indexes would be staged:\n`
+        : `These indexes are now staged:\n`;
+      for (const index of rootDiff.disabled_indexes) {
+        msg += `  [*] ${formatIndex(index)}\n`;
+      }
+      msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
   }

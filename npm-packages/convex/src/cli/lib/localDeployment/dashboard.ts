@@ -87,7 +87,7 @@ async function reportSelfHostedEvent(
     await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
-      url: "/api/self_hosted_event",
+      url: "self_hosted_event",
       data: {
         selfHostedUuid: anonymousId,
         eventName,

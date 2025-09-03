@@ -76,6 +76,20 @@ The Convex code generation can be configured to generate a CommonJS-version of
 the `_generated/api.js` file via the `generateCommonJSApi` field.
 [Read more](/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).
 
+### Configuring the Node.js version
+
+You can specify which Node.js version is used by Node actions via the
+`node.nodeVersion` field. The currently supported values are `"18"`, `"20"`, and
+`"22"`. [Read more](/functions/runtimes.mdx#nodejs-version-configuration).
+
+```json title="convex.json"
+{
+  "node": {
+    "nodeVersion": "22"
+  }
+}
+```
+
 ### Using static code generation (beta)
 
 Convex's code generation heavily relies on TypeScript's type inference. This

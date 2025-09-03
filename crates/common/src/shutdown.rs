@@ -44,7 +44,7 @@ impl ShutdownSignal {
             },
             Mode::Panic => {
                 // We don't have the shutdown signal configured. Just panic.
-                panic!("Shutting down due to fatal error: {}", fatal_error);
+                panic!("Shutting down due to fatal error: {fatal_error}");
             },
         }
     }

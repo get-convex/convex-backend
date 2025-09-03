@@ -26,12 +26,15 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use keybroker::Identity;
-use model::config::{
-    types::{
-        ConfigFile,
-        ModuleConfig,
+use model::{
+    config::{
+        types::{
+            ConfigFile,
+            ModuleConfig,
+        },
+        ConfigModel,
     },
-    ConfigModel,
+    source_packages::SourcePackageModel,
 };
 use runtime::prod::ProdRuntime;
 use serde::{
@@ -39,7 +42,10 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
-use value::ConvexObject;
+use value::{
+    ConvexObject,
+    TableNamespace,
+};
 
 use crate::{
     admin::{
@@ -68,6 +74,7 @@ pub struct GetConfigHashesResponse {
     pub config: JsonValue,
     pub module_hashes: Vec<ModuleHashJson>,
     pub udf_server_version: Option<String>,
+    pub node_version: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -112,17 +119,16 @@ pub struct ConfigJson {
     pub modules: Vec<ModuleJson>,
     pub admin_key: String,
     pub udf_server_version: String,
-    // Used in CLI >= 0.14.0, None when there is no schema file.
+    // None when there is no schema file.
     pub schema_id: Option<String>,
-    // Used in CLI >= future
     pub push_metrics: Option<ClientPushMetrics>,
     // Use for external node dependencies
-    // TODO: add what version of CLI this is used for
     pub node_dependencies: Option<Vec<NodeDependencyJson>>,
     // Additional information about the names of the bundled modules.
     // We can use that for stats as well provide better debug messages.
-    // Used in CLI >= future
     pub bundled_module_infos: Option<Vec<BundledModuleInfoJson>>,
+    // Version of Node.js to use in the node executor.
+    pub node_version: Option<String>,
 }
 
 pub struct ConfigStats {
@@ -234,11 +240,17 @@ pub async fn get_config_hashes(
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.to_internal_json();
 
+    let node_version = SourcePackageModel::new(&mut tx, TableNamespace::Global)
+        .get_latest()
+        .await?
+        .and_then(|v| v.node_version.map(|v| v.into()));
+
     let udf_server_version = udf_config.map(|config| format!("{}", config.server_version));
     Ok(Json(GetConfigHashesResponse {
         config,
         module_hashes,
         udf_server_version,
+        node_version,
     }))
 }
 
@@ -276,6 +288,18 @@ pub async fn push_config_handler(
     let udf_server_version = Version::parse(&config.udf_server_version).context(
         ErrorMetadata::bad_request("InvalidVersion", "The function version is invalid"),
     )?;
+    let node_version = config
+        .node_version
+        .clone()
+        .map(|v| v.parse())
+        .transpose()
+        .context(ErrorMetadata::bad_request(
+            "InvalidNodeVersion",
+            format!(
+                "The node version `{}` is invalid",
+                config.node_version.unwrap_or_default()
+            ),
+        ))?;
 
     let (analytics, metrics) = application
         .push_config_no_components(
@@ -285,6 +309,7 @@ pub async fn push_config_handler(
             udf_server_version,
             config.schema_id,
             config.node_dependencies,
+            node_version,
         )
         .await?;
     Ok((identity, analytics, metrics))

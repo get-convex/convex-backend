@@ -75,7 +75,7 @@ const validateDocumentShape = (shape: Shape | undefined) => {
       // merges all objects into one, or uses a supertype like Record or Unknown
       throw new Error(`Table has invalid top level shape: ${shape.type}`);
     default: {
-      const _typeCheck: never = shape;
+      shape satisfies never;
       throw new Error(`Table with unexpected type: ${(shape as any).type}`);
     }
   }

@@ -44,13 +44,19 @@ table's schema. Every vector index has a unique name and a definition with:
 
 1. `vectorField` string
    - The name of the field indexed for vector search.
-1. `dimensions` number
+2. `dimensions` number
    - The fixed size of the vectors index. If you're using embeddings, this
      dimension should match the size of your embeddings (e.g. `1536` for
      OpenAI).
-1. [Optional] `filterFields` array
+3. [Optional] `filterFields` array
    - The names of additional fields that are indexed for fast filtering within
      your vector index.
+4. [Optional] `staged` boolean
+   - If set to `true`, the index will be backfilled asynchronously from the
+     deploy similar to
+     [staged database indexes](/database/reading-data/indexes#staged-indexes).
+     This is useful for large tables where the index backfill time is
+     significant. Defaults to `false`.
 
 For example, if you want an index that can search for similar foods within a
 given cuisine, your table definition could look like:

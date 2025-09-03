@@ -92,17 +92,17 @@ fn write_bundles(out_dir: &Path, out_name: &str, bundles: Vec<Bundle>) -> anyhow
         source_map,
     } in bundles
     {
-        eprintln!("Loading _system/{}", path);
+        eprintln!("Loading _system/{path}");
 
         // Ugh, is there a better way to dump large string literals from a build script?
         // Unparse each string as a raw string literal for the source and source map.
         sha.update(source.as_bytes());
-        let source = format!("r####\"{}\"####", source);
+        let source = format!("r####\"{source}\"####");
         if let Some(ref source_map) = source_map {
             sha.update(source_map.as_bytes());
         }
         let source_map = source_map
-            .map(|s| format!("Some(r####\"{}\"####)", s))
+            .map(|s| format!("Some(r####\"{s}\"####)"))
             .unwrap_or_else(|| "None".to_owned());
         writeln!(out, r#"    "{path}" => ({source}, {source_map}),"#)?;
     }
@@ -133,10 +133,7 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
     rerun_if_changed("../../npm-packages/component-tests/package.json")?;
     for component in COMPONENTS {
-        rerun_if_changed(&format!(
-            "../../npm-packages/component-tests/{}/",
-            component
-        ))?;
+        rerun_if_changed(&format!("../../npm-packages/component-tests/{component}/"))?;
     }
     // Make sure we are not missing any directories that could be components.
     for dir in fs::read_dir(COMPONENT_TESTS_DIR)? {
@@ -162,12 +159,10 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/component-tests/errors/")?;
     for project in COMPONENT_TESTS_PROJECTS {
         rerun_if_changed(&format!(
-            "../../npm-packages/component-tests/projects/{}/convex",
-            project
+            "../../npm-packages/component-tests/projects/{project}/convex"
         ))?;
         rerun_if_changed(&format!(
-            "../../npm-packages/component-tests/projects/{}/package.json",
-            project
+            "../../npm-packages/component-tests/projects/{project}/package.json"
         ))?;
     }
 

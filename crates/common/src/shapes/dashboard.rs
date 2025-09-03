@@ -188,7 +188,7 @@ mod tests {
                 )(name)?)
             },
             ShapeEnumJson::Null => ReducedShape::Null,
-            ShapeEnumJson::Int64 { .. } => ReducedShape::Int64,
+            ShapeEnumJson::Int64 => ReducedShape::Int64,
             ShapeEnumJson::Float64 { float64_range } => {
                 ReducedShape::Float64(ReducedFloatRange::try_from(float64_range)?)
             },

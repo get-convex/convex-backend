@@ -34,6 +34,7 @@ import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { TextInput } from "@ui/TextInput";
 import { MultiSelectValue } from "@ui/MultiSelectCombobox";
+import { LogListResources } from "@common/features/logs/components/LogListResources";
 
 export type LogListProps = {
   logs?: UdfLog[];
@@ -358,22 +359,20 @@ function RequestIdLogs({
                   {/* Header */}
                   <div className="mb-1 px-6 pt-6">
                     <div className="flex items-center justify-between gap-4">
-                      <Dialog.Title as="h4">Request logs</Dialog.Title>
+                      <Dialog.Title as="h4" className="flex items-center gap-2">
+                        Request breakdown{" "}
+                        <CopyTextButton
+                          className="font-mono text-xs font-semibold"
+                          text={requestId.requestId}
+                        />
+                      </Dialog.Title>
                       <ClosePanelButton onClose={onClose} />
                     </div>
                   </div>
-
-                  <div className="mx-6 flex flex-col gap-2">
+                  <LogListResources logs={logs} />
+                  <div className="mx-6 mt-2 flex flex-col gap-2">
                     <LogToolbar
-                      firstItem={
-                        <span className="flex grow items-center gap-2 text-sm text-content-secondary">
-                          Logs filtered to request:{" "}
-                          <CopyTextButton
-                            className="font-mono text-xs font-semibold"
-                            text={requestId.requestId}
-                          />
-                        </span>
-                      }
+                      firstItem={<h5 className="grow">Logs</h5>}
                       functions={functions}
                       selectedFunctions={selectedFunctions}
                       setSelectedFunctions={setSelectedFunctions}

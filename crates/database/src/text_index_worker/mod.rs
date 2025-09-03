@@ -1,5 +1,5 @@
 use crate::{
-    index_workers::writer::SearchIndexMetadataWriter,
+    search_index_workers::writer::SearchIndexMetadataWriter,
     text_index_worker::text_meta::TextSearchIndex,
 };
 

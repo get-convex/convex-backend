@@ -225,11 +225,11 @@ codegen_convex_serialization!(SinkConfig, SerializedSinkConfig);
 impl fmt::Display for SinkConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Local(config) => write!(f, "Local({})", config),
-            Self::Datadog(config) => write!(f, "Datadog({})", config),
-            Self::Webhook(config) => write!(f, "Webhook({})", config),
-            Self::Axiom(config) => write!(f, "Axiom({})", config),
-            Self::Sentry(config) => write!(f, "Sentry({})", config),
+            Self::Local(config) => write!(f, "Local({config})"),
+            Self::Datadog(config) => write!(f, "Datadog({config})"),
+            Self::Webhook(config) => write!(f, "Webhook({config})"),
+            Self::Axiom(config) => write!(f, "Axiom({config})"),
+            Self::Sentry(config) => write!(f, "Sentry({config})"),
             #[cfg(any(test, feature = "testing"))]
             Self::Mock => write!(f, "Mock"),
             #[cfg(any(test, feature = "testing"))]

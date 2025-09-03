@@ -224,7 +224,7 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let FnArg::Typed(pat) = input else {
                 panic!("input must be typed")
             };
-            let arg_info = format!("{} arg{}", ident, idx);
+            let arg_info = format!("{ident} arg{idx}");
             // NOTE: deno has special case when pat.ty is &mut [u8].
             // While that would make some ops more efficient, it also makes them
             // unsafe because it's hard to prove that the same buffer isn't

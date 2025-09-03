@@ -51,6 +51,7 @@ pub async fn connect_persistence<RT: Runtime>(
         },
         DbDriverTag::Postgres(version)
         | DbDriverTag::PostgresMultiSchema(version)
+        | DbDriverTag::PostgresMultitenant(version)
         | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
         | DbDriverTag::MySqlAwsIam(version) => {
@@ -62,11 +63,17 @@ pub async fn connect_persistence<RT: Runtime>(
                 true, /* require_leader */
             )?;
             match args {
-                PersistenceArgs::Postgres { url, schema } => {
+                PersistenceArgs::Postgres {
+                    url,
+                    schema,
+                    multitenant,
+                } => {
                     let options = PostgresOptions {
                         allow_read_only: flags.allow_read_only,
                         version,
                         schema,
+                        instance_name: instance_name.into(),
+                        multitenant,
                         skip_index_creation: flags.skip_index_creation,
                     };
                     let persistence = Arc::new(
@@ -123,6 +130,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
         DbDriverTag::Sqlite => Arc::new(SqlitePersistence::new(db_spec, false)?),
         DbDriverTag::Postgres(version)
         | DbDriverTag::PostgresMultiSchema(version)
+        | DbDriverTag::PostgresMultitenant(version)
         | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
         | DbDriverTag::MySqlAwsIam(version) => {
@@ -134,8 +142,17 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                 db_should_be_leader,
             )?;
             match args {
-                PersistenceArgs::Postgres { url, schema } => {
-                    let options = PostgresReaderOptions { version, schema };
+                PersistenceArgs::Postgres {
+                    url,
+                    schema,
+                    multitenant,
+                } => {
+                    let options = PostgresReaderOptions {
+                        version,
+                        schema,
+                        instance_name: instance_name.into(),
+                        multitenant,
+                    };
                     let tokio_postgres_config: tokio_postgres::Config = url
                         .as_str()
                         .parse()

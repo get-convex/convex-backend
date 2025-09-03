@@ -61,7 +61,10 @@ fn test_cron_identifier() -> CronIdentifier {
 
 async fn create_cron_job(
     tx: &mut Transaction<TestRuntime>,
-) -> anyhow::Result<(BTreeMap<CronIdentifier, CronJob>, CronModel<TestRuntime>)> {
+) -> anyhow::Result<(
+    BTreeMap<CronIdentifier, CronJob>,
+    CronModel<'_, TestRuntime>,
+)> {
     let mut cron_model = CronModel::new(tx, ComponentId::test_user());
     let mut map = serde_json::Map::new();
     map.insert(

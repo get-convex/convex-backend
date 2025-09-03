@@ -1,7 +1,10 @@
 import { JSONValue, ValidatorJSON, Value, jsonToConvex } from "convex/values";
 import type {
   GenericDocument,
+  GenericSearchIndexConfig,
   Index,
+  SearchFilterBuilder,
+  SearchFilterFinalizer,
   SearchIndex,
   VectorIndex,
 } from "convex/server";
@@ -14,11 +17,40 @@ export interface FilterExpression {
   // In the future, this can be extended to support nested clauses.
   clauses: Filter[];
   order?: "asc" | "desc";
-  index?: {
-    name: string;
-    clauses: FilterByIndex[] | [...FilterByIndex[], FilterByIndexRange];
-  };
+  index?: DatabaseIndexFilter | SearchIndexFilter;
 }
+
+/**
+ * This is a FilterExpression that corresponds to a search index.
+ * We use that on the frontend since it hasn’t updated to support search filters yet
+ */
+export type DatabaseFilterExpression = {
+  clauses: Filter[];
+  order?: "asc" | "desc";
+  index?: DatabaseIndexFilter;
+};
+
+// This ensures that `DatabaseFilterExpression` is a subtype of `FilterExpression`
+type AssertSubset<A, _B extends A> = void;
+type _ = AssertSubset<FilterExpression, DatabaseFilterExpression>;
+
+type DatabaseIndexFilter = {
+  name: string;
+  clauses: FilterByIndex[] | [...FilterByIndex[], FilterByIndexRange];
+};
+
+type SearchIndexFilter = {
+  name: string;
+  search: string;
+  filters: Record<
+    string,
+    {
+      enabled: boolean;
+      value: Value;
+    }
+  >;
+};
+
 export type FilterCommon = {
   id?: string;
   field?: string;
@@ -331,6 +363,36 @@ export function applyIndexFilters(
 }
 
 /**
+ * Applies search index filters to a query builder.
+ *
+ * @param q The query builder to apply filters to
+ * @param search The search string
+ * @param filters The search filters to apply
+ * @param selectedIndex The selected search index to use
+ * @returns The modified query builder
+ */
+export function applySearchIndexFilters<
+  Document extends GenericDocument,
+  SearchIndexConfig extends GenericSearchIndexConfig,
+>(
+  q: SearchFilterBuilder<Document, SearchIndexConfig>,
+  search: string,
+  filters: Record<string, { enabled: boolean; value: Value }>,
+  selectedIndex: SearchIndex,
+): SearchFilterFinalizer<Document, SearchIndexConfig> {
+  let builder = q.search(selectedIndex.searchField, search);
+
+  // Apply filters
+  for (const [field, { enabled, value }] of Object.entries(filters)) {
+    if (enabled) {
+      builder = builder.eq(field, value as any);
+    }
+  }
+
+  return builder;
+}
+
+/**
  * Validates index filter clauses to ensure they are properly structured.
  *
  * @param indexName The name of the index being used
@@ -341,13 +403,20 @@ export function applyIndexFilters(
 export function validateIndexFilter(
   indexName: string,
   indexClauses: (FilterByIndex | FilterByIndexRange)[],
-  selectedIndex: Index | undefined,
+  selectedIndex: Index | SearchIndex | undefined,
 ): { filter: number; error: string } | undefined {
   // Check if the index exists
   if (!selectedIndex) {
     return {
       filter: -1,
       error: `Index ${indexName} does not exist.`,
+    };
+  }
+
+  if ("searchField" in selectedIndex) {
+    return {
+      filter: -1,
+      error: `Index ${indexName} is a search index, but the query is trying to use it as a database index.`,
     };
   }
 
@@ -366,7 +435,7 @@ export function validateIndexFilter(
       if (finishedEnabledClausesIdx !== -1) {
         return {
           filter: -1,
-          error: `Invalid index filter selection - found an enabled clause after an disabled clause.`,
+          error: `Invalid index filter selection: found an enabled clause after an disabled clause.`,
         };
       }
     } else if (finishedEnabledClausesIdx === -1) {
@@ -379,7 +448,56 @@ export function validateIndexFilter(
     if (clause.type === "indexRange" && i !== finishedEnabledClausesIdx - 1) {
       return {
         filter: -1,
-        error: `Invalid index filter selection - found a range filter after a non-range filter.`,
+        error: `Invalid index filter selection: found a range filter after a non-range filter.`,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Validates search index filter clauses to ensure they are properly structured.
+ *
+ * @param indexName The name of the index being used
+ * @param filters The filter clauses to validate
+ * @param selectedIndex The selected index to use, or undefined if not found
+ * @param order The order in which the index is queried
+ * @returns An error object if validation fails, undefined if validation passes
+ */
+export function validateSearchIndexFilter(
+  indexName: string,
+  filters: Record<string, { enabled: boolean; value: Value }>,
+  selectedIndex: Index | SearchIndex | undefined,
+  order: "asc" | "desc",
+) {
+  // Check if the index exists
+  if (!selectedIndex) {
+    return {
+      filter: -1,
+      error: `Index ${indexName} does not exist.`,
+    };
+  }
+
+  if (!("searchField" in selectedIndex)) {
+    return {
+      filter: -1,
+      error: `Index ${indexName} is not a search index, but the query is trying to use it as search index.`,
+    };
+  }
+
+  if (order !== "asc") {
+    return {
+      filter: -1,
+      error: `Trying to query search index \`${indexName}\` in descending order.`,
+    };
+  }
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value.enabled && !selectedIndex.filterFields.includes(key)) {
+      return {
+        filter: -1,
+        error: `Invalid index filter selection: found a filter for field \`${key}\` which is not part of the filter fields of the search index \`${indexName}\`.`,
       };
     }
   }
@@ -444,14 +562,20 @@ export function getByIdIndex(): Index {
  * @param schemaData The schema data
  * @returns Array of available indexes
  */
-export function getAvailableIndexes(table: string, schemaData: any): Index[] {
+export function getAvailableIndexes(
+  table: string,
+  schemaData: any,
+): (Index | SearchIndex)[] {
   if (!schemaData?.schema) {
     return [getDefaultIndex(), getByIdIndex()];
   }
 
+  const parsed = parseAndFilterToSingleTable(table, schemaData.schema)
+    ?.tables[0];
+
   return [
-    ...(parseAndFilterToSingleTable(table, schemaData.schema)?.tables[0]
-      ?.indexes || []),
+    ...(parsed?.indexes || []),
+    ...(parsed?.searchIndexes || []),
     getDefaultIndex(),
     getByIdIndex(),
   ];
@@ -466,8 +590,8 @@ export function getAvailableIndexes(table: string, schemaData: any): Index[] {
  */
 export function findIndexByName(
   indexName: string,
-  indexes: Index[],
-): Index | undefined {
+  indexes: (Index | SearchIndex)[],
+): Index | SearchIndex | undefined {
   return indexes.find((i) => i.indexDescriptor === indexName);
 }
 

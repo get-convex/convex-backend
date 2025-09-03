@@ -11,7 +11,7 @@ use storage::Storage;
 #[cfg(any(test, feature = "testing"))]
 use super::BuildTextIndexArgs;
 use crate::{
-    index_workers::search_compactor::{
+    search_index_workers::search_compactor::{
         CompactionConfig,
         SearchIndexCompactor,
     },
@@ -85,7 +85,7 @@ mod tests {
     use maplit::btreemap;
 
     use crate::{
-        index_workers::search_compactor::CompactionConfig,
+        search_index_workers::search_compactor::CompactionConfig,
         tests::text_test_utils::TextFixtures,
     };
 

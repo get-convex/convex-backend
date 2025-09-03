@@ -26,8 +26,7 @@ use value::{
 use crate::{
     bootstrap_model::index::{
         index_validation_error,
-        IndexMetadata,
-        TabletIndexMetadata,
+        DeveloperIndexMetadata,
     },
     document::ParsedDocument,
     index::IndexKey,
@@ -175,14 +174,38 @@ impl<T: IndexTableIdentifier + FromStr<Err = anyhow::Error>> FromStr for Generic
     }
 }
 
+/// Diff of the indexes between two versions of schema.ts
+/// Index can be
+/// - missing (not present in schema.ts)
+/// - staged (exists with { staged: true })
+/// - exist (exists with { staged: false } or without the staged field)
+///
+/// Note that this is unrelated to the storage state
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct IndexDiff {
-    pub added: Vec<IndexMetadata<TableName>>,
-    /// The set of indexes whose developer configurations (but maybe not
-    /// states!) match those in storage
-    pub identical: Vec<ParsedDocument<TabletIndexMetadata>>,
-    pub dropped: Vec<ParsedDocument<IndexMetadata<TableName>>>,
+    /// missing -> exists
+    /// missing -> staged
+    pub added: Vec<DeveloperIndexMetadata>,
+    /// staged -> staged
+    /// exist -> exist
+    pub identical: Vec<ParsedDocument<DeveloperIndexMetadata>>,
+    /// staged -> missing
+    /// exist -> missing
+    pub dropped: Vec<ParsedDocument<DeveloperIndexMetadata>>,
+    /// staged -> exist
+    pub enabled: Vec<ParsedDocument<DeveloperIndexMetadata>>,
+    /// exist -> staged
+    pub disabled: Vec<ParsedDocument<DeveloperIndexMetadata>>,
+}
+
+impl IndexDiff {
+    pub fn is_empty(&self) -> bool {
+        self.added.is_empty()
+            && self.dropped.is_empty()
+            && self.enabled.is_empty()
+            && self.disabled.is_empty()
+    }
 }
 
 impl<T: IndexTableIdentifier> fmt::Display for GenericIndexName<T> {

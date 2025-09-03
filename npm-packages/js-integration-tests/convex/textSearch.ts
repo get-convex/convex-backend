@@ -9,7 +9,28 @@ export const fullTextSearchQuery = query({
     cuisine: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await runQuery(ctx.db, args.query, args.cuisine);
+    return await searchQuery(ctx.db, args.query, args.cuisine);
+  },
+});
+
+export const fullTextSearchQuerySeveralFilters = query({
+  args: {
+    query: v.string(),
+    theLetterA: v.string(),
+    cuisine: v.string(),
+    bOrC: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("foods")
+      .withSearchIndex("by_description", (q) =>
+        q
+          .search("description", args.query)
+          .eq("theLetterA", args.theLetterA)
+          .eq("cuisine", args.cuisine)
+          .eq("bOrC", args.bOrC),
+      )
+      .collect();
   },
 });
 
@@ -19,7 +40,7 @@ export const fullTextSearchMutation = mutation({
     cuisine: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await runQuery(ctx.db, args.query, args.cuisine);
+    return await searchQuery(ctx.db, args.query, args.cuisine);
   },
 });
 
@@ -30,7 +51,7 @@ export const fullTextSearchMutationWithWrite = mutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.insert("foods", EXAMPLE_DATA[0]);
-    return await runQuery(ctx.db, args.query, args.cuisine);
+    return await searchQuery(ctx.db, args.query, args.cuisine);
   },
 });
 
@@ -85,7 +106,7 @@ async function runQueryPaginated(
     .paginate(paginationOptions);
 }
 
-async function runQuery(
+async function searchQuery(
   db: DatabaseReader,
   query: string,
   cuisine: string | undefined,

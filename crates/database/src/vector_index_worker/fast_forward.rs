@@ -18,7 +18,7 @@ use crate::{
         IndexWorkerMetadataModel,
         IndexWorkerMetadataRecord,
     },
-    index_workers::fast_forward::IndexFastForward,
+    search_index_workers::fast_forward::IndexFastForward,
     Snapshot,
     Transaction,
 };
@@ -85,7 +85,7 @@ mod tests {
 
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
-        index_workers::fast_forward::{
+        search_index_workers::fast_forward::{
             FastForwardIndexWorker,
             LastFastForwardInfo,
         },

@@ -791,6 +791,17 @@ html[data-theme="dark"] .convex-menu-header {
   filter: var(--convex-sidebar-icon-filter);
 }
 
+.theme-doc-sidebar-item-link-level-2 > a::before,
+.theme-doc-sidebar-item-category-level-2 > div > a::before {
+  padding-left: 0.125rem;
+  padding-right: 0.5rem;
+  padding-top: 0;
+  width: 1rem;
+  height: 1.0625rem;
+  content: var(--inner-convex-icon);
+  filter: var(--convex-sidebar-icon-filter);
+}
+
 /* Ensures all menu items are the same height, with or without a submenu. */
 .menu__link {
   min-height: 1.875rem;
@@ -922,11 +933,16 @@ html[data-theme="dark"] .convex-menu-header {
   --convex-icon: url("../../static/img/sidebar-icons/vue.svg");
 }
 
+.convex-sidebar-vue {
+  --inner-convex-icon: url("../../static/img/sidebar-icons/nuxt.svg");
+}
+
 .convex-sidebar-open-api {
   --convex-icon: url("../../static/img/sidebar-icons/open-api.svg");
 }
 
-.convex-sidebar-vue a:after {
+.convex-sidebar-vue a:after,
+.convex-sidebar-nuxt a:after {
   font-weight: 400;
   font-size: 0.6em;
   margin-left: 1em;
@@ -935,11 +951,26 @@ html[data-theme="dark"] .convex-menu-header {
   border: solid 1px gray;
   padding: 2px 8px;
   float: right;
+  /* overriding collaps-y caret */
+  transform: rotateZ(0deg) !important;
 }
 
-.convex-sidebar-vue .menu__link--active:after {
+/* Vue */
+.convex-sidebar-vue
+  .menu__list-item
+  > .menu__link--active:not(.menu__link--sublist):after,
+.convex-sidebar-vue
+  .menu__list-item-collapsible--active
+  > .menu__link--active:after {
   /* shift left to compensate for text to the left being bold */
-  margin-left: 0.85em;
+  margin-left: 0.9em;
+}
+/* Nuxt */
+.convex-sidebar-vue
+  .theme-doc-sidebar-item-link-level-2
+  > .menu__link--active:after {
+  /* shift left to compensate for text to the left being bold */
+  margin-left: 0.9em;
 }
 
 .convex-sidebar-cli .menu__list li:first-child .menu__link:after,

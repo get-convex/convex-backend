@@ -30,6 +30,7 @@ import { runPush } from "./components.js";
 import { suggestedEnvVarName } from "./envvars.js";
 import { runSystemQuery } from "./run.js";
 import { handlePushConfigError } from "./config.js";
+import { deploymentDashboardUrlPage } from "./dashboard.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -105,6 +106,7 @@ export async function waitForSchema(
     adminKey: string;
     url: string;
     dryRun: boolean;
+    deploymentName: string | null;
   },
 ) {
   const fetch = deploymentFetch(ctx, {
@@ -112,6 +114,7 @@ export async function waitForSchema(
     adminKey: options.adminKey,
   });
 
+  const start = Date.now();
   changeSpinner("Pushing code to your Convex deployment...");
 
   while (true) {
@@ -152,6 +155,21 @@ export async function waitForSchema(
           msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready) and checking that documents match your schema...`;
         } else if (!indexesDone) {
           msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready)...`;
+          // Set a more specific message if the backfill is taking a long time
+          if (Date.now() - start > 10_000) {
+            const rootDiff = startPush.schemaChange.indexDiffs?.[""];
+            const indexName = (
+              rootDiff?.added_indexes[0] || rootDiff?.enabled_indexes?.[0]
+            )?.name;
+            if (indexName) {
+              const table = indexName.split(".")[0];
+              const dashboardUrl = deploymentDashboardUrlPage(
+                options.deploymentName,
+                `/data?table=${table}&showIndexes=true`,
+              );
+              msg = `Backfilling index ${indexName} (${indexesComplete}/${indexesTotal} ready), see progress: ${dashboardUrl}`;
+            }
+          }
         } else {
           msg = "Checking that documents match your schema...";
         }

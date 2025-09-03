@@ -83,45 +83,20 @@ export function useDeleteAccount() {
   });
 }
 
-export function useListIdentities() {
+export function useIdentities() {
   const { data: identities } = useBBQuery({
-    path: "/list_identities",
+    path: "/identities",
     pathParams: undefined,
   });
   return identities;
-}
-
-export function useSetLinkIdentityCookie() {
-  return useBBMutation({
-    path: "/set_jwt_cookie",
-    pathParams: undefined,
-    includeCredentials: true,
-  });
-}
-
-export function useLinkIdentity() {
-  return useBBMutation({
-    path: "/link_identity",
-    pathParams: undefined,
-    mutateKey: "/list_identities",
-    includeCredentials: true,
-  });
 }
 
 export function useUnlinkIdentity() {
   return useBBMutation({
     path: "/unlink_identity",
     pathParams: undefined,
-    mutateKey: "/list_identities",
-    successToast: "Identity removed.",
-  });
-}
-
-export function useChangePrimaryIdentity() {
-  return useBBMutation({
-    path: "/update_primary_identity",
-    pathParams: undefined,
-    mutateKey: "/list_identities",
-    successToast: "Primary identity changed.",
+    mutateKey: "/identities",
+    successToast: "Identity unlinked.",
+    toastOnError: false,
   });
 }

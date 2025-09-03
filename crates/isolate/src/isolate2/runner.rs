@@ -1070,7 +1070,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     let (sender, receiver) = mpsc::channel(1);
     let v8_handle = rt.spawn_thread("isolate2", || async {
         if let Err(e) = v8_thread(receiver, Box::new(environment)).await {
-            println!("Error in isolate thread: {:?}", e);
+            println!("Error in isolate thread: {e:?}");
         }
     });
 

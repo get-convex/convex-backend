@@ -12,7 +12,6 @@ use common::{
         Persistence,
     },
     schemas::DatabaseSchema,
-    version::Version,
 };
 use database::{
     text_index_worker::flusher::backfill_text_indexes,
@@ -45,8 +44,10 @@ use crate::{
 macro_rules! expect_diff {
     (
         $diff:expr;
-        $(added: [$(($at:expr, $ai:expr, $af:expr)),*]$(,)?)?
-        $(dropped: [$(($dt:expr, $di:expr, $df:expr)),*]$(,)?)?
+        $(added: [$(($at:expr, $ai:expr, $af:expr)),*$(,)?]$(,)?)?
+        $(dropped: [$(($dt:expr, $di:expr, $df:expr)),*$(,)?]$(,)?)?
+        $(enabled: [$(($et:expr, $ei:expr, $ef:expr)),*$(,)?]$(,)?)?
+        $(disabled: [$(($dit:expr, $dii:expr, $dif:expr)),*$(,)?]$(,)?)?
     ) => {
         let added_descriptors = vec![
             $($((
@@ -60,9 +61,21 @@ macro_rules! expect_diff {
                 $df.into_iter().map(|str| str.to_string()).collect()
             ),)*)?
         ];
+        let enabled_descriptors = vec![
+            $($((
+                new_index_descriptor($et, $ei)?,
+                $ef.into_iter().map(|str| str.to_string()).collect()
+            ),)*)?
+        ];
+        let disabled_descriptors = vec![
+            $($((
+                new_index_descriptor($dit, $dii)?,
+                $dif.into_iter().map(|str| str.to_string()).collect()
+            ),)*)?
+        ];
         assert_eq!(
             database::test_helpers::index_utils::index_descriptors_and_fields(&$diff),
-            vec![added_descriptors, dropped_descriptors]
+            vec![added_descriptors, dropped_descriptors, enabled_descriptors, disabled_descriptors]
         );
     };
     ($diff:expr) => {
@@ -77,7 +90,7 @@ pub fn assert_root_cause_contains<T: Debug>(result: anyhow::Result<T>, expected:
     let error = result.unwrap_err();
     let root_cause = error.root_cause();
     assert!(
-        format!("{}", root_cause).contains(expected),
+        format!("{root_cause}").contains(expected),
         "Root cause \"{root_cause}\" does not contain expected string:\n\"{expected}\""
     );
 }
@@ -120,9 +133,6 @@ pub async fn apply_config(
     db: Database<TestRuntime>,
     schema_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<()> {
-    // This is a kind of arbitrary version that supports schema validation. I'm not
-    // even sure that the value here matters at all.
-    let udf_server_version: Version = Version::parse("0.14.0")?;
     let config_metadata = ConfigMetadata {
         functions: "convex/".to_string(),
         auth_info: vec![],
@@ -133,7 +143,7 @@ pub async fn apply_config(
         .apply(
             config_metadata,
             vec![],
-            UdfConfig::new_for_test(db.runtime(), udf_server_version),
+            UdfConfig::new_for_test(db.runtime(), "1000.0.0".parse()?),
             None,
             BTreeMap::new(),
             schema_id,

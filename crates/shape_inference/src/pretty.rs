@@ -108,7 +108,7 @@ pub(crate) fn format_shapes<'a, C: ShapeConfig, S: ShapeCounter + 'static>(
         } else {
             out.push_str(", ");
         }
-        out.push_str(&format!("{}", t));
+        out.push_str(&format!("{t}"));
     }
     if first {
         out.push_str("<empty>");

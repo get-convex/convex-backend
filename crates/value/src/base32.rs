@@ -38,7 +38,7 @@ pub const fn encoded_len(len: usize) -> usize {
 }
 
 pub const fn encoded_buffer_len(len: usize) -> usize {
-    (len + 4) / 5 * 8
+    len.div_ceil(5) * 8
 }
 
 /// Writes the base32-encoding of `data` into `out`, which should have length at
@@ -91,7 +91,7 @@ pub struct InvalidBase32Error {
 pub fn decode(data: &str) -> Result<Vec<u8>, InvalidBase32Error> {
     let data_bytes = data.as_bytes();
     let out_length = data_bytes.len() * 5 / 8;
-    let mut out = Vec::with_capacity((out_length + 4) / 5 * 5);
+    let mut out = Vec::with_capacity(out_length.div_ceil(5) * 5);
 
     // Process the data in 8 byte chunks, reversing the encoding process.
     for chunk in data_bytes.chunks(8) {

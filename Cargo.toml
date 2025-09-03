@@ -6,7 +6,6 @@ exclude = [ "crates/py_client", "crates/python_client_tests" ]
 [workspace.dependencies]
 application = { path = "crates/application" }
 async_lru = { path = "crates/async_lru" }
-async_zip_reader = { path = "crates/async_zip_reader" }
 authentication = { path = "crates/authentication" }
 aws_s3 = { path = "crates/aws_s3" }
 aws_utils = { path = "crates/aws_utils" }
@@ -55,6 +54,7 @@ shape_inference = { path = "crates/shape_inference" }
 sodium_secretbox = { path = "crates/sodium_secretbox" }
 sqlite = { path = "crates/sqlite" }
 storage = { path = "crates/storage" }
+storage_zip_reader = { path = "crates/storage_zip_reader" }
 sync = { path = "crates/sync" }
 sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
 text_search = { path = "crates/text_search" }
@@ -97,10 +97,11 @@ bytesize = "2.0.0"
 cbc = { version = "0.1.2" }
 cfg-if = "1.0"
 chrono = "0.4.38"
-clap = { version = "^4.1.8", features = [ "derive" ] }
+clap = { version = "^4.1.8", features = [ "derive", "env" ] }
 colored = "3"
 compact_str = "0.9.0"
 const-oid = "0.9.6"
+const_format = { version = "0.2.34", features = [ "fmt" ] }
 criterion = "0.5"
 crossbeam-channel = "0.5"
 csf = "0.1.11"
@@ -130,6 +131,7 @@ futures-async-stream = "0.2.11"
 futures-util = "0.3.30"
 fxhash = "0.2.1"
 governor = "0.10.0"
+hashlink = "0.10"
 hdrhistogram = "7.5.4"
 headers = "0.4"
 hex = "0.4"
@@ -186,6 +188,7 @@ quote = "1.0"
 rand = "0.9"
 rand_chacha = "0.9.0"
 rand_distr = "0.5"
+rc-zip = { version = "5", features = [ "deflate", "deflate64", "zstd" ] }
 ref-cast = "1.0.20"
 regex = "1"
 reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }
@@ -245,6 +248,7 @@ tungstenite = { version = "0.26.2", features = [ "url", "native-tls-vendored" ] 
 url = "2.5.4"
 urlencoding = "2.1.3"
 utoipa = { version = "5.3", features = [ "axum_extras", "preserve_path_order", "openapi_extensions" ] }
+utoipa-axum = { version = "0.2" }
 uuid = { version = "1.6", features = [ "fast-rng", "serde", "v4" ] }
 vergen = { version = "8.1.0" }
 walkdir = "2"
@@ -271,10 +275,12 @@ unused_extern_crates = "warn"
 await_holding_lock = "warn"
 await_holding_refcell_ref = "warn"
 large_enum_variant = "allow"
+manual_is_multiple_of = "allow"
 manual_map = "allow"
 new_without_default = "allow"
 op_ref = "allow"
 ptr_arg = "allow"
+result_large_err = "allow"
 single_match = "allow"
 too_many_arguments = "allow"
 type_complexity = "allow"

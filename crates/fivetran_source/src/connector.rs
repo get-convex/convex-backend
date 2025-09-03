@@ -7,15 +7,11 @@ use convex_fivetran_common::{
         schema_response,
         source_connector_server::SourceConnector,
         test_response,
-        Column,
         ConfigurationFormRequest,
         ConfigurationFormResponse,
         ConfigurationTest,
-        DataType,
         SchemaRequest,
         SchemaResponse,
-        Table,
-        TableList,
         TestRequest,
         TestResponse,
         UpdateRequest,
@@ -36,10 +32,15 @@ use tonic::{
 
 use crate::{
     convex_api::{
+        ComponentPath,
         ConvexApi,
         Source,
     },
     log::log,
+    schema::{
+        generate_fivetran_schema,
+        DEFAULT_FIVETRAN_SCHEMA_NAME,
+    },
     sync::{
         sync,
         State,
@@ -62,42 +63,22 @@ impl ConvexConnector {
 
         let source = ConvexApi { config };
 
-        let columns = source.get_tables_and_columns().await?;
+        let tables_by_component = source.get_table_column_names().await?;
 
-        let tables = TableList {
-            tables: columns
-                .into_iter()
-                .map(|(table_name, column_names)| Table {
-                    name: table_name.to_string(),
-                    columns: column_names
-                        .into_iter()
-                        .map(|column_name| {
-                            let column_name: String = column_name.to_string();
-                            Column {
-                                name: column_name.clone(),
-                                r#type: match column_name.as_str() {
-                                    "_id" => DataType::String,
-                                    "_creationTime" => DataType::UtcDatetime,
-                                    // We map every non-system column to the “unspecified” data type
-                                    // and let Fivetran infer the correct column type from the data
-                                    // it receives.
-                                    _ => DataType::Unspecified,
-                                } as i32,
-                                primary_key: column_name == "_id",
-                                params: None,
-                            }
-                        })
-                        .collect(),
-                })
-                .collect(),
-        };
+        if tables_by_component
+            .contains_key(&ComponentPath(DEFAULT_FIVETRAN_SCHEMA_NAME.to_string()))
+        {
+            anyhow::bail!(
+                "Your Convex deployment contains a component named \
+                 `{DEFAULT_FIVETRAN_SCHEMA_NAME}`. This conflicts with the name of the default \
+                 Fivetran schema. Please rename the component to avoid issues.",
+            );
+        }
 
-        // Here, `WithoutSchema` means that there is no hierarchical level above tables,
-        // not that the data is unstructured. Fivetran uses the same meaning of “schema”
-        // as Postgres, not the one used in Convex. We do this because the connector is
-        // already set up for a particular Convex deployment.
         Ok(SchemaResponse {
-            response: Some(schema_response::Response::WithoutSchema(tables)),
+            response: Some(schema_response::Response::WithSchema(
+                generate_fivetran_schema(tables_by_component),
+            )),
             selection_not_supported: Some(true),
         })
     }

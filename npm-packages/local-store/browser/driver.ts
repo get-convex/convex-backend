@@ -102,7 +102,7 @@ export class Driver {
         this.network.sendMutationToNetwork(response.mutationInfo);
         return;
     }
-    const _typecheck: never = response;
+    response satisfies never;
     throw new Error("Unreachable");
   }
 }

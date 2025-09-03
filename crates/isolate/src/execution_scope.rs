@@ -465,8 +465,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             anyhow::bail!(ErrorMetadata::bad_request(
                 "CannotBeABase",
                 format!(
-                    "Module URL {} is a cannot-be-a-base URL which is disallowed.",
-                    module_specifier
+                    "Module URL {module_specifier} is a cannot-be-a-base URL which is disallowed."
                 ),
             ));
         }
@@ -574,7 +573,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         match Self::_module_resolve_callback(scope, referrer, specifier) {
             Ok(m) => Some(m),
             Err(e) => {
-                helpers::throw_type_error(scope, format!("{:?}", e));
+                helpers::throw_type_error(scope, format!("{e:?}"));
                 None
             },
         }

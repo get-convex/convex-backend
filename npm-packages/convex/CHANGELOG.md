@@ -1,11 +1,35 @@
 # Changelog
 
-## Unreleased
+## 1.26.2
 
-- `ConvexReactClient.prewarmQuery({query, args})` method for subscribing to a
-  query for 5 seconds. Prewarming indicates likely future interest in a
-  subscription and is currently implemented by subscribing to the query for 5
-  seconds.
+- Fix for pushing schemas to older (self-hosted) deployment builds.
+
+## 1.26.0
+
+- Add support for staged indexes. Instead of blocking on push, a staged index
+  backfills while you push more changes to a deployment, then can be used once
+  it is no longer marked as staged.
+
+  ```
+  export default defineSchema({
+    messages: defineTable({
+      author: v.string(),
+      body: v.string(),
+    })
+      .index("by_author", {
+        fields: ["author"],
+         // watch for progress in dashboard. Once it's at 100%, remove the staged flag
+        staged: true,
+      })
+  });
+  ```
+
+  Read more in the docs (link coming soon).
+
+- Experimental `ConvexReactClient.prewarmQuery({query, args})` method for
+  subscribing to a query for 5 seconds. Prewarming indicates likely future
+  interest in a subscription and is currently implemented by subscribing to the
+  query for 5 seconds.
 
   The return value of this method may change and the arguments may change in the
   future so this API should be considered unstable but adapting to these changes
@@ -33,6 +57,8 @@
 - Change the default permissions for the local MCP server: access to production
   deployments is now disabled by default, requiring
   `--dangerously-enable-production-deployments` to enable.
+
+- Add a "logs" tool to the local MCP server.
 
 ## 1.25.4
 

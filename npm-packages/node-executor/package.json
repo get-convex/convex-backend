@@ -5,7 +5,7 @@
     "prebuild": "rm -rf dist",
     "build": "tsc && esbuild src/aws_lambda.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/aws_lambda.cjs && esbuild src/local.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/local.cjs",
     "pretest": "rm -rf dist",
-    "build-test-modules": "esbuild test/modules/*.ts --format=esm --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outdir=dist/tests/modules && cp test/modules/*.js dist/tests/modules && cp test/metadata.json dist/tests/metadata.json && cp -r test/external_modules dist/tests/external_modules",
+    "build-test-modules": "esbuild test/modules/*.ts --format=esm --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outdir=dist/tests/modules && rsync -a --include '*/' --include '*.js' --exclude '*' test/modules/ dist/tests/modules/ && cp test/metadata.json dist/tests/metadata.json && cp -r test/external_modules dist/tests/external_modules",
     "test": "vitest; npm run build-test-modules && esbuild test/integration-test.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/tests/integration-test.cjs && node --enable-source-maps dist/tests/integration-test.cjs"
   },
   "module": "esnext",
@@ -35,12 +35,12 @@
     "@types/uuid": "^10.0.0",
     "auth0": "^4.3.1",
     "esbuild": "0.25.4",
-    "googleapis": "^150.0.0",
+    "googleapis": "^154.0.0",
     "stripe": "^18.0.0",
     "twilio": "^5.0.0",
     "typescript": "~5.0.3",
     "undici": "7.11.0",
-    "vitest": "^3.1.4",
+    "vitest": "^3.2.4",
     "zod": "^3.24.0",
     "@commander-js/extra-typings": "^11.1.0"
   }

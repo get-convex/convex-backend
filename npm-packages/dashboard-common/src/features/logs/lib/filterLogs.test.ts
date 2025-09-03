@@ -27,6 +27,10 @@ const logs: UdfLog[] = [
     executionTimeMs: 30,
     requestId: "first",
     executionId: "1",
+    caller: "test",
+    environment: "test",
+    identityType: "user",
+    parentExecutionId: null,
   },
   {
     id: "3",
@@ -70,6 +74,10 @@ const logs: UdfLog[] = [
     call: functionIdentifierValue("queryData"),
     requestId: "second",
     executionId: "2",
+    caller: "test",
+    environment: "test",
+    identityType: "user",
+    parentExecutionId: null,
   },
   {
     id: "6",
@@ -93,6 +101,10 @@ const logs: UdfLog[] = [
     executionTimeMs: 30,
     requestId: "third",
     executionId: "3",
+    caller: "test",
+    environment: "test",
+    identityType: "user",
+    parentExecutionId: null,
   },
   {
     id: "8",
@@ -116,6 +128,10 @@ const logs: UdfLog[] = [
     executionTimeMs: 30,
     requestId: "fOuRtH",
     executionId: "4",
+    caller: "test",
+    environment: "test",
+    identityType: "user",
+    parentExecutionId: null,
   },
   {
     id: "10",
@@ -128,6 +144,10 @@ const logs: UdfLog[] = [
     executionTimeMs: 30,
     requestId: "fifth",
     executionId: "5",
+    caller: "test",
+    environment: "test",
+    identityType: "user",
+    parentExecutionId: null,
   },
 ];
 

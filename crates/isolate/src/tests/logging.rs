@@ -180,8 +180,7 @@ async fn test_log_document(rt: TestRuntime) -> anyhow::Result<()> {
 
         assert!(
             pattern.is_match(&line),
-            "Log line didn't match pattern {}",
-            line
+            "Log line didn't match pattern {line}"
         );
         Ok(())
     }).await

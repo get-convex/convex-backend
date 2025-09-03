@@ -1113,6 +1113,10 @@ pub static FIREHOSE_TIMEOUT: LazyLock<Duration> =
 pub static INDEX_WORKERS_INITIAL_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKERS_INITIAL_BACKOFF", 500)));
 
+/// The maximum backoff time for index workers when a failure occurs.
+pub static INDEX_WORKERS_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKERS_MAX_BACKOFF", 30 * 1000)));
+
 /// The maximum backoff time for search index flusher workers when a failure
 /// occurs. This shouldn't be set too high because flushes are required for
 /// write throughput.
@@ -1407,3 +1411,7 @@ pub static SUBSCRIPTION_PROCESS_LOG_ENTRY_TRACING_THRESHOLD: LazyLock<u64> =
 /// details.
 pub static SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD: LazyLock<u64> =
     LazyLock::new(|| env_config("SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD", 10));
+
+/// How many concurrent index backfill threads to run concurrently.
+pub static INDEX_BACKFILL_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEX_BACKFILL_CONCURRENCY", 8));

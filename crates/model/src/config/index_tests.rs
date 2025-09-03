@@ -958,7 +958,7 @@ async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .build_indexes(TableNamespace::test_user(), &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
 
@@ -966,7 +966,7 @@ async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
         // add it without removing it, which will trigger a failure.
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .build_indexes(TableNamespace::test_user(), &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
         Ok(())
@@ -1079,7 +1079,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
         .into_iter()
         .map(|config| match config {
             IndexConfig::Database {
-                developer_config,
+                spec,
                 on_disk_state,
             } => {
                 let db_state = match on_disk_state {
@@ -1087,12 +1087,12 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
                     DatabaseIndexState::Backfilled { .. } => TestIndexState::Backfilled,
                     DatabaseIndexState::Enabled => TestIndexState::Enabled,
                 };
-                assert_eq!(developer_config.fields.len(), 1);
-                let field_name = &developer_config.fields[0];
+                assert_eq!(spec.fields.len(), 1);
+                let field_name = &spec.fields[0];
                 TestIndexConfig(field_name.to_string(), db_state)
             },
             IndexConfig::Text {
-                developer_config,
+                spec,
                 on_disk_state,
             } => {
                 let search_state = match on_disk_state {
@@ -1100,10 +1100,10 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
                     TextIndexState::Backfilled { .. } => TestIndexState::Backfilled,
                     TextIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
                 };
-                TestIndexConfig(developer_config.search_field.to_string(), search_state)
+                TestIndexConfig(spec.search_field.to_string(), search_state)
             },
             IndexConfig::Vector {
-                developer_config,
+                spec,
                 on_disk_state,
             } => {
                 let vector_state = match on_disk_state {
@@ -1111,7 +1111,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
                     VectorIndexState::Backfilled { .. } => TestIndexState::Backfilled,
                     VectorIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
                 };
-                TestIndexConfig(developer_config.vector_field.to_string(), vector_state)
+                TestIndexConfig(spec.vector_field.to_string(), vector_state)
             },
         })
         .collect();

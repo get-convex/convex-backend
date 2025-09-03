@@ -5,6 +5,8 @@ import {
   startLogProgress,
   logVerbose,
   logMessage,
+  logError,
+  logWarning,
 } from "../../../bundler/log.js";
 import {
   dashboardZip,
@@ -38,12 +40,27 @@ type GitHubRelease = components["schemas"]["release"];
 
 export async function ensureBackendBinaryDownloaded(
   ctx: Context,
-  version: { kind: "latest" } | { kind: "version"; version: string },
+  version:
+    | { kind: "latest"; allowedVersion?: string }
+    | { kind: "version"; version: string },
 ): Promise<{ binaryPath: string; version: string }> {
   if (version.kind === "version") {
     return _ensureBackendBinaryDownloaded(ctx, version.version);
   }
-  const latestVersionWithBinary = await findLatestVersionWithBinary(ctx);
+  if (version.allowedVersion) {
+    const latestVersionWithBinary = await findLatestVersionWithBinary(
+      ctx,
+      false,
+    );
+    if (latestVersionWithBinary === null) {
+      logWarning(
+        `Failed to get latest version from GitHub, using downloaded version ${version.allowedVersion}`,
+      );
+      return _ensureBackendBinaryDownloaded(ctx, version.allowedVersion);
+    }
+    return _ensureBackendBinaryDownloaded(ctx, latestVersionWithBinary);
+  }
+  const latestVersionWithBinary = await findLatestVersionWithBinary(ctx, true);
   return _ensureBackendBinaryDownloaded(ctx, latestVersionWithBinary);
 }
 
@@ -94,9 +111,27 @@ function parseLinkHeader(header: string): {
  * Finds the latest version of the convex backend that has a binary that works
  * on this platform.
  */
-export async function findLatestVersionWithBinary(
+export async function findLatestVersionWithBinary<
+  RequireSuccess extends boolean,
+>(
   ctx: Context,
-): Promise<string> {
+  requireSuccess: RequireSuccess,
+): Promise<RequireSuccess extends true ? string : string | null> {
+  // These shouldn't crash when there's a perfectly good binary already available.
+  async function maybeCrash(
+    ...args: Parameters<typeof ctx.crash>
+  ): Promise<RequireSuccess extends true ? never : null> {
+    if (requireSuccess) {
+      return await ctx.crash(...args);
+    }
+    if (args[0].printedMessage) {
+      logError(args[0].printedMessage);
+    } else {
+      logError("Error downloading latest binary");
+    }
+    return null as RequireSuccess extends true ? never : null;
+  }
+
   const targetName = getDownloadPath();
   logVerbose(
     `Finding latest stable release containing binary named ${targetName}`,
@@ -111,7 +146,7 @@ export async function findLatestVersionWithBinary(
 
       if (!response.ok) {
         const text = await response.text();
-        return await ctx.crash({
+        return await maybeCrash({
           exitCode: 1,
           errorType: "fatal",
           printedMessage: `GitHub API returned ${response.status}: ${text}`,
@@ -161,7 +196,7 @@ export async function findLatestVersionWithBinary(
 
     // If we get here, we didn't find any suitable releases
     if (!latestVersion) {
-      return await ctx.crash({
+      return await maybeCrash({
         exitCode: 1,
         errorType: "fatal",
         printedMessage:
@@ -174,14 +209,14 @@ export async function findLatestVersionWithBinary(
 
     // If we found stable releases but none had our binary
     const message = `Failed to find a convex backend release that contained ${targetName}.`;
-    return await ctx.crash({
+    return await maybeCrash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage: message,
       errForSentry: new LocalDeploymentError(message),
     });
   } catch (e) {
-    return await ctx.crash({
+    return maybeCrash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage: "Failed to get latest convex backend releases",

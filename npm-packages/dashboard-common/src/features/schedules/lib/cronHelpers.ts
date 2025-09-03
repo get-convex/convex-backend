@@ -26,8 +26,8 @@ export function scheduleAsCron(
       return s.cronExpr;
     }
     default: {
-      const notAllowed: never = s;
-      throw new Error(`Value type not supported: ${notAllowed}`);
+      s satisfies never;
+      throw new Error(`Value type not supported: ${s}`);
     }
   }
 }

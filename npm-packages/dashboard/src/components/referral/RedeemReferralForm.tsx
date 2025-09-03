@@ -182,8 +182,8 @@ function teamEligibilityErrorMessage(error: TeamEligibilityError) {
     case "not_admin":
       return "You must be an admin of the team to redeem a referral code.";
     default: {
-      const exhaustiveCheck: never = error;
-      throw new Error(`Unknown team eligibility error: ${exhaustiveCheck}`);
+      error satisfies never;
+      throw new Error(`Unknown team eligibility error: ${error}`);
     }
   }
 }

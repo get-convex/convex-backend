@@ -16,23 +16,23 @@ use value::{
 use super::{
     database_index::{
         DatabaseIndexBackfillState,
+        DatabaseIndexSpec,
         DatabaseIndexState,
-        DeveloperDatabaseIndexConfig,
         IndexedFields,
     },
     index_config::SerializedIndexConfig,
     vector_index::{
-        DeveloperVectorIndexConfig,
         VectorDimensions,
         VectorIndexBackfillState,
+        VectorIndexSpec,
         VectorIndexState,
     },
     IndexConfig,
 };
 use crate::{
     bootstrap_model::index::text_index::{
-        DeveloperTextIndexConfig,
         TextIndexBackfillState,
+        TextIndexSpec,
         TextIndexState,
     },
     document::{
@@ -67,17 +67,34 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         name: GenericIndexName<T>,
         fields: IndexedFields,
     ) -> Self {
+        Self::_new_backfilling(index_created_lower_bound, name, fields, false)
+    }
+
+    fn _new_backfilling(
+        index_created_lower_bound: Timestamp,
+        name: GenericIndexName<T>,
+        fields: IndexedFields,
+        staged: bool,
+    ) -> Self {
         Self {
             name,
             config: IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
                     index_created_lower_bound,
                     retention_started: false,
-                    staged: false,
+                    staged,
                 }),
             },
         }
+    }
+
+    pub fn new_staged_backfilling(
+        index_created_lower_bound: Timestamp,
+        name: GenericIndexName<T>,
+        fields: IndexedFields,
+    ) -> Self {
+        Self::_new_backfilling(index_created_lower_bound, name, fields, true)
     }
 
     pub fn new_backfilling_text_index(
@@ -87,11 +104,26 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
     ) -> Self {
         Self::new_text_index(
             name,
-            DeveloperTextIndexConfig {
+            TextIndexSpec {
                 search_field,
                 filter_fields,
             },
             TextIndexState::Backfilling(TextIndexBackfillState::new(false)),
+        )
+    }
+
+    pub fn new_staged_backfilling_text_index(
+        name: GenericIndexName<T>,
+        search_field: FieldPath,
+        filter_fields: BTreeSet<FieldPath>,
+    ) -> Self {
+        Self::new_text_index(
+            name,
+            TextIndexSpec {
+                search_field,
+                filter_fields,
+            },
+            TextIndexState::Backfilling(TextIndexBackfillState::new(true)),
         )
     }
 
@@ -104,30 +136,62 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         Self {
             name,
             config: IndexConfig::Vector {
-                developer_config: DeveloperVectorIndexConfig {
+                spec: VectorIndexSpec {
                     dimensions,
                     vector_field,
                     filter_fields,
                 },
-                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState {
-                    segments: vec![],
-                    cursor: None,
-                    backfill_snapshot_ts: None,
-                    staged: false,
-                }),
+                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(false)),
+            },
+        }
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn inject_last_segment_ts_into_backfilling_vector_index(&mut self) -> anyhow::Result<()> {
+        match self {
+            Self {
+                name: _,
+                config:
+                    IndexConfig::Vector {
+                        spec: _,
+                        on_disk_state: VectorIndexState::Backfilling(state),
+                    },
+            } => {
+                state.last_segment_ts = Some(Timestamp::MIN);
+                Ok(())
+            },
+            _ => Err(anyhow::anyhow!("Not a vector index in backfilling state")),
+        }
+    }
+
+    pub fn new_staged_backfilling_vector_index(
+        name: GenericIndexName<T>,
+        vector_field: FieldPath,
+        dimensions: VectorDimensions,
+        filter_fields: BTreeSet<FieldPath>,
+    ) -> Self {
+        Self {
+            name,
+            config: IndexConfig::Vector {
+                spec: VectorIndexSpec {
+                    dimensions,
+                    vector_field,
+                    filter_fields,
+                },
+                on_disk_state: VectorIndexState::Backfilling(VectorIndexBackfillState::new(true)),
             },
         }
     }
 
     pub fn new_text_index(
         name: GenericIndexName<T>,
-        developer_config: DeveloperTextIndexConfig,
+        spec: TextIndexSpec,
         on_disk_state: TextIndexState,
     ) -> Self {
         Self {
             name,
             config: IndexConfig::Text {
-                developer_config,
+                spec,
                 on_disk_state,
             },
         }
@@ -137,7 +201,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         Self {
             name,
             config: IndexConfig::Database {
-                developer_config: DeveloperDatabaseIndexConfig { fields },
+                spec: DatabaseIndexSpec { fields },
                 on_disk_state: DatabaseIndexState::Enabled,
             },
         }

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
         database_index::{
-            DeveloperDatabaseIndexConfig,
+            DatabaseIndexSpec,
             IndexedFields,
         },
         IndexConfig,
@@ -390,7 +390,7 @@ impl TransactionIndex {
     ) -> anyhow::Result<PreloadedIndexRange> {
         let index = self.require_enabled(reads, tablet_index_name, printable_index_name)?;
         let IndexConfig::Database {
-            developer_config: DeveloperDatabaseIndexConfig { ref fields, .. },
+            spec: DatabaseIndexSpec { ref fields, .. },
             ..
         } = index.metadata().config
         else {
@@ -974,7 +974,7 @@ mod tests {
                 Ok(_) => panic!("Should have failed!"),
                 Err(ref err) => {
                     assert!(
-                        format!("{:?}", err).contains("Index messages.by_name not found."),
+                        format!("{err:?}").contains("Index messages.by_name not found."),
                         "Actual: {err:?}"
                     )
                 },
@@ -1005,8 +1005,7 @@ mod tests {
             Ok(_) => panic!("Should have failed!"),
             Err(ref err) => {
                 assert!(
-                    format!("{:?}", err)
-                        .contains("Index messages.by_name is currently backfilling"),
+                    format!("{err:?}").contains("Index messages.by_name is currently backfilling"),
                     "Actual: {err:?}"
                 )
             },
@@ -1089,7 +1088,7 @@ mod tests {
             match result {
                 Ok(_) => panic!("Should have failed!"),
                 Err(ref err) => {
-                    assert!(format!("{:?}", err).contains("Index messages.by_name not found."),)
+                    assert!(format!("{err:?}").contains("Index messages.by_name not found."),)
                 },
             };
         }

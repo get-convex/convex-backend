@@ -29,6 +29,7 @@ use crate::{
     convex_api::{
         DocumentDeltasCursor,
         ListSnapshotCursor,
+        SnapshotValue,
         Source,
     },
     log::log,
@@ -59,6 +60,9 @@ pub struct State {
     ///
     /// Older versions of state.json do not have this field set. Once all
     /// state.json have this field, we can make this non-optional.
+    ///
+    /// The format of this string is `{table_name}` for the root component,
+    /// or `{component_path}/{table_name}` for tables in other components.
     pub tables_seen: Option<BTreeSet<String>>,
 }
 
@@ -177,10 +181,11 @@ async fn initial_sync(
             if let Some(ref mut tables_seen) = tables_seen {
                 // Issue truncates if we see a table for the first time.
                 // Skip the behavior for legacy state.json - where tables_seen wasn't tracked.
-                if !tables_seen.contains(&value.table) {
-                    tables_seen.insert(value.table.clone());
+                let table_seen_key = value.table_path_for_state();
+                if !tables_seen.contains(&table_seen_key) {
+                    tables_seen.insert(table_seen_key);
                     yield UpdateMessage::Update {
-                        schema_name: None,
+                        schema_name: Some(value.fivetran_schema_name()),
                         table_name: value.table.clone(),
                         op_type: RecordType::Truncate,
                         row: BTreeMap::new(),
@@ -188,7 +193,7 @@ async fn initial_sync(
                 }
             }
             yield UpdateMessage::Update {
-                schema_name: None,
+                schema_name: Some(value.fivetran_schema_name()),
                 table_name: value.table,
                 op_type: RecordType::Upsert,
                 row: to_fivetran_row(value.fields)?,
@@ -242,10 +247,11 @@ async fn delta_sync(
             if let Some(ref mut tables_seen) = tables_seen {
                 // Issue truncates if we see a table for the first time.
                 // Skip the behavior for legacy state.json - where tables_seen wasn't tracked.
-                if !tables_seen.contains(&value.table) {
-                    tables_seen.insert(value.table.clone());
+                let table_seen_key = value.table_path_for_state();
+                if !tables_seen.contains(&table_seen_key) {
+                    tables_seen.insert(table_seen_key);
                     yield UpdateMessage::Update {
-                        schema_name: None,
+                        schema_name: Some(value.fivetran_schema_name()),
                         table_name: value.table.clone(),
                         op_type: RecordType::Truncate,
                         row: BTreeMap::new(),
@@ -254,7 +260,7 @@ async fn delta_sync(
             }
 
             yield UpdateMessage::Update {
-                schema_name: None,
+                schema_name: Some(value.fivetran_schema_name()),
                 table_name: value.table,
                 op_type: if value.deleted {
                     RecordType::Delete

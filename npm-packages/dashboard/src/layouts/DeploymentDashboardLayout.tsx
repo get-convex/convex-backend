@@ -3,7 +3,6 @@ import { GoogleAnalytics } from "elements/GoogleAnalytics";
 import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";
-import { useAuth0 } from "hooks/useAuth0";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
@@ -74,9 +73,8 @@ function LaunchDarklyWithDeployment({
 }: {
   children: React.ReactElement;
 }) {
-  const { user } = useAuth0();
   const [, setContext] = useGlobalLDContext();
-  const localContext = useLDContextWithDeployment(user);
+  const localContext = useLDContextWithDeployment();
   useEffect(() => {
     localContext && setContext(localContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps

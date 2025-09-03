@@ -245,7 +245,7 @@ mod tests {
 
         // With acting user
         assert_eq!(
-            extract_admin_key(&format!("convex abc:{}", encoded))?,
+            extract_admin_key(&format!("convex abc:{encoded}"))?,
             AuthenticationToken::Admin("abc".to_string(), Some(UserIdentityAttributes::test()))
         );
 
