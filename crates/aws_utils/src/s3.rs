@@ -33,7 +33,9 @@ impl S3Client {
         };
         let config = must_s3_config_from_env()
             .await
-            .context("AWS env variables are required when using AWS Lambda")?
+            .context(
+                "Failed to create S3 configuration. Check AWS env variables or IAM permissions.",
+            )?
             .retry_config(retry_config)
             .build();
 
