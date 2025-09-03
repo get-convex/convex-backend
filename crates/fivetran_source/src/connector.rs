@@ -31,16 +31,14 @@ use tonic::{
 };
 
 use crate::{
+    api_types::selection::DEFAULT_FIVETRAN_SCHEMA_NAME,
     convex_api::{
         ComponentPath,
         ConvexApi,
         Source,
     },
     log::log,
-    schema::{
-        generate_fivetran_schema,
-        DEFAULT_FIVETRAN_SCHEMA_NAME,
-    },
+    schema::generate_fivetran_schema,
     sync::{
         sync,
         State,

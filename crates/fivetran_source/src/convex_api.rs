@@ -22,17 +22,15 @@ use serde::{
     Serialize,
 };
 
-use crate::{
-    api_types::{
-        DocumentDeltasArgs,
-        DocumentDeltasResponse,
-        DocumentDeltasValue,
-        ListSnapshotArgs,
-        ListSnapshotResponse,
-        ListSnapshotValue,
-        SelectionArg,
-    },
-    schema::DEFAULT_FIVETRAN_SCHEMA_NAME,
+use crate::api_types::{
+    selection::DEFAULT_FIVETRAN_SCHEMA_NAME,
+    DocumentDeltasArgs,
+    DocumentDeltasResponse,
+    DocumentDeltasValue,
+    ListSnapshotArgs,
+    ListSnapshotResponse,
+    ListSnapshotValue,
+    SelectionArg,
 };
 
 #[allow(clippy::declare_interior_mutable_const)]

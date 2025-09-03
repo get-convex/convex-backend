@@ -8,15 +8,14 @@ use convex_fivetran_common::fivetran_sdk::{
     Table,
 };
 
-use crate::convex_api::{
-    ComponentPath,
-    FieldName,
-    TableName,
+use crate::{
+    api_types::selection::DEFAULT_FIVETRAN_SCHEMA_NAME,
+    convex_api::{
+        ComponentPath,
+        FieldName,
+        TableName,
+    },
 };
-
-/// The name of the Fivetran schema that we use for the Convex tables in the
-/// root component (i.e. the “database name” users see for the )
-pub const DEFAULT_FIVETRAN_SCHEMA_NAME: &str = "convex";
 
 /// Generates the Fivetran schema (the list of tables by database) from the
 /// Convex tables
