@@ -393,7 +393,7 @@ importers:
         version: 0.11.0(react@18.3.1)
       convex:
         specifier: ^1.25.0
-        version: 1.25.4(@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 1.25.4(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(react@18.3.1)
       react:
         specifier: ^18.0.0 || ^19.0.0-0 || ^19.0.0
         version: 18.3.1
@@ -511,7 +511,7 @@ importers:
     dependencies:
       convex:
         specifier: workspace:*
-        version: file:../../convex(@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0)
+        version: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0)
     dependenciesMeta:
       convex:
         injected: true
@@ -564,8 +564,8 @@ importers:
         version: 3.6.2
     devDependencies:
       '@auth0/auth0-react':
-        specifier: 2.3.0
-        version: 2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 2.4.0
+        version: 2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@babel/parser':
         specifier: ^7.27.1
         version: 7.27.2
@@ -2115,8 +2115,8 @@ importers:
   ../../demos/nextjs-pages-router:
     dependencies:
       '@auth0/auth0-react':
-        specifier: 2.3.0
-        version: 2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 2.4.0
+        version: 2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -2838,8 +2838,8 @@ importers:
   ../../demos/users-and-auth:
     dependencies:
       '@auth0/auth0-react':
-        specifier: 2.3.0
-        version: 2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 2.4.0
+        version: 2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -3446,10 +3446,10 @@ importers:
         version: link:../convex
       convex1dot16:
         specifier: npm:convex@1.16.2
-        version: convex@1.16.2(@auth0/auth0-react@2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: convex@1.16.2(@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       convex1dot16alpha:
         specifier: npm:convex@1.16.0-alpha.2
-        version: convex@1.16.0-alpha.2(@auth0/auth0-react@2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: convex@1.16.0-alpha.2(@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -5186,14 +5186,14 @@ packages:
       nodemailer:
         optional: true
 
-  '@auth0/auth0-react@2.3.0':
-    resolution: {integrity: sha512-YYTc/DWWigKC9fURufR/79h3+3DAnIzbfEzJLZ8Z4Q0BXE0azru3pKUbU+vYzS4lMAJkclwLuAbUnLjK81vCpA==}
+  '@auth0/auth0-react@2.4.0':
+    resolution: {integrity: sha512-5bt3sO9FVupNM15IpqyYu/2OPHpLI5El7RgWLQXZOPbnCBbtl+VgdHR+H2NfhNQ4SqQtC/5uKbHWafcVcsxkiw==}
     peerDependencies:
       react: ^16.11.0 || ^17 || ^18 || ^19
       react-dom: ^16.11.0 || ^17 || ^18 || ^19
 
-  '@auth0/auth0-spa-js@2.1.3':
-    resolution: {integrity: sha512-NMTBNuuG4g3rame1aCnNS5qFYIzsTUV5qTFPRfTyYFS1feS6jsCBR+eTq9YkxCp1yuoM2UIcjunPaoPl77U9xQ==}
+  '@auth0/auth0-spa-js@2.3.0':
+    resolution: {integrity: sha512-zAW6w79UO+G1+3AxboVQIUIZy05xluSOb1ymGg2dqG0pIi0JxEtZGec05BOf2LJ9SehzW4WeCYUQsYD9BjrVpQ==}
 
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
@@ -23264,27 +23264,27 @@ snapshots:
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
 
-  '@auth0/auth0-react@2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@auth0/auth0-spa-js': 2.1.3
+      '@auth0/auth0-spa-js': 2.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1)':
+  '@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@auth0/auth0-spa-js': 2.1.3
+      '@auth0/auth0-spa-js': 2.3.0
       react: 18.3.1
       react-dom: 19.0.0(react@18.3.1)
     optional: true
 
-  '@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@auth0/auth0-spa-js': 2.1.3
+      '@auth0/auth0-spa-js': 2.3.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
     optional: true
 
-  '@auth0/auth0-spa-js@2.1.3': {}
+  '@auth0/auth0-spa-js@2.3.0': {}
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -36170,46 +36170,46 @@ snapshots:
     dependencies:
       convex: link:../../convex
 
-  convex@1.16.0-alpha.2(@auth0/auth0-react@2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  convex@1.16.0-alpha.2(@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       esbuild: 0.25.0
       globals: 15.9.0
       jwt-decode: 3.1.2
       prettier: 3.2.5
     optionalDependencies:
-      '@auth0/auth0-react': 2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@auth0/auth0-react': 2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/clerk-react': 5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  convex@1.16.2(@auth0/auth0-react@2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  convex@1.16.2(@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       esbuild: 0.25.0
       jwt-decode: 4.0.0
       prettier: 3.2.5
     optionalDependencies:
-      '@auth0/auth0-react': 2.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@auth0/auth0-react': 2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/clerk-react': 5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  convex@1.25.4(@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(react@18.3.1):
+  convex@1.25.4(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1))(react@18.3.1):
     dependencies:
       esbuild: 0.25.4
       jwt-decode: 4.0.0
       prettier: 3.5.3
     optionalDependencies:
-      '@auth0/auth0-react': 2.3.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1)
+      '@auth0/auth0-react': 2.4.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1)
       '@clerk/clerk-react': 5.33.0(react-dom@19.0.0(react@18.3.1))(react@18.3.1)
       react: 18.3.1
 
-  convex@file:../../convex(@auth0/auth0-react@2.3.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0):
+  convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0):
     dependencies:
       esbuild: 0.25.4
       jwt-decode: 4.0.0
       prettier: 3.6.2
     optionalDependencies:
-      '@auth0/auth0-react': 2.3.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@auth0/auth0-react': 2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@clerk/clerk-react': 5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
 

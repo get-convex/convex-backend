@@ -260,7 +260,7 @@
     "a bundle."
   ],
   "devDependencies": {
-    "@auth0/auth0-react": "2.3.0",
+    "@auth0/auth0-react": "2.4.0",
     "@babel/parser": "^7.27.1",
     "@babel/types": "^7.27.1",
     "@clerk/clerk-react": "^5.20.0",
