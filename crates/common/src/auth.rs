@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     str::FromStr,
     sync::LazyLock,
 };
@@ -199,7 +200,16 @@ impl TryFrom<SerializedAuthInfo> for AuthInfo {
 
 static PROTOCOL_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+://").unwrap());
 
+fn invalid_provider_domain_url(msg: impl Into<Cow<'static, str>>) -> ErrorMetadata {
+    ErrorMetadata::bad_request("InvalidProviderDomainUrl", msg)
+}
+
 fn deserialize_issuer_url(original_url: String) -> anyhow::Result<IssuerUrl> {
+    if original_url.starts_with("\"") {
+        anyhow::bail!(invalid_provider_domain_url(format!(
+            "Invalid provider domain URL \"{original_url}\": starts with a double quote (\")"
+        )));
+    }
     let (had_scheme, url) = if PROTOCOL_REGEX.is_match(&original_url) {
         (true, original_url.clone())
     } else {
@@ -210,16 +220,18 @@ fn deserialize_issuer_url(original_url: String) -> anyhow::Result<IssuerUrl> {
         return Ok(parsed_url);
     };
     if !url.starts_with("https://") {
-        anyhow::bail!("Invalid provider domain URL \"{original_url}\": must use HTTPS");
+        anyhow::bail!(invalid_provider_domain_url(format!(
+            "Invalid provider domain URL \"{original_url}\": must use HTTPS"
+        )));
     }
     let parsed_url = IssuerUrl::new(url)?;
     // Check if the input really looks like a URL,
     // to catch mistakes (e.g. putting random tokens in the domain field)
     if !had_scheme && !parsed_url.url().host_str().is_some_and(ends_with_tld) {
-        anyhow::bail!(
+        anyhow::bail!(invalid_provider_domain_url(format!(
             "Invalid provider domain URL \"{original_url}\": Does not look like a URL (must have \
              a scheme or end with a top-level domain)"
-        );
+        )));
     }
 
     Ok(parsed_url)
