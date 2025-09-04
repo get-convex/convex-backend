@@ -9,6 +9,9 @@ use value::{
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+/// Schema validation progress is written by the SchemaWorker for `Pending` and
+/// `Validated` schemas. `Active`, `Overwritten`, and `Failed` schemas should
+/// not have `SchemaValidationProgressMetadata` documents.
 pub struct SchemaValidationProgressMetadata {
     /// The ID of the schema being validated. Should correspond to a document in
     /// the _schemas table in `Pending` state.
@@ -19,7 +22,8 @@ pub struct SchemaValidationProgressMetadata {
     /// approximate because there could be changes since the time we wrote this
     /// value from the table summary when the schema is submitted as pending.
     /// It's possible for num_docs_validated to exceed total_docs.
-    pub total_docs: u64,
+    /// This field is None if there is no table summary available.
+    pub total_docs: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,7 +31,7 @@ pub struct SchemaValidationProgressMetadata {
 pub struct SerializedSchemaValidationProgressMetadata {
     pub schema_id: String,
     pub num_docs_validated: i64,
-    pub total_docs: i64,
+    pub total_docs: Option<i64>,
 }
 
 impl From<SchemaValidationProgressMetadata> for SerializedSchemaValidationProgressMetadata {
@@ -35,7 +39,7 @@ impl From<SchemaValidationProgressMetadata> for SerializedSchemaValidationProgre
         SerializedSchemaValidationProgressMetadata {
             schema_id: metadata.schema_id.to_string(),
             num_docs_validated: metadata.num_docs_validated as i64,
-            total_docs: metadata.total_docs as i64,
+            total_docs: metadata.total_docs.map(|x| x as i64),
         }
     }
 }
@@ -47,7 +51,7 @@ impl TryFrom<SerializedSchemaValidationProgressMetadata> for SchemaValidationPro
         Ok(SchemaValidationProgressMetadata {
             schema_id: serialized.schema_id.parse()?,
             num_docs_validated: serialized.num_docs_validated as u64,
-            total_docs: serialized.total_docs as u64,
+            total_docs: serialized.total_docs.map(|x| x as u64),
         })
     }
 }

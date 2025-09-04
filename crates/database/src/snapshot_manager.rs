@@ -343,7 +343,7 @@ impl Snapshot {
         table: &TableName,
     ) -> anyhow::Result<TableSummary> {
         self.table_summary(namespace, table)
-            .ok_or_else(|| table_summary_bootstrapping_error(None))
+            .context(table_summary_bootstrapping_error(None))
     }
 
     /// Counts storage space used by all tables, including system tables

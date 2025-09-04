@@ -138,6 +138,7 @@ pub use self::{
         },
         schema_validation_progress::{
             types::SchemaValidationProgressMetadata,
+            SchemaValidationProgressModel,
             SchemaValidationProgressTable,
             SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
             SCHEMA_VALIDATION_PROGRESS_TABLE,

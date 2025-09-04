@@ -23,10 +23,11 @@ pub struct IndexBackfillMetadata {
     /// the index table in `Backfilling` state.
     pub index_id: DeveloperDocumentId,
     /// Number of documents that have been indexed so far from the snapshot
-    /// (does not include documents written since the backfill began)
+    /// (does not include documents written since the backfill began).
     pub num_docs_indexed: u64,
     /// Total number of documents in the table from the snapshot
     /// (does not include documents written since the backfill began)
+    /// This field is None if there is no table summary available.
     pub total_docs: Option<u64>,
 }
 
