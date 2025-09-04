@@ -100,7 +100,9 @@ export function registerPrepareStackTrace(modulesDir: string) {
     //
     // TODO find a library to do this properly: once we provide it libraries will depend on it matching Node.js stack traces.
 
-    return `Error\n${frameData
+    const errorMessage = extractErrorMessage(error);
+
+    return `Error${errorMessage !== "" ? `: ${errorMessage}` : ""}\n${frameData
       .map((frame) => formatTraceLine(frame))
       .join("\n")}`;
   };

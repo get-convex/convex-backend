@@ -82,4 +82,12 @@ describe("Node.js user space stack traces", () => {
     expect(canonicalResult).toEqual(canonicalExpected);
     // sometimes flakes at 20000ms
   }, 30000);
+
+  test("stack trace with an error message", async () => {
+    const result = await client.action(api.stacktraceNode.errorWithMessage);
+    const canonicalResult = canonicalize(result);
+    expect(
+      canonicalResult?.startsWith(`Error: custom error message\n    at `),
+    ).toBe(true);
+  }, 30000);
 });

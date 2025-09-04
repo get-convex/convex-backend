@@ -50,3 +50,7 @@ async function wontBeInTheStackTrace(): Promise<string> {
     });
   });
 }
+
+export const errorWithMessage = action(() => {
+  return new Error("custom error message").stack;
+});
