@@ -31,11 +31,6 @@ pub fn persistence_args_from_cluster_url(
     require_leader: bool,
 ) -> anyhow::Result<PersistenceArgs> {
     anyhow::ensure!(
-        cluster_url.query().is_none(),
-        "cluster url already contains query string: {:?}",
-        cluster_url.query()
-    );
-    anyhow::ensure!(
         cluster_url.username() != "",
         // Don't print the full URL since it might contains password.
         "cluster url username must be set",
