@@ -5,6 +5,7 @@ use std::{
     sync::LazyLock,
 };
 
+use rand;
 use regex::Regex;
 pub use value::utils::{
     display_map,
@@ -33,20 +34,31 @@ static NAME_NUMBER_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(.*) \((\
 
 /// "Increment" a string.
 /// E.g. `Foo` becomes `Foo (1)`, and `Foo (1)` becomes `Foo (2)`.
+/// If amt is None, uses 8 random hex characters instead.
 /// Useful for strings (team names, device names) remain unique.
-pub fn increment_name(name: &str, amt: u64) -> String {
-    if let Some(number) = NAME_NUMBER_RE
-        .captures(name)
-        .and_then(|c| c.get(2))
-        .and_then(|m| m.as_str().parse::<u64>().ok())
-    {
-        NAME_NUMBER_RE
-            .replace(name, |caps: &regex::Captures| {
-                format!("{} ({})", &caps[1], number + amt)
-            })
-            .into()
-    } else {
-        format!("{name} ({amt})")
+pub fn increment_name(name: &str, amt: Option<u64>) -> String {
+    match amt {
+        Some(amt) => {
+            if let Some(number) = NAME_NUMBER_RE
+                .captures(name)
+                .and_then(|c| c.get(2))
+                .and_then(|m| m.as_str().parse::<u64>().ok())
+            {
+                NAME_NUMBER_RE
+                    .replace(name, |caps: &regex::Captures| {
+                        format!("{} ({})", &caps[1], number + amt)
+                    })
+                    .into()
+            } else {
+                format!("{name} ({amt})")
+            }
+        },
+        None => {
+            let hex_suffix: String = (0..8)
+                .map(|_| format!("{:x}", rand::random::<u8>() % 16))
+                .collect();
+            format!("{name} ({hex_suffix})")
+        },
     }
 }
 
@@ -72,9 +84,17 @@ fn test_increment_name() {
         ("Foo (a)", "Foo (a) (1)"),
     ];
     for (test, expected) in cases {
-        assert_eq!(increment_name(test, 1), expected);
+        assert_eq!(increment_name(test, Some(1)), expected);
     }
 
-    assert_eq!(increment_name("Foo", 50), "Foo (50)");
-    assert_eq!(increment_name("Foo (20)", 50), "Foo (70)");
+    assert_eq!(increment_name("Foo", Some(50)), "Foo (50)");
+    assert_eq!(increment_name("Foo (20)", Some(50)), "Foo (70)");
+
+    // Test None case - should generate 8 hex characters
+    let result = increment_name("Test", None);
+    assert!(result.starts_with("Test ("));
+    assert!(result.ends_with(")"));
+    let hex_part = &result[6..result.len() - 1]; // Extract hex part between "Test (" and ")"
+    assert_eq!(hex_part.len(), 8);
+    assert!(hex_part.chars().all(|c| c.is_ascii_hexdigit()));
 }
