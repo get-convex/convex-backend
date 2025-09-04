@@ -548,10 +548,10 @@ describe("filters", () => {
     it("should apply search index filters correctly", () => {
       const mockBuilder = new MockSearchBuilder();
       const searchString = "test search";
-      const searchIndexFilters = {
-        userId: { enabled: true, value: "user123" },
-        organizationId: { enabled: true, value: 42 },
-      };
+      const searchIndexFilters = [
+        { field: "userId", enabled: true, value: "user123" },
+        { field: "organizationId", enabled: true, value: 42 },
+      ];
       const selectedIndex: SearchIndex = {
         indexDescriptor: "testSearchIndex",
         searchField: "description",
@@ -572,38 +572,13 @@ describe("filters", () => {
       ]);
     });
 
-    it("should handle empty filters object", () => {
-      const mockBuilder = new MockSearchBuilder();
-      const searchString = "test search";
-      const searchIndexFilters = {};
-      const selectedIndex: SearchIndex = {
-        indexDescriptor: "testSearchIndex",
-        searchField: "description",
-        filterFields: ["userId", "organizationId"],
-      };
-
-      applySearchIndexFilters(
-        mockBuilder as any,
-        searchString,
-        searchIndexFilters,
-        selectedIndex,
-      );
-
-      expect(mockBuilder.operations).toEqual([
-        { op: "search", field: "description", value: "test search" },
-      ]);
-    });
-
     it("should only apply filters for fields that exist in the filter", () => {
       const mockBuilder = new MockSearchBuilder();
       const searchString = "test search";
-      const searchIndexFilters = {
-        userId: {
-          enabled: true,
-          value: "user123",
-        },
+      const searchIndexFilters = [
+        { field: "userId", enabled: true, value: "user123" },
         // organizationId is missing
-      };
+      ];
       const selectedIndex: SearchIndex = {
         indexDescriptor: "testSearchIndex",
         searchField: "description",
@@ -626,16 +601,18 @@ describe("filters", () => {
     it("should only apply filters for enabled fields", () => {
       const mockBuilder = new MockSearchBuilder();
       const searchString = "test search";
-      const searchIndexFilters = {
-        userId: {
+      const searchIndexFilters = [
+        {
+          field: "userId",
           enabled: true,
           value: "user123",
         },
-        organizationId: {
+        {
+          field: "organizationId",
           enabled: false,
           value: "org123",
         },
-      };
+      ];
       const selectedIndex: SearchIndex = {
         indexDescriptor: "testSearchIndex",
         searchField: "description",
@@ -658,7 +635,6 @@ describe("filters", () => {
     it("should handle search index with no filter fields", () => {
       const mockBuilder = new MockSearchBuilder();
       const searchString = "test search";
-      const searchIndexFilters = {};
       const selectedIndex: SearchIndex = {
         indexDescriptor: "testSearchIndex",
         searchField: "description",
@@ -668,7 +644,7 @@ describe("filters", () => {
       applySearchIndexFilters(
         mockBuilder as any,
         searchString,
-        searchIndexFilters,
+        [],
         selectedIndex,
       );
 
@@ -805,10 +781,10 @@ describe("filters", () => {
 
       const result = validateSearchIndexFilter(
         indexName,
-        {
-          userId: { enabled: true, value: BigInt(123) },
-          organization: { enabled: true, value: "exampleOrg" },
-        },
+        [
+          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "organization", enabled: true, value: "exampleOrg" },
+        ],
         selectedIndex,
         "asc",
       );
@@ -821,7 +797,7 @@ describe("filters", () => {
 
       const result = validateSearchIndexFilter(
         indexName,
-        {},
+        [],
         selectedIndex,
         "asc",
       );
@@ -841,15 +817,15 @@ describe("filters", () => {
 
       const result = validateSearchIndexFilter(
         indexName,
-        {
-          userId: { enabled: true, value: BigInt(123) },
-          organization: { enabled: true, value: "exampleOrg" },
-        },
+        [
+          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "organization", enabled: true, value: "exampleOrg" },
+        ],
         selectedIndex,
         "asc",
       );
       expect(result).toEqual({
-        filter: -1,
+        filter: 1,
         error:
           "Invalid index filter selection: found a filter for field `organization` which is not part of the filter fields of the search index `testIndex`.",
       });
@@ -865,17 +841,17 @@ describe("filters", () => {
 
       const result = validateSearchIndexFilter(
         indexName,
-        {
-          userId: { enabled: true, value: BigInt(123) },
-          organization: { enabled: false, value: "exampleOrg" },
-        },
+        [
+          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "organization", enabled: false, value: "exampleOrg" },
+        ],
         selectedIndex,
         "asc",
       );
       expect(result).toEqual(undefined);
     });
 
-    it("should return error when a search index filter references the search field", () => {
+    it("should return an error when a search index filter references the search field", () => {
       const indexName = "testIndex";
       const selectedIndex: SearchIndex = {
         indexDescriptor: "testSearchIndex",
@@ -885,17 +861,64 @@ describe("filters", () => {
 
       const result = validateSearchIndexFilter(
         indexName,
-        {
-          description: { enabled: true, value: "test" },
-        },
+        [
+          {
+            field: "description",
+            enabled: true,
+            value: "test",
+          },
+        ],
         selectedIndex,
         "asc",
       );
       expect(result).toEqual({
-        filter: -1,
+        filter: 0,
         error:
           "Invalid index filter selection: found a filter for field `description` which is not part of the filter fields of the search index `testIndex`.",
       });
+    });
+
+    it("should return error when there are two indexes for the same field", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId"],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        [
+          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "userId", enabled: true, value: BigInt(123) },
+        ],
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual({
+        filter: 0,
+        error: "Invalid filter: there are multiple filters for field `userId`.",
+      });
+    });
+
+    it("should not return an error when there are two indexes for the same field but only one is enabled", () => {
+      const indexName = "testIndex";
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      const result = validateSearchIndexFilter(
+        indexName,
+        [
+          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "userId", enabled: false, value: BigInt(456) },
+        ],
+        selectedIndex,
+        "asc",
+      );
+      expect(result).toEqual(undefined);
     });
 
     it("should return error when querying a search index in descending order", () => {
@@ -908,7 +931,7 @@ describe("filters", () => {
 
       const result = validateSearchIndexFilter(
         indexName,
-        {},
+        [],
         selectedIndex,
         "desc",
       );

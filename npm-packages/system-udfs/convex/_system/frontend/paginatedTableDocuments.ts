@@ -111,7 +111,7 @@ export default queryGeneric({
       const validationError = isSearchIndex
         ? validateSearchIndexFilter(
             indexFilter.name,
-            indexFilter.filters,
+            indexFilter.clauses,
             selectedIndex,
             order,
           )
@@ -134,7 +134,7 @@ export default queryGeneric({
             applySearchIndexFilters(
               q,
               indexFilter.search,
-              indexFilter.filters,
+              indexFilter.clauses,
               selectedIndex as SearchIndex,
             ),
           )

@@ -42,13 +42,12 @@ type DatabaseIndexFilter = {
 type SearchIndexFilter = {
   name: string;
   search: string;
-  filters: Record<
-    string,
-    {
-      enabled: boolean;
-      value: Value;
-    }
-  >;
+  /** The clauses on the filter fields of the search index */
+  clauses: {
+    field: string;
+    enabled: boolean;
+    value: Value;
+  }[];
 };
 
 export type FilterCommon = {
@@ -377,13 +376,13 @@ export function applySearchIndexFilters<
 >(
   q: SearchFilterBuilder<Document, SearchIndexConfig>,
   search: string,
-  filters: Record<string, { enabled: boolean; value: Value }>,
+  filters: Array<{ field: string; enabled: boolean; value: Value }>,
   selectedIndex: SearchIndex,
 ): SearchFilterFinalizer<Document, SearchIndexConfig> {
   let builder = q.search(selectedIndex.searchField, search);
 
   // Apply filters
-  for (const [field, { enabled, value }] of Object.entries(filters)) {
+  for (const { field, enabled, value } of filters) {
     if (enabled) {
       builder = builder.eq(field, value as any);
     }
@@ -467,7 +466,7 @@ export function validateIndexFilter(
  */
 export function validateSearchIndexFilter(
   indexName: string,
-  filters: Record<string, { enabled: boolean; value: Value }>,
+  filters: Array<{ field: string; enabled: boolean; value: Value }>,
   selectedIndex: Index | SearchIndex | undefined,
   order: "asc" | "desc",
 ) {
@@ -493,11 +492,29 @@ export function validateSearchIndexFilter(
     };
   }
 
-  for (const [key, value] of Object.entries(filters)) {
-    if (value.enabled && !selectedIndex.filterFields.includes(key)) {
+  for (const [filterIndex, filter] of filters.entries()) {
+    if (!filter.enabled) continue;
+
+    // Field not a filter field?
+    if (!selectedIndex.filterFields.includes(filter.field)) {
       return {
-        filter: -1,
-        error: `Invalid index filter selection: found a filter for field \`${key}\` which is not part of the filter fields of the search index \`${indexName}\`.`,
+        filter: filterIndex,
+        error: `Invalid index filter selection: found a filter for field \`${filter.field}\` which is not part of the filter fields of the search index \`${indexName}\`.`,
+      };
+    }
+
+    // Duplicated filter for field?
+    if (
+      filters.some(
+        (otherFilter, otherFilterIndex) =>
+          filterIndex !== otherFilterIndex &&
+          otherFilter.enabled &&
+          filter.field === otherFilter.field,
+      )
+    ) {
+      return {
+        filter: filterIndex,
+        error: `Invalid filter: there are multiple filters for field \`${filter.field}\`.`,
       };
     }
   }
