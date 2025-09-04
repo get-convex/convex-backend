@@ -118,6 +118,11 @@ export function DataFilters({
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
 
+  const onIndexError = useCallback(
+    (idx: number, errors: string[]) => onError("index", idx, errors),
+    [onError],
+  );
+
   return (
     <form
       className="flex w-full flex-col gap-2 rounded-t-lg border border-b-0 bg-background-secondary/50 p-2"
@@ -239,7 +244,7 @@ export function DataFilters({
                 onChangeOrder={onChangeOrder}
                 onChangeIndexFilter={onChangeIndexFilter}
                 invalidFilters={invalidFilters}
-                onError={(...args) => onError("index", ...args)}
+                onError={onIndexError}
                 hasInvalidFilters={hasInvalidFilters}
               />
               {shownFilters.clauses.length > 0 && (
