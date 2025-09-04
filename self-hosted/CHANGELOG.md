@@ -10,6 +10,14 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-09-03 `00bd92723422f3bff968230c94ccdeb8c1719832`
+
+- Fix command line / env var configuration flag issue.
+- Support AWS credential handling from multiple sources, including IAM. (thanks
+  HeathHopkins)
+- Support disabling AWS S3 SSE/Checksums for better compatibility with AWS
+  compatible services (thanks jovermier)
+
 ## 2025-08-27 `08139ef318b1898dad7731910f49ba631631c902`
 
 - Support index backfill progress and staged indexes

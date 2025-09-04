@@ -7,7 +7,7 @@ app = 'convex-backend'
 primary_region = 'iad'
 
 [build]
-image = 'ghcr.io/get-convex/convex-backend:08139ef318b1898dad7731910f49ba631631c902'
+image = 'ghcr.io/get-convex/convex-backend:00bd92723422f3bff968230c94ccdeb8c1719832'
 
 [env]
 TMPDIR = '/convex/data/tmp'
