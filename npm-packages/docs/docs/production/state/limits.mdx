@@ -79,7 +79,7 @@ Number of functions you can run at a time for each function type.
 | V8 actions     | 64           | 256                       |
 | Node actions   | 64           | 1000                      |
 | HTTP actions   | 16           | 128                       |
-| Scheduled jobs | 10           | 100                       |
+| Scheduled jobs | 10           | 300                       |
 
 <sup>*</sup> Limits can be lifted for Professional plan customers on a
 case-by-case basis. Send us support message through the dashboard to discuss
