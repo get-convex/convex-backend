@@ -11,6 +11,7 @@ import {
 import { SchemaJson, displaySchema } from "@common/lib/format";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { Spinner } from "@ui/Spinner";
+import { ProgressBarWithPercent } from "@ui/ProgressBar";
 
 export function ShowSchema({
   activeSchema,
@@ -20,6 +21,7 @@ export function ShowSchema({
   lineHighlighter = undefined,
   codeTransformation = (code) => code,
   showLearnMoreLink = true,
+  schemaValidationProgress = undefined,
 }: {
   activeSchema: SchemaJson | null | undefined;
   inProgressSchema: SchemaJson | null | undefined;
@@ -28,6 +30,10 @@ export function ShowSchema({
   lineHighlighter?: LineHighlighter;
   codeTransformation?: CodeTransformation;
   showLearnMoreLink?: boolean;
+  schemaValidationProgress?: {
+    numDocsValidated: number;
+    totalDocs: number | null;
+  } | null;
 }) {
   const displayedSchema = useMemo(() => {
     if (!activeSchema) {
@@ -87,10 +93,30 @@ export function ShowSchema({
 
             {inProgressSchema && (
               <div className="mt-4 flex items-center gap-1 text-sm text-content-secondary">
-                <div>
-                  <Spinner />
-                </div>{" "}
-                Code push in progress...
+                {!schemaValidationProgress && (
+                  <div>
+                    <Spinner />
+                  </div>
+                )}
+                {schemaValidationProgress
+                  ? "Schema validation in progress..."
+                  : "Code push in progress..."}
+                {schemaValidationProgress &&
+                  schemaValidationProgress.totalDocs !== null && (
+                    <div className="grow sm:px-6">
+                      <ProgressBarWithPercent
+                        // totalDocs is not necessarily taken from the same snapshot as the snapshot being iterated over to increment numDocsValidated
+                        // so we cap the progress at 99%
+                        fraction={Math.min(
+                          0.99,
+                          schemaValidationProgress.numDocsValidated /
+                            schemaValidationProgress.totalDocs,
+                        )}
+                        variant="stripes"
+                        ariaLabel="Schema validation progress"
+                      />
+                    </div>
+                  )}
               </div>
             )}
           </HeadlessTab.Panel>

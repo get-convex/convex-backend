@@ -92,3 +92,13 @@ export const EnforcedSchema: Story = {
     activeSchema: sampleSchema,
   },
 };
+
+export const SchemaValidationInProgress: Story = {
+  args: {
+    inProgressSchema: sampleSchema,
+    schemaValidationProgress: {
+      numDocsValidated: 1,
+      totalDocs: 2,
+    },
+  },
+};

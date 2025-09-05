@@ -35,6 +35,13 @@ export function DataView() {
     componentId: componentId ?? null,
   });
 
+  const schemaValidationProgress = useQuery(
+    udfs.getSchemas.schemaValidationProgress,
+    {
+      componentId: useNents().selectedNent?.id ?? null,
+    },
+  );
+
   const { activeSchema, inProgressSchema } = useMemo(() => {
     if (!schemas) return {};
 
@@ -80,6 +87,7 @@ export function DataView() {
             inProgressSchema={inProgressSchema}
             shapes={tables}
             hasShapeError={hadError}
+            schemaValidationProgress={schemaValidationProgress}
           />
         </Modal>
       )}

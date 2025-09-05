@@ -47,3 +47,28 @@ export function ProgressBar({
     </div>
   );
 }
+
+export function ProgressBarWithPercent({
+  fraction,
+  variant,
+  ariaLabel,
+}: {
+  fraction: number;
+  variant: "stripes" | "solid";
+  ariaLabel: string;
+}) {
+  const percent = Math.round(fraction * 100);
+  return (
+    <div className="flex items-center gap-3">
+      <ProgressBar
+        fraction={fraction}
+        ariaLabel={ariaLabel}
+        variant={variant}
+        className="grow"
+      />
+      <span className="min-w-[4ch] text-right text-xs text-content-tertiary tabular-nums">
+        {percent}%
+      </span>
+    </div>
+  );
+}
