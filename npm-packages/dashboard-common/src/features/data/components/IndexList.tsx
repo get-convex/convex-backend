@@ -12,7 +12,7 @@ import { Spinner } from "@ui/Spinner";
 import { useQuery } from "convex/react";
 import { api } from "system-udfs/convex/_generated/api";
 import { Fragment } from "react";
-import { ProgressBar } from "@ui/ProgressBar";
+import { ProgressBarWithPercent } from "@ui/ProgressBar";
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import { Callout } from "@ui/Callout";
@@ -241,7 +241,7 @@ function IndexListRow({ index }: { index: Index }) {
             Backfill in progress
           </div>
           {index.backfill.stats && index.backfill.stats.totalDocs !== null && (
-            <IndexBackfillProgress
+            <ProgressBarWithPercent
               fraction={Math.min(
                 // numDocsIndexed is an estimate and can grow larger than totalDocs
                 // (in particular because if new documents are added during the backfill,
@@ -251,6 +251,7 @@ function IndexListRow({ index }: { index: Index }) {
                   index.backfill.stats.totalDocs,
               )}
               variant="stripes"
+              ariaLabel="Index backfill progress"
             />
           )}
         </div>
@@ -258,7 +259,11 @@ function IndexListRow({ index }: { index: Index }) {
       {index.backfill.state === "backfilled" && (
         <div className="flex flex-col gap-1 pl-2">
           Backfill completed
-          <IndexBackfillProgress fraction={1} variant="solid" />
+          <ProgressBarWithPercent
+            fraction={1}
+            variant="solid"
+            ariaLabel="Index backfill progress"
+          />
         </div>
       )}
     </article>
@@ -291,29 +296,6 @@ function FieldList({ fields }: { fields: string[] }) {
         </Fragment>
       ))}
     </>
-  );
-}
-
-function IndexBackfillProgress({
-  fraction,
-  variant,
-}: {
-  fraction: number;
-  variant: "stripes" | "solid";
-}) {
-  const percent = Math.round(fraction * 100);
-  return (
-    <div className="flex items-center gap-3">
-      <ProgressBar
-        fraction={fraction}
-        ariaLabel="Index backfill progress"
-        variant={variant}
-        className="grow"
-      />
-      <span className="min-w-[4ch] text-right text-xs text-content-tertiary tabular-nums">
-        {percent}%
-      </span>
-    </div>
   );
 }
 
