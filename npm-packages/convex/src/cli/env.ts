@@ -23,6 +23,7 @@ const envSet = new Command("set")
   .summary("Set a variable")
   .description(
     "Set a variable: `npx convex env set NAME value`\n" +
+      "Read from stdin: `echo 'value' | npx convex env set NAME`\n" +
       "If the variable already exists, its value is updated.\n\n" +
       "A single `NAME=value` argument is also supported.",
   )

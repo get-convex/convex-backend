@@ -8,6 +8,7 @@ import {
 } from "../../bundler/log.js";
 import { runSystemQuery } from "./run.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
+import { readFromStdin } from "./utils/stdin.js";
 
 export async function envSetInDeployment(
   ctx: Context,
@@ -39,6 +40,18 @@ async function allowEqualsSyntax(
   if (value === undefined) {
     if (/^[a-zA-Z][a-zA-Z0-9_]+=/.test(name)) {
       return name.split("=", 2);
+    } else if (!process.stdin.isTTY) {
+      // Read from stdin when piped input is available
+      try {
+        const stdinValue = await readFromStdin();
+        return [name, stdinValue];
+      } catch (error) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `error: failed to read from stdin: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
     } else {
       return await ctx.crash({
         exitCode: 1,
