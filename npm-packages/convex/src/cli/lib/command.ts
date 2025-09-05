@@ -124,6 +124,7 @@ declare module "@commander-js/extra-typings" {
         limit: number;
         order: "asc" | "desc";
         component?: string;
+        format?: "json" | "jsonArray" | "jsonLines" | "jsonl" | "pretty";
       }
     >;
 
@@ -393,8 +394,7 @@ Command.prototype.addRunOptions = function () {
       .addOption(
         new Option(
           "--component <path>",
-          "Path to the component in the component tree defined in convex.config.ts. " +
-            "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
+          "Path to the component in the component tree defined in convex.config.ts.",
         ),
       )
       .addOption(new Option("--live-component-sources").hideHelp())
@@ -449,7 +449,7 @@ Command.prototype.addImportOptions = function () {
     .addOption(
       new Option(
         "--component <path>",
-        "Path to the component in the component tree defined in convex.config.ts",
+        "Path to the component in the component tree defined in convex.config.ts.",
       ),
     );
 };
@@ -486,9 +486,17 @@ Command.prototype.addDataOptions = function () {
     .addOption(
       new Option(
         "--component <path>",
-        "Path to the component in the component tree defined in convex.config.ts.\n" +
-          "  By default, inspects data in the root component",
-      ).hideHelp(),
+        "Path to the component in the component tree defined in convex.config.ts.",
+      ),
+    )
+    .addOption(
+      new Option(
+        "--format <format>",
+        "Format to print the data in. This flag is only required if the filename is missing an extension.\n" +
+          "- jsonArray (aka json): print the data as a JSON array of objects.\n" +
+          "- jsonLines (aka jsonl): print the data as a JSON object per line.\n" +
+          "- pretty: print the data in a human-readable format.",
+      ).choices(["jsonArray", "json", "jsonLines", "jsonl", "pretty"]),
     )
     .argument("[table]", "If specified, list documents in this table.");
 };

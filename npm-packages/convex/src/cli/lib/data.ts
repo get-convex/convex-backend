@@ -15,6 +15,7 @@ export async function dataInDeployment(
     limit: number;
     order: "asc" | "desc";
     component?: string;
+    format?: "json" | "jsonArray" | "jsonLines" | "jsonl" | "pretty";
   },
 ) {
   if (options.tableName !== undefined) {
@@ -27,6 +28,7 @@ export async function dataInDeployment(
         limit: options.limit,
         order: options.order as "asc" | "desc",
         componentPath: options.component ?? "",
+        format: options.format,
       },
     );
   } else {
@@ -72,6 +74,7 @@ async function listDocuments(
     limit: number;
     order: "asc" | "desc";
     componentPath: string;
+    format?: "json" | "jsonArray" | "jsonLines" | "jsonl" | "pretty";
   },
 ) {
   const data = (await runSystemPaginatedQuery(ctx, {
@@ -91,26 +94,39 @@ async function listDocuments(
     return;
   }
 
-  logDocumentsTable(
-    ctx,
-    data.slice(0, options.limit).map((document) => {
-      const printed: Record<string, string> = {};
-      for (const key in document) {
-        printed[key] = stringify(document[key]);
-      }
-      return printed;
-    }),
-  );
-  if (data.length > options.limit) {
-    logWarning(
-      chalk.yellow(
-        `Showing the ${options.limit} ${
-          options.order === "desc" ? "most recently" : "oldest"
-        } created document${
-          options.limit > 1 ? "s" : ""
-        }. Use the --limit option to see more.`,
-      ),
+  if (options.format === "json" || options.format === "jsonArray") {
+    logOutput(
+      "[\n" + data.slice(0, options.limit).map(stringify).join(",\n") + "\n]",
     );
+  } else if (options.format === "jsonLines" || options.format === "jsonl") {
+    logOutput(
+      data
+        .slice(0, options.limit)
+        .map((document) => stringify(document))
+        .join("\n"),
+    );
+  } else {
+    logDocumentsTable(
+      ctx,
+      data.slice(0, options.limit).map((document) => {
+        const printed: Record<string, string> = {};
+        for (const key in document) {
+          printed[key] = stringify(document[key]);
+        }
+        return printed;
+      }),
+    );
+    if (data.length > options.limit) {
+      logWarning(
+        chalk.yellow(
+          `Showing the ${options.limit} ${
+            options.order === "desc" ? "most recently" : "oldest"
+          } created document${
+            options.limit > 1 ? "s" : ""
+          }. Use the --limit option to see more.`,
+        ),
+      );
+    }
   }
 }
 
