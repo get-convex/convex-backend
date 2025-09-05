@@ -90,6 +90,11 @@ You can specify which Node.js version is used by Node actions via the
 }
 ```
 
+Note: This configuration is not supported when running the self-hosted Convex
+backend. The node version that is specified in the
+[.nvmrc](https://github.com/get-convex/convex-backend/blob/main/.nvmrc) will be
+used instead.
+
 ### Using static code generation (beta)
 
 Convex's code generation heavily relies on TypeScript's type inference. This

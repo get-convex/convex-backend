@@ -95,12 +95,15 @@ impl InnerLocalNodeExecutor {
             .await?;
         let version = String::from_utf8_lossy(&cmd.stdout);
 
-        if !version.starts_with("v18.") {
+        if !version.starts_with("v18.")
+            && !version.starts_with("v20.")
+            && !version.starts_with("v22.")
+        {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "DeploymentNotConfiguredForNodeActions",
                 "Deployment is not configured to deploy \"use node\" actions. \
-                 Node.js v18 is not installed. \
-                 Install Node.js 18 with nvm (https://github.com/nvm-sh/nvm) \
+                 Node.js v18, 20, or 22 is not installed. \
+                 Install a supported Node.js version with nvm (https://github.com/nvm-sh/nvm) \
                  to deploy Node.js actions."
             ))
         }
