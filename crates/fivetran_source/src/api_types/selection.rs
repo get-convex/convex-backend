@@ -7,6 +7,8 @@ use convex_fivetran_common::fivetran_sdk::{
     TablesWithSchema as FivetranSelectionWithSchema,
 };
 use maplit::btreemap;
+#[cfg(test)]
+use proptest::prelude::*;
 use serde::{
     Deserialize,
     Serialize,
@@ -22,6 +24,11 @@ use super::SelectionArg;
 #[cfg_attr(test, derive(Eq, PartialEq, Debug, Clone, proptest_derive::Arbitrary))]
 pub struct Selection {
     #[serde(flatten)]
+    #[cfg_attr(
+        test,
+        proptest(strategy = "prop::collection::btree_map(any::<String>(), \
+                             any::<ComponentSelection>(), 0..3)")
+    )]
     pub components: BTreeMap<
         String, // The component name ("" for the default component)
         ComponentSelection,
@@ -59,6 +66,11 @@ pub enum ComponentSelection {
     #[serde(untagged)]
     Included {
         #[serde(flatten)]
+        #[cfg_attr(
+            test,
+            proptest(strategy = "prop::collection::btree_map(any::<String>(), \
+                                 any::<TableSelection>(), 0..3)")
+        )]
         tables: BTreeMap<String, TableSelection>,
         #[serde(rename = "_other")]
         other_tables: InclusionDefault,
@@ -75,6 +87,11 @@ pub enum TableSelection {
     #[serde(untagged)]
     Included {
         #[serde(flatten)]
+        #[cfg_attr(
+            test,
+            proptest(strategy = "prop::collection::btree_map(any::<String>(), \
+                                 any::<ColumnInclusion>(), 0..3)")
+        )]
         columns: BTreeMap<String, ColumnInclusion>,
         #[serde(rename = "_other")]
         other_columns: InclusionDefault,
