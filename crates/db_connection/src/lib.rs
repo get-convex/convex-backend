@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 
 use anyhow::Context as _;
 use clusters::{
@@ -64,7 +67,7 @@ pub async fn connect_persistence<RT: Runtime>(
             )?;
             match args {
                 PersistenceArgs::Postgres {
-                    url,
+                    mut url,
                     schema,
                     multitenant,
                 } => {
@@ -76,6 +79,15 @@ pub async fn connect_persistence<RT: Runtime>(
                         multitenant,
                         skip_index_creation: flags.skip_index_creation,
                     };
+                    // tokio-postgres forbids unknown query parameters, so we need to filter out
+                    // `search_path` which is our "hack" for propagating the target schema name
+                    // to the persistence layer
+                    let query = url
+                        .query_pairs()
+                        .filter(|(k, _)| k != "search_path")
+                        .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                        .collect::<HashMap<_, _>>();
+                    let url = url.query_pairs_mut().clear().extend_pairs(query).finish();
                     let persistence = Arc::new(
                         PostgresPersistence::new(url.as_str(), options, shutdown_signal).await?,
                     );
