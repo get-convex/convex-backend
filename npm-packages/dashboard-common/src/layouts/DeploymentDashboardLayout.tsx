@@ -126,7 +126,7 @@ export function DeploymentDashboardLayout({
       <div className="flex h-full grow flex-col overflow-y-hidden">
         <PauseBanner />
         <NodeVersionBanner />
-        <div className="flex h-full flex-col sm:flex-row">
+        <div className="flex h-full flex-col overflow-y-auto sm:flex-row">
           <Sidebar
             collapsed={!!collapsed}
             setCollapsed={setCollapsed}
