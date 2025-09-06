@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "next": "15.2.3",
+    "next": "15.5.2",
     "react": "^19",
     "react-dom": "^19",
     "autoprefixer": "^10.4.13",
