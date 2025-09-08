@@ -340,31 +340,36 @@ pub async fn get_table_column_names(
     let by_component: BTreeMap<ComponentPath, Vec<GetTableColumnNameTable>> = snapshot
         .table_registry
         .user_table_names()
-        .map(|(namespace, table_name)| -> anyhow::Result<_> {
-            let component_path = component_paths
-                .get(&ComponentId::from(namespace))
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Can’t find the component path for table \"{table_name}\" in namespace \
-                         {namespace:?}"
-                    )
-                })?;
+        .flat_map(
+            |row| -> Option<anyhow::Result<(&ComponentPath, GetTableColumnNameTable)>> {
+                let (namespace, table_name) = row;
 
-            let columns = get_columns_for_table(ReducedShape::from_type(
-                snapshot
-                    .must_table_summary(namespace, table_name)?
-                    .inferred_type(),
-                &mapping.namespace(namespace).table_number_exists(),
-            ));
+                let Some(component_path) = component_paths.get(&ComponentId::from(namespace))
+                else {
+                    // table_registry.user_table_names includes tables from orphaned namespaces:
+                    // it is safe to ignore tables in components that are not present in
+                    // component_paths
+                    return None;
+                };
 
-            Ok((
-                component_path,
-                GetTableColumnNameTable {
-                    name: table_name.to_string(),
-                    columns,
-                },
-            ))
-        })
+                let table_summary = match snapshot.must_table_summary(namespace, table_name) {
+                    Ok(table_summary) => table_summary,
+                    Err(err) => return Some(Err(err)),
+                };
+                let columns = get_columns_for_table(ReducedShape::from_type(
+                    table_summary.inferred_type(),
+                    &mapping.namespace(namespace).table_number_exists(),
+                ));
+
+                Some(Ok((
+                    component_path,
+                    GetTableColumnNameTable {
+                        name: table_name.to_string(),
+                        columns,
+                    },
+                )))
+            },
+        )
         .try_fold(
             BTreeMap::<ComponentPath, Vec<GetTableColumnNameTable>>::new(),
             |mut acc, row| -> anyhow::Result<_> {
