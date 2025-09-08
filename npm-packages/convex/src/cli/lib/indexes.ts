@@ -200,7 +200,11 @@ function setSchemaProgressSpinner(
 
   let msg = "Pushing your code to your Convex deployment...";
   if (!indexesDone && !schemaDone) {
-    msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready) and checking that documents match your schema...`;
+    msg = addProgressLinkIfSlow(
+      `Backfilling indexes (${indexesCompleted}/${numIndexes} ready) and checking that documents match your schema...`,
+      deploymentName,
+      start,
+    );
   } else if (!indexesDone) {
     if (Date.now() - start > 10_000) {
       for (const index of data.indexes) {
@@ -218,9 +222,28 @@ see progress: ${dashboardUrl}`;
       msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready)...`;
     }
   } else {
-    msg = "Checking that documents match your schema...";
+    msg = addProgressLinkIfSlow(
+      "Checking that documents match your schema...",
+      deploymentName,
+      start,
+    );
   }
   changeSpinner(msg);
+}
+
+export function addProgressLinkIfSlow(
+  msg: string,
+  deploymentName: string | null,
+  start: number,
+): string {
+  if (Date.now() - start > 10_000) {
+    const dashboardUrl = deploymentDashboardUrlPage(
+      deploymentName,
+      `/data?showSchema=true`,
+    );
+    msg = msg.concat(`\nSee progress here: ${dashboardUrl}`);
+  }
+  return msg;
 }
 
 function logIndexChanges(

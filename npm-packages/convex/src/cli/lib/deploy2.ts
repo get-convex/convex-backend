@@ -31,6 +31,7 @@ import { suggestedEnvVarName } from "./envvars.js";
 import { runSystemQuery } from "./run.js";
 import { handlePushConfigError } from "./config.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
+import { addProgressLinkIfSlow } from "./indexes.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -152,7 +153,11 @@ export async function waitForSchema(
         const indexesDone = indexesComplete === indexesTotal;
         let msg: string;
         if (!indexesDone && !schemaDone) {
-          msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready) and checking that documents match your schema...`;
+          msg = addProgressLinkIfSlow(
+            `Backfilling indexes (${indexesComplete}/${indexesTotal} ready) and checking that documents match your schema...`,
+            options.deploymentName,
+            start,
+          );
         } else if (!indexesDone) {
           msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready)...`;
           // Set a more specific message if the backfill is taking a long time
@@ -167,11 +172,15 @@ export async function waitForSchema(
                 options.deploymentName,
                 `/data?table=${table}&showIndexes=true`,
               );
-              msg = `Backfilling index ${indexName} (${indexesComplete}/${indexesTotal} ready), see progress: ${dashboardUrl}`;
+              msg = `Backfilling index ${indexName} (${indexesComplete}/${indexesTotal} ready), see progress here: ${dashboardUrl}`;
             }
           }
         } else {
-          msg = "Checking that documents match your schema...";
+          msg = addProgressLinkIfSlow(
+            "Checking that documents match your schema...",
+            options.deploymentName,
+            start,
+          );
         }
         changeSpinner(msg);
         break;
