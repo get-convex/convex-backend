@@ -23,17 +23,17 @@ See rush.json for notes on what version we use.
 
 # node version
 
-We've dropped 16, we need to support 18 for a while. Some things are starting to
-require 20 so it would be nice to upgrade to 20 by default, just using 18 for a
-few integration tests.
+Node.js 20 is the expected version for the whole repo. We no longer run
+integration tests with Node.js 18.
 
-Currently function runner / local backend expect Node.js 18 to be the default in
-order to simulate our Lambda environment. Devs probably have to be able to
-choose their Node.js environment (18, 20, or 22) before we can easily upgrade
-past v18.
+We're rolling out configurable Node.js versions for Lambda functions ("use
+node") and function runner / local backend now expect Node.js 18, 20, or 22.
 
-The local backend failing when run with another version of Node.js might be a
-blocker for local dev.
+# JS build systems
+
+npm-packages/convex is built with custom esbuild + tsc scripts. zshy looks
+great, we've just moved a few simple packages over but we may be able to use it
+for npm-packages/convex.
 
 # Dependencies that are hard to upgrade
 

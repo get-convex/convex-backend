@@ -3,16 +3,19 @@
   "version": "0.0.2",
   "description": "Automatic codemods to help you migrate your codebase to newer versions of Convex",
   "type": "module",
-  "main": "dist/index.js",
-  "bin": {
-    "@convex-dev/codemod": "dist/index.js"
-  },
+  "main": "./dist/index.cjs",
+  "bin": {},
   "files": [
     "dist"
   ],
+  "zshy": {
+    "exports": "src/index.ts",
+    "bin": {
+      "@convex-dev/codemod": "dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
+    "build": "zshy",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
@@ -20,9 +23,10 @@
   "devDependencies": {
     "@types/node": "^18.17.0",
     "@types/progress": "~2.0.7",
-    "tsdown": "^0.14.2",
+    "@types/semver": "^7.3.13",
     "typescript": "~5.0.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "zshy": "0.4.1"
   },
   "dependencies": {
     "@babel/code-frame": "^7.27.1",
@@ -39,5 +43,14 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.cts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { Project, Type } from "ts-morph";
 import { join } from "path";
 
-const exports = ["anyDatabaseReader", "anyDatabaseWriter", "id"] as const;
+const convexExports = ["anyDatabaseReader", "anyDatabaseWriter", "id"] as const;
 
 /**
  * This exports a few TypeScript types that are used in the codemod.
@@ -13,7 +13,7 @@ const exports = ["anyDatabaseReader", "anyDatabaseWriter", "id"] as const;
 export function resolveTypes(
   project: Project,
   root: string,
-): Record<(typeof exports)[number], Type> {
+): Record<(typeof convexExports)[number], Type> {
   const tempFileName = getTempFilePath(root);
 
   const source = `
@@ -27,7 +27,7 @@ export function resolveTypes(
   const tempFile = project.createSourceFile(tempFileName, source);
 
   const result = Object.fromEntries(
-    exports.map((name) => {
+    convexExports.map((name) => {
       const exportDeclaration = tempFile.getVariableDeclarationOrThrow(name);
       return [name, exportDeclaration.getType()];
     }),

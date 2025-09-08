@@ -37,6 +37,8 @@ export interface paths {
         /**
          * List environment variables
          * @description Get all environment variables in a deployment.
+         *     In the future this might not include "secret" environment
+         *     variables.
          */
         get: operations["list_environment_variables"];
         put?: never;

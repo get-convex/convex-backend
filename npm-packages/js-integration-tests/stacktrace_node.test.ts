@@ -62,6 +62,7 @@ describe("Node.js user space stack traces", () => {
     expect(canonicalResult).toEqual(canonicalExpected);
   });
 
+  // Note this expects Node.js version 20
   test("stack trace used by the npm library proxy-agents", async () => {
     const result = await client.action(
       api.stacktraceNode.stackTraceUsedByProxyAgents,
@@ -76,7 +77,7 @@ describe("Node.js user space stack traces", () => {
     at socketOnData (node:_http_client:541:22)
     at emit (node:events:514:28)
     at addChunk (node:internal/streams/readable:324:12)
-    at readableAddChunk (node:internal/streams/readable:297:9)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:297:9)
     at Readable.push (node:internal/streams/readable:234:10)`;
     const canonicalExpected = canonicalize(expected);
     expect(canonicalResult).toEqual(canonicalExpected);

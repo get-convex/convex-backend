@@ -5,34 +5,41 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "build": "npm run generateApiSpec && tsdown",
+    "build": "npm run generateApiSpec && zshy",
     "prepack": "node -e \"if (process.env.npm_config_user_agent && !process.env.npm_config_user_agent.startsWith('pnpm')) { console.error('❌ Use pnpm publish instead of npm publish'); process.exit(1); }\"",
     "test": "echo 0",
     "typecheck": "tsc --noEmit",
     "generateApiSpec": "npm run generateManagementApiSpec && npm run generateDeploymentApiSpec",
     "generateManagementApiSpec": "openapi-typescript ./management-openapi.json --output ./src/generatedManagementApi.ts --root-types --root-types-no-schema-prefix",
-    "generateDeploymentApiSpec": "openapi-typescript ./deployment-openapi.json --output ./src/generatedDeploymentApi.ts --root-types --root-types-no-schema-prefix",
-    "prepare": "tsdown"
+    "generateDeploymentApiSpec": "openapi-typescript ./deployment-openapi.json --output ./src/generatedDeploymentApi.ts --root-types --root-types-no-schema-prefix"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^18.17.0",
+    "typescript": "^5.7.2",
     "openapi-typescript": "~7.8.0",
     "openapi-typescript-helpers": "~0.0.15",
-    "dashboard": "workspace:*"
+    "dashboard": "workspace:*",
+    "tsx": "^4.19.4",
+    "zshy": "0.4.1"
   },
   "dependencies": {
-    "openapi-fetch": "~0.14.0",
-    "tsdown": "^0.14.2",
-    "tsx": "^4.19.4"
+    "openapi-fetch": "~0.14.0"
   },
-  "main": "./dist/index.js",
+  "zshy": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "exports": {
-    ".": "./dist/index.js",
-    "./package.json": "./package.json"
+    ".": {
+      "types": "./dist/index.d.cts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   }
 }

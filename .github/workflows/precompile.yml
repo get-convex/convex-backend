@@ -29,7 +29,7 @@ jobs:
       - name: Node setup
         uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc.20"
+          node-version-file: ".nvmrc"
 
       - name: Install just
         uses: extractions/setup-just@v2
@@ -120,7 +120,7 @@ jobs:
       - name: Node setup
         uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc.20"
+          node-version-file: ".nvmrc"
 
       - name: NPM install globals
         run: npm ci --prefix scripts
