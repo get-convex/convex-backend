@@ -62,6 +62,7 @@ use crate::{
     Database,
     IndexTable,
     SystemMetadataModel,
+    Transaction,
 };
 
 pub mod index_writer;
@@ -77,6 +78,7 @@ pub struct IndexWorker<RT: Runtime> {
     pending: LinkedHashSet<(IndexId, TabletId), ahash::RandomState>,
     /// Limit on the size of `in_progress`
     max_concurrency: usize,
+    metadata_mutex: Arc<tokio::sync::Mutex<()>>,
     database: Database<RT>,
     index_writer: IndexWriter<RT>,
     backoff: Backoff,
@@ -105,6 +107,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             in_progress: JoinMap::new(),
             pending: Default::default(),
             max_concurrency: *INDEX_BACKFILL_CONCURRENCY,
+            metadata_mutex: Default::default(),
             database,
             index_writer,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
@@ -151,6 +154,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             in_progress: JoinMap::new(),
             pending: Default::default(),
             max_concurrency: 10,
+            metadata_mutex: Default::default(),
             database,
             index_writer,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
@@ -271,6 +275,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 index_ids,
                 self.database.clone(),
                 self.index_writer.clone(),
+                self.metadata_mutex.clone(),
             ),
         );
     }
@@ -280,6 +285,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         index_ids: Vec<IndexId>,
         database: Database<RT>,
         index_writer: IndexWriter<RT>,
+        metadata_mutex: Arc<tokio::sync::Mutex<()>>,
     ) -> anyhow::Result<()> {
         let _timer = tablet_index_backfill_timer();
         let mut backfills = BTreeMap::new();
@@ -337,9 +343,16 @@ impl<RT: Runtime> IndexWorker<RT> {
 
         let mut min_begin_ts = None;
         let mut retention = BTreeMap::new();
+        // The database currently does not allow concurrent writers to the
+        // `_index` (or `_tables`) tables; see a TODO in
+        // `Writes::record_reads_for_write`.
+        // Since we run many `backfill_tablet` tasks concurrently, synchronize
+        // here to avoid creating OCC conflicts with ourselves.
+        let indexes_lock = metadata_mutex.lock().await;
+        let mut tx = database.begin(Identity::system()).await?;
         for index_id in &index_ids {
             let (backfill_begin_ts, index_name, indexed_fields) =
-                Self::begin_retention(*index_id, &database).await?;
+                Self::begin_retention(&mut tx, *index_id).await?;
 
             min_begin_ts = min_begin_ts
                 .map(|t| cmp::min(t, backfill_begin_ts))
@@ -347,6 +360,10 @@ impl<RT: Runtime> IndexWorker<RT> {
 
             retention.insert(*index_id, (index_name, indexed_fields));
         }
+        database
+            .commit_with_write_source(tx, "index_worker_start_retention")
+            .await?;
+        drop(indexes_lock);
         if let Some(min_begin_ts) = min_begin_ts {
             tracing::info!(
                 "Started running retention for {} indexes: {retention:?}",
@@ -355,9 +372,15 @@ impl<RT: Runtime> IndexWorker<RT> {
             index_writer.run_retention(min_begin_ts, retention).await?;
         }
 
+        let indexes_lock = metadata_mutex.lock().await;
+        let mut tx = database.begin(Identity::system()).await?;
         for index_id in index_ids {
-            Self::finish_backfill(index_id, &database).await?;
+            Self::finish_backfill(&mut tx, index_id).await?;
         }
+        database
+            .commit_with_write_source(tx, "index_worker_finish_backfill")
+            .await?;
+        drop(indexes_lock);
 
         Ok(())
     }
@@ -406,10 +429,9 @@ impl<RT: Runtime> IndexWorker<RT> {
     }
 
     async fn begin_retention(
+        tx: &mut Transaction<RT>,
         index_id: IndexId,
-        database: &Database<RT>,
     ) -> anyhow::Result<(RepeatableTimestamp, TabletIndexName, IndexedFields)> {
-        let mut tx = database.begin(Identity::system()).await?;
         let index_table_id = tx.bootstrap_tables().index_id;
 
         let index_doc = tx
@@ -451,20 +473,16 @@ impl<RT: Runtime> IndexWorker<RT> {
         };
 
         let name = index_metadata.name.clone();
-        SystemMetadataModel::new_global(&mut tx)
+        SystemMetadataModel::new_global(tx)
             .replace(index_metadata.id(), index_metadata.into_value().try_into()?)
-            .await?;
-        database
-            .commit_with_write_source(tx, "index_worker_start_retention")
             .await?;
 
         Ok((index_ts, name, indexed_fields))
     }
 
-    async fn finish_backfill(index_id: IndexId, database: &Database<RT>) -> anyhow::Result<()> {
+    async fn finish_backfill(tx: &mut Transaction<RT>, index_id: IndexId) -> anyhow::Result<()> {
         // Now that we're done, write that we've finished backfilling the index, sanity
         // checking that it wasn't written concurrently with our backfill.
-        let mut tx = database.begin(Identity::system()).await?;
         let index_table_id = tx.bootstrap_tables().index_id;
         let full_index_id = ResolvedDocumentId::new(
             index_table_id.tablet_id,
@@ -506,13 +524,10 @@ impl<RT: Runtime> IndexWorker<RT> {
 
         let name = index_metadata.name.clone();
 
-        SystemMetadataModel::new_global(&mut tx)
+        SystemMetadataModel::new_global(tx)
             .replace(full_index_id, index_metadata.into_value().try_into()?)
             .await?;
         let table_name = tx.table_mapping().tablet_name(*name.table())?;
-        database
-            .commit_with_write_source(tx, "index_worker_finish_backfill")
-            .await?;
         tracing::info!("Finished backfill of index {}", name);
         if is_index_on_system_table || is_system_index_on_user_table {
             tracing::info!(
