@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
@@ -20,6 +20,8 @@ import { useTableShapes } from "@common/lib/deploymentApi";
 import { Modal } from "@ui/Modal";
 import { LoadingTransition } from "@ui/Loading";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { useRouter } from "next/router";
+import omit from "lodash/omit";
 
 export function DataView() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
@@ -27,6 +29,7 @@ export function DataView() {
     id: undefined,
     kind: undefined,
   };
+  const router = useRouter();
   const tableMetadata = useTableMetadataAndUpdateURL();
 
   const componentId = useNents().selectedNent?.id;
@@ -67,6 +70,20 @@ export function DataView() {
           },
     [activeSchema, inProgressSchema, setIsShowingSchema],
   );
+
+  useEffect(() => {
+    if (router.query.showSchema === "true") {
+      setIsShowingSchema(true);
+      void router.push(
+        {
+          pathname: router.pathname,
+          query: omit(router.query, "showSchema"),
+        },
+        undefined,
+        { shallow: true },
+      );
+    }
+  }, [router.query.showSchema, router]);
 
   return (
     <>
