@@ -44,8 +44,7 @@ property:
 
 ```json title="convex.json"
 {
-  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
-  "functions": "src/convex/"
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json"
 }
 ```
 
@@ -60,6 +59,7 @@ have the following config:
 
 ```json title="convex.json"
 {
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
   "functions": "src/convex/"
 }
 ```
@@ -84,6 +84,7 @@ You can specify which Node.js version is used by Node actions via the
 
 ```json title="convex.json"
 {
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
   "node": {
     "nodeVersion": "22"
   }
@@ -107,6 +108,7 @@ Convex CLI to generate static versions of the `_generated/api.d.ts` and
 
 ```json title="convex.json"
 {
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
   "codegen": {
     "staticApi": true,
     "staticDataModel": true
