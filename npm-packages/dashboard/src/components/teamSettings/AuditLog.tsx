@@ -76,7 +76,7 @@ export function AuditLog({ team }: { team: Team }) {
           />
         )}
         <LoadingTransition>
-          {projects && members && !isLoading && entries !== undefined ? (
+          {projects && members && !isLoading && entries !== undefined && (
             <div className="flex w-full flex-col gap-4 overflow-y-auto">
               <AuditLogContent
                 {...{
@@ -97,7 +97,7 @@ export function AuditLog({ team }: { team: Team }) {
                 Load more
               </Button>
             </div>
-          ) : undefined}
+          )}
         </LoadingTransition>
       </div>
     </>

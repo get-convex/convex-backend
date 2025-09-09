@@ -46,66 +46,68 @@ function Profile() {
   );
 
   return (
-    <LoadingTransition
-      loadingProps={{
-        fullHeight: false,
-        className: "h-full",
-      }}
-    >
+    <>
       <Head>
         <title>Profile | Convex Dashboard</title>
       </Head>
-      {emails && profile && (
-        <div className="scrollbar w-full overflow-auto">
-          <div className="mx-auto flex max-w-prose min-w-[22rem] flex-col justify-center gap-4 p-4">
-            <Sheet className="flex w-full flex-col gap-4">
-              <h3>Profile information</h3>
-              <ProfileForm profile={profile} />
-            </Sheet>
+      <LoadingTransition
+        loadingProps={{
+          fullHeight: false,
+          className: "h-full",
+        }}
+      >
+        {emails && profile && (
+          <div className="scrollbar w-full overflow-auto">
+            <div className="mx-auto flex max-w-prose min-w-[22rem] flex-col justify-center gap-4 p-4">
+              <Sheet className="flex w-full flex-col gap-4">
+                <h3>Profile information</h3>
+                <ProfileForm profile={profile} />
+              </Sheet>
 
-            <Emails emails={emails} />
+              <Emails emails={emails} />
 
-            <ConnectedIdentities />
+              <ConnectedIdentities />
 
-            <ToggleDarkMode />
-            <DiscordAccounts />
+              <ToggleDarkMode />
+              <DiscordAccounts />
 
-            <Sheet className="flex flex-col gap-4">
-              <h3>Delete Account</h3>
-              {deleteAccountBody}
-              <Button
-                variant="danger"
-                className="w-fit"
-                onClick={() => setShowConfirmation(true)}
-              >
-                Delete account
-              </Button>
-              {showConfirmation && (
-                <ConfirmationDialog
-                  onClose={() => setShowConfirmation(false)}
-                  onConfirm={async () => {
-                    try {
-                      document.cookie = "";
-                      window.localStorage.clear();
-                      await deleteAccount();
-                      window.location.href = "/api/auth/logout";
-                    } catch (e: any) {
-                      setDeleteAccountError(e.message);
-                      throw e;
-                    }
-                  }}
-                  confirmText="Delete account"
-                  dialogTitle="Delete Account"
-                  error={deleteAccountError}
-                  dialogBody={deleteAccountBody}
-                  validationText="Delete my account"
-                />
-              )}
-            </Sheet>
+              <Sheet className="flex flex-col gap-4">
+                <h3>Delete Account</h3>
+                {deleteAccountBody}
+                <Button
+                  variant="danger"
+                  className="w-fit"
+                  onClick={() => setShowConfirmation(true)}
+                >
+                  Delete account
+                </Button>
+                {showConfirmation && (
+                  <ConfirmationDialog
+                    onClose={() => setShowConfirmation(false)}
+                    onConfirm={async () => {
+                      try {
+                        document.cookie = "";
+                        window.localStorage.clear();
+                        await deleteAccount();
+                        window.location.href = "/api/auth/logout";
+                      } catch (e: any) {
+                        setDeleteAccountError(e.message);
+                        throw e;
+                      }
+                    }}
+                    confirmText="Delete account"
+                    dialogTitle="Delete Account"
+                    error={deleteAccountError}
+                    dialogBody={deleteAccountBody}
+                    validationText="Delete my account"
+                  />
+                )}
+              </Sheet>
+            </div>
           </div>
-        </div>
-      )}
-    </LoadingTransition>
+        )}
+      </LoadingTransition>
+    </>
   );
 }
 

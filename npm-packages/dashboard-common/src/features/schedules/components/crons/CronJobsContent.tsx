@@ -81,9 +81,9 @@ export function CronJobsContent() {
 
   return (
     <PageContent>
-      <LoadingTransition>
-        <div className="h-full w-full max-w-6xl">{!loading && content}</div>
-      </LoadingTransition>
+      <div className="h-full w-full max-w-6xl">
+        <LoadingTransition>{!loading && content}</LoadingTransition>
+      </div>
     </PageContent>
   );
 }

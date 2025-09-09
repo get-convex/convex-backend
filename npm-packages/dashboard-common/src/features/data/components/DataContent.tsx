@@ -52,7 +52,6 @@ import {
 import { cn } from "@ui/cn";
 
 import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
-import { useMount } from "react-use";
 import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
 import omit from "lodash/omit";
@@ -209,6 +208,28 @@ export function DataContent({
         | string[]
         | undefined
     )?.[0] || "_creationTime";
+
+  const { captureMessage } = useContext(DeploymentInfoContext);
+  useEffect(() => {
+    if (
+      status !== "LoadingFirstPage" &&
+      !(data.length || status === "CanLoadMore") &&
+      !hasFiltersAndAtLeastOneDocument &&
+      !isLoading
+    ) {
+      captureMessage(
+        `Encountered unexpected state in data page: status: ${status}, numRowsInTable: ${numRowsInTable}, numRowsRead: ${numRowsRead}, isLoading: ${isLoading}`,
+      );
+    }
+  }, [
+    status,
+    data.length,
+    hasFiltersAndAtLeastOneDocument,
+    isLoading,
+    numRowsInTable,
+    numRowsRead,
+    captureMessage,
+  ]);
 
   return (
     <PanelGroup
@@ -377,14 +398,8 @@ export function DataContent({
                   </div>
                 )
               ) : isLoading ||
-                (numRowsInTable !== undefined && numRowsInTable > 0) ? (
-                <UnexpectedLoadingState
-                  status={status}
-                  numRowsInTable={numRowsInTable}
-                  numRowsRead={numRowsRead}
-                  isLoading={isLoading}
-                />
-              ) : (
+                (numRowsInTable !== undefined &&
+                  numRowsInTable > 0) ? null /* Loading */ : (
                 <EmptyDataContent
                   openAddDocuments={() =>
                     popupState.setPopup({ type: "addDocuments", tableName })
@@ -434,27 +449,4 @@ export function DataContentSkeleton() {
       <TableSkeleton />
     </div>
   );
-}
-
-function UnexpectedLoadingState({
-  status,
-  numRowsInTable,
-  numRowsRead,
-  isLoading,
-}: {
-  status: string;
-  numRowsInTable: number | undefined;
-  numRowsRead: number;
-  isLoading: boolean;
-}) {
-  const { captureMessage } = useContext(DeploymentInfoContext);
-
-  useMount(() => {
-    !isLoading &&
-      captureMessage(
-        `Encountered unexpected state in data page: status: ${status}, numRowsInTable: ${numRowsInTable}, numRowsRead: ${numRowsRead}, isLoading: ${isLoading}`,
-      );
-  });
-
-  return null;
 }
