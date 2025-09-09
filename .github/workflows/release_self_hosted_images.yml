@@ -10,9 +10,7 @@ on:
         required: true
   push:
     branches:
-      - main
-    paths:
-      - "crates/model/src/migrations.rs"
+      - release
 
 jobs:
   release_backend:
