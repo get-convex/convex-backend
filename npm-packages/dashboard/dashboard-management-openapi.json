@@ -4430,6 +4430,12 @@
             "type": "integer",
             "format": "int64"
           },
+          "devDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "$ref": "#/components/schemas/ProjectId"
           },
@@ -4438,6 +4444,12 @@
           },
           "name": {
             "$ref": "#/components/schemas/ProjectName"
+          },
+          "prodDeploymentName": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "slug": {
             "$ref": "#/components/schemas/ProjectSlug"

@@ -1970,9 +1970,11 @@ export interface components {
         ProjectDetails: {
             /** Format: int64 */
             createTime: number;
+            devDeploymentName?: string | null;
             id: components["schemas"]["ProjectId"];
             isDemo: boolean;
             name: components["schemas"]["ProjectName"];
+            prodDeploymentName?: string | null;
             slug: components["schemas"]["ProjectSlug"];
             teamId: components["schemas"]["TeamId"];
         };
