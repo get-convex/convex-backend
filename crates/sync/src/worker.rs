@@ -33,6 +33,7 @@ use common::{
         ExportPath,
     },
     fastrace_helpers::get_sampled_span,
+    heap_size::HeapSize,
     http::ResolvedHostname,
     knobs::{
         SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY,
@@ -398,6 +399,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 );
                 // Break and exit cleanly if the websocket is dead.
                 ping_timeout = self.rt.wait(HEARTBEAT_INTERVAL);
+                let transition_heap_size = response.heap_size();
+                metrics::log_transition_size(self.partition_id, transition_heap_size);
                 if self.tx.send((response, self.rt.monotonic_now())).is_err() {
                     break 'top;
                 }

@@ -190,6 +190,22 @@ pub fn log_connect(partition_id: u64, last_close_reason: String, connection_coun
 }
 
 register_convex_histogram!(
+    SYNC_TRANSITION_MESSAGE_SIZE_BYTES,
+    "Heap size of Transition messages sent to clients",
+    &["partition_id"]
+);
+pub fn log_transition_size(partition_id: u64, transition_heap_size: usize) {
+    log_distribution_with_labels(
+        &SYNC_TRANSITION_MESSAGE_SIZE_BYTES,
+        transition_heap_size as f64,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
+register_convex_histogram!(
     SYNC_LINEARIZABILITY_DELAY_SECONDS,
     "How far behind the current backend is behind what the client has observed",
     &["partition_id"]

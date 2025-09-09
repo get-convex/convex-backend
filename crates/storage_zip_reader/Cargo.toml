@@ -22,9 +22,6 @@ storage = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 
-[lints]
-workspace = true
-
 [dev-dependencies]
 async_zip = { workspace = true }
 async_zip_0_0_9 = { workspace = true }
@@ -35,3 +32,6 @@ errors = { workspace = true, features = ["testing"] }
 runtime = { workspace = true }
 storage = { workspace = true, features = ["testing"] }
 tokio-stream = { workspace = true }
+
+[lints]
+workspace = true
