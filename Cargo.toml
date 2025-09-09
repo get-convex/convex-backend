@@ -103,7 +103,7 @@ compact_str = "0.9.0"
 const-oid = "0.9.6"
 const_format = { version = "0.2.34", features = [ "fmt" ] }
 criterion = "0.5"
-crossbeam-channel = "0.5"
+crossbeam-channel = "0.5.15"
 csf = "0.1.11"
 cstr = "0.2.11"
 csv-async = "1.2"
