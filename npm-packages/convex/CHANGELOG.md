@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.27.0
+
+- Add support for configuring the Node.js version used by Node actions
+  using the `node.nodeVersion` field of the `convex.json` file
+  ([docs](https://docs.convex.dev/production/project-configuration#configuring-the-nodejs-version)).
+- `npx convex data` now supports exporting data as JSON or JSONL with the `--format` option.
+- `npx convex env set` now supports setting environment variables via piping (STDIN)
+  (for example `cat keys/my-private-key.txt | npx convex env set JWT_PRIVATE_KEY`).
+
 ## 1.26.2
 
 - Fix for pushing schemas to older (self-hosted) deployment builds.
