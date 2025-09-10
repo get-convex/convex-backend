@@ -108,7 +108,7 @@ const serverDisconnectErrors = {
   VectorIndexesUnavailable: { timeout: 1000 },
   SearchIndexesUnavailable: { timeout: 1000 },
   TableSummariesUnavailable: { timeout: 1000 },
-  // More ErrorMeatadata::overloaded()
+  // More ErrorMetadata::overloaded()
   VectorIndexTooLarge: { timeout: 3000 },
   SearchIndexTooLarge: { timeout: 3000 },
   TooManyWritesInTimePeriod: { timeout: 3000 },
