@@ -66,6 +66,7 @@ pub struct AggregatedFunctionUsageStats {
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
     pub action_memory_used_mb: Option<u64>,
+    pub return_bytes: Option<u64>,
 }
 
 #[derive(Serialize, Debug, Clone)]

@@ -146,6 +146,9 @@ pub struct FunctionExecution {
     /// Usage statistics for this instance
     pub usage_stats: AggregatedFunctionUsageStats,
     pub action_memory_used_mb: Option<u64>,
+    /// Size of the returned value in bytes if the function execution was
+    /// successful, excluding HTTP actions.
+    pub return_bytes: Option<u64>,
 
     /// The Convex NPM package version pushed with the module version executed.
     pub udf_server_version: Option<semver::Version>,
@@ -282,6 +285,7 @@ impl FunctionExecution {
                     vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,
                     vector_index_write_bytes: self.usage_stats.vector_index_write_bytes,
                     action_memory_used_mb: self.action_memory_used_mb,
+                    return_bytes: self.return_bytes,
                 },
             },
         }];
@@ -647,6 +651,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if outcome.path.is_system() {
             return;
         }
+        let return_bytes = outcome.result.as_ref().ok().map(|v| v.heap_size() as u64);
         let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: match &outcome.result {
@@ -668,6 +673,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             syscall_trace: outcome.syscall_trace.clone(),
             usage_stats: aggregated,
             action_memory_used_mb: None,
+            return_bytes,
             udf_server_version: outcome.udf_server_version.clone(),
             identity: outcome.identity.clone(),
             context,
@@ -801,6 +807,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if outcome.path.udf_path.is_system() {
             return;
         }
+        let return_bytes = outcome.result.as_ref().ok().map(|v| v.heap_size() as u64);
         let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: outcome.result.err(),
@@ -819,6 +826,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
             action_memory_used_mb: None,
+            return_bytes,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context,
@@ -893,6 +901,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if outcome.path.udf_path.is_system() {
             return;
         }
+        let return_bytes = outcome.result.as_ref().ok().map(|v| v.heap_size() as u64);
         let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: outcome.result.err(),
@@ -911,6 +920,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
             action_memory_used_mb: Some(completion.memory_in_mb),
+            return_bytes,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context: completion.context,
@@ -1053,6 +1063,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             environment: ModuleEnvironment::Isolate,
             usage_stats: aggregated,
             action_memory_used_mb: Some(outcome.memory_in_mb()),
+            return_bytes: None,
             syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
