@@ -256,7 +256,7 @@ impl IndexesToBootstrap {
         let range = TimestampRange::new((
             Bound::Excluded(self.oldest_index_ts),
             Bound::Included(*upper_bound),
-        ))?;
+        ));
         let tables_with_indexes = self.tables_with_indexes();
         let revision_stream =
             stream_revision_pairs_for_indexes(&tables_with_indexes, persistence, range);

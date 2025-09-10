@@ -604,7 +604,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         TimestampRange::new((
                             Bound::Excluded(*last_ts),
                             Bound::Included(*snapshot_ts),
-                        ))?,
+                        )),
                         T::partial_document_order(),
                         &row_rate_limiter,
                     ),

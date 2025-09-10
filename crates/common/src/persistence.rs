@@ -272,75 +272,91 @@ pub trait Persistence: Sync + Send + 'static {
 
 #[derive(Debug, Clone, Copy)]
 pub struct TimestampRange {
-    start_bound: Bound<Timestamp>,
-    end_bound: Bound<Timestamp>,
+    start_inclusive: Timestamp,
+    end_inclusive: Timestamp,
 }
 
 impl TimestampRange {
-    pub fn new<T: RangeBounds<Timestamp>>(range: T) -> anyhow::Result<Self> {
-        // Bounds check.
-        Self::min_inclusive(&range.start_bound().cloned())?;
-        Self::max_exclusive(&range.end_bound().cloned())?;
-        Ok(Self {
-            start_bound: range.start_bound().cloned(),
-            end_bound: range.end_bound().cloned(),
-        })
-    }
-
-    pub fn snapshot(ts: Timestamp) -> Self {
-        Self {
-            start_bound: Bound::Unbounded,
-            end_bound: Bound::Included(ts),
-        }
-    }
-
-    pub fn all() -> Self {
-        Self {
-            start_bound: Bound::Unbounded,
-            end_bound: Bound::Unbounded,
-        }
-    }
-
-    pub fn at(ts: Timestamp) -> Self {
-        Self {
-            start_bound: Bound::Included(ts),
-            end_bound: Bound::Included(ts),
-        }
-    }
-
-    pub fn greater_than(t: Timestamp) -> Self {
-        Self {
-            start_bound: Bound::Excluded(t),
-            end_bound: Bound::Unbounded,
-        }
-    }
-
-    fn min_inclusive(start_bound: &Bound<Timestamp>) -> anyhow::Result<Timestamp> {
-        Ok(match start_bound {
+    #[inline]
+    pub fn new<T: RangeBounds<Timestamp>>(range: T) -> Self {
+        let start_inclusive = match range.start_bound() {
             Bound::Included(t) => *t,
-            Bound::Excluded(t) => t.succ()?,
+            Bound::Excluded(t) => {
+                if let Some(succ) = t.succ_opt() {
+                    succ
+                } else {
+                    return Self::empty();
+                }
+            },
             Bound::Unbounded => Timestamp::MIN,
-        })
-    }
-
-    pub fn min_timestamp_inclusive(&self) -> Timestamp {
-        Self::min_inclusive(&self.start_bound).unwrap()
-    }
-
-    fn max_exclusive(end_bound: &Bound<Timestamp>) -> anyhow::Result<Timestamp> {
-        Ok(match end_bound {
-            Bound::Included(t) => t.succ()?,
-            Bound::Excluded(t) => *t,
+        };
+        let end_inclusive = match range.end_bound() {
+            Bound::Included(t) => *t,
+            Bound::Excluded(t) => {
+                if let Some(pred) = t.pred_opt() {
+                    pred
+                } else {
+                    return Self::empty();
+                }
+            },
             Bound::Unbounded => Timestamp::MAX,
-        })
+        };
+        Self {
+            start_inclusive,
+            end_inclusive,
+        }
     }
 
+    #[inline]
+    pub fn empty() -> Self {
+        Self {
+            start_inclusive: Timestamp::MAX,
+            end_inclusive: Timestamp::MIN,
+        }
+    }
+
+    #[inline]
+    pub fn snapshot(ts: Timestamp) -> Self {
+        Self::new(..=ts)
+    }
+
+    #[inline]
+    pub fn all() -> Self {
+        Self::new(..)
+    }
+
+    #[inline]
+    pub fn at(ts: Timestamp) -> Self {
+        Self::new(ts..=ts)
+    }
+
+    #[inline]
+    pub fn greater_than(t: Timestamp) -> Self {
+        Self::new((Bound::Excluded(t), Bound::Unbounded))
+    }
+
+    #[inline]
+    pub fn min_timestamp_inclusive(&self) -> Timestamp {
+        self.start_inclusive
+    }
+
+    #[inline]
     pub fn max_timestamp_exclusive(&self) -> Timestamp {
-        Self::max_exclusive(&self.end_bound).unwrap()
+        // assumes that Timestamp::MAX never actually exists
+        self.end_inclusive.succ_opt().unwrap_or(Timestamp::MAX)
     }
 
+    #[inline]
     pub fn contains(&self, ts: Timestamp) -> bool {
-        self.min_timestamp_inclusive() <= ts && ts < self.max_timestamp_exclusive()
+        self.start_inclusive <= ts && ts <= self.end_inclusive
+    }
+
+    #[inline]
+    pub fn intersect(&self, other: Self) -> Self {
+        Self {
+            start_inclusive: self.start_inclusive.max(other.start_inclusive),
+            end_inclusive: self.end_inclusive.min(other.end_inclusive),
+        }
     }
 }
 
@@ -582,13 +598,12 @@ impl RepeatablePersistence {
     /// Same as [`Persistence::load_documents`] but only including documents in
     /// the snapshot range.
     pub fn load_documents(&self, range: TimestampRange, order: Order) -> DocumentStream<'_> {
-        let stream = self.reader.load_documents(
-            range,
+        self.reader.load_documents(
+            range.intersect(TimestampRange::snapshot(*self.upper_bound)),
             order,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             self.retention_validator.clone(),
-        );
-        Box::pin(stream.try_filter(|entry| future::ready(entry.ts <= *self.upper_bound)))
+        )
     }
 
     /// Same as [`Persistence::load_documents_from_table`] but only including
@@ -599,14 +614,13 @@ impl RepeatablePersistence {
         range: TimestampRange,
         order: Order,
     ) -> DocumentStream<'_> {
-        let stream = self.reader.load_documents_from_table(
+        self.reader.load_documents_from_table(
             tablet_id,
-            range,
+            range.intersect(TimestampRange::snapshot(*self.upper_bound)),
             order,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             self.retention_validator.clone(),
-        );
-        Box::pin(stream.try_filter(|entry| future::ready(entry.ts <= *self.upper_bound)))
+        )
     }
 
     /// Same as `load_documents` but doesn't use the `RetentionValidator` from
@@ -618,13 +632,12 @@ impl RepeatablePersistence {
         order: Order,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        let stream = self.reader.load_documents(
-            range,
+        self.reader.load_documents(
+            range.intersect(TimestampRange::snapshot(*self.upper_bound)),
             order,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             retention_validator,
-        );
-        Box::pin(stream.try_filter(|entry| future::ready(entry.ts <= *self.upper_bound)))
+        )
     }
 
     pub async fn previous_revisions(

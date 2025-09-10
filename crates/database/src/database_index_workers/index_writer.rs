@@ -405,7 +405,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         let producer = async {
             let revision_stream = self.stream_revision_pairs(
                 &repeatable_persistence,
-                TimestampRange::new(start_ts..=*end_ts)?,
+                TimestampRange::new(start_ts..=*end_ts),
                 Order::Asc,
                 index_selector,
             );
@@ -466,7 +466,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         let producer = async {
             let revision_stream = self.stream_revision_pairs(
                 &repeatable_persistence,
-                TimestampRange::new(end_ts..*start_ts)?,
+                TimestampRange::new(end_ts..*start_ts),
                 Order::Desc,
                 index_selector,
             );

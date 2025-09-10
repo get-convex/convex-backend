@@ -509,7 +509,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
             RepeatablePersistence::new(reader, end_ts, self.retention_validator.clone());
         // TODO: don't fetch document contents from the database
         let documents = repeatable_persistence
-            .load_documents(TimestampRange::new(start_ts.succ()?..=*end_ts)?, Order::Asc);
+            .load_documents(TimestampRange::new(start_ts.succ()?..=*end_ts), Order::Asc);
         pin_mut!(documents);
         while let Some(entry) = documents.try_next().await? {
             if let Some(buffer) = buffered_documents.get_mut(&entry.id.table()) {

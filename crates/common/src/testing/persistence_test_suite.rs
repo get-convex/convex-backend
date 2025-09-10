@@ -346,7 +346,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
     test_load_documents_from_table(
         &p,
         doc1.id().tablet_id,
-        TimestampRange::new(Timestamp::must(1)..)?,
+        TimestampRange::new(Timestamp::must(1)..),
         Order::Asc,
         vec![DocumentLogEntry {
             ts: Timestamp::must(1),
@@ -360,7 +360,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
     test_load_documents_from_table(
         &p,
         doc2.id().tablet_id,
-        TimestampRange::new(Timestamp::must(1)..)?,
+        TimestampRange::new(Timestamp::must(1)..),
         Order::Asc,
         vec![DocumentLogEntry {
             ts: Timestamp::must(1),
@@ -374,7 +374,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
     test_load_documents_from_table(
         &p,
         doc1.id().tablet_id,
-        TimestampRange::new(..Timestamp::must(1))?,
+        TimestampRange::new(..Timestamp::must(1)),
         Order::Asc,
         vec![DocumentLogEntry {
             ts: Timestamp::must(0),
@@ -388,7 +388,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
     test_load_documents_from_table(
         &p,
         doc2.id().tablet_id,
-        TimestampRange::new(..Timestamp::must(1))?,
+        TimestampRange::new(..Timestamp::must(1)),
         Order::Asc,
         vec![DocumentLogEntry {
             ts: Timestamp::must(0),
@@ -457,7 +457,7 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     test_load_documents(
         &p,
         &id_generator,
-        TimestampRange::new(Timestamp::must(1)..)?,
+        TimestampRange::new(Timestamp::must(1)..),
         Order::Asc,
         vec![DocumentLogEntry {
             ts: Timestamp::must(1),
@@ -485,7 +485,7 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     test_load_documents(
         &p,
         &id_generator,
-        TimestampRange::new(..Timestamp::must(2))?,
+        TimestampRange::new(..Timestamp::must(2)),
         Order::Desc,
         vec![
             DocumentLogEntry {

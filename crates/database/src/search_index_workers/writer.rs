@@ -635,7 +635,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             T::download_previous_segments(storage.clone(), segments_to_update).await?;
         let documents = database.load_documents_in_table(
             *index_name.table(),
-            TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts)))?,
+            TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts))),
             Order::Asc,
             &row_rate_limiter,
         );

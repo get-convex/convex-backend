@@ -7,7 +7,10 @@ use std::{
     },
 };
 
-use anyhow::Context;
+use anyhow::{
+    anyhow,
+    Context,
+};
 use derive_more::FromStr;
 use serde::Serialize;
 use serde_json::json;
@@ -25,18 +28,32 @@ impl Timestamp {
     pub const MAX: Self = Self(i64::MAX as u64);
     pub const MIN: Self = Self(0);
 
-    pub fn succ(&self) -> anyhow::Result<Self> {
+    #[inline]
+    pub fn succ_opt(&self) -> Option<Self> {
         if *self >= Self::MAX {
-            anyhow::bail!("timestamp {self} already at max");
+            None
+        } else {
+            Some(Self(self.0 + 1))
         }
-        Ok(Self(self.0 + 1))
+    }
+
+    pub fn succ(&self) -> anyhow::Result<Self> {
+        self.succ_opt()
+            .ok_or_else(|| anyhow!("timestamp {self} already at max"))
+    }
+
+    #[inline]
+    pub fn pred_opt(&self) -> Option<Self> {
+        if *self <= Self::MIN {
+            None
+        } else {
+            Some(Self(self.0 - 1))
+        }
     }
 
     pub fn pred(&self) -> anyhow::Result<Self> {
-        if *self <= Self::MIN {
-            anyhow::bail!("timestamp {self} already at min");
-        }
-        Ok(Self(self.0 - 1))
+        self.pred_opt()
+            .ok_or_else(|| anyhow!("timestamp {self} already at min"))
     }
 
     pub fn add(&self, duration: Duration) -> anyhow::Result<Self> {

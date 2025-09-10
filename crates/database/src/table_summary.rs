@@ -465,12 +465,12 @@ pub async fn bootstrap<RT: Runtime>(
     let bootstrap_tables = BootstrapTableIds::new(&table_mapping);
     let (range, order) = match base_snapshot_ts.cmp(&target_ts) {
         std::cmp::Ordering::Less => (
-            TimestampRange::new(base_snapshot_ts.succ()?..=*target_ts)?,
+            TimestampRange::new(base_snapshot_ts.succ()?..=*target_ts),
             Order::Asc,
         ),
         std::cmp::Ordering::Equal => return Ok((base_snapshot, 0)),
         std::cmp::Ordering::Greater => (
-            TimestampRange::new(target_ts.succ()?..=*base_snapshot_ts)?,
+            TimestampRange::new(target_ts.succ()?..=*base_snapshot_ts),
             Order::Desc,
         ),
     };

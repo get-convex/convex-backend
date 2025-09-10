@@ -421,7 +421,7 @@ impl<RT: Runtime> Committer<RT> {
             !vector_index_manager.is_bootstrapping(),
             "Trying to update vector index while it's still bootstrapping"
         );
-        let range = TimestampRange::new((Bound::Excluded(bootstrap_ts), Bound::Unbounded))?;
+        let range = TimestampRange::new((Bound::Excluded(bootstrap_ts), Bound::Unbounded));
 
         let revision_stream =
             stream_revision_pairs_for_indexes(tables_with_indexes, &persistence, range);

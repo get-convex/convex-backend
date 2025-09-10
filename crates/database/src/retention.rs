@@ -575,7 +575,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         );
         let reader_ = &reader;
         let mut index_entry_chunks = reader
-            .load_documents(TimestampRange::new(*cursor..*min_snapshot_ts)?, Order::Asc)
+            .load_documents(TimestampRange::new(*cursor..*min_snapshot_ts), Order::Asc)
             .try_chunks2(*RETENTION_READ_CHUNK)
             .map(move |chunk| async move {
                 let chunk = chunk?;
@@ -815,7 +815,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let reader_ = &reader;
         let mut document_chunks = reader
             .load_documents_with_retention_validator(
-                TimestampRange::new(*cursor..*min_document_snapshot_ts)?,
+                TimestampRange::new(*cursor..*min_document_snapshot_ts),
                 Order::Asc,
                 Arc::new(NoopRetentionValidator),
             )
@@ -1503,7 +1503,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let reader = persistence.reader();
         let mut document_stream = reader.load_documents_from_table(
             index_table_id,
-            TimestampRange::new(**cursor..*latest_ts)?,
+            TimestampRange::new(**cursor..*latest_ts),
             Order::Asc,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             retention_validator,

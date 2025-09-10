@@ -1821,7 +1821,7 @@ impl<RT: Runtime> Database<RT> {
             self.retention_validator(),
         );
         let range = match cursor {
-            Some(ts) => TimestampRange::new((Bound::Excluded(ts), Bound::Unbounded))?,
+            Some(ts) => TimestampRange::new((Bound::Excluded(ts), Bound::Unbounded)),
             None => TimestampRange::all(),
         };
         let mut document_stream = repeatable_persistence.load_documents(range, Order::Asc);
