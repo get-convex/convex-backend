@@ -8,6 +8,7 @@ import { toast } from "@common/lib/utils";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { PageContent } from "@common/elements/PageContent";
+import { isId } from "id-encoding";
 import { useUploadFiles } from "./Uploader";
 import { FileStorageHeader } from "./FileStorageHeader";
 import { FilesList } from "./FilesList";
@@ -68,7 +69,7 @@ export function FileStorageView() {
 
   const file = useQuery(
     udfs.fileStorageV2.getFile,
-    fileId
+    fileId && isId(fileId)
       ? {
           storageId: fileId,
         }
