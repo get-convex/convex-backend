@@ -25,6 +25,7 @@ use serde::{
 use value_type::Inner as FivetranValue;
 
 use crate::{
+    api_types::selection::Selection,
     convert::to_fivetran_row,
     convex_api::{
         DocumentDeltasCursor,
@@ -90,6 +91,7 @@ pub enum Checkpoint {
 }
 
 /// A simplification of the messages sent to Fivetran in the `update` endpoint.
+#[derive(Debug)]
 pub enum UpdateMessage {
     Update {
         schema_name: Option<String>,
@@ -140,9 +142,10 @@ impl From<UpdateMessage> for FivetranUpdateResponse {
 pub fn sync(
     source: impl Source + 'static,
     state: Option<State>,
+    selection: Selection,
 ) -> BoxStream<'static, anyhow::Result<UpdateMessage>> {
     let Some(state) = state else {
-        return initial_sync(source, None, Some(BTreeSet::new())).boxed();
+        return initial_sync(source, None, Some(BTreeSet::new()), selection).boxed();
     };
 
     let State {
@@ -152,9 +155,11 @@ pub fn sync(
     } = state;
     match checkpoint {
         Checkpoint::InitialSync { snapshot, cursor } => {
-            initial_sync(source, Some((snapshot, cursor)), tables_seen).boxed()
+            initial_sync(source, Some((snapshot, cursor)), tables_seen, selection).boxed()
         },
-        Checkpoint::DeltaUpdates { cursor } => delta_sync(source, cursor, tables_seen).boxed(),
+        Checkpoint::DeltaUpdates { cursor } => {
+            delta_sync(source, cursor, tables_seen, selection).boxed()
+        },
     }
 }
 
@@ -164,6 +169,7 @@ async fn initial_sync(
     source: impl Source,
     mut checkpoint: Option<(i64, ListSnapshotCursor)>,
     mut tables_seen: Option<BTreeSet<String>>,
+    selection: Selection,
 ) {
     let log_msg = if let Some((snapshot, _)) = checkpoint {
         format!("Resuming an initial sync from {source} at {snapshot}")
@@ -175,7 +181,9 @@ async fn initial_sync(
     let snapshot = loop {
         let snapshot = checkpoint.as_ref().map(|c| c.0);
         let cursor = checkpoint.as_ref().map(|c| c.1.clone());
-        let res = source.list_snapshot(snapshot, cursor.clone()).await?;
+        let res = source
+            .list_snapshot(snapshot, cursor.clone(), selection.clone())
+            .await?;
 
         for value in res.values {
             if let Some(ref mut tables_seen) = tables_seen {
@@ -235,13 +243,14 @@ async fn delta_sync(
     source: impl Source,
     cursor: DocumentDeltasCursor,
     mut tables_seen: Option<BTreeSet<String>>,
+    selection: Selection,
 ) {
     log(&format!("Delta sync from {source} starting at {cursor}."));
 
     let mut cursor = cursor;
     let mut has_more = true;
     while has_more {
-        let response = source.document_deltas(cursor).await?;
+        let response = source.document_deltas(cursor, selection.clone()).await?;
 
         for value in response.values {
             if let Some(ref mut tables_seen) = tables_seen {

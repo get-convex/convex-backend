@@ -2154,6 +2154,7 @@ dependencies = [
  "futures-util",
  "headers",
  "maplit",
+ "pretty_assertions",
  "proptest",
  "proptest-derive",
  "prost",

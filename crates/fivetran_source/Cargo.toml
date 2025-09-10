@@ -51,6 +51,7 @@ tonic-build = { workspace = true }
 cmd_util = { workspace = true }
 convex = { workspace = true, features = ["testing"] }
 convex_fivetran_common = { workspace = true, features = ["testing"] }
+pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }

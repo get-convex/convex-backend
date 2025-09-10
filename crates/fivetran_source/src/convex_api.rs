@@ -23,7 +23,10 @@ use serde::{
 };
 
 use crate::api_types::{
-    selection::DEFAULT_FIVETRAN_SCHEMA_NAME,
+    selection::{
+        Selection,
+        DEFAULT_FIVETRAN_SCHEMA_NAME,
+    },
     DocumentDeltasArgs,
     DocumentDeltasResponse,
     DocumentDeltasValue,
@@ -53,12 +56,14 @@ pub trait Source: Display + Send {
         &self,
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
+        selection: Selection,
     ) -> anyhow::Result<ListSnapshotResponse>;
 
     /// See https://docs.convex.dev/http-api/#get-apidocument_deltas
     async fn document_deltas(
         &self,
         cursor: DocumentDeltasCursor,
+        selection: Selection,
     ) -> anyhow::Result<DocumentDeltasResponse>;
 
     /// Get a list of columns for each table and component on the Convex
@@ -173,13 +178,14 @@ impl Source for ConvexApi {
         &self,
         snapshot: Option<i64>,
         cursor: Option<ListSnapshotCursor>,
+        selection: Selection,
     ) -> anyhow::Result<ListSnapshotResponse> {
         self.post(
             "list_snapshot",
             ListSnapshotArgs {
                 snapshot,
                 cursor: cursor.map(|c| c.into()),
-                selection: SelectionArg::default(),
+                selection: SelectionArg::Exact { selection },
                 format: Some("convex_encoded_json".to_string()),
             },
         )
@@ -189,12 +195,13 @@ impl Source for ConvexApi {
     async fn document_deltas(
         &self,
         cursor: DocumentDeltasCursor,
+        selection: Selection,
     ) -> anyhow::Result<DocumentDeltasResponse> {
         self.post(
             "document_deltas",
             DocumentDeltasArgs {
                 cursor: Some(cursor.into()),
-                selection: SelectionArg::default(),
+                selection: SelectionArg::Exact { selection },
                 format: Some("convex_encoded_json".to_string()),
             },
         )
@@ -242,7 +249,7 @@ pub struct ListSnapshotCursor(pub String);
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct DocumentDeltasCursor(pub i64);
 
-#[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Display, Debug)]
 pub struct TableName(pub String);
 
 #[cfg(test)]
@@ -273,7 +280,7 @@ impl ComponentPath {
     }
 }
 
-#[derive(Display)]
+#[derive(Display, Debug)]
 pub struct FieldName(pub String);
 
 #[cfg(test)]

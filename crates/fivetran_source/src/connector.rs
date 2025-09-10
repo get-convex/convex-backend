@@ -31,7 +31,10 @@ use tonic::{
 };
 
 use crate::{
-    api_types::selection::DEFAULT_FIVETRAN_SCHEMA_NAME,
+    api_types::selection::{
+        Selection,
+        DEFAULT_FIVETRAN_SCHEMA_NAME,
+    },
     convex_api::{
         ComponentPath,
         ConvexApi,
@@ -158,7 +161,10 @@ impl SourceConnector for ConvexConnector {
 
         let source = ConvexApi { config };
 
-        let sync = sync(source, state);
+        let selection = Selection::try_from(inner.selection)
+            .map_err(|error| Status::internal(error.to_string()))?;
+
+        let sync = sync(source, state, selection);
         Ok(Response::new(
             sync.map_ok(FivetranUpdateResponse::from)
                 .map_err(|error| Status::internal(error.to_string()))
