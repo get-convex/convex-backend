@@ -326,7 +326,7 @@ function CellActions({
                   <ExternalLinkIcon aria-hidden="true" />
                 ),
                 label: isFileRef
-                  ? "Go to Files"
+                  ? "Go to File"
                   : isScheduledFunctionRef
                     ? "Go to Scheduled Functions"
                     : "Go to Reference",

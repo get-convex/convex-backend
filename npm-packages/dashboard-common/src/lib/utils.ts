@@ -124,9 +124,7 @@ export function documentHref({
   if (tableName === "_file_storage") {
     return {
       pathname: `${deploymentsURI}/files`,
-      query: {
-        // FIXME: This could include query parameters one day to link to a specific file
-      },
+      query: { id },
     };
   }
 

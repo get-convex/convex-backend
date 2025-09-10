@@ -222,7 +222,7 @@ describe("TableContextMenu", () => {
     expect(link).toHaveAttribute("target", "_blank");
   });
 
-  it("should link to the files page", async () => {
+  it("should link to the a specific file on the Files page", async () => {
     const { getByTestId } = renderWithProvider({
       state: {
         target: { x: 0, y: 0 },
@@ -238,15 +238,21 @@ describe("TableContextMenu", () => {
             editDoc: jest.fn(),
             view: jest.fn(),
             viewDoc: jest.fn(),
-            docRefLink: { pathname: "/files" },
+            docRefLink: {
+              pathname: "/files",
+              query: { id: "kg267e113cftx1jpeepypezsa57q9wvp" },
+            },
           },
         },
       },
     });
 
     const link = getByTestId("table-context-menu").children[0];
-    expect(link).toHaveTextContent("Go to Files");
-    expect(link).toHaveAttribute("href", "/files");
+    expect(link).toHaveTextContent("Go to File");
+    expect(link).toHaveAttribute(
+      "href",
+      "/files?id=kg267e113cftx1jpeepypezsa57q9wvp",
+    );
     expect(link).toHaveAttribute("target", "_blank");
   });
 

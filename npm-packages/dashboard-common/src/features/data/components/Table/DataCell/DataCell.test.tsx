@@ -371,7 +371,7 @@ describe("DataCell", () => {
       await user.keyboard("{Meta>}g");
       expect(window.open).toHaveBeenCalledTimes(1);
       expect(window.open).toHaveBeenCalledWith(
-        "http://localhost/files",
+        "http://localhost/files?id=kg267e113cftx1jpeepypezsa57q9wvp",
         "_blank",
       );
     });

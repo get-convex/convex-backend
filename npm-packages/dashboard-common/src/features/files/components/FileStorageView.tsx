@@ -1,6 +1,7 @@
 import { UploadIcon } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { toast } from "@common/lib/utils";
@@ -38,7 +39,28 @@ export function FileStorageView() {
     setFilters,
   } = usePaginatedFileMetadata();
 
-  const [fileId, setFileId] = useState("");
+  const router = useRouter();
+  const fileId =
+    !router.isReady || !router.query.id
+      ? ""
+      : Array.isArray(router.query.id)
+        ? router.query.id[0]
+        : router.query.id;
+  const setFileId = useCallback(
+    (newFileId: string) => {
+      const query = { ...router.query };
+      if (newFileId) {
+        query.id = newFileId;
+      } else {
+        delete query.id;
+      }
+
+      void router.replace({ pathname: router.pathname, query }, undefined, {
+        shallow: true,
+      });
+    },
+    [router],
+  );
 
   const totalNumFiles = useQuery(udfs.fileStorageV2.numFiles, {
     componentId: useNents().selectedNent?.id ?? null,
