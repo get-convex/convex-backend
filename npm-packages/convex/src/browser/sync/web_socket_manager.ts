@@ -87,11 +87,27 @@ type Socket =
 export type ReconnectMetadata = {
   connectionCount: number;
   lastCloseReason: string | null;
+  clientTs: number;
 };
 
 export type OnMessageResponse = {
   hasSyncedPastLastReconnect: boolean;
 };
+
+let firstTime: number | undefined;
+function monotonicMillis() {
+  if (firstTime === undefined) {
+    firstTime = Date.now();
+  }
+  if (typeof performance === "undefined" || !performance.now) {
+    return Date.now();
+  }
+  return Math.round(firstTime + performance.now());
+}
+
+function prettyNow() {
+  return `t=${Math.round((monotonicMillis() - firstTime!) / 100) / 10}s`;
+}
 
 const serverDisconnectErrors = {
   // A known error, e.g. during a restart or push
@@ -264,11 +280,21 @@ export class WebSocketManager {
         this.onOpen({
           connectionCount: this.connectionCount,
           lastCloseReason: this.lastCloseReason,
+          clientTs: monotonicMillis(),
         });
       }
 
       if (this.lastCloseReason !== "InitialConnect") {
-        this.logger.log("WebSocket reconnected");
+        if (this.lastCloseReason) {
+          this.logger.log(
+            "WebSocket reconnected at",
+            prettyNow(),
+            "after disconnect due to",
+            this.lastCloseReason,
+          );
+        } else {
+          this.logger.log("WebSocket reconnected at", prettyNow());
+        }
       }
 
       this.connectionCount += 1;
@@ -277,12 +303,50 @@ export class WebSocketManager {
     // NB: The WebSocket API calls `onclose` even if connection fails, so we can route all error paths through `onclose`.
     ws.onerror = (error) => {
       const message = (error as ErrorEvent).message;
-      this.logger.log(`WebSocket error: ${message}`);
+      if (message) {
+        this.logger.log(`WebSocket error message: ${message}`);
+      }
     };
     ws.onmessage = (message) => {
       this.resetServerInactivityTimeout();
+      const messageLength = message.data.length;
       const serverMessage = parseServerMessage(JSON.parse(message.data));
       this._logVerbose(`received ws message with type ${serverMessage.type}`);
+      if (
+        serverMessage.type === "Transition" &&
+        serverMessage.clientClockSkew !== undefined &&
+        serverMessage.serverTs !== undefined
+      ) {
+        const transitionTransitTime =
+          monotonicMillis() - // client time now
+          // clientClockSkew = (server time + upstream latency) - client time
+          // clientClockSkew is "how many milliseconds behind (slow) is the client clock"
+          // but the latency of the Connect message inflates this, making it appear further behind
+          serverMessage.clientClockSkew -
+          serverMessage.serverTs / 1_000_000; // server time when transition was sent
+        const prettyTransitionTime = `${Math.round(transitionTransitTime)}ms`;
+        const prettyMessageMB = `${Math.round(messageLength / 10_000) / 100}MB`;
+        const bytesPerSecond = messageLength / (transitionTransitTime / 1000);
+        const prettyBytesPerSecond = `${Math.round(bytesPerSecond / 10_000) / 100}MB per second`;
+        this._logVerbose(
+          `received ${prettyMessageMB} transition in ${prettyTransitionTime} at ${prettyBytesPerSecond}`,
+        );
+
+        // Warnings that will show up for *all users*, so these are not very aggressive goals.
+        if (transitionTransitTime > 10_000 && messageLength > 10_000_000) {
+          this.logger.log(
+            `received query results totalling more than 10MB (${prettyMessageMB}) which took more than 10s (${prettyTransitionTime}) to arrive`,
+          );
+        } else if (messageLength > 20_000_000) {
+          this.logger.log(
+            `received query results totalling more that 20MB (${prettyMessageMB}) which will take a long time to download on slower connections`,
+          );
+        } else if (transitionTransitTime > 20_000) {
+          this.logger.log(
+            `received query results totalling ${prettyMessageMB} which took more than 20s to arrive (${prettyTransitionTime})`,
+          );
+        }
+      }
       const response = this.onMessage(serverMessage);
       if (response.hasSyncedPastLastReconnect) {
         // Reset backoff to 0 once all outstanding requests are complete.
@@ -293,7 +357,8 @@ export class WebSocketManager {
     ws.onclose = (event) => {
       this._logVerbose("begin ws.onclose");
       if (this.lastCloseReason === null) {
-        this.lastCloseReason = event.reason ?? "OnCloseInvoked";
+        // event.reason is often an empty string
+        this.lastCloseReason = event.reason || `closed with code ${event.code}`;
       }
       if (
         event.code !== CLOSE_NORMAL &&
@@ -342,17 +407,18 @@ export class WebSocketManager {
     if (this.socket.state === "ready" && this.socket.paused === "no") {
       const encodedMessage = encodeClientMessage(message);
       const request = JSON.stringify(encodedMessage);
+      let sent = false;
       try {
         this.socket.ws.send(request);
+        sent = true;
       } catch (error: any) {
         this.logger.log(
           `Failed to send message on WebSocket, reconnecting: ${error}`,
         );
         this.closeAndReconnect("FailedToSendMessage");
       }
-      // We are not sure if this was sent or not.
       this._logVerbose(
-        `sent message with type ${message.type}: ${JSON.stringify(
+        `${sent ? "sent" : "failed to send"} message with type ${message.type}: ${JSON.stringify(
           messageForLog,
         )}`,
       );
@@ -385,7 +451,7 @@ export class WebSocketManager {
     this.socket = { state: "disconnected" };
     const backoff = this.nextBackoff(reason);
     this.markConnectionStateDirty();
-    this.logger.log(`Attempting reconnect in ${backoff}ms`);
+    this.logger.log(`Attempting reconnect in ${Math.round(backoff)}ms`);
     setTimeout(() => this.connect(), backoff);
   }
 
@@ -568,6 +634,7 @@ export class WebSocketManager {
           this.onOpen({
             connectionCount: this.connectionCount,
             lastCloseReason: this.lastCloseReason,
+            clientTs: monotonicMillis(),
           });
         } else if (this.socket.paused === "yes") {
           this.socket = { ...this.socket, paused: "no" };

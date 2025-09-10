@@ -396,7 +396,6 @@ export class BaseConvexClient {
             type: "Connect",
             sessionId: this._sessionId,
             maxObservedTimestamp: this.maxObservedTimestamp,
-            clientTs: Date.now(),
           });
 
           // Throw out our remote query, reissue queries
