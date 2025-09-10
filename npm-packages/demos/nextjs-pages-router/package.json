@@ -29,6 +29,6 @@
     "eslint-config-next": "~13.4.16",
     "npm-run-all2": "^7.0.0",
     "typescript": "~5.0.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.6"
   }
 }
