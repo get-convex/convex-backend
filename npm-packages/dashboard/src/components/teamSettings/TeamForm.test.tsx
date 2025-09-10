@@ -9,7 +9,10 @@ const locationMock = jest.fn();
 // Mock out location to prevent
 // Error: Not implemented: navigation (except hash changes)
 delete (window as any).location;
-window.location = locationMock as unknown as Location;
+Object.defineProperty(window, "location", {
+  value: locationMock,
+  writable: true,
+});
 
 describe("<TeamForm />", () => {
   let team: Team;

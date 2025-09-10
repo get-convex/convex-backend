@@ -18,7 +18,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^18.17.0",
-    "typescript": "^5.7.2",
+    "typescript": "^5.9.2",
     "openapi-typescript": "~7.8.0",
     "openapi-typescript-helpers": "~0.0.15",
     "dashboard": "workspace:*",

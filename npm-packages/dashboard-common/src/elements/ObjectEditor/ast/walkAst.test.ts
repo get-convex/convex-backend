@@ -647,7 +647,7 @@ describe("walkAst", () => {
       {
         name: "Input is bytes, but validator is not",
         input: "Bytes('aaaa')",
-        expectedValue: Base64.toByteArray("aaaa").buffer,
+        expectedValue: Base64.toByteArray("aaaa").buffer as ArrayBuffer,
         errorCode: "IsNotBytes",
         validator: validators.string,
       },

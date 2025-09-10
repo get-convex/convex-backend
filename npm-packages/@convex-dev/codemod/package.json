@@ -24,7 +24,7 @@
     "@types/node": "^18.17.0",
     "@types/progress": "~2.0.7",
     "@types/semver": "^7.3.13",
-    "typescript": "~5.0.3",
+    "typescript": "^5.9.2",
     "vitest": "^3.2.4",
     "zshy": "0.4.1"
   },

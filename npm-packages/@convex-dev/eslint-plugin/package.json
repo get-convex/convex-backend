@@ -25,7 +25,7 @@
     "eslint": "9.32.0",
     "eslint-doc-generator": "^1.7.1",
     "tshy": "^3.0.0",
-    "typescript": "^5.7.2",
+    "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },
   "tshy": {

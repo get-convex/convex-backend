@@ -63,7 +63,7 @@
     "postcss": "^8.4.19",
     "prettier": "3.6.2",
     "prettier-plugin-tailwindcss": "~0.6.11",
-    "typescript": "~5.0.3",
+    "typescript": "^5.9.2",
     "tsc-alias": "~1.8.15",
     "@types/lodash-es": "~4.17.12"
   },
