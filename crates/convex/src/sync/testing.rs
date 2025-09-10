@@ -83,6 +83,7 @@ impl SyncProtocol for TestProtocolManager {
                 connection_count,
                 last_close_reason: "InitialConnect".to_string(),
                 max_observed_timestamp: None,
+                client_ts: None,
             })
             .await?;
 

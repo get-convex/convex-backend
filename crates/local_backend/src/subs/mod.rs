@@ -214,12 +214,13 @@ async fn run_sync_socket(
                     }
                 },
                 maybe_message = server_rx.next().fuse() => {
-                    let (message, send_time) = match maybe_message {
+                    let (mut message, send_time) = match maybe_message {
                         Some(m) => m,
                         None => break 'top,
                     };
                     let delay = st.runtime.monotonic_now() - send_time;
                     log_websocket_message_out(&message, delay);
+                    message.inject_server_ts(st.runtime.generate_timestamp()?);
                     let serialized = serde_json::to_string(&JsonValue::from(message))?;
                     if tx.send(Message::Text(serialized.into())).await.is_err() {
                         break 'top;

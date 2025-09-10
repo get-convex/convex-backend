@@ -277,6 +277,8 @@ impl RemoteQuerySet {
             start_version,
             end_version,
             modifications,
+            client_clock_skew: _,
+            server_ts: _,
         } = transition
         else {
             panic!("not transition");

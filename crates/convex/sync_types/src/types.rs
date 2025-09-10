@@ -108,6 +108,7 @@ pub enum ClientMessage {
         connection_count: u32,
         last_close_reason: String,
         max_observed_timestamp: Option<Timestamp>,
+        client_ts: Option<u64>,
     },
     ModifyQuerySet {
         base_version: QuerySetVersion,
@@ -308,6 +309,12 @@ pub enum ServerMessage<V: 'static> {
             proptest(strategy = "prop::collection::vec(any::<StateModification<V>>(), 0..8)")
         )]
         modifications: Vec<StateModification<V>>,
+        /// The difference between the timestamp in `ClientMessage::Connect` and
+        /// the timestamp when the client message was received by the server.
+        client_clock_skew: Option<i64>,
+        /// The timestamp right before this message was sent back to the
+        /// client.
+        server_ts: Option<Timestamp>,
     },
     MutationResponse {
         request_id: SessionRequestSeqNumber,
@@ -331,6 +338,17 @@ pub enum ServerMessage<V: 'static> {
         error_message: String,
     },
     Ping,
+}
+
+impl<V: 'static> ServerMessage<V> {
+    pub fn inject_server_ts(&mut self, ts: Timestamp) {
+        match self {
+            Self::Transition {
+                ref mut server_ts, ..
+            } => *server_ts = Some(ts),
+            _ => {},
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

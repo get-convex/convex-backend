@@ -928,6 +928,8 @@ impl<V: HeapSize> HeapSize for ServerMessage<V> {
                 start_version,
                 end_version,
                 modifications,
+                client_clock_skew: _,
+                server_ts: _,
             } => {
                 start_version.heap_size()
                     + end_version.heap_size()

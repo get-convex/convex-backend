@@ -174,6 +174,7 @@ impl<RT: Runtime> SyncTest<RT> {
                 connection_count: 0,
                 last_close_reason: "InitialConnect".to_string(),
                 max_observed_timestamp,
+                client_ts: None,
             },
             self.rt.monotonic_now(),
         ))?;
@@ -303,6 +304,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
         start_version: start,
         end_version: end,
         modifications,
+        ..
     } = sync_worker.receive().await?);
     assert_eq!(start.query_set, 0);
     assert_eq!(end.query_set, 1);
@@ -328,6 +330,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
         start_version: start,
         end_version: end,
         modifications,
+        ..
     } = sync_worker.receive().await?);
     assert_eq!(start.query_set, 1);
     assert_eq!(end.query_set, 1);
@@ -355,7 +358,8 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     must_let!(let ServerMessage::Transition {
         start_version: start,
         end_version: end,
-        modifications
+        modifications,
+        ..
     } = sync_worker.receive().await?);
     assert_eq!(start.query_set, 1);
     assert_eq!(end.query_set, 2);
@@ -380,6 +384,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
         start_version: start,
         end_version: end,
         modifications,
+        ..
     } = sync_worker.receive().await?);
     assert_eq!(start.query_set, 2);
     assert_eq!(end.query_set, 2);
@@ -406,6 +411,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
         start_version: start,
         end_version: end,
         modifications,
+        ..
     } = sync_worker.receive().await?);
     assert_eq!(start.query_set, 2);
     assert_eq!(end.query_set, 3);
@@ -450,6 +456,8 @@ async fn test_remove_in_progress_query(rt: TestRuntime) -> anyhow::Result<()> {
         start_version: start,
         end_version: end,
         modifications,
+        client_clock_skew: _,
+        server_ts: _,
     } = sync_worker.receive().await?);
     assert_eq!(start.query_set, 0);
     assert_eq!(end.query_set, 1);

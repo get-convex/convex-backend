@@ -173,6 +173,10 @@ enum ClientMessageJson {
         #[serde(default)]
         #[serde(skip_serializing_if = "Option::is_none")]
         max_observed_timestamp: Option<String>,
+
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        client_ts: Option<i64>,
     },
     #[serde(rename_all = "camelCase")]
     ModifyQuerySet {
@@ -219,11 +223,13 @@ impl TryFrom<ClientMessage> for JsonValue {
                 connection_count,
                 last_close_reason,
                 max_observed_timestamp,
+                client_ts,
             } => ClientMessageJson::Connect {
                 session_id: format!("{}", session_id.as_hyphenated()),
                 connection_count,
                 last_close_reason: Some(last_close_reason),
                 max_observed_timestamp: max_observed_timestamp.map(|ts| u64_to_string(ts.into())),
+                client_ts: client_ts.map(|ts| ts as i64),
             },
             ClientMessage::ModifyQuerySet {
                 base_version,
@@ -303,6 +309,7 @@ impl TryFrom<JsonValue> for ClientMessage {
                 connection_count,
                 last_close_reason,
                 max_observed_timestamp,
+                client_ts,
             } => ClientMessage::Connect {
                 session_id: session_id.parse()?,
                 connection_count,
@@ -312,6 +319,7 @@ impl TryFrom<JsonValue> for ClientMessage {
                     .transpose()?
                     .map(Timestamp::try_from)
                     .transpose()?,
+                client_ts: client_ts.map(|ts| ts as u64),
             },
             ClientMessageJson::ModifyQuerySet {
                 base_version,
@@ -523,11 +531,15 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
                 start_version,
                 end_version,
                 modifications,
+                client_clock_skew,
+                server_ts,
             } => json!({
                 "type": "Transition",
                 "startVersion": JsonValue::from(start_version),
                 "endVersion": JsonValue::from(end_version),
                 "modifications": modifications.into_iter().map(JsonValue::from).collect::<Vec<JsonValue>>(),
+                "clientClockSkew": JsonValue::from(client_clock_skew),
+                "serverTs": JsonValue::from(server_ts),
             }),
             ServerMessage::MutationResponse {
                 request_id,
@@ -634,6 +646,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 start_version: JsonValue,
                 end_version: JsonValue,
                 modifications: Vec<JsonValue>,
+                client_clock_skew: Option<i64>,
+                server_ts: Option<i64>,
             },
             #[serde(rename_all = "camelCase")]
             MutationResponse {
@@ -671,6 +685,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 start_version,
                 end_version,
                 modifications,
+                client_clock_skew,
+                server_ts,
             } => ServerMessage::Transition {
                 start_version: start_version.try_into()?,
                 end_version: end_version.try_into()?,
@@ -678,6 +694,8 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                     .into_iter()
                     .map(|sm: JsonValue| sm.try_into())
                     .collect::<anyhow::Result<Vec<StateModification<V>>>>()?,
+                client_clock_skew,
+                server_ts: server_ts.map(Timestamp::try_from).transpose()?,
             },
             ServerMessageJson::MutationResponse {
                 request_id,
@@ -1054,6 +1072,8 @@ mod tests {
                 journal: None,
                 error_data: Some(TestValue(JsonValue::Null)),
             }],
+            client_clock_skew: Some(1),
+            server_ts: Some(Timestamp::must(1)),
         });
     }
 }

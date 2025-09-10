@@ -247,6 +247,10 @@ pub struct SyncWorker<RT: Runtime> {
 
     on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
     partition_id: u64,
+
+    /// The difference between the client's clock and the server's clock, in
+    /// milliseconds. Includes latency between the client and server.
+    client_clock_skew: Option<i64>,
 }
 
 enum QueryResult {
@@ -300,6 +304,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             modify_query_to_transition_timers: BTreeMap::new(),
             on_connect: Some((connect_timer(partition_id), on_connect)),
             partition_id,
+            client_clock_skew: None,
         }
     }
 
@@ -470,11 +475,18 @@ impl<RT: Runtime> SyncWorker<RT> {
                 last_close_reason,
                 max_observed_timestamp,
                 connection_count,
+                client_ts,
             } => {
                 if let Some((timer, on_connect)) = self.on_connect.take() {
                     timer.finish();
                     on_connect(session_id);
                 }
+
+                if let Some(ts) = client_ts {
+                    self.client_clock_skew =
+                        Some(ts as i64 - self.rt.unix_timestamp().as_ms_since_epoch()? as i64);
+                }
+
                 self.state.set_session_id(session_id);
                 if let Some(max_observed_timestamp) = max_observed_timestamp {
                     let latest_timestamp = *self
@@ -1001,6 +1013,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             start_version: current_version,
             end_version: new_version,
             modifications: state_modifications.into_values().collect(),
+            client_clock_skew: self.client_clock_skew,
+            server_ts: None,
         };
         timer.finish();
         metrics::log_query_set_size(self.partition_id, self.state.num_queries());

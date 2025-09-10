@@ -341,6 +341,7 @@ impl WebSocketInternal {
             connection_count,
             last_close_reason,
             max_observed_timestamp,
+            client_ts: Some(0),
         };
         let msg = Message::Text(
             serde_json::Value::try_from(message)

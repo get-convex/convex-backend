@@ -565,6 +565,8 @@ pub mod tests {
                         log_lines: LogLinesMessage(vec![]),
                     })
                     .collect(),
+                client_clock_skew: None,
+                server_ts: None,
             },
             end_version,
         )
@@ -719,6 +721,7 @@ pub mod tests {
                     connection_count: 0,
                     last_close_reason: "InitialConnect".to_string(),
                     max_observed_timestamp: None,
+                    client_ts: None,
                 },
                 ClientMessage::ModifyQuerySet {
                     base_version: 0,
@@ -852,6 +855,7 @@ pub mod tests {
                     connection_count: 0,
                     last_close_reason: "InitialConnect".to_string(),
                     max_observed_timestamp: None,
+                    client_ts: None,
                 },
                 ClientMessage::ModifyQuerySet {
                     base_version: 0,
@@ -912,6 +916,7 @@ pub mod tests {
                     connection_count: 0,
                     last_close_reason: "InitialConnect".to_string(),
                     max_observed_timestamp: None,
+                    client_ts: None,
                 },
                 ClientMessage::ModifyQuerySet {
                     base_version: 0,
