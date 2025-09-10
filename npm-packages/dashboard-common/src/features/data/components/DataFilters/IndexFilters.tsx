@@ -122,11 +122,6 @@ export function IndexFilters({
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
 
-  const searchIndex =
-    shownFilters.index && "search" in shownFilters.index
-      ? shownFilters.index
-      : null;
-
   const indexOptions: { value: IndexOptionValue; label: string }[] = indexes
     ? [
         // Add the by_id system index
@@ -177,6 +172,16 @@ export function IndexFilters({
   const selectedTableIndex = indexes?.find(
     (index) => index.name === shownFilters.index?.name,
   );
+  const searchIndex =
+    shownFilters.index && "search" in shownFilters.index
+      ? shownFilters.index
+      : null;
+  const searchFilterField =
+    searchIndex &&
+    selectedTableIndex &&
+    "searchField" in selectedTableIndex.fields
+      ? selectedTableIndex.fields.searchField
+      : null;
 
   return (
     <>
@@ -367,7 +372,7 @@ export function IndexFilters({
         {searchIndex && (
           <>
             <SearchValueEditor
-              field={searchIndex.name}
+              field={searchFilterField ?? "unknown"}
               value={searchIndex.search}
               onChange={(newValue: string) => {
                 const newFilters: FilterExpression = {
