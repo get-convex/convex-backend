@@ -115,27 +115,31 @@ export function SubscriptionOverview({
             team={team}
             hasAdminPermissions={hasAdminPermissions}
           />
-          <hr />
-          <BillingContactForm
-            subscription={subscription}
-            team={team}
-            hasAdminPermissions={hasAdminPermissions}
-          />
-          <hr />
-          <BillingAddressForm
-            subscription={subscription}
-            team={team}
-            hasAdminPermissions={hasAdminPermissions}
-          />
-          <hr />
-          <PaymentMethodForm
-            subscription={subscription}
-            team={team}
-            hasAdminPermissions={hasAdminPermissions}
-          />
+          {!team.managedBy && (
+            <>
+              <hr />
+              <BillingContactForm
+                subscription={subscription}
+                team={team}
+                hasAdminPermissions={hasAdminPermissions}
+              />
+              <hr />
+              <BillingAddressForm
+                subscription={subscription}
+                team={team}
+                hasAdminPermissions={hasAdminPermissions}
+              />
+              <hr />
+              <PaymentMethodForm
+                subscription={subscription}
+                team={team}
+                hasAdminPermissions={hasAdminPermissions}
+              />
+            </>
+          )}
         </Sheet>
       )}
-      {invoices && (invoices.length > 0 || subscription) && (
+      {!team.managedBy && invoices && (invoices.length > 0 || subscription) && (
         <Invoices invoices={invoices} />
       )}
     </>

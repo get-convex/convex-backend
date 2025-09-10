@@ -40,13 +40,6 @@ export function TeamSettings({ team }: { team: Team }) {
           remove all team members and delete all projects associated with the
           team.
         </p>
-        {team.managedBy && (
-          <Callout>
-            This team is managed by {startCase(team.managedBy)}. You must delete
-            the integration in {startCase(team.managedBy)} before you can delete
-            this team.
-          </Callout>
-        )}
         {subscription && (
           <p className="mb-4">
             Deleting your team will automatically cancel your{" "}
@@ -54,34 +47,40 @@ export function TeamSettings({ team }: { team: Team }) {
             subscription.
           </p>
         )}
-        {!team.managedBy && (
-          <Button
-            variant="danger"
-            onClick={() => setShowDeleteTeamModal(true)}
-            disabled={
-              !hasAdminPermissions ||
-              !teams ||
-              teams.length === 1 ||
-              !teamMembers ||
-              teamMembers.length > 1 ||
-              !projects ||
-              projects.length > 0
-            }
-            tip={
-              !hasAdminPermissions
-                ? "You do not have permission to delete this team."
-                : teams && teams.length === 1
-                  ? "You cannot delete your last team."
-                  : teamMembers && teamMembers.length > 1
-                    ? "You must remove all other team members before deleting the team."
-                    : projects && projects.length > 0
-                      ? "You must delete all projects before deleting the team."
-                      : undefined
-            }
-          >
-            Delete Team
-          </Button>
+        {team.managedBy && (
+          <Callout className="mb-4">
+            This team is managed by {startCase(team.managedBy)}. You must delete
+            the integration in {startCase(team.managedBy)} before you can delete
+            this team.
+          </Callout>
         )}
+        <Button
+          variant="danger"
+          onClick={() => setShowDeleteTeamModal(true)}
+          disabled={
+            !!team.managedBy ||
+            !hasAdminPermissions ||
+            !teams ||
+            teams.length === 1 ||
+            !teamMembers ||
+            teamMembers.length > 1 ||
+            !projects ||
+            projects.length > 0
+          }
+          tip={
+            !hasAdminPermissions
+              ? "You do not have permission to delete this team."
+              : teams && teams.length === 1
+                ? "You cannot delete your last team."
+                : teamMembers && teamMembers.length > 1
+                  ? "You must remove all other team members before deleting the team."
+                  : projects && projects.length > 0
+                    ? "You must delete all projects before deleting the team."
+                    : undefined
+          }
+        >
+          Delete Team
+        </Button>
         {showDeleteTeamModal && (
           <ConfirmationDialog
             onClose={() => setShowDeleteTeamModal(false)}

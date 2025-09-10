@@ -6,7 +6,7 @@ const classes: Record<CalloutVariant, string> = {
   error: "bg-background-error text-content-error",
   instructions: "bg-background-warning text-content-warning",
   hint: "bg-util-accent/10",
-  upsell: "bg-util-accent/10",
+  upsell: "bg-util-accent/10 dark:bg-util-accent/30",
   localDev:
     "bg-teal-100 border border-teal-500 dark:bg-teal-900 text-content-primary",
 };

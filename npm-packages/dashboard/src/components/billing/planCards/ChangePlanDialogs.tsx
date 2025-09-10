@@ -144,7 +144,7 @@ export function UpgradePlanDialog({
           )}
         </div>
       }
-      disableConfirm={couponData.isLoading}
+      disableConfirm={!!team.managedBy || couponData.isLoading}
       variant="primary"
       confirmText="Upgrade"
       onConfirm={() => onConfirm(couponData.coupon?.planId ?? newPlan.id)}

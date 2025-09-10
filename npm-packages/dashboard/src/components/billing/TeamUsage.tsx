@@ -149,7 +149,9 @@ export function TeamUsage({ team }: { team: Team }) {
             size="xs"
           >
             {subscription
-              ? "View Subscription & Invoices"
+              ? team.managedBy
+                ? "View Subscription"
+                : "View Subscription & Invoices"
               : "Upgrade Subscription"}
           </Button>
         )}

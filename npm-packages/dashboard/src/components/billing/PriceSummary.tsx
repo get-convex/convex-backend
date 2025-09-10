@@ -27,11 +27,20 @@ export function PriceSummary({
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="price-summary">
       {teamManagedBy && (
-        <Callout className="mb-2">
-          This team's billing is currently being managed by{" "}
-          {startCase(teamManagedBy)}. Upgrading to this plan will disable your{" "}
-          {startCase(teamManagedBy)} integration and migrate billing to be
-          handled by Convex.
+        <Callout className="mb-2 flex flex-col gap-1" variant="upsell">
+          <p>
+            This team's billing is currently being managed by{" "}
+            {startCase(teamManagedBy)}.
+          </p>
+          <p>
+            To switch to {newPlanName}, you may create a new Convex team, and
+            upgrade that team to the Professional plan.{" "}
+          </p>
+          <p>
+            Once you've created a new team with the Professional plan, you can
+            transfer your existing projects to the new team and invite your team
+            members.
+          </p>
         </Callout>
       )}
       {plan.seatPrice ? (
