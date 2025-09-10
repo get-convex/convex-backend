@@ -17,6 +17,7 @@ import {
 } from "@common/lib/utils";
 import { useNents } from "@common/lib/useNents";
 import { LiteralNode } from "@common/elements/ObjectEditor/ast/types";
+import url from "url";
 
 const MAX_IDS_TO_DECORATE = 100;
 
@@ -302,10 +303,13 @@ export function registerIdCommands(
         componentId: string | null;
       },
     ) => {
-      const href = documentHref(deploymentsURI, args.tableName, args.id);
-      const query = `${href.query.component ? `component=${href.query.component}&` : ""}table=${href.query.table}&filters=${href.query.filters}`;
-      const url = `${deploymentsURI}/data?${query}`;
-      window.open(`${window.location.origin}${url}`, "_blank");
+      const href = documentHref({
+        deploymentsURI,
+        tableName: args.tableName,
+        id: args.id,
+        componentId: args.componentId,
+      });
+      window.open(url.format(href), "_blank");
     },
   );
 

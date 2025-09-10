@@ -80,12 +80,17 @@ export function getReferencedTableName(
   return tableMapping[tableNumber] ?? null;
 }
 
-export function documentHref(
-  deploymentsURI: string,
-  tableName: string,
-  id: string,
-  componentId?: string,
-): {
+export function documentHref({
+  deploymentsURI,
+  tableName,
+  id,
+  componentId,
+}: {
+  deploymentsURI: string;
+  tableName: string;
+  id: string;
+  componentId: string | null;
+}): {
   pathname: string;
   query: { [key: string]: string };
 } {
