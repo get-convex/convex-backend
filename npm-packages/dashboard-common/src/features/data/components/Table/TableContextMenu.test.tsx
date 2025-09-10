@@ -166,7 +166,7 @@ describe("TableContextMenu", () => {
     expect(defaultProps.close).toHaveBeenCalledTimes(1);
   });
 
-  it("should redirect to the document", async () => {
+  it("should link to the document reference", async () => {
     const { getByTestId } = renderWithProvider({
       state: {
         target: { x: 0, y: 0 },
@@ -189,7 +189,64 @@ describe("TableContextMenu", () => {
     });
 
     const link = getByTestId("table-context-menu").children[0];
+    expect(link).toHaveTextContent("Go to Reference");
     expect(link).toHaveAttribute("href", "/document/1");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("should link to the scheduled functions page", async () => {
+    const { getByTestId } = renderWithProvider({
+      state: {
+        target: { x: 0, y: 0 },
+        selectedCell: {
+          rowId: "1",
+          column: "name",
+          value: "Document 1",
+          callbacks: {
+            copy: jest.fn(),
+            copyDoc: jest.fn(),
+            goToRef: jest.fn(),
+            edit: jest.fn(),
+            editDoc: jest.fn(),
+            view: jest.fn(),
+            viewDoc: jest.fn(),
+            docRefLink: { pathname: "/schedules/functions" },
+          },
+        },
+      },
+    });
+
+    const link = getByTestId("table-context-menu").children[0];
+    expect(link).toHaveTextContent("Go to Scheduled Functions");
+    expect(link).toHaveAttribute("href", "/schedules/functions");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("should link to the files page", async () => {
+    const { getByTestId } = renderWithProvider({
+      state: {
+        target: { x: 0, y: 0 },
+        selectedCell: {
+          rowId: "1",
+          column: "name",
+          value: "Document 1",
+          callbacks: {
+            copy: jest.fn(),
+            copyDoc: jest.fn(),
+            goToRef: jest.fn(),
+            edit: jest.fn(),
+            editDoc: jest.fn(),
+            view: jest.fn(),
+            viewDoc: jest.fn(),
+            docRefLink: { pathname: "/files" },
+          },
+        },
+      },
+    });
+
+    const link = getByTestId("table-context-menu").children[0];
+    expect(link).toHaveTextContent("Go to Files");
+    expect(link).toHaveAttribute("href", "/files");
     expect(link).toHaveAttribute("target", "_blank");
   });
 

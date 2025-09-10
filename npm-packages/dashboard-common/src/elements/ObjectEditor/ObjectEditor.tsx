@@ -192,7 +192,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
     ],
   );
 
-  const { deploymentsURI } = useContext(DeploymentInfoContext);
+  const { deploymentsURI, captureMessage } = useContext(DeploymentInfoContext);
 
   const { resolvedTheme: currentTheme } = useTheme();
   const prefersDark = currentTheme === "dark";
@@ -265,7 +265,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
           setMonaco(m);
         }}
         onMount={(editor, m) => {
-          registerIdCommands(m, deploymentsURI);
+          registerIdCommands({ monaco: m, deploymentsURI, captureMessage });
 
           editor.onKeyDown((e) => {
             if (e.keyCode === m.KeyCode.Tab) {

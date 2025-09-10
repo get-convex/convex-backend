@@ -68,6 +68,8 @@ const mockClient = mockConvexReactClient()
   ])
   .registerQueryFake(udfs.getTableMapping.default, () => ({
     10001: "testTable",
+    539: "_scheduled_jobs",
+    540: "_file_storage",
   }));
 
 describe("DataCell", () => {
@@ -355,6 +357,36 @@ describe("DataCell", () => {
       expect(window.open).toHaveBeenCalledTimes(1);
       expect(window.open).toHaveBeenCalledWith(
         "http://localhost/data?table=testTable&filters=eyJjbGF1c2VzIjpbeyJpZCI6IjAiLCJmaWVsZCI6Il9pZCIsIm9wIjoiZXEiLCJ2YWx1ZSI6Imo1N2J5bnBxaGdqZGpjZm0yZHhwajNqN3Z4Nzc0czFoIn1dfQ",
+        "_blank",
+      );
+    });
+
+    it("navigates to the files page when pressing meta+g on a file id", async () => {
+      const { getByTestId } = renderWithProvider({
+        value: "kg267e113cftx1jpeepypezsa57q9wvp",
+      });
+      const button = getByTestId("cell-editor-button");
+      await user.click(button);
+      jest.spyOn(window, "open").mockImplementation(() => null);
+      await user.keyboard("{Meta>}g");
+      expect(window.open).toHaveBeenCalledTimes(1);
+      expect(window.open).toHaveBeenCalledWith(
+        "http://localhost/files",
+        "_blank",
+      );
+    });
+
+    it("navigates to the scheduled functions page when pressing meta+g on a scheduled function id", async () => {
+      const { getByTestId } = renderWithProvider({
+        value: "kc2f44mqfb0kgr6dbnqwpeb2bs7q8bds",
+      });
+      const button = getByTestId("cell-editor-button");
+      await user.click(button);
+      jest.spyOn(window, "open").mockImplementation(() => null);
+      await user.keyboard("{Meta>}g");
+      expect(window.open).toHaveBeenCalledTimes(1);
+      expect(window.open).toHaveBeenCalledWith(
+        "http://localhost/schedules/functions",
         "_blank",
       );
     });

@@ -2,9 +2,11 @@ import {
   ClipboardCopyIcon,
   EnterFullScreenIcon,
   ExternalLinkIcon,
+  FileIcon,
   MixerHorizontalIcon,
   Pencil1Icon,
   ResetIcon,
+  StopwatchIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
 import React, { useCallback, useContext, useState } from "react";
@@ -301,15 +303,33 @@ function CellActions({
     )
   );
 
+  const isFileRef =
+    state.selectedCell?.callbacks?.docRefLink?.pathname?.endsWith("/files");
+  const isScheduledFunctionRef =
+    state.selectedCell?.callbacks?.docRefLink?.pathname?.endsWith(
+      "/schedules/functions",
+    );
+
   const cellActions =
     state.selectedCell?.rowId && state.selectedCell.callbacks
       ? [
           state.selectedCell.callbacks.docRefLink !== undefined
             ? {
-                action: state.selectedCell.callbacks.docRefLink as UrlObject,
+                action: state.selectedCell.callbacks
+                  .docRefLink satisfies UrlObject,
                 shortcut: ["CtrlOrCmd", "G"] satisfies Key[],
-                icon: <ExternalLinkIcon aria-hidden="true" />,
-                label: "Go to reference",
+                icon: isFileRef ? (
+                  <FileIcon aria-hidden="true" />
+                ) : isScheduledFunctionRef ? (
+                  <StopwatchIcon aria-hidden="true" />
+                ) : (
+                  <ExternalLinkIcon aria-hidden="true" />
+                ),
+                label: isFileRef
+                  ? "Go to Files"
+                  : isScheduledFunctionRef
+                    ? "Go to Scheduled Functions"
+                    : "Go to Reference",
                 disabled: false,
                 tip: null,
               }

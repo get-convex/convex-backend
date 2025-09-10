@@ -17,7 +17,7 @@ export function useIdReferenceLink(value: Value, columnName: string) {
   const referencedTableName = getReferencedTableName(tableMapping, value);
   const isReference = referencedTableName !== null;
 
-  const { deploymentsURI } = useContext(DeploymentInfoContext);
+  const { deploymentsURI, captureMessage } = useContext(DeploymentInfoContext);
 
   if (columnName === "_id") {
     return undefined;
@@ -30,6 +30,7 @@ export function useIdReferenceLink(value: Value, columnName: string) {
           tableName: referencedTableName,
           id: stringValue,
           componentId,
+          captureMessage,
         })
       : undefined;
 
