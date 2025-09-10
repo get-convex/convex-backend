@@ -114,7 +114,7 @@ export function FilterEditor({
     <div className="flex min-w-0 grow">
       <Tooltip
         tip={state.enabled ? "Disable Filter" : "Enable Filter"}
-        className="w-fit"
+        className="flex w-fit items-center"
       >
         <Checkbox
           checked={state.enabled !== false}
