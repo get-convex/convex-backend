@@ -14,14 +14,23 @@ const inputSchema = z.object({
     .describe(
       "Optional cursor (in ms) to start reading from. Use 0 to read from the beginning.",
     ),
-  limit: z
+  entriesLimit: z
     .number()
     .int()
     .positive()
     .max(1000)
     .optional()
     .describe(
-      "Maximum number of log entries to return. If omitted, returns all available in this chunk.",
+      "Maximum number of log entries to return (from the end). If omitted, returns all available in this chunk.",
+    ),
+  tokensLimit: z
+    .number()
+    .int()
+    .positive()
+    .default(20000)
+    .optional()
+    .describe(
+      "Approximate maximum number of tokens to return (applied to the JSON payload). Defaults to 20000.",
     ),
 });
 
@@ -29,6 +38,10 @@ const outputSchema = z.object({
   entries: z.array(z.any()),
   newCursor: z.number(),
 });
+
+const logsResponseSchema = outputSchema;
+
+type LogEntry = z.infer<typeof logsResponseSchema>["entries"][number];
 
 const description = `
 Fetch a chunk of recent log entries from your Convex deployment.
@@ -63,6 +76,7 @@ export const LogsTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
     const response = await fetch(`/api/stream_function_logs?cursor=${cursor}`, {
       method: "GET",
     });
+
     if (!response.ok) {
       return await ctx.crash({
         exitCode: 1,
@@ -70,18 +84,63 @@ export const LogsTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
         printedMessage: `HTTP error ${response.status}: ${await response.text()}`,
       });
     }
-    const { entries, newCursor } = (await response.json()) as {
-      entries: unknown[];
-      newCursor: number;
+
+    const { entries, newCursor } = await response
+      .json()
+      .then(logsResponseSchema.parse);
+
+    return {
+      entries: limitLogs({
+        entries,
+        tokensLimit: args.tokensLimit ?? 20000,
+        entriesLimit: args.entriesLimit ?? entries.length,
+      }),
+      newCursor,
     };
-
-    // Optionally limit the number of entries returned from the end.
-    const limitedEntries =
-      typeof args.limit === "number" && entries.length > args.limit
-        ? entries.slice(entries.length - args.limit)
-        : entries;
-
-    const parsed = outputSchema.parse({ entries: limitedEntries, newCursor });
-    return parsed;
   },
 };
+
+export function limitLogs({
+  entries,
+  tokensLimit,
+  entriesLimit,
+}: {
+  entries: LogEntry[];
+  tokensLimit: number;
+  entriesLimit: number;
+}): LogEntry[] {
+  // 1) Apply entries limit first so we cut off neatly at entry boundaries (latest entries kept)
+  const limitedByEntries = entries.slice(entries.length - entriesLimit);
+
+  // 2) Apply token limit by iterating over log lines from newest to oldest and
+  //    only include lines while within token budget. We cut off at the nearest log line.
+  const limitedByTokens = limitEntriesByTokenBudget({
+    entries: limitedByEntries,
+    tokensLimit,
+  });
+
+  return limitedByTokens;
+}
+
+function limitEntriesByTokenBudget({
+  entries,
+  tokensLimit,
+}: {
+  entries: LogEntry[];
+  tokensLimit: number;
+}): LogEntry[] {
+  const result: LogEntry[] = [];
+  let tokens = 0;
+  for (const entry of entries) {
+    const entryString = JSON.stringify(entry);
+    const entryTokens = estimateTokenCount(entryString);
+    tokens += entryTokens;
+    if (tokens > tokensLimit) break;
+    result.push(entry);
+  }
+  return result;
+}
+
+function estimateTokenCount(entryString: string): number {
+  return entryString.length * 0.33;
+}
