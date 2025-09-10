@@ -20,26 +20,12 @@ export interface FilterExpression {
   index?: DatabaseIndexFilter | SearchIndexFilter;
 }
 
-/**
- * This is a FilterExpression that corresponds to a search index.
- * We use that on the frontend since it hasn’t updated to support search filters yet
- */
-export type DatabaseFilterExpression = {
-  clauses: Filter[];
-  order?: "asc" | "desc";
-  index?: DatabaseIndexFilter;
-};
-
-// This ensures that `DatabaseFilterExpression` is a subtype of `FilterExpression`
-type AssertSubset<A, _B extends A> = void;
-type _ = AssertSubset<FilterExpression, DatabaseFilterExpression>;
-
-type DatabaseIndexFilter = {
+export type DatabaseIndexFilter = {
   name: string;
   clauses: FilterByIndex[] | [...FilterByIndex[], FilterByIndexRange];
 };
 
-type SearchIndexFilter = {
+export type SearchIndexFilter = {
   name: string;
   search: string;
   /** The clauses on the filter fields of the search index */

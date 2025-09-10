@@ -71,7 +71,9 @@ export const useQueryFilteredTable = (tableName: string) => {
 
   return {
     status:
-      status === "LoadingFirstPage" && everHadResults ? "Loading" : status,
+      status === "LoadingFirstPage" && everHadResults
+        ? ("Loading" as const)
+        : status,
     loadNextPage,
     isLoading,
     staleAsOf,

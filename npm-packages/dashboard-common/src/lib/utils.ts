@@ -2,7 +2,7 @@ import * as base64 from "js-base64";
 import { ReactNode } from "react";
 import { toast as sonnerToast } from "sonner";
 import * as IdEncoding from "id-encoding";
-import { DatabaseFilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 
 export function dismissToast(id: string) {
   sonnerToast.dismiss(id);
@@ -132,7 +132,7 @@ export function documentHref({
     captureMessage(`Linking to an unsupported system table: ${tableName}`);
   }
 
-  const filter: DatabaseFilterExpression = {
+  const filter: FilterExpression = {
     clauses: [
       {
         id: "0",

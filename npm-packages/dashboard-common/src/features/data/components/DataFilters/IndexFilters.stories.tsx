@@ -4,6 +4,7 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { ConvexProvider } from "convex/react";
 import udfs from "@common/udfs";
+import { SearchIndexFilter } from "system-udfs/convex/_system/frontend/lib/filters";
 import { IndexFilters } from "./IndexFilters";
 
 const mockClient = mockConvexReactClient()
@@ -52,6 +53,28 @@ const meta: Meta<typeof IndexFilters> = {
           state: "done",
         },
       },
+      {
+        name: "by_name",
+        fields: {
+          searchField: "name",
+          filterFields: [],
+        },
+        staged: false,
+        backfill: {
+          state: "done",
+        },
+      },
+      {
+        name: "by_name_filtered_by_status",
+        fields: {
+          searchField: "name",
+          filterFields: ["status"],
+        },
+        staged: false,
+        backfill: {
+          state: "done",
+        },
+      },
     ],
     tableName: "users",
     activeSchema: {
@@ -69,7 +92,18 @@ const meta: Meta<typeof IndexFilters> = {
               fields: ["name", "status"],
             },
           ],
-          searchIndexes: [],
+          searchIndexes: [
+            {
+              indexDescriptor: "by_name",
+              searchField: "name",
+              filterFields: [],
+            },
+            {
+              indexDescriptor: "by_name_filtered_by_status",
+              searchField: "name",
+              filterFields: ["status"],
+            },
+          ],
           documentType: null,
         },
       ],
@@ -180,6 +214,40 @@ export const DatabaseIndexPartialFilter: Story = {
       _creationTime: new Date().getTime(),
       name: "John Doe",
       status: "pending",
+    },
+  },
+};
+
+export const SearchIndexWithoutFilters: Story = {
+  args: {
+    shownFilters: {
+      clauses: [],
+      index: {
+        name: "by_name",
+        search: "Hello world",
+        clauses: [],
+      } satisfies SearchIndexFilter,
+      order: "asc",
+    },
+  },
+};
+
+export const SearchIndexWithFilters: Story = {
+  args: {
+    shownFilters: {
+      clauses: [],
+      index: {
+        name: "by_name_filtered_by_status",
+        search: "Hello world",
+        clauses: [
+          {
+            field: "status",
+            value: "active",
+            enabled: false,
+          },
+        ],
+      } satisfies SearchIndexFilter,
+      order: "asc",
     },
   },
 };

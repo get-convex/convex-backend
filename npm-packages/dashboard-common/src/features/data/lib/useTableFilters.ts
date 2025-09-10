@@ -4,7 +4,7 @@ import { createGlobalState, usePrevious } from "react-use";
 
 import { useEffect, useContext } from "react";
 import {
-  DatabaseFilterExpression,
+  FilterExpression,
   FilterExpressionSchema,
   isValidFilter,
 } from "system-udfs/convex/_system/frontend/lib/filters";
@@ -14,7 +14,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 // Global state keeping track of filters for all tables.
 export const useFilterMap = createGlobalState(
-  {} as Record<string, DatabaseFilterExpression | undefined>,
+  {} as Record<string, FilterExpression | undefined>,
 );
 
 const useInitializeFilters = (
@@ -44,7 +44,7 @@ const useInitializeFilters = (
       setFilterMap({ ...filterMap, [tableName]: undefined });
     }
 
-    function populateQueryFilters(newFilters: DatabaseFilterExpression) {
+    function populateQueryFilters(newFilters: FilterExpression) {
       query.filters = encodeURI(JSON.stringify(newFilters));
       void replace(
         {
@@ -68,7 +68,7 @@ const useInitializeFilters = (
     }
 
     const decodedFilters = decode(query.filters as string);
-    let f: DatabaseFilterExpression;
+    let f: FilterExpression;
     try {
       f = JSON.parse(decodedFilters);
       FilterExpressionSchema.parse(f);
@@ -79,7 +79,7 @@ const useInitializeFilters = (
     }
 
     // No clauses in the filters, lets clear out the query param.
-    if (f.clauses.length === 0 && (!f.index || f.index.clauses.length === 0)) {
+    if (isFilterDiscardable(f)) {
       deleteQueryFilters();
       return;
     }
@@ -112,7 +112,7 @@ export const useTableFilters = (
   return {
     filters: filterMap[tableName],
     // Make sure a new object is created so the hook is re-rendered
-    applyFiltersWithHistory: async (newFilters?: DatabaseFilterExpression) => {
+    applyFiltersWithHistory: async (newFilters?: FilterExpression) => {
       if (newFilters) {
         const newFilterMap = { ...filterMap, [tableName]: newFilters };
         if (
@@ -140,16 +140,33 @@ export const useTableFilters = (
   };
 };
 
-function hasValidEnabledFilters(filters?: DatabaseFilterExpression) {
-  return (
-    !!filters &&
-    (filters.clauses.filter(isValidFilter).filter((f) => f.enabled !== false)
-      .length > 0 ||
-      (filters.index?.clauses.filter((f) => f.enabled).length ?? 0) > 0)
-  );
+function hasValidEnabledFilters(filters?: FilterExpression) {
+  if (!filters) return false;
+
+  // Arbitrary clause
+  if (
+    filters.clauses.filter(isValidFilter).filter((f) => f.enabled !== false)
+      .length > 0
+  )
+    return true;
+
+  if (!filters.index) return false;
+
+  // Index clauses
+  if ((filters.index.clauses.filter((f) => f.enabled).length ?? 0) > 0) {
+    return true;
+  }
+
+  // Search index filters: we always return true (even if the search is empty)
+  // to allow users to quickly remove the filter and see all documents
+  if ("search" in filters.index) {
+    return true;
+  }
+
+  return false;
 }
 
-export function areAllFiltersValid(filters?: DatabaseFilterExpression) {
+export function areAllFiltersValid(filters?: FilterExpression) {
   return filters === undefined || filters.clauses.every(isValidFilter);
 }
 
@@ -157,24 +174,25 @@ export function useFilterHistory(
   tableName: string,
   componentId: string | null,
 ): {
-  filterHistory: DatabaseFilterExpression[];
-  appendFilterHistory: (value: DatabaseFilterExpression) => void;
+  filterHistory: FilterExpression[];
+  appendFilterHistory: (value: FilterExpression) => void;
 } {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const [filterHistory, setFilterHistory] = useGlobalLocalStorage(
     `filterHistory/${deployment?.name}/${componentId ? `${componentId}/` : ""}${tableName}`,
-    [] as DatabaseFilterExpression[],
+    [] as FilterExpression[],
   );
 
   return {
     filterHistory,
     appendFilterHistory: (value) => {
-      setFilterHistory((prev: DatabaseFilterExpression[]) => {
+      setFilterHistory((prev: FilterExpression[]) => {
         if (
+          // Don’t add a history entry if the new value is the same as the most recent one
           (prev.length > 0 && isEqual(prev[0], value)) ||
-          (value.clauses.length === 0 &&
-            (!value.index || value.index.clauses.length === 0))
+          // Don’t add filters with no clauses to the history
+          isFilterDiscardable(value)
         ) {
           return prev;
         }
@@ -186,4 +204,25 @@ export function useFilterHistory(
       });
     },
   };
+}
+
+/**
+ * Determines whether the filter expression is empty,
+ * hence it has no meaningful value to the user
+ * and can safely be discarded from the history.
+ */
+function isFilterDiscardable(f?: FilterExpression) {
+  if (f === undefined) return true;
+
+  if (f.clauses.length > 0) return false;
+
+  if (!f.index) {
+    return true;
+  }
+
+  if ("search" in f.index && f.index.search !== "") {
+    return false;
+  }
+
+  return f.index.clauses.length === 0;
 }

@@ -1,5 +1,5 @@
 import { ChevronDownIcon, MixerHorizontalIcon } from "@radix-ui/react-icons";
-import { DatabaseFilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
 import { cn } from "@ui/cn";
 
@@ -10,7 +10,7 @@ export function FilterButton({
   onClick,
   open,
 }: {
-  filters?: DatabaseFilterExpression;
+  filters?: FilterExpression;
   onClick(): void;
   open: boolean;
 }) {
@@ -23,23 +23,20 @@ export function FilterButton({
           .map((filter) => filter.field),
       )
     : new Set([]);
-  const indexFilters = filters?.index?.clauses.filter(
-    (clause) => clause.enabled,
-  );
+  const indexFiltersCount = countIndexFilters(filters);
 
   const regularFilters = filters?.clauses.filter(
     (filter) => filter.enabled !== false,
   );
 
-  const hasAnyEnabledFilters =
-    indexFilters?.length || validFilterNames.size > 0;
+  const hasAnyEnabledFilters = indexFiltersCount || validFilterNames.size > 0;
 
   const filterButtonContent = (
     <div className="flex items-center gap-2">
       <span>Filter & Sort</span>
       {hasAnyEnabledFilters && (
         <span className="rounded-full border border-content-primary px-1 py-0 text-xs leading-[14px] tabular-nums">
-          {(indexFilters?.length || 0) + (regularFilters?.length || 0)}
+          {indexFiltersCount + (regularFilters?.length || 0)}
         </span>
       )}
     </div>
@@ -69,5 +66,17 @@ export function FilterButton({
         className={cn("transition-all", open && "-rotate-180")}
       />
     </Button>
+  );
+}
+
+function countIndexFilters(filters?: FilterExpression) {
+  if (filters === undefined) return 0;
+
+  if (!filters.index) return 0;
+
+  return (
+    filters.index.clauses.filter((c) => c.enabled).length +
+    // the search filter always counts as one
+    ("search" in filters.index ? 1 : 0)
   );
 }

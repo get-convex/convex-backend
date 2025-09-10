@@ -10,9 +10,7 @@ import {
 import { GenericDocument } from "convex/server";
 import {
   Filter,
-  FilterByIndex,
-  FilterByIndexRange,
-  DatabaseFilterExpression,
+  FilterExpression,
   FilterValidationError,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import {
@@ -47,6 +45,7 @@ import { api } from "system-udfs/convex/_generated/api";
 import { Index } from "@common/features/data/lib/api";
 import { IndexFilterState } from "./IndexFilterEditor";
 import { IndexFilters, getDefaultIndex } from "./IndexFilters";
+import { clearFilters } from "./clearFilters";
 
 export function DataFilters({
   defaultDocument,
@@ -69,11 +68,11 @@ export function DataFilters({
   tableName: string;
   tableFields: string[];
   componentId: string | null;
-  filters?: DatabaseFilterExpression;
-  onFiltersChange(next: DatabaseFilterExpression): void;
+  filters?: FilterExpression;
+  onFiltersChange(next: FilterExpression): void;
   dataFetchErrors?: FilterValidationError[];
-  draftFilters?: DatabaseFilterExpression;
-  setDraftFilters(next: DatabaseFilterExpression): void;
+  draftFilters?: FilterExpression;
+  setDraftFilters(next: FilterExpression): void;
   activeSchema: SchemaJson | null;
   numRows?: number;
   numRowsLoaded: number;
@@ -122,6 +121,8 @@ export function DataFilters({
     (idx: number, errors: string[]) => onError("index", idx, errors),
     [onError],
   );
+
+  const isSearchIndex = shownFilters.index && "search" in shownFilters.index;
 
   return (
     <form
@@ -306,18 +307,21 @@ export function DataFilters({
                 </div>
               )}
               <div className="mt-2 flex items-center gap-1">
-                <Button
-                  variant="neutral"
-                  size="xs"
-                  className="text-xs"
-                  icon={<PlusIcon />}
-                  onClick={() => {
-                    onAddFilter(shownFilters.clauses.length);
-                    log("add filter");
-                  }}
-                >
-                  Add filter
-                </Button>
+                {/* TODO(ENG-9733) Support arbitrary filters in search queries */}
+                {!isSearchIndex && (
+                  <Button
+                    variant="neutral"
+                    size="xs"
+                    className="text-xs"
+                    icon={<PlusIcon />}
+                    onClick={() => {
+                      onAddFilter(shownFilters.clauses.length);
+                      log("add filter");
+                    }}
+                  >
+                    Add filter
+                  </Button>
+                )}
                 {isDirty || (dataFetchErrors && dataFetchErrors.length > 0) ? (
                   <Button
                     type="submit"
@@ -345,22 +349,7 @@ export function DataFilters({
                         variant="neutral"
                         className="ml-auto text-xs"
                         onClick={() => {
-                          onFiltersChange({
-                            clauses: [],
-                            index: shownFilters.index
-                              ? {
-                                  name: shownFilters.index.name,
-                                  clauses: shownFilters.index.clauses.map(
-                                    (clause) => ({
-                                      ...clause,
-                                      enabled: false,
-                                    }),
-                                  ) as
-                                    | FilterByIndex[]
-                                    | [...FilterByIndex[], FilterByIndexRange],
-                                }
-                              : undefined,
-                          });
+                          onFiltersChange(clearFilters(shownFilters));
                         }}
                       >
                         Clear filters
@@ -480,10 +469,10 @@ function useDataFilters({
 }: {
   tableName: string;
   componentId: string | null;
-  filters?: DatabaseFilterExpression;
-  onFiltersChange(next: DatabaseFilterExpression): void;
-  draftFilters?: DatabaseFilterExpression;
-  setDraftFilters(next: DatabaseFilterExpression): void;
+  filters?: FilterExpression;
+  onFiltersChange(next: FilterExpression): void;
+  draftFilters?: FilterExpression;
+  setDraftFilters(next: FilterExpression): void;
   activeSchema: SchemaJson | null;
 }) {
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
@@ -511,7 +500,7 @@ function useDataFilters({
       ({
         clauses: [],
         index: getDefaultIndex(),
-      } as DatabaseFilterExpression),
+      } satisfies FilterExpression),
     [draftFilters],
   );
 
@@ -586,7 +575,7 @@ function useDataFilters({
             filterType: "index",
             filterIndex: idx,
           });
-        } else if (oldFilter.type !== filter.type) {
+        } else if ("type" in oldFilter && oldFilter.type !== filter.type) {
           log("index filter type change", {
             oldType: oldFilter.type,
             newType: filter.type,
@@ -615,7 +604,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(idx + 1),
         ],
         index: shownFilters.index || getDefaultIndex(),
-      } as DatabaseFilterExpression;
+      } satisfies FilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters, setInvalidFilters, log],
@@ -635,7 +624,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(idx),
         ],
         index: shownFilters.index || getDefaultIndex(),
-      } as DatabaseFilterExpression;
+      } satisfies FilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters, log],

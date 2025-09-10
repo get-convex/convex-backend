@@ -2,7 +2,7 @@ import "@testing-library/jest-dom";
 import React from "react";
 import { renderHook, act } from "@testing-library/react";
 import mockRouter from "next-router-mock";
-import { DatabaseFilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { encodeURI } from "js-base64";
 import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 import { mockDeploymentInfo } from "../../../lib/mockDeploymentInfo";
@@ -39,7 +39,7 @@ describe("useTableFilters", () => {
       useTableFilters("test", null),
     );
     await act(async () => {
-      const newFilters: DatabaseFilterExpression = {
+      const newFilters: FilterExpression = {
         clauses: [
           {
             field: "test",
@@ -65,15 +65,15 @@ describe("useTableFilters", () => {
     const { result } = renderWithDeploymentInfo(() =>
       useTableFilters("test", null),
     );
-    const validFilters: DatabaseFilterExpression = {
+    const validFilters: FilterExpression = {
       clauses: [
         { op: "eq", field: "field1", id: "", value: "", enabled: true },
       ],
     };
-    const invalidFilters: DatabaseFilterExpression = {
+    const invalidFilters: FilterExpression = {
       clauses: [{ op: "eq", field: undefined, id: "", enabled: true }],
     };
-    const noFilters: DatabaseFilterExpression = {
+    const noFilters: FilterExpression = {
       clauses: [],
     };
 
@@ -96,7 +96,7 @@ describe("useTableFilters", () => {
   it("should preserve filter state when switching between tables", async () => {
     const table1 = "table1";
     const table2 = "table2";
-    const filtersTable1: DatabaseFilterExpression = {
+    const filtersTable1: FilterExpression = {
       clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
     };
 
@@ -134,7 +134,7 @@ describe("useTableFilters", () => {
 
   it("should use filters from the query parameter on mount", () => {
     const tableName = "table1";
-    const queryFilters: DatabaseFilterExpression = {
+    const queryFilters: FilterExpression = {
       clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
     };
 
@@ -153,10 +153,10 @@ describe("useTableFilters", () => {
   it("should replace stored filters if there are query filters set when the table is changed.", () => {
     const table1 = "table1";
     const table2 = "table2";
-    const filtersTable1: DatabaseFilterExpression = {
+    const filtersTable1: FilterExpression = {
       clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
     };
-    const filtersTable2: DatabaseFilterExpression = {
+    const filtersTable2: FilterExpression = {
       clauses: [{ op: "eq", field: "field2", id: "", value: "" }],
     };
 
@@ -199,7 +199,7 @@ describe("useTableFilters", () => {
 
   it("should clear out filters when the filter has empty clauses", async () => {
     const tableName = "table1";
-    const newFilters: DatabaseFilterExpression = {
+    const newFilters: FilterExpression = {
       clauses: [],
     };
 
@@ -215,7 +215,7 @@ describe("useTableFilters", () => {
 
   it("should update the query parameter when filters are changed", async () => {
     const tableName = "table1";
-    const newFilters: DatabaseFilterExpression = {
+    const newFilters: FilterExpression = {
       clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
     };
 
@@ -240,7 +240,7 @@ describe("useTableFilters", () => {
   // TODO: Find a new way to make this test work, or wait for next-router-mock to support `isReady`.
   // it("should update filters when router becomes ready", async () => {
   //   const tableName = "table1";
-  //   const queryFilters: DatabaseFilterExpression = {
+  //   const queryFilters: FilterExpression = {
   //     clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
   //   };
 
@@ -271,7 +271,7 @@ describe("useTableFilters", () => {
 
 describe("useFilterMap", () => {
   it("should convert filters to a map", () => {
-    const filters: DatabaseFilterExpression = {
+    const filters: FilterExpression = {
       clauses: [
         {
           field: "test",
