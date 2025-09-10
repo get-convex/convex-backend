@@ -710,7 +710,6 @@ function ObjectEditorWithPlaceholder({
   shouldSurfaceValidatorErrors?: boolean;
 }) {
   const [innerText, setInnerText] = useState("");
-  const [_objectEditorKey, _setObjectEditorKey] = useState(0);
 
   return (
     <>
