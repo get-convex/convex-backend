@@ -49,6 +49,22 @@
       "type": "string",
       "description": "Path to the directory containing Convex functions. You can customize this to use a different location than the default 'convex/' directory.\n\nDocumentation: https://docs.convex.dev/production/project-configuration#changing-the-convex-folder-name-or-location",
       "default": "convex/"
+    },
+    "codegen": {
+      "type": "object",
+      "description": "Configuration for Convex code generation.",
+      "properties": {
+        "staticApi": {
+          "type": "boolean",
+          "description": "When true, generates static `api.d.ts` files, which improves autocomplete and incremental typechecking performance in large codebases.\n\nDocumentation: https://docs.convex.dev/production/project-configuration#using-static-code-generation-beta",
+          "default": false
+        },
+        "staticDataModel": {
+          "type": "boolean",
+          "description": "When true, generates static `dataModel.d.ts` files, which improves autocomplete and incremental typechecking performance in large codebases.\n\nDocumentation: https://docs.convex.dev/production/project-configuration#using-static-code-generation-beta",
+          "default": false
+        }
+      }
     }
   },
   "additionalProperties": false
