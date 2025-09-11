@@ -230,13 +230,14 @@ Once this command succeeds the new functions will be available immediately.
 npx convex deploy
 ```
 
-When run with the `CONVEX_DEPLOY_KEY` environment variable containing a Preview
-Deploy Key, this command will:
+When run with the `CONVEX_DEPLOY_KEY` environment variable containing a
+[Preview Deploy Key](docs/cli/deploy-key-types.mdx#deploying-to-preview-deployments),
+this command will:
 
-1. Create a deployment with the specified name. `npx convex deploy` will infer
-   the Git branch name for Vercel, Netlify, GitHub, and GitLab environments, but
-   the `--preview-create` option can be used to customize the name associated
-   with the newly created deployment.
+1. Create a new Convex deployment. `npx convex deploy` will infer the Git branch
+   name for Vercel, Netlify, GitHub, and GitLab environments, or the
+   `--preview-create` option can be used to customize the name associated with
+   the newly created deployment.
    ```
    npx convex deploy --preview-create my-branch-name
    ```
@@ -277,5 +278,14 @@ setting up frontend and backend previews together.
 npx convex codegen
 ```
 
-Update the [generated code](/generated-api/) in `convex/_generated` without
-pushing. This can be useful for orchestrating build steps in CI.
+The [generated code](/generated-api/) in the `convex/_generated` directory
+includes types required for a TypeScript typecheck. This code is generated
+whenever necessary while running `npx convex dev` and this code should be
+committed to the repo (your code won't typecheck without it!).
+
+In the rare cases it's useful to regenerate code (e.g. in CI to ensure that the
+correct code was checked it) you can use this command.
+
+Generating code can require communicating with a convex deployment in order to
+evaluate configuration files in the Convex JavaScript runtime. This doesn't
+modify the code running on the deployment.
