@@ -88,6 +88,8 @@ async function performDeviceAuthorization(
   ctx: Context,
   authClient: BaseClient,
   shouldOpen: boolean,
+  vercel?: boolean,
+  vercelOverride?: string,
 ): Promise<string> {
   // Device authorization flow follows this guide: https://github.com/auth0/auth0-device-flow-cli-sample/blob/9f0f3b76a6cd56ea8d99e76769187ea5102d519d/cli.js
   // License: MIT License
@@ -132,8 +134,14 @@ async function performDeviceAuthorization(
   // Device Authorization Response - https://tools.ietf.org/html/rfc8628#section-3.2
   // Open authentication URL
   const { verification_uri_complete, user_code, expires_in } = handle;
+
+  // Construct Vercel URL if --vercel flag is used
+  const urlToOpen = vercel
+    ? `https://vercel.com/sso/integrations/${vercelOverride || "convex"}?url=${verification_uri_complete}`
+    : verification_uri_complete;
+
   logMessage(
-    `Visit ${verification_uri_complete} to finish logging in.\n` +
+    `Visit ${urlToOpen} to finish logging in.\n` +
       `You should see the following code which expires in ${
         expires_in % 60 === 0
           ? `${expires_in / 60} minutes`
@@ -148,25 +156,19 @@ async function performDeviceAuthorization(
   }
 
   if (shouldOpen) {
-    showSpinner(
-      `Opening ${verification_uri_complete} in your browser to log in...\n`,
-    );
+    showSpinner(`Opening ${urlToOpen} in your browser to log in...\n`);
     try {
-      const p = await open(verification_uri_complete);
+      const p = await open(urlToOpen);
       p.once("error", () => {
-        changeSpinner(
-          `Manually open ${verification_uri_complete} in your browser to log in.`,
-        );
+        changeSpinner(`Manually open ${urlToOpen} in your browser to log in.`);
       });
       changeSpinner("Waiting for the confirmation...");
     } catch {
       logError(chalk.red(`Unable to open browser.`));
-      changeSpinner(
-        `Manually open ${verification_uri_complete} in your browser to log in.`,
-      );
+      changeSpinner(`Manually open ${urlToOpen} in your browser to log in.`);
     }
   } else {
-    showSpinner(`Open ${verification_uri_complete} in your browser to log in.`);
+    showSpinner(`Open ${urlToOpen} in your browser to log in.`);
   }
 
   // Device Access Token Request - https://tools.ietf.org/html/rfc8628#section-3.4
@@ -280,6 +282,8 @@ export async function performLogin(
     dumpAccessToken,
     deviceName: deviceNameOverride,
     anonymousId,
+    vercel,
+    vercelOverride,
   }: {
     overrideAuthUrl?: string;
     overrideAuthClient?: string;
@@ -294,6 +298,8 @@ export async function performLogin(
     dumpAccessToken?: boolean;
     deviceName?: string;
     anonymousId?: string;
+    vercel?: boolean;
+    vercelOverride?: string;
   } = {},
 ) {
   loginFlow = loginFlow || "auto";
@@ -366,6 +372,8 @@ export async function performLogin(
         ctx,
         authClient,
         open ?? true,
+        vercel,
+        vercelOverride,
       );
     }
   }

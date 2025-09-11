@@ -107,6 +107,15 @@ export const login = new Command("login")
   .addOption(new Option("--dump-access-token").hideHelp())
   // Hidden option for tests to check if the user is logged in.
   .addOption(new Option("--check-login").hideHelp())
+  // Redirect to Vercel SSO integration URL
+  .addOption(
+    new Option(
+      "--vercel",
+      "Redirect to Vercel SSO integration for login",
+    ).hideHelp(),
+  )
+  // Override the Vercel URL slug (defaults to 'convex')
+  .addOption(new Option("--vercel-override <slug>").hideHelp())
   .addCommand(loginStatus)
   .addHelpCommand(false)
   .action(async (options, cmd: Command) => {
@@ -148,6 +157,8 @@ export const login = new Command("login")
     await performLogin(ctx, {
       ...options,
       anonymousId: uuid,
+      vercel: options.vercel,
+      vercelOverride: options.vercelOverride,
     });
 
     await handleLinkingDeployments(ctx, {
