@@ -90,6 +90,15 @@ export async function runCodegen(
   );
 
   if (ctx.fs.exists(componentRootPath)) {
+    // Early exit for a better error message trying to use a preview key.
+    if (deploymentSelection.kind === "preview") {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Codegen requires an existing deployment so doesn't support CONVEX_DEPLOY_KEY.\nGenerate code in dev and commit it to the repo instead.\nhttps://docs.convex.dev/understanding/best-practices/other-recommendations#check-generated-code-into-version-control`,
+      });
+    }
+
     const selectionWithinProject =
       deploymentSelectionWithinProjectFromOptions(options);
     const credentials = await loadSelectedDeploymentCredentials(
