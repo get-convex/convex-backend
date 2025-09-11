@@ -16,7 +16,21 @@ export default async function handler(
   // The authorization code returned by AuthKit
   const code = req.query.code as string;
   const state = req.query.state as string; // This contains our returnTo URL
-  const returnTo = state && !state.startsWith("/api") ? state : "/";
+
+  const { resource_id, path, url } = req.query;
+
+  let returnTo = state && !state.startsWith("/api") ? state : "/";
+
+  // url is a query parameter that is only set by the Vercel auth flow
+  // if it is set, and looks like a redirect to the device-auth flow,
+  // we redirect to the device-auth flow.
+  if (typeof url === "string" && url.startsWith("https://auth.convex.dev")) {
+    returnTo = url;
+  } else if (typeof path === "string" || typeof resource_id === "string") {
+    const key = typeof path === "string" ? "vercelPath" : "projectId";
+    const value = typeof path === "string" ? path : resource_id;
+    returnTo = addQueryParam(returnTo, key, value as string);
+  }
 
   if (!code) {
     return res.status(400).send("No code provided");
@@ -69,4 +83,9 @@ export default async function handler(
     //   `/login?error=${error?.rawData?.error_description || error.message}`,
     // );
   }
+}
+
+function addQueryParam(url: string, key: string, value: string) {
+  const symbol = url.includes("?") ? "&" : "?";
+  return `${url}${symbol}${key}=${value}`;
 }

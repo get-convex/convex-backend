@@ -58,9 +58,6 @@ function Main() {
     );
     return <Loading />;
   }
-  if (query.invoiceId) {
-    // TODO(ENG-9453): Support this.
-  }
 
   if (query.projectId) {
     return <RedirectToProjectById id={query.projectId as string} />;
