@@ -122,6 +122,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             self.runtime.clone(),
             Quota::per_second(*SYSTEM_TABLE_ROWS_PER_SECOND),
         );
+        let mut session_requests_delete_cursor = None;
         loop {
             // Jitter the wait between deletion runs to even out load.
             let delay = SYSTEM_TABLE_CLEANUP_FREQUENCY.mul_f32(self.runtime.rng().random());
@@ -140,15 +141,19 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                 },
                 None => None,
             };
-            self.cleanup_system_table(
-                TableNamespace::Global,
-                &SESSION_REQUESTS_TABLE,
-                session_requests_cutoff
-                    .map_or(CreationTimeInterval::None, CreationTimeInterval::Before),
-                &rate_limiter,
-                *SESSION_CLEANUP_DELETE_CONCURRENCY,
-            )
-            .await?;
+            // Preserve the deletion cursor between runs. This helps skip index tombstones.
+            // Note that we only update the cursor after a successful run.
+            (_, session_requests_delete_cursor) = self
+                .cleanup_system_table(
+                    TableNamespace::Global,
+                    &SESSION_REQUESTS_TABLE,
+                    session_requests_cutoff
+                        .map_or(CreationTimeInterval::None, CreationTimeInterval::Before),
+                    &rate_limiter,
+                    *SESSION_CLEANUP_DELETE_CONCURRENCY,
+                    session_requests_delete_cursor,
+                )
+                .await?;
         }
     }
 
@@ -281,9 +286,9 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         to_delete: CreationTimeInterval,
         rate_limiter: &RateLimiter<RT>,
         num_deleters: usize,
-    ) -> anyhow::Result<usize> {
+        mut cursor: Option<(CreationTime, ResolvedDocumentId)>,
+    ) -> anyhow::Result<(usize, Option<(CreationTime, ResolvedDocumentId)>)> {
         let _timer = system_table_cleanup_timer();
-        let mut cursor = None;
 
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let deleter = |chunk: Vec<ResolvedDocumentId>| async {
@@ -320,7 +325,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         };
 
         let ((), deleted) = futures::try_join!(reader, deleters)?;
-        Ok(deleted)
+        Ok((deleted, cursor))
     }
 
     async fn cleanup_system_table_read_chunk(
@@ -521,13 +526,14 @@ mod tests {
         let rate_limiter =
             new_rate_limiter(rt.clone(), Quota::per_second(NonZeroU32::new(10).unwrap()));
 
-        let deleted = worker
+        let (deleted, _cursor) = worker
             .cleanup_system_table(
                 TableNamespace::Global,
                 &SESSION_REQUESTS_TABLE,
                 CreationTimeInterval::Before(cutoff),
                 &rate_limiter,
                 num_deleters,
+                None,
             )
             .await?;
         assert_eq!(deleted, 3);
