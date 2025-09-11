@@ -2,12 +2,6 @@ name: Release Self-Hosted Images
 
 on:
   workflow_dispatch:
-    inputs:
-      tag_latest:
-        description: "Tag images as latest"
-        type: boolean
-        default: true
-        required: true
   push:
     branches:
       - release
@@ -54,23 +48,9 @@ jobs:
             --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_arm64_digest }}
           docker manifest push ghcr.io/get-convex/convex-backend:${{ github.sha }}
 
-          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}" == "true" ]]; then
-            docker manifest create ghcr.io/get-convex/convex-backend:latest \
-              --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_x64_digest }} \
-              --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_arm64_digest }}
-            docker manifest push ghcr.io/get-convex/convex-backend:latest
-          fi
-
       - name: Tag and push dashboard manifest
         run: |
           docker manifest create ghcr.io/get-convex/convex-dashboard:${{ github.sha }} \
             --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_x64_digest }} \
             --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_arm64_digest }}
           docker manifest push ghcr.io/get-convex/convex-dashboard:${{ github.sha }}
-
-          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}" == "true" ]]; then
-            docker manifest create ghcr.io/get-convex/convex-dashboard:latest \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_x64_digest }} \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_arm64_digest }}
-            docker manifest push ghcr.io/get-convex/convex-dashboard:latest
-          fi
