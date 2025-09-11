@@ -3,9 +3,8 @@ import json
 import os
 from itertools import chain, islice
 
-from dotenv import load_dotenv
-
 from convex import ConvexClient
+from dotenv import load_dotenv
 
 parser = argparse.ArgumentParser(
     prog="Text Importer",
