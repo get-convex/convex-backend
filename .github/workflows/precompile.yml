@@ -1,8 +1,9 @@
-name: Daily Precompile
+name: Precompile Local Backend
 
 on:
-  schedule:
-    - cron: 30 0 * * 1,2,3,4,5
+  push:
+    branches:
+      - release
   workflow_dispatch:
 
 jobs:
