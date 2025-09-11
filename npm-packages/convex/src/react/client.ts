@@ -333,7 +333,7 @@ export class ConvexReactClient {
       fetchToken,
       onChange ??
         (() => {
-          // Do nothing
+          // Do nothing; todo(graham) -> this should probably be a callback the client can set?
         }),
     );
   }
