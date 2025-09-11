@@ -10,10 +10,9 @@ which was MIT licensed at the time it was downloaded.
 Download the file from drive or kaggle, extract the archive into a .jsonl file,
 then run the script with:
 
-1. `poetry install`
-2. `just rush update`
-3. `npx convex dev --once`
-4. `poetry run python main.py <path_to_jsonl>`
+1. `just rush update`
+2. `npx convex dev --once`
+3. `uv run main <path_to_jsonl>`
 
 You can adapt the python code to parse other formats if you'd like. The main
 purpose of this is to test bulk imports, particularly with vectors.

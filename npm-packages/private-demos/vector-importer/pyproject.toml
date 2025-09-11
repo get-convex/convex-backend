@@ -1,21 +1,25 @@
-[tool.poetry]
+[project]
 name = "vector-importer"
 version = "0.1.0"
 description = "Vector importer script"
-authors = ["Convex, Inc. <no-reply@convex.dev>"]
+authors = [{ name = "Convex, Inc.", email = "no-reply@convex.dev" }]
+requires-python = "~=3.13.0"
+dependencies = [
+    "python-dotenv>=1.0.0,<2",
+    "convex",
+]
 
-
-[tool.poetry.dependencies]
-python-dotenv = "^1.0.0"
-python = "~3.9"
-convex = {path = "../../../crates/py_client", develop = true}
+[project.scripts]
+main = "main:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-venv = ".venv"
+[tool.poetry]
+packages = [{ include = "main.py" }]
 
-[tool.poetry.scripts]
-main = "vector-importer.main:main"
+[tool.uv]
 
+[tool.uv.sources]
+convex = { path = "../../../crates/py_client", editable = true }
