@@ -10,6 +10,12 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-09-12 `4d3b0a5de955a258e70e3813bbff486051d88820`
+
+- Schema Validation progress on dashboard.
+- Improved error messages
+- Misc improvements.
+
 ## 2025-09-03 `00bd92723422f3bff968230c94ccdeb8c1719832`
 
 - Fix command line / env var configuration flag issue.
