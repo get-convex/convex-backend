@@ -251,6 +251,8 @@ pub enum AuthenticationToken {
     Admin(String, Option<UserIdentityAttributes>),
     /// OpenID Connect JWT
     User(String),
+    /// Plaintext authentication token (no JWT validation)
+    PlaintextUser(String),
     #[default]
     /// Logged out.
     None,

@@ -34,7 +34,7 @@ export class LocalSyncState {
   private readonly queryIdToToken: Map<QueryId, QueryToken>;
   private identityVersion: IdentityVersion;
   private auth?: {
-    tokenType: "Admin" | "User";
+    tokenType: "Admin" | "User" | "PlaintextUser";
     value: string;
     impersonating?: UserIdentityAttributes;
   };
@@ -181,6 +181,22 @@ export class LocalSyncState {
   setAuth(value: string): Authenticate {
     this.auth = {
       tokenType: "User",
+      value: value,
+    };
+    const baseVersion = this.identityVersion;
+    if (!this.paused) {
+      this.identityVersion = baseVersion + 1;
+    }
+    return {
+      type: "Authenticate",
+      baseVersion: baseVersion,
+      ...this.auth,
+    };
+  }
+
+  setAuthInsecure(value: string): Authenticate {
+    this.auth = {
+      tokenType: "PlaintextUser",
       value: value,
     };
     const baseVersion = this.identityVersion;
