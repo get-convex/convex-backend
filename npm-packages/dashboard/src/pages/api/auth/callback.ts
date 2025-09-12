@@ -56,7 +56,7 @@ export default async function handler(
       process.env.NODE_ENV === "production" ? " Secure;" : "";
     res.setHeader(
       "Set-Cookie",
-      `wos-session=${sealedSession}; Path=/; HttpOnly;${secure} SameSite=Lax`,
+      `wos-session=${sealedSession}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=${60 * 60 * 24 * 14}`,
     );
 
     // Use the information in `user` for further business logic.
