@@ -197,7 +197,9 @@
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
     "test-esm": "node ./scripts/test-esm.mjs && ./scripts/checkdeps.mjs && ./scripts/checkimports.mjs",
     "generateManagementApiSpec": "openapi-typescript ./management-openapi.json --output ./src/cli/generatedApi.ts --root-types --root-types-no-schema-prefix",
-    "checkManagementApiSpec": "openapi-typescript ./management-openapi.json --output ./src/cli/generatedApi.ts --root-types --root-types-no-schema-prefix --check"
+    "checkManagementApiSpec": "openapi-typescript ./management-openapi.json --output ./src/cli/generatedApi.ts --root-types --root-types-no-schema-prefix --check",
+    "generateEventLogApiSpec": "openapi-typescript ./log-stream-openapi.json --output ./src/cli/lib/generatedLogStreamApi.ts --root-types --root-types-no-schema-prefix",
+    "checkEventLogApiSpec": "openapi-typescript ./log-stream-openapi.json --output ./src/cli/lib/generatedLogStreamApi.ts --root-types --root-types-no-schema-prefix --check"
   },
   "files": [
     "bin",

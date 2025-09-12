@@ -1,0 +1,499 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Convex Log Stream Events",
+    "description": "Schema definitions for Convex log stream events (V2 format)",
+    "contact": {
+      "name": "Convex, Inc.",
+      "email": "no-reply@convex.dev"
+    },
+    "license": {
+      "name": "LicenseRef-FSL-1.1-Apache-2.0",
+      "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
+    },
+    "version": "2.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ConsoleLogEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "function",
+          "log_level",
+          "message",
+          "is_truncated"
+        ],
+        "properties": {
+          "function": {
+            "type": "object",
+            "required": [
+              "path",
+              "type",
+              "request_id"
+            ],
+            "properties": {
+              "cached": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "component_path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mutation_queue_length": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "mutation_retry_count": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "path": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            }
+          },
+          "is_truncated": {
+            "type": "boolean"
+          },
+          "log_level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "system_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "DeploymentAuditLogEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "audit_log_action",
+          "audit_log_metadata"
+        ],
+        "properties": {
+          "audit_log_action": {
+            "type": "string"
+          },
+          "audit_log_metadata": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "FunctionExecutionEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "function",
+          "execution_time_ms",
+          "status",
+          "usage"
+        ],
+        "properties": {
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "execution_time_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "function": {
+            "type": "object",
+            "required": [
+              "path",
+              "type",
+              "request_id"
+            ],
+            "properties": {
+              "cached": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "component_path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mutation_queue_length": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "mutation_retry_count": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "path": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            }
+          },
+          "occ_info": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "retry_count"
+                ],
+                "properties": {
+                  "document_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "retry_count": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 0
+                  },
+                  "table_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "write_source": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "scheduler_info": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "job_id"
+                ],
+                "properties": {
+                  "job_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "usage": {
+            "type": "object",
+            "required": [
+              "database_read_bytes",
+              "database_write_bytes",
+              "database_read_documents",
+              "file_storage_read_bytes",
+              "file_storage_write_bytes",
+              "vector_storage_read_bytes",
+              "vector_storage_write_bytes"
+            ],
+            "properties": {
+              "action_memory_used_mb": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "minimum": 0
+              },
+              "database_read_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "database_read_documents": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "database_write_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "file_storage_read_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "file_storage_write_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "vector_storage_read_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "vector_storage_write_bytes": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "LogStreamEvent": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsoleLogEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "console"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VerificationEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "verification"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FunctionExecutionEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "function_execution"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeploymentAuditLogEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "audit_log"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SchedulerStatsEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "scheduler_stats"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledJobLagEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "scheduled_job_lag"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "ScheduledJobLagEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "lag_seconds"
+        ],
+        "properties": {
+          "lag_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "SchedulerStatsEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "lag_seconds",
+          "num_running_jobs"
+        ],
+        "properties": {
+          "lag_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "num_running_jobs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "VerificationEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

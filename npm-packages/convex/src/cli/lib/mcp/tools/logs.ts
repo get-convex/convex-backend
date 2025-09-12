@@ -3,6 +3,7 @@ import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 import { deploymentFetch } from "../../utils/utils.js";
+import { components } from "../../generatedLogStreamApi.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -41,7 +42,7 @@ const outputSchema = z.object({
 
 const logsResponseSchema = outputSchema;
 
-type LogEntry = z.infer<typeof logsResponseSchema>["entries"][number];
+type LogEntry = components["schemas"]["LogStreamEvent"];
 
 const description = `
 Fetch a chunk of recent log entries from your Convex deployment.
@@ -143,4 +144,38 @@ function limitEntriesByTokenBudget({
 
 function estimateTokenCount(entryString: string): number {
   return entryString.length * 0.33;
+}
+
+export function formatEntriesTerse(entries: LogEntry[]): string[] {
+  return entries
+    .map((entry) => {
+      const ts = entry.timestamp;
+
+      switch (entry.topic) {
+        case "console": {
+          return `${ts} ${entry.function.type} ${entry.function.path} ${entry.message}`;
+        }
+        case "verification": {
+          return `${entry.message}`;
+        }
+        case "function_execution": {
+          return `${entry.function.type} ${entry.function.path}`;
+        }
+        case "audit_log": {
+          return `${entry.audit_log_action}`;
+        }
+        case "scheduler_stats": {
+          return `${entry.num_running_jobs} running jobs`;
+        }
+        case "scheduled_job_lag": {
+          // skip it
+          return null;
+        }
+        default: {
+          entry satisfies never;
+          return null;
+        }
+      }
+    })
+    .filter((x): x is string => !!x);
 }
