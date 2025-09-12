@@ -623,23 +623,6 @@ impl RepeatablePersistence {
         )
     }
 
-    /// Same as `load_documents` but doesn't use the `RetentionValidator` from
-    /// this `RepeatablePersistence`. Instead, the caller can choose its
-    /// own validator.
-    pub fn load_documents_with_retention_validator(
-        &self,
-        range: TimestampRange,
-        order: Order,
-        retention_validator: Arc<dyn RetentionValidator>,
-    ) -> DocumentStream<'_> {
-        self.reader.load_documents(
-            range.intersect(TimestampRange::snapshot(*self.upper_bound)),
-            order,
-            *DEFAULT_DOCUMENTS_PAGE_SIZE,
-            retention_validator,
-        )
-    }
-
     pub async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
@@ -650,21 +633,6 @@ impl RepeatablePersistence {
         }
         self.reader
             .previous_revisions(ids, self.retention_validator.clone())
-            .await
-    }
-
-    /// Allows a retention validator to be explicitly passed in
-    pub async fn previous_revisions_with_validator(
-        &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
-        retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        for (_, ts) in &ids {
-            // Reading documents <ts, so ts-1 needs to be repeatable.
-            anyhow::ensure!(*ts <= self.upper_bound.succ()?);
-        }
-        self.reader
-            .previous_revisions(ids, retention_validator.clone())
             .await
     }
 

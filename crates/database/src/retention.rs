@@ -364,7 +364,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 bounds_reader.clone(),
                 rt.clone(),
                 persistence.clone(),
-                follower_retention_manager,
                 receive_min_document_snapshot,
                 document_checkpoint_writer,
                 snapshot_reader.clone(),
@@ -804,7 +803,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     #[try_stream(ok = (Timestamp, Option<(Timestamp, InternalDocumentId)>), error = anyhow::Error)]
     async fn expired_documents(
         rt: &RT,
-        reader: RepeatablePersistence,
+        persistence: Arc<dyn PersistenceReader>,
         cursor: RepeatableTimestamp,
         min_document_snapshot_ts: RepeatableTimestamp,
     ) {
@@ -812,15 +811,21 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             "expired_documents: reading expired documents from {cursor:?} to {:?}",
             min_document_snapshot_ts,
         );
-        let reader_ = &reader;
+        let reader = RepeatablePersistence::new(
+            persistence,
+            min_document_snapshot_ts,
+            // We are reading document log entries from outside of the retention
+            // window (which we have possibly just shrunk ourselves); there is
+            // no need to check retention.
+            Arc::new(NoopRetentionValidator),
+        );
         let mut document_chunks = reader
-            .load_documents_with_retention_validator(
+            .load_documents(
                 TimestampRange::new(*cursor..*min_document_snapshot_ts),
                 Order::Asc,
-                Arc::new(NoopRetentionValidator),
             )
             .try_chunks2(*RETENTION_READ_CHUNK)
-            .map(move |chunk| async move {
+            .map(|chunk| async {
                 let chunk = chunk?.to_vec();
                 let mut entries_to_delete: Vec<(
                     Timestamp,
@@ -832,11 +837,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // the document was deleted.
                 // A NoopRetentionValidator is used here because we are fetching revisions
                 // outside of the document retention window.
-                let prev_revs = reader_
-                    .previous_revisions_with_validator(
-                        chunk.iter().map(|entry| (entry.id, entry.ts)).collect(),
-                        Arc::new(NoopRetentionValidator),
-                    )
+                let prev_revs = reader
+                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
                     .await?;
                 for DocumentLogEntry {
                     ts,
@@ -920,7 +922,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         rt: &RT,
         cursor: RepeatableTimestamp,
-        retention_validator: Arc<dyn RetentionValidator>,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
         if !*RETENTION_DOCUMENT_DELETES_ENABLED || *min_snapshot_ts == Timestamp::MIN {
@@ -936,7 +937,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         let reader = persistence.reader();
         let snapshot_ts = min_snapshot_ts;
-        let reader = RepeatablePersistence::new(reader, snapshot_ts, retention_validator.clone());
 
         tracing::trace!("delete_documents: about to grab chunks");
         let expired_chunks = Self::expired_documents(rt, reader, cursor, min_snapshot_ts)
@@ -1274,7 +1274,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         bounds_reader: Reader<SnapshotBounds>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
-        retention_validator: Arc<dyn RetentionValidator>,
         mut min_document_snapshot_rx: Receiver<RepeatableTimestamp>,
         mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
@@ -1329,7 +1328,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     persistence.clone(),
                     &rt,
                     cursor,
-                    retention_validator.clone(),
                     retention_rate_limiter.clone(),
                 )
                 .await?;
@@ -1738,7 +1736,6 @@ mod tests {
         },
         index::IndexKey,
         interval::Interval,
-        knobs::DOCUMENT_RETENTION_DELAY,
         persistence::{
             ConflictStrategy,
             NoopRetentionValidator,
@@ -1978,14 +1975,8 @@ mod tests {
             .await?;
 
         let min_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(4));
-        // The max repeatable ts needs to be ahead of Timestamp::MIN by at least the
-        // retention delay, so the anyhow::ensure before we delete doesn't fail
-        let repeatable_ts =
-            unchecked_repeatable_ts(min_snapshot_ts.add(*DOCUMENT_RETENTION_DELAY)?);
 
         let reader = p.reader();
-        let retention_validator = Arc::new(NoopRetentionValidator);
-        let reader = RepeatablePersistence::new(reader, repeatable_ts, retention_validator.clone());
 
         let scanned_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
             &rt,
@@ -2060,19 +2051,12 @@ mod tests {
             .await?;
 
         let min_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(11));
-        // The max repeatable ts needs to be ahead of Timestamp::MIN by at least the
-        // retention delay, so the anyhow::ensure before we delete doesn't fail
-        let repeatable_ts =
-            unchecked_repeatable_ts(min_snapshot_ts.add(*DOCUMENT_RETENTION_DELAY)?);
 
-        let retention_validator = Arc::new(NoopRetentionValidator);
         let reader = p.reader();
-        let reader =
-            RepeatablePersistence::new(reader.clone(), repeatable_ts, retention_validator.clone());
 
         let scanned_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
             &rt,
-            reader.clone(),
+            reader,
             RepeatableTimestamp::MIN,
             min_snapshot_ts,
         );
