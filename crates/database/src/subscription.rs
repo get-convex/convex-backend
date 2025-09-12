@@ -101,11 +101,15 @@ impl SubscriptionsClient {
         };
         let (subscription, sender) = Subscription::new(&token);
         let request = SubscriptionRequest::Subscribe { token, sender };
-        self.sender.try_send(request).map_err(|e| match e {
-            TrySendError::Full(..) => metrics::subscriptions_worker_full_error().into(),
-            TrySendError::Closed(..) => metrics::shutdown_error(),
-        })?;
+        // Increment the counter first to avoid underflow
         metrics::log_subscription_queue_length_delta(1);
+        if let Err(e) = self.sender.try_send(request) {
+            metrics::log_subscription_queue_length_delta(-1);
+            return Err(match e {
+                TrySendError::Full(..) => metrics::subscriptions_worker_full_error().into(),
+                TrySendError::Closed(..) => metrics::shutdown_error(),
+            });
+        }
         Ok(subscription)
     }
 
