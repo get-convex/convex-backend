@@ -741,6 +741,14 @@ impl<RT: Runtime> SyncWorker<RT> {
                         TypedClientEvent::ClientConnect { marks } => {
                             metrics::log_client_connect_timings(self.partition_id, marks)
                         },
+                        TypedClientEvent::ClientReceivedTransition {
+                            transition_transit_time,
+                            message_length,
+                        } => metrics::log_client_transition(
+                            self.partition_id,
+                            transition_transit_time,
+                            message_length,
+                        ),
                     },
                     Err(_) => (),
                 }

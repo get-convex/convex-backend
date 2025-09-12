@@ -497,6 +497,7 @@ export class BaseConvexClient {
       webSocketConstructor,
       this.logger,
       this.markConnectionStateDirty,
+      this.debug,
     );
     this.mark("convexClientConstructed");
 

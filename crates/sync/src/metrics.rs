@@ -348,9 +348,38 @@ impl TryFrom<JsonValue> for ClientMark {
     }
 }
 
+pub fn log_client_transition(partition_id: u64, transition_transit_time: f64, message_length: f64) {
+    log_distribution_with_labels(
+        &SYNC_TRANSITION_TRANSIT_TIME_SECONDS,
+        transition_transit_time / 1000.0,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+    log_distribution_with_labels(
+        &SYNC_TRANSITION_MESSAGE_LENGTH_BYTES,
+        message_length,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
 #[derive(Clone, Debug)]
 pub enum TypedClientEvent {
-    ClientConnect { marks: Vec<ClientMark> },
+    ClientConnect {
+        marks: Vec<ClientMark>,
+    },
+    ClientReceivedTransition {
+        /// Time from the server sending the transition to the client fully
+        /// receiving it (after finishing downloading it), corrected by
+        /// an estimated clock skew observed when the client sends a
+        /// smaller message in the other direction.
+        transition_transit_time: f64,
+        message_length: f64,
+    },
 }
 
 impl TryFrom<ClientEvent> for TypedClientEvent {
@@ -369,6 +398,14 @@ impl TryFrom<ClientEvent> for TypedClientEvent {
                 }?;
                 Ok(TypedClientEvent::ClientConnect {
                     marks: parsed_marks,
+                })
+            },
+            "ClientReceivedTransition" => {
+                let event_data: ClientReceivedTransitionEvent =
+                    serde_json::from_value(value.event)?;
+                Ok(TypedClientEvent::ClientReceivedTransition {
+                    transition_transit_time: event_data.transition_transit_time,
+                    message_length: event_data.message_length,
                 })
             },
             _ => Err(anyhow::anyhow!("Unknown ClientEvent type")),
@@ -391,6 +428,23 @@ struct ClientMarkJson {
     start_time: f64,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClientReceivedTransitionEvent {
+    transition_transit_time: f64,
+    message_length: f64,
+}
+
+register_convex_histogram!(
+    SYNC_TRANSITION_TRANSIT_TIME_SECONDS,
+    "Time for transition to transit from client (corrected by an estimated clock skew)",
+    &["partition_id"]
+);
+register_convex_histogram!(
+    SYNC_TRANSITION_MESSAGE_LENGTH_BYTES,
+    "Length of transition message from client",
+    &["partition_id"]
+);
 register_convex_histogram!(
     SYNC_QUERY_INVALIDATION_LAG_SECONDS,
     "Time between an invalidating write and a query being rerun",
