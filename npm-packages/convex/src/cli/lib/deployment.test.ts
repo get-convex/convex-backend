@@ -1,5 +1,14 @@
-import { test, expect } from "vitest";
-import { changesToEnvVarFile, changesToGitIgnore } from "./deployment.js";
+import { test, expect, vi, beforeEach, afterEach } from "vitest";
+import { changesToEnvVarFile, changesToGitIgnore, writeDeploymentEnvVar } from "./deployment.js";
+import { Context } from "../../bundler/context.js";
+
+vi.mock("./envvars.js", async (importOriginal) => {
+  const actual = (await importOriginal()) as any;
+  return {
+    ...actual,
+    gitIgnoreEnvVarFile: vi.fn().mockResolvedValue(false),
+  };
+});
 
 const DEPLOYMENT = {
   team: "snoops",
@@ -82,4 +91,41 @@ test("git ignore changes", () => {
   expect(changesToGitIgnore("!.env.local")).toEqual(
     "!.env.local\n.env.local\n",
   );
+});
+
+const mockContext = {
+  fs: {
+    exists: vi.fn(),
+    readUtf8File: vi.fn(),
+    writeUtf8File: vi.fn(),
+  },
+} as unknown as Context;
+
+const originalProcessEnv = process.env;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  process.env = { ...originalProcessEnv };
+});
+
+afterEach(() => {
+  process.env = originalProcessEnv;
+});
+
+test("writeDeploymentEnvVar skips file creation when CONVEX_DEPLOYMENT exists with correct value", async () => {
+  process.env.CONVEX_DEPLOYMENT = "prod:tall-bar";
+
+  const result = await writeDeploymentEnvVar(
+    mockContext,
+    "prod",
+    DEPLOYMENT,
+    null,
+  );
+
+  expect(result).toEqual({
+    wroteToGitIgnore: false,
+    changedDeploymentEnvVar: false,
+  });
+
+  expect(mockContext.fs.writeUtf8File).not.toHaveBeenCalled();
 });
