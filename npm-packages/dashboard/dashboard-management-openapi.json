@@ -4773,8 +4773,7 @@
           "accessToken",
           "name",
           "creationTime",
-          "serializedAccessToken",
-          "creator"
+          "serializedAccessToken"
         ],
         "properties": {
           "accessToken": {
@@ -4785,7 +4784,14 @@
             "format": "int64"
           },
           "creator": {
-            "$ref": "#/components/schemas/MemberId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MemberId"
+              }
+            ]
           },
           "lastUsedTime": {
             "type": [
