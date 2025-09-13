@@ -420,6 +420,36 @@ pub trait PersistenceReader: Send + Sync + 'static {
             .boxed()
     }
 
+    /// Loads revision pairs from the document log in the given timestamp range.
+    ///
+    /// If a tablet id is provided, the results are filtered to a single table.
+    fn load_revision_pairs(
+        &self,
+        tablet_id: Option<TabletId>,
+        range: TimestampRange,
+        order: Order,
+        page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentRevisionStream<'_> {
+        let stream = if let Some(tablet_id) = tablet_id {
+            self.load_documents_from_table(
+                tablet_id,
+                range,
+                order,
+                page_size,
+                retention_validator.clone(),
+            )
+        } else {
+            self.load_documents(range, order, page_size, retention_validator.clone())
+        };
+        crate::persistence_helpers::persistence_reader_stream_revision_pairs(
+            stream,
+            self,
+            retention_validator,
+        )
+        .boxed()
+    }
+
     /// Look up the previous revision of `(id, ts)`, returning a map where for
     /// each `(id, ts)` we have...
     ///
@@ -595,8 +625,8 @@ impl RepeatablePersistence {
         self.upper_bound
     }
 
-    /// Same as [`Persistence::load_documents`] but only including documents in
-    /// the snapshot range.
+    /// Same as [`PersistenceReader::load_documents`] but only including
+    /// documents in the snapshot range.
     pub fn load_documents(&self, range: TimestampRange, order: Order) -> DocumentStream<'_> {
         self.reader.load_documents(
             range.intersect(TimestampRange::snapshot(*self.upper_bound)),
@@ -606,8 +636,8 @@ impl RepeatablePersistence {
         )
     }
 
-    /// Same as [`Persistence::load_documents_from_table`] but only including
-    /// documents in the snapshot range.
+    /// Same as [`PersistenceReader::load_documents_from_table`] but only
+    /// including documents in the snapshot range.
     pub fn load_documents_from_table(
         &self,
         tablet_id: TabletId,
@@ -615,6 +645,23 @@ impl RepeatablePersistence {
         order: Order,
     ) -> DocumentStream<'_> {
         self.reader.load_documents_from_table(
+            tablet_id,
+            range.intersect(TimestampRange::snapshot(*self.upper_bound)),
+            order,
+            *DEFAULT_DOCUMENTS_PAGE_SIZE,
+            self.retention_validator.clone(),
+        )
+    }
+
+    /// Same as [`PersistenceReader::load_revision_pairs`] but only including
+    /// revisions in the snapshot range.
+    pub fn load_revision_pairs(
+        &self,
+        tablet_id: Option<TabletId>,
+        range: TimestampRange,
+        order: Order,
+    ) -> DocumentRevisionStream<'_> {
+        self.reader.load_revision_pairs(
             tablet_id,
             range.intersect(TimestampRange::snapshot(*self.upper_bound)),
             order,

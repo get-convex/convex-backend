@@ -28,10 +28,7 @@ use common::{
         RepeatablePersistence,
         TimestampRange,
     },
-    persistence_helpers::{
-        stream_revision_pairs,
-        RevisionPair,
-    },
+    persistence_helpers::RevisionPair,
     query::Order,
     runtime::{
         try_join_buffer_unordered,
@@ -441,16 +438,15 @@ pub fn stream_revision_pairs_for_indexes<'a>(
     persistence: &'a RepeatablePersistence,
     range: TimestampRange,
 ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
-    let document_stream = persistence
-        .load_documents(range, Order::Asc)
-        .try_filter(|entry| {
-            let is_in_indexed_table = tables_with_indexes.contains(&entry.id.table());
+    persistence
+        .load_revision_pairs(None /* tablet_id */, range, Order::Asc)
+        .try_filter(|revision| {
+            let is_in_indexed_table = tables_with_indexes.contains(&revision.id.table());
             if !is_in_indexed_table {
                 log_document_skipped();
             }
-            future::ready(tables_with_indexes.contains(&entry.id.table()))
-        });
-    stream_revision_pairs(document_stream, persistence)
+            future::ready(is_in_indexed_table)
+        })
 }
 
 impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {

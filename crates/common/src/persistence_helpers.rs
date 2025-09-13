@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context as _;
 use futures::{
     Stream,
@@ -12,19 +14,23 @@ use crate::{
     persistence::{
         DocumentLogEntry,
         DocumentPrevTsQuery,
+        PersistenceReader,
         RepeatablePersistence,
+        RetentionValidator,
     },
     try_chunks::TryChunksExt,
     types::Timestamp,
 };
 
 #[derive(Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct DocumentRevision {
     pub ts: Timestamp,
     pub document: Option<ResolvedDocument>,
 }
 
 #[derive(Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct RevisionPair {
     pub id: InternalDocumentId,
     pub rev: DocumentRevision,
@@ -47,6 +53,57 @@ impl RevisionPair {
 
 type RevisionStreamEntry = anyhow::Result<DocumentLogEntry>;
 
+/// Exposed as PersistenceReader::load_revision_pairs
+#[allow(clippy::needless_lifetimes)]
+#[try_stream(ok = RevisionPair, error = anyhow::Error)]
+pub(crate) async fn persistence_reader_stream_revision_pairs<'a, P: PersistenceReader + ?Sized>(
+    documents: impl Stream<Item = RevisionStreamEntry> + 'a,
+    reader: &'a P,
+    retention_validator: Arc<dyn RetentionValidator>,
+) {
+    let documents = documents.try_chunks2(*DOCUMENTS_IN_MEMORY);
+    futures::pin_mut!(documents);
+
+    while let Some(read_chunk) = documents.try_next().await? {
+        let queries = read_chunk
+            .iter()
+            .filter_map(|entry| {
+                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
+                    id: entry.id,
+                    ts: entry.ts,
+                    prev_ts,
+                })
+            })
+            .collect();
+        let mut prev_revs = reader
+            .previous_revisions_of_documents(queries, retention_validator.clone())
+            .await?;
+        for DocumentLogEntry {
+            ts,
+            prev_ts,
+            id,
+            value: document,
+            ..
+        } in read_chunk
+        {
+            let rev = DocumentRevision { ts, document };
+            let prev_rev = prev_ts
+                .map(|prev_ts| {
+                    let entry = prev_revs
+                        .remove(&DocumentPrevTsQuery { id, ts, prev_ts })
+                        .with_context(|| format!("prev_ts is missing for {id}@{ts}: {prev_ts}"))?;
+                    anyhow::Ok(DocumentRevision {
+                        ts: entry.ts,
+                        document: entry.value,
+                    })
+                })
+                .transpose()?;
+            yield RevisionPair { id, rev, prev_rev };
+        }
+    }
+}
+
+// TODO: remove this and make users go through PersistenceReader
 #[allow(clippy::needless_lifetimes)]
 #[try_stream(ok = RevisionPair, error = anyhow::Error)]
 pub async fn stream_revision_pairs<'a>(

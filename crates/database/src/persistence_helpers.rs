@@ -3,10 +3,7 @@ use common::{
         RepeatablePersistence,
         TimestampRange,
     },
-    persistence_helpers::{
-        stream_revision_pairs,
-        RevisionPair,
-    },
+    persistence_helpers::RevisionPair,
     query::Order,
     types::Timestamp,
 };
@@ -48,8 +45,7 @@ pub async fn stream_transactions<'a>(
     range: TimestampRange,
     order: Order,
 ) {
-    let document_stream = reader.load_documents(range, order);
-    let revision_stream = stream_revision_pairs(document_stream, reader);
+    let revision_stream = reader.load_revision_pairs(None /* tablet_id */, range, order);
     futures::pin_mut!(revision_stream);
 
     if let Some(first_pair) = revision_stream.try_next().await? {

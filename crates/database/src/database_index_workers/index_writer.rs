@@ -31,10 +31,6 @@ use common::{
         RetentionValidator,
         TimestampRange,
     },
-    persistence_helpers::{
-        stream_revision_pairs,
-        RevisionPair,
-    },
     query::Order,
     runtime::{
         new_rate_limiter,
@@ -57,7 +53,6 @@ use futures::{
         self,
         FusedStream,
     },
-    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -403,11 +398,10 @@ impl<RT: Runtime> IndexWriter<RT> {
         );
         let (tx, rx) = mpsc::channel(32);
         let producer = async {
-            let revision_stream = self.stream_revision_pairs(
-                &repeatable_persistence,
+            let revision_stream = repeatable_persistence.load_revision_pairs(
+                index_selector.tablet_id(),
                 TimestampRange::new(start_ts..=*end_ts),
                 Order::Asc,
-                index_selector,
             );
             futures::pin_mut!(revision_stream);
             while let Some(revision_pair) = revision_stream.try_next().await? {
@@ -464,11 +458,10 @@ impl<RT: Runtime> IndexWriter<RT> {
             self.retention_validator.clone(),
         );
         let producer = async {
-            let revision_stream = self.stream_revision_pairs(
-                &repeatable_persistence,
+            let revision_stream = repeatable_persistence.load_revision_pairs(
+                index_selector.tablet_id(),
                 TimestampRange::new(end_ts..*start_ts),
                 Order::Desc,
-                index_selector,
             );
             futures::pin_mut!(revision_stream);
             while let Some(revision_pair) = revision_stream.try_next().await? {
@@ -526,21 +519,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         // successfully.
         let (backfilled_ts, ()) = futures::try_join!(producer, consumer)?;
         start_ts.prior_ts(backfilled_ts)
-    }
-
-    fn stream_revision_pairs<'a>(
-        &'a self,
-        reader: &'a RepeatablePersistence,
-        range: TimestampRange,
-        order: Order,
-        index_selector: &'a IndexSelector,
-    ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
-        let document_stream = if let Some(tablet_id) = index_selector.tablet_id() {
-            reader.load_documents_from_table(tablet_id, range, order)
-        } else {
-            reader.load_documents(range, order)
-        };
-        stream_revision_pairs(document_stream, reader)
     }
 
     async fn write_index_entries(
