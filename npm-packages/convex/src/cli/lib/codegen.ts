@@ -38,8 +38,8 @@ import {
 import { functionsDir } from "./utils/utils.js";
 
 export type CodegenOptions = {
-  url?: string;
-  adminKey?: string;
+  url?: string | undefined;
+  adminKey?: string | undefined;
   dryRun: boolean;
   debug: boolean;
   typecheck: TypeCheckMode;

@@ -17,6 +17,6 @@ export type FunctionSuccess = {
 export type FunctionFailure = {
   success: false;
   errorMessage: string;
-  errorData?: Value;
+  errorData?: Value | undefined;
   logLines: string[];
 };

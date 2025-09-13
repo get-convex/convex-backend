@@ -89,7 +89,7 @@ export class VectorQueryImpl {
 
 type SerializedVectorQuery = {
   indexName: string;
-  limit?: number;
+  limit?: number | undefined;
   vector: Array<number>;
   expressions: JSONValue;
 };

@@ -182,7 +182,7 @@ export interface SubscribeOptions {
   /**
    * @internal
    */
-  componentPath?: string;
+  componentPath?: string | undefined;
 }
 
 /**
@@ -197,7 +197,7 @@ export interface MutationOptions {
    * An optimistic update locally updates queries while a mutation is pending.
    * Once the mutation completes, the update will be rolled back.
    */
-  optimisticUpdate?: OptimisticUpdate<any>;
+  optimisticUpdate?: OptimisticUpdate<any> | undefined;
 }
 
 /**
@@ -379,7 +379,10 @@ export class BaseConvexClient {
           // browsers but we tried.
           const confirmationMessage =
             "Are you sure you want to leave? Your changes may not be saved.";
-          (e || window.event).returnValue = confirmationMessage;
+          // Recommended method for legacy (IE) browsers.
+          // casts to avoid deprecation notices
+          ((e || (window as any).event) as any).returnValue =
+            confirmationMessage;
           return confirmationMessage;
         }
       });

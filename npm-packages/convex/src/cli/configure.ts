@@ -673,11 +673,13 @@ type DeploymentOptions =
   | { kind: "dev" }
   | {
       kind: "local";
-      ports?: {
-        cloud: number;
-        site: number;
-      };
-      backendVersion?: string;
+      ports?:
+        | {
+            cloud: number;
+            site: number;
+          }
+        | undefined;
+      backendVersion?: string | undefined;
       forceUpgrade: boolean;
     };
 

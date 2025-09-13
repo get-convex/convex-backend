@@ -215,7 +215,7 @@ export interface MutationOptions<Args extends Record<string, Value>> {
    * An optimistic update locally updates queries while a mutation is pending.
    * Once the mutation completes, the update will be rolled back.
    */
-  optimisticUpdate?: OptimisticUpdate<Args>;
+  optimisticUpdate?: OptimisticUpdate<Args> | undefined;
 }
 
 /**
@@ -234,14 +234,14 @@ export interface ConvexReactClientOptions extends BaseConvexClientOptions {}
  */
 export class ConvexReactClient {
   private address: string;
-  private cachedSync?: BaseConvexClient;
+  private cachedSync?: BaseConvexClient | undefined;
   private listeners: Map<QueryToken, Set<() => void>>;
   private options: ConvexReactClientOptions;
   private closed = false;
   private _logger: Logger;
 
   private adminAuth?: string;
-  private fakeUserIdentity?: UserIdentityAttributes;
+  private fakeUserIdentity?: UserIdentityAttributes | undefined;
 
   /**
    * @param address - The url of your Convex deployment, often provided

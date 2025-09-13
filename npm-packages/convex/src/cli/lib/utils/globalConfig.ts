@@ -16,7 +16,7 @@ export function globalConfigPath(): string {
 export type GlobalConfig = {
   accessToken: string;
   // Means "Don't use local dev unless CLI version is at least 1.19" (actual version TBD)
-  optOutOfLocalDevDeploymentsUntilBetaOver?: boolean;
+  optOutOfLocalDevDeploymentsUntilBetaOver?: boolean | undefined;
 };
 
 const schema = z.object({

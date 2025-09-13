@@ -46,7 +46,7 @@ type ModuleEnvironment = "node" | "isolate";
 export interface Bundle {
   path: string;
   source: string;
-  sourceMap?: string;
+  sourceMap?: string | undefined;
   environment: ModuleEnvironment;
 }
 

@@ -11,11 +11,17 @@ export async function dataInDeployment(
     deploymentUrl: string;
     adminKey: string;
     deploymentNotice: string;
-    tableName?: string;
+    tableName?: string | undefined;
     limit: number;
     order: "asc" | "desc";
-    component?: string;
-    format?: "json" | "jsonArray" | "jsonLines" | "jsonl" | "pretty";
+    component?: string | undefined;
+    format?:
+      | "json"
+      | "jsonArray"
+      | "jsonLines"
+      | "jsonl"
+      | "pretty"
+      | undefined;
   },
 ) {
   if (options.tableName !== undefined) {
@@ -74,7 +80,13 @@ async function listDocuments(
     limit: number;
     order: "asc" | "desc";
     componentPath: string;
-    format?: "json" | "jsonArray" | "jsonLines" | "jsonl" | "pretty";
+    format?:
+      | "json"
+      | "jsonArray"
+      | "jsonLines"
+      | "jsonl"
+      | "pretty"
+      | undefined;
   },
 ) {
   const data = (await runSystemPaginatedQuery(ctx, {
@@ -130,7 +142,7 @@ async function listDocuments(
   }
 }
 
-function logDocumentsTable(ctx: Context, rows: Record<string, string>[]) {
+function logDocumentsTable(_ctx: Context, rows: Record<string, string>[]) {
   const columnsToWidths: Record<string, number> = {};
   for (const row of rows) {
     for (const column in row) {

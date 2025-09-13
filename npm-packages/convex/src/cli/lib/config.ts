@@ -62,11 +62,11 @@ export interface ProjectConfig {
   };
   generateCommonJSApi: boolean;
   // deprecated
-  project?: string;
+  project?: string | undefined;
   // deprecated
-  team?: string;
+  team?: string | undefined;
   // deprecated
-  prodUrl?: string;
+  prodUrl?: string | undefined;
   // deprecated
   authInfo?: AuthInfo[];
 
@@ -83,7 +83,7 @@ export interface Config {
   nodeDependencies: NodeDependency[];
   schemaId?: string;
   udfServerVersion?: string;
-  nodeVersion?: string;
+  nodeVersion?: string | undefined;
 }
 
 export interface ConfigWithModuleHashes {
@@ -798,8 +798,8 @@ export async function pushConfig(
     adminKey: string;
     url: string;
     deploymentName: string | null;
-    pushMetrics?: PushMetrics;
-    schemaId?: string;
+    pushMetrics?: PushMetrics | undefined;
+    schemaId?: string | undefined;
     bundledModuleInfos?: BundledModuleInfo[];
   },
 ): Promise<void> {
@@ -995,7 +995,7 @@ export function diffConfig(
   // We don't want to diff modules on the components push path
   // because it has its own diffing logic.
   shouldDiffModules: boolean,
-): { diffString: string; stats?: ModuleDiffStats } {
+): { diffString: string; stats?: ModuleDiffStats | undefined } {
   let diff = "";
   let stats: ModuleDiffStats | undefined;
   if (shouldDiffModules) {

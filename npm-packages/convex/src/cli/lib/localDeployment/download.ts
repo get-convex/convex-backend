@@ -41,7 +41,7 @@ type GitHubRelease = components["schemas"]["release"];
 export async function ensureBackendBinaryDownloaded(
   ctx: Context,
   version:
-    | { kind: "latest"; allowedVersion?: string }
+    | { kind: "latest"; allowedVersion?: string | undefined }
     | { kind: "version"; version: string },
 ): Promise<{ binaryPath: string; version: string }> {
   if (version.kind === "version") {

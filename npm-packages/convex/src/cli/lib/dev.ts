@@ -40,11 +40,12 @@ export async function devAgainstDeployment(
     once: boolean;
     untilSuccess: boolean;
     run?:
-      | { kind: "function"; name: string; component?: string }
-      | { kind: "shell"; command: string };
+      | { kind: "function"; name: string; component?: string | undefined }
+      | { kind: "shell"; command: string }
+      | undefined;
     tailLogs: LogMode;
     traceEvents: boolean;
-    debugBundlePath?: string;
+    debugBundlePath?: string | undefined;
     debugNodeApis: boolean;
     liveComponentSources: boolean;
   },
@@ -89,8 +90,9 @@ export async function watchAndPush(
   options: PushOptions,
   cmdOptions: {
     run?:
-      | { kind: "function"; name: string; component?: string }
-      | { kind: "shell"; command: string };
+      | { kind: "function"; name: string; component?: string | undefined }
+      | { kind: "shell"; command: string }
+      | undefined;
     once: boolean;
     untilSuccess: boolean;
     traceEvents: boolean;

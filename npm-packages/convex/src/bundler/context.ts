@@ -150,9 +150,9 @@ class OneoffContextImpl {
 }
 
 export const oneoffContext: (args: {
-  url?: string;
-  adminKey?: string;
-  envFile?: string;
+  url?: string | undefined;
+  adminKey?: string | undefined;
+  envFile?: string | undefined;
 }) => Promise<OneoffCtx> = async (args) => {
   const ctx = new OneoffContextImpl();
   await initializeBigBrainAuth(ctx, {

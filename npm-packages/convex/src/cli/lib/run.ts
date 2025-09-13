@@ -24,11 +24,13 @@ export async function runFunctionAndLog(
     adminKey: string;
     functionName: string;
     argsString: string;
-    identityString?: string;
-    componentPath?: string;
-    callbacks?: {
-      onSuccess?: () => void;
-    };
+    identityString?: string | undefined;
+    componentPath?: string | undefined;
+    callbacks?:
+      | {
+          onSuccess?: () => void | undefined;
+        }
+      | undefined;
   },
 ) {
   const client = new ConvexHttpClient(args.deploymentUrl);
@@ -332,7 +334,7 @@ export async function subscribeAndLog(
     adminKey: string;
     functionName: string;
     argsString: string;
-    identityString?: string;
+    identityString?: string | undefined;
     componentPath: string | undefined;
   },
 ) {
@@ -372,20 +374,22 @@ export async function subscribeAndLog(
 }
 
 export async function subscribe(
-  ctx: Context,
+  _ctx: Context,
   args: {
     deploymentUrl: string;
     adminKey: string;
-    identity?: UserIdentityAttributes;
+    identity?: UserIdentityAttributes | undefined;
     parsedFunctionName: string;
     parsedFunctionArgs: Record<string, Value>;
     componentPath: string | undefined;
     until: Promise<unknown>;
-    callbacks?: {
-      onStart?: () => void;
-      onChange?: (result: Value) => void;
-      onStop?: () => void;
-    };
+    callbacks?:
+      | {
+          onStart?: () => void;
+          onChange?: (result: Value) => void;
+          onStop?: () => void;
+        }
+      | undefined;
   },
 ) {
   const client = new BaseConvexClient(
@@ -448,7 +452,7 @@ export async function runInDeployment(
     deploymentName: string | null;
     functionName: string;
     argsString: string;
-    identityString?: string;
+    identityString?: string | undefined;
     push: boolean;
     watch: boolean;
     typecheck: "enable" | "try" | "disable";

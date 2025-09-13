@@ -195,7 +195,7 @@ export class WebSocketManager {
       onOpen: (reconnectMetadata: ReconnectMetadata) => void;
       onResume: () => void;
       onMessage: (message: ServerMessage) => OnMessageResponse;
-      onServerDisconnectError?: (message: string) => void;
+      onServerDisconnectError?: ((message: string) => void) | undefined;
     },
     webSocketConstructor: typeof WebSocket,
     logger: Logger,

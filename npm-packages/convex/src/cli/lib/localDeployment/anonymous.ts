@@ -48,12 +48,14 @@ import { doCodegenForNewProject } from "../codegen.js";
 export async function handleAnonymousDeployment(
   ctx: Context,
   options: {
-    ports?: {
-      cloud: number;
-      site: number;
-    };
-    backendVersion?: string;
-    dashboardVersion?: string;
+    ports?:
+      | {
+          cloud: number;
+          site: number;
+        }
+      | undefined;
+    backendVersion?: string | undefined;
+    dashboardVersion?: string | undefined;
     forceUpgrade: boolean;
     deploymentName: string | null;
     chosenConfiguration: "new" | "existing" | "ask" | null;

@@ -76,7 +76,7 @@ export function useQueries(
       args: Record<string, Value>,
       journal?: QueryJournal,
     ) => {
-      return convex.watchQuery(query, args, { journal });
+      return convex.watchQuery(query, args, journal ? { journal } : {});
     };
   }, [convex]);
   return useQueriesHelper(queries, createWatch);

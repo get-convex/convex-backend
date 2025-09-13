@@ -139,7 +139,7 @@ export async function fetchQuery<Query extends FunctionReference<"query">>(
 ): Promise<FunctionReturnType<Query>> {
   const [fnArgs, options] = args;
   const client = setupClient(options ?? {});
-  return client.query(query, fnArgs);
+  return client.query(query, fnArgs || {});
 }
 
 /**
@@ -160,7 +160,7 @@ export async function fetchMutation<
 ): Promise<FunctionReturnType<Mutation>> {
   const [fnArgs, options] = args;
   const client = setupClient(options ?? {});
-  return client.mutation(mutation, fnArgs);
+  return client.mutation(mutation, fnArgs || {});
 }
 
 /**
@@ -179,7 +179,7 @@ export async function fetchAction<Action extends FunctionReference<"action">>(
 ): Promise<FunctionReturnType<Action>> {
   const [fnArgs, options] = args;
   const client = setupClient(options ?? {});
-  return client.action(action, fnArgs);
+  return client.action(action, fnArgs || {});
 }
 
 function setupClient(options: NextjsOptions) {

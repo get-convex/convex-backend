@@ -128,7 +128,7 @@ export async function importIntoDeployment(
   });
   changeSpinner("Parsing uploaded data");
   const onProgress = (
-    ctx: Context,
+    _ctx: Context,
     state: InProgressImportState,
     checkpointCount: number,
   ) => {
@@ -405,8 +405,8 @@ export async function uploadForImport(
     adminKey: string;
     filePath: string;
     importArgs: {
-      tableName?: string;
-      componentPath?: string;
+      tableName?: string | undefined;
+      componentPath?: string | undefined;
       mode: string;
       format: string;
     };

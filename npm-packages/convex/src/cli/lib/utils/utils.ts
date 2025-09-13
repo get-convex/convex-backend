@@ -828,7 +828,7 @@ export function getCurrentTimeString() {
 // but we can provide better errors if we look around.
 export async function findParentConfigs(ctx: Context): Promise<{
   parentPackageJson: string;
-  parentConvexJson?: string;
+  parentConvexJson?: string | undefined;
 }> {
   const parentPackageJson = findUp(ctx, "package.json");
   if (!parentPackageJson) {
@@ -912,7 +912,7 @@ export function spawnAsync(
   options: { stdio: "inherit"; shell?: boolean },
 ): Promise<void>;
 export function spawnAsync(
-  ctx: Context,
+  _ctx: Context,
   command: string,
   args: ReadonlyArray<string>,
   options?: { stdio: "inherit"; shell?: boolean },
@@ -999,7 +999,7 @@ function deploymentFetchRetryOn(
   method?: string,
 ) {
   const shouldRetry = function (
-    attempt: number,
+    _attempt: number,
     error: Error | null,
     response: Response | null,
   ): { kind: "retry"; error: any } | { kind: "stop" } {
@@ -1077,7 +1077,7 @@ function deploymentFetchRetryOn(
  * must supply any headers.
  */
 export function bareDeploymentFetch(
-  ctx: Context,
+  _ctx: Context,
   options: {
     deploymentUrl: string;
     onError?: (err: any) => void;
@@ -1115,7 +1115,7 @@ export function bareDeploymentFetch(
  * the `Convex-Client` header if they are not set in the `fetch`.
  */
 export function deploymentFetch(
-  ctx: Context,
+  _ctx: Context,
   options: {
     deploymentUrl: string;
     adminKey: string;

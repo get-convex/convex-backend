@@ -91,7 +91,9 @@ export class Crash extends Error {
 
   constructor(errorType?: ErrorType, err?: any) {
     super(err?.message);
-    this.errorType = errorType;
+    if (errorType) {
+      this.errorType = errorType;
+    }
   }
 }
 

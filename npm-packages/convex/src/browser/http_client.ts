@@ -60,8 +60,8 @@ export type HttpMutationOptions = {
  */
 export class ConvexHttpClient {
   private readonly address: string;
-  private auth?: string;
-  private adminAuth?: string;
+  private auth: string | undefined;
+  private adminAuth: string | undefined;
   private encodedTsPromise?: Promise<string>;
   private debug: boolean;
   private fetchOptions?: FetchOptions;
@@ -117,6 +117,8 @@ export class ConvexHttpClient {
           : instantiateDefaultLogger({ verbose: false });
     this.address = address;
     this.debug = true;
+    this.auth = undefined;
+    this.adminAuth = undefined;
     if (options?.auth) {
       this.setAuth(options.auth);
     }

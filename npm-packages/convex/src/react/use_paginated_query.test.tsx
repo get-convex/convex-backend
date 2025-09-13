@@ -515,7 +515,7 @@ function getPaginatedQueryResults<
 
 function argsMatch<Query extends PaginatedQueryReference>(options: {
   args: FunctionArgs<Query>;
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>;
+  argsToMatch?: Partial<PaginatedQueryArgs<Query>> | undefined;
 }) {
   if (options.argsToMatch === undefined) {
     return true;

@@ -168,11 +168,11 @@ async function startComponentsPushAndCodegen(
     url: string;
     deploymentName: string | null;
     verbose: boolean;
-    debugBundlePath?: string;
+    debugBundlePath?: string | undefined;
     dryRun: boolean;
     generateCommonJSApi?: boolean;
     debug: boolean;
-    writePushRequest?: string;
+    writePushRequest?: string | undefined;
     codegen: boolean;
     liveComponentSources?: boolean;
     debugNodeApis: boolean;

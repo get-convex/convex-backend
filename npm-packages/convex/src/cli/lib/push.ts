@@ -28,14 +28,14 @@ export type PushOptions = {
   typecheck: "enable" | "try" | "disable";
   typecheckComponents: boolean;
   debug: boolean;
-  debugBundlePath?: string;
+  debugBundlePath?: string | undefined;
   debugNodeApis: boolean;
   codegen: boolean;
   url: string;
   deploymentName: string | null;
-  writePushRequest?: string;
+  writePushRequest?: string | undefined;
   liveComponentSources: boolean;
-  logManager?: LogManager;
+  logManager?: LogManager | undefined;
 };
 
 export async function runNonComponentsPush(

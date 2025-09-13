@@ -40,11 +40,13 @@ export async function handleLocalDeployment(
   options: {
     teamSlug: string;
     projectSlug: string;
-    ports?: {
-      cloud: number;
-      site: number;
-    };
-    backendVersion?: string;
+    ports?:
+      | {
+          cloud: number;
+          site: number;
+        }
+      | undefined;
+    backendVersion?: string | undefined;
     forceUpgrade: boolean;
   },
 ): Promise<DeploymentDetails> {
@@ -172,7 +174,7 @@ async function handleOffline(
   options: {
     teamSlug: string;
     projectSlug: string;
-    ports?: { cloud: number; site: number };
+    ports?: { cloud: number; site: number } | undefined;
   },
 ): Promise<DeploymentDetails> {
   const { deploymentName, config } =

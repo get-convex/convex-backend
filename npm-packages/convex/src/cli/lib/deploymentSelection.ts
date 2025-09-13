@@ -56,9 +56,9 @@ import * as dotenv from "dotenv";
 export async function initializeBigBrainAuth(
   ctx: Context,
   initialArgs: {
-    url?: string;
-    adminKey?: string;
-    envFile?: string;
+    url?: string | undefined;
+    adminKey?: string | undefined;
+    envFile?: string | undefined;
   },
 ): Promise<void> {
   if (initialArgs.url !== undefined && initialArgs.adminKey !== undefined) {
@@ -259,9 +259,9 @@ export type ProjectSelection =
 export async function getDeploymentSelection(
   ctx: Context,
   cliArgs: {
-    url?: string;
-    adminKey?: string;
-    envFile?: string;
+    url?: string | undefined;
+    adminKey?: string | undefined;
+    envFile?: string | undefined;
   },
 ): Promise<DeploymentSelection> {
   const metadata = await _getDeploymentSelection(ctx, cliArgs);
@@ -269,7 +269,7 @@ export async function getDeploymentSelection(
   return metadata;
 }
 
-function logDeploymentSelection(ctx: Context, selection: DeploymentSelection) {
+function logDeploymentSelection(_ctx: Context, selection: DeploymentSelection) {
   switch (selection.kind) {
     case "existingDeployment": {
       logVerbose(
@@ -326,9 +326,9 @@ function prettyProjectSelection(selection: ProjectSelection) {
 async function _getDeploymentSelection(
   ctx: Context,
   cliArgs: {
-    url?: string;
-    adminKey?: string;
-    envFile?: string;
+    url?: string | undefined;
+    adminKey?: string | undefined;
+    envFile?: string | undefined;
   },
 ): Promise<DeploymentSelection> {
   /*
@@ -634,8 +634,10 @@ export const deploymentNameAndTypeFromSelection = (
     case "anonymous": {
       return null;
     }
+    default: {
+      selection satisfies never;
+    }
   }
-  selection satisfies never;
   return null;
 };
 
