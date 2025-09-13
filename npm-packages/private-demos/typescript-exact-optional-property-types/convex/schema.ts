@@ -5,10 +5,6 @@ export default defineSchema({
   messages: defineTable({
     author: v.string(),
     body: v.string(),
-  }),
-  typeTestMessages: defineTable({
-    author: v.string(),
-    body: v.string(),
     optionalString: v.optional(v.string()),
     objectWithOptionalString: v.object({
       optionalString: v.optional(v.string()),

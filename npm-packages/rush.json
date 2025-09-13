@@ -333,6 +333,10 @@
       "projectFolder": "private-demos/typescript-old"
     },
     {
+      "packageName": "typescript-exact-optional-property-types",
+      "projectFolder": "private-demos/typescript-exact-optional-property-types"
+    },
+    {
       "packageName": "typescript-modern",
       "projectFolder": "private-demos/typescript-modern"
     },

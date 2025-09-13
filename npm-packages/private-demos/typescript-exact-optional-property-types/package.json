@@ -1,0 +1,19 @@
+{
+  "name": "typescript-exact-optional-property-types",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "build": "tsc",
+    "dev:backend": "convex dev"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "prettier": "3.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "typescript": "^5.9.2",
+    "npm-run-all2": "^7.0.0"
+  }
+}

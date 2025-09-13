@@ -1,0 +1,41 @@
+{
+  // Approximately what you get from https://github.com/microsoft/TypeScript/pull/61813
+  "compilerOptions": {
+    // Environment Settings
+    // See also https://aka.ms/tsconfig_modules
+    "module": "nodenext",
+    "target": "esnext",
+
+    // For nodejs:
+    "lib": ["esnext"],
+    "types": ["node"],
+    // and npm install -D @types/node
+
+    // We're not building, but if we were we'd want these
+    "sourceMap": true,
+    // This doesn't work with the inferred types of convex functions
+    "declaration": false,
+    "declarationMap": false,
+
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Recommended Options
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+
+    // the convex package doesn't typecheck when using exactOptionalPropertyTypes
+    "skipLibCheck": true,
+
+    // we don't compile
+    "noEmit": true,
+
+    // a good idea
+    "forceConsistentCasingInFileNames": true
+  }
+}
