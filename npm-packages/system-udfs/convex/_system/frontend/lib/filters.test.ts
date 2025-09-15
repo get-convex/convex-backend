@@ -1,5 +1,5 @@
 import { describe, test, expect, it } from "vitest";
-import { GenericDocument } from "convex/server";
+import { GenericDocument, SearchIndex } from "convex/server";
 import {
   Filter,
   FilterByIndex,
@@ -21,7 +21,6 @@ import {
   validateIndexFilter,
   validateSearchIndexFilter,
 } from "./filters";
-import { SearchIndex } from "../../../../../convex/dist/internal-cjs-types/server";
 
 const samplePage: GenericDocument[] = [
   { variableType: "stringValue" },
@@ -572,6 +571,86 @@ describe("filters", () => {
       ]);
     });
 
+    it("should apply search index filters with undefined values", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = [
+        { field: "organizationId", enabled: true, value: undefined },
+      ];
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+        { op: "eq", field: "organizationId", value: undefined },
+      ]);
+    });
+
+    it("should apply search index filters with JSON-serialized values", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = [
+        { field: "userId", enabled: true, value: { $integer: "AQAAAAAAAAA=" } },
+      ];
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+        { op: "eq", field: "userId", value: BigInt(1) },
+      ]);
+    });
+
+    it("should apply search index filters with value = undefined", () => {
+      const mockBuilder = new MockSearchBuilder();
+      const searchString = "test search";
+      const searchIndexFilters = [
+        {
+          field: "userId",
+          enabled: true,
+          value:
+            "__CONVEX_PLACEHOLDER_undefined_I23atX0jcndVbFgXoQZffsih7eAqktCyFjgUuAeNBtfr3ySOljPSPSEOPFgprkdBO3zXNiGEJxmJ5ZFPc5C5qKesG80QRPvlJe8vgSxAt9feLTwxTg4PHfVwUaTEJU67FDwldWmTxp1guMPwxQ2jOuhEryTBf3mQ",
+        },
+      ];
+      const selectedIndex: SearchIndex = {
+        indexDescriptor: "testSearchIndex",
+        searchField: "description",
+        filterFields: ["userId", "organizationId"],
+      };
+
+      applySearchIndexFilters(
+        mockBuilder as any,
+        searchString,
+        searchIndexFilters,
+        selectedIndex,
+      );
+
+      expect(mockBuilder.operations).toEqual([
+        { op: "search", field: "description", value: "test search" },
+        { op: "eq", field: "userId", value: undefined },
+      ]);
+    });
+
     it("should only apply filters for fields that exist in the filter", () => {
       const mockBuilder = new MockSearchBuilder();
       const searchString = "test search";
@@ -782,7 +861,7 @@ describe("filters", () => {
       const result = validateSearchIndexFilter(
         indexName,
         [
-          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "userId", enabled: true, value: 123 },
           { field: "organization", enabled: true, value: "exampleOrg" },
         ],
         selectedIndex,
@@ -818,7 +897,7 @@ describe("filters", () => {
       const result = validateSearchIndexFilter(
         indexName,
         [
-          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "userId", enabled: true, value: 123 },
           { field: "organization", enabled: true, value: "exampleOrg" },
         ],
         selectedIndex,
@@ -842,7 +921,7 @@ describe("filters", () => {
       const result = validateSearchIndexFilter(
         indexName,
         [
-          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "userId", enabled: true, value: 123 },
           { field: "organization", enabled: false, value: "exampleOrg" },
         ],
         selectedIndex,
@@ -889,8 +968,8 @@ describe("filters", () => {
       const result = validateSearchIndexFilter(
         indexName,
         [
-          { field: "userId", enabled: true, value: BigInt(123) },
-          { field: "userId", enabled: true, value: BigInt(123) },
+          { field: "userId", enabled: true, value: 123 },
+          { field: "userId", enabled: true, value: 123 },
         ],
         selectedIndex,
         "asc",
@@ -912,8 +991,8 @@ describe("filters", () => {
       const result = validateSearchIndexFilter(
         indexName,
         [
-          { field: "userId", enabled: true, value: BigInt(123) },
-          { field: "userId", enabled: false, value: BigInt(456) },
+          { field: "userId", enabled: true, value: 123 },
+          { field: "userId", enabled: false, value: 456 },
         ],
         selectedIndex,
         "asc",

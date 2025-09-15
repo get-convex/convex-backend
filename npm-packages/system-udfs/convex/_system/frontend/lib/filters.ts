@@ -29,11 +29,13 @@ export type SearchIndexFilter = {
   name: string;
   search: string;
   /** The clauses on the filter fields of the search index */
-  clauses: {
-    field: string;
-    enabled: boolean;
-    value: Value;
-  }[];
+  clauses: SearchIndexFilterClause[];
+};
+
+export type SearchIndexFilterClause = {
+  field: string;
+  enabled: boolean;
+  value: JSONValue | undefined;
 };
 
 export type FilterCommon = {
@@ -362,7 +364,7 @@ export function applySearchIndexFilters<
 >(
   q: SearchFilterBuilder<Document, SearchIndexConfig>,
   search: string,
-  filters: Array<{ field: string; enabled: boolean; value: Value }>,
+  filters: SearchIndexFilterClause[],
   selectedIndex: SearchIndex,
 ): SearchFilterFinalizer<Document, SearchIndexConfig> {
   let builder = q.search(selectedIndex.searchField, search);
@@ -370,7 +372,12 @@ export function applySearchIndexFilters<
   // Apply filters
   for (const { field, enabled, value } of filters) {
     if (enabled) {
-      builder = builder.eq(field, value as any);
+      builder = builder.eq(
+        field,
+        (value === UNDEFINED_PLACEHOLDER
+          ? undefined
+          : jsonToConvexOrValue(value)) as any,
+      );
     }
   }
 
@@ -452,7 +459,7 @@ export function validateIndexFilter(
  */
 export function validateSearchIndexFilter(
   indexName: string,
-  filters: Array<{ field: string; enabled: boolean; value: Value }>,
+  filters: SearchIndexFilterClause[],
   selectedIndex: Index | SearchIndex | undefined,
   order: "asc" | "desc",
 ) {

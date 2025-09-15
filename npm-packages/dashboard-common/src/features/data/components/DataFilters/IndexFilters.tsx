@@ -7,7 +7,7 @@ import {
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
-import { ValidatorJSON } from "convex/values";
+import { convexToJson, ValidatorJSON } from "convex/values";
 import {
   DatabaseIndexFilter,
   FilterByIndexRange,
@@ -227,7 +227,10 @@ export function IndexFilters({
                       clauses: option.fields.map((field: string) => ({
                         field,
                         enabled: false,
-                        value: defaultDocument[field],
+                        value:
+                          defaultDocument[field] === undefined
+                            ? undefined
+                            : convexToJson(defaultDocument[field]),
                       })),
                     } satisfies SearchIndexFilter,
                   }
