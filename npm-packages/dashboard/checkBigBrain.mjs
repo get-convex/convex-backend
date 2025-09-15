@@ -1,8 +1,6 @@
 import http from "http";
 import chalk from "chalk";
-import readline from "readline";
 import url from "url";
-import { spawnSync } from "child_process";
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.development" });
@@ -38,45 +36,9 @@ http
   .end();
 
 function onFailure() {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  rl.on("SIGINT", () => {
-    rl.close();
-    process.exit(1);
-  });
-
-  rl.question(
+  console.log(
     chalk.yellow(
-      "Looks like you don't have BigBrain running, start it now? [Y/n]: ",
+      `Looks like you don't have BigBrain running. Make sure to run ${chalk.bold(chalk.yellowBright("just run-big-brain"))} in another terminal.`,
     ),
-    (answer) => {
-      rl.close();
-      if (
-        answer.toLowerCase() === "yes" ||
-        answer.toLowerCase() === "y" ||
-        answer === ""
-      ) {
-        console.error(
-          chalk.green(
-            "Starting BigBrain now via `just run-big-brain`, " +
-              "repeat your original command in a new terminal",
-          ),
-        );
-        spawnSync("just run-big-brain", { shell: true, stdio: "inherit" });
-        console.log(chalk.green("Quiting BigBrain, all is good!"));
-        process.exit(1);
-      } else {
-        console.error(
-          chalk.yellow(
-            `Make sure to run ${chalk.white.bold(
-              "just run-big-brain",
-            )} in another terminal!`,
-          ),
-        );
-      }
-    },
   );
 }
