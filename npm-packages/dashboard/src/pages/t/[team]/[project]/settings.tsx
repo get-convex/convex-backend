@@ -232,7 +232,7 @@ function ProjectSettings() {
 
   const projectAppAccessTokens = useProjectAppAccessTokens(project?.id);
   const deleteAppAccessTokenByName = useDeleteAppAccessTokenByName({
-    projectId: project?.id!,
+    projectId: project?.id,
   });
 
   const authorizedAppsExplainer = (

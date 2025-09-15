@@ -81,7 +81,7 @@ export function useDeleteAccessToken(
 }
 
 export function useDeleteAppAccessTokenByName(
-  args: { projectId: number } | { teamId: number },
+  args: { projectId: number | undefined } | { teamId: number },
 ) {
   return useBBMutation({
     path: "/delete_access_token",
@@ -92,7 +92,7 @@ export function useDeleteAppAccessTokenByName(
         : "/teams/{team_id}/app_access_tokens",
     mutatePathParams:
       "projectId" in args
-        ? { project_id: args.projectId.toString() }
+        ? { project_id: args.projectId?.toString() ?? "" }
         : { team_id: args.teamId.toString() },
     successToast: "Application access revoked.",
   });
