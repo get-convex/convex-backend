@@ -203,7 +203,7 @@ function NodeVersionBanner() {
 
   if (usingNode18) {
     return (
-      <div className="border-y bg-background-warning py-2 text-center text-content-warning">
+      <div className="border-y bg-background-warning py-2 text-center text-xs text-content-warning">
         This deployment is using Node 18 and will be automatically upgraded to
         Node 20 on October 22, 2025. To manually configure the Node version,
         visit the{" "}
