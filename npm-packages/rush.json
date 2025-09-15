@@ -353,6 +353,10 @@
       "projectFolder": "private-demos/components-poc"
     },
     {
+      "packageName": "components-npm",
+      "projectFolder": "private-demos/components-npm"
+    },
+    {
       "packageName": "@convex-dev/ratelimiter",
       "projectFolder": "components/ratelimiter"
     },
