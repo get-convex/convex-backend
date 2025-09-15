@@ -553,7 +553,7 @@ function DisplayVanityDomain({
               : "HTTP Actions"}
           </span>
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex h-full items-center justify-end gap-2">
           <Button
             tip={
               !enabled
