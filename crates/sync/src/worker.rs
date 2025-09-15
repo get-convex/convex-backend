@@ -101,6 +101,9 @@ use crate::{
     metrics::{
         self,
         connect_timer,
+        log_action_args_size,
+        log_mutation_args_size,
+        log_query_modification_args_size,
         modify_query_to_transition_timer,
         mutation_queue_timer,
         TypedClientEvent,
@@ -517,6 +520,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                 new_version,
                 modifications,
             } => {
+                let total_args_size = modifications
+                    .iter()
+                    .filter_map(|m| match m {
+                        QuerySetModification::Add(q) => {
+                            Some(q.args.iter().map(|v| v.heap_size()).sum::<usize>())
+                        },
+                        QuerySetModification::Remove { .. } => None,
+                    })
+                    .sum();
+                log_query_modification_args_size(self.partition_id, total_args_size);
                 self.state
                     .modify_query_set(base_version, new_version, modifications)?;
                 self.schedule_update();
@@ -531,6 +544,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 args,
                 component_path,
             } => {
+                log_mutation_args_size(self.partition_id, args.iter().map(|v| v.heap_size()).sum());
                 let identity = self.state.identity(self.rt.system_time())?;
                 let mutation_identifier =
                     self.state.session_id().map(|id| SessionRequestIdentifier {
@@ -638,6 +652,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 args,
                 component_path,
             } => {
+                log_action_args_size(self.partition_id, args.iter().map(|v| v.heap_size()).sum());
                 let identity = self.state.identity(self.rt.system_time())?;
 
                 let api = self.api.clone();

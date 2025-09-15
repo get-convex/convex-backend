@@ -99,6 +99,54 @@ pub fn mutation_queue_timer(partition_id: u64) -> StatusTimer {
     timer
 }
 
+register_convex_histogram!(
+    SYNC_QUERY_MODIFICATION_ARGS_BYTES,
+    "Size of query modification args in ClientMessages",
+    &["partition_id"]
+);
+pub fn log_query_modification_args_size(partition_id: u64, size: usize) {
+    log_distribution_with_labels(
+        &SYNC_QUERY_MODIFICATION_ARGS_BYTES,
+        size as f64,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
+register_convex_histogram!(
+    SYNC_MUTATION_ARGS_BYTES,
+    "Size of mutation args in ClientMessages",
+    &["partition_id"]
+);
+pub fn log_mutation_args_size(partition_id: u64, size: usize) {
+    log_distribution_with_labels(
+        &SYNC_MUTATION_ARGS_BYTES,
+        size as f64,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
+register_convex_histogram!(
+    SYNC_ACTION_ARGS_BYTES,
+    "Size of action args in ClientMessages",
+    &["partition_id"]
+);
+pub fn log_action_args_size(partition_id: u64, size: usize) {
+    log_distribution_with_labels(
+        &SYNC_ACTION_ARGS_BYTES,
+        size as f64,
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
+}
+
 register_convex_counter!(
     SYNC_QUERY_FAILED_TOTAL,
     "Number of query failures",
