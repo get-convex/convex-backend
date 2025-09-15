@@ -16,8 +16,7 @@
     "isolatedModules": true,
     /* Strict Type-Checking Options */
     "strict": true,
-    /* This is the default but it'd be nice to change this soon */
-    "exactOptionalPropertyTypes": false,
+    "exactOptionalPropertyTypes": true,
     /* Module Resolution Options */
     "esModuleInterop": true,
     /* Advanced Options */
