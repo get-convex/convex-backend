@@ -54,6 +54,7 @@ use sync::{
     SyncWorkerConfig,
 };
 use sync_types::{
+    ClientMessage,
     IdentityVersion,
     SessionId,
 };
@@ -76,7 +77,10 @@ use metrics::{
     websocket_upgrade_timer,
 };
 
-use crate::RouterState;
+use crate::{
+    subs::metrics::log_websocket_client_message_bytes,
+    RouterState,
+};
 
 /// How often heartbeat pings are sent.
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -161,7 +165,8 @@ async fn run_sync_socket(
 
             match message {
                 Message::Text(s) => {
-                    let body = serde_json::from_str::<JsonValue>(&s)
+                    let client_message_size = s.len();
+                    let body: ClientMessage = serde_json::from_str::<JsonValue>(&s)
                         .map_err(|e| anyhow::anyhow!(e))
                         .and_then(|body| body.try_into())
                         .map_err(|e| {
@@ -170,6 +175,10 @@ async fn run_sync_socket(
                                 format!("Received Invalid JSON on websocket: {e}"),
                             ))
                         })?;
+                    log_websocket_client_message_bytes(
+                        client_message_size,
+                        body.as_ref().to_string(),
+                    );
                     log_websocket_message_in();
                     if client_tx.send((body, st.runtime.monotonic_now())).is_err() {
                         break;

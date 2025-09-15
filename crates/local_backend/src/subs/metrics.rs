@@ -28,6 +28,19 @@ pub fn log_websocket_message_in() {
     log_counter(&BACKEND_WS_IN_TOTAL, 1);
 }
 
+register_convex_histogram!(
+    WS_CLIENT_MESSAGE_BYTES,
+    "Size of client message received by the sync socket",
+    &["type"]
+);
+pub fn log_websocket_client_message_bytes(bytes: usize, message_type: String) {
+    log_distribution_with_labels(
+        &WS_CLIENT_MESSAGE_BYTES,
+        bytes as f64,
+        vec![StaticMetricLabel::new("type", message_type)],
+    );
+}
+
 register_convex_counter!(BACKEND_PING_TOTAL, "Number of websocket pings sent");
 pub fn log_websocket_ping() {
     log_counter(&BACKEND_PING_TOTAL, 1);

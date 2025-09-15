@@ -27,6 +27,7 @@ serde_json = { workspace = true, features = [
     "float_roundtrip",
     "preserve_order",
 ] }
+strum = { workspace = true }
 uuid = { workspace = true, features = ["serde", "v4"] }
 
 [dev-dependencies]

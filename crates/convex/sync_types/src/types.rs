@@ -15,6 +15,7 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
+use strum::AsRefStr;
 use uuid::Uuid;
 
 #[cfg(any(test, feature = "testing"))]
@@ -100,7 +101,7 @@ pub enum QuerySetModification {
     Remove { query_id: QueryId },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, AsRefStr)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ClientMessage {
     Connect {
