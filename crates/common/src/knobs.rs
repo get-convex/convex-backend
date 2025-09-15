@@ -1415,3 +1415,8 @@ pub static SUBSCRIPTION_ADVANCE_LOG_TRACING_THRESHOLD: LazyLock<u64> =
 /// How many concurrent index backfill threads to run concurrently.
 pub static INDEX_BACKFILL_CONCURRENCY: LazyLock<usize> =
     LazyLock::new(|| env_config("INDEX_BACKFILL_CONCURRENCY", 8));
+
+/// The max size of the global HTTP cache, in bytes. This is only used for
+/// getting auth metadata right now.
+pub static HTTP_CACHE_SIZE: LazyLock<u64> =
+    LazyLock::new(|| env_config("HTTP_CACHE_SIZE", 16 * 1024 * 1024));

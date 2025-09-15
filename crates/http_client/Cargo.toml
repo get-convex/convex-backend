@@ -12,6 +12,7 @@ doctest = false
 [dependencies]
 anyhow = { workspace = true }
 bytes = { workspace = true }
+common = { workspace = true }
 futures = { workspace = true }
 http-body-util = { workspace = true }
 http-cache = { workspace = true }
@@ -24,6 +25,7 @@ strum = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+common = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 tokio = { workspace = true }
 

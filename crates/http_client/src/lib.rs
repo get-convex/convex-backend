@@ -1,12 +1,19 @@
 #![feature(try_blocks)]
 #![feature(impl_trait_in_fn_trait_return)]
 
-use std::sync::LazyLock;
+use std::sync::{
+    Arc,
+    LazyLock,
+};
 
 use bytes::BufMut;
+use common::knobs::HTTP_CACHE_SIZE;
 use futures::Future;
 use http_body_util::BodyExt;
-use http_cache::XCACHE;
+use http_cache::{
+    MokaCache,
+    XCACHE,
+};
 use http_cache_reqwest::{
     Cache,
     CacheMode,
@@ -29,7 +36,16 @@ mod metrics;
 #[error(transparent)]
 pub struct AsStdError(#[from] anyhow::Error);
 
-static CACHE: LazyLock<MokaManager> = LazyLock::new(MokaManager::default);
+static CACHE: LazyLock<MokaManager> = LazyLock::new(|| {
+    MokaManager::new(
+        MokaCache::builder()
+            .max_capacity(*HTTP_CACHE_SIZE)
+            .weigher(|k: &String, v: &Arc<Vec<u8>>| {
+                u32::try_from(k.len() + v.len()).unwrap_or(u32::MAX)
+            })
+            .build(),
+    )
+});
 static HTTP_CLIENT: LazyLock<reqwest_middleware::ClientWithMiddleware> = LazyLock::new(|| {
     ClientBuilder::new(Client::new())
         .with(Cache(HttpCache {
