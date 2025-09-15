@@ -1105,6 +1105,36 @@ where
     }
 }
 
+#[allow(clippy::declare_interior_mutable_const)]
+pub const CONVEX_CHEF_DEPLOY_SECRET_HEADER: HeaderName =
+    HeaderName::from_static("convex-chef-deploy-secret");
+
+pub struct ExtractChefDeploySecret(pub Option<String>);
+
+fn chef_deploy_secret_from_req_parts(parts: &mut axum::http::request::Parts) -> Option<String> {
+    // TODO(jordan): Once chef is pushed, this should no longer be optional and we
+    // should throw an error if it's not present
+    parts
+        .headers
+        .get(CONVEX_CHEF_DEPLOY_SECRET_HEADER)
+        .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
+}
+
+impl<S> FromRequestParts<S> for ExtractChefDeploySecret
+where
+    S: Send + Sync,
+{
+    type Rejection = HttpResponseError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let shared_secret = chef_deploy_secret_from_req_parts(parts);
+        Ok(Self(shared_secret))
+    }
+}
+
 pub const TRACEPARENT_HEADER_STR: &str = "traceparent";
 pub const TRACEPARENT_HEADER: HeaderName = HeaderName::from_static(TRACEPARENT_HEADER_STR);
 
