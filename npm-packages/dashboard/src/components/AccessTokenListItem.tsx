@@ -61,7 +61,7 @@ export function AccessTokenListItem({
               />
               {showMemberName && (
                 <div className="flex items-center gap-1 text-xs text-content-secondary">
-                  by
+                  by{" "}
                   {member ? (
                     <TeamMemberLink
                       memberId={token.creator}
