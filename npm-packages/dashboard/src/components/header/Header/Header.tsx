@@ -5,7 +5,6 @@ import Link from "next/link";
 import { SupportWidget, useSupportFormOpen } from "elements/SupportWidget";
 import { Portal } from "@headlessui/react";
 import { Button } from "@ui/Button";
-import { useReducer } from "react";
 import { AskAI } from "elements/AskAI";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";
 import { useCurrentProject } from "api/projects";
@@ -41,8 +40,6 @@ function Support() {
 }
 
 export function Header({ children, logoLink = "/", user }: HeaderProps) {
-  const [headerKey, forceRerender] = useReducer((x) => x + 1, 0);
-
   const project = useCurrentProject();
 
   return (
@@ -50,10 +47,6 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
       className={classNames(
         "flex justify-between min-h-[56px] overflow-x-auto scrollbar-none bg-background-secondary border-b",
       )}
-      // Re-render the header content when the user scrolls so
-      // the underline on the active nav item can be updated.
-      // TODO: Don't absolutely position the underline
-      onScroll={forceRerender}
     >
       <div className="flex items-center bg-background-secondary px-2">
         <div className="rounded-full p-2 transition-colors hover:bg-background-tertiary">
@@ -70,7 +63,7 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
             />
           </Link>
         </div>
-        <div key={headerKey}>{children}</div>
+        <div>{children}</div>
       </div>
       {project && <DeploymentDisplay project={project} />}
       <div className="flex items-center bg-background-secondary px-2">
