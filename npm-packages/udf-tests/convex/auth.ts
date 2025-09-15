@@ -35,3 +35,7 @@ export const conditionallyCheckAuthInSubquery = query(
     return await ctx.runQuery(api.auth.conditionallyCheckAuth);
   },
 );
+
+export const getUserIdentityDebug = query(async function ({ auth }) {
+  return await auth.getUserIdentityDebug();
+});

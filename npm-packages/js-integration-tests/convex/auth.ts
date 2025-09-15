@@ -15,3 +15,7 @@ export const s = mutation(async ({ scheduler, auth }) => {
   }
   await scheduler.runAfter(0, api.actions.auth.storeUser);
 });
+
+export const getUserIdentityDebug = query(async ({ auth }) => {
+  return await auth.getUserIdentityDebug();
+});
