@@ -8,19 +8,31 @@ use common::query::Order;
 use const_format::formatcp;
 use itertools::iproduct;
 
-/// Returns the appropriate expression based on the parameter value.
-macro_rules! tableify {
-    ($param:ident, $e: expr) => {{
+macro_rules! as_table {
+    ([$param:ident $(, $rest:ident)*], $e: expr) => {{
         [{
             #[allow(non_upper_case_globals)]
             const $param: bool = false;
-            $e
+            as_table!([$($rest),*], $e)
         }, {
             #[allow(non_upper_case_globals)]
             const $param: bool = true;
-            $e
-        }][$param as usize]
+            as_table!([$($rest),*], $e)
+        }]
     }};
+    ([], $e: expr) => { $e }
+}
+/// Returns the appropriate expression based on the parameter value.
+macro_rules! tableify {
+    ([$($param:ident),+], $e: expr) => {{
+        as_table!([$($param),*], $e)
+            $(
+                [$param as usize]
+            )*
+    }};
+    ($param:ident, $e: expr) => {
+        tableify!([$param], $e)
+    };
 }
 
 pub(crate) const CHECK_SCHEMA_SQL: &str =
@@ -254,9 +266,25 @@ pub(crate) const TABLES: &[&str] = &[
 ///
 /// N.B.: it's important to provide only one bound on each side of the index
 /// range - otherwise postgres may choose the wrong bounds for its index scan
-pub const fn load_docs_by_ts_page_asc(multitenant: bool) -> &'static str {
-    tableify!(
-        multitenant,
+pub const fn load_docs_by_ts_page_asc(
+    multitenant: bool,
+    tablet_filter: bool,
+    include_prev_rev: bool,
+) -> &'static str {
+    tableify!([multitenant, tablet_filter, include_prev_rev], {
+        const TABLET_ID_FILTER: &str = if tablet_filter {
+            "AND D.table_id = $6"
+        } else {
+            ""
+        };
+        const INSTANCE_NAME_FILTER: &str = if multitenant {
+            formatcp!(
+                "AND D.instance_name = ${}",
+                if tablet_filter { 7i32 } else { 6 }
+            )
+        } else {
+            ""
+        };
         formatcp!(
             r#"
 /*+
@@ -268,28 +296,65 @@ pub const fn load_docs_by_ts_page_asc(multitenant: bool) -> &'static str {
     Set(enable_material OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
-    WHERE (ts, table_id, id) > ($1, $2, $3)
-    AND ts < $4
-    {where_clause}
-    ORDER BY ts ASC, table_id ASC, id ASC
+SELECT D.id, D.ts, D.table_id, D.json_value, D.deleted, D.prev_ts
+    {prev_rev_col}
+    FROM @db_name.documents D
+    {prev_rev_join}
+    WHERE (D.ts, D.table_id, D.id) > ($1, $2, $3)
+    AND D.ts < $4
+    {tablet_filter}
+    {instance_name_filter}
+    ORDER BY D.ts ASC, D.table_id ASC, D.id ASC
     LIMIT $5
 "#,
-            where_clause = if multitenant {
-                "AND instance_name = $6"
+            prev_rev_col = if include_prev_rev {
+                ", P.json_value"
             } else {
                 ""
-            }
+            },
+            prev_rev_join = if include_prev_rev {
+                formatcp!(
+                    "LEFT JOIN @db_name.documents P
+                    ON P.table_id = D.table_id
+                    AND P.id = D.id
+                    AND P.ts = D.prev_ts
+                    {}",
+                    if multitenant {
+                        "AND P.instance_name = D.instance_name"
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                ""
+            },
+            tablet_filter = TABLET_ID_FILTER,
+            instance_name_filter = INSTANCE_NAME_FILTER,
         )
-    )
+    })
 }
 
 /// Load a page of documents in descending order.
 /// Note that the parameters are different than LOAD_DOCS_BY_TS_PAGE_ASC.
-pub const fn load_docs_by_ts_page_desc(multitenant: bool) -> &'static str {
-    tableify!(
-        multitenant,
+pub const fn load_docs_by_ts_page_desc(
+    multitenant: bool,
+    tablet_filter: bool,
+    include_prev_rev: bool,
+) -> &'static str {
+    tableify!([multitenant, tablet_filter, include_prev_rev], {
+        const TABLET_ID_FILTER: &str = if tablet_filter {
+            "AND D.table_id = $6"
+        } else {
+            ""
+        };
+        const INSTANCE_NAME_FILTER: &str = if multitenant {
+            formatcp!(
+                "AND D.instance_name = ${}",
+                if tablet_filter { 7i32 } else { 6 }
+            )
+        } else {
+            ""
+        };
         formatcp!(
             r#"
 /*+
@@ -301,21 +366,42 @@ pub const fn load_docs_by_ts_page_desc(multitenant: bool) -> &'static str {
     Set(enable_material OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
-    WHERE ts >= $1
-    AND (ts, table_id, id) < ($2, $3, $4)
-    {where_clause}
-    ORDER BY ts DESC, table_id DESC, id DESC
+SELECT D.id, D.ts, D.table_id, D.json_value, D.deleted, D.prev_ts
+    {prev_rev_col}
+    FROM @db_name.documents D
+    {prev_rev_join}
+    WHERE D.ts >= $1
+    AND (D.ts, D.table_id, D.id) < ($2, $3, $4)
+    {tablet_filter}
+    {instance_name_filter}
+    ORDER BY D.ts DESC, D.table_id DESC, D.id DESC
     LIMIT $5
 "#,
-            where_clause = if multitenant {
-                "AND instance_name = $6"
+            prev_rev_col = if include_prev_rev {
+                ", P.json_value"
             } else {
                 ""
-            }
+            },
+            prev_rev_join = if include_prev_rev {
+                formatcp!(
+                    "LEFT JOIN @db_name.documents P
+        ON P.table_id = D.table_id
+        AND P.id = D.id
+        AND P.ts = D.prev_ts
+        {}",
+                    if multitenant {
+                        "AND P.instance_name = D.instance_name"
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                ""
+            },
+            tablet_filter = TABLET_ID_FILTER,
+            instance_name_filter = INSTANCE_NAME_FILTER,
         )
-    )
+    })
 }
 
 pub const fn insert_document(multitenant: bool) -> &'static str {

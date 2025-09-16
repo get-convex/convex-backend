@@ -65,6 +65,7 @@ use common::{
         ConflictStrategy,
         DocumentLogEntry,
         DocumentPrevTsQuery,
+        DocumentRevisionStream,
         DocumentStream,
         IndexStream,
         LatestDocument,
@@ -75,6 +76,10 @@ use common::{
         PersistenceTableSize,
         RetentionValidator,
         TimestampRange,
+    },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
     },
     query::Order,
     runtime::assert_send,
@@ -874,19 +879,6 @@ impl PostgresReader {
         Option<ResolvedDocument>,
         Option<Timestamp>,
     )> {
-        let (ts, id, doc, prev_ts) = self.row_to_document_inner(row)?;
-        Ok((ts, id, doc, prev_ts))
-    }
-
-    fn row_to_document_inner(
-        &self,
-        row: Row,
-    ) -> anyhow::Result<(
-        Timestamp,
-        InternalDocumentId,
-        Option<ResolvedDocument>,
-        Option<Timestamp>,
-    )> {
         let bytes: Vec<u8> = row.get(0);
         let internal_id = InternalId::try_from(bytes)?;
         let ts: i64 = row.get(1);
@@ -913,12 +905,17 @@ impl PostgresReader {
         Ok((ts, document_id, document, prev_ts))
     }
 
+    // If `include_prev_rev` is false then the returned
+    // RevisionPair.prev_rev.document will always be None (but prev_rev.ts will
+    // still be correct)
     #[try_stream(
-        ok = DocumentLogEntry,
+        ok = RevisionPair,
         error = anyhow::Error,
     )]
     async fn _load_documents(
         &self,
+        tablet_id: Option<TabletId>,
+        include_prev_rev: bool,
         range: TimestampRange,
         order: Order,
         page_size: u32,
@@ -954,7 +951,11 @@ impl PostgresReader {
 
             let (query, params) = match order {
                 Order::Asc => (
-                    sql::load_docs_by_ts_page_asc(self.multitenant),
+                    sql::load_docs_by_ts_page_asc(
+                        self.multitenant,
+                        tablet_id.is_some(),
+                        include_prev_rev,
+                    ),
                     [
                         last_ts_param.clone(),
                         last_tablet_id_param.clone(),
@@ -964,7 +965,11 @@ impl PostgresReader {
                     ],
                 ),
                 Order::Desc => (
-                    sql::load_docs_by_ts_page_desc(self.multitenant),
+                    sql::load_docs_by_ts_page_desc(
+                        self.multitenant,
+                        tablet_id.is_some(),
+                        include_prev_rev,
+                    ),
                     [
                         Param::Ts(i64::from(range.min_timestamp_inclusive())),
                         last_ts_param.clone(),
@@ -975,6 +980,9 @@ impl PostgresReader {
                 ),
             };
             let mut params = params.to_vec();
+            if let Some(tablet_id) = tablet_id {
+                params.push(Param::Bytes(tablet_id.0.to_vec()));
+            }
             if self.multitenant {
                 params.push(Param::Text(self.instance_name.to_string()));
             }
@@ -988,17 +996,33 @@ impl PostgresReader {
 
             let mut batch = vec![];
             while let Some(row) = row_stream.try_next().await? {
+                let prev_rev_value: Option<Vec<u8>> = if include_prev_rev {
+                    row.try_get(6)?
+                } else {
+                    None
+                };
                 let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
+                let prev_rev_document: Option<ResolvedDocument> = prev_rev_value
+                    .map(|v| {
+                        let json_value: JsonValue = serde_json::from_slice(&v)
+                            .context("Failed to deserialize database value")?;
+                        // N.B.: previous revisions should never be deleted, so we don't check that.
+                        let value: ConvexValue = json_value.try_into()?;
+                        ResolvedDocument::from_database(document_id.table(), value)
+                    })
+                    .transpose()?;
                 rows_loaded += 1;
                 last_ts_param = Param::Ts(i64::from(ts));
                 last_tablet_id_param = Param::TableId(document_id.table());
                 last_id_param = internal_doc_id_param(document_id);
                 num_returned += 1;
-                batch.push(DocumentLogEntry {
-                    ts,
+                batch.push(RevisionPair {
                     id: document_id,
-                    value: document,
-                    prev_ts,
+                    rev: DocumentRevision { ts, document },
+                    prev_rev: prev_ts.map(|prev_ts| DocumentRevision {
+                        ts: prev_ts,
+                        document: prev_rev_document,
+                    }),
                 });
             }
             // Return the connection to the pool as soon as possible.
@@ -1360,8 +1384,48 @@ impl PersistenceReader for PostgresReader {
         page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        self._load_documents(range, order, page_size, retention_validator)
+        self._load_documents(None, false, range, order, page_size, retention_validator)
+            .map_ok(RevisionPair::into_log_entry)
             .boxed()
+    }
+
+    fn load_documents_from_table(
+        &self,
+        tablet_id: TabletId,
+        range: TimestampRange,
+        order: Order,
+        page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentStream<'_> {
+        self._load_documents(
+            Some(tablet_id),
+            false,
+            range,
+            order,
+            page_size,
+            retention_validator,
+        )
+        .map_ok(RevisionPair::into_log_entry)
+        .boxed()
+    }
+
+    fn load_revision_pairs(
+        &self,
+        tablet_id: Option<TabletId>,
+        range: TimestampRange,
+        order: Order,
+        page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentRevisionStream<'_> {
+        self._load_documents(
+            tablet_id,
+            true, /* include_prev_rev */
+            range,
+            order,
+            page_size,
+            retention_validator,
+        )
+        .boxed()
     }
 
     async fn previous_revisions(

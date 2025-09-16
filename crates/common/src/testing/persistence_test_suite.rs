@@ -4,11 +4,13 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    f64,
     sync::Arc,
 };
 
 use futures::{
     pin_mut,
+    stream,
     Future,
     StreamExt,
     TryStreamExt,
@@ -258,7 +260,15 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
     let mut id_generator = TestIdGenerator::new();
     let table1: TableName = str::parse("table1")?;
     let doc_id1 = id_generator.user_generate(&table1);
-    let doc1 = ResolvedDocument::new(doc_id1, CreationTime::ONE, ConvexObject::empty())?;
+    let doc1 = ResolvedDocument::new(
+        doc_id1,
+        CreationTime::ONE,
+        assert_obj! {
+            "int" => 1,
+            "float" => 3f64,
+            "inf" => f64::INFINITY,
+        },
+    )?;
 
     let table2: TableName = str::parse("table2")?;
     let doc_id2 = id_generator.user_generate(&table2);
@@ -406,7 +416,15 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.user_generate(&table);
 
-    let doc = ResolvedDocument::new(doc_id, CreationTime::ONE, ConvexObject::empty())?;
+    let doc = ResolvedDocument::new(
+        doc_id,
+        CreationTime::ONE,
+        assert_obj! {
+            "int" => 1,
+            "float" => 3f64,
+            "inf" => f64::INFINITY,
+        },
+    )?;
 
     p.write(
         &[
@@ -721,6 +739,26 @@ pub async fn test_load_documents_from_table<P: Persistence>(
             )
             .try_collect()
             .await?;
+        let revision_pairs: Vec<_> = p
+            .reader()
+            .load_revision_pairs(
+                Some(tablet_id),
+                range,
+                order,
+                page_size + 1,
+                Arc::new(NoopRetentionValidator),
+            )
+            .try_collect()
+            .await?;
+        let expected_revision_pairs: Vec<_> =
+            crate::persistence_helpers::persistence_reader_stream_revision_pairs(
+                stream::iter(docs.iter().map(|d| Ok(d.clone()))),
+                &*p.reader(),
+                Arc::new(NoopRetentionValidator),
+            )
+            .try_collect()
+            .await?;
+        assert_eq!(revision_pairs, expected_revision_pairs);
         let docs: Vec<_> = docs.into_iter().collect();
         assert_eq!(docs, expected);
     }
@@ -739,6 +777,20 @@ pub async fn test_load_documents<P: Persistence>(
         .load_documents(range, order, 10, Arc::new(NoopRetentionValidator))
         .try_collect()
         .await?;
+    let revision_pairs: Vec<_> = p
+        .reader()
+        .load_revision_pairs(None, range, order, 11, Arc::new(NoopRetentionValidator))
+        .try_collect()
+        .await?;
+    let expected_revision_pairs: Vec<_> =
+        crate::persistence_helpers::persistence_reader_stream_revision_pairs(
+            stream::iter(docs.iter().map(|d| Ok(d.clone()))),
+            &*p.reader(),
+            Arc::new(NoopRetentionValidator),
+        )
+        .try_collect()
+        .await?;
+    assert_eq!(revision_pairs, expected_revision_pairs);
     let docs: Vec<_> = docs
         .into_iter()
         .filter(|entry| !table_mapping.is_system_tablet(entry.id.table()))

@@ -49,6 +49,16 @@ impl RevisionPair {
     pub fn prev_document(&self) -> Option<&ResolvedDocument> {
         self.prev_rev.as_ref().and_then(|r| r.document.as_ref())
     }
+
+    /// Throws away the prev_rev's value.
+    pub fn into_log_entry(self) -> DocumentLogEntry {
+        DocumentLogEntry {
+            ts: self.rev.ts,
+            id: self.id,
+            value: self.rev.document,
+            prev_ts: self.prev_rev.map(|rev| rev.ts),
+        }
+    }
 }
 
 type RevisionStreamEntry = anyhow::Result<DocumentLogEntry>;
