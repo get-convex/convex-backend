@@ -38,27 +38,11 @@ use crate::http::{
 #[async_trait]
 pub trait FetchClient: Send + Sync {
     async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream>;
-
-    /// Unrestricted, unproxied fetch to be used for internal purposes only.
-    /// Customer UDFs should never have access to this method. A `purpose`
-    /// parameter is required (but not used) just to make it more obvious why
-    /// we're using this method.
-    /// E.g. usage tracking can use this to talk directly over the
-    /// internal network, bypassing the regular
-    /// proxied fetch and its associated security limitations.
-    async fn internal_fetch(
-        &self,
-        request: HttpRequestStream,
-        purpose: InternalFetchPurpose,
-    ) -> anyhow::Result<HttpResponseStream>;
 }
-
-pub static INTERNAL_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
 pub struct ProxiedFetchClient {
     http_client:
         LazyLock<reqwest::Client, Box<dyn FnOnce() -> reqwest::Client + Send + Sync + 'static>>,
-    internal_http_client: reqwest::Client,
 }
 
 impl ProxiedFetchClient {
@@ -81,7 +65,6 @@ impl ProxiedFetchClient {
                 builder = builder.user_agent("Convex/1.0");
                 builder.build().expect("Failed to build reqwest client")
             })),
-            internal_http_client: INTERNAL_HTTP_CLIENT.clone(),
         }
     }
 }
@@ -113,43 +96,6 @@ impl FetchClient for ProxiedFetchClient {
             // it leaks internal implementation details in the response headers.
             anyhow::bail!("Request to {} forbidden", request.url);
         }
-        let status = raw_response.status();
-        let headers = raw_response.headers().to_owned();
-        let response = HttpResponseStream {
-            status,
-            headers,
-            url: Some(request.url),
-            body: Some(cancelable_body_stream(
-                raw_response.bytes_stream(),
-                request.signal,
-            )),
-        };
-        Ok(response)
-    }
-
-    async fn internal_fetch(
-        &self,
-        mut request: HttpRequestStream,
-        _purpose: InternalFetchPurpose,
-    ) -> anyhow::Result<HttpResponseStream> {
-        let mut request_builder = self
-            .internal_http_client
-            .request(request.method, request.url.as_str());
-        let body = Body::wrap_stream(request.body);
-        request_builder = request_builder.body(body);
-        for (name, value) in &request.headers {
-            request_builder = request_builder.header(name.as_str(), value.as_bytes());
-        }
-        let raw_request = request_builder.build()?;
-        let raw_response = select! {
-            response = self.internal_http_client.execute(raw_request) => {
-                response?
-            },
-            _ = &mut request.signal => {
-                // TODO: This should turn into a DOMException with name "AbortError"
-                anyhow::bail!(ErrorMetadata::bad_request("RequestAborted", "AbortError"));
-            },
-        };
         let status = raw_response.status();
         let headers = raw_response.headers().to_owned();
         let response = HttpResponseStream {
@@ -249,18 +195,6 @@ impl FetchClient for StaticFetchClient {
             });
         handler(request).await
     }
-
-    async fn internal_fetch(
-        &self,
-        request: HttpRequestStream,
-        _purpose: InternalFetchPurpose,
-    ) -> anyhow::Result<HttpResponseStream> {
-        self.fetch(request).await
-    }
-}
-
-pub enum InternalFetchPurpose {
-    AccessTokenAuth,
 }
 
 #[cfg(test)]
