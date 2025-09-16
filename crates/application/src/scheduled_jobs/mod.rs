@@ -523,7 +523,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             return Ok(());
         }
 
-        tracing::info!(
+        tracing::debug!(
             "Executing '{}'{}!",
             job.path.udf_path,
             job.path.component.in_component_str()
