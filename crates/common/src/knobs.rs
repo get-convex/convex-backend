@@ -1139,15 +1139,18 @@ pub static SEARCH_COMPACTOR_MAX_BACKOFF: LazyLock<Duration> =
 pub static SEARCH_COMPACTOR_INITIAL_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("SEARCH_COMPACTOR_INITIAL_BACKOFF", 60)));
 
-/// The maximum size for Funrun run function request messages. This is 8MiB for
-/// path and args, plus a buffer for the smaller fields. Note that analyze has a
-/// much higher limit because it includes user source code.
+/// The maximum size for Funrun run function request messages. The user-level
+/// limit is 16MiB for args (as counted by ConvexValue::size), but the actual
+/// wire encoding can be 3-4x that, so we set a higher limit here.
+///
+/// Note that analyze has a much higher limit because it includes user source
+/// code.
 pub static MAX_FUNRUN_RUN_FUNCTION_REQUEST_MESSAGE_SIZE: LazyLock<usize> = LazyLock::new(|| {
     env_config(
         "MAX_FUNRUN_RUN_FUNCTION_REQUEST_MESSAGE_SIZE",
-        (1 << 24) + 2000,
+        1 << 26, // 64MiB
     )
-}); // 16 MiB + buffer
+});
 
 /// The maximum size for Funrun run function response messages. 8MiB for reads +
 /// 16 MiB for writes + 16MiB for function result + 8MiB for log lines and a 8
