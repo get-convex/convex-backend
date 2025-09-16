@@ -2076,7 +2076,7 @@ export interface components {
             accessToken: string;
             /** Format: int64 */
             creationTime: number;
-            creator?: null | components["schemas"]["MemberId"];
+            creator: components["schemas"]["MemberId"];
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
