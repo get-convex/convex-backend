@@ -4,6 +4,8 @@ use anyhow::Context;
 use errors::{
     ErrorCode,
     ErrorMetadata,
+    INTERNAL_SERVER_ERROR,
+    INTERNAL_SERVER_ERROR_MSG,
 };
 use prost::Message;
 
@@ -138,6 +140,7 @@ impl ErrorMetadataStatusExt for tonic::Status {
     }
 
     fn into_anyhow(self) -> anyhow::Error {
+        let code = self.code();
         let details = match StatusDetailsProto::decode(self.details()) {
             Ok(details) => details,
             Err(err) => {
@@ -153,6 +156,11 @@ impl ErrorMetadataStatusExt for tonic::Status {
             error = error.context(error_metadata)
         } else if error.downcast_ref::<tonic::transport::Error>().is_some() {
             error = error.context(ErrorMetadata::operational_internal_server_error());
+        } else if code == tonic::Code::ResourceExhausted {
+            error = error.context(ErrorMetadata::overloaded(
+                INTERNAL_SERVER_ERROR,
+                INTERNAL_SERVER_ERROR_MSG,
+            ));
         }
         error
     }
