@@ -164,7 +164,6 @@ export function QuickFrameworksList() {
         },
         {
           icon: <HtmlLogo height={40} />,
-          invertIcon: true,
           href: "/quickstart/script-tag",
           docId: "quickstart/script-tag",
           label: "Script tag",
@@ -180,7 +179,6 @@ export function QuickLanguagesList() {
       items={[
         {
           icon: <JsLogo height={40} />,
-          invertIcon: true,
           href: "/client/javascript",
           docId: "client/javascript",
           label: "JavaScript",
