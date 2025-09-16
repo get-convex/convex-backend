@@ -58,6 +58,7 @@ use futures::{
 };
 use governor::Quota;
 use indexing::index_registry::IndexRegistry;
+use itertools::Itertools;
 use maplit::btreeset;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -312,7 +313,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             }
             // Number of documents in the table that have been indexed in this iteration
             let mut num_docs_indexed = 0u64;
-            let mut chunk = BTreeSet::new();
+            let mut chunk = Vec::new();
             while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
                 let LatestDocument {
                     ts,
@@ -328,13 +329,13 @@ impl<RT: Runtime> IndexWriter<RT> {
                     index_updates
                         .into_iter()
                         .filter(|update| index_selector.filter_index_update(update))
-                        .map(|update| PersistenceIndexEntry::from_index_update(ts, update)),
+                        .map(|update| PersistenceIndexEntry::from_index_update(ts, &update)),
                 );
             }
             if !chunk.is_empty() {
                 index_updates_written += chunk.len();
                 self.persistence
-                    .write(vec![], chunk, ConflictStrategy::Overwrite)
+                    .write(&[], &chunk, ConflictStrategy::Overwrite)
                     .await?;
                 if let Some(db) = &database {
                     let mut tx = db.begin_system().await?;
@@ -498,7 +499,8 @@ impl<RT: Runtime> IndexWriter<RT> {
                 // three entries for `ts`: its add, `prev_rev`'s delete, and `prev_ts`'s add.
                 //
                 // This does mean that we'll potentially write `prev_rev`'s add again when we
-                // process `prev_rev`'s log entry, but setting `ConflictStrategy::Overwrite`
+                // process `prev_rev`'s log entry, but setting `ConflictStrategy::Overwrite` and
+                // deduplicating using `BTreeSet` in `write_index_entries`
                 // in `Persistence::write` makes this a no-op.
                 if let Some(ref prev_rev) = revision_pair.prev_rev {
                     if let Some(ref prev_doc) = prev_rev.document {
@@ -535,7 +537,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             .filter_map(|(ts, update)| {
                 let result = {
                     if index_selector.filter_index_update(&update) {
-                        Some(PersistenceIndexEntry::from_index_update(ts, update))
+                        Some(PersistenceIndexEntry::from_index_update(ts, &update))
                     } else {
                         None
                     }
@@ -543,7 +545,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 futures::future::ready(result)
             })
             .chunks(*INDEX_BACKFILL_CHUNK_SIZE)
-            .map(|chunk| async {
+            .map(|chunk| async move {
                 let persistence = self.persistence.clone();
                 let rate_limiter = self.rate_limiter.clone();
                 let size = chunk.len();
@@ -560,8 +562,15 @@ impl<RT: Runtime> IndexWriter<RT> {
                 }
                 persistence
                     .write(
-                        vec![],
-                        chunk.into_iter().collect(),
+                        &[],
+                        // We collect into a BTreeSet here because there might be duplicates in the
+                        // index entries from the backfill backwards algorithm that need to be
+                        // deduped before batch inserting into Persistence.
+                        &chunk
+                            .into_iter()
+                            .collect::<BTreeSet<_>>()
+                            .into_iter()
+                            .collect_vec(),
                         ConflictStrategy::Overwrite,
                     )
                     .await?;

@@ -6817,6 +6817,7 @@ dependencies = [
  "cmd_util",
  "common",
  "const_format",
+ "errors",
  "fastrace",
  "futures",
  "futures-async-stream",

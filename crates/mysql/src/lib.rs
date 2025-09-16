@@ -18,10 +18,8 @@ use std::{
         HashMap,
     },
     fmt::Write,
-    future::Future,
     iter,
     ops::Bound,
-    pin::Pin,
     sync::{
         atomic::{
             AtomicBool,
@@ -107,7 +105,6 @@ use futures::{
         StreamExt,
         TryStreamExt,
     },
-    FutureExt,
 };
 use futures_async_stream::try_stream;
 use itertools::{
@@ -258,15 +255,15 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
     }
 
     #[fastrace::trace]
-    async fn write(
+    async fn write<'a>(
         &self,
-        documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<PersistenceIndexEntry>,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
         let mut write_size = 0;
-        for update in &documents {
+        for update in documents {
             match &update.value {
                 Some(doc) => {
                     anyhow::ensure!(update.id == doc.id_with_table_id());
@@ -288,114 +285,98 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         self.newly_created.store(false, SeqCst);
         let cluster_name = self.read_pool.cluster_name().to_owned();
         self.lease
-            .transact(move |tx| {
-                async move {
-                    {
-                        // First, process all of the full document chunks.
-                        let mut document_chunks = smart_chunks(&documents);
-                        for chunk in &mut document_chunks {
-                            let chunk_bytes: usize =
-                                chunk.iter().map(|item| item.approx_size()).sum();
-                            let insert_chunk_query = match conflict_strategy {
-                                ConflictStrategy::Error => insert_document_chunk(chunk.len()),
-                                ConflictStrategy::Overwrite => {
-                                    insert_overwrite_document_chunk(chunk.len())
-                                },
-                            };
-                            let mut insert_document_chunk = vec![];
-                            for update in chunk {
-                                insert_document_chunk = document_params(
-                                    insert_document_chunk,
-                                    update.ts,
-                                    update.id,
-                                    update.value.clone(),
-                                    update.prev_ts,
-                                )?;
-                            }
-                            let future = async {
-                                let timer =
-                                    metrics::insert_document_chunk_timer(cluster_name.as_str());
-                                tx.exec_drop(insert_chunk_query, insert_document_chunk)
-                                    .await?;
-                                timer.finish();
-                                LocalSpan::add_event(
-                                    Event::new("document_smart_chunks").with_properties(|| {
-                                        [
-                                            ("chunk_length", chunk.len().to_string()),
-                                            ("chunk_bytes", chunk_bytes.to_string()),
-                                        ]
-                                    }),
-                                );
-                                Ok::<_, anyhow::Error>(())
-                            };
-                            future
-                                .in_span(Span::enter_with_local_parent(format!(
-                                    "{}::document_chunk_write",
-                                    func_path!()
-                                )))
-                                .await?;
-                        }
-
-                        let index_vec = indexes.into_iter().collect_vec();
-                        let mut index_chunks = smart_chunks(&index_vec);
-                        for chunk in &mut index_chunks {
-                            let chunk_bytes: usize =
-                                chunk.iter().map(|item| item.approx_size()).sum();
-                            let insert_chunk_query = insert_index_chunk(chunk.len());
-                            let insert_overwrite_chunk_query =
-                                insert_overwrite_index_chunk(chunk.len());
-                            let insert_index_chunk = match conflict_strategy {
-                                ConflictStrategy::Error => &insert_chunk_query,
-                                ConflictStrategy::Overwrite => &insert_overwrite_chunk_query,
-                            };
-                            let mut insert_index_chunk_params = vec![];
-                            for update in chunk {
-                                index_params(&mut insert_index_chunk_params, update);
-                            }
-                            let future = async {
-                                let timer =
-                                    metrics::insert_index_chunk_timer(cluster_name.as_str());
-                                tx.exec_drop(insert_index_chunk, insert_index_chunk_params)
-                                    .await?;
-                                timer.finish();
-                                LocalSpan::add_event(
-                                    Event::new("index_smart_chunks").with_properties(|| {
-                                        [
-                                            ("chunk_length", chunk.len().to_string()),
-                                            ("chunk_bytes", chunk_bytes.to_string()),
-                                        ]
-                                    }),
-                                );
-                                Ok::<_, anyhow::Error>(())
-                            };
-                            future
-                                .in_span(Span::enter_with_local_parent(format!(
-                                    "{}::index_chunk_write",
-                                    func_path!()
-                                )))
-                                .await?;
-                        }
+            .transact(async move |tx| {
+                // First, process all of the full document chunks.
+                let mut document_chunks = smart_chunks(documents);
+                for chunk in &mut document_chunks {
+                    let chunk_bytes: usize = chunk.iter().map(|item| item.approx_size()).sum();
+                    let insert_chunk_query = match conflict_strategy {
+                        ConflictStrategy::Error => insert_document_chunk(chunk.len()),
+                        ConflictStrategy::Overwrite => insert_overwrite_document_chunk(chunk.len()),
+                    };
+                    let mut insert_document_chunk = vec![];
+                    for update in chunk {
+                        insert_document_chunk = document_params(
+                            insert_document_chunk,
+                            update.ts,
+                            update.id,
+                            update.value.clone(),
+                            update.prev_ts,
+                        )?;
                     }
-                    Ok(())
+                    let future = async {
+                        let timer = metrics::insert_document_chunk_timer(cluster_name.as_str());
+                        tx.exec_drop(insert_chunk_query, insert_document_chunk)
+                            .await?;
+                        timer.finish();
+                        LocalSpan::add_event(Event::new("document_smart_chunks").with_properties(
+                            || {
+                                [
+                                    ("chunk_length", chunk.len().to_string()),
+                                    ("chunk_bytes", chunk_bytes.to_string()),
+                                ]
+                            },
+                        ));
+                        Ok::<_, anyhow::Error>(())
+                    };
+                    future
+                        .in_span(Span::enter_with_local_parent(format!(
+                            "{}::document_chunk_write",
+                            func_path!()
+                        )))
+                        .await?;
                 }
-                .boxed()
+
+                let mut index_chunks = smart_chunks(indexes);
+                for chunk in &mut index_chunks {
+                    let chunk_bytes: usize = chunk.iter().map(|item| item.approx_size()).sum();
+                    let insert_chunk_query = insert_index_chunk(chunk.len());
+                    let insert_overwrite_chunk_query = insert_overwrite_index_chunk(chunk.len());
+                    let insert_index_chunk = match conflict_strategy {
+                        ConflictStrategy::Error => &insert_chunk_query,
+                        ConflictStrategy::Overwrite => &insert_overwrite_chunk_query,
+                    };
+                    let mut insert_index_chunk_params = vec![];
+                    for update in chunk {
+                        index_params(&mut insert_index_chunk_params, update);
+                    }
+                    let future = async {
+                        let timer = metrics::insert_index_chunk_timer(cluster_name.as_str());
+                        tx.exec_drop(insert_index_chunk, insert_index_chunk_params)
+                            .await?;
+                        timer.finish();
+                        LocalSpan::add_event(Event::new("index_smart_chunks").with_properties(
+                            || {
+                                [
+                                    ("chunk_length", chunk.len().to_string()),
+                                    ("chunk_bytes", chunk_bytes.to_string()),
+                                ]
+                            },
+                        ));
+                        Ok::<_, anyhow::Error>(())
+                    };
+                    future
+                        .in_span(Span::enter_with_local_parent(format!(
+                            "{}::index_chunk_write",
+                            func_path!()
+                        )))
+                        .await?;
+                }
+                Ok(())
             })
             .await
     }
 
     async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let statement = if read_only {
-                        SET_READ_ONLY
-                    } else {
-                        UNSET_READ_ONLY
-                    };
-                    tx.exec_drop(statement, vec![]).await?;
-                    Ok(())
-                }
-                .boxed()
+            .transact(async move |tx| {
+                let statement = if read_only {
+                    SET_READ_ONLY
+                } else {
+                    UNSET_READ_ONLY
+                };
+                tx.exec_drop(statement, vec![]).await?;
+                Ok(())
             })
             .await
     }
@@ -407,14 +388,11 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
     ) -> anyhow::Result<()> {
         let timer = write_persistence_global_timer(self.read_pool.cluster_name());
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let stmt = WRITE_PERSISTENCE_GLOBAL;
-                    let params = vec![String::from(key).into(), value.into()];
-                    tx.exec_drop(stmt, params).await?;
-                    Ok(())
-                }
-                .boxed()
+            .transact(async move |tx| {
+                let stmt = WRITE_PERSISTENCE_GLOBAL;
+                let params = vec![String::from(key).into(), value.into()];
+                tx.exec_drop(stmt, params).await?;
+                Ok(())
             })
             .await?;
         timer.finish();
@@ -444,21 +422,18 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         expired_entries: Vec<IndexEntry>,
     ) -> anyhow::Result<usize> {
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let mut deleted_count = 0;
-                    for chunk in smart_chunks(&expired_entries) {
-                        let mut params = vec![];
-                        for index_entry in chunk.iter() {
-                            MySqlReader::<RT>::_index_delete_params(&mut params, index_entry);
-                        }
-                        deleted_count += tx
-                            .exec_iter(delete_index_chunk(chunk.len()), params)
-                            .await?;
+            .transact(async move |tx| {
+                let mut deleted_count = 0;
+                for chunk in smart_chunks(&expired_entries) {
+                    let mut params = vec![];
+                    for index_entry in chunk.iter() {
+                        MySqlReader::<RT>::_index_delete_params(&mut params, index_entry);
                     }
-                    Ok(deleted_count as usize)
+                    deleted_count += tx
+                        .exec_iter(delete_index_chunk(chunk.len()), params)
+                        .await?;
                 }
-                .boxed()
+                Ok(deleted_count as usize)
             })
             .await
     }
@@ -468,21 +443,18 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         documents: Vec<(Timestamp, InternalDocumentId)>,
     ) -> anyhow::Result<usize> {
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let mut deleted_count = 0;
-                    for chunk in smart_chunks(&documents) {
-                        let mut params = vec![];
-                        for doc in chunk.iter() {
-                            MySqlReader::<RT>::_document_delete_params(&mut params, doc);
-                        }
-                        deleted_count += tx
-                            .exec_iter(delete_document_chunk(chunk.len()), params)
-                            .await?;
+            .transact(async move |tx| {
+                let mut deleted_count = 0;
+                for chunk in smart_chunks(&documents) {
+                    let mut params = vec![];
+                    for doc in chunk.iter() {
+                        MySqlReader::<RT>::_document_delete_params(&mut params, doc);
                     }
-                    Ok(deleted_count as usize)
+                    deleted_count += tx
+                        .exec_iter(delete_document_chunk(chunk.len()), params)
+                        .await?;
                 }
-                .boxed()
+                Ok(deleted_count as usize)
             })
             .await
     }
@@ -1216,9 +1188,7 @@ impl<RT: Runtime> Lease<RT> {
     #[fastrace::trace]
     async fn transact<F, T>(&self, f: F) -> anyhow::Result<T>
     where
-        F: for<'b> FnOnce(
-            &'b mut MySqlTransaction<'_>,
-        ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'b>>,
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
         let mut client = self.pool.acquire("transact", &self.db_name).await?;
         let mut tx = client.transaction(&self.db_name).await?;

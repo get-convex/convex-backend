@@ -748,6 +748,14 @@ pub fn lease_lost_error() -> anyhow::Error {
     anyhow::anyhow!(LeaseLostError).context(ErrorMetadata::operational_internal_server_error())
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error("Database Timeout ({0})")]
+pub struct DatabaseTimeoutError(&'static str);
+pub fn database_timeout_error(db_type: &'static str) -> anyhow::Error {
+    anyhow::anyhow!(DatabaseTimeoutError(db_type))
+        .context(ErrorMetadata::operational_internal_server_error())
+}
+
 pub const AUTH_ERROR: &str = "AuthError";
 pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";
 

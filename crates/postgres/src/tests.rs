@@ -1,6 +1,5 @@
 use std::{
     cmp,
-    collections::BTreeSet,
     env,
     sync::Arc,
     time::Instant,
@@ -234,7 +233,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
 
     let start = Instant::now();
     persistence
-        .write(batch, BTreeSet::new(), ConflictStrategy::Error)
+        .write(&batch, &[], ConflictStrategy::Error)
         .await?;
     println!(
         "Wrote {} rows (payload size: {} bytes) in {:?}",
@@ -267,15 +266,13 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
 
     // Holding lease -- can write.
     p1.write(
-        vec![
-            (DocumentLogEntry {
-                ts: Timestamp::must(1),
-                id: doc.id_with_table_id(),
-                value: Some(doc.clone()),
-                prev_ts: None,
-            }),
-        ],
-        BTreeSet::new(),
+        &[(DocumentLogEntry {
+            ts: Timestamp::must(1),
+            id: doc.id_with_table_id(),
+            value: Some(doc.clone()),
+            prev_ts: None,
+        })],
+        &[],
         ConflictStrategy::Error,
     )
     .await?;
@@ -293,15 +290,13 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
 
     // New Persistence can write.
     p2.write(
-        vec![
-            (DocumentLogEntry {
-                ts: Timestamp::must(2),
-                id: doc.id_with_table_id(),
-                value: None,
-                prev_ts: Some(Timestamp::must(1)),
-            }),
-        ],
-        BTreeSet::new(),
+        &[(DocumentLogEntry {
+            ts: Timestamp::must(2),
+            id: doc.id_with_table_id(),
+            value: None,
+            prev_ts: Some(Timestamp::must(1)),
+        })],
+        &[],
         ConflictStrategy::Error,
     )
     .await?;
@@ -315,15 +310,13 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     // Old Persistence cannot write.
     let result = p1
         .write(
-            vec![
-                (DocumentLogEntry {
-                    ts: Timestamp::must(3),
-                    id: doc.id_with_table_id(),
-                    value: Some(doc.clone()),
-                    prev_ts: Some(Timestamp::must(1)),
-                }),
-            ],
-            BTreeSet::new(),
+            &[(DocumentLogEntry {
+                ts: Timestamp::must(3),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: Some(Timestamp::must(1)),
+            })],
+            &[],
             ConflictStrategy::Error,
         )
         .await;

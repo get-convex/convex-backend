@@ -20,13 +20,11 @@ use std::{
     env,
     error::Error,
     fs,
-    future::Future,
     ops::{
         Bound,
         Deref,
     },
     path::Path,
-    pin::Pin,
     sync::{
         atomic::{
             AtomicBool,
@@ -95,7 +93,7 @@ use common::{
 };
 use fastrace::{
     func_path,
-    future::FutureExt as _,
+    future::FutureExt,
     local::LocalSpan,
     Span,
 };
@@ -111,7 +109,6 @@ use futures::{
         TryStreamExt,
     },
     try_join,
-    FutureExt as _,
 };
 use futures_async_stream::try_stream;
 use itertools::Itertools;
@@ -448,15 +445,15 @@ impl Persistence for PostgresPersistence {
     }
 
     #[fastrace::trace]
-    async fn write(
+    async fn write<'a>(
         &self,
-        documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<PersistenceIndexEntry>,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
         let mut write_size = 0;
-        for update in &documents {
+        for update in documents {
             match &update.value {
                 Some(doc) => {
                     anyhow::ensure!(update.id == doc.id_with_table_id());
@@ -479,77 +476,74 @@ impl Persistence for PostgresPersistence {
         let multitenant = self.multitenant;
         let instance_name = self.instance_name.clone();
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let (insert_documents, insert_indexes) = try_join!(
-                        match conflict_strategy {
-                            ConflictStrategy::Error =>
-                                tx.prepare_cached(sql::insert_document(multitenant)),
-                            ConflictStrategy::Overwrite =>
-                                tx.prepare_cached(sql::insert_overwrite_document(multitenant)),
-                        },
-                        match conflict_strategy {
-                            ConflictStrategy::Error =>
-                                tx.prepare_cached(sql::insert_index(multitenant)),
-                            ConflictStrategy::Overwrite =>
-                                tx.prepare_cached(sql::insert_overwrite_index(multitenant)),
-                        },
-                    )?;
+            .transact(async move |tx| {
+                let (insert_documents, insert_indexes) = try_join!(
+                    match conflict_strategy {
+                        ConflictStrategy::Error =>
+                            tx.prepare_cached(sql::insert_document(multitenant)),
+                        ConflictStrategy::Overwrite =>
+                            tx.prepare_cached(sql::insert_overwrite_document(multitenant)),
+                    },
+                    match conflict_strategy {
+                        ConflictStrategy::Error =>
+                            tx.prepare_cached(sql::insert_index(multitenant)),
+                        ConflictStrategy::Overwrite =>
+                            tx.prepare_cached(sql::insert_overwrite_index(multitenant)),
+                    },
+                )?;
 
-                    let insert_docs = async {
-                        if documents.is_empty() {
-                            return Ok(0);
+                let insert_docs = async {
+                    if documents.is_empty() {
+                        return Ok(0);
+                    }
+                    let mut doc_params: [Vec<Param>; NUM_DOCUMENT_PARAMS] =
+                        array::from_fn(|_| Vec::with_capacity(documents.len()));
+                    for update in documents {
+                        for (vec, param) in doc_params.iter_mut().zip(document_params(
+                            update.ts,
+                            update.id,
+                            &update.value,
+                            update.prev_ts,
+                        )?) {
+                            vec.push(param);
                         }
-                        let mut doc_params: [Vec<Param>; NUM_DOCUMENT_PARAMS] =
-                            array::from_fn(|_| Vec::with_capacity(documents.len()));
-                        for update in &documents {
-                            for (vec, param) in doc_params.iter_mut().zip(document_params(
-                                update.ts,
-                                update.id,
-                                &update.value,
-                                update.prev_ts,
-                            )?) {
-                                vec.push(param);
-                            }
-                        }
-                        let mut doc_params = doc_params
-                            .iter()
-                            .map(|v| v as &(dyn ToSql + Sync))
-                            .collect::<Vec<_>>();
-                        if multitenant {
-                            doc_params.push(&instance_name.raw as &(dyn ToSql + Sync));
-                        }
-                        tx.execute_raw(&insert_documents, doc_params).await
-                    };
+                    }
+                    let mut doc_params = doc_params
+                        .iter()
+                        .map(|v| v as &(dyn ToSql + Sync))
+                        .collect::<Vec<_>>();
+                    if multitenant {
+                        doc_params.push(&instance_name.raw as &(dyn ToSql + Sync));
+                    }
+                    tx.execute_raw(&insert_documents, doc_params).await
+                };
 
-                    let insert_idxs = async {
-                        if indexes.is_empty() {
-                            return Ok(0);
+                let insert_idxs = async {
+                    if indexes.is_empty() {
+                        return Ok(0);
+                    }
+                    let mut idx_params: [Vec<Param>; NUM_INDEX_PARAMS] =
+                        array::from_fn(|_| Vec::with_capacity(indexes.len()));
+                    for update in indexes {
+                        for (vec, param) in idx_params.iter_mut().zip(index_params(update)) {
+                            vec.push(param);
                         }
-                        let mut idx_params: [Vec<Param>; NUM_INDEX_PARAMS] =
-                            array::from_fn(|_| Vec::with_capacity(indexes.len()));
-                        for update in &indexes {
-                            for (vec, param) in idx_params.iter_mut().zip(index_params(update)) {
-                                vec.push(param);
-                            }
-                        }
-                        let mut idx_params = idx_params
-                            .iter()
-                            .map(|v| v as &(dyn ToSql + Sync))
-                            .collect::<Vec<_>>();
-                        if multitenant {
-                            idx_params.push(&instance_name.raw as &(dyn ToSql + Sync));
-                        }
-                        tx.execute_raw(&insert_indexes, idx_params).await
-                    };
+                    }
+                    let mut idx_params = idx_params
+                        .iter()
+                        .map(|v| v as &(dyn ToSql + Sync))
+                        .collect::<Vec<_>>();
+                    if multitenant {
+                        idx_params.push(&instance_name.raw as &(dyn ToSql + Sync));
+                    }
+                    tx.execute_raw(&insert_indexes, idx_params).await
+                };
 
-                    let timer = metrics::insert_timer();
-                    try_join!(insert_docs, insert_idxs)?;
-                    timer.finish();
+                let timer = metrics::insert_timer();
+                try_join!(insert_docs, insert_idxs)?;
+                timer.finish();
 
-                    Ok(())
-                }
-                .boxed()
+                Ok(())
             })
             .await
     }
@@ -558,21 +552,18 @@ impl Persistence for PostgresPersistence {
         let multitenant = self.multitenant;
         let instance_name = self.instance_name.clone();
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let statement = if read_only {
-                        sql::set_read_only(multitenant)
-                    } else {
-                        sql::unset_read_only(multitenant)
-                    };
-                    let mut params = vec![];
-                    if multitenant {
-                        params.push(&instance_name.raw as &(dyn ToSql + Sync));
-                    }
-                    tx.execute_str(statement, &params).await?;
-                    Ok(())
+            .transact(async move |tx| {
+                let statement = if read_only {
+                    sql::set_read_only(multitenant)
+                } else {
+                    sql::unset_read_only(multitenant)
+                };
+                let mut params = vec![];
+                if multitenant {
+                    params.push(&instance_name.raw as &(dyn ToSql + Sync));
                 }
-                .boxed()
+                tx.execute_str(statement, &params).await?;
+                Ok(())
             })
             .await
     }
@@ -585,23 +576,20 @@ impl Persistence for PostgresPersistence {
         let multitenant = self.multitenant;
         let instance_name = self.instance_name.clone();
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let stmt = tx
-                        .prepare_cached(sql::write_persistence_global(multitenant))
-                        .await?;
-                    let mut params = [
-                        Param::PersistenceGlobalKey(key),
-                        Param::JsonValue(value.to_string()),
-                    ]
-                    .to_vec();
-                    if multitenant {
-                        params.push(Param::Text(instance_name.to_string()));
-                    }
-                    tx.execute_raw(&stmt, params).await?;
-                    Ok(())
+            .transact(async move |tx| {
+                let stmt = tx
+                    .prepare_cached(sql::write_persistence_global(multitenant))
+                    .await?;
+                let mut params = [
+                    Param::PersistenceGlobalKey(key),
+                    Param::JsonValue(value.to_string()),
+                ]
+                .to_vec();
+                if multitenant {
+                    params.push(Param::Text(instance_name.to_string()));
                 }
-                .boxed()
+                tx.execute_raw(&stmt, params).await?;
+                Ok(())
             })
             .await?;
         Ok(())
@@ -643,39 +631,33 @@ impl Persistence for PostgresPersistence {
         let multitenant = self.multitenant;
         let instance_name = self.instance_name.clone();
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let mut deleted_count = 0;
-                    let mut expired_chunks = expired_entries.chunks_exact(CHUNK_SIZE);
-                    for chunk in &mut expired_chunks {
-                        let delete_chunk = tx
-                            .prepare_cached(sql::delete_index_chunk(multitenant))
-                            .await?;
-                        let mut params = chunk
-                            .iter()
-                            .map(|index_entry| {
-                                PostgresReader::_index_cursor_params(Some(index_entry))
-                            })
-                            .flatten_ok()
-                            .collect::<anyhow::Result<Vec<_>>>()?;
-                        if multitenant {
-                            params.push(Param::Text(instance_name.to_string()));
-                        }
-                        deleted_count += tx.execute_raw(&delete_chunk, params).await?;
+            .transact(async move |tx| {
+                let mut deleted_count = 0;
+                let mut expired_chunks = expired_entries.chunks_exact(CHUNK_SIZE);
+                for chunk in &mut expired_chunks {
+                    let delete_chunk = tx
+                        .prepare_cached(sql::delete_index_chunk(multitenant))
+                        .await?;
+                    let mut params = chunk
+                        .iter()
+                        .map(|index_entry| PostgresReader::_index_cursor_params(Some(index_entry)))
+                        .flatten_ok()
+                        .collect::<anyhow::Result<Vec<_>>>()?;
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
                     }
-                    for index_entry in expired_chunks.remainder() {
-                        let delete_index =
-                            tx.prepare_cached(sql::delete_index(multitenant)).await?;
-                        let mut params =
-                            PostgresReader::_index_cursor_params(Some(index_entry))?.to_vec();
-                        if multitenant {
-                            params.push(Param::Text(instance_name.to_string()));
-                        }
-                        deleted_count += tx.execute_raw(&delete_index, params).await?;
-                    }
-                    Ok(deleted_count as usize)
+                    deleted_count += tx.execute_raw(&delete_chunk, params).await?;
                 }
-                .boxed()
+                for index_entry in expired_chunks.remainder() {
+                    let delete_index = tx.prepare_cached(sql::delete_index(multitenant)).await?;
+                    let mut params =
+                        PostgresReader::_index_cursor_params(Some(index_entry))?.to_vec();
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
+                    }
+                    deleted_count += tx.execute_raw(&delete_index, params).await?;
+                }
+                Ok(deleted_count as usize)
             })
             .await
     }
@@ -687,37 +669,32 @@ impl Persistence for PostgresPersistence {
         let multitenant = self.multitenant;
         let instance_name = self.instance_name.clone();
         self.lease
-            .transact(move |tx| {
-                async move {
-                    let mut deleted_count = 0;
-                    let mut expired_chunks = documents.chunks_exact(CHUNK_SIZE);
-                    for chunk in &mut expired_chunks {
-                        let delete_chunk = tx
-                            .prepare_cached(sql::delete_document_chunk(multitenant))
-                            .await?;
-                        let mut params = chunk
-                            .iter()
-                            .map(PostgresReader::_document_cursor_params)
-                            .flatten_ok()
-                            .collect::<anyhow::Result<Vec<_>>>()?;
-                        if multitenant {
-                            params.push(Param::Text(instance_name.to_string()));
-                        }
-                        deleted_count += tx.execute_raw(&delete_chunk, params).await?;
+            .transact(async move |tx| {
+                let mut deleted_count = 0;
+                let mut expired_chunks = documents.chunks_exact(CHUNK_SIZE);
+                for chunk in &mut expired_chunks {
+                    let delete_chunk = tx
+                        .prepare_cached(sql::delete_document_chunk(multitenant))
+                        .await?;
+                    let mut params = chunk
+                        .iter()
+                        .map(PostgresReader::_document_cursor_params)
+                        .flatten_ok()
+                        .collect::<anyhow::Result<Vec<_>>>()?;
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
                     }
-                    for document in expired_chunks.remainder() {
-                        let delete_doc =
-                            tx.prepare_cached(sql::delete_document(multitenant)).await?;
-                        let mut params =
-                            PostgresReader::_document_cursor_params(document)?.to_vec();
-                        if multitenant {
-                            params.push(Param::Text(instance_name.to_string()));
-                        }
-                        deleted_count += tx.execute_raw(&delete_doc, params).await?;
-                    }
-                    Ok(deleted_count as usize)
+                    deleted_count += tx.execute_raw(&delete_chunk, params).await?;
                 }
-                .boxed()
+                for document in expired_chunks.remainder() {
+                    let delete_doc = tx.prepare_cached(sql::delete_document(multitenant)).await?;
+                    let mut params = PostgresReader::_document_cursor_params(document)?.to_vec();
+                    if multitenant {
+                        params.push(Param::Text(instance_name.to_string()));
+                    }
+                    deleted_count += tx.execute_raw(&delete_doc, params).await?;
+                }
+                Ok(deleted_count as usize)
             })
             .await
     }
@@ -793,7 +770,7 @@ impl Persistence for PostgresPersistence {
 
     async fn import_indexes_batch(
         &self,
-        mut indexes: BoxStream<'_, BTreeSet<PersistenceIndexEntry>>,
+        mut indexes: BoxStream<'_, Vec<PersistenceIndexEntry>>,
     ) -> anyhow::Result<()> {
         let conn = self
             .lease
@@ -1732,9 +1709,7 @@ impl Lease {
     /// held.
     async fn transact<F, T>(&self, f: F) -> anyhow::Result<T>
     where
-        F: for<'b> FnOnce(
-            &'b PostgresTransaction,
-        ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'b>>,
+        F: for<'a> AsyncFnOnce(&'a PostgresTransaction) -> anyhow::Result<T>,
     {
         let mut client = self
             .pool

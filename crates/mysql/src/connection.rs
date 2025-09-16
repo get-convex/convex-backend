@@ -5,6 +5,7 @@ use std::{
 
 use ::metrics::StaticMetricLabel;
 use common::{
+    errors::database_timeout_error,
     fastrace_helpers::FutureExt as _,
     knobs::{
         MYSQL_INACTIVE_CONNECTION_LIFETIME,
@@ -73,12 +74,12 @@ use crate::metrics::{
 };
 
 // Guard against connections hanging during bootstrapping -- which means
-// backends can't start -- and during commit -- which means all future commits
+// instances can't start -- and during commit -- which means all future commits
 // fail with OCC errors.
 //
 // To avoid these problems, wrap anything that talks to mysql in with_timeout
 // which will panic, cleaning up all broken connections,
-// if the future takes more than 2 minutes to complete.
+// if the future takes more than `MYSQL_TIMEOUT` to complete.
 pub(crate) async fn with_timeout<R, E, Fut: Future<Output = Result<R, E>>>(
     f: Fut,
 ) -> anyhow::Result<R>
@@ -106,10 +107,7 @@ where
             }
         },
         _ = sleep(Duration::from_secs(*MYSQL_TIMEOUT)).fuse() => Err(
-            anyhow::anyhow!("MySQL timeout").context(
-                ErrorMetadata::operational_internal_server_error()
-            )
-        ),
+            anyhow::anyhow!(database_timeout_error("MySQL"))),
     }
 }
 

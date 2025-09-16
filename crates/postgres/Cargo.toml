@@ -9,7 +9,7 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 ignored = ["proptest"]
 
 [features]
-testing = ["common/testing", "metrics/testing"]
+testing = ["common/testing", "errors/testing", "metrics/testing"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -18,6 +18,7 @@ bytes = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
 const_format = { workspace = true }
+errors = { workspace = true }
 fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
@@ -43,6 +44,7 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 common = { workspace = true, features = ["testing"] }
+errors = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 tokio = { workspace = true }

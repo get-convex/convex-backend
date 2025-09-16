@@ -68,7 +68,7 @@ pub struct PersistenceIndexEntry {
 }
 
 impl PersistenceIndexEntry {
-    pub fn from_index_update(ts: Timestamp, update: DatabaseIndexUpdate) -> Self {
+    pub fn from_index_update(ts: Timestamp, update: &DatabaseIndexUpdate) -> Self {
         Self {
             ts,
             index_id: update.index_id,
@@ -207,10 +207,10 @@ pub trait Persistence: Sync + Send + 'static {
     fn reader(&self) -> Arc<dyn PersistenceReader>;
 
     /// Writes documents and the respective derived indexes.
-    async fn write(
+    async fn write<'a>(
         &self,
-        documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<PersistenceIndexEntry>,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
@@ -249,18 +249,17 @@ pub trait Persistence: Sync + Send + 'static {
         mut documents: BoxStream<'_, Vec<DocumentLogEntry>>,
     ) -> anyhow::Result<()> {
         while let Some(chunk) = documents.next().await {
-            self.write(chunk, BTreeSet::new(), ConflictStrategy::Error)
-                .await?;
+            self.write(&chunk, &[], ConflictStrategy::Error).await?;
         }
         Ok(())
     }
 
     async fn import_indexes_batch(
         &self,
-        mut indexes: BoxStream<'_, BTreeSet<PersistenceIndexEntry>>,
+        mut indexes: BoxStream<'_, Vec<PersistenceIndexEntry>>,
     ) -> anyhow::Result<()> {
         while let Some(chunk) = indexes.next().await {
-            self.write(vec![], chunk, ConflictStrategy::Error).await?;
+            self.write(&[], &chunk, ConflictStrategy::Error).await?;
         }
         Ok(())
     }

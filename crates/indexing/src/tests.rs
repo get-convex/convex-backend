@@ -45,6 +45,7 @@ use common::{
         Timestamp,
     },
 };
+use itertools::Itertools;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use value::{
@@ -594,18 +595,16 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
         Some(doc1.clone()),
     );
     ps.write(
-        vec![
-            (DocumentLogEntry {
-                ts: Timestamp::must(2),
-                id: doc1.id_with_table_id(),
-                value: Some(doc1),
-                prev_ts: None,
-            }),
-        ],
-        index_updates
+        &[(DocumentLogEntry {
+            ts: Timestamp::must(2),
+            id: doc1.id_with_table_id(),
+            value: Some(doc1),
+            prev_ts: None,
+        })],
+        &index_updates
             .into_iter()
-            .map(|u| PersistenceIndexEntry::from_index_update(Timestamp::must(2), u))
-            .collect(),
+            .map(|u| PersistenceIndexEntry::from_index_update(Timestamp::must(2), &u))
+            .collect_vec(),
         ConflictStrategy::Error,
     )
     .await?;

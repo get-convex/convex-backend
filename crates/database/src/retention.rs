@@ -1724,7 +1724,6 @@ fn snapshot_invalid_error(
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::BTreeSet,
         env,
         sync::Arc,
     };
@@ -1771,10 +1770,7 @@ mod tests {
         stream,
         TryStreamExt,
     };
-    use maplit::{
-        btreemap,
-        btreeset,
-    };
+    use maplit::btreemap;
 
     use super::LeaderRetentionManager;
     use crate::retention::{
@@ -1846,7 +1842,7 @@ mod tests {
         let id4 = id_generator.user_generate(&table);
         let id5 = id_generator.user_generate(&table);
 
-        let documents = vec![
+        let documents = [
             doc(id1, 1, Some(5), None)?,    // expired because overwritten.
             doc(id2, 2, Some(5), None)?,    // expired because overwritten.
             doc(id1, 3, Some(6), Some(1))?, // latest.
@@ -1860,7 +1856,7 @@ mod tests {
             doc(id5, 11, Some(5), Some(10))?,
         ];
         // indexes derived from documents.
-        let indexes = btreeset![
+        let indexes = [
             by_id(id1, 1, false)?,     // expired because overwritten.
             by_val(id1, 1, 5, false)?, // expired because overwritten.
             by_id(id2, 2, false)?,     // expired because overwritten.
@@ -1887,7 +1883,8 @@ mod tests {
             by_val(id5, 11, 5, false)?,
         ];
 
-        p.write(documents, indexes, ConflictStrategy::Error).await?;
+        p.write(&documents, &indexes, ConflictStrategy::Error)
+            .await?;
         id_generator.write_tables(p.clone()).await?;
 
         let min_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(8));
@@ -1957,7 +1954,7 @@ mod tests {
         let id6 = id_generator.user_generate(&table);
         let id7 = id_generator.user_generate(&table);
 
-        let documents = vec![
+        let documents = [
             doc(id1, 1, Some(1), None)?, // no longer visible from > min_document_snapshot_ts
             doc(id2, 1, Some(2), None)?, // no longer visible from > min_document_snapshot_ts
             doc(id3, 1, Some(3), None)?, // no longer visible from > min_document_snapshot_ts
@@ -1971,8 +1968,7 @@ mod tests {
             doc(id6, 6, Some(5), None)?,
         ];
 
-        p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
-            .await?;
+        p.write(&documents, &[], ConflictStrategy::Error).await?;
 
         let min_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(4));
 
@@ -2031,7 +2027,7 @@ mod tests {
 
         let id1 = id_generator.user_generate(&table);
 
-        let documents = vec![
+        let documents = [
             doc(id1, 1, Some(1), None)?,
             doc(id1, 2, Some(2), Some(1))?,
             doc(id1, 3, Some(3), Some(2))?,
@@ -2047,8 +2043,7 @@ mod tests {
             doc(id1, 13, Some(13), Some(12))?,
         ];
 
-        p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
-            .await?;
+        p.write(&documents, &[], ConflictStrategy::Error).await?;
 
         let min_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(11));
 

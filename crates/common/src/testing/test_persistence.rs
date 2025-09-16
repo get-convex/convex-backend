@@ -93,10 +93,10 @@ impl Persistence for TestPersistence {
         Arc::new(self.clone())
     }
 
-    async fn write(
+    async fn write<'a>(
         &self,
-        documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<PersistenceIndexEntry>,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         let mut inner = self.inner.lock();
@@ -104,18 +104,19 @@ impl Persistence for TestPersistence {
             anyhow::ensure!(
                 conflict_strategy == ConflictStrategy::Overwrite
                     || !inner.log.contains_key(&(update.ts, update.id)),
-                "Unique constraint not satisifed. Failed to write document at ts {} with id {}: \
+                "Unique constraint not satisfied. Failed to write document at ts {} with id {}: \
                  (document, ts) pair already exists",
                 update.ts,
                 update.id
             );
-            inner
-                .log
-                .insert((update.ts, update.id), (update.value, update.prev_ts));
+            inner.log.insert(
+                (update.ts, update.id),
+                (update.value.clone(), update.prev_ts),
+            );
         }
         inner.is_fresh = false;
         for update in indexes {
-            let index_key_bytes = update.key;
+            let index_key_bytes = update.key.clone();
             anyhow::ensure!(
                 conflict_strategy == ConflictStrategy::Overwrite
                     || !inner

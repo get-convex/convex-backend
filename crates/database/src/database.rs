@@ -125,6 +125,7 @@ use indexing::{
     },
     index_registry::IndexRegistry,
 };
+use itertools::Itertools;
 use keybroker::Identity;
 use parking_lot::Mutex;
 use search::{
@@ -1429,11 +1430,11 @@ impl<RT: Runtime> Database<RT> {
                 value: Some(doc),
                 prev_ts: None, // these are all freshly created documents
             })
-            .collect();
+            .collect_vec();
         let index_writes = index_writes
-            .into_iter()
+            .iter()
             .map(|update| PersistenceIndexEntry::from_index_update(ts, update))
-            .collect();
+            .collect_vec();
 
         // Write _tables.by_id and _index.by_id to persistence globals for
         // bootstrapping.
@@ -1463,7 +1464,11 @@ impl<RT: Runtime> Database<RT> {
         // Our `ConflictStrategy::Error` should notice the problem but consider
         // improving in the future (CX-2265).
         persistence
-            .write(document_writes, index_writes, ConflictStrategy::Error)
+            .write(
+                document_writes.as_slice(),
+                index_writes.as_slice(),
+                ConflictStrategy::Error,
+            )
             .await?;
         Ok(())
     }

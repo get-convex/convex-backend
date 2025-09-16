@@ -29,7 +29,11 @@ use anyhow::Context as _;
 use bytes::Bytes;
 use cmd_util::env::env_config;
 use common::{
-    errors::report_error_sync,
+    errors::{
+        database_timeout_error,
+        report_error_sync,
+        DatabaseTimeoutError,
+    },
     fastrace_helpers::FutureExt as _,
     knobs::{
         POSTGRES_INACTIVE_CONNECTION_LIFETIME,
@@ -104,10 +108,6 @@ use crate::{
 static POSTGRES_TIMEOUT: LazyLock<u64> =
     LazyLock::new(|| env_config("POSTGRES_TIMEOUT_SECONDS", 30));
 
-#[derive(Debug, thiserror::Error)]
-#[error("Postgres timeout")]
-pub struct PostgresTimeout;
-
 // We have observed postgres connections hanging during bootstrapping --
 // which means backends can't start -- and during commit -- which means all
 // future commits fail with OCC errors.
@@ -129,7 +129,7 @@ where
             }
         },
         _ = sleep(Duration::from_secs(*POSTGRES_TIMEOUT)).fuse() => {
-            Err(anyhow::anyhow!(PostgresTimeout))
+            Err(anyhow::anyhow!(database_timeout_error("Postgres")))
         },
     }
 }
@@ -210,7 +210,7 @@ fn handle_error(poisoned: &AtomicBool, e: impl Into<anyhow::Error>) -> anyhow::E
     let e: anyhow::Error = e.into();
     if e.downcast_ref::<tokio_postgres::Error>()
         .is_some_and(|e| e.is_closed() || e.to_string().contains("unexpected message from server"))
-        || e.downcast_ref::<PostgresTimeout>().is_some()
+        || e.downcast_ref::<DatabaseTimeoutError>().is_some()
     {
         tracing::error!("Not reusing connection after error: {e:#}");
         poisoned.store(true, atomic::Ordering::Relaxed);

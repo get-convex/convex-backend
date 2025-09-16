@@ -31,6 +31,7 @@ use common::{
     errors::{
         recapture_stacktrace,
         report_error,
+        DatabaseTimeoutError,
     },
     fastrace_helpers::{
         initialize_root_from_parent,
@@ -88,6 +89,7 @@ use futures::{
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
+use itertools::Itertools;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use rand::Rng;
@@ -145,6 +147,9 @@ use crate::{
     Transaction,
     TransactionReadSet,
 };
+
+const INITIAL_PERSISTENCE_WRITES_BACKOFF: Duration = Duration::from_secs(1);
+const MAX_PERSISTENCE_WRITES_BACKOFF: Duration = Duration::from_secs(60);
 
 enum PersistenceWrite {
     Commit {
@@ -611,7 +616,10 @@ impl<RT: Runtime> Committer<RT> {
                 // succceed.  We don't want to kill the committer and reload the
                 // instance if we can avoid it, as that would exacerbate any
                 // load-related issues.
-                let mut backoff = Backoff::new(Duration::from_secs(1), Duration::from_secs(60));
+                let mut backoff = Backoff::new(
+                    INITIAL_PERSISTENCE_WRITES_BACKOFF,
+                    MAX_PERSISTENCE_WRITES_BACKOFF,
+                );
                 loop {
                     match persistence
                         .write_persistence_global(
@@ -792,25 +800,16 @@ impl<RT: Runtime> Committer<RT> {
     /// has been written to persistence.
     async fn write_to_persistence(
         persistence: Arc<dyn Persistence>,
-        index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
-        document_writes: Vec<ValidatedDocumentWrite>,
+        index_writes: Arc<Vec<PersistenceIndexEntry>>,
+        document_writes: Arc<Vec<DocumentLogEntry>>,
     ) -> anyhow::Result<()> {
         let timer = metrics::commit_persistence_write_timer();
-        let document_writes = document_writes
-            .into_iter()
-            .map(|write| DocumentLogEntry {
-                ts: write.commit_ts,
-                id: write.id,
-                value: write.write.document,
-                prev_ts: write.prev_ts,
-            })
-            .collect();
-        let index_writes = index_writes
-            .into_iter()
-            .map(|(ts, update)| PersistenceIndexEntry::from_index_update(ts, update))
-            .collect();
         persistence
-            .write(document_writes, index_writes, ConflictStrategy::Error)
+            .write(
+                document_writes.as_slice(),
+                &index_writes,
+                ConflictStrategy::Error,
+            )
             .await
             .context("Commit failed to write to persistence")?;
 
@@ -914,6 +913,7 @@ impl<RT: Runtime> Committer<RT> {
             initialize_root_from_parent("Committer::persistence_writes_future", parent_trace);
         let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
         let pause_client = self.runtime.pause_client();
+        let rt = self.runtime.clone();
         Some(
             async move {
                 Self::track_commit(
@@ -924,19 +924,59 @@ impl<RT: Runtime> Committer<RT> {
                     &component_registry,
                 );
 
-                try_join(
-                    "Committer::write_to_persistence",
-                    Self::write_to_persistence(persistence, index_writes, document_writes),
-                )
-                .await?;
-                pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
-                Ok(PersistenceWrite::Commit {
-                    pending_write,
-                    commit_timer,
-                    result,
-                    parent_trace: parent_trace_copy,
-                    commit_id,
-                })
+                let mut backoff = Backoff::new(
+                    INITIAL_PERSISTENCE_WRITES_BACKOFF,
+                    MAX_PERSISTENCE_WRITES_BACKOFF,
+                );
+                let document_writes = Arc::new(
+                    document_writes
+                        .into_iter()
+                        .map(|write| DocumentLogEntry {
+                            ts: write.commit_ts,
+                            id: write.id,
+                            value: write.write.document,
+                            prev_ts: write.prev_ts,
+                        })
+                        .collect_vec(),
+                );
+                let index_writes = Arc::new(
+                    index_writes
+                        .into_iter()
+                        .map(|(ts, update)| PersistenceIndexEntry::from_index_update(ts, &update))
+                        .collect_vec(),
+                );
+                loop {
+                    if let Err(mut e) = try_join(
+                        "Committer::write_to_persistence",
+                        Self::write_to_persistence(
+                            persistence.clone(),
+                            index_writes.clone(),
+                            document_writes.clone(),
+                        ),
+                    )
+                    .await
+                    {
+                        if e.is::<DatabaseTimeoutError>() {
+                            let delay = backoff.fail(&mut rt.rng());
+                            tracing::error!(
+                                "Failed to write to persistence because database timed out"
+                            );
+                            report_error(&mut e).await;
+                            rt.wait(delay).await;
+                        } else {
+                            return Err(e);
+                        }
+                    } else {
+                        pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
+                        return Ok(PersistenceWrite::Commit {
+                            pending_write,
+                            commit_timer,
+                            result,
+                            parent_trace: parent_trace_copy,
+                            commit_id,
+                        });
+                    }
+                }
             }
             .in_span(outer_span)
             .in_span(request_span)

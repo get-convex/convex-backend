@@ -260,10 +260,10 @@ impl Persistence for SqlitePersistence {
         })
     }
 
-    async fn write(
+    async fn write<'a>(
         &self,
-        documents: Vec<DocumentLogEntry>,
-        indexes: BTreeSet<PersistenceIndexEntry>,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         let mut inner = self.inner.lock();
@@ -274,7 +274,7 @@ impl Persistence for SqlitePersistence {
         };
 
         for update in documents {
-            let (json_value, deleted) = if let Some(document) = update.value {
+            let (json_value, deleted) = if let Some(document) = &update.value {
                 assert_eq!(update.id, document.id_with_table_id());
                 let json_value = document.value().json_serialize()?;
                 (Some(json_value), 0)
@@ -299,7 +299,7 @@ impl Persistence for SqlitePersistence {
         };
         for update in indexes {
             let index_id = update.index_id;
-            let key: Vec<u8> = update.key.0;
+            let key: &[u8] = &update.key.0;
             match update.value {
                 None => {
                     insert_index_query.execute(params![

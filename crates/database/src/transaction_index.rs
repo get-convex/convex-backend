@@ -836,6 +836,7 @@ mod tests {
         },
         index_registry::IndexRegistry,
     };
+    use itertools::Itertools;
     use runtime::prod::ProdRuntime;
     use search::{
         searcher::InProcessSearcher,
@@ -1189,18 +1190,16 @@ mod tests {
             index_registry.update(None, Some(&doc))?;
             let index_updates = index.update(index_registry, ts, None, Some(doc.clone()));
             ps.write(
-                vec![
-                    (DocumentLogEntry {
-                        ts,
-                        id: doc.id_with_table_id(),
-                        value: Some(doc.clone()),
-                        prev_ts: None,
-                    }),
-                ],
-                index_updates
+                &[(DocumentLogEntry {
+                    ts,
+                    id: doc.id_with_table_id(),
+                    value: Some(doc.clone()),
+                    prev_ts: None,
+                })],
+                &index_updates
                     .into_iter()
-                    .map(|u| PersistenceIndexEntry::from_index_update(ts, u))
-                    .collect(),
+                    .map(|u| PersistenceIndexEntry::from_index_update(ts, &u))
+                    .collect_vec(),
                 ConflictStrategy::Error,
             )
             .await?;

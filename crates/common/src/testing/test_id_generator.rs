@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeSet,
     ops::{
         Deref,
         DerefMut,
@@ -178,7 +177,7 @@ impl TestIdGenerator {
         .await?;
         let ts = Timestamp::MIN;
         let mut documents = vec![];
-        let mut indexes = BTreeSet::new();
+        let mut indexes = Vec::new();
         let tables_table_id = self
             .table_mapping
             .namespace(TableNamespace::Global)
@@ -202,9 +201,10 @@ impl TestIdGenerator {
                 value: Some(doc),
                 prev_ts: None,
             });
-            indexes.insert(index_update);
+            indexes.push(index_update);
         }
-        p.write(documents, indexes, ConflictStrategy::Error).await?;
+        p.write(&documents, &indexes, ConflictStrategy::Error)
+            .await?;
         Ok(())
     }
 
