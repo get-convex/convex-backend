@@ -65,12 +65,9 @@ export function CustomDomains({
       <div>
         Custom domains are{" "}
         <span className="font-semibold">only available on the Pro plan</span>.{" "}
-        <Link
-          href={`/${team?.slug}/settings/billing`}
-          className="text-content-link"
-        >
+        <Link href={`/${team?.slug}/settings/billing`} className="underline">
           Upgrade to get access.
-        </Link>{" "}
+        </Link>
       </div>
     </Callout>
   );
