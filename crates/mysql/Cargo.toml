@@ -20,6 +20,7 @@ testing = [
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 common = { workspace = true }
+const_format = { workspace = true }
 dynfmt = { workspace = true }
 errors = { workspace = true }
 fastrace = { workspace = true }

@@ -39,10 +39,10 @@ use futures::TryStreamExt;
 use runtime::prod::ProdRuntime;
 
 use crate::{
+    sql::EXPECTED_TABLE_COUNT,
     ConvexMySqlPool,
     MySqlOptions,
     MySqlPersistence,
-    EXPECTED_TABLE_COUNT,
 };
 
 run_persistence_test_suite!(
@@ -59,6 +59,8 @@ run_persistence_test_suite!(
             allow_read_only: false,
             version: PersistenceVersion::V5,
             use_prepared_statements: true,
+            instance_name: "test".into(),
+            multitenant: false,
         },
         ShutdownSignal::panic(),
     )
@@ -74,11 +76,55 @@ run_persistence_test_suite!(
             allow_read_only: true,
             version: PersistenceVersion::V5,
             use_prepared_statements: true,
+            instance_name: "test".into(),
+            multitenant: false,
         },
         ShutdownSignal::panic(),
     )
     .await?
 );
+
+mod multitenant {
+    use super::*;
+    run_persistence_test_suite!(
+        opts,
+        crate::itest::new_db_opts().await?,
+        MySqlPersistence::new(
+            Arc::new(ConvexMySqlPool::new(
+                &opts.url.clone(),
+                true,
+                Option::<ProdRuntime>::None,
+            )?),
+            opts.db_name.clone(),
+            MySqlOptions {
+                allow_read_only: false,
+                version: PersistenceVersion::V5,
+                use_prepared_statements: true,
+                instance_name: "test".into(),
+                multitenant: true,
+            },
+            ShutdownSignal::panic(),
+        )
+        .await?,
+        MySqlPersistence::new(
+            Arc::new(ConvexMySqlPool::new(
+                &opts.url.clone(),
+                true,
+                Option::<ProdRuntime>::None,
+            )?),
+            opts.db_name.clone(),
+            MySqlOptions {
+                allow_read_only: true,
+                version: PersistenceVersion::V5,
+                use_prepared_statements: true,
+                instance_name: "test".into(),
+                multitenant: true,
+            },
+            ShutdownSignal::panic(),
+        )
+        .await?
+    );
+}
 
 mod raw_statements {
 
@@ -98,6 +144,8 @@ mod raw_statements {
                 allow_read_only: false,
                 version: PersistenceVersion::V5,
                 use_prepared_statements: false,
+                instance_name: "test".into(),
+                multitenant: false
             },
             ShutdownSignal::panic()
         )
@@ -113,6 +161,8 @@ mod raw_statements {
                 allow_read_only: true,
                 version: PersistenceVersion::V5,
                 use_prepared_statements: false,
+                instance_name: "test".into(),
+                multitenant: false
             },
             ShutdownSignal::panic(),
         )
@@ -126,6 +176,8 @@ async fn test_loading_locally() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         use_prepared_statements: false,
+        instance_name: "test".into(),
+        multitenant: false,
     };
     let opts = crate::itest::new_db_opts().await?;
     let persistence = MySqlPersistence::new(
@@ -174,6 +226,8 @@ async fn test_writing_locally() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         use_prepared_statements: false,
+        instance_name: "test".into(),
+        multitenant: false,
     };
     let opts = crate::itest::new_db_opts().await?;
     let persistence = MySqlPersistence::new(
@@ -237,6 +291,8 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         use_prepared_statements: false,
+        instance_name: "test".into(),
+        multitenant: false,
     };
     let p1 = Arc::new(
         MySqlPersistence::new(
@@ -277,6 +333,8 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         use_prepared_statements: false,
+        instance_name: "test".into(),
+        multitenant: false,
     };
     let p2 = Arc::new(
         MySqlPersistence::new(
@@ -334,6 +392,8 @@ async fn test_table_count() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         use_prepared_statements: false,
+        instance_name: "test".into(),
+        multitenant: false,
     };
     let opts = crate::itest::new_db_opts().await?;
     let persistence = MySqlPersistence::new(
@@ -363,6 +423,8 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
         allow_read_only: false,
         version: PersistenceVersion::V5,
         use_prepared_statements: false,
+        instance_name: "test".into(),
+        multitenant: false,
     };
     let opts = crate::itest::new_db_opts().await?;
     let persistence = MySqlPersistence::new(

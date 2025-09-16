@@ -5815,6 +5815,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "common",
+ "const_format",
  "dynfmt",
  "errors",
  "fastrace",

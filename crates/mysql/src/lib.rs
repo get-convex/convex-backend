@@ -8,6 +8,7 @@
 mod chunks;
 mod connection;
 mod metrics;
+mod sql;
 #[cfg(test)]
 mod tests;
 use std::{
@@ -17,16 +18,17 @@ use std::{
         BTreeSet,
         HashMap,
     },
-    fmt::Write,
     iter,
-    ops::Bound,
+    ops::{
+        Bound,
+        Deref,
+    },
     sync::{
         atomic::{
             AtomicBool,
             Ordering::SeqCst,
         },
         Arc,
-        LazyLock,
     },
     time::{
         SystemTime,
@@ -36,10 +38,7 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use chunks::{
-    smart_chunk_sizes,
-    ApproxSize,
-};
+use chunks::ApproxSize;
 use common::{
     document::{
         InternalId,
@@ -53,11 +52,7 @@ use common::{
         SplitKey,
         MAX_INDEX_KEY_PREFIX_LEN,
     },
-    interval::{
-        End,
-        Interval,
-        StartIncluded,
-    },
+    interval::Interval,
     knobs::{
         MYSQL_MAX_QUERY_BATCH_SIZE,
         MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE,
@@ -107,10 +102,6 @@ use futures::{
     },
 };
 use futures_async_stream::try_stream;
-use itertools::{
-    iproduct,
-    Itertools,
-};
 use metrics::write_persistence_global_timer;
 use mysql_async::Row;
 use serde::Deserialize;
@@ -125,6 +116,38 @@ use crate::{
     },
 };
 
+#[derive(Clone, Debug)]
+pub struct MySqlInstanceName {
+    raw: String,
+}
+
+impl Deref for MySqlInstanceName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.raw
+    }
+}
+
+impl<T: ToString> From<T> for MySqlInstanceName {
+    fn from(raw: T) -> Self {
+        Self::new(raw.to_string())
+    }
+}
+
+impl MySqlInstanceName {
+    pub fn new(raw: String) -> Self {
+        Self { raw }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone)]
+enum BoundType {
+    Unbounded,
+    Included,
+    Excluded,
+}
+
 pub struct MySqlPersistence<RT: Runtime> {
     newly_created: AtomicBool,
     lease: Lease<RT>,
@@ -133,6 +156,8 @@ pub struct MySqlPersistence<RT: Runtime> {
     read_pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
     version: PersistenceVersion,
+    instance_name: MySqlInstanceName,
+    multitenant: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -148,12 +173,16 @@ pub struct MySqlOptions {
     pub allow_read_only: bool,
     pub version: PersistenceVersion,
     pub use_prepared_statements: bool,
+    pub instance_name: MySqlInstanceName,
+    pub multitenant: bool,
 }
 
 #[derive(Debug)]
 pub struct MySqlReaderOptions {
     pub db_should_be_leader: bool,
     pub version: PersistenceVersion,
+    pub instance_name: MySqlInstanceName,
+    pub multitenant: bool,
 }
 
 impl<RT: Runtime> MySqlPersistence<RT> {
@@ -166,7 +195,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
         let newly_created = {
             let mut client = pool.acquire("init_sql", &db_name).await?;
             let table_count: usize = client
-                .query_optional(GET_TABLE_COUNT, vec![])
+                .query_optional(sql::GET_TABLE_COUNT, vec![])
                 .await?
                 .context("GET_TABLE_COUNT query returned no rows?")?
                 .get(0)
@@ -174,26 +203,50 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             // Only run INIT_SQL if we have less tables than we expect. We suspect
             // CREATE TABLE IF EXISTS is creating lock contention due to acquiring
             // an exclusive lock https://bugs.mysql.com/bug.php?id=63144.
-            if table_count < EXPECTED_TABLE_COUNT {
+            if table_count < sql::EXPECTED_TABLE_COUNT {
                 tracing::info!("Initializing MySQL Persistence...");
-                client.execute_many(INIT_SQL).await?;
+                client
+                    .execute_many(sql::init_sql(options.multitenant))
+                    .await?;
             } else {
                 tracing::info!("MySQL Persistence already initialized");
             }
-            Self::check_newly_created(&mut client).await?
+            client
+                .exec_iter(
+                    sql::init_lease(options.multitenant),
+                    if options.multitenant {
+                        vec![(&options.instance_name.raw).into()]
+                    } else {
+                        vec![]
+                    },
+                )
+                .await?;
+            Self::check_newly_created(&mut client, options.multitenant, &options.instance_name)
+                .await?
         };
         let mut client = pool.acquire("read_only", &db_name).await?;
-        if !options.allow_read_only && Self::is_read_only(&mut client).await? {
+        if !options.allow_read_only
+            && Self::is_read_only(&mut client, options.multitenant, &options.instance_name).await?
+        {
             return Err(ConnectError::ReadOnly);
         }
 
-        let lease = Lease::acquire(pool.clone(), db_name.clone(), lease_lost_shutdown).await?;
+        let lease = Lease::acquire(
+            pool.clone(),
+            db_name.clone(),
+            options.instance_name.clone(),
+            options.multitenant,
+            lease_lost_shutdown,
+        )
+        .await?;
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
             read_pool: pool,
             db_name,
             version: options.version,
+            instance_name: options.instance_name,
+            multitenant: options.multitenant,
         })
     }
 
@@ -207,19 +260,37 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             read_pool: pool,
             db_should_be_leader: options.db_should_be_leader,
             version: options.version,
+            instance_name: options.instance_name,
+            multitenant: options.multitenant,
         }
     }
 
-    async fn is_read_only(client: &mut MySqlConnection<'_>) -> anyhow::Result<bool> {
+    async fn is_read_only(
+        client: &mut MySqlConnection<'_>,
+        multitenant: bool,
+        instance_name: &MySqlInstanceName,
+    ) -> anyhow::Result<bool> {
+        let mut params = vec![];
+        if multitenant {
+            params.push((&instance_name.raw).into());
+        }
         Ok(client
-            .query_optional(CHECK_IS_READ_ONLY, vec![])
+            .query_optional(sql::check_is_read_only(multitenant), params)
             .await?
             .is_some())
     }
 
-    async fn check_newly_created(client: &mut MySqlConnection<'_>) -> anyhow::Result<bool> {
+    async fn check_newly_created(
+        client: &mut MySqlConnection<'_>,
+        multitenant: bool,
+        instance_name: &MySqlInstanceName,
+    ) -> anyhow::Result<bool> {
+        let mut params = vec![];
+        if multitenant {
+            params.push((&instance_name.raw).into());
+        }
         Ok(client
-            .query_optional(CHECK_NEWLY_CREATED, vec![])
+            .query_optional(sql::check_newly_created(multitenant), params)
             .await?
             .is_none())
     }
@@ -231,7 +302,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             .acquire("get_table_count", &self.db_name)
             .await?;
         client
-            .query_optional(GET_TABLE_COUNT, vec![])
+            .query_optional(sql::GET_TABLE_COUNT, vec![])
             .await?
             .context("GET_TABLE_COUNT query returned no rows?")?
             .get(0)
@@ -251,6 +322,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             read_pool: self.read_pool.clone(),
             db_should_be_leader: true,
             version: self.version,
+            instance_name: self.instance_name.clone(),
+            multitenant: self.multitenant,
         })
     }
 
@@ -261,7 +334,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
+        anyhow::ensure!(documents.len() <= sql::MAX_INSERT_SIZE);
         let mut write_size = 0;
         for update in documents {
             match &update.value {
@@ -284,6 +357,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         // True, the below might end up failing and not changing anything.
         self.newly_created.store(false, SeqCst);
         let cluster_name = self.read_pool.cluster_name().to_owned();
+        let multitenant = self.multitenant;
+        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
         self.lease
             .transact(async move |tx| {
                 // First, process all of the full document chunks.
@@ -291,11 +366,20 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                 for chunk in &mut document_chunks {
                     let chunk_bytes: usize = chunk.iter().map(|item| item.approx_size()).sum();
                     let insert_chunk_query = match conflict_strategy {
-                        ConflictStrategy::Error => insert_document_chunk(chunk.len()),
-                        ConflictStrategy::Overwrite => insert_overwrite_document_chunk(chunk.len()),
+                        ConflictStrategy::Error => {
+                            sql::insert_document_chunk(chunk.len(), multitenant)
+                        },
+                        ConflictStrategy::Overwrite => {
+                            sql::insert_overwrite_document_chunk(chunk.len(), multitenant)
+                        },
                     };
-                    let mut insert_document_chunk = vec![];
+                    let mut insert_document_chunk = Vec::with_capacity(
+                        chunk.len() * (sql::INSERT_DOCUMENT_COLUMN_COUNT + (multitenant as usize)),
+                    );
                     for update in chunk {
+                        if multitenant {
+                            insert_document_chunk.push(instance_name.clone());
+                        }
                         insert_document_chunk = document_params(
                             insert_document_chunk,
                             update.ts,
@@ -330,14 +414,20 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                 let mut index_chunks = smart_chunks(indexes);
                 for chunk in &mut index_chunks {
                     let chunk_bytes: usize = chunk.iter().map(|item| item.approx_size()).sum();
-                    let insert_chunk_query = insert_index_chunk(chunk.len());
-                    let insert_overwrite_chunk_query = insert_overwrite_index_chunk(chunk.len());
+                    let insert_chunk_query = sql::insert_index_chunk(chunk.len(), multitenant);
+                    let insert_overwrite_chunk_query =
+                        sql::insert_overwrite_index_chunk(chunk.len(), multitenant);
                     let insert_index_chunk = match conflict_strategy {
                         ConflictStrategy::Error => &insert_chunk_query,
                         ConflictStrategy::Overwrite => &insert_overwrite_chunk_query,
                     };
-                    let mut insert_index_chunk_params = vec![];
+                    let mut insert_index_chunk_params = Vec::with_capacity(
+                        chunk.len() * (sql::INSERT_INDEX_COLUMN_COUNT + (multitenant as usize)),
+                    );
                     for update in chunk {
+                        if multitenant {
+                            insert_index_chunk_params.push(instance_name.clone());
+                        }
                         index_params(&mut insert_index_chunk_params, update);
                     }
                     let future = async {
@@ -368,14 +458,21 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
     }
 
     async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
+        let multitenant = self.multitenant;
+        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
+        let params = if multitenant {
+            vec![instance_name]
+        } else {
+            vec![]
+        };
         self.lease
             .transact(async move |tx| {
                 let statement = if read_only {
-                    SET_READ_ONLY
+                    sql::set_read_only(multitenant)
                 } else {
-                    UNSET_READ_ONLY
+                    sql::unset_read_only(multitenant)
                 };
-                tx.exec_drop(statement, vec![]).await?;
+                tx.exec_drop(statement, params).await?;
                 Ok(())
             })
             .await
@@ -387,10 +484,17 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         value: JsonValue,
     ) -> anyhow::Result<()> {
         let timer = write_persistence_global_timer(self.read_pool.cluster_name());
+        let multitenant = self.multitenant;
+        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
         self.lease
             .transact(async move |tx| {
-                let stmt = WRITE_PERSISTENCE_GLOBAL;
-                let params = vec![String::from(key).into(), value.into()];
+                let stmt = sql::write_persistence_global(multitenant);
+                let mut params = if multitenant {
+                    vec![instance_name]
+                } else {
+                    vec![]
+                };
+                params.extend([String::from(key).into(), value.into()]);
                 tx.exec_drop(stmt, params).await?;
                 Ok(())
             })
@@ -408,8 +512,11 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             .read_pool
             .acquire("load_index_chunk", &self.db_name)
             .await?;
-        let stmt = LOAD_INDEXES_PAGE;
+        let stmt = sql::load_indexes_page(self.multitenant);
         let mut params = MySqlReader::<RT>::_index_cursor_params(cursor.as_ref());
+        if self.multitenant {
+            params.push(self.instance_name.to_string().into());
+        }
         params.push((chunk_size as i64).into());
         let row_stream = client.query_stream(stmt, params, chunk_size).await?;
 
@@ -421,16 +528,23 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         &self,
         expired_entries: Vec<IndexEntry>,
     ) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
         self.lease
             .transact(async move |tx| {
                 let mut deleted_count = 0;
                 for chunk in smart_chunks(&expired_entries) {
-                    let mut params = vec![];
+                    let mut params = Vec::with_capacity(
+                        chunk.len() * (sql::DELETE_INDEX_COLUMN_COUNT + (multitenant as usize)),
+                    );
                     for index_entry in chunk.iter() {
                         MySqlReader::<RT>::_index_delete_params(&mut params, index_entry);
+                        if multitenant {
+                            params.push(instance_name.clone());
+                        }
                     }
                     deleted_count += tx
-                        .exec_iter(delete_index_chunk(chunk.len()), params)
+                        .exec_iter(sql::delete_index_chunk(chunk.len(), multitenant), params)
                         .await?;
                 }
                 Ok(deleted_count as usize)
@@ -442,16 +556,23 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         &self,
         documents: Vec<(Timestamp, InternalDocumentId)>,
     ) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
         self.lease
             .transact(async move |tx| {
                 let mut deleted_count = 0;
                 for chunk in smart_chunks(&documents) {
-                    let mut params = vec![];
+                    let mut params = Vec::with_capacity(
+                        chunk.len() * (sql::DELETE_DOCUMENT_COLUMN_COUNT + (multitenant as usize)),
+                    );
                     for doc in chunk.iter() {
                         MySqlReader::<RT>::_document_delete_params(&mut params, doc);
+                        if multitenant {
+                            params.push(instance_name.clone());
+                        }
                     }
                     deleted_count += tx
-                        .exec_iter(delete_document_chunk(chunk.len()), params)
+                        .exec_iter(sql::delete_document_chunk(chunk.len(), multitenant), params)
                         .await?;
                 }
                 Ok(deleted_count as usize)
@@ -464,6 +585,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
 pub struct MySqlReader<RT: Runtime> {
     read_pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
+    instance_name: MySqlInstanceName,
+    multitenant: bool,
     /// Set `db_should_be_leader` if this PostgresReader should be connected
     /// to the database leader. In particular, we protect against heterogenous
     /// connection pools where one connection is to the leader and another is to
@@ -555,10 +678,10 @@ impl<RT: Runtime> MySqlReader<RT> {
             let mut rows_loaded = 0;
 
             let query = match order {
-                Order::Asc => &LOAD_DOCS_BY_TS_PAGE_ASC,
-                Order::Desc => &LOAD_DOCS_BY_TS_PAGE_DESC,
+                Order::Asc => sql::load_docs_by_ts_page_asc(self.multitenant),
+                Order::Desc => sql::load_docs_by_ts_page_desc(self.multitenant),
             };
-            let params = vec![
+            let mut params = vec![
                 i64::from(range.min_timestamp_inclusive()).into(),
                 i64::from(range.max_timestamp_exclusive()).into(),
                 i64::from(last_ts).into(),
@@ -566,8 +689,11 @@ impl<RT: Runtime> MySqlReader<RT> {
                 last_tablet_id_param.clone().into(),
                 last_tablet_id_param.clone().into(),
                 last_id_param.clone().into(),
-                (page_size as i64).into(),
             ];
+            if self.multitenant {
+                params.push(self.instance_name.to_string().into());
+            }
+            params.push((page_size as i64).into());
             let row_stream = client
                 .query_stream(query, params, page_size as usize)
                 .await?;
@@ -660,7 +786,7 @@ impl<RT: Runtime> MySqlReader<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
         let _timer = metrics::query_index_timer(self.read_pool.cluster_name());
-        let (mut lower, mut upper) = to_sql_bounds(interval.clone());
+        let (mut lower, mut upper) = sql::to_sql_bounds(interval.clone());
 
         let mut stats = QueryIndexStats::new(self.read_pool.cluster_name());
 
@@ -684,13 +810,15 @@ impl<RT: Runtime> MySqlReader<RT> {
                 // and improve fairness.
                 let mut client = self.read_pool.acquire("index_scan", &self.db_name).await?;
                 stats.sql_statements += 1;
-                let (query, params) = index_query(
+                let (query, params) = sql::index_query(
                     index_id,
                     read_timestamp,
                     lower.clone(),
                     upper.clone(),
                     order,
                     batch_size,
+                    self.multitenant,
+                    &self.instance_name,
                 );
 
                 let prepare_timer =
@@ -737,7 +865,7 @@ impl<RT: Runtime> MySqlReader<RT> {
                     }
 
                     // Update the bounds for future queries.
-                    let bound = Bound::Excluded(SqlKey {
+                    let bound = Bound::Excluded(sql::SqlKey {
                         prefix: internal_row.key_prefix.clone(),
                         sha256: internal_row.key_sha256.clone(),
                     });
@@ -939,8 +1067,13 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 
         let mut result = BTreeMap::new();
 
+        let multitenant = self.multitenant;
+        let instance_name: mysql_async::Value = (&self.instance_name.raw).into();
+
         for chunk in smart_chunks(&ids) {
-            let mut params = Vec::with_capacity(chunk.len() * 3);
+            let mut params = Vec::with_capacity(
+                chunk.len() * (sql::EXACT_REV_CHUNK_PARAMS + multitenant as usize),
+            );
             let mut id_ts_to_query: HashMap<
                 (InternalDocumentId, Timestamp),
                 SmallVec<[DocumentPrevTsQuery; 1]>,
@@ -949,12 +1082,19 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 params.push(internal_id_param(id.table().0).into());
                 params.push(internal_doc_id_param(id).into());
                 params.push(i64::from(prev_ts).into());
+                if multitenant {
+                    params.push(instance_name.clone());
+                }
                 // the underlying query does not care about `ts` and will
                 // deduplicate, so create a map from DB results back to queries
                 id_ts_to_query.entry((id, prev_ts)).or_default().push(*q);
             }
             let result_stream = client
-                .query_stream(exact_rev_chunk(chunk.len()), params, chunk.len())
+                .query_stream(
+                    sql::exact_rev_chunk(chunk.len(), multitenant),
+                    params,
+                    chunk.len(),
+                )
                 .await?;
             pin_mut!(result_stream);
             while let Some(row) = result_stream.try_next().await? {
@@ -1005,17 +1145,29 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         let mut results = vec![];
 
         let mut min_ts = Timestamp::MAX;
+        let multitenant = self.multitenant;
+        let instance_name: mysql_async::Value = (&self.instance_name.raw).into();
+
         for chunk in smart_chunks(&ids) {
-            let mut params = vec![];
+            let mut params = Vec::with_capacity(
+                chunk.len() * (sql::PREV_REV_CHUNK_PARAMS + multitenant as usize),
+            );
             for (id, ts) in chunk {
                 params.push(i64::from(*ts).into());
                 params.push(internal_id_param(id.table().0).into());
                 params.push(internal_doc_id_param(*id).into());
                 params.push(i64::from(*ts).into());
+                if multitenant {
+                    params.push(instance_name.clone());
+                }
                 min_ts = cmp::min(*ts, min_ts);
             }
             let result_stream = client
-                .query_stream(prev_rev_chunk(chunk.len()), params, chunk.len())
+                .query_stream(
+                    sql::prev_rev_chunk(chunk.len(), multitenant),
+                    params,
+                    chunk.len(),
+                )
                 .await?;
             pin_mut!(result_stream);
             while let Some(result) = result_stream.try_next().await? {
@@ -1077,9 +1229,12 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             .read_pool
             .acquire("get_persistence_global", &self.db_name)
             .await?;
-        let params = vec![String::from(key).into()];
+        let mut params = vec![String::from(key).into()];
+        if self.multitenant {
+            params.push(self.instance_name.to_string().into());
+        }
         let row_stream = client
-            .query_stream(GET_PERSISTENCE_GLOBAL, params, 1)
+            .query_stream(sql::get_persistence_global(self.multitenant), params, 1)
             .await?;
         futures::pin_mut!(row_stream);
 
@@ -1107,7 +1262,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             .acquire("table_size_stats", &self.db_name)
             .await?;
         let stats = client
-            .query_stream(TABLE_SIZE_QUERY, vec![self.db_name.clone().into()], 5)
+            .query_stream(sql::TABLE_SIZE_QUERY, vec![self.db_name.clone().into()], 5)
             .await?
             .map(|row| {
                 let row = row?;
@@ -1139,6 +1294,8 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 struct Lease<RT: Runtime> {
     pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
+    instance_name: MySqlInstanceName,
+    multitenant: bool,
     lease_ts: i64,
     lease_lost_shutdown: ShutdownSignal,
 }
@@ -1149,6 +1306,8 @@ impl<RT: Runtime> Lease<RT> {
     async fn acquire(
         pool: Arc<ConvexMySqlPool<RT>>,
         db_name: String,
+        instance_name: MySqlInstanceName,
+        multitenant: bool,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer(pool.cluster_name());
@@ -1159,8 +1318,12 @@ impl<RT: Runtime> Lease<RT> {
             .as_nanos() as i64;
 
         tracing::info!("attempting to acquire lease");
+        let mut params = vec![ts.into(), ts.into()];
+        if multitenant {
+            params.push((&instance_name.raw).into());
+        }
         let rows_modified = client
-            .exec_iter(LEASE_ACQUIRE, vec![ts.into(), ts.into()])
+            .exec_iter(sql::lease_acquire(multitenant), params)
             .await?;
         anyhow::ensure!(
             rows_modified == 1,
@@ -1174,6 +1337,8 @@ impl<RT: Runtime> Lease<RT> {
             pool,
             lease_ts: ts,
             lease_lost_shutdown,
+            instance_name,
+            multitenant,
         })
     }
 
@@ -1194,8 +1359,12 @@ impl<RT: Runtime> Lease<RT> {
         let mut tx = client.transaction(&self.db_name).await?;
 
         let timer = metrics::lease_precond_timer(self.pool.cluster_name());
+        let mut params = vec![mysql_async::Value::Int(self.lease_ts)];
+        if self.multitenant {
+            params.push((&self.instance_name.raw).into());
+        }
         let rows: Option<Row> = tx
-            .exec_first(LEASE_PRECOND, vec![mysql_async::Value::Int(self.lease_ts)])
+            .exec_first(sql::lease_precond(self.multitenant), params)
             .in_span(Span::enter_with_local_parent(format!(
                 "{}::lease_precondition",
                 func_path!()
@@ -1278,546 +1447,6 @@ fn index_params(query: &mut Vec<mysql_async::Value>, update: &PersistenceIndexEn
     query.push(deleted.into());
     query.push(tablet_id.into());
     query.push(doc_id.into());
-}
-
-const GET_TABLE_COUNT: &str = r#"
-    SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '@db_name';
-"#;
-
-// Expected table count after INIT_SQL is ran.
-const EXPECTED_TABLE_COUNT: usize = 5;
-
-// This runs (currently) every time a MySqlPersistence is created, so it
-// needs to not only be idempotent but not to affect any already-resident data.
-// IF NOT EXISTS and ON CONFLICT are helpful.
-const INIT_SQL: &str = r#"
-        CREATE TABLE IF NOT EXISTS @db_name.documents (
-            id VARBINARY(32) NOT NULL,
-            ts BIGINT NOT NULL,
-
-            table_id VARBINARY(32) NOT NULL,
-
-            json_value LONGBLOB NOT NULL,
-            deleted BOOLEAN DEFAULT false,
-
-            prev_ts BIGINT,
-
-            PRIMARY KEY (ts, table_id, id),
-            INDEX documents_by_table_and_id (table_id, id, ts)
-        ) ROW_FORMAT=DYNAMIC;
-
-        CREATE TABLE IF NOT EXISTS @db_name.indexes (
-            /* ids should be serialized as bytes but we keep it compatible with documents */
-            index_id VARBINARY(32) NOT NULL,
-            ts BIGINT NOT NULL,
-
-            /*
-            MySQL maximum primary key length is 3072 bytes with DYNAMIC row format,
-            which is why we split up the key. The first 2500 bytes are stored in key_prefix,
-            and the remaining ones are stored in key suffix if applicable.
-            NOTE: The key_prefix + key_suffix is store all values of IndexKey including
-            the id.
-            */
-            key_prefix VARBINARY(2500) NOT NULL,
-            key_suffix LONGBLOB NULL,
-
-            /* key_sha256 of the full key, used in primary key to avoid duplicates in case
-            of key_prefix collision. */
-            key_sha256 BINARY(32) NOT NULL,
-
-            deleted BOOLEAN,
-            /* table_id and document_id should be populated iff deleted is false. */
-            table_id VARBINARY(32) NULL,
-            document_id VARBINARY(32) NULL,
-
-            PRIMARY KEY (index_id, key_prefix, key_sha256, ts)
-        ) ROW_FORMAT=DYNAMIC;
-        CREATE TABLE IF NOT EXISTS @db_name.leases (
-            id BIGINT NOT NULL,
-            ts BIGINT NOT NULL,
-
-            PRIMARY KEY (id)
-        ) ROW_FORMAT=DYNAMIC;
-        INSERT IGNORE INTO @db_name.leases (id, ts) VALUES (1, 0);
-        CREATE TABLE IF NOT EXISTS @db_name.read_only (
-            id BIGINT NOT NULL,
-
-            PRIMARY KEY (id)
-        ) ROW_FORMAT=DYNAMIC;
-        CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
-            `key` VARCHAR(255) NOT NULL,
-            json_value LONGBLOB NOT NULL,
-
-            PRIMARY KEY (`key`)
-        ) ROW_FORMAT=DYNAMIC;"#;
-/// Load a page of documents, where timestamps are bounded by [$1, $2),
-/// and ($3, $4, $5) is the (ts, table_id, id) from the last document read.
-const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
-    FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE ts >= ?
-    AND ts < ?
-    AND (ts > ? OR (ts = ? AND (table_id > ? OR (table_id = ? AND id > ?))))
-    ORDER BY ts ASC, table_id ASC, id ASC
-    LIMIT ?
-"#;
-
-const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
-    FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE ts >= ?
-    AND ts < ?
-    AND (ts < ? OR (ts = ? AND (table_id < ? OR (table_id = ? AND id < ?))))
-    ORDER BY ts DESC, table_id DESC, id DESC
-    LIMIT ?
-"#;
-
-static INSERT_DOCUMENT_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
-    smart_chunk_sizes()
-        .map(|chunk_size| {
-            let values = (1..=chunk_size)
-                .map(|_| format!("(?, ?, ?, ?, ?, ?)"))
-                .join(", ");
-            let query = format!(
-                r#"INSERT INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted, prev_ts)
-    VALUES {values}"#
-            );
-            (chunk_size, query)
-        })
-        .collect()
-});
-
-fn insert_document_chunk(chunk_size: usize) -> &'static str {
-    INSERT_DOCUMENT_CHUNK_QUERIES.get(&chunk_size).unwrap()
-}
-
-static INSERT_OVERWRITE_DOCUMENT_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> =
-    LazyLock::new(|| {
-        smart_chunk_sizes()
-            .map(|chunk_size| {
-                let values = (1..=chunk_size)
-                    .map(|_| format!("(?, ?, ?, ?, ?, ?)"))
-                    .join(", ");
-                let query = format!(
-                    r#"REPLACE INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted, prev_ts)
-    VALUES {values}"#
-                );
-                (chunk_size, query)
-            })
-            .collect()
-    });
-
-fn insert_overwrite_document_chunk(chunk_size: usize) -> &'static str {
-    INSERT_OVERWRITE_DOCUMENT_CHUNK_QUERIES
-        .get(&chunk_size)
-        .unwrap()
-}
-
-const LOAD_INDEXES_PAGE: &str = r#"
-SELECT
-    index_id, key_prefix, key_sha256, key_suffix, ts, deleted
-    FROM @db_name.indexes
-    FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE index_id > ? OR (index_id = ? AND
-        (key_prefix > ? OR (key_prefix = ? AND
-        (key_sha256 > ? OR (key_sha256 = ? AND
-        ts > ?)))))
-    ORDER BY index_id ASC, key_prefix ASC, key_sha256 ASC, ts ASC
-    LIMIT ?
-"#;
-
-static INSERT_INDEX_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
-    smart_chunk_sizes()
-        .map(|chunk_size| {
-            let values = (1..=chunk_size)
-                .map(|_| format!("(?, ?, ?, ?, ?, ?, ?, ?)"))
-                .join(", ");
-            let query = format!(
-                r#"INSERT INTO @db_name.indexes
-            (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-            VALUES {values}"#
-            );
-            (chunk_size, query)
-        })
-        .collect()
-});
-
-// Note that on conflict, there's no need to update any of the columns that are
-// part of the primary key, nor `key_suffix` as `key_sha256` is derived from the
-// prefix and suffix.
-// Only the fields that could have actually changed need to be updated.
-fn insert_index_chunk(chunk_size: usize) -> &'static str {
-    INSERT_INDEX_CHUNK_QUERIES.get(&chunk_size).unwrap()
-}
-
-static INSERT_OVERWRITE_INDEX_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> =
-    LazyLock::new(|| {
-        smart_chunk_sizes()
-            .map(|chunk_size| {
-                let values = (1..=chunk_size)
-                    .map(|_| format!("(?, ?, ?, ?, ?, ?, ?, ?)"))
-                    .join(", ");
-                let query = format!(
-                    r#"INSERT INTO @db_name.indexes
-            (index_id, ts, key_prefix, key_suffix, key_sha256, deleted, table_id, document_id)
-            VALUES
-                {values}
-                ON DUPLICATE KEY UPDATE
-                deleted = VALUES(deleted),
-                table_id = VALUES(table_id),
-                document_id = VALUES(document_id)
-        "#
-                );
-                (chunk_size, query)
-            })
-            .collect()
-    });
-
-fn insert_overwrite_index_chunk(chunk_size: usize) -> &'static str {
-    INSERT_OVERWRITE_INDEX_CHUNK_QUERIES
-        .get(&chunk_size)
-        .unwrap()
-}
-
-static DELETE_INDEX_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
-    smart_chunk_sizes()
-        .map(|chunk_size| {
-            let where_clauses = (1..=chunk_size)
-                .map(|_| "(index_id = ? AND key_prefix = ? AND key_sha256 = ? AND ts <= ?)")
-                .join(" OR ");
-            (
-                chunk_size,
-                format!("DELETE FROM @db_name.indexes WHERE {where_clauses}"),
-            )
-        })
-        .collect()
-});
-
-fn delete_index_chunk(chunk_size: usize) -> &'static str {
-    DELETE_INDEX_CHUNK_QUERIES.get(&chunk_size).unwrap()
-}
-
-static DELETE_DOCUMENT_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
-    smart_chunk_sizes()
-        .map(|chunk_size| {
-            let where_clauses = (1..=chunk_size)
-                .map(|_| "(table_id = ? AND id = ? AND ts <= ?)")
-                .join(" OR ");
-            (
-                chunk_size,
-                // Note the use of "multi-table DELETE syntax" (`DELETE table
-                // FROM table WHERE ...`) which MySQL requires for FORCE INDEX
-                // syntax
-                format!(
-                    "DELETE @db_name.documents FROM @db_name.documents FORCE INDEX \
-                     (documents_by_table_and_id) WHERE {where_clauses}"
-                ),
-            )
-        })
-        .collect()
-});
-
-fn delete_document_chunk(chunk_size: usize) -> &'static str {
-    DELETE_DOCUMENT_CHUNK_QUERIES.get(&chunk_size).unwrap()
-}
-
-const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO @db_name.persistence_globals
-    (`key`, json_value)
-    VALUES (?, ?)
-    ON DUPLICATE KEY UPDATE
-    json_value = VALUES(json_value)
-"#;
-
-const GET_PERSISTENCE_GLOBAL: &str =
-    "SELECT json_value FROM @db_name.persistence_globals FORCE INDEX (PRIMARY) WHERE `key` = ?";
-
-// Maximum number of writes within a single transaction. This is the sum of
-// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
-const MAX_INSERT_SIZE: usize = 56000;
-
-// Gross: after initialization, the first thing database does is insert metadata
-// documents.
-const CHECK_NEWLY_CREATED: &str = "SELECT 1 FROM @db_name.documents LIMIT 1";
-
-// This table has no rows (not read_only) or 1 row (read_only), so if this query
-// returns any results, the persistence is read_only.
-const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM @db_name.read_only LIMIT 1";
-const SET_READ_ONLY: &str = "INSERT INTO @db_name.read_only (id) VALUES (1)";
-const UNSET_READ_ONLY: &str = "DELETE FROM @db_name.read_only WHERE id = 1";
-
-// If this query returns a result, the lease is still valid and will remain so
-// until the end of the transaction.
-const LEASE_PRECOND: &str =
-    "SELECT 1 FROM @db_name.leases FORCE INDEX (PRIMARY) WHERE id=1 AND ts=? FOR SHARE";
-
-// Acquire the lease unless acquire by someone with a higher timestamp.
-const LEASE_ACQUIRE: &str = "UPDATE @db_name.leases SET ts=? WHERE id=1 AND ts<?";
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone)]
-enum BoundType {
-    Unbounded,
-    Included,
-    Excluded,
-}
-
-// Pre-build queries with various parameters.
-static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> = LazyLock::new(
-    || {
-        let mut queries = HashMap::new();
-        // Tricks that convince MySQL to choose good query plans:
-        // 1. All queries are ordered by a prefix of columns in the primary key. If you
-        //    say `WHERE col1 = 'a' ORDER BY col2 ASC` it might not use the index, but
-        //    `WHERE col1 = 'a' ORDER BY col1 ASC, col2 ASC` which is completely
-        //    equivalent, does use the index.
-        // 2. LEFT JOIN and FORCE INDEX FOR JOIN makes the join use the index for
-        //    lookups. Despite having all index columns with equality checks, MySQL will
-        //    do a hash join if you do an INNER JOIN or a plain FORCE INDEX.
-        // 3. Tuple comparisons `(key_prefix, key_sha256) >= (?, ?)` are required for
-        //    Postgres to choose the correct query plan, but MySQL requires the other
-        //    format `(key_prefix > ? OR (key_prefix = ? AND key_sha256 >= ?))`.
-
-        let bounds = [
-            BoundType::Unbounded,
-            BoundType::Included,
-            BoundType::Excluded,
-        ];
-        let orders = [Order::Asc, Order::Desc];
-
-        // Note, we always paginate using (key_prefix, key_sha256), which doesn't
-        // necessary give us the order we need for long keys that have
-        // key_suffix.
-        for (lower, upper, order) in iproduct!(bounds.iter(), bounds.iter(), orders.iter()) {
-            // Construct the where clause imperatively.
-            let mut where_clause = String::new();
-            write!(where_clause, "index_id = ? AND ts <= ?").unwrap();
-            // Note the following clauses could be written as
-            // (key_prefix, key_sha256) {comparator} (?, ?)
-            match lower {
-                BoundType::Unbounded => {},
-                BoundType::Included => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix > ? OR (key_prefix = ? AND key_sha256 >= ?))",
-                    )
-                    .unwrap();
-                },
-                BoundType::Excluded => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix > ? OR (key_prefix = ? AND key_sha256 > ?))"
-                    )
-                    .unwrap();
-                },
-            };
-            match upper {
-                BoundType::Unbounded => {},
-                BoundType::Included => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix < ? OR (key_prefix = ? AND key_sha256 <= ?))"
-                    )
-                    .unwrap();
-                },
-                BoundType::Excluded => {
-                    write!(
-                        where_clause,
-                        " AND (key_prefix < ? OR (key_prefix = ? AND key_sha256 < ?))"
-                    )
-                    .unwrap();
-                },
-            };
-            let order_str = match order {
-                Order::Asc => "ASC",
-                Order::Desc => "DESC",
-            };
-            let query = format!(
-                r#"
-SELECT I2.index_id, I2.key_prefix, I2.key_sha256, I2.key_suffix, I2.ts, I2.deleted, I2.document_id, D.table_id, D.json_value, D.prev_ts FROM
-(
-    SELECT
-        I1.index_id, I1.key_prefix, I1.key_sha256, I1.key_suffix, I1.ts,
-        I1.deleted, I1.table_id, I1.document_id
-    FROM
-    (
-        SELECT index_id, key_prefix, key_sha256, MAX(ts) as ts_at_snapshot FROM @db_name.indexes
-        FORCE INDEX FOR GROUP BY (PRIMARY)
-        WHERE {where_clause}
-        GROUP BY index_id, key_prefix, key_sha256
-        ORDER BY index_id {order_str}, key_prefix {order_str}, key_sha256 {order_str}
-        LIMIT ?
-    ) snapshot
-    LEFT JOIN @db_name.indexes I1 FORCE INDEX FOR JOIN (PRIMARY)
-    ON
-    (I1.index_id, I1.key_prefix, I1.key_sha256, I1.ts) = (snapshot.index_id, snapshot.key_prefix, snapshot.key_sha256, snapshot.ts_at_snapshot)
-) I2
-LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
-ON
-D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id
-"#
-            );
-            queries.insert((*lower, *upper, *order), query);
-        }
-
-        queries
-    },
-);
-
-static EXACT_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
-    smart_chunk_sizes()
-        .map(|chunk_size| {
-            let where_clause =
-                std::iter::repeat_n("(table_id = ? AND id = ? AND ts = ?)", chunk_size)
-                    .join(" OR ");
-            (
-                chunk_size,
-                format!(
-                    "SELECT id, ts, table_id, json_value, deleted, prev_ts
-FROM @db_name.documents FORCE INDEX (PRIMARY)
-WHERE {where_clause}
-ORDER BY ts ASC, table_id ASC, id ASC"
-                ),
-            )
-        })
-        .collect()
-});
-
-fn exact_rev_chunk(chunk_size: usize) -> &'static str {
-    EXACT_REV_CHUNK_QUERIES.get(&chunk_size).unwrap()
-}
-
-static PREV_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
-    smart_chunk_sizes()
-        .map(|chunk_size| {
-            let select = r#"
-SELECT id, ts, table_id, json_value, deleted, prev_ts, ? as query_ts
-FROM @db_name.documents FORCE INDEX FOR ORDER BY (documents_by_table_and_id)
-WHERE table_id = ? AND id = ? and ts < ?
-ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
-"#;
-            let queries = (1..=chunk_size)
-                .map(|i| format!("q{i} AS ({select})"))
-                .join(", ");
-            let union_all = (1..=chunk_size)
-                .map(|i| {
-                    format!(
-                        "SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q{i}"
-                    )
-                })
-                .join(" UNION ALL ");
-            (chunk_size, format!("WITH {queries} {union_all}"))
-        })
-        .collect()
-});
-
-fn prev_rev_chunk(chunk_size: usize) -> &'static str {
-    PREV_REV_CHUNK_QUERIES.get(&chunk_size).unwrap()
-}
-
-const TABLE_SIZE_QUERY: &str = "
-SELECT table_name, data_length, index_length, table_rows
-FROM information_schema.tables
-WHERE table_schema = ?
-";
-
-const MIN_SHA256: [u8; 32] = [0; 32];
-const MAX_SHA256: [u8; 32] = [255; 32];
-
-// The key we use to paginate in SQL, note that we can't use key_prefix since
-// it is not part of the primary key. We use key_sha256 instead.
-#[derive(Clone)]
-struct SqlKey {
-    prefix: Vec<u8>,
-    sha256: Vec<u8>,
-}
-
-impl SqlKey {
-    // Returns the maximum possible
-    fn min_with_same_prefix(key: Vec<u8>) -> Self {
-        let key = SplitKey::new(key);
-        Self {
-            prefix: key.prefix,
-            sha256: MIN_SHA256.to_vec(),
-        }
-    }
-
-    fn max_with_same_prefix(key: Vec<u8>) -> Self {
-        let key = SplitKey::new(key);
-        Self {
-            prefix: key.prefix,
-            sha256: MAX_SHA256.to_vec(),
-        }
-    }
-}
-
-// Translates a range to a SqlKey bounds we can use to get records in that
-// range. Note that because the SqlKey does not sort the same way as IndexKey
-// for very long keys, the returned range might contain extra keys that needs to
-// be filtered application side.
-fn to_sql_bounds(interval: Interval) -> (Bound<SqlKey>, Bound<SqlKey>) {
-    let lower = match interval.start {
-        StartIncluded(key) => {
-            // This can potentially include more results than needed.
-            Bound::Included(SqlKey::min_with_same_prefix(key.into()))
-        },
-    };
-    let upper = match interval.end {
-        End::Excluded(key) => {
-            if key.len() < MAX_INDEX_KEY_PREFIX_LEN {
-                Bound::Excluded(SqlKey::min_with_same_prefix(key.into()))
-            } else {
-                // We can't exclude the bound without potentially excluding other
-                // keys that fall within the range.
-                Bound::Included(SqlKey::max_with_same_prefix(key.into()))
-            }
-        },
-        End::Unbounded => Bound::Unbounded,
-    };
-    (lower, upper)
-}
-
-fn index_query(
-    index_id: IndexId,
-    read_timestamp: Timestamp,
-    lower: Bound<SqlKey>,
-    upper: Bound<SqlKey>,
-    order: Order,
-    batch_size: usize,
-) -> (&'static str, Vec<mysql_async::Value>) {
-    let mut params = vec![];
-
-    let mut map_bound = |b: Bound<SqlKey>| -> BoundType {
-        match b {
-            Bound::Unbounded => BoundType::Unbounded,
-            Bound::Excluded(sql_key) => {
-                params.push(sql_key.prefix.clone());
-                params.push(sql_key.prefix);
-                params.push(sql_key.sha256);
-                BoundType::Excluded
-            },
-            Bound::Included(sql_key) => {
-                params.push(sql_key.prefix.clone());
-                params.push(sql_key.prefix);
-                params.push(sql_key.sha256);
-                BoundType::Included
-            },
-        }
-    };
-
-    let lt = map_bound(lower);
-    let ut = map_bound(upper);
-
-    let query = INDEX_QUERIES.get(&(lt, ut, order)).unwrap();
-    // Substitutions are {where_clause}, ts, {where_clause}, ts, limit.
-    let mut all_params = vec![];
-    all_params.push(internal_id_param(index_id).into());
-    all_params.push(i64::from(read_timestamp).into());
-    for param in params {
-        all_params.push(param.into());
-    }
-    all_params.push((batch_size as i64).into());
-    (query, all_params)
 }
 
 #[cfg(any(test, feature = "testing"))]

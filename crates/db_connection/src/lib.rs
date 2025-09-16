@@ -57,7 +57,8 @@ pub async fn connect_persistence<RT: Runtime>(
         | DbDriverTag::PostgresMultitenant(version)
         | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
-        | DbDriverTag::MySqlAwsIam(version) => {
+        | DbDriverTag::MySqlAwsIam(version)
+        | DbDriverTag::MySqlMultitenant(version) => {
             let args = persistence_args_from_cluster_url(
                 instance_name,
                 db_spec.parse()?,
@@ -94,11 +95,17 @@ pub async fn connect_persistence<RT: Runtime>(
                     tracing::info!("Connected to Postgres database: {}", instance_name);
                     persistence
                 },
-                PersistenceArgs::MySql { url, db_name } => {
+                PersistenceArgs::MySql {
+                    url,
+                    db_name,
+                    multitenant,
+                } => {
                     let options = MySqlOptions {
                         allow_read_only: flags.allow_read_only,
                         version,
                         use_prepared_statements: *DATABASE_USE_PREPARED_STATEMENTS,
+                        multitenant,
+                        instance_name: instance_name.into(),
                     };
                     let persistence = Arc::new(
                         MySqlPersistence::new(
@@ -145,7 +152,8 @@ pub async fn connect_persistence_reader<RT: Runtime>(
         | DbDriverTag::PostgresMultitenant(version)
         | DbDriverTag::PostgresAwsIam(version)
         | DbDriverTag::MySql(version)
-        | DbDriverTag::MySqlAwsIam(version) => {
+        | DbDriverTag::MySqlAwsIam(version)
+        | DbDriverTag::MySqlMultitenant(version) => {
             let args = persistence_args_from_cluster_url(
                 instance_name,
                 db_spec.parse()?,
@@ -187,10 +195,16 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                         .await?,
                     )
                 },
-                PersistenceArgs::MySql { url, db_name } => {
+                PersistenceArgs::MySql {
+                    url,
+                    db_name,
+                    multitenant,
+                } => {
                     let options = MySqlReaderOptions {
                         db_should_be_leader,
                         version,
+                        multitenant,
+                        instance_name: instance_name.into(),
                     };
                     Arc::new(MySqlPersistence::new_reader(
                         Arc::new(ConvexMySqlPool::new(

@@ -122,16 +122,16 @@ impl FormatArgs for MySQLFormatArguments<'_> {
     }
 
     fn get_key(&self, key: &str) -> Result<Option<dynfmt::Argument<'_>>, ()> {
-        if key != "db_name" {
-            panic!("Unexpected named argument {key}");
+        match key {
+            "db_name" => Ok(Some(&self.db_name)),
+            _ => panic!("Unexpected named argument {key}"),
         }
-        Ok(Some(&self.db_name))
     }
 }
 
 const DB_NAME_ARGUMENT_PATTERN: &str = "@db_name";
 
-// Formats both @db_name and ?
+// Formats @db_name, @instance_name, and ?
 struct MySQLRawStatementFormat;
 
 impl<'f> Format<'f> for MySQLRawStatementFormat {
@@ -191,7 +191,7 @@ fn format_mysql_text_protocol(
     Ok(result)
 }
 
-// Formats only @db_name
+// Formats @db_name and @instance_name
 struct MySQLPreparedStatementFormat;
 
 impl<'f> Format<'f> for MySQLPreparedStatementFormat {
@@ -211,8 +211,8 @@ impl<'f> Format<'f> for MySQLPreparedStatementFormat {
     }
 }
 
-// Formats a MySQL query by only replacing the @db_name but leaves positional
-// arguments alone. To be used with MySQL binary protocol.
+// Formats a MySQL query by only replacing the @db_name and @instance_name but
+// leaves positional arguments alone. To be used with MySQL binary protocol.
 fn format_mysql_binary_protocol(db_name: &str, statement: &'static str) -> anyhow::Result<String> {
     let args = MySQLFormatArguments {
         db_name,

@@ -11,6 +11,7 @@ pub enum PersistenceArgs {
     MySql {
         url: Url,
         db_name: String,
+        multitenant: bool,
     },
     Postgres {
         url: Url,
@@ -87,31 +88,62 @@ pub fn persistence_args_from_cluster_url(
                 multitenant: matches!(driver, DbDriverTag::PostgresMultitenant(_)),
             })
         },
-        DbDriverTag::MySql(_) | DbDriverTag::MySqlAwsIam(_) => {
+        DbDriverTag::MySql(_) => {
             // NOTE: We do not set any database so we can reuse connections between
             // database. The persistence layer will select the correct database.
-            match driver {
-                DbDriverTag::MySql(_) => {
-                    if require_ssl {
-                        cluster_url
-                            .query_pairs_mut()
-                            .append_pair("require_ssl", "true")
-                            .append_pair("verify_ca", "true");
-                    }
-                },
-                DbDriverTag::MySqlAwsIam(_) => {
-                    // always require SSL
-                    cluster_url
-                        .query_pairs_mut()
-                        .append_pair("require_ssl", "true")
-                        .append_pair("verify_ca", "false");
-                },
-                _ => (),
+            if require_ssl {
+                cluster_url
+                    .query_pairs_mut()
+                    .append_pair("require_ssl", "true")
+                    .append_pair("verify_ca", "true");
             }
             let db_name = instance_name.replace('-', "_");
             Ok(PersistenceArgs::MySql {
                 url: cluster_url,
                 db_name,
+                multitenant: false,
+            })
+        },
+        DbDriverTag::MySqlAwsIam(_) => {
+            // NOTE: We do not set any database so we can reuse connections between
+            // database. The persistence layer will select the correct database.
+            // always require SSL
+            cluster_url
+                .query_pairs_mut()
+                .append_pair("require_ssl", "true")
+                .append_pair("verify_ca", "false");
+            let db_name = instance_name.replace('-', "_");
+            Ok(PersistenceArgs::MySql {
+                url: cluster_url,
+                db_name,
+                multitenant: false,
+            })
+        },
+        DbDriverTag::MySqlMultitenant(_) => {
+            // NOTE: We do not set any database so we can reuse connections between
+            // database. The persistence layer will select the correct database.
+            // always require SSL and verify CA
+            // TODO: This shouldn't be necessary anymore on multitenant databases, as all
+            // connections should be to the same database.
+            if require_ssl {
+                cluster_url
+                    .query_pairs_mut()
+                    .append_pair("require_ssl", "true")
+                    .append_pair("verify_ca", "true");
+            }
+            let path = cluster_url.path().trim_start_matches('/').to_string();
+            anyhow::ensure!(
+                !path.is_empty(),
+                "cluster url must contain db name to use multitenant mysql driver"
+            );
+            Ok(PersistenceArgs::MySql {
+                db_name: path,
+                url: {
+                    // Preserves query string
+                    cluster_url.set_path("");
+                    cluster_url
+                },
+                multitenant: true,
             })
         },
         DbDriverTag::Sqlite => anyhow::bail!("no url for sqlite"),
