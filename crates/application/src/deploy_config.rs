@@ -546,6 +546,10 @@ impl<RT: Runtime> Application<RT> {
                 .get_application_indexes(namespace)
                 .await?
             {
+                // Skip counting indexes that are staged
+                if index.config.is_staged() {
+                    continue;
+                }
                 if !index.config.is_backfilling() {
                     indexes_complete += 1;
                 }
