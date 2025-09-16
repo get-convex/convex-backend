@@ -60,18 +60,6 @@ export function CustomDomains({
   );
   const hasEditAccess = hasEntitlement && hasAdminPermissions;
 
-  const proCallout = hasEntitlement ? null : (
-    <Callout>
-      <div>
-        Custom domains are{" "}
-        <span className="font-semibold">only available on the Pro plan</span>.{" "}
-        <Link href={`/${team?.slug}/settings/billing`} className="underline">
-          Upgrade to get access.
-        </Link>
-      </div>
-    </Callout>
-  );
-
   return (
     <Sheet>
       <div className="flex flex-col gap-4">
@@ -83,74 +71,88 @@ export function CustomDomains({
             HTTP actions are configured separately.
           </p>
         </div>
-        {proCallout}
-        {(hasEntitlement || (vanityDomains && vanityDomains.length > 0)) && (
-          <div>
-            {deployment ? (
-              <VanityDomainForm
-                disabled={!hasEditAccess}
-                deploymentName={deployment.name}
-              />
-            ) : (
-              <span className="text-content-secondary">
-                This project does not have a Production deployment yet.
-              </span>
-            )}
-            {vanityDomains && vanityDomains.length > 0 && (
-              <>
-                <div
-                  className={classNames(
-                    "hidden md:grid",
-                    ENVIRONMENT_VARIABLES_ROW_CLASSES,
-                  )}
-                >
-                  <div
-                    className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+
+        <div>
+          {!hasEntitlement && (
+            <>
+              <Callout>
+                <div>
+                  Custom domains are{" "}
+                  <span className="font-semibold">
+                    only available on the Pro plan
+                  </span>
+                  .{" "}
+                  <Link
+                    href={`/${team?.slug}/settings/billing`}
+                    className="underline"
                   >
-                    <span className="text-xs text-content-secondary">
-                      Domain
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-content-secondary">
-                      Request Destination{" "}
-                    </span>
-                  </div>
+                    Upgrade to get access.
+                  </Link>
                 </div>
-                <div className="divide-y divide-border-transparent border-t">
-                  {vanityDomains
-                    .sort((a, b) => a.creationTime - b.creationTime)
-                    .reverse()
-                    .map((domain, index) => (
-                      <DisplayVanityDomain
-                        key={index}
-                        vanityDomain={domain}
-                        enabled={hasEditAccess}
-                      />
-                    ))}
+              </Callout>
+              <LocalDevCallout
+                className="flex-col"
+                tipText="Tip: Run this to enable custom domains locally:"
+                command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement custom_domains_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+              />
+            </>
+          )}
+
+          {deployment ? (
+            <VanityDomainForm
+              disabled={!hasEditAccess}
+              deploymentName={deployment.name}
+            />
+          ) : (
+            <span className="text-content-secondary">
+              This project does not have a Production deployment yet.
+            </span>
+          )}
+          {vanityDomains && vanityDomains.length > 0 && (
+            <>
+              <div
+                className={classNames(
+                  "hidden md:grid",
+                  ENVIRONMENT_VARIABLES_ROW_CLASSES,
+                )}
+              >
+                <div
+                  className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+                >
+                  <span className="text-xs text-content-secondary">Domain</span>
                 </div>
-              </>
-            )}
-            {deployment && (
-              <div className="border-t">
-                <ProdProvider deploymentName={deployment.name}>
-                  <CanonicalDomainForm
-                    deploymentName={deployment.name}
-                    vanityDomains={vanityDomains}
-                  />
-                </ProdProvider>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-content-secondary">
+                    Request Destination{" "}
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              <div className="divide-y divide-border-transparent border-t">
+                {vanityDomains
+                  .sort((a, b) => a.creationTime - b.creationTime)
+                  .reverse()
+                  .map((domain, index) => (
+                    <DisplayVanityDomain
+                      key={index}
+                      vanityDomain={domain}
+                      enabled={hasEditAccess}
+                    />
+                  ))}
+              </div>
+            </>
+          )}
+          {deployment && (
+            <div className="border-t">
+              <ProdProvider deploymentName={deployment.name}>
+                <CanonicalDomainForm
+                  deploymentName={deployment.name}
+                  vanityDomains={vanityDomains}
+                />
+              </ProdProvider>
+            </div>
+          )}
+        </div>
       </div>
-      {!hasEntitlement && (
-        <LocalDevCallout
-          className="flex-col"
-          tipText="Tip: Run this to enable custom domains locally:"
-          command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement custom_domains_enabled --team-id ${team?.id} --reason "local" true --for-real`}
-        />
-      )}
     </Sheet>
   );
 }
