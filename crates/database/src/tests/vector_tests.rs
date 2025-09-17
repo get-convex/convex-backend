@@ -96,6 +96,7 @@ use crate::{
     IndexModel,
     TableModel,
     UserFacingModel,
+    VectorIndexFlusher,
 };
 
 const TABLE_NAME: &str = "test";
@@ -104,11 +105,6 @@ const INDEX_NAME: &str = "test.by_embedding";
 const INDEXED_FIELD: &str = "embedding";
 const FILTER_FIELDS: &[&str] = &["A", "B", "C", "D"];
 const TABLE_NAMESPACE: TableNamespace = TableNamespace::test_user();
-
-enum ScenarioIndexState {
-    None,
-    Some,
-}
 
 struct Scenario<RT: Runtime> {
     rt: RT,
@@ -119,7 +115,7 @@ struct Scenario<RT: Runtime> {
 }
 
 impl<RT: Runtime> Scenario<RT> {
-    async fn new(rt: RT, vector_index_state: ScenarioIndexState) -> anyhow::Result<Self> {
+    async fn new(rt: RT) -> anyhow::Result<Self> {
         let DbFixtures {
             tp,
             db,
@@ -145,10 +141,26 @@ impl<RT: Runtime> Scenario<RT> {
             searcher,
         };
 
-        if let ScenarioIndexState::Some = vector_index_state {
-            self_.add_vector_index(true).await?;
-        }
         Ok(self_)
+    }
+
+    async fn new_with_enabled_index(rt: RT) -> anyhow::Result<Self> {
+        let self_ = Scenario::new(rt).await?;
+        self_.add_vector_index(true).await?;
+        Ok(self_)
+    }
+
+    fn new_backfill_flusher(&self, incremental_index_size: usize) -> VectorIndexFlusher<RT> {
+        new_vector_flusher_for_tests(
+            self.rt.clone(),
+            self.database.clone(),
+            self.reader.clone(),
+            self.search_storage.clone(),
+            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            incremental_index_size,
+            FlusherType::Backfill,
+        )
     }
 
     async fn add_vector_index(&self, should_backfill: bool) -> anyhow::Result<()> {
@@ -357,7 +369,7 @@ struct RandomizedTest<RT: Runtime> {
 impl<RT: Runtime> RandomizedTest<RT> {
     async fn new(rt: RT) -> anyhow::Result<Self> {
         Ok(Self {
-            scenario: Scenario::new(rt, ScenarioIndexState::Some).await?,
+            scenario: Scenario::new_with_enabled_index(rt).await?,
             model: BTreeMap::new(),
         })
     }
@@ -469,7 +481,7 @@ impl<RT: Runtime> RandomizedTest<RT> {
 #[convex_macro::test_runtime]
 
 async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
-    let scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
+    let scenario = Scenario::new_with_enabled_index(rt.clone()).await?;
 
     let mut tx = scenario.database.begin(Identity::system()).await?;
 
@@ -569,7 +581,7 @@ async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_vector_search_compaction(rt: TestRuntime) -> anyhow::Result<()> {
-    let mut scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
+    let mut scenario = Scenario::new_with_enabled_index(rt.clone()).await?;
 
     let mut ids = vec![];
 
@@ -629,7 +641,7 @@ async fn test_vector_search_compaction(rt: TestRuntime) -> anyhow::Result<()> {
 #[ignore] // TODO(CX-5143): Re-enable this test after fixing the flake.
 #[convex_macro::prod_rt_test]
 async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Result<()> {
-    let scenario = Arc::new(Scenario::new(rt.clone(), ScenarioIndexState::Some).await?);
+    let scenario = Arc::new(Scenario::new_with_enabled_index(rt.clone()).await?);
 
     let mut ids = vec![];
     let mut tx = scenario.database.begin(Identity::system()).await?;
@@ -708,7 +720,7 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
 
 #[convex_macro::test_runtime]
 async fn test_vector_search_compaction_with_deletes(rt: TestRuntime) -> anyhow::Result<()> {
-    let mut scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
+    let mut scenario = Scenario::new_with_enabled_index(rt.clone()).await?;
 
     let mut ids = vec![];
 
@@ -754,31 +766,19 @@ async fn test_vector_search_compaction_with_deletes(rt: TestRuntime) -> anyhow::
 
 #[convex_macro::test_runtime]
 async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<()> {
-    let scenario = Scenario::new(rt.clone(), ScenarioIndexState::None).await?;
+    let scenario = Scenario::new(rt.clone()).await?;
     let num_parts = 12;
     let vectors_per_part = 8;
     let incremental_index_size =
         (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
 
-    // Add the vectors
     let ids = scenario
         .seed_table_with_vector_data(num_parts * vectors_per_part)
         .await?;
 
-    // Add the index
     scenario.add_vector_index(false).await?;
 
-    // Create flusher
-    let flusher = new_vector_flusher_for_tests(
-        rt.clone(),
-        scenario.database.clone(),
-        scenario.reader.clone(),
-        scenario.search_storage.clone(),
-        *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-        *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-        incremental_index_size,
-        FlusherType::Backfill,
-    );
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
 
     let mut backfill_ts = None;
     for i in 0..num_parts {
@@ -841,31 +841,19 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
 
 #[convex_macro::test_runtime]
 async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::Result<()> {
-    let mut scenario = Scenario::new(rt.clone(), ScenarioIndexState::None).await?;
+    let mut scenario = Scenario::new(rt.clone()).await?;
     let num_parts = 3;
     let vectors_per_part = 8;
     let incremental_index_size =
         (DIMENSIONS * (VECTOR_ELEMENT_SIZE as u32) * vectors_per_part) as usize;
 
-    // Add the vectors
     let ids = scenario
         .seed_table_with_vector_data(num_parts * vectors_per_part)
         .await?;
 
-    // Add the index
     scenario.add_vector_index(false).await?;
 
-    // Create flusher
-    let flusher = new_vector_flusher_for_tests(
-        rt.clone(),
-        scenario.database.clone(),
-        scenario.reader.clone(),
-        scenario.search_storage.clone(),
-        *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-        *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-        incremental_index_size,
-        FlusherType::Backfill,
-    );
+    let flusher = scenario.new_backfill_flusher(incremental_index_size);
 
     for _ in 0..num_parts {
         // Do a backfill iteration
@@ -908,7 +896,7 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
 
 #[convex_macro::test_runtime]
 async fn test_empty_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
-    let scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
+    let scenario = Scenario::new_with_enabled_index(rt.clone()).await?;
     let query = random_vector(&mut rt.rng());
     let results = scenario
         .search_with_limit(query, btreeset![], Some(10))
@@ -920,7 +908,7 @@ async fn test_empty_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
-    let scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
+    let scenario = Scenario::new_with_enabled_index(rt.clone()).await?;
     let mut tx = scenario.database.begin(Identity::system()).await?;
     let table_number = tx
         .table_mapping()
