@@ -66,14 +66,6 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
     </p>
 
   </Step>
-  <Step title="Set the Issuer URL in your env vars">
-    In your `env` file, add your _Issuer_ URL as the `CLERK_JWT_ISSUER_DOMAIN` environment variable.
-
-    ```env title=".env"
-    CLERK_JWT_ISSUER_DOMAIN=https://verb-noun-00.clerk.accounts.dev
-    ```
-
-  </Step>
   <Step title="Configure Convex with the Clerk issuer domain">
     In your app's `convex` folder, create a new file <JSDialectFileName name="auth.config.ts" /> with the following code. This is the server-side configuration for validating access tokens.
 
@@ -229,14 +221,6 @@ follow the [Convex Next.js Quickstart](/quickstart/nextjs.mdx) first. Then:
     <p style={{textAlign: 'center'}}>
       <img src="/screenshots/clerk-createjwt.png" alt="Create a JWT template" width={400} />
     </p>
-
-  </Step>
-  <Step title="Set the Issuer URL in your env vars">
-    In your `env` file, add your _Issuer_ URL as the `NEXT_PUBLIC_CLERK_FRONTEND_API_URL` environment variable.
-
-    ```env title=".env"
-    NEXT_PUBLIC_CLERK_FRONTEND_API_URL=https://verb-noun-00.clerk.accounts.dev
-    ```
 
   </Step>
   <Step title="Configure Convex with the Clerk issuer domain">
