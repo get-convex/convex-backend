@@ -61,6 +61,7 @@ export type UdfLogOutcome = {
   kind: "outcome";
   error?: string;
   usageStats?: UsageStats;
+  returnBytes?: number;
   caller: string;
   environment: string;
   identityType: string;
@@ -178,6 +179,7 @@ export function processLogs(rawLogs: FunctionExecution[]): UdfLog[] {
         cachedResult: entry.cachedResult,
         kind: "outcome",
         usageStats: entry.usageStats,
+        returnBytes: entry.returnBytes,
         caller: entry.caller,
         environment: entry.environment,
         identityType: entry.identityType,

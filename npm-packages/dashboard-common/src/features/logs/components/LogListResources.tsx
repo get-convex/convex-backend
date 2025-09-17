@@ -6,12 +6,15 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   PieChartIcon,
+  QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
+import { Tooltip } from "@ui/Tooltip";
 import { UsageStats } from "system-udfs/convex/_system/frontend/common";
 
 type RequestUsageStats = UsageStats & {
   actionsRuntimeMs: number;
   actionComputeMbMs: number;
+  returnBytes?: number;
 };
 
 export function LogListResources({ logs }: { logs: UdfLog[] }) {
@@ -38,6 +41,9 @@ export function LogListResources({ logs }: { logs: UdfLog[] }) {
         >) {
           ret[key] += value ?? 0;
         }
+      }
+      if ("returnBytes" in log && log.returnBytes) {
+        ret.returnBytes = (ret.returnBytes ?? 0) + log.returnBytes;
       }
       if (
         log.kind === "outcome" &&
@@ -129,6 +135,20 @@ export function LogListResources({ logs }: { logs: UdfLog[] }) {
                   written
                 </span>
               </li>
+              {usageStats.returnBytes && (
+                <li className="flex items-center justify-between py-2">
+                  <span className="flex items-center gap-1 text-center text-content-secondary">
+                    Return Value Size
+                    <Tooltip tip="Bandwidth from sending the return value of a function call to the user does not incur costs.">
+                      <QuestionMarkCircledIcon />
+                    </Tooltip>
+                  </span>
+                  <span className="text-content-primary">
+                    <strong>{formatBytes(usageStats.returnBytes)}</strong>{" "}
+                    returned
+                  </span>
+                </li>
+              )}
             </ul>
             {logs.filter((log) => log.kind === "outcome").length > 1 && (
               <div className="mt-3 text-content-secondary">

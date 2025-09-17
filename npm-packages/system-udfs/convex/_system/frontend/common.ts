@@ -63,6 +63,7 @@ export type FunctionExecutionCompletion = {
   requestId: string;
   executionId: string;
   usageStats?: UsageStats;
+  returnBytes?: number;
   caller: string;
   environment: string;
   identityType: string;

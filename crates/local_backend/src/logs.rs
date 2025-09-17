@@ -59,6 +59,7 @@ pub enum FunctionExecutionJson {
         request_id: String,
         execution_id: String,
         usage_stats: JsonValue,
+        return_bytes: Option<f64>,
         occ_info: Option<JsonValue>,
         execution_timestamp: f64,
         identity_type: String,
@@ -300,6 +301,7 @@ fn execution_to_json(
                     .map(|id| id.to_string()),
                 execution_id: execution.context.execution_id.to_string(),
                 usage_stats: usage_stats_json,
+                return_bytes: execution.return_bytes.map(|bytes| bytes as f64),
                 occ_info: occ_info_json,
                 execution_timestamp,
                 identity_type,
@@ -332,6 +334,7 @@ fn execution_to_json(
                 request_id: execution.context.request_id.to_string(),
                 execution_id: execution.context.execution_id.to_string(),
                 usage_stats: usage_stats_json,
+                return_bytes: None, // Not supported in HTTP actions
                 occ_info: occ_info_json,
                 execution_timestamp,
                 identity_type,
