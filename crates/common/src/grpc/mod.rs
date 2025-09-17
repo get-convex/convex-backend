@@ -89,7 +89,7 @@ impl ConvexGrpcService {
             .layer(crate::fastrace_helpers::layer::TraceparentReceivingLayer)
             .layer_fn(|s| middleware::TokioInstrumentationService::new(known_methods.clone(), s))
             .layer(sentry_tower::NewSentryLayer::new_from_top())
-            .layer(sentry_tower::SentryHttpLayer::with_transaction());
+            .layer(sentry_tower::SentryHttpLayer::new());
 
         tracing::info!(
             "gRPC services {} listening on ipv4://{addr}",
