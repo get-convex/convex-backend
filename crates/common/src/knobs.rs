@@ -367,11 +367,6 @@ pub static MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY: LazyLock<Duration> =
 pub static MAX_RETENTION_DELAY_SECONDS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("RETENTION_DELETE_FREQUENCY", 60)));
 
-/// How many parallel threads to use for computing which index entries have
-/// expired.
-pub static RETENTION_READ_PARALLEL: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_READ_PARALLEL", 4));
-
 /// How many parallel threads to use for deleting index entries that have
 /// expired.
 pub static INDEX_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
@@ -431,10 +426,6 @@ pub static INDEX_BACKFILL_CHUNK_SIZE: LazyLock<usize> =
 /// Number of workers to use for index backfill.
 pub static INDEX_BACKFILL_WORKERS: LazyLock<usize> =
     LazyLock::new(|| env_config("INDEX_BACKFILL_WORKERS", 1));
-
-/// Chunk size of index entries when reading from persistence.
-pub static RETENTION_READ_CHUNK: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_READ_CHUNK", 128));
 
 /// Chunk size of index entries for deleting from Persistence.
 pub static INDEX_RETENTION_DELETE_CHUNK: LazyLock<usize> =

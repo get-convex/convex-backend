@@ -60,13 +60,9 @@ use common::{
         RETENTION_FAIL_ALL_MULTIPLIER,
         RETENTION_FAIL_ENABLED,
         RETENTION_FAIL_START_MULTIPLIER,
-        RETENTION_READ_CHUNK,
-        RETENTION_READ_PARALLEL,
     },
     persistence::{
         new_static_repeatable_recent,
-        DocumentLogEntry,
-        DocumentPrevTsQuery,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -74,6 +70,10 @@ use common::{
         RepeatablePersistence,
         RetentionValidator,
         TimestampRange,
+    },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
     },
     query::Order,
     runtime::{
@@ -104,14 +104,10 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
-use fastrace::{
-    future::FutureExt as _,
-    Span,
-};
+use fastrace::future::FutureExt as _;
 use futures::{
     future::try_join_all,
     pin_mut,
-    StreamExt,
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
@@ -572,129 +568,91 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             "expired_index_entries: reading expired index entries from {cursor:?} to {:?}",
             min_snapshot_ts,
         );
-        let reader_ = &reader;
-        let mut index_entry_chunks = reader
-            .load_documents(TimestampRange::new(*cursor..*min_snapshot_ts), Order::Asc)
-            .try_chunks2(*RETENTION_READ_CHUNK)
-            .map(move |chunk| async move {
-                let chunk = chunk?;
-                let mut entries_to_delete = vec![];
-                // Prev revs are the documents we are deleting.
-                // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
-                // the prev rev's ts, and a tombstone at the current rev's ts if
-                // the document was deleted or its index key changed.
-                let prev_revs = reader_
-                    .previous_revisions_of_documents(
-                        chunk
-                            .iter()
-                            .filter_map(|entry| {
-                                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
-                                    id: entry.id,
-                                    ts: entry.ts,
-                                    prev_ts,
-                                })
-                            })
-                            .collect(),
-                    )
-                    .in_span(Span::enter_with_local_parent(
-                        "previous_revisions_of_documents",
-                    ))
-                    .await?;
-                for DocumentLogEntry {
+        let mut revs = reader.load_revision_pairs(
+            None, /* tablet_id */
+            TimestampRange::new(*cursor..*min_snapshot_ts),
+            Order::Asc,
+        );
+        while let Some(rev) = revs.try_next().await? {
+            // Prev revs are the documents we are deleting.
+            // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
+            // the prev rev's ts, and a tombstone at the current rev's ts if
+            // the document was deleted or its index key changed.
+            let RevisionPair {
+                id,
+                rev:
+                    DocumentRevision {
+                        ts,
+                        document: maybe_doc,
+                    },
+                prev_rev,
+            } = rev;
+            // If there is no prev rev, there's nothing to delete.
+            // If this happens for a tombstone, it means the document was created and
+            // deleted in the same transaction, with no index rows.
+            let Some(prev_rev) = prev_rev else {
+                log_retention_scanned_document(maybe_doc.is_none(), false);
+                continue;
+            };
+            let DocumentRevision {
+                ts: prev_rev_ts,
+                document: Some(prev_rev),
+            } = prev_rev
+            else {
+                // This is unexpected: if there is a prev_ts, there should be a prev_rev.
+                let mut e = anyhow::anyhow!(
+                    "Skipping deleting indexes for {id}@{ts}. It has a prev_ts of {prev_ts} but \
+                     no previous revision.",
+                    prev_ts = prev_rev.ts
+                );
+                report_error(&mut e).await;
+                log_retention_scanned_document(maybe_doc.is_none(), false);
+                continue;
+            };
+            log_retention_scanned_document(maybe_doc.is_none(), true);
+            for (index_id, (_, index_fields)) in all_indexes
+                .iter()
+                .filter(|(_, (index, _))| *index.table() == id.table())
+            {
+                let index_key = prev_rev
+                    .index_key(index_fields, persistence_version)
+                    .to_bytes();
+                let key_sha256 = Sha256::hash(&index_key);
+                let key = SplitKey::new(index_key.clone().0);
+                log_retention_expired_index_entry(false, false);
+                yield (
                     ts,
-                    id,
-                    value: maybe_doc,
-                    prev_ts,
-                    ..
-                } in chunk
-                {
-                    // If there is no prev rev, there's nothing to delete.
-                    // If this happens for a tombstone, it means the document was created and
-                    // deleted in the same transaction, with no index rows.
-                    let Some(prev_ts) = prev_ts else {
-                        log_retention_scanned_document(maybe_doc.is_none(), false);
-                        continue;
-                    };
-                    let Some(DocumentLogEntry {
+                    IndexEntry {
+                        index_id: *index_id,
+                        key_prefix: key.prefix.clone(),
+                        key_suffix: key.suffix.clone(),
+                        key_sha256: key_sha256.to_vec(),
                         ts: prev_rev_ts,
-                        value: maybe_prev_rev,
-                        ..
-                    }) = prev_revs.get(&DocumentPrevTsQuery { id, ts, prev_ts })
-                    else {
-                        // This is unexpected: if there is a prev_ts, there should be a prev_rev.
-                        report_error(&mut anyhow::anyhow!(
-                            "Skipping deleting indexes for {id}@{ts}. It has a prev_ts of \
-                             {prev_ts} but no previous revision."
-                        ))
-                        .await;
-                        log_retention_scanned_document(maybe_doc.is_none(), false);
-                        continue;
-                    };
-                    let Some(prev_rev) = maybe_prev_rev else {
-                        // This should not really ever happen. But it does due to some
-                        // extremely rare inconsistency, we prefer to continue making progress over
-                        // halting retention for everyone until the issue is fixed. Not deleting
-                        // tombstones index entries should never cause a correctness issue.
-                        report_error(&mut anyhow::anyhow!(
-                            "Skipping deleting indexes for {id}@{prev_rev_ts}. It is a tombstone \
-                             at {prev_rev_ts} but has a later revision at {ts}"
-                        ))
-                        .await;
-                        log_retention_scanned_document(maybe_doc.is_none(), false);
-                        continue;
-                    };
-                    log_retention_scanned_document(maybe_doc.is_none(), true);
-                    for (index_id, (_, index_fields)) in all_indexes
-                        .iter()
-                        .filter(|(_, (index, _))| *index.table() == id.table())
-                    {
-                        let index_key = prev_rev
-                            .index_key(index_fields, persistence_version)
-                            .to_bytes();
-                        let key_sha256 = Sha256::hash(&index_key);
-                        let key = SplitKey::new(index_key.clone().0);
-                        log_retention_expired_index_entry(false, false);
-                        entries_to_delete.push((
-                            ts,
-                            IndexEntry {
-                                index_id: *index_id,
-                                key_prefix: key.prefix.clone(),
-                                key_suffix: key.suffix.clone(),
-                                key_sha256: key_sha256.to_vec(),
-                                ts: *prev_rev_ts,
-                                deleted: false,
-                            },
-                        ));
-                        match maybe_doc.as_ref() {
-                            Some(doc) => {
-                                let next_index_key =
-                                    doc.index_key(index_fields, persistence_version).to_bytes();
-                                if index_key == next_index_key {
-                                    continue;
-                                }
-                                log_retention_expired_index_entry(true, true);
-                            },
-                            None => log_retention_expired_index_entry(true, false),
+                        deleted: false,
+                    },
+                );
+                match maybe_doc.as_ref() {
+                    Some(doc) => {
+                        let next_index_key =
+                            doc.index_key(index_fields, persistence_version).to_bytes();
+                        if index_key == next_index_key {
+                            continue;
                         }
-                        entries_to_delete.push((
-                            ts,
-                            IndexEntry {
-                                index_id: *index_id,
-                                key_prefix: key.prefix,
-                                key_suffix: key.suffix,
-                                key_sha256: key_sha256.to_vec(),
-                                ts,
-                                deleted: true,
-                            },
-                        ));
-                    }
+                        log_retention_expired_index_entry(true, true);
+                    },
+                    None => log_retention_expired_index_entry(true, false),
                 }
-                anyhow::Ok(entries_to_delete)
-            })
-            .buffered(*RETENTION_READ_PARALLEL);
-        while let Some(chunk) = index_entry_chunks.try_next().await? {
-            for entry in chunk {
-                yield entry;
+                yield (
+                    ts,
+                    IndexEntry {
+                        index_id: *index_id,
+                        key_prefix: key.prefix,
+                        key_suffix: key.suffix,
+                        key_sha256: key_sha256.to_vec(),
+                        ts,
+                        deleted: true,
+                    },
+                );
             }
         }
     }
@@ -811,101 +769,79 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             "expired_documents: reading expired documents from {cursor:?} to {:?}",
             min_document_snapshot_ts,
         );
-        let reader = RepeatablePersistence::new(
-            persistence,
-            min_document_snapshot_ts,
+        let mut revs = persistence.load_revision_pairs(
+            None, /* tablet_id */
+            TimestampRange::new(*cursor..*min_document_snapshot_ts),
+            Order::Asc,
+            *DEFAULT_DOCUMENTS_PAGE_SIZE,
             // We are reading document log entries from outside of the retention
             // window (which we have possibly just shrunk ourselves); there is
             // no need to check retention.
             Arc::new(NoopRetentionValidator),
         );
-        let mut document_chunks = reader
-            .load_documents(
-                TimestampRange::new(*cursor..*min_document_snapshot_ts),
-                Order::Asc,
-            )
-            .try_chunks2(*RETENTION_READ_CHUNK)
-            .map(|chunk| async {
-                let chunk = chunk?.to_vec();
-                let mut entries_to_delete: Vec<(
-                    Timestamp,
-                    Option<(Timestamp, InternalDocumentId)>,
-                )> = vec![];
-                // Prev revs are the documents we are deleting.
-                // Each prev rev has 1 or 2 entries to delete per document -- one entry at
-                // the prev rev's ts, and a tombstone at the current rev's ts if
-                // the document was deleted.
-                // A NoopRetentionValidator is used here because we are fetching revisions
-                // outside of the document retention window.
-                let prev_revs = reader
-                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
-                    .await?;
-                for DocumentLogEntry {
-                    ts,
-                    id,
-                    value: maybe_doc,
-                    ..
-                } in chunk
-                {
-                    // If there is no prev rev, there's nothing to delete.
-                    // If this happens for a tombstone, it means the document was created and
-                    // deleted in the same transaction.
-                    let Some(DocumentLogEntry {
-                        ts: prev_rev_ts,
-                        value: maybe_prev_rev,
-                        ..
-                    }) = prev_revs.get(&(id, ts))
-                    else {
-                        if maybe_doc.is_none() {
-                            anyhow::ensure!(
-                                ts <= Timestamp::try_from(
-                                    rt.clone().unix_timestamp().as_system_time()
-                                )?
-                                .sub(*DOCUMENT_RETENTION_DELAY)?,
-                                "Tried to delete document (id: {id}, ts: {ts}), which was out of \
-                                 the retention window"
-                            );
-
-                            entries_to_delete.push((ts, Some((ts, id))));
-                        } else {
-                            entries_to_delete.push((ts, None));
-                        }
-                        log_document_retention_scanned_document(maybe_doc.is_none(), false);
-                        continue;
-                    };
-                    let Some(_) = maybe_prev_rev else {
-                        // A tombstone should not be a previous revision, so we throw an error and
-                        // bail
-                        log_document_retention_scanned_document(maybe_doc.is_none(), false);
-                        anyhow::bail!(
-                            "Document {id}@{prev_rev_ts}is a tombstone at {prev_rev_ts} but has a \
-                             later revision at {ts}"
-                        )
-                    };
-
-                    anyhow::ensure!(
-                        *prev_rev_ts
-                            <= Timestamp::try_from(rt.unix_timestamp().as_system_time())?
-                                .sub(*DOCUMENT_RETENTION_DELAY)?,
-                        "Tried to delete document (id: {id}, ts: {prev_rev_ts}), which was out of \
-                         the retention window"
-                    );
-
-                    entries_to_delete.push((ts, Some((*prev_rev_ts, id))));
-
-                    // Deletes tombstones
+        while let Some(rev) = revs.try_next().await? {
+            // Prev revs are the documents we are deleting.
+            // Each prev rev has 1 or 2 entries to delete per document -- one entry at
+            // the prev rev's ts, and a tombstone at the current rev's ts if
+            // the document was deleted.
+            // A NoopRetentionValidator is used here because we are fetching revisions
+            // outside of the document retention window.
+            let RevisionPair {
+                id,
+                rev:
+                    DocumentRevision {
+                        ts,
+                        document: maybe_doc,
+                    },
+                prev_rev,
+            } = rev;
+            {
+                // If there is no prev rev, there's nothing to delete.
+                // If this happens for a tombstone, it means the document was created and
+                // deleted in the same transaction.
+                let Some(DocumentRevision {
+                    ts: prev_rev_ts,
+                    document: maybe_prev_rev,
+                }) = prev_rev
+                else {
+                    log_document_retention_scanned_document(maybe_doc.is_none(), false);
                     if maybe_doc.is_none() {
-                        entries_to_delete.push((ts, Some((ts, id))));
+                        anyhow::ensure!(
+                            ts <= Timestamp::try_from(rt.unix_timestamp().as_system_time())?
+                                .sub(*DOCUMENT_RETENTION_DELAY)?,
+                            "Tried to delete document (id: {id}, ts: {ts}), which was out of the \
+                             retention window"
+                        );
+                        yield (ts, Some((ts, id)));
+                    } else {
+                        yield (ts, None);
                     }
+                    continue;
+                };
+                let Some(_) = maybe_prev_rev else {
+                    // A tombstone should not be a previous revision, so we throw an error and
+                    // bail
+                    log_document_retention_scanned_document(maybe_doc.is_none(), false);
+                    anyhow::bail!(
+                        "Document {id}@{prev_rev_ts}is a tombstone at {prev_rev_ts} but has a \
+                         later revision at {ts}"
+                    )
+                };
 
-                    log_document_retention_scanned_document(maybe_doc.is_none(), true);
+                anyhow::ensure!(
+                    prev_rev_ts
+                        <= Timestamp::try_from(rt.unix_timestamp().as_system_time())?
+                            .sub(*DOCUMENT_RETENTION_DELAY)?,
+                    "Tried to delete document (id: {id}, ts: {prev_rev_ts}), which was out of the \
+                     retention window"
+                );
+                log_document_retention_scanned_document(maybe_doc.is_none(), true);
+                yield (ts, Some((prev_rev_ts, id)));
+
+                // Deletes tombstones
+                if maybe_doc.is_none() {
+                    yield (ts, Some((ts, id)));
                 }
-                anyhow::Ok(entries_to_delete)
-            })
-            .buffered(*RETENTION_READ_PARALLEL);
-        while let Some(chunk) = document_chunks.try_next().await? {
-            for entry in chunk {
-                yield entry;
             }
         }
     }
