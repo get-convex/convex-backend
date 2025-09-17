@@ -10,6 +10,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    pause::PauseController,
     runtime::Runtime,
     testing::assert_contains,
     types::{
@@ -22,6 +23,7 @@ use database::{
     BootstrapComponentsModel,
     TableModel,
     UserFacingModel,
+    PERFORM_BACKFILL_LABEL,
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::FutureExt;
@@ -43,6 +45,7 @@ use value::{
 };
 
 use crate::{
+    deploy_config::SchemaStatus,
     test_helpers::ApplicationTestExt,
     Application,
     FunctionError,
@@ -540,5 +543,43 @@ async fn test_delete_component_with_hidden_tables(rt: TestRuntime) -> anyhow::Re
         .await?
         .into_value();
     assert_eq!(table_metadata.state, TableState::Deleting);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_component_status_skips_staged_index(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("basic").await?;
+    // Insert a doc into a table
+    run_function(&application, "errors:insertDoc".parse()?, vec![])
+        .await?
+        .unwrap();
+    // Don't let the index get backfilled before we can check its status
+    let _hold_guard = pause.hold(PERFORM_BACKFILL_LABEL);
+    let start_push = application
+        .start_push_for_layout("schema_with_index")
+        .await?;
+    // Confirm new schema was created in the root component
+    assert!(start_push
+        .schema_change
+        .schema_ids
+        .get(&ComponentPath::root())
+        .unwrap()
+        .is_some());
+    // Schema status should be in progress since one index is backfilling
+    let (schema_status, _) = application
+        .load_component_schema_status(&Identity::system(), &start_push.schema_change)
+        .await?;
+    let SchemaStatus::InProgress { components } = schema_status else {
+        anyhow::bail!("Expected InProgress schema, got {:?}", schema_status);
+    };
+    let component_status = components.get(&ComponentPath::root()).unwrap();
+    // Schema status only tracks the one non-staged index added and skips the staged
+    // index that was added.
+    assert_eq!(component_status.indexes_complete, 0);
+    assert_eq!(component_status.indexes_total, 1);
     Ok(())
 }

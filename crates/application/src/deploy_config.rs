@@ -489,7 +489,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     #[fastrace::trace]
-    async fn load_component_schema_status(
+    pub(crate) async fn load_component_schema_status(
         &self,
         identity: &Identity,
         schema_change: &SchemaChange,

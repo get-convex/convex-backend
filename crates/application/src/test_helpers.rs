@@ -112,6 +112,7 @@ use crate::{
         FinishPushDiff,
         SchemaStatus,
         StartPushRequest,
+        StartPushResponse,
     },
     log_visibility::RedactLogsToClient,
     scheduled_jobs::ScheduledJobContext,
@@ -161,6 +162,11 @@ pub trait ApplicationTestExt<RT: Runtime> {
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
     /// Load the modules form npm-packages/component-tests
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()>;
+    async fn start_push_for_layout(&self, layout: &str) -> anyhow::Result<StartPushResponse>;
+    async fn start_push_from_request(
+        &self,
+        request: StartPushRequest,
+    ) -> anyhow::Result<StartPushResponse>;
     async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff>;
 
     async fn test_one_off_cron_job_executor_run(&self, job: CronJob) -> anyhow::Result<()>;
@@ -335,10 +341,22 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         Ok(())
     }
 
-    async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff> {
+    async fn start_push_for_layout(&self, layout: &str) -> anyhow::Result<StartPushResponse> {
+        let request = Self::load_start_push_request(Path::new(layout))?;
+        self.start_push_from_request(request).await
+    }
+
+    async fn start_push_from_request(
+        &self,
+        request: StartPushRequest,
+    ) -> anyhow::Result<StartPushResponse> {
         let dry_run = request.dry_run;
         let config = request.into_project_config()?;
-        let start_push = self.start_push(&config, dry_run).await?;
+        self.start_push(&config, dry_run).await
+    }
+
+    async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff> {
+        let start_push = self.start_push_from_request(request).await?;
         loop {
             let schema_status = self
                 .wait_for_schema(

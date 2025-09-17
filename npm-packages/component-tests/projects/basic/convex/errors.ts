@@ -1,4 +1,4 @@
-import { query, action } from "./_generated/server";
+import { query, action, mutation } from "./_generated/server";
 import { components } from "./_generated/api";
 import { api } from "./_generated/api";
 
@@ -16,4 +16,8 @@ export const tryPaginateWithinComponent = query(async (ctx) => {
 
 export const tryInfiniteLoop = query(async (ctx) => {
   await ctx.runQuery(api.errors.tryInfiniteLoop, {});
+});
+
+export const insertDoc = mutation(async (ctx) => {
+  await ctx.db.insert("table", { name: "emma", age: 27 });
 });

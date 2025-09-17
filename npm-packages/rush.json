@@ -613,6 +613,10 @@
       "projectFolder": "component-tests/projects/with-schema"
     },
     {
+      "packageName": "component-tests-schema-with-index",
+      "projectFolder": "component-tests/projects/schema_with_index"
+    },
+    {
       "packageName": "component-tests-basic",
       "projectFolder": "component-tests/projects/basic"
     },

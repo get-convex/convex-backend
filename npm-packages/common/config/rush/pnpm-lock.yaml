@@ -497,6 +497,22 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
 
+  ../../component-tests/projects/schema_with_index:
+    dependencies:
+      convex:
+        specifier: workspace:*
+        version: link:../../../convex
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+    devDependencies:
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.70
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+
   ../../component-tests/projects/with-schema:
     dependencies:
       convex:

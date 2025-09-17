@@ -57,7 +57,10 @@ pub mod tests;
 pub mod text_index_worker;
 pub use component_registry::ComponentRegistry;
 pub use database_index_workers::{
-    index_writer::IndexWriter,
+    index_writer::{
+        IndexWriter,
+        PERFORM_BACKFILL_LABEL,
+    },
     IndexWorker,
 };
 pub use execution_size::FunctionExecutionSize;

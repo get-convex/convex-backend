@@ -40,8 +40,14 @@ const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests";
 const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: [&str; 3] = [".rush", "node_modules", "projects"];
 /// Directory where test projects that use components live.
 const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/component-tests/projects";
-const COMPONENT_TESTS_PROJECTS: [&str; 5] =
-    ["basic", "with-schema", "mounted", "empty", "http_actions"];
+const COMPONENT_TESTS_PROJECTS: [&str; 6] = [
+    "basic",
+    "with-schema",
+    "schema_with_index",
+    "mounted",
+    "empty",
+    "http_actions",
+];
 /// Components in `component-tests` directory that are used in projects.
 const COMPONENTS: [&str; 3] = ["component", "envVars", "errors"];
 

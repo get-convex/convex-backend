@@ -70,6 +70,8 @@ use crate::{
     TableIterator,
 };
 
+pub const PERFORM_BACKFILL_LABEL: &str = "perform_backfill";
+
 static ENTRIES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     NonZeroU32::new(
         (*INDEX_BACKFILL_CHUNK_RATE * *INDEX_BACKFILL_CHUNK_SIZE)
@@ -226,6 +228,8 @@ impl<RT: Runtime> IndexWriter<RT> {
         concurrency: usize,
         database: Option<Database<RT>>,
     ) -> anyhow::Result<()> {
+        let pause_client = self.runtime.pause_client();
+        pause_client.wait(PERFORM_BACKFILL_LABEL).await;
         // Backfill in two steps: first create index entries for all latest documents,
         // then create index entries for all documents in the retention range.
 
