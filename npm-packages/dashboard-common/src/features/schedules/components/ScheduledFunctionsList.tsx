@@ -33,7 +33,7 @@ export function ScheduledFunctionsList({
   ) : hasScheduledJobs ? (
     <NoScheduledJobsForFunction />
   ) : (
-    <div className="grow">
+    <div className="h-full overflow-hidden">
       <InfiniteScrollList
         outerRef={outerRef}
         items={jobs}
