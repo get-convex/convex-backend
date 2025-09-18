@@ -10,6 +10,11 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-09-17
+
+As of ~2025-09-17, we're releasing more frequently, so we're not going to update
+this changelog as frequently. Check `git log` for a detailed listing of changes.
+
 ## 2025-09-12 `4d3b0a5de955a258e70e3813bbff486051d88820`
 
 - Schema Validation progress on dashboard.
