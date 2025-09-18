@@ -10,9 +10,11 @@ import { GenericDocument } from "convex/server";
 import { convexToJson, ValidatorJSON } from "convex/values";
 import {
   DatabaseIndexFilter,
+  DatabaseIndexFilterClause,
   FilterByIndexRange,
   FilterExpression,
   SearchIndexFilter,
+  SearchIndexFilterClause,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
 import { Combobox } from "@ui/Combobox";
@@ -21,8 +23,9 @@ import { SchemaJson } from "@common/lib/format";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Index } from "@common/features/data/lib/api";
 import { cn } from "@ui/cn";
-import { IndexFilterEditor, IndexFilterState } from "./IndexFilterEditor";
+import { DatabaseIndexFilterEditor } from "./DatabaseIndexFilterEditor";
 import { SearchValueEditor } from "./SearchValueEditor";
+import { SearchIndexFilterEditor } from "./SearchIndexFilterEditor";
 
 export function getDefaultIndex(): {
   name: string;
@@ -97,7 +100,10 @@ type IndexFiltersProps = {
   applyFiltersWithHistory: (next: FilterExpression) => Promise<void>;
   setDraftFilters: (next: FilterExpression) => void;
   onChangeOrder: (newOrder: "asc" | "desc") => void;
-  onChangeIndexFilter: (filter: IndexFilterState, idx: number) => void;
+  onChangeIndexFilter: (
+    filter: DatabaseIndexFilterClause | SearchIndexFilterClause,
+    idx: number,
+  ) => void;
   onError: (idx: number, errors: string[]) => void;
   hasInvalidFilters: boolean;
   invalidFilters: Record<string, string>;
@@ -345,7 +351,7 @@ export function IndexFilters({
                 .map((c) => c.enabled) || [];
 
             return (
-              <IndexFilterEditor
+              <DatabaseIndexFilterEditor
                 key={idx}
                 idx={idx}
                 field={fieldName}
@@ -393,14 +399,33 @@ export function IndexFilters({
                 }
                 await applyFiltersWithHistory(shownFilters);
               }}
+              indented={searchIndex.clauses.length > 0}
             />
 
-            {/* TODO(ENG-9734) Support index filters in search queries */}
-            {searchIndex.clauses.length > 0 && (
-              <p className="text-xs text-content-secondary">
-                Using search index filters in the dashboard isn’t supported yet.
-              </p>
-            )}
+            {searchIndex.clauses.map((clause, idx) => (
+              <SearchIndexFilterEditor
+                key={clause.field}
+                idx={idx}
+                field={clause.field}
+                error={
+                  clause.enabled ? invalidFilters[`index/${idx}`] : undefined
+                }
+                onChange={onChangeIndexFilter}
+                onApplyFilters={async () => {
+                  if (hasInvalidFilters) {
+                    return;
+                  }
+                  await applyFiltersWithHistory(shownFilters);
+                }}
+                onError={onError}
+                filter={clause}
+                autoFocusValueEditor={
+                  idx === (shownFilters.index?.clauses.length || 0) - 1
+                }
+                documentValidator={getValidatorForField(clause.field)}
+                shouldSurfaceValidatorErrors={activeSchema?.schemaValidation}
+              />
+            ))}
           </>
         )}
       </div>

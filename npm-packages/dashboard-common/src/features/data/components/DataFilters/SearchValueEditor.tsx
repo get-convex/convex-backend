@@ -14,11 +14,13 @@ export function SearchValueEditor({
   value,
   onChange,
   onApplyFilters,
+  indented,
 }: {
   field: string;
   value: string;
   onChange(newValue: string): void;
   onApplyFilters(): void;
+  indented: boolean;
 }) {
   const inputId = useId();
 
@@ -40,6 +42,8 @@ export function SearchValueEditor({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
+      {indented && <div className="size-3.5" />}
+
       <div className="flex min-w-0 grow">
         {/* Field name display */}
         <Tooltip tip="You cannot edit this field because it is a part of the definition of the selected index.">

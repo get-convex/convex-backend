@@ -32,6 +32,8 @@ export type SearchIndexFilter = {
   clauses: SearchIndexFilterClause[];
 };
 
+export type DatabaseIndexFilterClause = FilterByIndex | FilterByIndexRange;
+
 export type SearchIndexFilterClause = {
   field: string;
   enabled: boolean;

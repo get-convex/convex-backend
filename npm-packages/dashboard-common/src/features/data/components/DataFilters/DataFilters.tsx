@@ -9,9 +9,11 @@ import {
 } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
 import {
+  DatabaseIndexFilterClause,
   Filter,
   FilterExpression,
   FilterValidationError,
+  SearchIndexFilterClause,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import {
   FilterEditor,
@@ -43,7 +45,6 @@ import { useNents } from "@common/lib/useNents";
 import { useQuery } from "convex/react";
 import { api } from "system-udfs/convex/_generated/api";
 import { Index } from "@common/features/data/lib/api";
-import { IndexFilterState } from "./IndexFilterEditor";
 import { IndexFilters, getDefaultIndex } from "./IndexFilters";
 import { clearFilters } from "./clearFilters";
 
@@ -560,7 +561,10 @@ function useDataFilters({
   );
 
   const onChangeIndexFilter = useCallback(
-    (filter: IndexFilterState, idx: number) => {
+    (
+      filter: DatabaseIndexFilterClause | SearchIndexFilterClause,
+      idx: number,
+    ) => {
       const newFilters = cloneDeep(shownFilters);
       if (!newFilters.index) {
         throw new Error("Index not found");
@@ -575,7 +579,11 @@ function useDataFilters({
             filterType: "index",
             filterIndex: idx,
           });
-        } else if ("type" in oldFilter && oldFilter.type !== filter.type) {
+        } else if (
+          "type" in oldFilter &&
+          "type" in filter &&
+          oldFilter.type !== filter.type
+        ) {
           log("index filter type change", {
             oldType: oldFilter.type,
             newType: filter.type,

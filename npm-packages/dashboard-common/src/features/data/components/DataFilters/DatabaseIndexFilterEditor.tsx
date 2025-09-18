@@ -1,34 +1,17 @@
 import { ValidatorJSON, Value, convexToJson } from "convex/values";
 import React, { useCallback, useState } from "react";
 import {
+  DatabaseIndexFilterClause,
   FilterByIndex,
   FilterByIndexRange,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Checkbox } from "@ui/Checkbox";
-import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { Combobox, Option } from "@ui/Combobox";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
 import { cn } from "@ui/cn";
-import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { Tooltip } from "@ui/Tooltip";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
-
-export type IndexFilterState = FilterByIndex | FilterByIndexRange;
-
-export type IndexFilterEditorProps = {
-  idx: number;
-  field: string;
-  error: string | undefined;
-  onChange(filter: IndexFilterState, idx: number): void;
-  onApplyFilters(): void;
-  onError(idx: number, errors: string[]): void;
-  filter: IndexFilterState;
-  autoFocusValueEditor?: boolean;
-  documentValidator?: ValidatorJSON;
-  shouldSurfaceValidatorErrors?: boolean;
-  previousFiltersEnabled: boolean[];
-  nextFiltersEnabled?: boolean[];
-};
+import { ObjectEditorWithPlaceholder } from "./ObjectEditorWithPlaceholder";
 
 // Options for the filter type combobox
 const filterTypeOptions: Option<string>[] = [
@@ -44,7 +27,7 @@ const filterTypeOptions: Option<string>[] = [
 const RANGE_ERROR_MESSAGE =
   "The lower bound of this range is currently set to a value that is higher than the upper bound. This filter would never match any documents.";
 
-export function IndexFilterEditor({
+export function DatabaseIndexFilterEditor({
   idx,
   field,
   error,
@@ -57,7 +40,20 @@ export function IndexFilterEditor({
   shouldSurfaceValidatorErrors,
   previousFiltersEnabled,
   nextFiltersEnabled = [],
-}: IndexFilterEditorProps) {
+}: {
+  idx: number;
+  field: string;
+  error: string | undefined;
+  onChange(filter: DatabaseIndexFilterClause, idx: number): void;
+  onApplyFilters(): void;
+  onError(idx: number, errors: string[]): void;
+  filter: DatabaseIndexFilterClause;
+  autoFocusValueEditor?: boolean;
+  documentValidator?: ValidatorJSON;
+  shouldSurfaceValidatorErrors?: boolean;
+  previousFiltersEnabled: boolean[];
+  nextFiltersEnabled?: boolean[];
+}) {
   const [prevIsLastEnabledFilter, setPrevIsLastEnabledFilter] = useState<
     boolean | null
   >(null);
@@ -475,7 +471,7 @@ export function IndexFilterEditor({
               path={`indexFilter${idx}-${field}-${filter.type}`}
               autoFocus={autoFocusValueEditor}
               className="rounded-l-none rounded-r"
-              filter={filter}
+              enabled={filter.enabled}
               onApplyFilters={onApplyFilters}
               handleError={handleError}
               documentValidator={documentValidator}
@@ -516,7 +512,7 @@ export function IndexFilterEditor({
               path={`indexFilter${idx}-${field}-${filter.type}`}
               autoFocus={autoFocusValueEditor}
               className="rounded-l-none rounded-r"
-              filter={filter}
+              enabled={filter.enabled}
               onApplyFilters={onApplyFilters}
               handleError={handleError}
               documentValidator={documentValidator}
@@ -546,7 +542,7 @@ export function IndexFilterEditor({
                 path={`indexFilterLower${idx}-${field}-${filter.type}`}
                 autoFocus={autoFocusValueEditor}
                 className="rounded-l-none rounded-tr rounded-br-none"
-                filter={filter}
+                enabled={filter.enabled}
                 onApplyFilters={onApplyFilters}
                 handleError={handleError}
                 documentValidator={documentValidator}
@@ -569,7 +565,7 @@ export function IndexFilterEditor({
                 onChangeHandler={handleUpperValueChange}
                 path={`indexFilterUpper${idx}-${field}-${filter.type}`}
                 className="rounded-l-none rounded-tr-none rounded-br border-t-0"
-                filter={filter}
+                enabled={filter.enabled}
                 onApplyFilters={onApplyFilters}
                 handleError={handleError}
                 documentValidator={documentValidator}
@@ -682,79 +678,5 @@ export function IndexFilterEditor({
         )}
       </div>
     </div>
-  );
-}
-
-// Create a separate component for ObjectEditor with placeholder
-function ObjectEditorWithPlaceholder({
-  value,
-  onChangeHandler,
-  path,
-  autoFocus = false,
-  className = "",
-  filter,
-  onApplyFilters,
-  handleError,
-  documentValidator,
-  shouldSurfaceValidatorErrors,
-}: {
-  value: any;
-  onChangeHandler: (value?: Value) => void;
-  path: string;
-  autoFocus?: boolean;
-  className?: string;
-  filter: IndexFilterState;
-  onApplyFilters: () => void;
-  handleError: (errors: string[]) => void;
-  documentValidator?: ValidatorJSON;
-  shouldSurfaceValidatorErrors?: boolean;
-}) {
-  const [innerText, setInnerText] = useState("");
-
-  return (
-    <>
-      {filter.enabled &&
-        innerText === "" &&
-        value === UNDEFINED_PLACEHOLDER && (
-          <div
-            className="pointer-events-none absolute z-50 font-mono text-xs text-content-secondary italic"
-            data-testid="undefined-placeholder"
-            style={{
-              marginTop: "5px",
-              marginLeft: "11px",
-            }}
-          >
-            unset
-          </div>
-        )}
-      <ObjectEditor
-        key={path}
-        className={cn(
-          "w-full min-w-4 border focus-within:border focus-within:border-border-selected",
-          filter.enabled && "border-l-transparent",
-          className,
-        )}
-        editorClassname={cn(
-          "mt-0 rounded-sm bg-background-secondary px-2 py-1 text-xs",
-          className,
-        )}
-        allowTopLevelUndefined
-        size="sm"
-        disableFolding
-        defaultValue={value === UNDEFINED_PLACEHOLDER ? undefined : value}
-        onChange={onChangeHandler}
-        onError={handleError}
-        path={path}
-        autoFocus={autoFocus}
-        disableFind
-        saveAction={onApplyFilters}
-        enterSaves
-        mode="editField"
-        validator={documentValidator}
-        shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
-        disabled={!filter.enabled}
-        onChangeInnerText={setInnerText}
-      />
-    </>
   );
 }
