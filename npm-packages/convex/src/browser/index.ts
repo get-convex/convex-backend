@@ -23,6 +23,7 @@ export type {
   SubscribeOptions,
   ConnectionState,
   AuthTokenFetcher,
+  PlaintextAuthTokenFetcher,
 } from "./sync/client.js";
 export type { ConvexClientOptions } from "./simple_client.js";
 export { ConvexClient } from "./simple_client.js";

@@ -5,6 +5,7 @@ import { convexToJson, Value } from "../values/index.js";
 import { QueryJournal } from "../browser/sync/protocol.js";
 import {
   AuthTokenFetcher,
+  PlaintextAuthTokenFetcher,
   BaseConvexClientOptions,
   ConnectionState,
 } from "../browser/sync/client.js";
@@ -330,6 +331,33 @@ export class ConvexReactClient {
       );
     }
     this.sync.setAuth(
+      fetchToken,
+      onChange ??
+        (() => {
+          // Do nothing
+        }),
+    );
+  }
+
+  /**
+   * Set a plaintext authentication token to be used for subsequent queries and mutations.
+   * Unlike setAuth, this bypasses all JWT processing and sends the token directly to the server.
+   * The server is responsible for validating the token.
+   * `fetchToken` will only be called again if the server rejects the token.
+   * @param fetchToken - an async function returning a plaintext authentication token
+   * @param onChange - a callback that will be called when the authentication status changes
+   */
+  setAuthInsecure(
+    fetchToken: PlaintextAuthTokenFetcher,
+    onChange?: (isAuthenticated: boolean) => void,
+  ) {
+    if (typeof fetchToken === "string") {
+      throw new Error(
+        "Passing a string to ConvexReactClient.setAuthInsecure is not supported, " +
+          "please pass an async function that returns the authentication token.",
+      );
+    }
+    this.sync.setAuthInsecure(
       fetchToken,
       onChange ??
         (() => {
