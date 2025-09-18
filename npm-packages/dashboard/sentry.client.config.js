@@ -12,8 +12,8 @@ const environment =
 
 Sentry.init({
   dsn: SENTRY_DSN,
-  profilesSampleRate: 0.5,
-  tracesSampleRate: 0.5,
+  profilesSampleRate: 0.05,
+  tracesSampleRate: 0.05,
   tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
   environment,
   integrations: [
