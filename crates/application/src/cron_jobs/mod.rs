@@ -287,7 +287,11 @@ impl<RT: Runtime> CronJobContext<RT> {
                 },
                 Err(mut e) => {
                     let delay = function_backoff.fail(&mut self.rt.rng());
-                    tracing::error!("System error executing job:, sleeping {delay:?}");
+                    tracing::error!(
+                        "System error executing job {}: {}, sleeping {delay:?}",
+                        job.id,
+                        job.name
+                    );
                     report_error(&mut e).await;
                     metrics::log_cron_job_failure(&e);
                     self.rt.wait(delay).await;
