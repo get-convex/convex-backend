@@ -1,8 +1,5 @@
 use std::{
-    collections::{
-        BTreeMap,
-        HashSet,
-    },
+    collections::HashSet,
     sync::Arc,
     time::Duration,
 };
@@ -56,6 +53,7 @@ use futures::{
     TryStreamExt,
 };
 use keybroker::Identity;
+use maplit::btreemap;
 use model::{
     backend_state::BackendStateModel,
     cron_jobs::{
@@ -102,7 +100,6 @@ const CRON_LOG_MAX_LOG_LINE_LENGTH: usize = 1000;
 // refactored later.
 pub struct CronJobExecutor<RT: Runtime> {
     context: CronJobContext<RT>,
-    instance_name: String,
     running_job_ids: HashSet<ResolvedDocumentId>,
     /// Some if there's at least one pending job. May be in the past!
     next_job_ready_time: Option<Timestamp>,
@@ -113,6 +110,7 @@ pub struct CronJobExecutor<RT: Runtime> {
 #[derive(Clone)]
 pub struct CronJobContext<RT: Runtime> {
     rt: RT,
+    instance_name: String,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
@@ -131,11 +129,11 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut executor = Self {
             context: CronJobContext {
                 rt,
+                instance_name,
                 database,
                 runner,
                 function_log,
             },
-            instance_name,
             running_job_ids: HashSet::new(),
             next_job_ready_time: None,
             job_finished_tx,
@@ -226,12 +224,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             if next_ts > now || self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
                 return Ok(Some(next_ts));
             }
-            let root = get_sampled_span(
-                &self.instance_name,
-                "crons/execute_job",
-                &mut self.context.rt.rng(),
-                BTreeMap::new(),
-            );
             let sentry_hub = sentry::Hub::with(|hub| sentry::Hub::new_from_top(hub));
             let context = self.context.clone();
             let tx = self.job_finished_tx.clone();
@@ -248,7 +240,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         },
                     }
                 }
-                .in_span(root)
                 .bind_hub(sentry_hub),
             );
             self.running_job_ids.insert(job_id);
@@ -261,12 +252,14 @@ impl<RT: Runtime> CronJobContext<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub fn new(
         rt: RT,
+        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         Self {
             rt,
+            instance_name,
             database,
             runner,
             function_log,
@@ -279,7 +272,20 @@ impl<RT: Runtime> CronJobContext<RT> {
         let mut function_backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
             let mutation_retry_count = function_backoff.failures() as usize;
-            let result = self.run_function(job.clone(), mutation_retry_count).await;
+            let root = get_sampled_span(
+                &self.instance_name,
+                "crons/run_function",
+                &mut self.rt.rng(),
+                btreemap! {
+                    "job_id".to_string() => job.id.to_string(),
+                    "component".to_string() => format!("{:?}", job.component),
+                    "job_name".to_string() => job.name.to_string(),
+                },
+            );
+            let result = self
+                .run_function(job.clone(), mutation_retry_count)
+                .in_span(root)
+                .await;
             match result {
                 Ok(result) => {
                     metrics::log_cron_job_success(function_backoff.failures());
@@ -288,8 +294,9 @@ impl<RT: Runtime> CronJobContext<RT> {
                 Err(mut e) => {
                     let delay = function_backoff.fail(&mut self.rt.rng());
                     tracing::error!(
-                        "System error executing job {}: {}, sleeping {delay:?}",
+                        "System error executing job {} in {:?}: {}, sleeping {delay:?}",
                         job.id,
+                        job.component,
                         job.name
                     );
                     report_error(&mut e).await;

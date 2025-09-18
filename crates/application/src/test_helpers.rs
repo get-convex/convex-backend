@@ -319,6 +319,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     async fn test_one_off_cron_job_executor_run(&self, job: CronJob) -> anyhow::Result<()> {
         let test_executor = CronJobContext::new(
             self.runtime.clone(),
+            self.instance_name.clone(),
             self.database.clone(),
             self.runner.clone(),
             self.function_log.clone(),
