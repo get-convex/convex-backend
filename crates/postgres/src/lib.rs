@@ -497,51 +497,54 @@ impl Persistence for PostgresPersistence {
                     },
                 )?;
 
+                // Split up statements to avoid hitting timeouts.
+                const INSERTS_PER_STATEMENT: usize = 1024;
+
                 let insert_docs = async {
-                    if documents.is_empty() {
-                        return Ok(0);
-                    }
-                    let mut doc_params: [Vec<Param>; NUM_DOCUMENT_PARAMS] =
-                        array::from_fn(|_| Vec::with_capacity(documents.len()));
-                    for update in documents {
-                        for (vec, param) in doc_params.iter_mut().zip(document_params(
-                            update.ts,
-                            update.id,
-                            &update.value,
-                            update.prev_ts,
-                        )?) {
-                            vec.push(param);
+                    for chunk in documents.chunks(INSERTS_PER_STATEMENT) {
+                        let mut doc_params: [Vec<Param>; NUM_DOCUMENT_PARAMS] =
+                            array::from_fn(|_| Vec::with_capacity(chunk.len()));
+                        for update in chunk {
+                            for (vec, param) in doc_params.iter_mut().zip(document_params(
+                                update.ts,
+                                update.id,
+                                &update.value,
+                                update.prev_ts,
+                            )?) {
+                                vec.push(param);
+                            }
                         }
+                        let mut doc_params = doc_params
+                            .iter()
+                            .map(|v| v as &(dyn ToSql + Sync))
+                            .collect::<Vec<_>>();
+                        if multitenant {
+                            doc_params.push(&instance_name.raw as &(dyn ToSql + Sync));
+                        }
+                        tx.execute_raw(&insert_documents, doc_params).await?;
                     }
-                    let mut doc_params = doc_params
-                        .iter()
-                        .map(|v| v as &(dyn ToSql + Sync))
-                        .collect::<Vec<_>>();
-                    if multitenant {
-                        doc_params.push(&instance_name.raw as &(dyn ToSql + Sync));
-                    }
-                    tx.execute_raw(&insert_documents, doc_params).await
+                    anyhow::Ok(())
                 };
 
                 let insert_idxs = async {
-                    if indexes.is_empty() {
-                        return Ok(0);
-                    }
-                    let mut idx_params: [Vec<Param>; NUM_INDEX_PARAMS] =
-                        array::from_fn(|_| Vec::with_capacity(indexes.len()));
-                    for update in indexes {
-                        for (vec, param) in idx_params.iter_mut().zip(index_params(update)) {
-                            vec.push(param);
+                    for chunk in indexes.chunks(INSERTS_PER_STATEMENT) {
+                        let mut idx_params: [Vec<Param>; NUM_INDEX_PARAMS] =
+                            array::from_fn(|_| Vec::with_capacity(chunk.len()));
+                        for update in chunk {
+                            for (vec, param) in idx_params.iter_mut().zip(index_params(update)) {
+                                vec.push(param);
+                            }
                         }
+                        let mut idx_params = idx_params
+                            .iter()
+                            .map(|v| v as &(dyn ToSql + Sync))
+                            .collect::<Vec<_>>();
+                        if multitenant {
+                            idx_params.push(&instance_name.raw as &(dyn ToSql + Sync));
+                        }
+                        tx.execute_raw(&insert_indexes, idx_params).await?;
                     }
-                    let mut idx_params = idx_params
-                        .iter()
-                        .map(|v| v as &(dyn ToSql + Sync))
-                        .collect::<Vec<_>>();
-                    if multitenant {
-                        idx_params.push(&instance_name.raw as &(dyn ToSql + Sync));
-                    }
-                    tx.execute_raw(&insert_indexes, idx_params).await
+                    Ok(())
                 };
 
                 let timer = metrics::insert_timer();
