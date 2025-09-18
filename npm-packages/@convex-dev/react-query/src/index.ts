@@ -157,7 +157,7 @@ export class ConvexQueryClient {
     if (typeof client === "string") {
       this.convexClient = new ConvexReactClient(client, options);
     } else {
-      this.convexClient = client as ConvexReactClient;
+      this.convexClient = client satisfies ConvexReactClient;
     }
     if (options.dangerouslyUseInconsistentQueriesDuringSSR) {
       this.ssrQueryMode = "inconsistent";
