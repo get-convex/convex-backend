@@ -668,17 +668,19 @@ static INDEX_QUERIES: LazyLock<[HashMap<(BoundType, BoundType, Order), String>; 
             let (
                 select_instance_col,
                 group_by_instance,
-                join_instance_cond,
+                join_instance_i1,
+                join_instance_snapshot,
                 doc_join_instance_cond,
             ) = if *multitenant {
                 (
                     "I1.instance_name, ",
                     "instance_name, ",
                     "I1.instance_name, ",
+                    "snapshot.instance_name, ",
                     "D.instance_name = I2.instance_name AND ",
                 )
             } else {
-                ("", "", "", "")
+                ("", "", "", "", "")
             };
 
             let query = format!(
@@ -699,7 +701,7 @@ SELECT I2.index_id, I2.key_prefix, I2.key_sha256, I2.key_suffix, I2.ts, I2.delet
     ) snapshot
     LEFT JOIN @db_name.indexes I1 FORCE INDEX FOR JOIN (PRIMARY)
     ON
-    ({join_instance_cond}I1.index_id, I1.key_prefix, I1.key_sha256, I1.ts) = ({join_instance_cond}snapshot.index_id, snapshot.key_prefix, snapshot.key_sha256, snapshot.ts_at_snapshot)
+    ({join_instance_i1}I1.index_id, I1.key_prefix, I1.key_sha256, I1.ts) = ({join_instance_snapshot}snapshot.index_id, snapshot.key_prefix, snapshot.key_sha256, snapshot.ts_at_snapshot)
 ) I2
 LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
 ON
