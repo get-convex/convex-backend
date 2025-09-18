@@ -35,7 +35,7 @@
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
-    "convex": "^1.27.0"
+    "convex": "^1.27.1"
   },
   "devDependencies": {
     "@tanstack/eslint-plugin-query": "^5.74.7",
