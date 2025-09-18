@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    LazyLock,
+};
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -21,7 +24,6 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
-    pause::PauseController,
     persistence::PersistenceReader,
     runtime::Runtime,
     types::{
@@ -32,7 +34,6 @@ use common::{
     },
 };
 use events::testing::TestUsageEventLogger;
-use futures::try_join;
 use maplit::btreeset;
 use must_let::must_let;
 use pb::searchlight::FragmentedVectorSegmentPaths;
@@ -86,7 +87,6 @@ use crate::{
     bootstrap_model::index_backfills::IndexBackfillModel,
     search_index_workers::{
         search_compactor::CompactionConfig,
-        search_flusher::FLUSH_RUNNING_LABEL,
         FlusherType,
     },
     test_helpers::DbFixturesArgs,
@@ -287,36 +287,6 @@ impl VectorFixtures {
         )
     }
 
-    pub async fn run_compaction_during_flush(
-        &self,
-        pause: PauseController,
-        flusher_type: FlusherType,
-    ) -> anyhow::Result<()> {
-        let flusher = new_vector_flusher_for_tests(
-            self.rt.clone(),
-            self.db.clone(),
-            self.reader.clone(),
-            self.storage.clone(),
-            // Force indexes to always be built.
-            0,
-            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            8,
-            flusher_type,
-        );
-        let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
-        let flush = flusher.step();
-        let compactor = self.new_compactor().await?;
-        let compact_during_flush = async move {
-            if let Some(pause_guard) = hold_guard.wait_for_blocked().await {
-                compactor.step().await?;
-                pause_guard.unpause();
-            };
-            Ok::<(), anyhow::Error>(())
-        };
-        try_join!(flush, compact_during_flush)?;
-        Ok(())
-    }
-
     pub fn new_index_flusher_with_full_scan_threshold(
         &self,
         full_scan_threshold_kb: usize,
@@ -484,13 +454,19 @@ pub struct IndexData {
     pub metadata: IndexMetadata<TableName>,
 }
 
+pub(crate) static VECTOR_INDEX_NAME: LazyLock<IndexName> = LazyLock::new(|| {
+    IndexName::new(
+        "table".parse().unwrap(),
+        IndexDescriptor::new("vector_index").unwrap(),
+    )
+    .unwrap()
+});
+
 fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
-    let table_name: TableName = "table".parse()?;
-    let index_name = IndexName::new(table_name, IndexDescriptor::new("vector_index")?)?;
     let vector_field: FieldPath = "vector".parse()?;
     let filter_field: FieldPath = "channel".parse()?;
     let metadata = IndexMetadata::new_backfilling_vector_index(
-        index_name,
+        VECTOR_INDEX_NAME.clone(),
         vector_field,
         (2u32).try_into()?,
         btreeset![filter_field],

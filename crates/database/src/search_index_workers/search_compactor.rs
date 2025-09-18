@@ -51,6 +51,8 @@ use crate::{
     Token,
 };
 
+pub(crate) const COMPACTION_RUNNING_LABEL: &str = "compaction_running";
+
 pub struct SearchIndexCompactor<RT: Runtime, T: SearchIndex> {
     database: Database<RT>,
     searcher: Arc<dyn Searcher>,
@@ -91,6 +93,9 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 Self::search_type()
             );
         }
+
+        let pause_client = self.database.runtime().pause_client();
+        pause_client.wait(COMPACTION_RUNNING_LABEL).await;
 
         for job in to_build {
             task::consume_budget().await;

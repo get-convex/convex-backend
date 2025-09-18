@@ -150,6 +150,7 @@ mod tests {
             IndexName,
         },
     };
+    use futures::try_join;
     use keybroker::Identity;
     use maplit::{
         btreemap,
@@ -178,7 +179,11 @@ mod tests {
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
         search_index_workers::{
-            search_compactor::CompactionConfig,
+            search_compactor::{
+                CompactionConfig,
+                COMPACTION_RUNNING_LABEL,
+            },
+            search_flusher::FLUSH_RUNNING_LABEL,
             FlusherType,
         },
         test_helpers::DbFixtures,
@@ -188,6 +193,7 @@ mod tests {
             backfilling_vector_index_with_doc,
             IndexData,
             VectorFixtures,
+            VECTOR_INDEX_NAME,
         },
         Database,
         IndexModel,
@@ -533,252 +539,470 @@ mod tests {
         Ok(())
     }
 
+    trait RaceTest {
+        type VerifyArgs;
+        async fn setup(rt: &TestRuntime) -> anyhow::Result<(VectorFixtures, Self::VerifyArgs)>;
+        async fn verify(fixtures: &VectorFixtures, args: Self::VerifyArgs) -> anyhow::Result<()>;
+        /// Returns fixtures and min_compaction_segments in the config
+        async fn fixtures_with_compaction(
+            rt: TestRuntime,
+        ) -> anyhow::Result<(VectorFixtures, u64)> {
+            let config = CompactionConfig::default();
+            let min_compaction_segments = config.min_compaction_segments;
+            let config = CompactionConfig {
+                // Treat everything as a large segment
+                small_segment_threshold_bytes: 0,
+                ..config
+            };
+            Ok((
+                VectorFixtures::new_with_config(rt, config).await?,
+                min_compaction_segments,
+            ))
+        }
+        async fn run_compaction_during_flush(
+            fixtures: &VectorFixtures,
+            pause: PauseController,
+            flusher_type: FlusherType,
+        ) -> anyhow::Result<()> {
+            let flusher = new_vector_flusher_for_tests(
+                fixtures.rt.clone(),
+                fixtures.db.clone(),
+                fixtures.reader.clone(),
+                fixtures.storage.clone(),
+                // Force indexes to always be built.
+                0,
+                *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+                8,
+                flusher_type,
+            );
+            let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
+            let flush = flusher.step();
+            let compactor = fixtures.new_compactor().await?;
+            let compact_during_flush = async move {
+                if let Some(pause_guard) = hold_guard.wait_for_blocked().await {
+                    compactor.step().await?;
+                    pause_guard.unpause();
+                };
+                anyhow::Ok(())
+            };
+            try_join!(flush, compact_during_flush)?;
+            Ok(())
+        }
+
+        async fn run_flush_during_compaction(
+            fixtures: &VectorFixtures,
+            pause: PauseController,
+            flusher_type: FlusherType,
+        ) -> anyhow::Result<()> {
+            let compactor = fixtures.new_compactor().await?;
+            let hold_guard = pause.hold(COMPACTION_RUNNING_LABEL);
+            let compaction = compactor.step();
+            let flusher = new_vector_flusher_for_tests(
+                fixtures.rt.clone(),
+                fixtures.db.clone(),
+                fixtures.reader.clone(),
+                fixtures.storage.clone(),
+                // Force indexes to always be built.
+                0,
+                *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+                8,
+                flusher_type,
+            );
+            let flush_during_compaction = async move {
+                if let Some(pause_guard) = hold_guard.wait_for_blocked().await {
+                    flusher.step().await?;
+                    pause_guard.unpause();
+                };
+                anyhow::Ok(())
+            };
+            try_join!(compaction, flush_during_compaction)?;
+            Ok(())
+        }
+        async fn test_compaction_during_flush(
+            &self,
+            rt: TestRuntime,
+            pause: PauseController,
+            flusher_type: FlusherType,
+        ) -> anyhow::Result<()> {
+            let (fixtures, verify_args) = Self::setup(&rt).await?;
+            // Run the compactor / flusher concurrently in a way where the compactor
+            // wins the race.
+            Self::run_compaction_during_flush(&fixtures, pause, flusher_type).await?;
+            // Verify the state of the segments after the compaction and flush
+            Self::verify(&fixtures, verify_args).await?;
+            Ok(())
+        }
+        async fn test_flush_during_compaction(
+            &self,
+            rt: TestRuntime,
+            pause: PauseController,
+            flusher_type: FlusherType,
+        ) -> anyhow::Result<()> {
+            let (fixtures, verify_args) = Self::setup(&rt).await?;
+            // Run the compactor / flusher concurrently in a way where the flusher
+            // wins the race.
+            Self::run_flush_during_compaction(&fixtures, pause, flusher_type).await?;
+            // Verify the state of the segments after the compaction and flush
+            Self::verify(&fixtures, verify_args).await?;
+            Ok(())
+        }
+    }
+
+    struct ConcurrentBackfilledFlushAndCompaction;
+    impl RaceTest for ConcurrentBackfilledFlushAndCompaction {
+        type VerifyArgs = Ids;
+
+        async fn setup(rt: &TestRuntime) -> anyhow::Result<(VectorFixtures, Self::VerifyArgs)> {
+            let (fixtures, min_compaction_segments) =
+                Self::fixtures_with_compaction(rt.clone()).await?;
+            // Mark the index backfilled.
+            let index_data = fixtures.backfilling_vector_index().await?;
+            fixtures.backfill().await?;
+
+            let IndexData { index_name, .. } = index_data;
+
+            // Create enough segments to trigger compaction.
+            let mut deleted_doc_ids = vec![];
+            for _ in 0..min_compaction_segments {
+                deleted_doc_ids.push(
+                    fixtures
+                        .add_document_vec_array(index_name.table(), [3f64, 4f64])
+                        .await?,
+                );
+                fixtures.backfill().await?;
+            }
+            // Queue up deletes for all existing segments, and one new vector that will
+            // cause the flusher to write a new segment.
+            let mut tx = fixtures.db.begin_system().await?;
+            for doc_id in &deleted_doc_ids {
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .delete((*doc_id).into())
+                    .await?;
+            }
+            fixtures.db.commit(tx).await?;
+            let non_deleted_id = fixtures
+                .add_document_vec_array(index_name.table(), [3f64, 4f64])
+                .await?;
+            Ok((
+                fixtures,
+                Ids {
+                    deleted_doc_ids,
+                    non_deleted_id,
+                },
+            ))
+        }
+
+        async fn verify(
+            fixtures: &VectorFixtures,
+            Ids {
+                deleted_doc_ids,
+                non_deleted_id,
+            }: Self::VerifyArgs,
+        ) -> anyhow::Result<()> {
+            // Verify we propagate the new deletes to the compacted segment and retain our
+            // new segment.
+            let segments = fixtures
+                .get_segments_metadata(VECTOR_INDEX_NAME.clone())
+                .await?;
+            assert_eq!(2, segments.len());
+
+            let (compacted_segment, new_segment): (Vec<_>, Vec<_>) = segments
+                .into_iter()
+                .partition(|segment| segment.num_deleted > 0);
+            assert_eq!(compacted_segment.len(), 1);
+
+            let compacted_segment = compacted_segment.first().unwrap();
+            verify_segment_state(fixtures, compacted_segment, deleted_doc_ids, vec![]).await?;
+
+            assert_eq!(new_segment.len(), 1);
+            let new_segment = new_segment.first().unwrap();
+            verify_segment_state(fixtures, new_segment, vec![], vec![non_deleted_id]).await?;
+
+            Ok(())
+        }
+    }
+
     #[convex_macro::test_runtime]
-    async fn backfilled_concurrent_compaction_and_flush(
+    async fn backfilled_flush_during_compaction(
         rt: TestRuntime,
         pause: PauseController,
     ) -> anyhow::Result<()> {
-        let config = CompactionConfig::default();
-        let min_compaction_segments = config.min_compaction_segments;
-        let config = CompactionConfig {
-            // Treat everything as a large segment
-            small_segment_threshold_bytes: 0,
-            ..config
-        };
-        let fixtures = VectorFixtures::new_with_config(rt.clone(), config).await?;
-        // Mark the index backfilled.
-        let index_data = fixtures.backfilling_vector_index().await?;
-        fixtures.backfill().await?;
-
-        let IndexData { index_name, .. } = index_data;
-
-        // Create enough segments to trigger compaction.
-        let mut deleted_doc_ids = vec![];
-        for _ in 0..min_compaction_segments {
-            deleted_doc_ids.push(
-                fixtures
-                    .add_document_vec_array(index_name.table(), [3f64, 4f64])
-                    .await?,
-            );
-            fixtures.backfill().await?;
-        }
-        // Queue up deletes for all existing segments, and one new vector that will
-        // cause the flusher to write a new segment.
-        let mut tx = fixtures.db.begin_system().await?;
-        for doc_id in &deleted_doc_ids {
-            UserFacingModel::new_root_for_test(&mut tx)
-                .delete((*doc_id).into())
-                .await?;
-        }
-        fixtures.db.commit(tx).await?;
-        let non_deleted_id = fixtures
-            .add_document_vec_array(index_name.table(), [3f64, 4f64])
+        let test = ConcurrentBackfilledFlushAndCompaction;
+        test.test_flush_during_compaction(rt, pause, FlusherType::LiveFlush)
             .await?;
-
-        // Run the compactor / flusher concurrently in a way where the compactor
-        // wins the race.
-        fixtures
-            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
-            .await?;
-
-        // Verify we propagate the new deletes to the compacted segment and retain our
-        // new segment.
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(2, segments.len());
-
-        let (compacted_segment, new_segment): (Vec<_>, Vec<_>) = segments
-            .into_iter()
-            .partition(|segment| segment.num_deleted > 0);
-        assert_eq!(compacted_segment.len(), 1);
-
-        let compacted_segment = compacted_segment.first().unwrap();
-        verify_segment_state(&fixtures, compacted_segment, deleted_doc_ids, vec![]).await?;
-
-        assert_eq!(new_segment.len(), 1);
-        let new_segment = new_segment.first().unwrap();
-        verify_segment_state(&fixtures, new_segment, vec![], vec![non_deleted_id]).await?;
-
         Ok(())
     }
 
     #[convex_macro::test_runtime]
-    async fn incremental_index_backfill_concurrent_compaction_and_flush(
+    async fn backfilled_compaction_during_flush(
         rt: TestRuntime,
         pause: PauseController,
     ) -> anyhow::Result<()> {
-        let config = CompactionConfig::default();
-        let min_compaction_segments = config.min_compaction_segments;
-        let config = CompactionConfig {
-            // Treat everything as a large segment
-            small_segment_threshold_bytes: 0,
-            ..config
-        };
-        let fixtures = VectorFixtures::new_with_config(rt.clone(), config).await?;
-
-        // Add 4 vectors and set part threshold to build 4 segments
-        let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
-        for i in 0..(min_compaction_segments + 1) {
-            fixtures
-                .add_document_vec_array(index_name.table(), [i as f64, (i + 1) as f64])
-                .await?;
-        }
-        // Do every backfill flush step until last one
-        let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
-        for _ in 0..min_compaction_segments {
-            worker.step().await?;
-        }
-
-        // For last iteration, run the compactor / flusher concurrently in a way where
-        // the compactor wins the race.
-        fixtures
-            .run_compaction_during_flush(pause, FlusherType::Backfill)
+        let test = ConcurrentBackfilledFlushAndCompaction;
+        test.test_compaction_during_flush(rt, pause, FlusherType::LiveFlush)
             .await?;
+        Ok(())
+    }
 
-        // There should be 2 segments left: the compacted segment and the new segment
-        // from flush
-        worker.step().await?;
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(segments.len(), 2);
+    struct ConcurrentBackfillFlushAndCompaction;
+    impl RaceTest for ConcurrentBackfillFlushAndCompaction {
+        type VerifyArgs = VectorIndexFlusher<TestRuntime>;
 
-        let compacted_segment = fixtures.load_segment(segments.first().unwrap()).await?;
-        assert_eq!(compacted_segment.total_point_count(), 3);
-        let compacted_segment = fixtures.load_segment(segments.get(1).unwrap()).await?;
-        assert_eq!(compacted_segment.total_point_count(), 1);
+        async fn setup(rt: &TestRuntime) -> anyhow::Result<(VectorFixtures, Self::VerifyArgs)> {
+            let (fixtures, min_compaction_segments) =
+                Self::fixtures_with_compaction(rt.clone()).await?;
 
+            // Add 4 vectors and set part threshold to build 4 segments
+            let IndexData { index_name, .. } = fixtures.backfilling_vector_index().await?;
+            for i in 0..(min_compaction_segments + 1) {
+                fixtures
+                    .add_document_vec_array(index_name.table(), [i as f64, (i + 1) as f64])
+                    .await?;
+            }
+            // Do every backfill flush step until last one
+            let worker = fixtures.new_index_flusher_with_incremental_part_threshold(8)?;
+            for _ in 0..min_compaction_segments {
+                worker.step().await?;
+            }
+            Ok((fixtures, worker))
+        }
+
+        async fn verify(
+            fixtures: &VectorFixtures,
+            flusher: VectorIndexFlusher<TestRuntime>,
+        ) -> anyhow::Result<()> {
+            // There should be 2 segments left: the compacted segment and the new segment
+            // from flush
+            flusher.step().await?;
+            let segments = fixtures
+                .get_segments_metadata(VECTOR_INDEX_NAME.clone())
+                .await?;
+            assert_eq!(segments.len(), 2);
+
+            let expected_doc_counts = btreeset![3, 1];
+            let mut actual_doc_counts = btreeset![];
+            let first_segment = fixtures.load_segment(segments.first().unwrap()).await?;
+            actual_doc_counts.insert(first_segment.total_point_count());
+            let second_segment = fixtures.load_segment(segments.get(1).unwrap()).await?;
+            actual_doc_counts.insert(second_segment.total_point_count());
+            assert_eq!(actual_doc_counts, expected_doc_counts);
+
+            Ok(())
+        }
+    }
+
+    #[convex_macro::test_runtime]
+    async fn flush_during_backfill_compaction(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let test = ConcurrentBackfillFlushAndCompaction;
+        test.test_flush_during_compaction(rt, pause, FlusherType::Backfill)
+            .await?;
         Ok(())
     }
 
     #[convex_macro::test_runtime]
-    async fn concurrent_compaction_and_flush_new_segment_propagates_deletes(
+    async fn compact_during_backfill_flush(
         rt: TestRuntime,
         pause: PauseController,
     ) -> anyhow::Result<()> {
-        let config = CompactionConfig::default();
-        let min_compaction_segments = config.min_compaction_segments;
-        let config = CompactionConfig {
-            // Treat everything as a large segment
-            small_segment_threshold_bytes: 0,
-            ..config
-        };
-        let fixtures = VectorFixtures::new_with_config(rt.clone(), config).await?;
-        let index_data = fixtures.enabled_vector_index().await?;
+        let test = ConcurrentBackfillFlushAndCompaction;
+        test.test_compaction_during_flush(rt, pause, FlusherType::Backfill)
+            .await?;
+        Ok(())
+    }
 
-        let IndexData { index_name, .. } = index_data;
+    struct ConcurrentLiveFlushWithDeletes;
+    struct Ids {
+        deleted_doc_ids: Vec<ResolvedDocumentId>,
+        non_deleted_id: ResolvedDocumentId,
+    }
+    impl RaceTest for ConcurrentLiveFlushWithDeletes {
+        type VerifyArgs = Ids;
 
-        // Create enough segments to trigger compaction.
-        let mut deleted_doc_ids = vec![];
-        for _ in 0..min_compaction_segments {
-            deleted_doc_ids.push(
-                fixtures
-                    .add_document_vec_array(index_name.table(), [3f64, 4f64])
-                    .await?,
-            );
-            fixtures.backfill().await?;
-        }
-        // Queue up deletes for all existing segments, and one new vector that will
-        // cause the flusher to write a new segment.
-        let mut tx = fixtures.db.begin_system().await?;
-        for doc_id in &deleted_doc_ids {
-            UserFacingModel::new_root_for_test(&mut tx)
-                .delete((*doc_id).into())
+        async fn setup(rt: &TestRuntime) -> anyhow::Result<(VectorFixtures, Ids)> {
+            let (fixtures, min_compaction_segments) =
+                Self::fixtures_with_compaction(rt.clone()).await?;
+            let index_data = fixtures.enabled_vector_index().await?;
+
+            let IndexData { index_name, .. } = index_data;
+
+            // Create enough segments to trigger compaction.
+            let mut deleted_doc_ids = vec![];
+            for _ in 0..min_compaction_segments {
+                deleted_doc_ids.push(
+                    fixtures
+                        .add_document_vec_array(index_name.table(), [3f64, 4f64])
+                        .await?,
+                );
+                fixtures.backfill().await?;
+            }
+            // Queue up deletes for all existing segments, and one new vector that will
+            // cause the flusher to write a new segment.
+            let mut tx = fixtures.db.begin_system().await?;
+            for doc_id in &deleted_doc_ids {
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .delete((*doc_id).into())
+                    .await?;
+            }
+            fixtures.db.commit(tx).await?;
+            let non_deleted_id = fixtures
+                .add_document_vec_array(index_name.table(), [3f64, 4f64])
                 .await?;
+            Ok((
+                fixtures,
+                Ids {
+                    deleted_doc_ids,
+                    non_deleted_id,
+                },
+            ))
         }
-        fixtures.db.commit(tx).await?;
-        let non_deleted_id = fixtures
-            .add_document_vec_array(index_name.table(), [3f64, 4f64])
+
+        async fn verify(
+            fixtures: &VectorFixtures,
+            Ids {
+                deleted_doc_ids,
+                non_deleted_id,
+            }: Ids,
+        ) -> anyhow::Result<()> {
+            let segments = fixtures
+                .get_segments_metadata(VECTOR_INDEX_NAME.clone())
+                .await?;
+            assert_eq!(2, segments.len());
+
+            let (compacted_segment, new_segment): (Vec<_>, Vec<_>) = segments
+                .into_iter()
+                .partition(|segment| segment.num_deleted > 0);
+            assert_eq!(compacted_segment.len(), 1);
+
+            let compacted_segment = compacted_segment.first().unwrap();
+            verify_segment_state(fixtures, compacted_segment, deleted_doc_ids, vec![]).await?;
+
+            assert_eq!(new_segment.len(), 1);
+            let new_segment = new_segment.first().unwrap();
+            verify_segment_state(fixtures, new_segment, vec![], vec![non_deleted_id]).await?;
+            Ok(())
+        }
+    }
+
+    #[convex_macro::test_runtime]
+    async fn live_flush_during_compaction_propagates_deletes(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let test = ConcurrentLiveFlushWithDeletes;
+        test.test_flush_during_compaction(rt, pause, FlusherType::LiveFlush)
             .await?;
-
-        // Run the compactor / flusher concurrently in a way where the compactor
-        // wins the race.
-        fixtures
-            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
-            .await?;
-
-        // Verify we propagate the new deletes to the compacted segment and retain our
-        // new segment.
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(2, segments.len());
-
-        let (compacted_segment, new_segment): (Vec<_>, Vec<_>) = segments
-            .into_iter()
-            .partition(|segment| segment.num_deleted > 0);
-        assert_eq!(compacted_segment.len(), 1);
-
-        let compacted_segment = compacted_segment.first().unwrap();
-        verify_segment_state(&fixtures, compacted_segment, deleted_doc_ids, vec![]).await?;
-
-        assert_eq!(new_segment.len(), 1);
-        let new_segment = new_segment.first().unwrap();
-        verify_segment_state(&fixtures, new_segment, vec![], vec![non_deleted_id]).await?;
-
         Ok(())
     }
 
     #[convex_macro::test_runtime]
-    async fn concurrent_compaction_and_flush_no_new_segment_propagates_updates_and_deletes(
+    async fn compact_during_live_flush_propagates_deletes(
         rt: TestRuntime,
         pause: PauseController,
     ) -> anyhow::Result<()> {
-        let config = CompactionConfig::default();
-        let min_compaction_segments = config.min_compaction_segments;
-        let config = CompactionConfig {
-            // Treat everything as a large segment
-            small_segment_threshold_bytes: 0,
-            ..config
-        };
-        let fixtures = VectorFixtures::new_with_config(rt.clone(), config).await?;
-        let index_data = fixtures.enabled_vector_index().await?;
-
-        let IndexData { index_name, .. } = index_data;
-
-        // Create enough segments to trigger compaction.
-        let mut deleted_doc_ids = vec![];
-        // Add a non-deleted document to ensure that we don't skip compaction because
-        // the table is empty.
-        let non_deleted = fixtures
-            .add_document_vec_array(index_name.table(), [3f64, 4f64])
+        let test = ConcurrentLiveFlushWithDeletes;
+        test.test_compaction_during_flush(rt, pause, FlusherType::LiveFlush)
             .await?;
-        for _ in 0..min_compaction_segments {
-            deleted_doc_ids.push(
-                fixtures
-                    .add_document_vec_array(index_name.table(), [3f64, 4f64])
-                    .await?,
-            );
-            fixtures.backfill().await?;
-        }
-        // Queue up updates and deletes for all existing segments and no new vectors so
-        // that compaction will just delete all the existing segments without adding a
-        // new one.
-        let mut tx = fixtures.db.begin_system().await?;
-        let patched_object = assert_val!([5f64, 6f64]);
-        for doc_id in &deleted_doc_ids {
-            UserFacingModel::new_root_for_test(&mut tx)
-                .patch(
-                    (*doc_id).into(),
-                    assert_obj!("vector" => patched_object.clone()).into(),
-                )
-                .await?;
-        }
-        fixtures.db.commit(tx).await?;
+        Ok(())
+    }
 
-        let mut tx = fixtures.db.begin_system().await?;
-        for doc_id in &deleted_doc_ids {
-            UserFacingModel::new_root_for_test(&mut tx)
-                .delete((*doc_id).into())
-                .await?;
-        }
-        fixtures.db.commit(tx).await?;
+    struct ConcurrentLiveFlushNoNewSegment;
+    impl RaceTest for ConcurrentLiveFlushNoNewSegment {
+        type VerifyArgs = Ids;
 
-        fixtures
-            .run_compaction_during_flush(pause, FlusherType::LiveFlush)
+        async fn setup(rt: &TestRuntime) -> anyhow::Result<(VectorFixtures, Self::VerifyArgs)> {
+            let (fixtures, min_compaction_segments) =
+                Self::fixtures_with_compaction(rt.clone()).await?;
+            let index_data = fixtures.enabled_vector_index().await?;
+
+            let IndexData { index_name, .. } = index_data;
+
+            // Create enough segments to trigger compaction.
+            let mut deleted_doc_ids = vec![];
+            // Add a non-deleted document to ensure that we don't skip compaction because
+            // the table is empty.
+            let non_deleted_id = fixtures
+                .add_document_vec_array(index_name.table(), [3f64, 4f64])
+                .await?;
+            for _ in 0..min_compaction_segments {
+                deleted_doc_ids.push(
+                    fixtures
+                        .add_document_vec_array(index_name.table(), [3f64, 4f64])
+                        .await?,
+                );
+                fixtures.backfill().await?;
+            }
+            // Queue up updates and deletes for all existing segments and no new vectors so
+            // that compaction will just delete all the existing segments without adding a
+            // new one.
+            let mut tx = fixtures.db.begin_system().await?;
+            let patched_object = assert_val!([5f64, 6f64]);
+            for doc_id in &deleted_doc_ids {
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .patch(
+                        (*doc_id).into(),
+                        assert_obj!("vector" => patched_object.clone()).into(),
+                    )
+                    .await?;
+            }
+            fixtures.db.commit(tx).await?;
+
+            let mut tx = fixtures.db.begin_system().await?;
+            for doc_id in &deleted_doc_ids {
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .delete((*doc_id).into())
+                    .await?;
+            }
+            fixtures.db.commit(tx).await?;
+            Ok((
+                fixtures,
+                Ids {
+                    deleted_doc_ids,
+                    non_deleted_id,
+                },
+            ))
+        }
+
+        async fn verify(
+            fixtures: &VectorFixtures,
+            Ids {
+                deleted_doc_ids,
+                non_deleted_id,
+            }: Self::VerifyArgs,
+        ) -> anyhow::Result<()> {
+            let segments = fixtures
+                .get_segments_metadata(VECTOR_INDEX_NAME.clone())
+                .await?;
+            assert_eq!(1, segments.len());
+            let segment = segments.first().unwrap();
+
+            // TODO: Could use additional verification of updates here
+            verify_segment_state(fixtures, segment, deleted_doc_ids, vec![non_deleted_id]).await?;
+            Ok(())
+        }
+    }
+
+    #[convex_macro::test_runtime]
+    async fn live_flush_during_compaction_no_new_segment_propagates_deletes(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let test = ConcurrentLiveFlushNoNewSegment;
+        test.test_flush_during_compaction(rt, pause, FlusherType::LiveFlush)
             .await?;
+        Ok(())
+    }
 
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(1, segments.len());
-        let segment = segments.first().unwrap();
-
-        verify_segment_state(&fixtures, segment, deleted_doc_ids, vec![non_deleted]).await?;
-
+    #[convex_macro::test_runtime]
+    async fn compact_during_live_flush_no_new_segment_propagates_deletes(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
+        let test = ConcurrentLiveFlushNoNewSegment;
+        test.test_compaction_during_flush(rt, pause, FlusherType::LiveFlush)
+            .await?;
         Ok(())
     }
 
@@ -805,7 +1029,9 @@ mod tests {
             .into_value();
         must_let!(let IndexMetadata {
             config: IndexConfig::Vector {
-                on_disk_state: VectorIndexState::Backfilled { snapshot: VectorIndexSnapshot { .. }, .. },
+                on_disk_state: VectorIndexState::Backfilled {
+                   snapshot: VectorIndexSnapshot { .. }, ..
+                },
                 ..
             },
             ..
