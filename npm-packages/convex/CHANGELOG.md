@@ -1,13 +1,28 @@
 # Changelog
 
+## 1.27.1
+
+- Changes to logged messages in the console, where previously only WebSocket
+  reconnection messages were logged. These can still be silenced with the
+  `logger: false` client option.
+- Improved support for the TypeScript tsconfig.json compiler option
+  "exactOptionalPropertTypes" with the convex package.
+- Additional WebSocket connection debugging information about Transition
+  messages.
+- Clearer error messages when running codegen in preview deployments.
+- Token limits for especially verbose logs MCP tool.
+- Add (preexisting) `codegen` options to `convex.json` schema.
+
 ## 1.27.0
 
-- Add support for configuring the Node.js version used by Node actions
-  using the `node.nodeVersion` field of the `convex.json` file
+- Add support for configuring the Node.js version used by Node actions using the
+  `node.nodeVersion` field of the `convex.json` file
   ([docs](https://docs.convex.dev/production/project-configuration#configuring-the-nodejs-version)).
-- `npx convex data` now supports exporting data as JSON or JSONL with the `--format` option.
-- `npx convex env set` now supports setting environment variables via piping (STDIN)
-  (for example `cat keys/my-private-key.txt | npx convex env set JWT_PRIVATE_KEY`).
+- `npx convex data` now supports exporting data as JSON or JSONL with the
+  `--format` option.
+- `npx convex env set` now supports setting environment variables via piping
+  (STDIN) (for example
+  `cat keys/my-private-key.txt | npx convex env set JWT_PRIVATE_KEY`).
 
 ## 1.26.2
 
