@@ -15,7 +15,7 @@ const environment =
 
 Sentry.init({
   dsn: SENTRY_DSN,
-  tracesSampleRate: 0.1,
+  tracesSampleRate: 0.01,
   release: process.env.SENTRY_RELEASE,
   environment,
   integrations: [
