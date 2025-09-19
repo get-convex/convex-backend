@@ -33,19 +33,31 @@ use crate::{
     MySqlInstanceName,
 };
 
-/// Returns the appropriate expression based on the parameter value.
-macro_rules! tableify {
-    ($param:ident, $e: expr) => {{
+macro_rules! as_table {
+    ([$param:ident $(, $rest:ident)*], $e: expr) => {{
         [{
             #[allow(non_upper_case_globals)]
             const $param: bool = false;
-            $e
+            as_table!([$($rest),*], $e)
         }, {
             #[allow(non_upper_case_globals)]
             const $param: bool = true;
-            $e
-        }][$param as usize]
+            as_table!([$($rest),*], $e)
+        }]
     }};
+    ([], $e: expr) => { $e }
+}
+/// Returns the appropriate expression based on the parameter value.
+macro_rules! tableify {
+    ([$($param:ident),+], $e: expr) => {{
+        as_table!([$($param),*], $e)
+            $(
+                [$param as usize]
+            )*
+    }};
+    ($param:ident, $e: expr) => {
+        tableify!([$param], $e)
+    };
 }
 
 pub const GET_TABLE_COUNT: &str = r#"
@@ -162,50 +174,116 @@ pub const fn init_lease(multitenant: bool) -> &'static str {
 
 /// Load a page of documents, where timestamps are bounded by [$1, $2),
 /// and ($3, $4, $5) is the (ts, table_id, id) from the last document read.
-pub const fn load_docs_by_ts_page_asc(multitenant: bool) -> &'static str {
-    tableify!(
-        multitenant,
+pub const fn load_docs_by_ts_page_asc(
+    multitenant: bool,
+    tablet_filter: bool,
+    include_prev_rev: bool,
+) -> &'static str {
+    tableify!([multitenant, tablet_filter, include_prev_rev], {
         formatcp!(
-            r#"SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
+            r#"SELECT D.id, D.ts, D.table_id, D.json_value, D.deleted, D.prev_ts
+    {prev_rev_col}
+    FROM @db_name.documents D
     FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE ts >= ?
-    AND ts < ?
-    AND (ts > ? OR (ts = ? AND (table_id > ? OR (table_id = ? AND id > ?))))
-    {where_clause}
-    ORDER BY ts ASC, table_id ASC, id ASC
+    {prev_rev_join}
+    WHERE D.ts >= ?
+    AND D.ts < ?
+    AND (D.ts > ? OR (D.ts = ? AND (D.table_id > ? OR (D.table_id = ? AND D.id > ?))))
+    {tablet_filter}
+    {instance_name_filter}
+    ORDER BY D.ts ASC, D.table_id ASC, D.id ASC
     LIMIT ?
 "#,
-            where_clause = if multitenant {
-                "AND instance_name = ?"
+            prev_rev_col = if include_prev_rev {
+                ", P.json_value"
             } else {
                 ""
-            }
+            },
+            prev_rev_join = if include_prev_rev {
+                formatcp!(
+                    "LEFT JOIN @db_name.documents P
+                    FORCE INDEX FOR JOIN (PRIMARY)
+                    ON P.table_id = D.table_id
+                    AND P.id = D.id
+                    AND P.ts = D.prev_ts
+                    {}",
+                    if multitenant {
+                        "AND P.instance_name = D.instance_name"
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                ""
+            },
+            tablet_filter = if tablet_filter {
+                "AND D.table_id = ?"
+            } else {
+                ""
+            },
+            instance_name_filter = if multitenant {
+                "AND D.instance_name = ?"
+            } else {
+                ""
+            },
         )
-    )
+    })
 }
 
-pub const fn load_docs_by_ts_page_desc(multitenant: bool) -> &'static str {
-    tableify!(
-        multitenant,
+pub const fn load_docs_by_ts_page_desc(
+    multitenant: bool,
+    tablet_filter: bool,
+    include_prev_rev: bool,
+) -> &'static str {
+    tableify!([multitenant, tablet_filter, include_prev_rev], {
         formatcp!(
-            r#"SELECT id, ts, table_id, json_value, deleted, prev_ts
-    FROM @db_name.documents
+            r#"SELECT D.id, D.ts, D.table_id, D.json_value, D.deleted, D.prev_ts
+    {prev_rev_col}
+    FROM @db_name.documents D
     FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE ts >= ?
-    AND ts < ?
-    AND (ts < ? OR (ts = ? AND (table_id < ? OR (table_id = ? AND id < ?))))
-    {where_clause}
-    ORDER BY ts DESC, table_id DESC, id DESC
+    {prev_rev_join}
+    WHERE D.ts >= ?
+    AND D.ts < ?
+    AND (D.ts < ? OR (D.ts = ? AND (D.table_id < ? OR (D.table_id = ? AND D.id < ?))))
+    {tablet_filter}
+    {instance_name_filter}
+    ORDER BY D.ts DESC, D.table_id DESC, D.id DESC
     LIMIT ?
 "#,
-            where_clause = if multitenant {
-                "AND instance_name = ?"
+            prev_rev_col = if include_prev_rev {
+                ", P.json_value"
             } else {
                 ""
-            }
+            },
+            prev_rev_join = if include_prev_rev {
+                formatcp!(
+                    "LEFT JOIN @db_name.documents P
+                    FORCE INDEX FOR JOIN (PRIMARY)
+                    ON P.table_id = D.table_id
+                    AND P.id = D.id
+                    AND P.ts = D.prev_ts
+                    {}",
+                    if multitenant {
+                        "AND P.instance_name = D.instance_name"
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                ""
+            },
+            tablet_filter = if tablet_filter {
+                "AND D.table_id = ?"
+            } else {
+                ""
+            },
+            instance_name_filter = if multitenant {
+                "AND D.instance_name = ?"
+            } else {
+                ""
+            },
         )
-    )
+    })
 }
 
 pub const INSERT_DOCUMENT_COLUMN_COUNT: usize = 6;

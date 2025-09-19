@@ -43,19 +43,6 @@ pub fn load_documents_timer(cluster_name: &str) -> StatusTimer {
     timer
 }
 
-register_convex_histogram!(
-    MYSQL_LOAD_DOCUMENTS_SKIPPED_WRONG_TABLE_TOTAL,
-    "Number of documents skipped in memory because they belong to the wrong table",
-    &["cluster_name"]
-);
-pub fn mysql_load_documents_skipped_wrong_table(num_skipped: usize, cluster_name: &str) {
-    log_distribution_with_labels(
-        &MYSQL_LOAD_DOCUMENTS_SKIPPED_WRONG_TABLE_TOTAL,
-        num_skipped as f64,
-        vec![cluster_name_label(cluster_name)],
-    )
-}
-
 register_convex_counter!(
     MYSQL_DOCUMENTS_LOADED_TOTAL,
     "Number of documents loaded",

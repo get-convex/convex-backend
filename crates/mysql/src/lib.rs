@@ -62,6 +62,7 @@ use common::{
         ConflictStrategy,
         DocumentLogEntry,
         DocumentPrevTsQuery,
+        DocumentRevisionStream,
         DocumentStream,
         IndexStream,
         LatestDocument,
@@ -72,6 +73,10 @@ use common::{
         PersistenceTableSize,
         RetentionValidator,
         TimestampRange,
+    },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
     },
     query::Order,
     runtime::Runtime,
@@ -647,17 +652,20 @@ impl<RT: Runtime> MySqlReader<RT> {
         Ok((ts, document_id, document, prev_ts))
     }
 
-    #[allow(clippy::needless_lifetimes)]
+    // If `include_prev_rev` is false then the returned
+    // RevisionPair.prev_rev.document will always be None (but prev_rev.ts will
+    // still be correct)
     #[try_stream(
-        ok = DocumentLogEntry,
+        ok = RevisionPair,
         error = anyhow::Error,
     )]
     async fn _load_documents(
         &self,
+        tablet_id: Option<TabletId>,
+        include_prev_rev: bool,
         range: TimestampRange,
         order: Order,
         page_size: u32,
-        tablet_id: Option<TabletId>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
         anyhow::ensure!(page_size > 0); // 0 size pages loop forever.
@@ -667,7 +675,6 @@ impl<RT: Runtime> MySqlReader<RT> {
             .acquire("load_documents", &self.db_name)
             .await?;
         let mut num_returned = 0;
-        let mut num_skipped_by_table = 0;
         let mut last_ts = match order {
             Order::Asc => Timestamp::MIN,
             Order::Desc => Timestamp::MAX,
@@ -678,8 +685,16 @@ impl<RT: Runtime> MySqlReader<RT> {
             let mut rows_loaded = 0;
 
             let query = match order {
-                Order::Asc => sql::load_docs_by_ts_page_asc(self.multitenant),
-                Order::Desc => sql::load_docs_by_ts_page_desc(self.multitenant),
+                Order::Asc => sql::load_docs_by_ts_page_asc(
+                    self.multitenant,
+                    tablet_id.is_some(),
+                    include_prev_rev,
+                ),
+                Order::Desc => sql::load_docs_by_ts_page_desc(
+                    self.multitenant,
+                    tablet_id.is_some(),
+                    include_prev_rev,
+                ),
             };
             let mut params = vec![
                 i64::from(range.min_timestamp_inclusive()).into(),
@@ -690,6 +705,9 @@ impl<RT: Runtime> MySqlReader<RT> {
                 last_tablet_id_param.clone().into(),
                 last_id_param.clone().into(),
             ];
+            if let Some(tablet_id) = tablet_id {
+                params.push(tablet_id.0 .0.into());
+            }
             if self.multitenant {
                 params.push(self.instance_name.to_string().into());
             }
@@ -705,24 +723,33 @@ impl<RT: Runtime> MySqlReader<RT> {
             futures::pin_mut!(row_stream);
 
             while let Some(row) = row_stream.try_next().await? {
+                let prev_rev_value: Option<Vec<u8>> = if include_prev_rev {
+                    row.get_opt(6).context("missing column")??
+                } else {
+                    None
+                };
                 let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
+                let prev_rev_document: Option<ResolvedDocument> = prev_rev_value
+                    .map(|v| {
+                        let json_value: JsonValue = serde_json::from_slice(&v)
+                            .context("Failed to deserialize database value")?;
+                        // N.B.: previous revisions should never be deleted, so we don't check that.
+                        let value: ConvexValue = json_value.try_into()?;
+                        ResolvedDocument::from_database(document_id.table(), value)
+                    })
+                    .transpose()?;
                 rows_loaded += 1;
                 last_ts = ts;
                 last_tablet_id_param = internal_id_param(document_id.table().0);
                 last_id_param = internal_doc_id_param(document_id);
                 num_returned += 1;
-                if let Some(tablet_id) = tablet_id
-                    && document_id.table() != tablet_id
-                {
-                    num_skipped_by_table += 1;
-                    continue;
-                } else {
-                    yield DocumentLogEntry {
-                        ts,
-                        id: document_id,
-                        value: document,
-                        prev_ts,
-                    }
+                yield RevisionPair {
+                    id: document_id,
+                    rev: DocumentRevision { ts, document },
+                    prev_rev: prev_ts.map(|prev_ts| DocumentRevision {
+                        ts: prev_ts,
+                        document: prev_rev_document,
+                    }),
                 }
             }
             if rows_loaded < page_size {
@@ -730,10 +757,6 @@ impl<RT: Runtime> MySqlReader<RT> {
             }
         }
 
-        metrics::mysql_load_documents_skipped_wrong_table(
-            num_skipped_by_table,
-            self.read_pool.cluster_name(),
-        );
         metrics::finish_load_documents_timer(timer, num_returned, self.read_pool.cluster_name());
     }
 
@@ -1030,8 +1053,16 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        self._load_documents(range, order, page_size, None, retention_validator)
-            .boxed()
+        self._load_documents(
+            None,  /* tablet_id */
+            false, /* include_prev_rev */
+            range,
+            order,
+            page_size,
+            retention_validator,
+        )
+        .map_ok(RevisionPair::into_log_entry)
+        .boxed()
     }
 
     fn load_documents_from_table(
@@ -1043,10 +1074,31 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
         self._load_documents(
+            Some(tablet_id),
+            false, /* include_prev_rev */
             range,
             order,
             page_size,
-            Some(tablet_id),
+            retention_validator,
+        )
+        .map_ok(RevisionPair::into_log_entry)
+        .boxed()
+    }
+
+    fn load_revision_pairs(
+        &self,
+        tablet_id: Option<TabletId>,
+        range: TimestampRange,
+        order: Order,
+        page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentRevisionStream<'_> {
+        self._load_documents(
+            tablet_id,
+            true, /* include_prev_rev */
+            range,
+            order,
+            page_size,
             retention_validator,
         )
         .boxed()
