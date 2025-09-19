@@ -1,0 +1,271 @@
+---
+title: "Agent Definition and Usage"
+sidebar_label: "Agents"
+sidebar_position: 140
+description: "Configuring and using the Agent class"
+---
+
+Agents encapsulate models, prompting, tools, and other configuration. They can
+be defined as globals, or at runtime.
+
+They use threads to contain a series of messages used along the way, whether
+those messages are from a user, another Agent / LLM, or elsewhere. A thread can
+have multiple Agents responding, or be used by a single Agent.
+
+Agentic workflows are built up by combining contextual prompting (threads,
+messages, tool responses, RAG, etc.) and dynamic routing via LLM tool calls,
+structured LLM outputs, or a myriad of other techniques via custom code.
+
+## Basic Agent definition
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "Basic Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+});
+```
+
+Everything except the name can be overridden at the call site when calling the
+LLM, and many features available on the agent can be used without an Agent, if
+this way of organizing the work is not needed for your use case.
+
+## Dynamic Agent definition
+
+You can define an Agent at runtime, which is useful if you want to create an
+Agent for a specific context. This allows the LLM to call tools without
+requiring the LLM to always pass through full context to each tool call. It also
+allows dynamically choosing a model or other options for the Agent.
+
+```ts
+import { Agent } from "@convex-dev/agent";
+import { type LanguageModel } from "ai";
+import type { ActionCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { components } from "./_generated/api";
+
+function createAuthorAgent(
+  ctx: ActionCtx,
+  bookId: Id<"books">,
+  model: LanguageModel,
+) {
+  return new Agent(components.agent, {
+    name: "Author",
+    languageModel: model,
+    tools: {
+      // See https://docs.convex.dev/agents/tools
+      getChapter: getChapterTool(ctx, bookId),
+      researchCharacter: researchCharacterTool(ctx, bookId),
+      writeChapter: writeChapterTool(ctx, bookId),
+    },
+    maxSteps: 10, // Alternative to stopWhen: stepCountIs(10)
+  });
+}
+```
+
+## Generating text with an Agent
+
+To generate a message, you provide a prompt (as a string or a list of messages)
+to be used as context to generate one or more messages via an LLM, using calls
+like `agent.streamText` or `agent.generateObject`.
+
+The arguments to `generateText` and others are the same as the AI SDK, except
+you don't have to provide a model. By default it will use the agent's language
+model. There are also extra arguments that are specific to the Agent component,
+such as the `promptMessageId` which we'll see below.
+
+[**See the full list of AI SDK arguments here**](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text)
+
+The message history will be provided by default as context from the given
+[thread](./threads.mdx). See [LLM Context](./context.mdx) for details on how to
+configuring the context provided.
+
+Note: `authorizeThreadAccess` referenced below is a function you would write to
+authenticate and authorize the user to access the thread. You can see an example
+implementation in
+[threads.ts](https://github.com/get-convex/agent/blob/main/example/convex/threads.ts).
+
+See
+[chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)
+or
+[chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+for live code examples.
+
+### Streaming text
+
+Streaming text follows the same pattern as the approach below, but with a few
+differences, depending on the type of streaming you're doing. See
+[streaming](./streaming.mdx) for more details.
+
+### Basic approach (synchronous)
+
+```ts
+export const generateReplyToPrompt = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // await authorizeThreadAccess(ctx, threadId);
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+Note: best practice is to not rely on returning data from the action. Instead,
+query for the thread messages via the `useThreadMessages` hook and receive the
+new message automatically. See below.
+
+### Saving the prompt then generating response(s) asynchronously
+
+While the above approach is simple, generating responses asynchronously provide
+a few benefits:
+
+- You can set up optimistic UI updates on mutations that are transactional, so
+  the message will be shown optimistically on the client until the message is
+  saved and present in your message query.
+- You can save the message in the same mutation (transaction) as other writes to
+  the database. This message can the be used and re-used in an action with
+  retries, without duplicating the prompt message in the history. If the
+  `promptMessageId` is used for multiple generations, any previous responses
+  will automatically be included as context, so the LLM can continue where it
+  left off. See [workflows](./workflows.mdx) for more details.
+- Thanks to the idempotent guarantees of mutations, the client can safely retry
+  mutations for days until they run exactly once. Actions can transiently fail.
+
+Any clients listing the messages will automatically get the new messages as they
+are created asynchronously.
+
+To generate responses asynchronously, you need to first save the message, then
+pass the `messageId` as `promptMessageId` to generate / stream text.
+
+```ts
+import { components, internal } from "./_generated/api";
+import { saveMessage } from "@convex-dev/agent";
+import { internalAction, mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+// Step 1: Save a user message, and kick off an async response.
+export const sendMessage = mutation({
+  args: { threadId: v.id("threads"), prompt: v.string() },
+  handler: async (ctx, { threadId, prompt }) => {
+    const { messageId } = await saveMessage(ctx, components.agent, {
+      threadId,
+      prompt,
+    });
+    await ctx.scheduler.runAfter(0, internal.example.generateResponseAsync, {
+      threadId,
+      promptMessageId: messageId,
+    });
+  },
+});
+
+// Step 2: Generate a response to a user message.
+export const generateResponseAsync = internalAction({
+  args: { threadId: v.string(), promptMessageId: v.string() },
+  handler: async (ctx, { threadId, promptMessageId }) => {
+    await agent.generateText(ctx, { threadId }, { promptMessageId });
+  },
+});
+```
+
+Note that the action doesn't need to return anything. All messages are saved by
+default, so any client subscribed to the thread messages will receive the new
+message as it is generated asynchronously.
+
+The Step 2 code is common enough that there's a utility to save you some typing.
+It takes in some parameters to control streaming, etc. For more details, see
+[the code](https://github.com/get-convex/agent/blob/main/src/client/index.ts#L1465-L1555).
+
+```ts
+// Equivalent to Step 2 above.
+export const generateResponseAsync = agent.asTextAction();
+```
+
+### Generating an object
+
+Similar to the AI SDK, you can generate or stream an object. The same arguments
+apply, except you don't have to provide a model. It will use the agent's default
+language model.
+
+```ts
+import { z } from "zod/v3";
+
+const result = await thread.generateObject({
+  prompt: "Generate a plan based on the conversation so far",
+  schema: z.object({...}),
+});
+```
+
+Unfortunately, object generation doesn't support using tools. One, however, is
+to structure your object as arguments to a tool call that returns the object.
+You can use a custom `stopWhen` to stop the generation when the tool call
+produces the result and use `toolChoice: "required"` to prevent the LLM from
+returning a text response.
+
+## Customizing the agent
+
+The agent by default only needs a `chat` model to be configured. However, for
+vector search, you'll need a `textEmbeddingModel` model. A `name` is helpful to
+attribute each message to a specific agent. Other options are defaults that can
+be over-ridden at each LLM call-site.
+
+```ts
+import { tool, stepCountIs } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod/v3";
+import { Agent, createTool, type Config } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+const sharedDefaults = {
+  // The language model to use for the agent.
+  languageModel: openai.chat("gpt-4o-mini"),
+  // Embedding model to power vector search of message history (RAG).
+  textEmbeddingModel: openai.embedding("text-embedding-3-small"),
+  // Used for fetching context messages. See https://docs.convex.dev/agents/context
+  contextOptions,
+  // Used for storing messages. See https://docs.convex.dev/agents/messages
+  storageOptions,
+  // Used for tracking token usage. See https://docs.convex.dev/agents/usage-tracking
+  usageHandler: async (ctx, args) => {
+    const { usage, model, provider, agentName, threadId, userId } = args;
+    // ... log, save usage to your database, etc.
+  },
+  // Used for filtering, modifying, or enriching the context messages. See https://docs.convex.dev/agents/context
+  contextHandler: async (ctx, args) => {
+    return [...customMessages, args.allMessages];
+  },
+  // Useful if you want to log or record every request and response.
+  rawResponseHandler: async (ctx, args) => {
+    const { request, response, agentName, threadId, userId } = args;
+    // ... log, save request/response to your database, etc.
+  },
+  // Used for limiting the number of retries when a tool call fails. Default: 3.
+  callSettings: { maxRetries: 3, temperature: 1.0 },
+} satisfies Config;
+
+
+const supportAgent = new Agent(components.agent, {
+  // The default system prompt if not over-ridden.
+  instructions: "You are a helpful assistant.",
+  tools: {
+    // Convex tool. See https://docs.convex.dev/agents/tools
+    myConvexTool: createTool({
+      description: "My Convex tool",
+      args: z.object({...}),
+      // Note: annotate the return type of the handler to avoid type cycles.
+      handler: async (ctx, args): Promise<string> => {
+        return "Hello, world!";
+      },
+    }),
+    // Standard AI SDK tool
+    myTool: tool({ description, parameters, execute: () => {}}),
+  },
+  // Used for limiting the number of steps when tool calls are involved.
+  // NOTE: if you want tool calls to happen automatically with a single call,
+  // you need to set this to something greater than 1 (the default).
+  stopWhen: stepCountIs(5),
+  ...sharedDefaults,
+});
+```

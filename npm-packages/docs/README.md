@@ -5,7 +5,7 @@ static website generator.
 
 ## Local Development
 
-```console
+```sh
 just rush install
 npm run dev
 ```
@@ -20,7 +20,7 @@ The command runs `npm run dev`, which will not run all checks in our presubmits.
 For example, broken links are not checked. To view all errors, try building and
 testing:
 
-```console
+```sh
 npm run test
 npm run build
 ```
@@ -53,7 +53,7 @@ You can enable spell checking in VS Code by installing
 
 ## Build
 
-```console
+```sh
 npm run build
 ```
 
@@ -68,22 +68,22 @@ See [here](/ops/services/docs/release.md).
 
 See [here](/ops/services/docs/release.md#preview-deployment).
 
-## Updating the Agent docs
+## Updating the Component docs
 
-The Agent component docs are in the
-[get-convex/agent repo](https://github.com/get-convex/agent/tree/main/docs). To
-update them, run the following command:
+The Component docs are in the /docs folder of the Components that we keep in
+sync. For example, https://github.com/get-convex/component/tree/main/docs To
+update them, run the following command in this directory:
 
+```sh
+node scripts/pull-component-docs.js
 ```
-npm run pull-agent-docs
-```
 
-This will pull the latest docs from the `main` branch and update the
-`docs/agents` directory, doing some replacing of relative links back to the
-agent repo for code snippets.
+This will pull the latest docs from the `main` branch and update the docs
+directory, doing some replacing of relative links back to the original repo for
+code snippets.
 
-This is a manual process and generally only needs to be done when the agent docs
-change and there is a new release of the agent package.
+This is a manual process and generally only needs to be done when the component
+docs change and there is a new release of the component package.
 
 # Dependency notes
 

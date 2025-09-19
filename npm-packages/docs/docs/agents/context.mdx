@@ -11,6 +11,13 @@ thread. This context is used to generate the next message.
 The context can include recent messages, as well as messages found via text and
 /or vector search.
 
+If a `promptMessageId` is provided, the context will include that message, as
+well as any other messages on that same `order`. More details on order are in
+[messages.mdx](./messages.mdx#message-ordering), but in practice this means that
+if you pass the ID of the user-submitted message as the `promptMessageId` and
+there had already been some assistant and/or tool responses, those will be
+included in the context, allowing the LLM to continue the conversation.
+
 You can also use [RAG](./rag.mdx) to add extra context to your prompt.
 
 ## Customizing the context
@@ -50,20 +57,140 @@ const result = await agent.generateText(
 );
 ```
 
+## Full context control
+
+To have full control over which messages are passed to the LLM, you can either:
+
+1. Provide a `contextHandler` to filter, modify, or enrich the context messages.
+2. Provide all messages manually via the `messages` argument and specify
+   `contextOptions` to use no recent or search messages. See below for how to
+   fetch context messages manually.
+
+### Providing a contextHandler
+
+The Agent will combine messages from search, recent, input messages, and all
+messages on the same `order` as the `promptMessageId` if that is provided.
+
+You can customize how they are combined, as well as add or remove messages by
+providing a `contextHandler` which returns the `ModelMessage[]` which will be
+passed to the LLM.
+
+You can specify a `contextHandler` in the Agent constructor, or at the call-site
+for a single generation, which overrides any Agent default.
+
+```ts
+const myAgent = new Agent(components.agent, {
+  ///...
+  contextHandler: async (ctx, args) => {
+    // This is the default behavior.
+    return [
+      ...args.search,
+      ...args.recent,
+      ...args.inputMessages,
+      ...args.inputPrompt,
+      ...args.existingResponses,
+    ];
+    // Equivalent to:
+    return args.allMessages;
+  },
+);
+```
+
+With this callback, you can:
+
+1. Filter out messages you don't want to include.
+1. Add memories or other context.
+1. Add sample messages to guide the LLM on how it should respond.
+1. Inject extra context based on the user or thread.
+1. Copy in messages from other threads.
+1. Summarize messages.
+
+For example:
+
+```ts
+// Note: when you specify it at the call-site, you can also leverage variables
+// available in the scope, e.g. if the user is in a specific step in a workflow.
+const result = await agent.generateText(
+  ctx,
+  { threadId },
+  { prompt },
+  {
+    contextHandler: async (ctx, args) => {
+      // Filter out messages that are not relevant.
+      const relevantSearch = args.search.filter((m) => messageIsRelevant(m));
+      // Fetch user memories to include in every prompt.
+      const userMemories = await getUserMemories(ctx, args.userId);
+      // Fetch sample messages to instruct the LLM on how to respond.
+      const sampleMessages = [
+        { role: "user", content: "Generate a function that adds two numbers" },
+        { role: "assistant", content: "function add(a, b) { return a + b; }" },
+      ];
+      // Fetch user context to include in every prompt.
+      const userContext = await getUserContext(ctx, args.userId, args.threadId);
+      // Fetch messages from a related / parent thread.
+      const related = await getRelatedThreadMessages(ctx, args.threadId);
+      return [
+        // Summarize or truncate context messages if they are too long.
+        ...(await summarizeOrTruncateIfTooLong(related)),
+        ...relevantSearch,
+        ...userMemories,
+        ...sampleMessages,
+        ...userContext,
+        ...args.recent,
+        ...args.inputMessages,
+        ...args.inputPrompt,
+        ...args.existingResponses,
+      ];
+    },
+  },
+);
+```
+
+### Fetch context manually
+
+If you want to get context messages for a given prompt, without calling the LLM,
+you can use `fetchContextWithPrompt`. This is used internally to get the context
+messages passed to the AI SDK `generateText`, `streamText`, etc.
+
+As with normal generation, you can provide a `prompt` or `messages`, and/or a
+`promptMessageId` to fetch the context messages using a given pre-saved message
+as the prompt.
+
+This will return recent and search messages combined with the input messages.
+
+```ts
+import { fetchContextWithPrompt } from "@convex-dev/agent";
+
+const { messages } = await fetchContextWithPrompt(ctx, components.agent, {
+  prompt,
+  messages,
+  promptMessageId,
+  userId,
+  threadId,
+  contextOptions,
+});
+```
+
 ## Search for messages
 
 This is what the agent does automatically, but it can be useful to do manually,
 e.g. to find custom context to include.
 
-If you provide a `beforeMessageId`, it will only fetch messages from before that
-message.
+For text and vector search, you can provide a `targetMessageId` and/or
+`searchText`. It will embed the text for vector search. If `searchText` is not
+provided, it will use the target message's text.
+
+If `targetMessageId` is provided, it will only fetch search messages previous to
+that message, and recent messages up to and including that message's "order".
+This enables re-generating a response for an earlier message.
 
 ```ts
 import type { MessageDoc } from "@convex-dev/agent";
 
 const messages: MessageDoc[] = await agent.fetchContextMessages(ctx, {
   threadId,
-  messages: [{ role: "user", content: prompt }],
+  searchText: prompt, // Optional unless you want text/vector search.
+  targetMessageId: promptMessageId, // Optionally target the search.
   userId, // Optional, unless `searchOtherThreads` is true.
   contextOptions, // Optional, defaults are used if not provided.
 });
@@ -74,16 +201,22 @@ that in order to do vector search, you need to create the embeddings yourself,
 and it will not run your usage handler.
 
 ```ts
-import { fetchContextMessages } from "@convex-dev/agent";
+import { fetchRecentAndSearchMessages } from "@convex-dev/agent";
 
-const messages = await fetchContextMessages(ctx, components.agent, {
-  threadId,
-  messages: [{ role: "user", content: prompt }],
-  getEmbedding: async (text) => {
-    const embedding = await textEmbeddingModel.embed(text);
-    return { embedding, textEmbeddingModel };
+const { recentMessages, searchMessages } = await fetchRecentAndSearchMessages(
+  ctx,
+  components.agent,
+  {
+    threadId,
+    searchText: prompt, // Optional unless you want text/vector search.
+    targetMessageId: promptMessageId, // Optionally target the search.
+    contextOptions, // Optional, defaults are used if not provided.
+    getEmbedding: async (text) => {
+      const embedding = await textEmbeddingModel.embed(text);
+      return { embedding, textEmbeddingModel };
+    },
   },
-});
+);
 ```
 
 ## Searching other threads
@@ -120,12 +253,17 @@ and use them for vector search.
 When you change models or decide to start or stop using embeddings for vector
 search, you can manage the embeddings manually.
 
-Generate embeddings for a set of messages.
+Generate embeddings for a set of messages. Optionally pass `config` with a usage
+handler, which can be a globally shared `Config`.
 
 ```ts
-const embeddings = await supportAgent.generateEmbeddings([
-  { role: "user", content: "What is love?" },
-]);
+import { embedMessages } from "@convex-dev/agent";
+
+const embeddings = await embedMessages(
+  ctx,
+  { userId, threadId, textEmbeddingModel, ...config },
+  [{ role: "user", content: "What is love?" }],
+);
 ```
 
 Generate and save embeddings for existing messages.

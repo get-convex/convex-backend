@@ -5,6 +5,8 @@ sidebar_position: 1100
 description: "Debugging the Agent component"
 ---
 
+## Debugging in the Playground
+
 Generally the [Playground](./playground.mdx) gives a lot of information about
 what's happening, but when that is insufficient, you have other options.
 
@@ -28,6 +30,21 @@ const supportAgent = new Agent(components.agent, {
 });
 ```
 
+## Logging the context messages via the contextHandler
+
+You can log the context messages via the contextHandler, if you're curious what
+exactly the LLM is receiving.
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  contextHandler: async (ctx, { allMessages }) => {
+    console.log("context", allMessages);
+    return allMessages;
+  },
+});
+```
+
 ## Inspecting the database in the dashboard
 
 You can go to the Data tab in the dashboard and select the agent component above
@@ -47,6 +64,13 @@ The most useful tables are:
   a message that got stored in File Storage.
 
 ## Troubleshooting
+
+### Type errors on `components.agent`
+
+If you get type errors about `components.agent`, ensure you've run
+`npx convex dev` to generate code for the component. The types expected by the
+library are in the npm library, and the types for `components.agent` currently
+come from generated code in your project (via `npx convex dev`).
 
 ### Circular dependencies
 

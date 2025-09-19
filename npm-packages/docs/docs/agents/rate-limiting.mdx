@@ -289,7 +289,7 @@ export async function estimateTokens(
   const estimatedOutputTokens = promptTokens * 3 + 1;
   const latestMessages = await fetchContextMessages(ctx, components.agent, {
     threadId,
-    messages: [{ role: "user" as const, content: question }],
+    searchText: question,
     contextOptions: { recentMessages: 2 },
   });
   // Our new usage will roughly be the previous tokens + the question.

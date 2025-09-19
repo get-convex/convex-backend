@@ -67,7 +67,7 @@ async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
   const myTool = tool({
     description: "My tool",
     parameters: z.object({...}).describe("The arguments for the tool"),
-    execute: async (args, options) => {
+    execute: async (args, options): Promise<BarReturnType> => {
       return await ctx.runQuery(internal.foo.bar, args);
     },
   });
@@ -76,6 +76,10 @@ async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
 
 In both cases, the args and options match the underlying AI SDK's `tool`
 function.
+
+If you run into type errors, ensure you're annotating the return type of the
+execute function, and if necessary, the return type of the `handler`s of any
+functions you call with `ctx.run*`.
 
 Note: it's highly recommended to use zod with `.describe` to provide details
 about each parameter. This will be used to provide a description of the tool to
@@ -114,6 +118,68 @@ const myTool = createTool({
   description: "...",
   handler: async (ctx: MyCtx, args) => {
     // use ctx.orgId
+  },
+});
+```
+
+## Using an LLM or Agent as a tool
+
+You can do generation within a tool call, for instance if you wanted one Agent
+to ask another Agent a question.
+
+Note: you don't have to structure agents calling each other as tool calls. You
+could instead decide which Agent should respond next based on other context and
+have many Agents contributing in the same thread.
+
+The simplest way to model Agents as tool calls is to have each tool call work in
+an independent thread, or do generation without a thread at all. Then, the
+output is returned as the tool call result for the next LLM step to use. When
+you do it this way, you **don't** need to explicitly save the tool call result
+to the parent thread.
+
+### Direct LLM generation without a thread:
+
+```ts
+const llmTool = createTool({
+  description: "Ask a question to some LLM",
+  args: z.object({
+    message: z.string().describe("The message to ask the LLM"),
+  }),
+  handler: async (ctx, args): Promise<string> => {
+    const result = await generateText({
+      system: "You are a helpful assistant.",
+      // Pass through all messages from the current generation
+      prompt: [...options.messages, { role: "user", content: args.message }],
+      model: myLanguageModel,
+    });
+    return result.text;
+  },
+});
+```
+
+### Using an Agent as a tool
+
+```ts
+const agentTool = createTool({
+  description: `Ask a question to agent ${agent.name}`,
+  args: z.object({
+    message: z.string().describe("The message to ask the agent"),
+  }),
+  handler: async (ctx, args, options): Promise<string> => {
+    const { userId } = ctx;
+    const { thread } = await agent.createThread(ctx, { userId });
+    const result = await thread.generateText(
+      {
+        // Pass through all messages from the current generation
+        prompt: [...options.messages, { role: "user", content: args.message }],
+      },
+      // Save all the messages from the current generation to this thread.
+      { storageOptions: { saveMessages: "all" } },
+    );
+    // Optionally associate the child thread with the parent thread in your own
+    // tables.
+    await saveThreadAsChild(ctx, ctx.threadId, thread.threadId);
+    return result.text;
   },
 });
 ```

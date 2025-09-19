@@ -153,3 +153,14 @@ const messages = await listMessages(ctx, components.agent, {
   paginationOpts: { cursor: null, numItems: 10 }, // null means start from the beginning
 });
 ```
+
+Or for the UIMessage type (easier for rendering UIs):
+
+```ts
+import { listUIMessages } from "@convex-dev/agent";
+
+const messages = await listUIMessages(ctx, components.agent, {
+  threadId,
+  paginationOpts: { cursor: null, numItems: 10 },
+});
+```
