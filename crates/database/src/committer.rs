@@ -57,7 +57,7 @@ use common::{
     },
     runtime::{
         block_in_place,
-        try_join,
+        tokio_spawn,
         Runtime,
         SpawnHandle,
     },
@@ -100,6 +100,7 @@ use tokio::sync::{
     },
     oneshot,
 };
+use tokio_util::task::AbortOnDropHandle;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::{
@@ -946,16 +947,18 @@ impl<RT: Runtime> Committer<RT> {
                         .collect_vec(),
                 );
                 loop {
-                    if let Err(mut e) = try_join(
-                        "Committer::write_to_persistence",
+                    // Inline try_join so we don't recapture the stacktrace on error
+                    let name = "Commit::write_to_persistence";
+                    let handle = AbortOnDropHandle::new(tokio_spawn(
+                        name,
                         Self::write_to_persistence(
                             persistence.clone(),
                             index_writes.clone(),
                             document_writes.clone(),
-                        ),
-                    )
-                    .await
-                    {
+                        )
+                        .in_span(Span::enter_with_local_parent(name)),
+                    ));
+                    if let Err(mut e) = handle.await? {
                         if e.is::<DatabaseTimeoutError>() {
                             let delay = backoff.fail(&mut rt.rng());
                             tracing::error!(
