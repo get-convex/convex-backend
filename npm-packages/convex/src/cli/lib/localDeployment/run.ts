@@ -127,7 +127,7 @@ export async function runLocalBackend(
   await ensureBackendRunning(ctx, {
     cloudPort: ports.cloud,
     deploymentName: args.deploymentName,
-    maxTimeSecs: 10,
+    maxTimeSecs: 30,
   });
 
   return {
