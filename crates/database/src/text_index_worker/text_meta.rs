@@ -453,7 +453,7 @@ impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
     fn from(value: TextIndexBackfillState) -> Self {
         Self {
             segments: value.segments,
-            cursor: value.cursor.clone().map(|value| value.cursor),
+            cursor: value.cursor.clone().and_then(|value| value.cursor),
             backfill_snapshot_ts: value
                 .cursor
                 .as_ref()
@@ -470,7 +470,7 @@ impl From<BackfillState<TextSearchIndex>> for TextIndexBackfillState {
             && let Some(backfill_snapshot_ts) = value.backfill_snapshot_ts
         {
             Some(TextBackfillCursor {
-                cursor,
+                cursor: Some(cursor),
                 backfill_snapshot_ts: Some(backfill_snapshot_ts),
                 last_segment_ts: value.last_segment_ts,
             })
