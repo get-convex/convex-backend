@@ -140,7 +140,7 @@ Saving to the files has 3 components:
 3. Inserting a URL in place of the data in the message sent to the LLM, along
    with the mimeType and other metadata provided. It will be inferred if not
    provided in
-   [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L227).
+   [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L556).
 
 ### Can I just store the file myself an pass in a URL?
 

@@ -102,6 +102,7 @@ can use the `useUIMessages` hook to fetch the messages, passing in
 const { results, status, loadMore } = useUIMessages(
   api.chat.streaming.listMessages,
   { threadId },
+  // highlight-next-line
   { initialNumItems: 10, stream: true },
 );
 ```

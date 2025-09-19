@@ -171,8 +171,8 @@ By default, the Agent will save messages to the database automatically when you
 provide them as a prompt, as well as all generated messages.
 
 However, it is useful to save the prompt message ahead of time and use the
-`promptMessageId` to continue the conversation. See [Agents](./agents.mdx) for
-more details.
+`promptMessageId` to continue the conversation. See
+[Agent Usage](./agent-usage.mdx) for more details.
 
 You can save messages to the database manually using `saveMessage` or
 `saveMessages`, either on the Agent class or as a direct function call.
