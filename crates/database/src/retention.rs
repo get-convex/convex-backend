@@ -801,7 +801,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // deleted in the same transaction.
                 let Some(DocumentRevision {
                     ts: prev_rev_ts,
-                    document: maybe_prev_rev,
+                    // If `prev_rev.document` is None, that means we already
+                    // garbage collected that revision.
+                    document: Some(_),
                 }) = prev_rev
                 else {
                     log_document_retention_scanned_document(maybe_doc.is_none(), false);
@@ -817,15 +819,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         yield (ts, None);
                     }
                     continue;
-                };
-                let Some(_) = maybe_prev_rev else {
-                    // A tombstone should not be a previous revision, so we throw an error and
-                    // bail
-                    log_document_retention_scanned_document(maybe_doc.is_none(), false);
-                    anyhow::bail!(
-                        "Document {id}@{prev_rev_ts}is a tombstone at {prev_rev_ts} but has a \
-                         later revision at {ts}"
-                    )
                 };
 
                 anyhow::ensure!(

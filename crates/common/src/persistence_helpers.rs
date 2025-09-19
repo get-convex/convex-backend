@@ -34,6 +34,9 @@ pub struct DocumentRevision {
 pub struct RevisionPair {
     pub id: InternalDocumentId,
     pub rev: DocumentRevision,
+    /// Note that `prev_rev` cannot be a tombstone. If `prev_rev` is `Some`, but
+    /// its `document` is `None`, that means that the revision *has* a
+    /// predecessor, but its value was garbage collected.
     pub prev_rev: Option<DocumentRevision>,
 }
 
