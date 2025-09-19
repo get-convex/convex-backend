@@ -99,12 +99,17 @@ pub(crate) async fn persistence_reader_stream_revision_pairs<'a, P: PersistenceR
             let rev = DocumentRevision { ts, document };
             let prev_rev = prev_ts
                 .map(|prev_ts| {
-                    let entry = prev_revs
+                    let document = prev_revs
                         .remove(&DocumentPrevTsQuery { id, ts, prev_ts })
-                        .with_context(|| format!("prev_ts is missing for {id}@{ts}: {prev_ts}"))?;
+                        .map(|entry| {
+                            entry.value.with_context(|| {
+                                format!("prev_ts {prev_ts} of {id}@{ts} points to a deleted value?")
+                            })
+                        })
+                        .transpose()?;
                     anyhow::Ok(DocumentRevision {
-                        ts: entry.ts,
-                        document: entry.value,
+                        ts: prev_ts,
+                        document,
                     })
                 })
                 .transpose()?;

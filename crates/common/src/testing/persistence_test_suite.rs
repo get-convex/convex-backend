@@ -63,6 +63,10 @@ use crate::{
         PersistenceIndexEntry,
         TimestampRange,
     },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
+    },
     query::Order,
     testing::{
         self,
@@ -245,6 +249,13 @@ macro_rules! run_persistence_test_suite {
             let $db = $create_db;
             let p = $create_persistence;
             persistence_test_suite::persistence_previous_revisions(::std::sync::Arc::new(p)).await
+        }
+
+        #[tokio::test]
+        async fn test_persistence_load_revision_pairs() -> anyhow::Result<()> {
+            let $db = $create_db;
+            let p = $create_persistence;
+            persistence_test_suite::test_load_revision_pairs(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
@@ -2118,6 +2129,71 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
         .await
         .is_err());
 
+    Ok(())
+}
+
+pub async fn test_load_revision_pairs<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
+    let mut id_generator = TestIdGenerator::new();
+    let table: TableName = str::parse("table")?;
+
+    let id = id_generator.user_generate(&table);
+    let documents = vec![
+        doc(id, 2, Some(2), Some(1))?,
+        doc(id, 3, Some(3), Some(2))?,
+        doc(id, 4, None, Some(3))?,
+    ];
+    p.write(&documents, &[], ConflictStrategy::Error).await?;
+    let revision_pairs: Vec<_> = p
+        .reader()
+        .load_revision_pairs(
+            None,
+            TimestampRange::new(Timestamp::must(2)..),
+            Order::Asc,
+            1,
+            Arc::new(NoopRetentionValidator),
+        )
+        .try_collect()
+        .await?;
+    assert_eq!(
+        revision_pairs,
+        vec![
+            RevisionPair {
+                id: id.into(),
+                rev: DocumentRevision {
+                    ts: Timestamp::must(2),
+                    document: documents[0].value.clone(),
+                },
+                prev_rev: Some(DocumentRevision {
+                    ts: Timestamp::must(1),
+                    // Odd semantics here: None means that the revision is
+                    // garbage collected, *not* that it is a tombstone
+                    document: None
+                }),
+            },
+            RevisionPair {
+                id: id.into(),
+                rev: DocumentRevision {
+                    ts: Timestamp::must(3),
+                    document: documents[1].value.clone(),
+                },
+                prev_rev: Some(DocumentRevision {
+                    ts: Timestamp::must(2),
+                    document: documents[0].value.clone(),
+                }),
+            },
+            RevisionPair {
+                id: id.into(),
+                rev: DocumentRevision {
+                    ts: Timestamp::must(4),
+                    document: None,
+                },
+                prev_rev: Some(DocumentRevision {
+                    ts: Timestamp::must(3),
+                    document: documents[1].value.clone(),
+                }),
+            },
+        ]
+    );
     Ok(())
 }
 
