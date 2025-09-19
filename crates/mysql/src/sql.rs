@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Write,
+    iter,
     sync::LazyLock,
 };
 
@@ -792,21 +793,9 @@ WHERE table_id = ? AND id = ? and ts < ?
 ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
 "#
                 };
-                let queries = (1..=chunk_size)
-                    .map(|i| format!("q{i} AS ({select})"))
-                    .join(", ");
-                let union_all = (1..=chunk_size)
-                    .map(|i| {
-                        format!(
-                            "SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM \
-                             q{i}"
-                        )
-                    })
-                    .join(" UNION ALL ");
-                (
-                    (chunk_size, multitenant),
-                    format!("WITH {queries} {union_all}"),
-                )
+                let queries =
+                    iter::repeat_n(&format!("({select})"), chunk_size).join(" UNION ALL ");
+                ((chunk_size, multitenant), queries)
             })
         })
         .collect()
