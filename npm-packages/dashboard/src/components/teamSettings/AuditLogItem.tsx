@@ -576,6 +576,15 @@ function EntryAction({
     case "generateOAuthClientSecret": {
       return <span>generated a client secret for an OAuth application</span>;
     }
+    case "createWorkosTeam": {
+      return <span>created a WorkOS team</span>;
+    }
+    case "createWorkosEnvironment": {
+      return <span>created a WorkOS environment</span>;
+    }
+    case "retrieveWorkosEnvironmentCredentials": {
+      return <span>retrieve WorkOS Environment credentials</span>;
+    }
     default:
       action satisfies never;
       captureMessage(`Unhandled audit log action: ${action}`);

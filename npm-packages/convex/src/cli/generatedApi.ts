@@ -36,10 +36,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workos/provision_associated_workos_team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Provision a WorkOS team for a Convex team */
+        post: operations["provision_associated_workos_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/get_or_provision_workos_environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Get or provision a WorkOS environment for a deployment */
+        post: operations["get_or_provision_workos_environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/has_associated_workos_team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Check if a deployment has an associated WorkOS team */
+        post: operations["has_associated_workos_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/available_workos_team_emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get candidate email addresses to be WorkOS admins. */
+        get: operations["get_available_workos_team_emails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        GetOrProvisionEnvironmentRequest: {
+            deploymentName: string;
+        };
+        HasAssociatedWorkOSTeamRequest: {
+            deploymentName: string;
+        };
         /** Format: int64 */
         MemberId: number;
         ProjectDetails: {
@@ -57,6 +131,13 @@ export interface components {
         ProjectId: number;
         ProjectName: string;
         ProjectSlug: string;
+        ProvisionWorkOSTeamRequest: {
+            /** @description Email address to use for the WorkOS team admin,
+             *     must be a verified email address associated with the user's account */
+            email: string;
+            /** @description Convex team ID, no WorkOS team exists at this point */
+            teamId: components["schemas"]["TeamId"];
+        };
         ReferralCode: string;
         Team: {
             creator?: null | components["schemas"]["MemberId"];
@@ -79,11 +160,14 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type GetOrProvisionEnvironmentRequest = components['schemas']['GetOrProvisionEnvironmentRequest'];
+export type HasAssociatedWorkOsTeamRequest = components['schemas']['HasAssociatedWorkOSTeamRequest'];
 export type MemberId = components['schemas']['MemberId'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type ProvisionWorkOsTeamRequest = components['schemas']['ProvisionWorkOSTeamRequest'];
 export type ReferralCode = components['schemas']['ReferralCode'];
 export type Team = components['schemas']['Team'];
 export type TeamId = components['schemas']['TeamId'];
@@ -131,5 +215,57 @@ export interface operations {
                 };
             };
         };
+    };
+    provision_associated_workos_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionWorkOSTeamRequest"];
+            };
+        };
+        responses: never;
+    };
+    get_or_provision_workos_environment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetOrProvisionEnvironmentRequest"];
+            };
+        };
+        responses: never;
+    };
+    has_associated_workos_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HasAssociatedWorkOSTeamRequest"];
+            };
+        };
+        responses: never;
+    };
+    get_available_workos_team_emails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: never;
     };
 }

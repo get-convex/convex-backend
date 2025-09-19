@@ -2883,7 +2883,10 @@
           "updateOAuthApplication",
           "deleteOAuthApplication",
           "verifyOAuthApplication",
-          "generateOAuthClientSecret"
+          "generateOAuthClientSecret",
+          "createWorkosTeam",
+          "createWorkosEnvironment",
+          "retrieveWorkosEnvironmentCredentials"
         ]
       },
       "AuditLogActor": {

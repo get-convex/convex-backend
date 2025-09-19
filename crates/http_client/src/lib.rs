@@ -62,6 +62,7 @@ pub enum ClientPurpose {
     ProviderMetadata,
     Jwks,
     UserInfo,
+    WorkOSProvisioning,
 }
 
 pub fn cached_http_client_for(
