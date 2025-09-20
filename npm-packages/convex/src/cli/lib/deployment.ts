@@ -49,6 +49,17 @@ export async function writeDeploymentEnvVar(
   },
   existingValue: string | null,
 ): Promise<{ wroteToGitIgnore: boolean; changedDeploymentEnvVar: boolean }> {
+  const deploymentEnvVarValue =
+    deploymentType + ":" + deployment.deploymentName;
+
+  // Check if the correct value already exists in process.env
+  if (process.env[CONVEX_DEPLOYMENT_ENV_VAR_NAME] === deploymentEnvVarValue) {
+    return {
+      wroteToGitIgnore: false,
+      changedDeploymentEnvVar: false,
+    };
+  }
+
   const existingFile = ctx.fs.exists(ENV_VAR_FILE_PATH)
     ? ctx.fs.readUtf8File(ENV_VAR_FILE_PATH)
     : null;
@@ -57,8 +68,6 @@ export async function writeDeploymentEnvVar(
     deploymentType,
     deployment,
   );
-  const deploymentEnvVarValue =
-    deploymentType + ":" + deployment.deploymentName;
 
   if (changedFile !== null) {
     ctx.fs.writeUtf8File(ENV_VAR_FILE_PATH, changedFile);
