@@ -16,6 +16,7 @@ import JSON5 from "json5";
 import path from "path";
 import { readProjectConfig } from "./config.js";
 import { watchAndPush } from "./dev.js";
+import { Logger, DefaultLogger } from "../../browser/logging.js";
 
 export async function runFunctionAndLog(
   ctx: Context,
@@ -33,7 +34,9 @@ export async function runFunctionAndLog(
       | undefined;
   },
 ) {
-  const client = new ConvexHttpClient(args.deploymentUrl);
+  const client = new ConvexHttpClient(args.deploymentUrl, {
+    logger: instantiateStderrLogger(),
+  });
   const identity = args.identityString
     ? await getFakeIdentity(ctx, args.identityString)
     : undefined;
@@ -490,4 +493,13 @@ export async function runInDeployment(
     return await subscribeAndLog(ctx, args);
   }
   return await runFunctionAndLog(ctx, args);
+}
+
+function instantiateStderrLogger(): Logger {
+  const logger = new DefaultLogger({ verbose: false });
+  logger.addLogLineListener((_level, ...args) => {
+    // eslint-disable-next-line no-console
+    console.error(...args);
+  });
+  return logger;
 }
