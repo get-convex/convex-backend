@@ -61,7 +61,7 @@ macro_rules! tableify {
 }
 
 pub const GET_TABLE_COUNT: &str = r#"
-    SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '@db_name';
+    SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?;
 "#;
 
 // Expected table count after INIT_SQL is ran.

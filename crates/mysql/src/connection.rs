@@ -111,19 +111,19 @@ where
     }
 }
 
-struct MySQLFormatArguments<'a> {
-    db_name: &'a str,
+struct MySQLFormatArguments {
+    escaped_db_name: String,
     params: Vec<String>,
 }
 
-impl FormatArgs for MySQLFormatArguments<'_> {
+impl FormatArgs for MySQLFormatArguments {
     fn get_index(&self, index: usize) -> Result<Option<dynfmt::Argument<'_>>, ()> {
         self.params.get_index(index)
     }
 
     fn get_key(&self, key: &str) -> Result<Option<dynfmt::Argument<'_>>, ()> {
         match key {
-            "db_name" => Ok(Some(&self.db_name)),
+            "db_name" => Ok(Some(&self.escaped_db_name)),
             _ => panic!("Unexpected named argument {key}"),
         }
     }
@@ -131,7 +131,7 @@ impl FormatArgs for MySQLFormatArguments<'_> {
 
 const DB_NAME_ARGUMENT_PATTERN: &str = "@db_name";
 
-// Formats @db_name, @instance_name, and ?
+// Formats @db_name and ?
 struct MySQLRawStatementFormat;
 
 impl<'f> Format<'f> for MySQLRawStatementFormat {
@@ -168,7 +168,7 @@ fn format_mysql_text_protocol(
     labels: &[StaticMetricLabel],
 ) -> anyhow::Result<String> {
     let args = MySQLFormatArguments {
-        db_name,
+        escaped_db_name: format!("`{db_name}`"),
         params: params
             .into_iter()
             .map(|p| match p {
@@ -191,7 +191,7 @@ fn format_mysql_text_protocol(
     Ok(result)
 }
 
-// Formats @db_name and @instance_name
+// Formats @db_name
 struct MySQLPreparedStatementFormat;
 
 impl<'f> Format<'f> for MySQLPreparedStatementFormat {
@@ -211,11 +211,11 @@ impl<'f> Format<'f> for MySQLPreparedStatementFormat {
     }
 }
 
-// Formats a MySQL query by only replacing the @db_name and @instance_name but
-// leaves positional arguments alone. To be used with MySQL binary protocol.
+// Formats a MySQL query by only replacing the @db_name but leaves positional
+// arguments alone. To be used with MySQL binary protocol.
 fn format_mysql_binary_protocol(db_name: &str, statement: &'static str) -> anyhow::Result<String> {
     let args = MySQLFormatArguments {
-        db_name,
+        escaped_db_name: format!("`{db_name}`"),
         params: vec![], // No positional arguments.
     };
     Ok(MySQLPreparedStatementFormat
@@ -563,7 +563,7 @@ mod tests {
         assert_eq!(
             encoded,
             r#"
-    SELECT * FROM presley_db.indexes
+    SELECT * FROM `presley_db`.indexes
     WHERE (key, value) IN (-27, x'2178613f29')
     AND deleted IS NULL",
 "#,
@@ -584,7 +584,7 @@ mod tests {
         assert_eq!(
             encoded,
             r#"
-    SELECT * FROM presley_db.indexes
+    SELECT * FROM `presley_db`.indexes
     WHERE (key, value) IN (?, ?)
     AND deleted IS ?",
 "#,

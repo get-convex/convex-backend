@@ -200,7 +200,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
         let newly_created = {
             let mut client = pool.acquire("init_sql", &db_name).await?;
             let table_count: usize = client
-                .query_optional(sql::GET_TABLE_COUNT, vec![])
+                .query_optional(sql::GET_TABLE_COUNT, vec![(&db_name).into()])
                 .await?
                 .context("GET_TABLE_COUNT query returned no rows?")?
                 .get(0)
@@ -307,7 +307,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             .acquire("get_table_count", &self.db_name)
             .await?;
         client
-            .query_optional(sql::GET_TABLE_COUNT, vec![])
+            .query_optional(sql::GET_TABLE_COUNT, vec![(&self.db_name).into()])
             .await?
             .context("GET_TABLE_COUNT query returned no rows?")?
             .get(0)
