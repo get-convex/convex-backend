@@ -11,10 +11,7 @@ use std::net::{
 
 use clap::Parser;
 use connector::ConvexFivetranDestination;
-use convex_fivetran_common::{
-    config::AllowAllHosts,
-    fivetran_sdk::destination_connector_server::DestinationConnectorServer,
-};
+use convex_fivetran_common::fivetran_sdk::destination_connector_server::DestinationConnectorServer;
 use serde::Serialize;
 use tonic::{
     codec::CompressionEncoding,
@@ -39,11 +36,6 @@ struct Args {
     /// The port the destination receives gRPC requests from
     #[arg(long, default_value_t = 50052)]
     port: u16,
-
-    /// Whether the destination is allowed to use any host as deployment URL,
-    /// instead of only Convex cloud deployments.
-    #[arg(long)]
-    allow_all_hosts: bool,
 }
 
 #[tokio::main]
@@ -51,9 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), args.port);
 
-    let destination = ConvexFivetranDestination {
-        allow_all_hosts: AllowAllHosts(args.allow_all_hosts),
-    };
+    let destination = ConvexFivetranDestination;
 
     log(&format!("Starting the destination on {addr}"));
 

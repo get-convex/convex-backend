@@ -1,9 +1,6 @@
 use chrono::DateTime;
 use convex_fivetran_common::{
-    config::{
-        AllowAllHosts,
-        Config,
-    },
+    config::Config,
     fivetran_sdk::{
         alter_table_response,
         create_table_response,
@@ -60,9 +57,7 @@ use crate::{
 
 /// Implements the gRPC server endpoints used by Fivetran.
 #[derive(Debug)]
-pub struct ConvexFivetranDestination {
-    pub allow_all_hosts: AllowAllHosts,
-}
+pub struct ConvexFivetranDestination;
 
 type DestinationResult<T> = Result<Response<T>, Status>;
 
@@ -96,16 +91,14 @@ impl DestinationConnector for ConvexFivetranDestination {
 
     async fn test(&self, request: Request<TestRequest>) -> DestinationResult<TestResponse> {
         log(&format!("test request"));
-        let config =
-            match Config::from_parameters(request.into_inner().configuration, self.allow_all_hosts)
-            {
-                Ok(config) => config,
-                Err(error) => {
-                    return Ok(Response::new(TestResponse {
-                        response: Some(test_response::Response::Failure(error.to_string())),
-                    }));
-                },
-            };
+        let config = match Config::from_parameters(request.into_inner().configuration) {
+            Ok(config) => config,
+            Err(error) => {
+                return Ok(Response::new(TestResponse {
+                    response: Some(test_response::Response::Failure(error.to_string())),
+                }));
+            },
+        };
         log(&format!("test request for {}", config.deploy_url));
         let source = ConvexApi { config };
 
@@ -134,7 +127,7 @@ impl DestinationConnector for ConvexFivetranDestination {
             schema_name,
             table_name,
         } = request.into_inner();
-        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
+        let config = match Config::from_parameters(configuration) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(DescribeTableResponse {
@@ -178,7 +171,7 @@ impl DestinationConnector for ConvexFivetranDestination {
             schema_name,
             table,
         } = request.into_inner();
-        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
+        let config = match Config::from_parameters(configuration) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(CreateTableResponse {
@@ -226,7 +219,7 @@ impl DestinationConnector for ConvexFivetranDestination {
             schema_name,
             table,
         } = request.into_inner();
-        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
+        let config = match Config::from_parameters(configuration) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(AlterTableResponse {
@@ -277,7 +270,7 @@ impl DestinationConnector for ConvexFivetranDestination {
             utc_delete_before,
             soft,
         } = request.into_inner();
-        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
+        let config = match Config::from_parameters(configuration) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(TruncateResponse {
@@ -336,7 +329,7 @@ impl DestinationConnector for ConvexFivetranDestination {
             delete_files,
             file_params,
         } = request.into_inner();
-        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
+        let config = match Config::from_parameters(configuration) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(WriteBatchResponse {

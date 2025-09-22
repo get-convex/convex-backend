@@ -1,8 +1,5 @@
 use convex_fivetran_common::{
-    config::{
-        AllowAllHosts,
-        Config,
-    },
+    config::Config,
     fivetran_sdk::{
         schema_response,
         source_connector_server::SourceConnector,
@@ -50,16 +47,13 @@ use crate::{
 
 /// Implements the gRPC server endpoints used by Fivetran.
 #[derive(Debug)]
-pub struct ConvexConnector {
-    pub allow_all_hosts: AllowAllHosts,
-}
+pub struct ConvexConnector;
 
 type ConnectorResult<T> = Result<Response<T>, Status>;
 
 impl ConvexConnector {
     async fn _schema(&self, request: Request<SchemaRequest>) -> anyhow::Result<SchemaResponse> {
-        let config =
-            Config::from_parameters(request.into_inner().configuration, self.allow_all_hosts)?;
+        let config = Config::from_parameters(request.into_inner().configuration)?;
         log(&format!("schema request for {}", config.deploy_url));
 
         let source = ConvexApi { config };
@@ -107,16 +101,14 @@ impl SourceConnector for ConvexConnector {
 
     async fn test(&self, request: Request<TestRequest>) -> ConnectorResult<TestResponse> {
         log(&format!("test request"));
-        let config =
-            match Config::from_parameters(request.into_inner().configuration, self.allow_all_hosts)
-            {
-                Ok(config) => config,
-                Err(error) => {
-                    return Ok(Response::new(TestResponse {
-                        response: Some(test_response::Response::Failure(error.to_string())),
-                    }));
-                },
-            };
+        let config = match Config::from_parameters(request.into_inner().configuration) {
+            Ok(config) => config,
+            Err(error) => {
+                return Ok(Response::new(TestResponse {
+                    response: Some(test_response::Response::Failure(error.to_string())),
+                }));
+            },
+        };
         log(&format!("test request for {}", config.deploy_url));
         let source = ConvexApi { config };
 
@@ -142,7 +134,7 @@ impl SourceConnector for ConvexConnector {
     async fn update(&self, request: Request<UpdateRequest>) -> ConnectorResult<Self::UpdateStream> {
         log(&format!("update request"));
         let inner = request.into_inner();
-        let config = match Config::from_parameters(inner.configuration, self.allow_all_hosts) {
+        let config = match Config::from_parameters(inner.configuration) {
             Ok(config) => config,
             Err(error) => {
                 return Err(Status::internal(error.to_string()));
