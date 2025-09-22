@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.27.2
+
+- `npx convex run` sends function log output to stderr instead of stdout.
+
+- Increase the timeout when waiting for a local backend to start up from 10 to
+  30 seconds.
+
+- Capability to provision WorkOS environments when `WORKOS_CLIENT_ID`
+  environment variable is missing.
+
 ## 1.27.1
 
 - Changes to logged messages in the console, where previously only WebSocket
