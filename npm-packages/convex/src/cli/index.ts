@@ -31,6 +31,7 @@ import { disableLocalDeployments } from "./disableLocalDev.js";
 import { mcp } from "./mcp.js";
 import dns from "node:dns";
 import net from "node:net";
+import { integration } from "./integration.js";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
@@ -115,6 +116,7 @@ async function main() {
     .addCommand(update)
     .addCommand(logout)
     .addCommand(networkTest, { hidden: true })
+    .addCommand(integration, { hidden: true })
     .addCommand(functionSpec)
     .addCommand(disableLocalDeployments)
     .addCommand(mcp)

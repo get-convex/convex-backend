@@ -189,16 +189,18 @@ export async function watchAndPush(
         break;
       }
       // Retry after an exponential backoff if we hit a transient error.
-      if (e.errorType === "transient") {
+      if (e.errorType === "transient" || e.errorType === "already handled") {
         const delay = nextBackoff(numFailures);
         numFailures += 1;
-        logWarning(
-          chalk.yellow(
-            `Failed due to network error, retrying in ${formatDuration(
-              delay,
-            )}...`,
-          ),
-        );
+        if (e.errorType === "transient") {
+          logWarning(
+            chalk.yellow(
+              `Failed due to network error, retrying in ${formatDuration(
+                delay,
+              )}...`,
+            ),
+          );
+        }
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }

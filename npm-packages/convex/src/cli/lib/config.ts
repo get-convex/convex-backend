@@ -41,6 +41,7 @@ import {
   printLocalDeploymentOnError,
 } from "./localDeployment/errors.js";
 import { debugIsolateBundlesSerially } from "../../bundler/debugBundle.js";
+import { ensureWorkosEnvironmentProvisioned } from "./workos/workos.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -841,6 +842,11 @@ export async function pushConfig(
       error,
       "Error: Unable to push deployment config to " + options.url,
       options.deploymentName,
+      {
+        adminKey: options.adminKey,
+        deploymentUrl: options.url,
+        deploymentNotice: "",
+      },
     );
   }
 }
@@ -1087,13 +1093,37 @@ export async function handlePushConfigError(
   error: unknown,
   defaultMessage: string,
   deploymentName: string | null,
-) {
+  deployment?: {
+    deploymentUrl: string;
+    adminKey: string;
+    deploymentNotice: string;
+  },
+): Promise<never> {
   const data: ErrorData | undefined =
     error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
   if (data?.code === "AuthConfigMissingEnvironmentVariable") {
     const errorMessage = data.message || "(no error message given)";
     const [, variableName] =
       errorMessage.match(/Environment variable (\S+)/i) ?? [];
+
+    // WORKOS_CLIENT_ID is a special environment variable because cloud Convex
+    // deployments may be able to supply it by provisioning a fresh WorkOS
+    // environment on demand.
+    if (variableName === "WORKOS_CLIENT_ID" && deploymentName && deployment) {
+      const result = await ensureWorkosEnvironmentProvisioned(
+        ctx,
+        deploymentName,
+        deployment,
+      );
+      if (result === "ready") {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "already handled",
+          printedMessage: null,
+        });
+      }
+    }
+
     const envVarMessage =
       `Environment variable ${chalk.bold(
         variableName,

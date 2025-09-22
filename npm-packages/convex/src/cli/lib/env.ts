@@ -17,19 +17,22 @@ export async function envSetInDeployment(
     adminKey: string;
     deploymentNotice: string;
   },
-  originalName: string,
-  originalValue: string | undefined,
+  rawName: string,
+  rawValue: string | undefined,
+  options?: {
+    secret?: boolean;
+  },
 ) {
-  const [name, value] = await allowEqualsSyntax(
-    ctx,
-    originalName,
-    originalValue,
-  );
+  const [name, value] = await allowEqualsSyntax(ctx, rawName, rawValue);
   await callUpdateEnvironmentVariables(ctx, deployment, [{ name, value }]);
   const formatted = /\s/.test(value) ? `"${value}"` : value;
-  logFinishedStep(
-    `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${deployment.deploymentNotice}`,
-  );
+  if (options?.secret) {
+    logFinishedStep(
+      `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${deployment.deploymentNotice}`,
+    );
+  } else {
+    logFinishedStep(`Successfully set ${chalk.bold(name)}`);
+  }
 }
 
 async function allowEqualsSyntax(
@@ -63,7 +66,7 @@ async function allowEqualsSyntax(
   return [name, value];
 }
 
-export async function envGetInDeployment(
+export async function envGetInDeploymentAction(
   ctx: Context,
   deployment: {
     deploymentUrl: string;
@@ -71,17 +74,29 @@ export async function envGetInDeployment(
   },
   name: string,
 ) {
+  const envVar = await envGetInDeployment(ctx, deployment, name);
+  if (envVar === null) {
+    logFailure(`Environment variable "${name}" not found.`);
+    return;
+  }
+  logOutput(`${envVar}`);
+}
+
+export async function envGetInDeployment(
+  ctx: Context,
+  deployment: {
+    deploymentUrl: string;
+    adminKey: string;
+  },
+  name: string,
+): Promise<string | null> {
   const envVar = (await runSystemQuery(ctx, {
     ...deployment,
     functionName: "_system/cli/queryEnvironmentVariables:get",
     componentPath: undefined,
     args: { name },
   })) as EnvVar | null;
-  if (envVar === null) {
-    logFailure(`Environment variable "${name}" not found.`);
-    return;
-  }
-  logOutput(`${envVar.value}`);
+  return envVar === null ? null : envVar.value;
 }
 
 export async function envRemoveInDeployment(
@@ -131,7 +146,7 @@ export type EnvVar = {
   value: string;
 };
 
-async function callUpdateEnvironmentVariables(
+export async function callUpdateEnvironmentVariables(
   ctx: Context,
   deployment: {
     deploymentUrl: string;

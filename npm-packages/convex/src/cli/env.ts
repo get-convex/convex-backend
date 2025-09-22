@@ -9,7 +9,7 @@ import {
 import { actionDescription } from "./lib/command.js";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import {
-  envGetInDeployment,
+  envGetInDeploymentAction,
   envListInDeployment,
   envRemoveInDeployment,
   envSetInDeployment,
@@ -83,7 +83,7 @@ const envGet = new Command("get")
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env get");
-    await envGetInDeployment(ctx, deployment, envVarName);
+    await envGetInDeploymentAction(ctx, deployment, envVarName);
   });
 
 const envRemove = new Command("remove")

@@ -59,18 +59,24 @@ export async function writeDeploymentEnvVar(
   );
   const deploymentEnvVarValue =
     deploymentType + ":" + deployment.deploymentName;
+  // The `existingValue` that reaches this function is at least sometimes is missing its prefix.
+  // Until this is cleaned up consider either of these values not a change.
+  // Otherwise we spam the init instructions (Welcome to Convex etc.) on every run of `npx convex dev`.
+  const changedDeploymentEnvVar =
+    existingValue !== deployment.deploymentName &&
+    existingValue !== deploymentEnvVarValue;
 
   if (changedFile !== null) {
     ctx.fs.writeUtf8File(ENV_VAR_FILE_PATH, changedFile);
     // Only do this if we're not reinitializing an existing setup
     return {
       wroteToGitIgnore: await gitIgnoreEnvVarFile(ctx),
-      changedDeploymentEnvVar: existingValue !== deploymentEnvVarValue,
+      changedDeploymentEnvVar,
     };
   }
   return {
     wroteToGitIgnore: false,
-    changedDeploymentEnvVar: existingValue !== deploymentEnvVarValue,
+    changedDeploymentEnvVar,
   };
 }
 

@@ -92,6 +92,11 @@ export async function startPush(
       error,
       "Error: Unable to start push to " + options.url,
       options.deploymentName,
+      {
+        adminKey: request.adminKey,
+        deploymentUrl: options.url,
+        deploymentNotice: "",
+      },
     );
   }
 }

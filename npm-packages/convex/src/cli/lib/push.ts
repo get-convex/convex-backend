@@ -92,7 +92,7 @@ export async function runNonComponentsPush(
 
   if (options.debugBundlePath) {
     await handleDebugBundlePath(ctx, options.debugBundlePath, localConfig);
-    logMessage(
+    logFinishedStep(
       `Wrote bundle and metadata to ${options.debugBundlePath}. Skipping rest of push.`,
     );
     return;
@@ -117,7 +117,7 @@ export async function runNonComponentsPush(
     options.adminKey,
   );
 
-  changeSpinner("Diffing local code and deployment state");
+  changeSpinner("Diffing local code and deployment state...");
   const { diffString, stats } = diffConfig(
     remoteConfigWithModuleHashes,
     localConfig,

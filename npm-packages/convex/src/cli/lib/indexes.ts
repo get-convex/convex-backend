@@ -169,7 +169,7 @@ async function waitForReadySchema(
         printedMessage: `Schema was overwritten by another push.`,
       });
     case "validated":
-      logFinishedStep("Schema validation complete.");
+      changeSpinner("Schema validation complete.");
       break;
     case "active":
       break;

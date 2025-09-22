@@ -1,11 +1,7 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logFailure, logFinishedStep, logMessage } from "../bundler/log.js";
-import {
-  checkAuthorization,
-  performLogin,
-  getTeamsForUser,
-} from "./lib/login.js";
+import { checkAuthorization, performLogin } from "./lib/login.js";
 import { loadUuidForAnonymousUser } from "./lib/localDeployment/filePaths.js";
 import {
   handleLinkToProject,
@@ -31,6 +27,7 @@ import {
   readGlobalConfig,
   globalConfigPath,
 } from "./lib/utils/globalConfig.js";
+import { getTeamsForUser } from "./lib/api.js";
 
 const loginStatus = new Command("status")
   .description("Check login status and list accessible teams")

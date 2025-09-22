@@ -28,6 +28,9 @@ export type ErrorType =
   // The error was some transient issue (e.g. a network
   // error). This will then cause a retry after an exponential backoff.
   | "transient"
+  // This error was caught, handled, and now all that needs to happen
+  // is for the proces to restart. No error is logged or reported.
+  | "already handled"
   // This error is truly permanent. Exit `npx convex dev` because the
   // developer will need to take a manual commandline action.
   | "fatal";

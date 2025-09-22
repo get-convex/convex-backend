@@ -35,6 +35,8 @@ export const promptOptions = async <V>(
     message: string;
     choices: Array<{ name: string; value: V }>;
     default?: V;
+    prefix?: string;
+    suffix?: string;
   },
 ): Promise<V> => {
   if (process.stdin.isTTY) {
@@ -48,6 +50,8 @@ export const promptOptions = async <V>(
             : "list",
           name: "result",
           message: options.message,
+          ...(options.prefix ? { prefix: options.prefix } : {}),
+          ...(options.suffix ? { suffix: options.suffix } : {}),
           choices: options.choices,
           default: options.default,
         },
@@ -95,7 +99,11 @@ export const promptSearch = async <V>(
 
 export const promptYesNo = async (
   ctx: Context,
-  options: { message: string; default?: boolean },
+  options: {
+    message: string;
+    default?: boolean;
+    prefix?: string;
+  },
 ): Promise<boolean> => {
   if (process.stdin.isTTY) {
     const { result } = await inquirer.prompt([
@@ -104,6 +112,7 @@ export const promptYesNo = async (
         name: "result",
         message: options.message,
         default: options.default,
+        ...(options.prefix ? { prefix: options.prefix } : {}),
       },
     ]);
     return result;

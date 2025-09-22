@@ -445,7 +445,7 @@ export async function runComponentsPush(
     options.verbose,
   );
 
-  changeSpinner("Diffing local code and deployment state");
+  changeSpinner("Diffing local code and deployment state...");
   const { diffString } = diffConfig(
     remoteConfigWithModuleHashes,
     localConfig,

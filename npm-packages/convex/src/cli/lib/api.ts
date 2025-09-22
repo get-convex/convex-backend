@@ -249,7 +249,7 @@ export async function checkAccessToSelectedProject(
   }
 }
 
-async function getTeamAndProjectSlugForDeployment(
+export async function getTeamAndProjectSlugForDeployment(
   ctx: Context,
   selector: { deploymentName: string },
 ): Promise<{ teamSlug: string; projectSlug: string } | null> {
@@ -809,4 +809,15 @@ export async function fetchTeamAndProjectForKey(
   }
 
   return data;
+}
+
+export async function getTeamsForUser(ctx: Context) {
+  const teams = await bigBrainAPI<{ id: number; name: string; slug: string }[]>(
+    {
+      ctx,
+      method: "GET",
+      url: "teams",
+    },
+  );
+  return teams;
 }
