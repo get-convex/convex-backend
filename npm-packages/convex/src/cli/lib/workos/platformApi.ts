@@ -29,6 +29,7 @@ export async function getDeploymentCanProvisionWorkOSEnvironments(
 ): Promise<{
   teamId: number;
   hasAssociatedWorkosTeam: boolean;
+  disabled?: boolean;
 }> {
   return bigBrainAPI({
     ctx,

@@ -62,8 +62,12 @@ export async function ensureWorkosEnvironmentProvisioned(
   }
 
   // We need to provision an environment. Let's figure out if we can:
-  const { hasAssociatedWorkosTeam, teamId } =
+  const { hasAssociatedWorkosTeam, teamId, disabled } =
     await getDeploymentCanProvisionWorkOSEnvironments(ctx, deploymentName);
+
+  if (disabled) {
+    return "choseNotToAssociatedTeam";
+  }
 
   if (!hasAssociatedWorkosTeam) {
     const result = await tryToCreateAssociatedWorkosTeam(
