@@ -12,11 +12,32 @@ import Functions from "!!raw-loader!@site/../private-demos/snippets/convex/worko
 
 [WorkOS AuthKit](https://authkit.com) is an authentication solution that enables
 sign-in using passwords, social login providers, email one-time codes,
-two-factor authentication, and essential user management capabilities.
+two-factor authentication, and user management capabilities.
 
 ## Get started
 
-### Setting up your WorkOS Account
+The quickest way to get started is to create an
+[associated WorkOS account](/docs/auth/authkit/auto-provision.mdx) through the
+Convex CLI.
+
+```bash
+npm create convex@latest -- -t react-vite-authkit
+cd my-app  # or whatever you name the directory
+npm run dev
+```
+
+Follow the prompts to create a WorkOS team that will be associated with your
+Convex team. After this Convex deployments for projects in this team will be
+able to automatically provision and configure their own WorkOS environments.
+
+That's it! After this you and other members of your Convex team can create and
+configure development WorkOS environments without visiting
+[workos.com](https://workos.com).
+
+### Configuring an existing WorkOS account
+
+To use AuthKit with an existing WorkOS account you'll need to configure the
+account and copy the credentials into the Convex dashboard.
 
 <StepByStep>
   <Step title="Sign up for WorkOS">
@@ -53,7 +74,7 @@ two-factor authentication, and essential user management capabilities.
 
   </Step>
 
-  <Step title="Copy your Client ID">
+  <Step title="Copy your Client ID and API Key">
     From the [get started](https://dashboard.workos.com/get-started) page under **Quick start**, find your
     `WORKOS_CLIENT_ID` and copy it.
 
@@ -62,23 +83,9 @@ two-factor authentication, and essential user management capabilities.
     </p>
 
   </Step>
-
-  <Step title="Set an aud claim in your JWT template">
-    Navigate to the [JWT template editor](https://dashboard.workos.com/environment/authentication/edit-jwt-template) under **Authentication** and then **Sessions** and press the **Manage** button under **JWT Template**. Set a new `"aud"` claim that will be added to your JWT. This claim is used by Convex to validate that the token is intended for your specific application.
-
-    ```json
-    {
-      "aud": "<YOUR_CLIENT_ID>"
-    }
-    ```
-
-    <p style={{textAlign: 'center'}}>
-      <img src="/screenshots/workos-jwt-setup.png" alt="Set up an aud claim on your WorkOS JWT with the value of your WORKOS_CLIENT_ID" width={400} />
-    </p>
-
-  </Step>
-
 </StepByStep>
+
+## Client configuration
 
 Convex offers a provider that is specifically for integrating with WorkOS
 AuthKit called `<ConvexProviderWithAuthKit>`. It works using WorkOS's
@@ -91,8 +98,6 @@ See the following sections for the WorkOS SDK that you're using:
 
 - [React](#react) - Use this as a starting point if your SDK is not listed
 - [Next.js](#nextjs)
-
----
 
 ### React
 
