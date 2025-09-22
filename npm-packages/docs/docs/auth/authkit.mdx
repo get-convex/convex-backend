@@ -432,14 +432,14 @@ have a working Next.js app with Convex. If not follow the
 
     ```tsx title="components/ConvexClientProvider.tsx"
     'use client';
-
-    import { ReactNode, useCallback, useRef } from 'react';
+    
+    import { ReactNode, useCallback } from 'react';
     import { ConvexReactClient } from 'convex/react';
     import { ConvexProviderWithAuth } from 'convex/react';
     import { AuthKitProvider, useAuth, useAccessToken } from '@workos-inc/authkit-nextjs/components';
-
+    
     const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
+    
     export function ConvexClientProvider({ children }: { children: ReactNode }) {
       return (
         <AuthKitProvider>
@@ -449,27 +449,35 @@ have a working Next.js app with Convex. If not follow the
         </AuthKitProvider>
       );
     }
-
+    
     function useAuthFromAuthKit() {
       const { user, loading: isLoading } = useAuth();
-      const { accessToken, loading: tokenLoading, error: tokenError } = useAccessToken();
-      const loading = (isLoading ?? false) || (tokenLoading ?? false);
-      const authenticated = !!user && !!accessToken && !loading;
-
-      const stableAccessToken = useRef<string | null>(null);
-      if (accessToken && !tokenError) {
-        stableAccessToken.current = accessToken;
-      }
-
-      const fetchAccessToken = useCallback(async () => {
-        if (stableAccessToken.current && !tokenError) {
-          return stableAccessToken.current;
-        }
-        return null;
-      }, [tokenError]);
-
+      const { accessToken, getAccessToken, refresh } = useAccessToken();
+    
+      const authenticated = !!user && !!accessToken;
+    
+      const fetchAccessToken = useCallback(
+        async ({ forceRefreshToken }: { forceRefreshToken?: boolean } = {}): Promise<string | null> => {
+          if (!user) {
+            return null;
+          }
+    
+          try {
+            if (forceRefreshToken) {
+              return (await refresh()) ?? null;
+            }
+    
+            return (await getAccessToken()) ?? null;
+          } catch (error) {
+            console.error('Failed to get access token:', error);
+            return null;
+          }
+        },
+        [user, refresh, getAccessToken],
+      );
+    
       return {
-        isLoading: loading,
+        isLoading,
         isAuthenticated: authenticated,
         fetchAccessToken,
       };
