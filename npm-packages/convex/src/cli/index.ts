@@ -32,6 +32,8 @@ import { mcp } from "./mcp.js";
 import dns from "node:dns";
 import net from "node:net";
 import { integration } from "./integration.js";
+import { setGlobalDispatcher, ProxyAgent } from "undici";
+import { logVerbose } from "../bundler/log.js";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
@@ -45,6 +47,12 @@ async function main() {
   const nodeVersion = process.versions.node;
   const majorVersion = parseInt(nodeVersion.split(".")[0], 10);
   const minorVersion = parseInt(nodeVersion.split(".")[1], 10);
+
+  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  if (proxy) {
+    setGlobalDispatcher(new ProxyAgent(proxy));
+    logVerbose(`[proxy-bootstrap] Using proxy: ${proxy}`);
+  }
 
   // Use ipv4 first for 127.0.0.1 in tests
   dns.setDefaultResultOrder("ipv4first");
