@@ -113,6 +113,11 @@ const workosProvisionEnvironment = new Command("provision-environment")
         ctx,
         deployment.deploymentName,
         deployment,
+        {
+          offerToAssociateWorkOSTeam: true,
+          autoProvisionIfWorkOSTeamAssociated: true,
+          autoConfigureAuthkitConfig: true,
+        },
       );
     } catch (error) {
       await ctx.crash({

@@ -29,6 +29,7 @@ import {
   deprecationCheckWarning,
   logAndHandleFetchError,
   ThrowingFetchError,
+  currentPackageHomepage,
 } from "./utils/utils.js";
 import { createHash } from "crypto";
 import { promisify } from "util";
@@ -1110,10 +1111,34 @@ export async function handlePushConfigError(
     // deployments may be able to supply it by provisioning a fresh WorkOS
     // environment on demand.
     if (variableName === "WORKOS_CLIENT_ID" && deploymentName && deployment) {
+      // Initially only specific templates create WorkOS environments on demand
+      // because the local environemnt variables are hardcoded for Vite and Next.js.
+      const homepage = await currentPackageHomepage(ctx);
+      const autoProvisionIfWorkOSTeamAssociated = !!(
+        homepage &&
+        [
+          "https://github.com/workos/template-convex-nextjs-authkit/#readme",
+          "https://github.com/workos/template-convex-react-vite-authkit/#readme",
+          "https://github.com:workos/template-convex-react-vite-authkit/#readme",
+        ].includes(homepage)
+      );
+      // Initially only specific templates offer team creation.
+      // Until this changes it can be done manually with a CLI command.
+      const offerToAssociateWorkOSTeam = autoProvisionIfWorkOSTeamAssociated;
+      // Initialy only specific template auto-configure WorkOS environments
+      // with AuthKit config because these values are currently heuristics.
+      // This will be some more explicit opt-in in the future.
+      const autoConfigureAuthkitConfig = autoProvisionIfWorkOSTeamAssociated;
+
       const result = await ensureWorkosEnvironmentProvisioned(
         ctx,
         deploymentName,
         deployment,
+        {
+          offerToAssociateWorkOSTeam,
+          autoProvisionIfWorkOSTeamAssociated,
+          autoConfigureAuthkitConfig,
+        },
       );
       if (result === "ready") {
         return await ctx.crash({

@@ -7,17 +7,17 @@
  * This flow may be kicked off by discovering that WORKOS_CLIENT_ID
  * is required in a convex/auth.config.ts but not present on the deployment.
  */
+import crypto from "crypto";
 import { Context } from "../../../bundler/context.js";
 import {
   changeSpinner,
-  logError,
   logFinishedStep,
   logMessage,
+  logWarning,
   showSpinner,
   stopSpinner,
 } from "../../../bundler/log.js";
 import { getTeamAndProjectSlugForDeployment } from "../api.js";
-import { deploymentDashboardUrlPage } from "../dashboard.js";
 import { callUpdateEnvironmentVariables, envGetInDeployment } from "../env.js";
 import { changedEnvVarFile, suggestedEnvVarName } from "../envvars.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
@@ -45,7 +45,16 @@ export async function ensureWorkosEnvironmentProvisioned(
     adminKey: string;
     deploymentNotice: string;
   },
+  options: {
+    offerToAssociateWorkOSTeam: boolean;
+    autoProvisionIfWorkOSTeamAssociated: boolean;
+    autoConfigureAuthkitConfig: boolean;
+  },
 ): Promise<"ready" | "choseNotToAssociatedTeam"> {
+  if (!options.autoConfigureAuthkitConfig) {
+    return "choseNotToAssociatedTeam";
+  }
+
   showSpinner("Checking for associated AuthKit environment...");
   const existingEnvVars = await getExistingWorkosEnvVars(ctx, deployment);
   if (
@@ -56,7 +65,12 @@ export async function ensureWorkosEnvironmentProvisioned(
     logFinishedStep(
       "Deployment has a WorkOS environment configured for AuthKit.",
     );
-    await updateEnvLocal(ctx, existingEnvVars.clientId);
+    await updateEnvLocal(
+      ctx,
+      existingEnvVars.clientId,
+      existingEnvVars.apiKey,
+      existingEnvVars.environmentId,
+    );
     await updateWorkosEnvironment(ctx, existingEnvVars.apiKey);
     return "ready";
   }
@@ -65,11 +79,14 @@ export async function ensureWorkosEnvironmentProvisioned(
   const { hasAssociatedWorkosTeam, teamId, disabled } =
     await getDeploymentCanProvisionWorkOSEnvironments(ctx, deploymentName);
 
+  // In case this this becomes a legacy flow that no longer works.
   if (disabled) {
     return "choseNotToAssociatedTeam";
   }
-
   if (!hasAssociatedWorkosTeam) {
+    if (!options.offerToAssociateWorkOSTeam) {
+      return "choseNotToAssociatedTeam";
+    }
     const result = await tryToCreateAssociatedWorkosTeam(
       ctx,
       deploymentName,
@@ -117,7 +134,7 @@ export async function ensureWorkosEnvironmentProvisioned(
     data.apiKey,
   );
   showSpinner("Updating .env.local with WorkOS configuration");
-  await updateEnvLocal(ctx, data.clientId);
+  await updateEnvLocal(ctx, data.clientId, data.apiKey, data.environmentId);
 
   await updateWorkosEnvironment(ctx, data.apiKey);
 
@@ -141,21 +158,15 @@ export async function tryToCreateAssociatedWorkosTeam(
   }
   stopSpinner();
 
-  const variableName = "WORKOS_CLIENT_ID";
-  const variableQuery =
-    variableName !== undefined ? `?var=${variableName}` : "";
-  const dashboardUrl = deploymentDashboardUrlPage(
-    deploymentName,
-    `/settings/environment-variables${variableQuery}`,
-  );
-
   const agree = await promptYesNo(ctx, {
-    prefix: `A WorkOS team can be created for your Convex team "${teamInfo.teamSlug}" to use for AuthKit.
+    prefix: `A WorkOS team needs to be created for your Convex team "${teamInfo.teamSlug}" in order to use AuthKit.
 
-You and other members of this team will be able to create a WorkOS environments for each Convex deployments for projects on this team.
+You and other members of this team will be able to create WorkOS environments for each Convex dev deployment for projects in this team.
+
 By creating this account you agree to the WorkOS Terms of Service (https://workos.com/legal/terms-of-service) and Privacy Policy (https://workos.com/legal/privacy).
-To provide your own WorkOS environment credentials instead, choose no and set environment variables manually on the dashboard, e.g. \n${dashboardUrl}\n\n`,
-    message: `Create WorkOS team and enable automatic AuthKit environment provisioning for team "${teamInfo.teamSlug}"?`,
+Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environment.
+\n`,
+    message: `Create a WorkOS team and enable automatic AuthKit environment provisioning for team "${teamInfo.teamSlug}"?`,
   });
   if (!agree) {
     return "choseNotToAssociatedTeam";
@@ -182,7 +193,7 @@ To provide your own WorkOS environment credentials instead, choose no and set en
               : "\nTo use another email address visit https://dashboard.convex.dev/profile to add and verify, then choose 'refresh'",
         choices: [
           ...availableEmails.map((email) => ({
-            name: `${email}${alreadyTried.has(email) ? ` (can't create new, already has a WorkOS account)` : ""}`,
+            name: `${email}${alreadyTried.has(email) ? ` (can't create, a WorkOS team already exists with this email)` : ""}`,
             value: email,
           })),
           {
@@ -267,39 +278,98 @@ async function applyConfigToWorkosEnvironment(
   }
 }
 
-async function updateEnvLocal(ctx: Context, clientId: string) {
+// Given a WORKOS_CLIENT_ID try to configure the .env.local appropriately
+// for a framework. This flow supports only Vite and Next.js for now.
+async function updateEnvLocal(
+  ctx: Context,
+  clientId: string,
+  apiKey: string,
+  environmentId: string,
+) {
   const envPath = ".env.local";
 
-  try {
-    const existingContent = ctx.fs.exists(envPath)
-      ? ctx.fs.readUtf8File(envPath)
-      : null;
+  const { frontendDevUrl, detectedFramework, publicPrefix } =
+    await suggestedEnvVarName(ctx);
 
-    const clientIdUpdate = changedEnvVarFile({
-      existingFileContent: existingContent,
-      envVarName: "VITE_WORKOS_CLIENT_ID",
-      envVarValue: clientId,
-      commentAfterValue: null,
-      commentOnPreviousLine: null,
-    });
+  // For now don't attempt for anything other than Vite or Next.js.
+  if (!detectedFramework || !["Vite", "Next.js"].includes(detectedFramework)) {
+    logWarning(
+      "Can't configure .env.local, fill it out according to directions for the corresponding AuthKit SDK. Use `npx convex list` to see relevant environment variables.",
+    );
+  }
 
-    if (clientIdUpdate !== null) {
-      ctx.fs.writeUtf8File(envPath, clientIdUpdate);
+  let suggestedChanges: Record<
+    string,
+    {
+      value: string;
+      commentAfterValue?: string;
+      commentOnPreviousLine?: string;
+    }
+  > = {};
+
+  let existingFileContent = ctx.fs.exists(envPath)
+    ? ctx.fs.readUtf8File(envPath)
+    : null;
+
+  if (publicPrefix) {
+    if (detectedFramework === "Vite") {
+      suggestedChanges[`${publicPrefix}WORKOS_CLIENT_ID`] = {
+        value: clientId,
+        commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
+      };
+    } else if (detectedFramework === "Next.js") {
+      // Next doesn't need the clint id to be public
+      suggestedChanges[`WORKOS_CLIENT_ID`] = {
+        value: clientId,
+        commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
+      };
     }
 
-    const redirectUriUpdate = changedEnvVarFile({
-      existingFileContent: clientIdUpdate || existingContent,
-      envVarName: "VITE_WORKOS_REDIRECT_URI",
-      envVarValue: "http://localhost:5173/callback",
-      commentAfterValue: null,
-      commentOnPreviousLine: null,
-    });
-
-    if (redirectUriUpdate !== null) {
-      ctx.fs.writeUtf8File(envPath, redirectUriUpdate);
+    if (frontendDevUrl) {
+      suggestedChanges[`${publicPrefix}WORKOS_REDIRECT_URI`] = {
+        value: `${frontendDevUrl}/callback`,
+      };
     }
-  } catch (error) {
-    logError(`Could not update .env.local: ${String(error)}`);
+  }
+
+  if (detectedFramework === "Next.js") {
+    if (
+      !existingFileContent ||
+      !existingFileContent.includes("WORKOS_COOKIE_PASSWORD")
+    ) {
+      suggestedChanges["WORKOS_COOKIE_PASSWORD"] = {
+        value: crypto.randomBytes(32).toString("base64url"),
+      };
+    }
+    suggestedChanges["WORKOS_API_KEY"] = { value: apiKey };
+  }
+
+  for (const [
+    envVarName,
+    { value: envVarValue, commentOnPreviousLine, commentAfterValue },
+  ] of Object.entries(suggestedChanges) as [
+    string,
+    {
+      value: string;
+      commentOnPreviousLine?: string;
+      commentAfterValue?: string;
+    },
+  ][]) {
+    existingFileContent =
+      changedEnvVarFile({
+        existingFileContent,
+        envVarName,
+        envVarValue,
+        commentAfterValue: commentAfterValue ?? null,
+        commentOnPreviousLine: commentOnPreviousLine ?? null,
+      }) || existingFileContent;
+  }
+
+  if (existingFileContent !== null) {
+    ctx.fs.writeUtf8File(envPath, existingFileContent);
+    logMessage(
+      `Updated .env.local with ${Object.keys(suggestedChanges).join(", ")}`,
+    );
   }
 }
 
@@ -339,4 +409,9 @@ async function setConvexEnvVars(
     { name: "WORKOS_ENVIRONMENT_ID", value: workosEnvironmentId },
     { name: "WORKOS_ENVIRONMENT_API_KEY", value: workosEnvironmentApiKey },
   ]);
+}
+
+type Subpaths = "/authentication" | "/sessions" | "/redirects" | "/users";
+function workosUrl(environmentId: string, subpath: Subpaths) {
+  return `https://dashboard.workos.com/${environmentId}${subpath}`;
 }

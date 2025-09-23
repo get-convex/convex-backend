@@ -1181,3 +1181,27 @@ export function isWebContainer(): boolean {
   } catch {}
   return blitzInternalEnv !== null && blitzInternalEnv !== undefined;
 }
+
+// For (rare) special behaviors based on package.json details.
+export async function currentPackageHomepage(
+  ctx: Context,
+): Promise<string | null> {
+  const { parentPackageJson: packageJsonPath } = await findParentConfigs(ctx);
+  let packageJson: any;
+  try {
+    const packageJsonString = ctx.fs.readUtf8File(packageJsonPath);
+    packageJson = JSON.parse(packageJsonString);
+  } catch (error: any) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Couldn't parse "${packageJsonPath}". Make sure it's a valid JSON. Error: ${error}`,
+    });
+  }
+  const name = packageJson["homepage"];
+  if (typeof name !== "string") {
+    // wrong type or missing
+    return null;
+  }
+  return name;
+}

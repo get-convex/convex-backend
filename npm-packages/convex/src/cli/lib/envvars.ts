@@ -98,6 +98,7 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   detectedFramework?: Framework;
   envVar: string;
   frontendDevUrl?: string;
+  publicPrefix?: string;
 }> {
   // no package.json, that's fine, just guess
   if (!ctx.fs.exists("package.json")) {
@@ -115,6 +116,7 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
       detectedFramework: "create-react-app",
       envVar: "REACT_APP_CONVEX_URL",
       frontendDevUrl: "http://localhost:3000",
+      publicPrefix: "REACT_APP_",
     };
   }
 
@@ -124,6 +126,7 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
       detectedFramework: "Next.js",
       envVar: "NEXT_PUBLIC_CONVEX_URL",
       frontendDevUrl: "http://localhost:3000",
+      publicPrefix: "NEXT_PUBLIC_",
     };
   }
 
@@ -132,6 +135,7 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
     return {
       detectedFramework: "Expo",
       envVar: "EXPO_PUBLIC_CONVEX_URL",
+      publicPrefix: "EXPO_PUBLIC_",
     };
   }
 
@@ -150,6 +154,7 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
       detectedFramework: "SvelteKit",
       envVar: "PUBLIC_CONVEX_URL",
       frontendDevUrl: "http://localhost:5173",
+      publicPrefix: "PUBLIC_",
     };
   }
 
@@ -161,6 +166,7 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
       detectedFramework: "Vite",
       envVar: "VITE_CONVEX_URL",
       frontendDevUrl: "http://localhost:5173",
+      publicPrefix: "VITE_",
     };
   }
 
