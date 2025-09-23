@@ -2798,9 +2798,9 @@ impl<RT: Runtime> Application<RT> {
 
                 let identity_result = validate_id_token(
                     // This is any JWT.
-                    AuthIdToken(id_token.clone()),
+                    AuthIdToken(id_token),
                     cached_http_client_for(ClientPurpose::ProviderMetadata),
-                    auth_info_values.clone(),
+                    auth_info_values,
                     system_time,
                     should_redact_errors,
                 )
