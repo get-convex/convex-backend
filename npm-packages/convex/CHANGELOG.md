@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.27.3
+
+- Convex CLI now respects `HTTPS_PROXY` / `HTTP_PROXY` environment variables.
+  This is generally useful but was motivated by making Convex run in remote
+  asynchronous agent environemnts like Codex.
+- Cutoffs for logging large and slow Transition messages have been lowered.
+
 ## 1.27.2
 
 - `npx convex run` sends function log output to stderr instead of stdout.
