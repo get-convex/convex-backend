@@ -205,7 +205,7 @@ sentry = { version = "0.37", features = [ "anyhow", "tower", "tower-http" ] }
 sentry-tracing = "0.37"
 serde = { version = "1", features = [ "derive" ] }
 serde_bytes = "0.11.14"
-serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "unbounded_depth" ] }
+serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth" ] }
 sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.8" }
 short_future = { version = "0.1.1" }
