@@ -63,6 +63,11 @@ struct LocalQuery {
     canonicalized_udf_path: CanonicalizedUdfPath,
     args: BTreeMap<String, Value>,
     num_subscribers: usize, // TODO: remove
+    /// A unique index value for each subscription to this query.
+    ///
+    /// Must be incremented each time a new subscription is added, and never
+    /// decremented.
+    subscription_index: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -115,9 +120,11 @@ impl LocalSyncState {
         let query_token = serialize_path_and_args(udf_path.clone(), args.clone());
 
         if let Some(existing_entry) = self.query_set.get_mut(&query_token) {
+            // This is a new subscription to an existing query.
             existing_entry.num_subscribers += 1;
+            existing_entry.subscription_index += 1;
             let query_id = existing_entry.id;
-            let subscription = SubscriberId(query_id, existing_entry.num_subscribers - 1);
+            let subscription = SubscriberId(query_id, existing_entry.subscription_index);
             let prev = self.latest_results.subscribers.insert(subscription);
             assert!(prev.is_none(), "INTERNAL BUG: Subscriber ID already taken.");
             return (None, subscription);
@@ -147,6 +154,7 @@ impl LocalSyncState {
             canonicalized_udf_path,
             args,
             num_subscribers: 1,
+            subscription_index: 0,
         };
 
         self.query_set.insert(query_token.clone(), query);

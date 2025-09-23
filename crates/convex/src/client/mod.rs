@@ -484,6 +484,7 @@ pub mod tests {
             SyncProtocol,
         },
         value::Value,
+        QuerySubscription,
     };
 
     impl ConvexClient {
@@ -766,6 +767,40 @@ pub mod tests {
             }]
         );
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_client_subscribe_unsubscribe_subscribe() -> anyhow::Result<()> {
+        let (mut client, mut test_protocol) = ConvexClient::with_test_protocol().await?;
+        let subscription1b: QuerySubscription;
+        {
+            // This subscription goes out of scope and unsubscribes at the end of this
+            // block. The internal num_subscribers value gets decremented.
+            let _ignored = client.subscribe("getValue1", btreemap! {}).await?;
+            subscription1b = client.subscribe("getValue1", btreemap! {}).await?;
+        }
+        // In the buggy scenario, this subscription gets an ID via num_subscribers ID
+        // that matches subscription1b. That triggers a panic.
+        let subscription1c = client.subscribe("getValue1", btreemap! {}).await?;
+        test_protocol.take_sent().await;
+        let mut watch = client.watch_all();
+
+        test_protocol
+            .fake_server_response(
+                fake_transition(StateVersion::initial(), vec![(QueryId::new(0), 10.into())]).0,
+            )
+            .await?;
+
+        let results = watch.next().await.expect("Watch should have results");
+        assert_eq!(
+            results.get(&subscription1b),
+            Some(&FunctionResult::Value(10.into()))
+        );
+        assert_eq!(
+            results.get(&subscription1c),
+            Some(&FunctionResult::Value(10.into()))
+        );
         Ok(())
     }
 
