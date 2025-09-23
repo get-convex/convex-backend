@@ -11,7 +11,8 @@ variables added to `.env.local` and Convex deployment environment variables set
 for it.
 
 This integration is in active development and will change as it continues to
-improve.
+improve. Today the integration works with the two AuthKit templates offered when
+running `npm create convex@latest`.
 
 ## Creating WorkOS environments on-demand
 
@@ -37,7 +38,8 @@ domain:
 
 The following local environment variables may be set in `.env.local`:
 
-- `*_WORKOS_CLIENT_ID` (e.g. `VITE_WORKOS_CLIENT_ID`)
+- `VITE_WORKOS_CLIENT_ID` (Vite only)
+- `WORKOS_CLIENT_ID` (Next.js only)
 - `*_WORKOS_REDIRECT_URI` (e.g. `VITE_WORKOS_REDIRECT_URI`)
 - `WORKOS_API_KEY` (Next.js only)
 - `WORKOS_COOKIE_PASSWORD` (Next.js only)
