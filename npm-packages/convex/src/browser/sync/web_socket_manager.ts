@@ -689,22 +689,24 @@ export class WebSocketManager {
       `received ${prettyMessageMB} transition in ${prettyTransitionTime} at ${prettyBytesPerSecond}`,
     );
 
-    // Warnings that will show up for *all users*, so these are not very aggressive goals.
-    if (transitionTransitTime > 10_000 && messageLength > 10_000_000) {
+    // Warnings that will show up for *all users*, so don't be too aggressive.
+    // These can be silenced (along with reconnection messages) by setting `logger: false` in client options.
+    if (messageLength > 20_000_000) {
+      // Big enough that the developer should be made aware of this.
       this.logger.log(
-        `received query results totalling more than 10MB (${prettyMessageMB}) which took more than 10s (${prettyTransitionTime}) to arrive`,
-      );
-    } else if (messageLength > 20_000_000) {
-      this.logger.log(
-        `received query results totalling more that 20MB (${prettyMessageMB}) which will take a long time to download on slower connections`,
+        `received query results totaling more that 20MB (${prettyMessageMB}) which will take a long time to download on slower connections`,
       );
     } else if (transitionTransitTime > 20_000) {
+      // Long enough that a pattern of these should be interesting to a developer, but be aware that
+      // weak connections, putting clients to sleep, backgrounding etc. could all cause this too.
       this.logger.log(
-        `received query results totalling ${prettyMessageMB} which took more than 20s to arrive (${prettyTransitionTime})`,
+        `received query results totaling ${prettyMessageMB} which took more than 20s to arrive (${prettyTransitionTime})`,
       );
     }
+
     if (this.debug) {
-      if (transitionTransitTime > 10_000 || messageLength > 10_000_000) {
+      // debug means "reportDebugInfoToConvex" is set so this can be aggressive.
+      if (transitionTransitTime > 2_000) {
         this.sendMessage({
           type: "Event",
           eventType: "ClientReceivedTransition",
