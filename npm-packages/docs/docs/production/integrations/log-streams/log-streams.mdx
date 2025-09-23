@@ -43,6 +43,13 @@ Configuring an Axiom log stream requires specifying:
   events send to Axiom. These will be sent via the `attributes` field in the
   [Ingest API](https://axiom.co/docs/send-data/ingest#ingest-api).
 
+When configuring a Convex dataset in Axiom, a dashboard will automatically be
+created in Axiom. You can find it in the _Integrations_ section of the
+_Dashboards_ tab. To customize the layout of the dashboard, you can
+[fork it](https://axiom.co/docs/dashboards/create#fork-dashboards).
+
+![A dashboard in Axiom](/screenshots/axiom_dashboard.png)
+
 ### Datadog
 
 Configuring a Datadog log stream requires specifying:
