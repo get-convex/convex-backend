@@ -1849,7 +1849,15 @@ impl<RT: Runtime> Database<RT> {
                 // Throws a user error if the documents window is out of retention
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "InvalidWindowToReadDocuments",
-                    format!("Timestamp {} is too old", range.min_timestamp_inclusive())
+                    format!(
+                        "Trying to synchronize from timestamp {}, which is older than the \
+                         database’s retention window. This may happen if you paused your \
+                         Fivetran or Airbyte connector for a long period of time. Please perform \
+                         a full sync of the connector. See \
+                         https://fivetran.com/docs/connectors/troubleshooting/trigger-historical-re-syncs or \
+                         https://docs.airbyte.com/platform/operator-guides/refreshes",
+                        range.min_timestamp_inclusive()
+                    )
                 ))
             },
             Err(e) => anyhow::bail!(e),
