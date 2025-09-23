@@ -16,6 +16,7 @@ use std::{
     iter,
     sync::{
         Arc,
+        LazyLock,
         OnceLock,
     },
 };
@@ -45,6 +46,7 @@ use common::{
         IntervalSet,
         StartIncluded,
     },
+    knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
     persistence::PersistenceSnapshot,
     query::{
         CursorPosition,
@@ -81,13 +83,17 @@ use imbl::{
 };
 use itertools::Itertools;
 use value::{
+    InternalId,
     TableMapping,
     TableName,
     TabletId,
 };
 
 use crate::{
-    index_registry::IndexRegistry,
+    index_registry::{
+        IndexRegistry,
+        IndexedDocument,
+    },
     metrics::log_transaction_cache_query,
 };
 
@@ -761,10 +767,11 @@ impl DatabaseIndexSnapshot {
             for (ts, doc) in cache_miss_results {
                 // Populate all index point lookups that can result in the given
                 // document.
-                for (some_index, index_key) in self.index_registry.index_keys(&doc) {
-                    self.cache
-                        .populate(some_index.id(), index_key, ts, doc.clone());
-                }
+                let index_keys = self
+                    .index_registry
+                    .index_keys(&doc)
+                    .map(|(index, index_key)| (index.id(), index_key));
+                self.cache.populate(index_keys, ts, doc.clone());
             }
             let (interval_read, _) = range_request
                 .interval
@@ -843,7 +850,8 @@ impl DatabaseIndexSnapshot {
     }
 }
 
-const MAX_TRANSACTION_CACHE_SIZE: usize = 10 * (1 << 20); // 10 MiB
+static MAX_TRANSACTION_CACHE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| *TRANSACTION_MAX_READ_SIZE_BYTES);
 
 #[derive(Clone)]
 struct DatabaseIndexSnapshotCache {
@@ -898,26 +906,29 @@ impl DatabaseIndexSnapshotCache {
 
     fn populate(
         &mut self,
-        index_id: IndexId,
-        index_key_bytes: IndexKeyBytes,
+        index_keys: impl IntoIterator<
+            Item = (InternalId, <PackedDocument as IndexedDocument>::IndexKey),
+        >,
         ts: Timestamp,
         doc: PackedDocument,
     ) {
-        let _s = static_span!();
-        // Allow cache to exceed max size by one document, so we can detect that
-        // the cache has maxed out.
-        if self.cache_size <= MAX_TRANSACTION_CACHE_SIZE {
+        if self.cache_size <= *MAX_TRANSACTION_CACHE_SIZE {
+            for (index_id, index_key_bytes) in index_keys {
+                let _s = static_span!();
+                // Allow cache to exceed max size by one document, so we can detect that
+                // the cache has maxed out.
+                let interval = Interval::prefix(index_key_bytes.clone().into());
+                self.documents
+                    .insert((index_id, index_key_bytes), (ts, doc.clone()));
+                self.intervals.entry(index_id).or_default().add(interval);
+            }
             let result_size: usize = doc.value().size();
-            let interval = Interval::prefix(index_key_bytes.clone().into());
-            self.documents
-                .insert((index_id, index_key_bytes), (ts, doc));
-            self.intervals.entry(index_id).or_default().add(interval);
             self.cache_size += result_size;
         }
     }
 
     fn record_interval_populated(&mut self, index_id: IndexId, interval: Interval) {
-        if self.cache_size <= MAX_TRANSACTION_CACHE_SIZE {
+        if self.cache_size <= *MAX_TRANSACTION_CACHE_SIZE {
             self.intervals.entry(index_id).or_default().add(interval);
         }
     }
@@ -1029,7 +1040,7 @@ mod cache_tests {
             .to_bytes();
         let ts = Timestamp::must(100);
         let doc = PackedDocument::pack(&doc);
-        cache.populate(index_id, index_key_bytes.clone(), ts, doc.clone());
+        cache.populate([(index_id, index_key_bytes.clone())], ts, doc.clone());
 
         let cached_result = cache.get(
             index_id,
@@ -1060,7 +1071,7 @@ mod cache_tests {
             .to_bytes();
         let ts1 = Timestamp::must(100);
         let doc1 = PackedDocument::pack(&doc1);
-        cache.populate(index_id, index_key_bytes1.clone(), ts1, doc1.clone());
+        cache.populate([(index_id, index_key_bytes1.clone())], ts1, doc1.clone());
 
         let id2 = id_generator.user_generate(&"users".parse()?);
         let doc2 = ResolvedDocument::new(id2, CreationTime::ONE, assert_obj!("age" => 40.0))?;
@@ -1069,7 +1080,7 @@ mod cache_tests {
             .to_bytes();
         let ts2 = Timestamp::must(150);
         let doc2 = PackedDocument::pack(&doc2);
-        cache.populate(index_id, index_key_bytes2.clone(), ts2, doc2.clone());
+        cache.populate([(index_id, index_key_bytes2.clone())], ts2, doc2.clone());
 
         let interval_gt_18 = Interval {
             start: StartIncluded(values_to_bytes(&[Some(val!(18.0))]).into()),
@@ -1194,7 +1205,7 @@ mod cache_tests {
                 .index_key(&fields, PersistenceVersion::default())
                 .to_bytes();
             let doc = PackedDocument::pack(&doc);
-            cache.populate(index_id, index_key_bytes.clone(), ts, doc.clone());
+            cache.populate([(index_id, index_key_bytes.clone())], ts, doc.clone());
             (index_key_bytes, doc)
         };
         let (index_key1, doc1) = make_doc(30.0);
