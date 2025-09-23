@@ -22,7 +22,7 @@ export function DocsGrid() {
   return (
     <div className="my-12 animate-fadeInFromLoading">
       <h4>Learn about Convex</h4>
-      <ul className="flex justify-between gap-y-6 py-6">
+      <ul className="flex flex-wrap justify-between gap-6 py-6">
         {docs.map((doc) => (
           <DocCard key={doc.title} {...doc} />
         ))}
