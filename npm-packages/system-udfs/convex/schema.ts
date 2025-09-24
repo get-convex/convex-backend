@@ -346,6 +346,11 @@ export default defineSchema({
     deleted: v.boolean(),
     analyzeResult: v.union(analyzedModule, v.null()),
     sourcePackageId: v.string(),
+    environment: v.union(
+      v.literal("node"),
+      v.literal("isolate"),
+      v.literal("invalid"),
+    ),
   }).index("by_path", ["path"]),
   _auth: defineTable(
     v.union(
