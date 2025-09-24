@@ -36,8 +36,9 @@ import { FunctionResult } from "./function_result.js";
 import {
   AuthenticationManager,
   AuthTokenFetcher,
+  PlaintextAuthTokenFetcher,
 } from "./authentication_manager.js";
-export { type AuthTokenFetcher } from "./authentication_manager.js";
+export { type AuthTokenFetcher, type PlaintextAuthTokenFetcher } from "./authentication_manager.js";
 import { getMarksReport, mark, MarkName } from "./metrics.js";
 import { parseArgs, validateDeploymentUrl } from "../../common/index.js";
 import { ConvexError } from "../../values/errors.js";
@@ -332,8 +333,10 @@ export class BaseConvexClient {
     this.authenticationManager = new AuthenticationManager(
       this.state,
       {
-        authenticate: (token) => {
-          const message = this.state.setAuth(token);
+        authenticate: (token, mode) => {
+          const message = mode === "plaintext" 
+            ? this.state.setAuthInsecure(token)
+            : this.state.setAuth(token);
           this.webSocketManager.sendMessage(message);
           return message.baseVersion;
         },
@@ -629,6 +632,13 @@ export class BaseConvexClient {
     onChange: (isAuthenticated: boolean) => void,
   ) {
     void this.authenticationManager.setConfig(fetchToken, onChange);
+  }
+
+  setAuthInsecure(
+    fetchToken: PlaintextAuthTokenFetcher,
+    onChange: (isAuthenticated: boolean) => void,
+  ) {
+    void this.authenticationManager.setConfigInsecure(fetchToken, onChange);
   }
 
   hasAuth() {
