@@ -79,9 +79,15 @@ the `_generated/api.js` file via the `generateCommonJSApi` field.
 ### Configuring the Node.js version
 
 You can specify which Node.js version is used by Node actions via the
-`node.nodeVersion` field. To do so, you must use the `convex` NPM package
-version 1.27.0 or later. The currently supported values are `"18"`, `"20"`, and
+`node.nodeVersion` field. The currently supported values are `"18"`, `"20"`, and
 `"22"`. [Read more](/functions/runtimes.mdx#nodejs-version-configuration).
+
+<Admonition type="info" title="Convex version required">
+
+To change the Node.js version used by your project, you must use the `convex`
+NPM package version 1.27.0 or later.
+
+</Admonition>
 
 ```json title="convex.json"
 {
