@@ -63,7 +63,7 @@ function useUseAuthFromClerk(useAuth: UseAuth) {
         const fetchAccessToken = useCallback(
           async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
             try {
-              return getToken({
+              return await getToken({
                 template: "convex",
                 skipCache: forceRefreshToken,
               });
