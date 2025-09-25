@@ -26,7 +26,11 @@ const config: Config = {
   url: "https://docs.convex.dev",
   baseUrl: "/",
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "throw",
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "throw",
+    },
+  },
   favicon: "img/favicon.ico",
   organizationName: "get-convex", // Usually your GitHub org/user name.
   projectName: "Convex", // Usually your repo name.
