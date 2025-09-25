@@ -57,7 +57,7 @@ Run the following command to install all dependencies for your project
 npm i
 ```
 
-### Run you app
+### Run your app
 
 Run the following command run your app, and setup Convex if you haven’t already.
 
