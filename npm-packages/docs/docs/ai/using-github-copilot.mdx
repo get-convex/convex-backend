@@ -1,6 +1,7 @@
 ---
 title: "Using GitHub Copilot with Convex"
 sidebar_position: 200
+sidebar_label: Using GitHub Copilot
 description: "Tips and best practices for using GitHub Copilot with Convex"
 slug: "using-github-copilot"
 ---

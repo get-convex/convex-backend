@@ -1,6 +1,7 @@
 ---
 title: "Using Cursor with Convex"
 sidebar_position: 100
+sidebar_label: Using Cursor
 description: "Tips and best practices for using Cursor with Convex"
 slug: "using-cursor"
 ---

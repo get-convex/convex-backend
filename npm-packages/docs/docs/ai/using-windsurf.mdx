@@ -1,6 +1,7 @@
 ---
 title: "Using Windsurf with Convex"
 sidebar_position: 200
+sidebar_label: Using Windsurf
 description: "Tips and best practices for using Windsurf with Convex"
 slug: "using-windsurf"
 ---
