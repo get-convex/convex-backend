@@ -299,7 +299,7 @@ export class VObject<
     super({ isOptional });
     globalThis.Object.values(fields).forEach((v) => {
       if (!v.isConvexValidator) {
-        throw new Error("v.object() entries must be valiators");
+        throw new Error("v.object() entries must be validators");
       }
     });
     this.fields = fields;
