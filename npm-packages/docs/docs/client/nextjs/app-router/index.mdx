@@ -17,13 +17,41 @@ with Convex, Next.js provides:
 and more!
 
 This page covers the App Router variant of Next.js. Alternatively see the
-[Pages Router](/client/react/nextjs-pages-router/nextjs-pages-router.mdx)
-version of this page.
+[Pages Router](/client/nextjs/pages-router/index.mdx) version of this page.
 
 ## Getting started
 
 Follow the [Next.js Quickstart](/quickstart/nextjs.mdx) to add Convex to a new
 or existing Next.js project.
+
+## Calling Convex functions from client code
+
+To fetch and edit the data in your database from client code, use hooks of the
+[Convex React library](/client/react).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "/client/react",
+    label: "Convex React library documentation",
+  }}
+/>
+
+## Server rendering (SSR)
+
+Next.js automatically renders both Client and Server Components on the server
+during the initial page load.
+
+To keep your UI
+[automatically reactive](/functions/query-functions.mdx#caching--reactivity--consistency)
+to changes in your Convex database it needs to use Client Components. The
+`ConvexReactClient` will maintain a connection to your deployment and will get
+updates as data changes and that must happen on the client.
+
+See the dedicated
+[Server Rendering](/client/nextjs/app-router/server-rendering.mdx) page for more
+details about preloading data for Client Components, fetching data and
+authentication in Server Components, and implementing Route Handlers.
 
 ## Adding authentication
 
@@ -92,19 +120,3 @@ mutations, and actions in server components and API routes.
 Obtain the appropriate OpenID Identity JWT in both locations and you should be
 able to use any auth provider. See
 [Custom Auth](https://docs.convex.dev/auth/advanced/custom-auth) for more.
-
-## Server rendering (SSR)
-
-Next.js automatically renders both Client and Server Components on the server
-during the initial page load.
-
-To keep your UI
-[automatically reactive](/functions/query-functions.mdx#caching--reactivity--consistency)
-to changes in your Convex database it needs to use Client Components. The
-`ConvexReactClient` will maintain a connection to your deployment and will get
-updates as data changes and that must happen on the client.
-
-See the dedicated
-[Server Rendering](/client/react/nextjs/nextjs-server-rendering.mdx) page for
-more details about preloading data for Client Components, fetching data and
-authentication in Server Components, and implementing Route Handlers.

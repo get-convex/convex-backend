@@ -30,9 +30,9 @@ To handle this, you can either:
    on the client
 
 If you are using `fetchQuery` for
-[Next.js Server Rendering](/client/react/nextjs/nextjs-server-rendering.mdx),
-make sure you are explicitly passing in a JWT token as documented
-[here](/client/react/nextjs/nextjs-server-rendering.mdx#server-side-authentication).
+[Next.js Server Rendering](/client/nextjs/app-router/server-rendering.mdx), make
+sure you are explicitly passing in a JWT token as documented
+[here](/client/nextjs/app-router/server-rendering.mdx#server-side-authentication).
 
 If this hasn't helped, follow the steps below to resolve your issue.
 

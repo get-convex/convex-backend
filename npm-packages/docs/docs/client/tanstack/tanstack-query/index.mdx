@@ -1,7 +1,6 @@
 ---
 title: "Convex with TanStack Query"
 sidebar_label: "TanStack Query"
-sidebar_position: 325
 description:
   "Integrate Convex with TanStack Query for advanced data fetching patterns"
 ---

@@ -1,7 +1,6 @@
 ---
 title: "TanStack Start"
 sidebar_label: "TanStack Start"
-sidebar_position: 180
 description: "How Convex works with TanStack Start"
 ---
 
@@ -20,8 +19,9 @@ and more!
 
 This page describes the recommended way to use Convex with TanStack Start, via
 React Query. The standard Convex React hooks work also with TanStack Start
-without React Query, as do the [React Query hooks](/client/tanstack-query.mdx)
-without TanStack Start! But using all three is a sweet spot.
+without React Query, as do the
+[React Query hooks](/client/tanstack/tanstack-query/index.mdx) without TanStack
+Start! But using all three is a sweet spot.
 
 <Admonition type="caution" title="TanStack Start is in Beta">
   TanStack Start is a new React framework currently in beta. You can use it
@@ -35,8 +35,9 @@ Convex to a new TanStack Start project.
 
 ## Using Convex with React Query
 
-You can read more about [React Query hooks](/client/tanstack-query.mdx), but a
-few highlights relevant to TanStack Start.
+You can read more about
+[React Query hooks](/client/tanstack/tanstack-query/index.mdx), but a few
+highlights relevant to TanStack Start.
 
 ### Staying subscribed to queries
 
@@ -117,6 +118,6 @@ Client-side authentication in Start works the way
 works in React because TanStack Start works well as a client-side framework.
 
 To use Clerk auth to make authenticated Convex calls on the server as well see
-the [TanStack Start + Clerk guide](/client/react/tanstack-start/clerk.mdx).
+the [TanStack Start + Clerk guide](/client/tanstack/tanstack-start/clerk.mdx).
 
 Clerk is an official partner of TanStack, see our setup guide.

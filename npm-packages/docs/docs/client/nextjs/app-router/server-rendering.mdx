@@ -1,6 +1,5 @@
 ---
 title: "Next.js Server Rendering"
-slug: "server-rendering"
 sidebar_label: "Server Rendering"
 sidebar_position: 10
 description:
