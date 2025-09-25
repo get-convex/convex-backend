@@ -101,6 +101,7 @@
 /vector-search                      /search/vector-search
 /client/react/nextjs/pages          /client/react/nextjs-pages-router
 /client/react/nextjs/pages-quickstart    /client/react/nextjs-pages-router/quickstart
+/client/react/quickstart-create-react-app    /quickstart/react
 /deployments                        /dashboard/deployments
 /database/import-export/streaming /production/integrations/streaming-import-export
 /auth/custom-auth                   /auth/advanced/custom-auth
