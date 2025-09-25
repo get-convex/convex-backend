@@ -724,30 +724,17 @@ ul.menu__list {
   display: none;
 }
 
-/* Tutorial is special, it forwards to an internal page. Remove all this when we ban section pages. */
-.convex-sidebar-tutorial .menu__list-item-collapsible--active {
-  background: var(--ifm-background-color);
-}
-.convex-sidebar-tutorial .menu__list-item-collapsible--active:hover {
-  background: var(--ifm-menu-color-background-hover);
-}
-.convex-sidebar-tutorial
-  .menu__list-item-collapsible--active
-  > .menu__link--active {
-  font-weight: 400;
-}
-
-/* Understanding is special, it forwards to an internal page. Remove all this when we ban section pages. */
-.convex-sidebar-understand .menu__list-item-collapsible--active {
+/* Fix the active state of categories that forward to an internal page in the category. */
+.convex-sidebar-no-category-page > .menu__list-item-collapsible--active {
   background: var(--ifm-background-color);
 }
 
-.convex-sidebar-understand .menu__list-item-collapsible--active:hover {
+.convex-sidebar-no-category-page > .menu__list-item-collapsible--active:hover {
   background: var(--ifm-menu-color-background-hover);
 }
 
-.convex-sidebar-understand
-  .menu__list-item-collapsible--active
+.convex-sidebar-no-category-page
+  > .menu__list-item-collapsible--active
   > .menu__link--active {
   font-weight: 400;
 }
