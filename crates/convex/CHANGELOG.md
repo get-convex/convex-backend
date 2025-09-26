@@ -1,5 +1,6 @@
-# Upcoming
+# 0.10.0
 
+- Fix for panic in query subscriptions
 - Bump rust-version minimum from 1.71.1 to 1.80.1
 
 # 0.9.0
