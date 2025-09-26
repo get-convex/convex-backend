@@ -23,7 +23,8 @@
      * When someone asks for "^1.0.0" make sure they get "1.2.3" when working in this repo,
      * instead of the latest version.
      */
-    // "some-library": "1.2.3"
+    // "some-library": "1.2.3",
+    "axios": "^1.12.0",
     /**
      * At verison 4.22.0 domain-browser moved from MIT to "Artistic License"
      */
