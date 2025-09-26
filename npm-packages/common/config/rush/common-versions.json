@@ -80,6 +80,13 @@
      */
     "prettier": ["^3.0.0"],
     /**
+     * Allow a newer version of Vite for TanStack Start projects.
+     * Ideally we just update Vite to the latest version everywhere,
+     * but some of our projects have dependencies that are not compatible
+     * with Vite 7 so far.
+     */
+    "vite": ["^7.1.7"],
+    /**
      * These are for private-demos/tanstack-start to closely match
      * https://github.com/TanStack/router
      * specifically https://github.com/TanStack/router/blob/main/examples/react/start-basic-react-query/package.json
@@ -104,6 +111,9 @@
     //"eslint": ["^8"],
     "@eslint/eslintrc": ["^3"],
     "eslint-config-next": ["15.2.3"],
+
+    // Keep the TanStack Start + Clerk demo on a pre-RC version since Clerk doesn’t support RC yet
+    "@tanstack/react-start": ["1.120.11"],
 
     /**
      * Until an upgrade to ESLint 9 is done

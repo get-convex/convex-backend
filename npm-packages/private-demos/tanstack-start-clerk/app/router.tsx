@@ -35,6 +35,7 @@ export function createRouter() {
       defaultErrorComponent: DefaultCatchBoundary,
       defaultNotFoundComponent: () => <NotFound />,
       context: { queryClient, convexClient: convex, convexQueryClient },
+      scrollRestoration: true,
       Wrap: ({ children }) => (
         <ConvexProvider client={convexQueryClient.convexClient}>
           {children}

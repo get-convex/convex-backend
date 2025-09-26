@@ -4,3 +4,5 @@ app.config.timestamp_*.js
 count.txt
 node_modules
 .output
+
+.env.local

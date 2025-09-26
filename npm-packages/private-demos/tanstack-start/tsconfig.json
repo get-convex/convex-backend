@@ -1,15 +1,33 @@
 {
+  "include": ["**/*.ts", "**/*.tsx", "public/script*.js"],
   "compilerOptions": {
-    "target": "es2016",
+    "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+
+    /* Bundler mode */
     "moduleResolution": "bundler",
-    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
     "noEmit": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+
+    /* Linting */
+    "skipLibCheck": true,
     "strict": true,
-    "skipLibCheck": true
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"]
+    },
+
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true
   }
 }

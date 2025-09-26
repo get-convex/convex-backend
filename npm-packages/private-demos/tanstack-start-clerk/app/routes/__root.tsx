@@ -1,7 +1,6 @@
 import {
   Link,
   Outlet,
-  ScrollRestoration,
   createRootRouteWithContext,
   useRouteContext,
 } from '@tanstack/react-router'
@@ -150,7 +149,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         </div>
         <hr />
         {children}
-        <ScrollRestoration />
         <TanStackRouterDevtools position="bottom-right" />
         <Scripts />
       </body>
