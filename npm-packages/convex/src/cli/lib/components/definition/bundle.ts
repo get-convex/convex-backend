@@ -28,6 +28,49 @@ import {
 } from "../../../../bundler/index.js";
 import { NodeDependency } from "../../deployApi/modules.js";
 
+const VIRTUAL_CONFIG_NAMESPACE = "convex-virtual-config";
+const VIRTUAL_CONFIG_CONTENTS = `import { defineApp } from "convex/server";\nconst app = defineApp();\nexport default app;`;
+
+/**
+ * An esbuild plugin to insert a virtual `convex.config.js` file into the bundle
+ * when Convex project doesn't have one explicitly defined.
+ *
+ * This allows us to use the components push path even when the Convex project doesn't
+ * have a config file defined.
+ */
+function virtualConfig({
+  rootComponentDirectory,
+}: {
+  rootComponentDirectory: ComponentDirectory;
+}): Plugin {
+  return {
+    name: `convex-virtual-config`,
+    async setup(build) {
+      const filter = pathToRegexFilter(rootComponentDirectory);
+      build.onResolve({ filter }, async (args) => {
+        return { path: args.path, namespace: VIRTUAL_CONFIG_NAMESPACE };
+      });
+      build.onLoad(
+        { filter, namespace: VIRTUAL_CONFIG_NAMESPACE },
+        async (_args) => {
+          return {
+            contents: VIRTUAL_CONFIG_CONTENTS,
+            resolveDir: rootComponentDirectory.path,
+          };
+        },
+      );
+    },
+  };
+}
+
+function pathToRegexFilter(root: ComponentDirectory) {
+  let path = qualifiedDefinitionPath(root);
+  const escaped = path
+    .replace(/\\/g, "/")
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped}$`);
+}
+
 /**
  * An esbuild plugin to mark component definitions external or return a list of
  * all component definitions.
@@ -209,6 +252,14 @@ export async function componentGraph(
   components: Map<string, ComponentDirectory>;
   dependencyGraph: [ComponentDirectory, ComponentDirectory][];
 }> {
+  if (rootComponentDirectory.isRootWithoutConfig) {
+    return {
+      components: new Map([
+        [rootComponentDirectory.path, rootComponentDirectory],
+      ]),
+      dependencyGraph: [],
+    };
+  }
   let result;
   try {
     result = await esbuild.build({
@@ -346,19 +397,23 @@ export async function bundleDefinitions(
 }> {
   let result;
   try {
+    let plugins = [
+      componentPlugin({
+        ctx,
+        mode: "bundle",
+        verbose,
+        rootComponentDirectory,
+      }),
+    ];
+    if (rootComponentDirectory.isRootWithoutConfig) {
+      plugins.push(virtualConfig({ rootComponentDirectory }));
+    }
     result = await esbuild.build({
       absWorkingDir,
       entryPoints: componentDirectories.map((dir) =>
         qualifiedDefinitionPath(dir),
       ),
-      plugins: [
-        componentPlugin({
-          ctx,
-          mode: "bundle",
-          verbose,
-          rootComponentDirectory,
-        }),
-      ],
+      plugins,
       sourcemap: true,
       ...sharedEsbuildOptions({ liveComponentSources }),
     });

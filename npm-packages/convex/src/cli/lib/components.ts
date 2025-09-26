@@ -149,7 +149,10 @@ export async function runPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const convexDir = functionsDir(configPath, projectConfig);
   const componentRootPath = await findComponentRootPath(ctx, convexDir);
-  if (ctx.fs.exists(componentRootPath)) {
+  if (
+    ctx.fs.exists(componentRootPath) ||
+    process.env.USE_COMPONENTS_PUSH === "true"
+  ) {
     await runComponentsPush(ctx, options, configPath, projectConfig);
   } else {
     await runNonComponentsPush(ctx, options, configPath, projectConfig);

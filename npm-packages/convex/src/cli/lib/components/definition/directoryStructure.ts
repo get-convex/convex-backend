@@ -32,6 +32,11 @@ export type ComponentDirectory = {
    * Absolute local filesystem path to the `convex.config.{ts,js}` file within the component definition.
    */
   definitionPath: string;
+
+  /**
+   * Is this component a root without a config file?
+   */
+  isRootWithoutConfig: boolean;
 };
 
 /**
@@ -59,6 +64,7 @@ export function isComponentDirectory(
 ):
   | { kind: "ok"; component: ComponentDirectory }
   | { kind: "err"; why: string } {
+  let isRootWithoutConfig = false;
   if (!ctx.fs.exists(directory)) {
     return { kind: "err", why: `Directory doesn't exist` };
   }
@@ -75,17 +81,15 @@ export function isComponentDirectory(
     definitionPath = path.resolve(path.join(directory, filename));
   }
   if (!ctx.fs.exists(definitionPath)) {
-    return {
-      kind: "err",
-      why: `Directory doesn't contain a ${filename} file`,
-    };
-  }
-  const definitionStat = ctx.fs.stat(definitionPath);
-  if (!definitionStat.isFile()) {
-    return {
-      kind: "err",
-      why: `Component definition ${filename} isn't a file`,
-    };
+    isRootWithoutConfig = true;
+  } else {
+    const definitionStat = ctx.fs.stat(definitionPath);
+    if (!definitionStat.isFile()) {
+      return {
+        kind: "err",
+        why: `Component definition ${filename} isn't a file`,
+      };
+    }
   }
   return {
     kind: "ok",
@@ -93,6 +97,7 @@ export function isComponentDirectory(
       isRoot,
       path: path.resolve(directory),
       definitionPath: definitionPath,
+      isRootWithoutConfig,
     },
   };
 }
