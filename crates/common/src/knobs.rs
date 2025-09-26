@@ -1175,6 +1175,10 @@ pub static MAX_BACKEND_PUBLIC_API_REQUEST_SIZE: LazyLock<usize> =
 pub static MAX_SEARCHLIGHT_RESPONSE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_SEARCHLIGHT_RESPONSE_SIZE", 1 << 23)); // 8 MiB
 
+/// The maximum size for GRPC responses from searchlight.
+pub static MAX_SEARCHLIGHT_REQUEST_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_SEARCHLIGHT_REQUEST_SIZE", 1 << 23)); // 8 MiB
+
 /// Background database workers wake up periodically, check to see if something
 /// has changed, then either go back to sleep or do work. Most workers determine
 /// if something has changed at least in part by comparing the number of commits
