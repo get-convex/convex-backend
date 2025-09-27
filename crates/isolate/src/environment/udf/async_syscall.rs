@@ -696,6 +696,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/getUserIdentity" => {
                         Box::pin(Self::get_user_identity(provider, args)).await
                     },
+                    "1.0/getUserIdentityDebug" => {
+                        Box::pin(Self::get_user_identity_debug(provider, args)).await
+                    },
+                    "1.0/getUserIdentityInsecure" => {
+                        Box::pin(Self::get_user_identity_insecure(provider, args)).await
+                    },
                     // Storage
                     "1.0/storageDelete" => Box::pin(Self::storage_delete(provider, args)).await,
                     "1.0/storageGetMetadata" => {
@@ -785,6 +791,60 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             return user_identity.try_into();
         }
 
+        Ok(JsonValue::Null)
+    }
+
+    #[convex_macro::instrument_future]
+    async fn get_user_identity_debug(
+        provider: &mut P,
+        _args: JsonValue,
+    ) -> anyhow::Result<JsonValue> {
+        provider.observe_identity()?;
+        let component = provider.component()?;
+        let tx = provider.tx()?;
+        let user_identity = tx.user_identity();
+
+        if !component.is_root() {
+            log_component_get_user_identity(user_identity.is_some());
+        }
+
+        // If we have a valid user identity, return it
+        if let Some(user_identity) = user_identity {
+            return user_identity.try_into();
+        }
+
+        // If no user identity, check if we have error details from JWT validation
+        let identity = tx.identity();
+        if let keybroker::Identity::Unknown(Some(error_metadata)) = identity {
+            // Create a structured error response with details for debugging
+            let error_response = json!({
+                "error": {
+                    "code": error_metadata.short_msg,
+                    "message": error_metadata.msg,
+                    "details": "JWT validation failed. Check your token format, expiration, issuer, and audience claims."
+                }
+            });
+            return Ok(error_response);
+        }
+
+        // No identity provided (not an error case)
+        Ok(JsonValue::Null)
+    }
+
+    #[convex_macro::instrument_future]
+    async fn get_user_identity_insecure(
+        provider: &mut P,
+        _args: JsonValue,
+    ) -> anyhow::Result<JsonValue> {
+        let tx = provider.tx()?;
+        let identity = tx.identity();
+
+        // Return the plaintext token if this is a PlaintextUser identity
+        if let keybroker::Identity::PlaintextUser(token) = identity {
+            return Ok(JsonValue::String(token.clone()));
+        }
+
+        // Return null for any other identity type (including regular User identities)
         Ok(JsonValue::Null)
     }
 

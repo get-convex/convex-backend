@@ -150,6 +150,29 @@ export type UserIdentityAttributes = Omit<
 >;
 
 /**
+ * Structured error information returned by getUserIdentityDebug()
+ * when JWT validation fails.
+ *
+ * @public
+ */
+export interface AuthError {
+  error: {
+    /**
+     * Short error code identifying the type of authentication failure.
+     */
+    code: string;
+    /**
+     * Detailed error message explaining what went wrong.
+     */
+    message: string;
+    /**
+     * Additional guidance for debugging the authentication issue.
+     */
+    details: string;
+  };
+}
+
+/**
  * An interface to access information about the currently authenticated user
  * within Convex query and mutation functions.
  *
@@ -165,4 +188,31 @@ export interface Auth {
    * + `throw` on HTTP Actions.
    */
   getUserIdentity(): Promise<UserIdentity | null>;
+
+  /**
+   * Get details about the currently authenticated user with debug information.
+   *
+   * Similar to getUserIdentity(), but when authentication fails, this method
+   * returns detailed error information instead of null to help debug JWT
+   * validation issues.
+   *
+   * @returns A promise that resolves to:
+   * + A {@link UserIdentity} if authentication succeeded
+   * + An {@link AuthError} with detailed error information if JWT validation failed
+   * + `null` if no authentication token was provided
+   */
+  getUserIdentityDebug(): Promise<UserIdentity | AuthError | null>;
+
+  /**
+   * Get the plaintext token for PlaintextUser identities.
+   * 
+   * **WARNING:** This method is marked as "insecure" because it returns
+   * raw, unvalidated token data. Only use this for debugging or development
+   * purposes where you need access to the raw plaintext token.
+   *
+   * @returns A promise that resolves to:
+   * + the plaintext token string if the current identity is a PlaintextUser
+   * + `null` for all other identity types (including regular User identities)
+   */
+  getUserIdentityInsecure(): Promise<string | null>;
 }

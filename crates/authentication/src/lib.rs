@@ -131,6 +131,7 @@ pub fn token_to_authorization_header(token: AuthenticationToken) -> anyhow::Resu
             None => Ok(Some(format!("Convex {key}"))),
         },
         AuthenticationToken::User(key) => Ok(Some(format!("Bearer {key}"))),
+        AuthenticationToken::PlaintextUser(key) => Ok(Some(format!("Bearer {key}"))),
         AuthenticationToken::None => Ok(None),
     }
 }

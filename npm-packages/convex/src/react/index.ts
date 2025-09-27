@@ -62,7 +62,7 @@
  */
 export * from "./use_paginated_query.js";
 export { useQueries, type RequestForQueries } from "./use_queries.js";
-export type { AuthTokenFetcher } from "../browser/sync/client.js";
+export type { AuthTokenFetcher, PlaintextAuthTokenFetcher } from "../browser/sync/client.js";
 export * from "./auth_helpers.js";
 export * from "./ConvexAuthState.js";
 export * from "./hydration.js";
