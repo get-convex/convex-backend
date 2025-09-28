@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { Long } from "../browser/long.js";
+import { Long } from "../vendor/long.js";
 
 import { ConvexReactClient } from "./client.js";
 import {

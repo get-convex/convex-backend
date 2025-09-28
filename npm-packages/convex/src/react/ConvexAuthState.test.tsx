@@ -3,7 +3,7 @@
  */
 import { expect, vi, test } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import jwtEncode from "jwt-encode";
+import { jwtEncode } from "../vendor/jwt-encode/index.js";
 import React, { createContext, useCallback, useContext, useMemo } from "react";
 import {
   ConvexProviderWithAuth,

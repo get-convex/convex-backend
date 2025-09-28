@@ -1,5 +1,5 @@
 import { Base64 } from "../../values/index.js";
-import { Long } from "../long.js";
+import { Long } from "../../vendor/long.js";
 
 // --experimental-vm-modules which we use for jest doesn't support named exports
 import WebSocket, { WebSocketServer } from "ws";

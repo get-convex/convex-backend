@@ -4,7 +4,7 @@
 
 import { test, expect } from "vitest";
 
-import { Long } from "../long.js";
+import { Long } from "../../vendor/long.js";
 import { longToU64, u64ToLong } from "./protocol.js";
 
 test("Long serialization", async () => {

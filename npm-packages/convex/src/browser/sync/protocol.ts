@@ -1,7 +1,7 @@
 import type { UserIdentityAttributes } from "../../server/authentication.js";
 export type { UserIdentityAttributes } from "../../server/authentication.js";
 import { JSONValue, Base64 } from "../../values/index.js";
-import { Long } from "../long.js";
+import { Long } from "../../vendor/long.js";
 
 /**
  * Shared schema

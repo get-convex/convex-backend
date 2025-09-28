@@ -1,7 +1,7 @@
 import child_process from "child_process";
 
 import { test, expect } from "vitest";
-import { Long } from "../long.js";
+import { Long } from "../../vendor/long.js";
 
 import { BaseConvexClient } from "./client.js";
 import {

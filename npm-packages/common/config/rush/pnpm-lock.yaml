@@ -575,9 +575,6 @@ importers:
       esbuild:
         specifier: 0.25.4
         version: 0.25.4
-      jwt-decode:
-        specifier: ^4.0.0
-        version: 4.0.0
       prettier:
         specifier: ^3.0.0
         version: 3.6.2
@@ -630,15 +627,9 @@ importers:
       '@types/deep-equal':
         specifier: 1.0.4
         version: 1.0.4
-      '@types/detect-port':
-        specifier: ~1.3.5
-        version: 1.3.5
       '@types/inquirer':
         specifier: ^9.0.0
         version: 9.0.7
-      '@types/jwt-encode':
-        specifier: ~1.0.0
-        version: 1.0.3
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -735,9 +726,6 @@ importers:
       json5:
         specifier: ~2.2.3
         version: 2.2.3
-      jwt-encode:
-        specifier: ~1.0.1
-        version: 1.0.1
       knip:
         specifier: ~5.62.0
         version: 5.62.0(@types/node@18.19.70)(typescript@5.0.4)
@@ -11229,9 +11217,6 @@ packages:
   '@types/json5@0.0.29':
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
 
-  '@types/jwt-encode@1.0.3':
-    resolution: {integrity: sha512-4IAoiMbBSbiUfYkBZYvj6Sj68d5qaaYeHfeoxQp5qpYkjOPcou9chpfEqw7OfoTQxsrS6HnTVN/RTCF866Z9sw==}
-
   '@types/keygrip@1.0.6':
     resolution: {integrity: sha512-lZuNAY9xeJt7Bx4t4dx0rYCDqGPW8RXhQZK1td7d4H6E9zYbLoOtjBvfwdTKpsyxQI/2jv+armjX/RW+ZNpXOQ==}
 
@@ -17211,9 +17196,6 @@ packages:
     resolution: {integrity: sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==}
     engines: {node: '>=18'}
 
-  jwt-encode@1.0.1:
-    resolution: {integrity: sha512-QrGiNhynbAYyFdbC1GbjborzenSFs5Ga+2nE0uBokGXsH11xrgd1AX55HR7P+wGQyyZOn6LUO5iKlh74dlhBkA==}
-
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
 
@@ -22019,9 +22001,6 @@ packages:
 
   ts-toolbelt@6.15.5:
     resolution: {integrity: sha512-FZIXf1ksVyLcfr7M317jbB67XFJhOO1YqdTcuGaq9q5jLUoTikukZ+98TPjKiP2jC5CgmYdWWYs0s2nLSU0/1A==}
-
-  ts.cryptojs256@1.0.1:
-    resolution: {integrity: sha512-9XtEgRVOZBCdpPcCEhfvv9I2AVXdvfI81I/KpFM0wEfbq5JVHlXH7bfIjGQmYrIHGiBEHKsIaStQ87k926J7dA==}
 
   tsc-alias@1.8.15:
     resolution: {integrity: sha512-yKLVx8ddUurRwhVcS6JFF2ZjksOX2ZWDRIdgt+PQhJBDegIdAdilptiHsuAbx9UFxa16GFrxeKQ2kTcGvR6fkQ==}
@@ -33952,8 +33931,6 @@ snapshots:
 
   '@types/json5@0.0.29': {}
 
-  '@types/jwt-encode@1.0.3': {}
-
   '@types/keygrip@1.0.6': {}
 
   '@types/koa-compose@3.2.8':
@@ -37405,7 +37382,6 @@ snapshots:
   convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0):
     dependencies:
       esbuild: 0.25.4
-      jwt-decode: 4.0.0
       prettier: 3.6.2
     optionalDependencies:
       '@auth0/auth0-react': 2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -43162,10 +43138,6 @@ snapshots:
   jwt-decode@3.1.2: {}
 
   jwt-decode@4.0.0: {}
-
-  jwt-encode@1.0.1:
-    dependencies:
-      ts.cryptojs256: 1.0.1
 
   keyv@4.5.4:
     dependencies:
@@ -49705,8 +49677,6 @@ snapshots:
     optional: true
 
   ts-toolbelt@6.15.5: {}
-
-  ts.cryptojs256@1.0.1: {}
 
   tsc-alias@1.8.15:
     dependencies:

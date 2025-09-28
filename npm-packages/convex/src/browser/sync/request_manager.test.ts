@@ -1,6 +1,6 @@
 import { test, expect, beforeEach, vi } from "vitest";
 import { RequestManager } from "./request_manager.js";
-import { Long } from "../long.js";
+import { Long } from "../../vendor/long.js";
 import { ActionRequest, MutationRequest } from "./protocol.js";
 import { instantiateDefaultLogger } from "../logging.js";
 

@@ -2,7 +2,7 @@
  * @vitest-environment custom-vitest-environment.ts
  */
 import { expect, vi, test, describe } from "vitest";
-import jwtEncode from "jwt-encode";
+import { jwtEncode } from "../vendor/jwt-encode/index.js";
 import {
   nodeWebSocket,
   withInMemoryWebSocket,
@@ -10,7 +10,7 @@ import {
 import { ConvexReactClient, ConvexReactClientOptions } from "./index.js";
 import waitForExpect from "wait-for-expect";
 import { anyApi } from "../server/index.js";
-import { Long } from "../browser/long.js";
+import { Long } from "../vendor/long.js";
 import {
   AuthError,
   ClientMessage,
