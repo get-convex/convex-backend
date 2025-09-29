@@ -3,7 +3,7 @@ import { oneoffContext } from "../../../bundler/context.js";
 import { logFailure } from "../../../bundler/log.js";
 import { findLatestVersionWithBinary } from "./download.js";
 import { components } from "@octokit/openapi-types";
-import stripAnsi from "strip-ansi";
+import { stripVTControlCharacters } from "util";
 
 async function setupContext() {
   const originalContext = await oneoffContext({
@@ -62,7 +62,7 @@ test("findLatestVersionWithBinary", async () => {
       "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=30",
     );
     const calledWith = stderrSpy.mock.calls as string[][];
-    const err = stripAnsi(calledWith[0][0]);
+    const err = stripVTControlCharacters(calledWith[0][0]);
     fetchSpy.mockRestore();
     stderrSpy.mockClear();
     return err;

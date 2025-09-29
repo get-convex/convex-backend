@@ -1,6 +1,9 @@
 import { format } from "util";
 import chalk from "chalk";
-import ProgressBar from "progress";
+import ProgressBar, {
+  ProgressBarInstance,
+  ProgressBarOptions,
+} from "../vendor/progress/index.js";
 import ora, { Ora } from "ora";
 
 let spinner: Ora | null = null;
@@ -51,8 +54,8 @@ export function logVerbose(...logged: any) {
  */
 export function startLogProgress(
   format: string,
-  progressBarOptions: ProgressBar.ProgressBarOptions,
-): ProgressBar {
+  progressBarOptions: ProgressBarOptions,
+): ProgressBarInstance {
   spinner?.clear();
   return new ProgressBar(format, progressBarOptions);
 }

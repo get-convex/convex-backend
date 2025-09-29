@@ -633,9 +633,6 @@ importers:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
-      '@types/progress':
-        specifier: ~2.0.7
-        version: 2.0.7
       '@types/react':
         specifier: ^18.0.0
         version: 18.3.18
@@ -681,9 +678,6 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
-      encoding:
-        specifier: ^0.1.13
-        version: 0.1.13
       esbuild-plugin-external-global:
         specifier: ~1.0.1
         version: 1.0.1
@@ -750,9 +744,6 @@ importers:
       ora:
         specifier: ^8.1.1
         version: 8.1.1
-      progress:
-        specifier: ~2.0.3
-        version: 2.0.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -771,9 +762,6 @@ importers:
       skott:
         specifier: ~0.35.4
         version: 0.35.4
-      strip-ansi:
-        specifier: ^7.0.1
-        version: 7.1.0
       tar:
         specifier: ^7.4.3
         version: 7.4.3
@@ -38640,6 +38628,7 @@ snapshots:
   encoding@0.1.13:
     dependencies:
       iconv-lite: 0.6.3
+    optional: true
 
   end-of-stream@1.1.0:
     dependencies:

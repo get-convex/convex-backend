@@ -14,3 +14,5 @@ We're currently vendoring just a few libraries:
 1. jwt-decode which has caused some users trouble when installing deps
 1. jwt-encode is gone from GitHub, very short, and the published version uses an
    old crypto lib we can avoid using by vendoring and swapping it out.
+1. progress is by good old TJ but it hasn't been published in 7 years and is
+   tiny.

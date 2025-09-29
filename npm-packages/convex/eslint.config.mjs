@@ -36,6 +36,8 @@ export default [
       ".prettierrc.js",
       "eslint.config.mjs",
       "jest.config.mjs",
+      // we could ignore everything in vendor
+      "src/vendor/progress",
     ],
   },
   ...compat.plugins("require-extensions"),

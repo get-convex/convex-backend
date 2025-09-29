@@ -24,7 +24,7 @@ import { TempPath, nodeFs, withTmpDir } from "../../../bundler/fs.js";
 import { components } from "@octokit/openapi-types";
 import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
-import ProgressBar from "progress";
+import type { ProgressBarInstance } from "../../../vendor/progress/index.js";
 import path from "path";
 
 async function makeExecutable(p: string) {
@@ -325,7 +325,7 @@ async function downloadZipFile(
     response.headers.get("content-length") ?? "",
     10,
   );
-  let progressBar: ProgressBar | null = null;
+  let progressBar: ProgressBarInstance | null = null;
   if (!isNaN(contentLength) && contentLength !== 0 && process.stdout.isTTY) {
     progressBar = startLogProgress(
       `Downloading ${nameForLogging} [:bar] :percent :etas`,

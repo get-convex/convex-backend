@@ -8,3 +8,4 @@ management-openapi.json
 log-stream-openapi.json
 src/cli/generatedApi.ts
 src/cli/lib/generatedLogStreamApi.ts
+src/vendor

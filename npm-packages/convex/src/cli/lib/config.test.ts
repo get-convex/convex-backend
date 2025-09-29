@@ -2,7 +2,7 @@ import { vi, test, expect } from "vitest";
 import { parseProjectConfig } from "./config.js";
 import { oneoffContext } from "../../bundler/context.js";
 import { logFailure } from "../../bundler/log.js";
-import stripAnsi from "strip-ansi";
+import { stripVTControlCharacters } from "util";
 
 test("parseProjectConfig", async () => {
   // Make a context that throws on crashes so we can detect them.
@@ -30,7 +30,7 @@ test("parseProjectConfig", async () => {
   const assertParseError = async (inp: any, err: string) => {
     await expect(parseProjectConfig(ctx, inp)).rejects.toThrow();
     const calledWith = stderrSpy.mock.calls as string[][];
-    expect(stripAnsi(calledWith[0][0])).toEqual(err);
+    expect(stripVTControlCharacters(calledWith[0][0])).toEqual(err);
   };
 
   await assertParses({
