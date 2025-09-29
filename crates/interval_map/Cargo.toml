@@ -12,8 +12,14 @@ slab = { workspace = true }
 [dev-dependencies]
 cmd_util = { workspace = true }
 common = { workspace = true, features = ["testing"] }
+divan = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
+tikv-jemallocator = { workspace = true }
+
+[[bench]]
+name = "bench"
+harness = false
 
 [lints]
 workspace = true

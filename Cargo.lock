@@ -4716,10 +4716,12 @@ version = "0.1.0"
 dependencies = [
  "cmd_util",
  "common",
+ "divan",
  "fastrand",
  "proptest",
  "proptest-derive",
  "slab",
+ "tikv-jemallocator",
 ]
 
 [[package]]
