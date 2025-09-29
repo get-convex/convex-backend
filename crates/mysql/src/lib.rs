@@ -177,7 +177,6 @@ pub enum ConnectError {
 pub struct MySqlOptions {
     pub allow_read_only: bool,
     pub version: PersistenceVersion,
-    pub use_prepared_statements: bool,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
 }

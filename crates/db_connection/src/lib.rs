@@ -103,7 +103,6 @@ pub async fn connect_persistence<RT: Runtime>(
                     let options = MySqlOptions {
                         allow_read_only: flags.allow_read_only,
                         version,
-                        use_prepared_statements: *DATABASE_USE_PREPARED_STATEMENTS,
                         multitenant,
                         instance_name: instance_name.into(),
                     };
@@ -111,7 +110,7 @@ pub async fn connect_persistence<RT: Runtime>(
                         MySqlPersistence::new(
                             Arc::new(ConvexMySqlPool::new(
                                 &url,
-                                options.use_prepared_statements,
+                                *DATABASE_USE_PREPARED_STATEMENTS,
                                 Some(runtime),
                             )?),
                             db_name.clone(),

@@ -58,7 +58,6 @@ run_persistence_test_suite!(
         MySqlOptions {
             allow_read_only: false,
             version: PersistenceVersion::V5,
-            use_prepared_statements: true,
             instance_name: "test".into(),
             multitenant: false,
         },
@@ -75,7 +74,6 @@ run_persistence_test_suite!(
         MySqlOptions {
             allow_read_only: true,
             version: PersistenceVersion::V5,
-            use_prepared_statements: true,
             instance_name: "test".into(),
             multitenant: false,
         },
@@ -99,7 +97,6 @@ mod multitenant {
             MySqlOptions {
                 allow_read_only: false,
                 version: PersistenceVersion::V5,
-                use_prepared_statements: true,
                 instance_name: "test".into(),
                 multitenant: true,
             },
@@ -116,7 +113,6 @@ mod multitenant {
             MySqlOptions {
                 allow_read_only: true,
                 version: PersistenceVersion::V5,
-                use_prepared_statements: true,
                 instance_name: "test".into(),
                 multitenant: true,
             },
@@ -143,7 +139,6 @@ mod raw_statements {
             MySqlOptions {
                 allow_read_only: false,
                 version: PersistenceVersion::V5,
-                use_prepared_statements: false,
                 instance_name: "test".into(),
                 multitenant: false
             },
@@ -160,7 +155,6 @@ mod raw_statements {
             MySqlOptions {
                 allow_read_only: true,
                 version: PersistenceVersion::V5,
-                use_prepared_statements: false,
                 instance_name: "test".into(),
                 multitenant: false
             },
@@ -175,7 +169,6 @@ async fn test_loading_locally() -> anyhow::Result<()> {
     let options = MySqlOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
-        use_prepared_statements: false,
         instance_name: "test".into(),
         multitenant: false,
     };
@@ -183,7 +176,7 @@ async fn test_loading_locally() -> anyhow::Result<()> {
     let persistence = MySqlPersistence::new(
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
-            options.use_prepared_statements,
+            false, /* use_prepared_statements */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -225,7 +218,6 @@ async fn test_writing_locally() -> anyhow::Result<()> {
     let options = MySqlOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
-        use_prepared_statements: false,
         instance_name: "test".into(),
         multitenant: false,
     };
@@ -233,7 +225,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
     let persistence = MySqlPersistence::new(
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
-            options.use_prepared_statements,
+            false, /* use_prepared_statements */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -290,7 +282,6 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     let options = MySqlOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
-        use_prepared_statements: false,
         instance_name: "test".into(),
         multitenant: false,
     };
@@ -298,7 +289,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         MySqlPersistence::new(
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
-                options.use_prepared_statements,
+                false, /* use_prepared_statements */
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name.clone(),
@@ -332,7 +323,6 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     let options = MySqlOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
-        use_prepared_statements: false,
         instance_name: "test".into(),
         multitenant: false,
     };
@@ -340,7 +330,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         MySqlPersistence::new(
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
-                options.use_prepared_statements,
+                false, /* use_prepared_statements */
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name,
@@ -391,7 +381,6 @@ async fn test_table_count() -> anyhow::Result<()> {
     let options = MySqlOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
-        use_prepared_statements: false,
         instance_name: "test".into(),
         multitenant: false,
     };
@@ -399,7 +388,7 @@ async fn test_table_count() -> anyhow::Result<()> {
     let persistence = MySqlPersistence::new(
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
-            options.use_prepared_statements,
+            false, /* use_prepared_statements */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
@@ -422,7 +411,6 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
     let options = MySqlOptions {
         allow_read_only: false,
         version: PersistenceVersion::V5,
-        use_prepared_statements: false,
         instance_name: "test".into(),
         multitenant: false,
     };
@@ -430,7 +418,7 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
     let persistence = MySqlPersistence::new(
         Arc::new(ConvexMySqlPool::new(
             &opts.url.clone(),
-            options.use_prepared_statements,
+            false, /* use_prepared_statements */
             Option::<ProdRuntime>::None,
         )?),
         opts.db_name,
