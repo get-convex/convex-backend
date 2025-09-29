@@ -54,6 +54,7 @@ const ALLOWED_SUFFIXES: &[&str] = &[
     "_requests",
     "_timeouts",
     "_sessions",
+    "_bytes_per_second",
     // Caching units.
     "_hits",
     "_misses",

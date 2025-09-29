@@ -413,6 +413,14 @@ pub fn log_client_transition(partition_id: u64, transition_transit_time: f64, me
             partition_id.to_string(),
         )],
     );
+    log_distribution_with_labels(
+        &SYNC_TRANSITION_BYTES_PER_SECOND,
+        message_length / (transition_transit_time / 1000.0),
+        vec![StaticMetricLabel::new(
+            "partition_id",
+            partition_id.to_string(),
+        )],
+    );
 }
 
 #[derive(Clone, Debug)]
@@ -491,6 +499,11 @@ register_convex_histogram!(
 register_convex_histogram!(
     SYNC_TRANSITION_MESSAGE_LENGTH_BYTES,
     "Length of transition message from client",
+    &["partition_id"]
+);
+register_convex_histogram!(
+    SYNC_TRANSITION_BYTES_PER_SECOND,
+    "Length of transition message over server-to-client transit time, from client",
     &["partition_id"]
 );
 register_convex_histogram!(
