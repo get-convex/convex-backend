@@ -335,7 +335,7 @@ async function _getDeploymentSelection(
    - url + adminKey specified via CLI
    - Do not check any env vars (including ones relevant for auth)
   */
-  if (cliArgs.url && cliArgs.adminKey) {
+  if (cliArgs.url !== undefined && cliArgs.adminKey !== undefined) {
     return {
       kind: "existingDeployment",
       deploymentToActOn: {
@@ -347,7 +347,7 @@ async function _getDeploymentSelection(
     };
   }
 
-  if (cliArgs.envFile) {
+  if (cliArgs.envFile !== undefined) {
     // If an `--env-file` is specified, it must contain enough information for both auth and deployment selection.
     logVerbose(`Checking env file: ${cliArgs.envFile}`);
     const existingFile = ctx.fs.exists(cliArgs.envFile)
