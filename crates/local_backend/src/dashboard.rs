@@ -316,7 +316,7 @@ pub async fn run_test_function(
         req.admin_key.clone(),
     )
     .await?;
-    let args = req.args.into_arg_vec();
+    let args = req.args.into_serialized_args()?.into_args()?;
     let module: ModuleConfig = req.bundle.try_into()?;
     let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;
     let udf_return = st

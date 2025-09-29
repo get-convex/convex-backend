@@ -38,6 +38,7 @@ rand = { workspace = true }
 serde_json = { workspace = true, features = [
     "float_roundtrip",
     "preserve_order",
+    "raw_value",
 ] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

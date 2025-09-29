@@ -44,6 +44,7 @@ use serde::de::DeserializeOwned;
 use serde_json::json;
 use sync_types::{
     headers::ConvexAdminAuthorization,
+    types::SerializedArgs,
     CanonicalizedUdfPath,
 };
 use tower::ServiceExt;
@@ -145,7 +146,7 @@ impl TestLocalBackend {
                     component: ComponentPath::root(),
                     udf_path: path,
                 },
-                vec![json!({})],
+                SerializedArgs::from_args(vec![json!({})])?,
                 FunctionCaller::Test,
                 ExecuteQueryTimestamp::Latest,
                 None,

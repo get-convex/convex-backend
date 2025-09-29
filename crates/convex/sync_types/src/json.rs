@@ -11,6 +11,7 @@ use serde::{
 };
 use serde_json::{
     json,
+    value::RawValue,
     Value as JsonValue,
 };
 
@@ -18,6 +19,7 @@ use crate::{
     types::{
         ClientEvent,
         ErrorPayload,
+        SerializedArgs,
     },
     AuthenticationToken,
     ClientMessage,
@@ -74,7 +76,6 @@ where
 struct QueryJson {
     query_id: QueryId,
     udf_path: String,
-    args: JsonValue,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "double_option")]
@@ -85,8 +86,17 @@ struct QueryJson {
 }
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QuerySetModificationJson {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    args: Option<Box<RawValue>>,
+    #[serde(flatten)]
+    remaining: QuerySetModificationJsonInner,
+}
+
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
-enum QuerySetModificationJson {
+enum QuerySetModificationJsonInner {
     Add(QueryJson),
     #[serde(rename_all = "camelCase")]
     Remove {
@@ -98,22 +108,28 @@ impl TryFrom<QuerySetModification> for JsonValue {
     type Error = anyhow::Error;
 
     fn try_from(m: QuerySetModification) -> Result<Self, Self::Error> {
-        let modification_json = match m {
+        let (modification_json, args) = match m {
             QuerySetModification::Add(q) => {
                 let query_json = QueryJson {
                     query_id: q.query_id,
                     udf_path: String::from(q.udf_path),
-                    args: JsonValue::from(q.args),
                     journal: q.journal,
                     component_path: q.component_path,
                 };
-                QuerySetModificationJson::Add(query_json)
+                (
+                    QuerySetModificationJsonInner::Add(query_json),
+                    Some(q.args.0),
+                )
             },
             QuerySetModification::Remove { query_id } => {
-                QuerySetModificationJson::Remove { query_id }
+                (QuerySetModificationJsonInner::Remove { query_id }, None)
             },
         };
-        Ok(serde_json::to_value(modification_json)?)
+        let outer = QuerySetModificationJson {
+            args,
+            remaining: modification_json,
+        };
+        Ok(serde_json::to_value(outer)?)
     }
 }
 
@@ -121,21 +137,19 @@ impl TryFrom<JsonValue> for QuerySetModification {
     type Error = anyhow::Error;
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let m: QuerySetModificationJson = serde_json::from_value(value)?;
-        let result = match m {
-            QuerySetModificationJson::Add(q) => {
-                let args: Vec<JsonValue> = serde_json::from_value(q.args)?;
-
+        let QuerySetModificationJson { args, remaining } = serde_json::from_value(value)?;
+        let result = match remaining {
+            QuerySetModificationJsonInner::Add(q) => {
                 let query = Query {
                     query_id: q.query_id,
                     udf_path: q.udf_path.parse()?,
-                    args,
+                    args: SerializedArgs(args.unwrap_or_default()),
                     journal: q.journal,
                     component_path: q.component_path,
                 };
                 QuerySetModification::Add(query)
             },
-            QuerySetModificationJson::Remove { query_id } => {
+            QuerySetModificationJsonInner::Remove { query_id } => {
                 QuerySetModification::Remove { query_id }
             },
         };
@@ -158,9 +172,23 @@ enum AuthenticationTokenJson {
     None,
 }
 
+/// Workaround for a serde shortcoming around deserializing into `RawValue`.
+/// Cannot use tagged enums with RawValue inside due to serde abstraction.
+/// Instead, we lift the RawValue outside of the ClientMessageJsonInner - to
+/// allow us to get the RawValue optimization.
+#[derive(Deserialize, Serialize, Debug)]
+struct ClientMessageJson {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    args: Option<Box<RawValue>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modifications: Option<Vec<JsonValue>>,
+    #[serde(flatten)]
+    remaining: ClientMessageJsonInner,
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
-enum ClientMessageJson {
+enum ClientMessageJsonInner {
     #[serde(rename_all = "camelCase")]
     Connect {
         session_id: String,
@@ -179,16 +207,11 @@ enum ClientMessageJson {
         client_ts: Option<i64>,
     },
     #[serde(rename_all = "camelCase")]
-    ModifyQuerySet {
-        base_version: u32,
-        new_version: u32,
-        modifications: Vec<JsonValue>,
-    },
+    ModifyQuerySet { base_version: u32, new_version: u32 },
     #[serde(rename_all = "camelCase")]
     Mutation {
         request_id: u32,
         udf_path: String,
-        args: JsonValue,
         #[serde(skip_serializing_if = "Option::is_none")]
         component_path: Option<String>,
     },
@@ -196,7 +219,6 @@ enum ClientMessageJson {
     Action {
         request_id: u32,
         udf_path: String,
-        args: JsonValue,
         #[serde(skip_serializing_if = "Option::is_none")]
         component_path: Option<String>,
     },
@@ -217,83 +239,122 @@ impl TryFrom<ClientMessage> for JsonValue {
     type Error = anyhow::Error;
 
     fn try_from(m: ClientMessage) -> Result<Self, Self::Error> {
-        let s: ClientMessageJson = match m {
+        let (remaining, args, modifications): (
+            ClientMessageJsonInner,
+            Option<Box<RawValue>>,
+            Option<Vec<JsonValue>>,
+        ) = match m {
             ClientMessage::Connect {
                 session_id,
                 connection_count,
                 last_close_reason,
                 max_observed_timestamp,
                 client_ts,
-            } => ClientMessageJson::Connect {
-                session_id: format!("{}", session_id.as_hyphenated()),
-                connection_count,
-                last_close_reason: Some(last_close_reason),
-                max_observed_timestamp: max_observed_timestamp.map(|ts| u64_to_string(ts.into())),
-                client_ts: client_ts.map(|ts| ts as i64),
-            },
+            } => (
+                ClientMessageJsonInner::Connect {
+                    session_id: format!("{}", session_id.as_hyphenated()),
+                    connection_count,
+                    last_close_reason: Some(last_close_reason),
+                    max_observed_timestamp: max_observed_timestamp
+                        .map(|ts| u64_to_string(ts.into())),
+                    client_ts: client_ts.map(|ts| ts as i64),
+                },
+                None,
+                None,
+            ),
             ClientMessage::ModifyQuerySet {
                 base_version,
                 new_version,
                 modifications,
-            } => ClientMessageJson::ModifyQuerySet {
-                base_version,
-                new_version,
-                modifications: modifications
-                    .into_iter()
-                    .map(JsonValue::try_from)
-                    .collect::<anyhow::Result<Vec<_>>>()?,
-            },
+            } => (
+                ClientMessageJsonInner::ModifyQuerySet {
+                    base_version,
+                    new_version,
+                },
+                None,
+                Some(
+                    modifications
+                        .into_iter()
+                        .map(JsonValue::try_from)
+                        .collect::<anyhow::Result<Vec<_>>>()?,
+                ),
+            ),
             ClientMessage::Mutation {
                 request_id,
                 udf_path,
                 args,
                 component_path,
-            } => ClientMessageJson::Mutation {
-                request_id,
-                udf_path: String::from(udf_path),
-                args: JsonValue::Array(args.into_iter().collect::<Vec<_>>()),
-                component_path,
-            },
+            } => (
+                ClientMessageJsonInner::Mutation {
+                    request_id,
+                    udf_path: String::from(udf_path),
+                    component_path,
+                },
+                Some(args.0),
+                None,
+            ),
             ClientMessage::Action {
                 request_id,
                 udf_path,
                 args,
                 component_path,
-            } => ClientMessageJson::Action {
-                request_id,
-                udf_path: String::from(udf_path),
-                args: JsonValue::Array(args.into_iter().collect::<Vec<_>>()),
-                component_path,
-            },
+            } => (
+                ClientMessageJsonInner::Action {
+                    request_id,
+                    udf_path: String::from(udf_path),
+                    component_path,
+                },
+                Some(args.0),
+                None,
+            ),
             ClientMessage::Authenticate {
                 base_version,
                 token: AuthenticationToken::Admin(value, acting_as),
-            } => ClientMessageJson::Authenticate {
-                base_version,
-                token: AuthenticationTokenJson::Admin {
-                    value,
-                    acting_as: acting_as.map(|a| a.try_into()).transpose()?,
+            } => (
+                ClientMessageJsonInner::Authenticate {
+                    base_version,
+                    token: AuthenticationTokenJson::Admin {
+                        value,
+                        acting_as: acting_as.map(|a| a.try_into()).transpose()?,
+                    },
                 },
-            },
+                None,
+                None,
+            ),
             ClientMessage::Authenticate {
                 base_version,
                 token: AuthenticationToken::User(value),
-            } => ClientMessageJson::Authenticate {
-                base_version,
-                token: AuthenticationTokenJson::User { value },
-            },
+            } => (
+                ClientMessageJsonInner::Authenticate {
+                    base_version,
+                    token: AuthenticationTokenJson::User { value },
+                },
+                None,
+                None,
+            ),
             ClientMessage::Authenticate {
                 base_version,
                 token: AuthenticationToken::None,
-            } => ClientMessageJson::Authenticate {
-                base_version,
-                token: AuthenticationTokenJson::None,
-            },
-            ClientMessage::Event(ClientEvent { event_type, event }) => {
-                ClientMessageJson::Event { event_type, event }
-            },
+            } => (
+                ClientMessageJsonInner::Authenticate {
+                    base_version,
+                    token: AuthenticationTokenJson::None,
+                },
+                None,
+                None,
+            ),
+            ClientMessage::Event(ClientEvent { event_type, event }) => (
+                ClientMessageJsonInner::Event { event_type, event },
+                None,
+                None,
+            ),
         };
-        let result = serde_json::to_value(s)?;
+        let s = ClientMessageJson {
+            args,
+            modifications,
+            remaining,
+        };
+        let result = serde_json::to_value(&s)?;
         Ok(result)
     }
 }
@@ -302,9 +363,13 @@ impl TryFrom<JsonValue> for ClientMessage {
     type Error = anyhow::Error;
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let m: ClientMessageJson = serde_json::from_value(value)?;
-        let result = match m {
-            ClientMessageJson::Connect {
+        let ClientMessageJson {
+            args,
+            modifications,
+            remaining,
+        } = serde_json::from_value(value)?;
+        let result = match remaining {
+            ClientMessageJsonInner::Connect {
                 session_id,
                 connection_count,
                 last_close_reason,
@@ -321,47 +386,39 @@ impl TryFrom<JsonValue> for ClientMessage {
                     .transpose()?,
                 client_ts: client_ts.map(|ts| ts as u64),
             },
-            ClientMessageJson::ModifyQuerySet {
+            ClientMessageJsonInner::ModifyQuerySet {
                 base_version,
                 new_version,
-                modifications,
             } => ClientMessage::ModifyQuerySet {
                 base_version,
                 new_version,
                 modifications: modifications
+                    .context("ModifyQuerySet lacks modifications")?
                     .into_iter()
                     .map(QuerySetModification::try_from)
                     .collect::<anyhow::Result<_>>()?,
             },
-            ClientMessageJson::Mutation {
+            ClientMessageJsonInner::Mutation {
                 request_id,
                 udf_path,
-                args,
                 component_path,
-            } => {
-                let json_args: Vec<JsonValue> = serde_json::from_value(args)?;
-                ClientMessage::Mutation {
-                    request_id,
-                    udf_path: udf_path.parse()?,
-                    args: json_args,
-                    component_path,
-                }
+            } => ClientMessage::Mutation {
+                request_id,
+                udf_path: udf_path.parse()?,
+                args: SerializedArgs(args.context("Mutation lacks args")?),
+                component_path,
             },
-            ClientMessageJson::Action {
+            ClientMessageJsonInner::Action {
                 request_id,
                 udf_path,
-                args,
                 component_path,
-            } => {
-                let json_args: Vec<JsonValue> = serde_json::from_value(args)?;
-                ClientMessage::Action {
-                    request_id,
-                    udf_path: udf_path.parse()?,
-                    args: json_args,
-                    component_path,
-                }
+            } => ClientMessage::Action {
+                request_id,
+                udf_path: udf_path.parse()?,
+                args: SerializedArgs(args.context("Action lacks args")?),
+                component_path,
             },
-            ClientMessageJson::Authenticate {
+            ClientMessageJsonInner::Authenticate {
                 base_version,
                 token,
             } => ClientMessage::Authenticate {
@@ -377,7 +434,7 @@ impl TryFrom<JsonValue> for ClientMessage {
                     AuthenticationTokenJson::None => AuthenticationToken::None,
                 },
             },
-            ClientMessageJson::Event { event_type, event } => {
+            ClientMessageJsonInner::Event { event_type, event } => {
                 ClientMessage::Event(ClientEvent { event_type, event })
             },
         };
@@ -923,9 +980,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Context;
     use proptest::prelude::*;
     use serde_json::{
         json,
+        value::RawValue,
         Value as JsonValue,
     };
 
@@ -934,6 +993,10 @@ mod tests {
         u64_to_string,
     };
     use crate::{
+        json::{
+            ClientMessageJson,
+            ClientMessageJsonInner,
+        },
         testing::assert_roundtrips,
         ClientMessage,
         QueryId,
@@ -1075,5 +1138,22 @@ mod tests {
             client_clock_skew: Some(1),
             server_ts: Some(Timestamp::must(1)),
         });
+    }
+
+    #[test]
+    fn test_empty_array_roundtrips() -> anyhow::Result<()> {
+        let client_message = ClientMessageJson {
+            args: Some(RawValue::from_string("[]".to_string())?),
+            modifications: None,
+            remaining: ClientMessageJsonInner::Mutation {
+                request_id: 0,
+                udf_path: "path".to_string(),
+                component_path: None,
+            },
+        };
+        let json = serde_json::to_string(&client_message)?;
+        let _parsed_json: ClientMessageJson =
+            serde_json::from_str(&json).context("Cant parse back")?;
+        Ok(())
     }
 }

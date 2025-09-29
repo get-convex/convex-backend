@@ -729,3 +729,12 @@ pub fn log_component_get_user_identity(has_user_identity: bool) {
         )],
     );
 }
+
+register_convex_counter!(
+    LEGACY_POSITIONAL_ARGS_TOTAL,
+    "Number of times that legacy positional arguments are used",
+);
+
+pub fn log_legacy_positional_args() {
+    log_counter(&LEGACY_POSITIONAL_ARGS_TOTAL, 1);
+}

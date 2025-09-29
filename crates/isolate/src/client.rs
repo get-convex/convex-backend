@@ -124,7 +124,10 @@ use model::{
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedModulePath;
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedModulePath,
+};
 use tokio::sync::{
     mpsc,
     oneshot,
@@ -229,7 +232,7 @@ pub trait ActionCallbacks: Send + Sync {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
@@ -237,7 +240,7 @@ pub trait ActionCallbacks: Send + Sync {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
@@ -245,7 +248,7 @@ pub trait ActionCallbacks: Send + Sync {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
@@ -286,7 +289,7 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         scheduling_component: ComponentId,
         scheduled_path: CanonicalizedComponentFunctionPath,
-        udf_args: Vec<JsonValue>,
+        udf_args: SerializedArgs,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId>;

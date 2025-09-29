@@ -14,7 +14,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::Value as JsonValue;
+use serde_json::{
+    value::RawValue,
+    Value as JsonValue,
+};
 use strum::AsRefStr;
 use uuid::Uuid;
 
@@ -50,19 +53,19 @@ impl Display for QueryId {
 pub type QuerySetVersion = u32;
 pub type IdentityVersion = u32;
 
-/// This strategy only generates vectors of strings (not arbitrary JSON) but
-/// it's good enough for our tests here.
 #[cfg(any(test, feature = "testing"))]
-fn string_json_args_strategy() -> impl proptest::strategy::Strategy<Value = Vec<JsonValue>> {
-    prop::collection::vec(any::<String>(), 0..2)
-        .prop_map(|v| v.iter().map(|s| JsonValue::String(s.into())).collect())
+fn json_raw_args_strategy() -> impl proptest::strategy::Strategy<Value = Box<RawValue>> {
+    prop::collection::vec(arb_json(), 0..2).prop_map(|args| {
+        serde_json::value::to_raw_value(&args).expect("Failed to convert JSON to RawValue")
+    })
 }
 
 #[cfg(any(test, feature = "testing"))]
 fn custom_claims_strategy() -> impl proptest::strategy::Strategy<Value = BTreeMap<String, String>> {
     prop::collection::btree_map(
         any::<String>(),
-        arb_json().prop_map(|v| serde_json::to_string(&v).unwrap()),
+        arb_json()
+            .prop_map(|v| serde_json::to_string(&v).expect("Failed to convert JSON to String")),
         0..2,
     )
 }
@@ -79,11 +82,7 @@ fn string_json_arg_strategy() -> impl proptest::strategy::Strategy<Value = JsonV
 pub struct Query {
     pub query_id: QueryId,
     pub udf_path: UdfPath,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "string_json_args_strategy()")
-    )]
-    pub args: Vec<JsonValue>,
+    pub args: SerializedArgs,
 
     /// Query journals are only specified on reconnect. Also old clients
     /// (<=0.2.1) don't send them.
@@ -99,6 +98,39 @@ pub struct Query {
 pub enum QuerySetModification {
     Add(Query),
     Remove { query_id: QueryId },
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct SerializedArgs(
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "json_raw_args_strategy()")
+    )]
+    pub Box<RawValue>,
+);
+
+impl PartialEq for SerializedArgs {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.get() == other.0.get()
+    }
+}
+
+impl Eq for SerializedArgs {}
+
+impl SerializedArgs {
+    pub fn from_args(value: Vec<JsonValue>) -> Result<Self, serde_json::Error> {
+        let raw_value = serde_json::value::to_raw_value(&value)?;
+        Ok(Self(raw_value))
+    }
+
+    pub fn from_slice(value: &[u8]) -> Result<Self, serde_json::Error> {
+        Ok(Self(serde_json::from_slice(value)?))
+    }
+
+    pub fn into_args(self) -> anyhow::Result<Vec<JsonValue>> {
+        Ok(serde_json::from_str(self.0.get())?)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, AsRefStr)]
@@ -123,11 +155,7 @@ pub enum ClientMessage {
     Mutation {
         request_id: SessionRequestSeqNumber,
         udf_path: UdfPath,
-        #[cfg_attr(
-            any(test, feature = "testing"),
-            proptest(strategy = "string_json_args_strategy()")
-        )]
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         /// For internal use by Convex dashboard. Only works with admin auth.
         /// Allows calling a mutation within a component directly.
         component_path: Option<String>,
@@ -135,11 +163,7 @@ pub enum ClientMessage {
     Action {
         request_id: SessionRequestSeqNumber,
         udf_path: UdfPath,
-        #[cfg_attr(
-            any(test, feature = "testing"),
-            proptest(strategy = "string_json_args_strategy()")
-        )]
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         /// For internal use by Convex dashboard. Only works with admin auth.
         /// Allows calling an action within a component directly.
         component_path: Option<String>,

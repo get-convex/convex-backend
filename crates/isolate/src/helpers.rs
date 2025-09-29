@@ -18,10 +18,14 @@ use humansize::{
     BINARY,
 };
 use serde::Deserialize;
-use serde_json::Value as JsonValue;
+use serde_json::value::RawValue;
+use sync_types::types::SerializedArgs;
 use value::Size;
 
-use crate::strings;
+use crate::{
+    metrics::log_legacy_positional_args,
+    strings,
+};
 
 // The below methods were taken from `deno_core`
 // https://github.com/denoland/deno_core/blob/main/LICENSE.md - MIT License
@@ -192,22 +196,20 @@ pub fn format_uncaught_error(message: String, name: String) -> String {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-#[serde(untagged)]
-pub enum UdfArgsJson {
-    /// For legacy positional args array
-    PositionalArgs(Vec<JsonValue>),
-    /// For named args
-    NamedArgs(JsonValue),
-}
+pub struct UdfArgsJson(Box<RawValue>);
 
 impl UdfArgsJson {
     /// Map it into our internal representation of positional args.
     /// Modern apps just have a single positional arg with an object.
-    pub fn into_arg_vec(self) -> Vec<JsonValue> {
-        match self {
-            UdfArgsJson::PositionalArgs(args) => args,
-            UdfArgsJson::NamedArgs(obj) => vec![obj],
+    pub fn into_serialized_args(self) -> anyhow::Result<SerializedArgs> {
+        // For legacy positional args array
+        // RawValue from serde is guaranteed to have no leading whitespace.
+        if self.0.get().starts_with("[") {
+            log_legacy_positional_args();
+            return Ok(SerializedArgs(self.0));
         }
+        // For named args - stick it in an array
+        Ok(SerializedArgs(serde_json::value::to_raw_value(&[self.0])?))
     }
 }
 
@@ -228,26 +230,28 @@ pub fn source_map_from_slice(slice: &[u8]) -> Option<sourcemap::SourceMap> {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
-
     use serde_json::json;
+    use sync_types::types::SerializedArgs;
 
     use crate::UdfArgsJson;
 
     #[test]
     fn test_udf_args_json() -> anyhow::Result<()> {
-        let json1: UdfArgsJson = serde_json::from_str(r#"["a", "b", "c"]"#)?;
-        let json2: UdfArgsJson = serde_json::from_str(r#"{"named": "arg"}"#)?;
-        let json3: UdfArgsJson = serde_json::from_str(r#"[{"named": "arg"}]"#)?;
-        assert_matches!(json1, UdfArgsJson::PositionalArgs(_));
-        assert_matches!(json2, UdfArgsJson::NamedArgs(_));
-        assert_matches!(json3, UdfArgsJson::PositionalArgs(_));
+        let json1: UdfArgsJson = serde_json::from_str(r#"["a","b","c"]"#)?;
+        let json2: UdfArgsJson = serde_json::from_str(r#"{"named":"arg"}"#)?;
+        let json3: UdfArgsJson = serde_json::from_str(r#"[{"named":"arg"}]"#)?;
         assert_eq!(
-            json1.into_arg_vec(),
-            vec![json!("a"), json!("b"), json!("c")]
+            json1.into_serialized_args()?,
+            SerializedArgs::from_args(vec![json!("a"), json!("b"), json!("c")])?,
         );
-        assert_eq!(json2.into_arg_vec(), vec![json!({"named": "arg"})]);
-        assert_eq!(json3.into_arg_vec(), vec![json!({"named": "arg"})]);
+        assert_eq!(
+            json2.into_serialized_args()?,
+            SerializedArgs::from_args(vec![json!({"named": "arg"})])?,
+        );
+        assert_eq!(
+            json3.into_serialized_args()?,
+            SerializedArgs::from_args(vec![json!({"named": "arg"})])?,
+        );
         Ok(())
     }
 }

@@ -119,7 +119,10 @@ use storage::{
     LocalDirStorage,
     Storage,
 };
-use sync_types::UdfPath;
+use sync_types::{
+    types::SerializedArgs,
+    UdfPath,
+};
 use tokio::sync::{
     mpsc,
     oneshot,
@@ -1270,10 +1273,10 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&path.udf_path, args)?;
+        let arguments = parse_udf_args(&path.udf_path, args.into_args()?)?;
         let str_name = String::from(path.udf_path);
         let (outcome, _) = self
             .raw_query(&str_name, arguments.into(), identity, None)
@@ -1288,10 +1291,10 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&path.udf_path, args)?;
+        let arguments = parse_udf_args(&path.udf_path, args.into_args()?)?;
         let str_name = String::from(path.udf_path);
         let outcome = self
             .raw_mutation(&str_name, arguments.into(), identity)
@@ -1306,10 +1309,10 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&path.udf_path, args)?;
+        let arguments = parse_udf_args(&path.udf_path, args.into_args()?)?;
         let str_name = String::from(path.udf_path);
         let (outcome, _) = self
             .raw_action(&str_name, arguments.into(), identity)
@@ -1380,14 +1383,14 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
         identity: Identity,
         scheduling_component: ComponentId,
         scheduled_path: CanonicalizedComponentFunctionPath,
-        udf_args: Vec<JsonValue>,
+        udf_args: SerializedArgs,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx: database::Transaction<RT> = self.database.begin(identity).await?;
         let (scheduled_path, udf_args) = validate_schedule_args(
             scheduled_path,
-            udf_args,
+            udf_args.into_args()?,
             scheduled_ts,
             // Scheduling from actions is not transactional and happens at latest
             // timestamp.

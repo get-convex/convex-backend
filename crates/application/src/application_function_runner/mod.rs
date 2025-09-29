@@ -156,7 +156,10 @@ use node_executor::{
 };
 use serde_json::Value as JsonValue;
 use storage::Storage;
-use sync_types::CanonicalizedModulePath;
+use sync_types::{
+    types::SerializedArgs,
+    CanonicalizedModulePath,
+};
 use tokio::sync::mpsc;
 use udf::{
     environment::system_env_vars,
@@ -1904,7 +1907,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let ts = self.database.now_ts_for_reads();
@@ -1912,7 +1915,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .run_query_at_ts(
                 context.request_id,
                 PublicFunctionPath::Component(path),
-                args,
+                args.into_args()?,
                 identity,
                 *ts,
                 None,
@@ -1931,14 +1934,14 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let result = self
             .retry_mutation(
                 context.request_id,
                 PublicFunctionPath::Component(path),
-                args,
+                args.into_args()?,
                 identity,
                 None,
                 FunctionCaller::Action {
@@ -1960,7 +1963,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         &self,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let _tx = self.database.begin(identity.clone()).await?;
@@ -1968,7 +1971,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .run_action(
                 context.request_id,
                 PublicFunctionPath::Component(path),
-                args,
+                args.into_args()?,
                 identity,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
@@ -2079,7 +2082,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         scheduling_component: ComponentId,
         scheduled_path: CanonicalizedComponentFunctionPath,
-        udf_args: Vec<JsonValue>,
+        udf_args: SerializedArgs,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
@@ -2096,7 +2099,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     async move {
                         let (path, udf_args) = validate_schedule_args(
                             path,
-                            args,
+                            args.into_args()?,
                             scheduled_ts,
                             // Scheduling from actions is not transaction and happens at latest
                             // timestamp.

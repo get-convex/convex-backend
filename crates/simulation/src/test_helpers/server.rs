@@ -38,6 +38,7 @@ use sync::{
     SyncWorkerConfig,
 };
 use sync_types::{
+    types::SerializedArgs,
     ClientMessage,
     Timestamp,
     UdfPath,
@@ -210,7 +211,7 @@ impl ServerThread {
                                 RequestId::new(),
                                 Identity::system(),
                                 udf_path.canonicalize().into(),
-                                vec![args.into()],
+                                SerializedArgs::from_args(vec![args.into()])?,
                                 FunctionCaller::Test,
                                 None,
                                 None,

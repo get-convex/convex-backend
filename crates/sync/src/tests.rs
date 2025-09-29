@@ -58,6 +58,7 @@ use must_let::must_let;
 use parking_lot::Mutex;
 use runtime::testing::TestRuntime;
 use sync_types::{
+    types::SerializedArgs,
     AuthenticationToken,
     ClientMessage,
     Query,
@@ -229,7 +230,7 @@ impl<RT: Runtime> TestSyncWorker<RT> {
         self.send(ClientMessage::Mutation {
             request_id,
             udf_path: path.parse()?,
-            args: vec![args.into()],
+            args: SerializedArgs::from_args(vec![args.into()])?,
             component_path: None,
         })?;
 
@@ -290,7 +291,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     let query = Query {
         query_id: QueryId::new(0),
         udf_path: "sync:accountBalance".parse()?,
-        args: vec![assert_obj!("name" => name1.clone()).into()],
+        args: SerializedArgs::from_args(vec![assert_obj!("name" => name1.clone()).into()])?,
         journal: None,
         component_path: None,
     };
@@ -345,7 +346,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     let query = Query {
         query_id: QueryId::new(1),
         udf_path: "sync:accountBalance".parse()?,
-        args: vec![assert_obj!("name" => name2.clone()).into()],
+        args: SerializedArgs::from_args(vec![assert_obj!("name" => name2.clone()).into()])?,
         journal: None,
         component_path: None,
     };
@@ -439,7 +440,7 @@ async fn test_remove_in_progress_query(rt: TestRuntime) -> anyhow::Result<()> {
     let query = Query {
         query_id,
         udf_path: "sync:accountBalance".parse()?,
-        args: vec![assert_obj!("name" => name1.clone()).into()],
+        args: SerializedArgs::from_args(vec![assert_obj!("name" => name1.clone()).into()])?,
         journal: None,
         component_path: None,
     };
@@ -479,14 +480,14 @@ async fn test_query_failure(rt: TestRuntime) -> anyhow::Result<()> {
     let query1 = Query {
         query_id: QueryId::new(0),
         udf_path: "sync:fail".parse()?,
-        args: vec![assert_obj!("i" => ConvexValue::from(0.0)).into()],
+        args: SerializedArgs::from_args(vec![assert_obj!("i" => ConvexValue::from(0.0)).into()])?,
         journal: None,
         component_path: None,
     };
     let query2 = Query {
         query_id: QueryId::new(1),
         udf_path: "sync:fail".parse()?,
-        args: vec![assert_obj!("i" => ConvexValue::from(3.0)).into()],
+        args: SerializedArgs::from_args(vec![assert_obj!("i" => ConvexValue::from(3.0)).into()])?,
         journal: None,
         component_path: None,
     };
@@ -520,7 +521,7 @@ async fn test_query_failure(rt: TestRuntime) -> anyhow::Result<()> {
     let query3: Query = Query {
         query_id: QueryId::new(2),
         udf_path: "sync:succeed".parse()?,
-        args: vec![],
+        args: SerializedArgs::from_args(vec![])?,
         journal: None,
         component_path: None,
     };
@@ -744,7 +745,9 @@ async fn test_value_deduplication_success(rt: TestRuntime) -> anyhow::Result<()>
     let query = Query {
         query_id: QueryId::new(0),
         udf_path: "sync:discardQueryResults".parse()?,
-        args: vec![assert_obj!("throwError" => ConvexValue::from(false)).into()],
+        args: SerializedArgs::from_args(vec![
+            assert_obj!("throwError" => ConvexValue::from(false)).into(),
+        ])?,
         journal: None,
         component_path: None,
     };
@@ -801,7 +804,9 @@ async fn test_value_deduplication_failure(rt: TestRuntime) -> anyhow::Result<()>
     let query = Query {
         query_id: QueryId::new(0),
         udf_path: "sync:discardQueryResults".parse()?,
-        args: vec![assert_obj!("throwError" => ConvexValue::from(true)).into()],
+        args: SerializedArgs::from_args(vec![
+            assert_obj!("throwError" => ConvexValue::from(true)).into(),
+        ])?,
         journal: None,
         component_path: None,
     };

@@ -230,7 +230,7 @@ pub async fn public_function_post(
             request_id,
             identity,
             component_function_path,
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
@@ -320,7 +320,7 @@ pub async fn public_function_post_with_path(
                 component: ComponentPath::root(),
                 udf_path,
             },
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
@@ -381,7 +381,6 @@ pub async fn public_query_get(
     ExtractClientVersion(client_version): ExtractClientVersion,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let export_path = parse_export_path(&req.path)?;
-    let args = req.args.into_arg_vec();
     let journal = None;
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
@@ -398,7 +397,7 @@ pub async fn public_query_get(
             request_id,
             identity,
             export_path,
-            args,
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
             journal,
@@ -452,7 +451,7 @@ pub async fn public_query_post(
             request_id,
             identity,
             udf_path,
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
             journal,
@@ -526,7 +525,7 @@ pub async fn public_query_at_ts_post(
             request_id,
             identity,
             export_path,
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::At(ts),
             journal,
@@ -590,7 +589,7 @@ pub async fn public_query_batch_post(
                 request_id.clone(),
                 identity.clone(),
                 export_path,
-                req.args.into_arg_vec(),
+                req.args.into_serialized_args()?,
                 FunctionCaller::HttpApi(client_version.clone()),
                 ExecuteQueryTimestamp::At(*ts),
                 None,
@@ -648,7 +647,7 @@ pub async fn public_mutation_post(
             request_id,
             identity,
             export_path,
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
             None,
             None,
@@ -706,7 +705,7 @@ pub async fn public_action_post(
             request_id,
             identity,
             export_path,
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;

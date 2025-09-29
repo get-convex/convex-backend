@@ -13,6 +13,7 @@ use std::{
 };
 
 use convex_sync_types::{
+    types::SerializedArgs,
     AuthenticationToken,
     CanonicalizedUdfPath,
     ClientMessage,
@@ -139,7 +140,8 @@ impl LocalSyncState {
         let add = QuerySetModification::Add(convex_sync_types::Query {
             query_id,
             udf_path,
-            args: vec![Value::Object(args.clone()).into()],
+            args: SerializedArgs::from_args(vec![Value::Object(args.clone()).into()])
+                .expect("Could not serialize query arguments"),
             journal: None,
             component_path: None,
         });
@@ -239,7 +241,10 @@ impl LocalSyncState {
             let add = QuerySetModification::Add(convex_sync_types::Query {
                 query_id: local_query.id,
                 udf_path: local_query.canonicalized_udf_path.clone().into(),
-                args: vec![Value::Object(local_query.args.clone()).into()],
+                args: SerializedArgs::from_args(vec![
+                    Value::Object(local_query.args.clone()).into()
+                ])
+                .expect("Could not serialize query arguments"),
                 journal: None,
                 component_path: None,
             });
@@ -523,7 +528,8 @@ impl BaseConvexClient {
         let message = ClientMessage::Mutation {
             request_id,
             udf_path,
-            args: vec![Value::Object(args).into()],
+            args: SerializedArgs::from_args(vec![Value::Object(args).into()])
+                .expect("Failed to serialize arguments"),
             component_path: None,
         };
 
@@ -552,7 +558,7 @@ impl BaseConvexClient {
         let message = ClientMessage::Action {
             request_id,
             udf_path,
-            args: vec![Value::Object(args).into()],
+            args: SerializedArgs::from_args(vec![Value::Object(args).into()]).unwrap(),
             component_path: None,
         };
 

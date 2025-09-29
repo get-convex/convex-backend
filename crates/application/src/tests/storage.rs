@@ -24,6 +24,7 @@ use model::{
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::json;
+use sync_types::types::SerializedArgs;
 use value::ConvexValue;
 
 use crate::{
@@ -105,7 +106,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
                 component: ComponentPath::root(),
                 udf_path: "storage:getFileUrl".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
             ts.clone(),
             None,
@@ -123,7 +124,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
                 component: ComponentPath::root(),
                 udf_path: "storage:getFileUrlFromAction".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
         )
         .await??;
@@ -151,7 +152,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
                 component: ComponentPath::root(),
                 udf_path: "storage:getFileUrl".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
             ts.clone(),
             None,
@@ -169,7 +170,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
                 component: ComponentPath::root(),
                 udf_path: "storage:getFileUrlFromAction".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
         )
         .await??;
@@ -205,7 +206,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
                 component: ComponentPath::root(),
                 udf_path: "storage:generateUploadUrl".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
             None,
             None,
@@ -224,7 +225,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
                 component: ComponentPath::root(),
                 udf_path: "storage:generateUploadUrlFromAction".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
         )
         .await??;
@@ -252,7 +253,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
                 component: ComponentPath::root(),
                 udf_path: "storage:generateUploadUrl".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
             None,
             None,
@@ -271,7 +272,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
                 component: ComponentPath::root(),
                 udf_path: "storage:generateUploadUrlFromAction".parse()?,
             },
-            args.clone(),
+            SerializedArgs::from_args(args.clone())?,
             caller.clone(),
         )
         .await??;

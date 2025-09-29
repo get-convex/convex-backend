@@ -17,7 +17,7 @@ use crate::helpers::UdfArgsJson;
 pub fn op_validate_args<'b, P: OpProvider<'b>>(
     provider: &mut P,
     validator: JsonValue,
-    args: UdfArgsJson,
+    args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     let JsonValue::String(validator_string) = validator.clone() else {
         return Err(anyhow::anyhow!("export_args result not a string"));
@@ -31,8 +31,10 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
         },
     };
 
+    let args: UdfArgsJson = serde_json::from_value(args)?;
     let args_array = args
-        .into_arg_vec()
+        .into_serialized_args()?
+        .into_args()?
         .into_iter()
         .map(|arg| arg.try_into())
         .collect::<anyhow::Result<Vec<_>>>()

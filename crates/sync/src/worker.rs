@@ -523,9 +523,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let total_args_size = modifications
                     .iter()
                     .filter_map(|m| match m {
-                        QuerySetModification::Add(q) => {
-                            Some(q.args.iter().map(|v| v.heap_size()).sum::<usize>())
-                        },
+                        QuerySetModification::Add(q) => Some(q.args.0.get().len()),
                         QuerySetModification::Remove { .. } => None,
                     })
                     .sum();
@@ -544,7 +542,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 args,
                 component_path,
             } => {
-                log_mutation_args_size(self.partition_id, args.iter().map(|v| v.heap_size()).sum());
+                log_mutation_args_size(self.partition_id, args.0.get().len());
                 let identity = self.state.identity(self.rt.system_time())?;
                 let mutation_identifier =
                     self.state.session_id().map(|id| SessionRequestIdentifier {
@@ -652,7 +650,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 args,
                 component_path,
             } => {
-                log_action_args_size(self.partition_id, args.iter().map(|v| v.heap_size()).sum());
+                log_action_args_size(self.partition_id, args.0.get().len());
                 let identity = self.state.identity(self.rt.system_time())?;
 
                 let api = self.api.clone();

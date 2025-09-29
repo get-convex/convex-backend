@@ -150,7 +150,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     function_path.component.is_root(),
                 ),
                 function_path,
-                args.into_arg_vec(),
+                args.into_serialized_args()?,
                 self.context.clone(),
             )
             .await
@@ -200,7 +200,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     function_path.component.is_root(),
                 ),
                 function_path,
-                args.into_arg_vec(),
+                args.into_serialized_args()?,
                 self.context.clone(),
             )
             .await
@@ -250,7 +250,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     function_path.component.is_root(),
                 ),
                 function_path,
-                args.into_arg_vec(),
+                args.into_serialized_args()?,
                 self.context.clone(),
             )
             .await
@@ -297,7 +297,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.identity.clone(),
                 self.component_id(),
                 path,
-                args.into_arg_vec(),
+                args.into_serialized_args()?,
                 scheduled_ts,
                 self.context.clone(),
             )

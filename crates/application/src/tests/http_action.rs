@@ -21,6 +21,7 @@ use keybroker::Identity;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::json;
+use sync_types::types::SerializedArgs;
 use tokio::{
     select,
     sync::mpsc,
@@ -413,7 +414,7 @@ async fn test_http_action_continues_after_client_disconnects(
                 component: ComponentPath::root(),
                 udf_path: "functions:didWrite".parse()?,
             },
-            vec![json!({})],
+            SerializedArgs::from_args(vec![json!({})])?,
             FunctionCaller::HttpEndpoint,
             ExecuteQueryTimestamp::Latest,
             None,

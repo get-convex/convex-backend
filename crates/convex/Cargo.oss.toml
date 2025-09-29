@@ -30,7 +30,7 @@ parking_lot = { optional = true, version = "0.12", features = [ "hardware-lock-e
 proptest = { optional = true, version = "1" }
 proptest-derive = { optional = true, version = "0.5.0" }
 rand = { version = "0.9" }
-serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1" }
+serde_json = { features = [ "float_roundtrip", "preserve_order", "raw_value" ], version = "1" }
 thiserror = { version = "2" }
 tokio = { features = [ "full" ], version = "1" }
 tokio-stream = { features = [ "io-util", "sync" ], version = "0.1" }

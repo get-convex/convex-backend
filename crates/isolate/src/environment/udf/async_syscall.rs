@@ -941,7 +941,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         let scheduled_ts = with_argument_error("ts", || UnixTimestamp::from_secs_f64(ts))?;
         let (path, udf_args) = provider
-            .validate_schedule_args(path, args.into_arg_vec(), scheduled_ts)
+            .validate_schedule_args(
+                path,
+                args.into_serialized_args()?.into_args()?,
+                scheduled_ts,
+            )
             .await?;
 
         let context = provider.context().clone();

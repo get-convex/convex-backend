@@ -48,8 +48,8 @@ use model::{
     file_storage::FileStorageId,
     session_requests::types::SessionRequestIdentifier,
 };
-use serde_json::Value as JsonValue;
 use sync_types::{
+    types::SerializedArgs,
     AuthenticationToken,
     SerializedQueryJournal,
     Timestamp,
@@ -107,7 +107,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
@@ -122,7 +122,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
@@ -135,7 +135,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -150,7 +150,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         mutation_identifier: Option<SessionRequestIdentifier>,
         // The length of the mutation queue at the time the mutation was executed.
@@ -164,7 +164,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
 
@@ -175,7 +175,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
 
@@ -199,7 +199,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>>;
 
@@ -283,7 +283,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
@@ -299,7 +299,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.read_only_udf_at_ts(
             request_id,
             PublicFunctionPath::RootExport(path),
-            args,
+            args.into_args()?,
             identity,
             ts,
             journal,
@@ -314,7 +314,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
         journal: Option<SerializedQueryJournal>,
@@ -330,7 +330,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.read_only_udf_at_ts(
             request_id,
             PublicFunctionPath::Component(path),
-            args,
+            args.into_args()?,
             identity,
             ts,
             journal,
@@ -345,7 +345,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -358,7 +358,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.mutation_udf(
             request_id,
             PublicFunctionPath::RootExport(path),
-            args,
+            args.into_args()?,
             identity,
             mutation_identifier,
             caller,
@@ -373,7 +373,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
         mutation_identifier: Option<SessionRequestIdentifier>,
         mutation_queue_length: Option<usize>,
@@ -385,7 +385,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.mutation_udf(
             request_id,
             PublicFunctionPath::Component(path),
-            args,
+            args.into_args()?,
             identity,
             mutation_identifier,
             caller,
@@ -400,7 +400,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         anyhow::ensure!(
@@ -410,7 +410,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.action_udf(
             request_id,
             PublicFunctionPath::RootExport(path),
-            args,
+            args.into_args()?,
             identity,
             caller,
         )
@@ -423,7 +423,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         anyhow::ensure!(
@@ -433,7 +433,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         self.action_udf(
             request_id,
             PublicFunctionPath::Component(path),
-            args,
+            args.into_args()?,
             identity,
             caller,
         )
@@ -446,14 +446,15 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
+        args: SerializedArgs,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
         anyhow::ensure!(
             path.component.is_root() || identity.is_admin() || identity.is_system(),
             "Only admin or system users can call functions on non-root components directly"
         );
-        self.any_udf(request_id, path, args, identity, caller).await
+        self.any_udf(request_id, path, args.into_args()?, identity, caller)
+            .await
     }
 
     async fn latest_timestamp(

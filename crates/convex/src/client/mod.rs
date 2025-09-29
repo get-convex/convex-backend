@@ -449,6 +449,7 @@ pub mod tests {
     };
 
     use convex_sync_types::{
+        types::SerializedArgs,
         AuthenticationToken,
         ClientMessage,
         LogLinesMessage,
@@ -587,7 +588,7 @@ pub mod tests {
             vec![ClientMessage::Mutation {
                 request_id: 0,
                 udf_path: UdfPath::from_str("incrementCounter")?,
-                args: vec![json!({})],
+                args: SerializedArgs::from_args(vec![json!({})])?,
                 component_path: None,
             }]
         );
@@ -641,7 +642,7 @@ pub mod tests {
             vec![ClientMessage::Action {
                 request_id: 0,
                 udf_path: UdfPath::from_str("runAction:hello")?,
-                args: vec![json!({})],
+                args: SerializedArgs::from_args(vec![json!({})])?,
                 component_path: None,
             }]
         );
@@ -730,7 +731,7 @@ pub mod tests {
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id,
                         udf_path: "getValue1".parse()?,
-                        args: vec![json!({})],
+                        args: SerializedArgs::from_args(vec![json!({})])?,
                         journal: None,
                         component_path: None,
                     })]
@@ -898,7 +899,7 @@ pub mod tests {
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id: subscription1.query_id(),
                         udf_path: "getValue1".parse()?,
-                        args: vec![json!({})],
+                        args: SerializedArgs::from_args(vec![json!({})])?,
                         journal: None,
                         component_path: None,
                     })]
@@ -909,7 +910,7 @@ pub mod tests {
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id: subscription2.query_id(),
                         udf_path: "getValue2".parse()?,
-                        args: vec![json!({})],
+                        args: SerializedArgs::from_args(vec![json!({})])?,
                         journal: None,
                         component_path: None,
                     })]
@@ -920,7 +921,7 @@ pub mod tests {
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id: subscription3.query_id(),
                         udf_path: "getValue2".parse()?,
-                        args: vec![json!({"hello": "world"})],
+                        args: SerializedArgs::from_args(vec![json!({"hello": "world"})])?,
                         journal: None,
                         component_path: None,
                     })]
@@ -959,7 +960,7 @@ pub mod tests {
                     modifications: vec![QuerySetModification::Add(Query {
                         query_id,
                         udf_path: "getValue".parse()?,
-                        args: vec![json!({})],
+                        args: SerializedArgs::from_args(vec![json!({})])?,
                         journal: None,
                         component_path: None,
                     })]

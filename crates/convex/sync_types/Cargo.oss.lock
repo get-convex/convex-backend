@@ -83,6 +83,7 @@ version = "0.10.0"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
+ "bytes",
  "derive_more",
  "headers",
  "pretty_assertions",
@@ -561,9 +562,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.132"
+version = "1.0.143"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
+checksum = "d401abef1d108fbd9cbaebc3e46611f4b1021f714a0597a71f41ee463f5f4a5a"
 dependencies = [
  "indexmap",
  "itoa",

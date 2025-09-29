@@ -1290,6 +1290,12 @@ pub static USHER_BACKEND_CLIENTS_CACHE_SIZE: LazyLock<u64> =
 pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
     LazyLock::new(|| env_config("USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL", 500));
 
+/// Like FUNCTION_MAX_ARGS_SIZE - but while still serialized as JSON. Needs to
+/// be larger. Also needs to fit within the GRPC limits we configure with
+/// MAX_BACKEND_RPC_REQUEST_SIZE,
+pub static USHER_MAX_JSON_ARGS_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("USHER_MAX_JSON_ARGS_SIZE", 30 * 1024 * 1024)); // 30MB
+
 /// Batch size for migration that rewrites virtual tables.
 pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MIGRATION_REWRITE_BATCH_SIZE", 100));

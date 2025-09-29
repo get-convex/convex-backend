@@ -122,7 +122,7 @@ pub async fn internal_query_post(
         .read_only_udf(
             context.request_id,
             PublicFunctionPath::Component(path),
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?.into_args()?,
             identity,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
@@ -177,7 +177,7 @@ pub async fn internal_mutation_post(
         .mutation_udf(
             context.request_id,
             PublicFunctionPath::Component(path),
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?.into_args()?,
             identity,
             None,
             FunctionCaller::Action {
@@ -237,7 +237,7 @@ pub async fn internal_action_post(
         .action_udf(
             context.request_id,
             PublicFunctionPath::Component(path),
-            req.args.into_arg_vec(),
+            req.args.into_serialized_args()?.into_args()?,
             identity,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
@@ -307,7 +307,7 @@ pub async fn schedule_job(
         .map_err(|e| {
             anyhow::anyhow!(ErrorMetadata::bad_request("InvalidUdfPath", e.to_string()))
         })?;
-    let udf_args = req.udf_args.into_arg_vec();
+    let udf_args = req.udf_args.into_serialized_args()?;
     let job_id = st
         .application
         .runner()
