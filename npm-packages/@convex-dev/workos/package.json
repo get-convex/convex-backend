@@ -4,7 +4,7 @@
   "description": "Helper for authenticating a Convex client via WorkOS AuthKit",
   "type": "module",
   "scripts": {
-    "build": "zshy",
+    "build": "node version-check.mjs && zshy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "zshy",
+    "build": "node version-check.mjs && zshy",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"

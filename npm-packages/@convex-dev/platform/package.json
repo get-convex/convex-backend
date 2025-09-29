@@ -5,7 +5,7 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "build": "npm run generateApiSpec && zshy",
+    "build": "npm run generateApiSpec && node version-check.mjs && zshy",
     "prepack": "node -e \"if (process.env.npm_config_user_agent && !process.env.npm_config_user_agent.startsWith('pnpm')) { console.error('❌ Use pnpm publish instead of npm publish'); process.exit(1); }\"",
     "test": "echo 0",
     "typecheck": "tsc --noEmit",
