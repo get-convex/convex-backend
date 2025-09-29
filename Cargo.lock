@@ -5858,9 +5858,8 @@ dependencies = [
 
 [[package]]
 name = "mysql_async"
-version = "0.36.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20d0d6385c37d331a4502565a1be2a06b23d4ada08ee5177c6374272cd8980a6"
+version = "0.36.1"
+source = "git+https://github.com/goffrie/mysql_async?rev=90ff86d613d8c466baa4da7b0c49c148bc14a019#90ff86d613d8c466baa4da7b0c49c148bc14a019"
 dependencies = [
  "bytes",
  "crossbeam-queue",
@@ -5890,9 +5889,9 @@ dependencies = [
 
 [[package]]
 name = "mysql_common"
-version = "0.35.3"
+version = "0.35.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4351dce0b6634a60d6f1f40fae5cfcfe0f6c6a4a1e87e8da7babe4c37c522460"
+checksum = "fbb9f371618ce723f095c61fbcdc36e8936956d2b62832f9c7648689b338e052"
 dependencies = [
  "base64 0.22.1",
  "bitflags 2.9.1",
