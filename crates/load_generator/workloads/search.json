@@ -5,19 +5,19 @@
       "name": "RunFunction",
       "path": "update",
       "fn_type": "mutation",
-      "rate": 5
+      "rate": 10
     },
     {
       "name": "RunFunction",
       "path": "insert:insertMessageWithSearch",
       "fn_type": "mutation",
-      "rate": 6
+      "benchmark": 50
     },
     {
       "name": "RunFunction",
       "path": "search:deleteMessageWithSearch",
       "fn_type": "mutation",
-      "rate": 1
+      "rate": 5
     },
     {
       "name": "Search",
