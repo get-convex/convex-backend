@@ -41,6 +41,7 @@ export { type AuthTokenFetcher } from "./authentication_manager.js";
 import { getMarksReport, mark, MarkName } from "./metrics.js";
 import { parseArgs, validateDeploymentUrl } from "../../common/index.js";
 import { ConvexError } from "../../values/errors.js";
+import { jwtDecode } from "../../vendor/jwt-decode/index.js";
 
 /**
  * Options for {@link BaseConvexClient}.
@@ -614,6 +615,26 @@ export class BaseConvexClient {
     const id = this._transitionHandlerCounter++;
     this._onTransitionFns.set(id, fn);
     return () => this._onTransitionFns.delete(id);
+  }
+
+  /**
+   * Get the current JWT auth token and decoded claims.
+   */
+  getCurrentAuthClaims():
+    | { token: string; decoded: Record<string, any> }
+    | undefined {
+    const authToken = this.state.getAuth();
+    let decoded: Record<string, any> = {};
+    if (authToken && authToken.tokenType === "User") {
+      try {
+        decoded = authToken ? jwtDecode(authToken.value) : {};
+      } catch {
+        decoded = {};
+      }
+    } else {
+      return undefined;
+    }
+    return { token: authToken.value, decoded };
   }
 
   /**

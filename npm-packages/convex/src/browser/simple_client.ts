@@ -255,6 +255,14 @@ export class ConvexClient {
   }
 
   /**
+   * Get the current JWT auth token and decoded claims.
+   */
+  getAuth(): { token: string; decoded: Record<string, any> } | undefined {
+    if (this.disabled) return;
+    return this.client.getCurrentAuthClaims();
+  }
+
+  /**
    * Set the authentication token to be used for subsequent queries and mutations.
    * `fetchToken` will be called automatically again if a token expires.
    * `fetchToken` should return `null` if the token cannot be retrieved, for example

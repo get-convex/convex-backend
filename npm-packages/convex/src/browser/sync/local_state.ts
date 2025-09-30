@@ -27,23 +27,24 @@ type LocalQuery = {
   componentPath?: string | undefined;
 };
 
+export type AuthState =
+  | {
+      tokenType: "User";
+      value: string;
+    }
+  | {
+      tokenType: "Admin";
+      value: string;
+      impersonating?: UserIdentityAttributes | undefined;
+    };
+
 export class LocalSyncState {
   private nextQueryId: QueryId;
   private querySetVersion: QuerySetVersion;
   private readonly querySet: Map<QueryToken, LocalQuery>;
   private readonly queryIdToToken: Map<QueryId, QueryToken>;
   private identityVersion: IdentityVersion;
-  private auth:
-    | {
-        tokenType: "User";
-        value: string;
-      }
-    | {
-        tokenType: "Admin";
-        value: string;
-        impersonating?: UserIdentityAttributes | undefined;
-      }
-    | undefined;
+  private auth: AuthState | undefined;
   private readonly outstandingQueriesOlderThanRestart: Set<QueryId>;
   private outstandingAuthOlderThanRestart: boolean;
   private paused: boolean;
@@ -182,6 +183,10 @@ export class LocalSyncState {
 
   isCurrentOrNewerAuthVersion(version: IdentityVersion): boolean {
     return version >= this.identityVersion;
+  }
+
+  getAuth(): AuthState | undefined {
+    return this.auth;
   }
 
   setAuth(value: string): Authenticate {
