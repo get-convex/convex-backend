@@ -34,6 +34,7 @@ imbl_slab = { path = "crates/imbl_slab" }
 indexing = { path = "crates/indexing" }
 interval_map = { path = "crates/interval_map" }
 isolate = { path = "crates/isolate" }
+json_trait = { path = "crates/json_trait" }
 keybroker = { path = "crates/keybroker" }
 log_interleaver = { path = "crates/log_interleaver" }
 log_streaming = { path = "crates/log_streaming" }

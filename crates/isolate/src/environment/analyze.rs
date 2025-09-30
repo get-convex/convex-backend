@@ -15,7 +15,7 @@ use anyhow::{
 };
 use common::{
     errors::JsError,
-    json::JsonSerializable as _,
+    json::JsonForm as _,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         ISOLATE_ANALYZE_USER_TIMEOUT,

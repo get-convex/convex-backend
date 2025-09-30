@@ -1,5 +1,5 @@
 use common::{
-    json::JsonSerializable as _,
+    json::JsonForm as _,
     schemas::DatabaseSchema,
 };
 use serde::{

@@ -12,7 +12,7 @@ use value::{
 
 use crate::{
     db_schema_with_indexes,
-    json::JsonSerializable,
+    json::JsonDeserializable,
     object_validator,
     schemas::{
         json::DatabaseSchemaJson,

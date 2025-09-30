@@ -288,7 +288,7 @@ mod tests {
         assert_obj,
         execution_context::ExecutionContext,
         fastrace_helpers::EncodedSpan,
-        json::JsonSerializable,
+        json::JsonForm as _,
         log_lines::{
             run_function_and_collect_log_lines,
             LogLines,

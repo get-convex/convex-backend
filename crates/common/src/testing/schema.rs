@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use errors::ErrorMetadata;
 use itertools::Itertools;
+use json_trait::JsonForm as _;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -13,7 +14,6 @@ use crate::{
         MAX_TEXT_INDEX_FILTER_FIELDS_SIZE,
         MAX_VECTOR_INDEX_FILTER_FIELDS_SIZE,
     },
-    json::JsonSerializable,
     schemas::{
         DatabaseSchema,
         MAX_INDEXES_PER_TABLE,

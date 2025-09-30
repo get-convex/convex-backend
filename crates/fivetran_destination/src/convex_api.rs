@@ -11,7 +11,7 @@ use chrono::{
     Utc,
 };
 use common::{
-    json::JsonSerializable,
+    json::JsonForm as _,
     schemas::{
         DatabaseSchema,
         TableDefinition,

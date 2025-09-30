@@ -9,7 +9,7 @@ use std::{
 use async_lru::async_lru::SizedValue;
 use common::{
     http::RoutedHttpPath,
-    json::JsonSerializable,
+    json::JsonForm as _,
     types::{
         HttpActionRoute,
         RoutableMethod,

@@ -4,6 +4,7 @@ use std::{
     str::FromStr,
 };
 
+use json_trait::JsonForm as _;
 use serde::{
     Deserialize,
     Serialize,
@@ -23,7 +24,6 @@ use crate::{
         ComponentName,
         Reference,
     },
-    json::JsonSerializable as _,
     schemas::validator::Validator,
 };
 

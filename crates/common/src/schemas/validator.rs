@@ -1112,6 +1112,7 @@ mod tests {
 
     use cmd_util::env::env_config;
     use errors::ErrorMetadataAnyhowExt;
+    use json_trait::JsonForm as _;
     use maplit::{
         btreemap,
         btreeset,
@@ -1146,7 +1147,6 @@ mod tests {
 
     use super::Validator;
     use crate::{
-        json::JsonSerializable as _,
         schemas::{
             validator::{
                 FieldValidator,

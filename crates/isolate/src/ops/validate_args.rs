@@ -1,5 +1,5 @@
 use anyhow::Context;
-use common::json::JsonSerializable as _;
+use common::json::JsonForm as _;
 use model::{
     modules::function_validators::ArgsValidator,
     virtual_system_mapping,

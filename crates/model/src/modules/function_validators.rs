@@ -1,6 +1,6 @@
 use common::{
     errors::JsError,
-    json::JsonSerializable,
+    json::JsonForm,
     schemas::validator::{
         ObjectValidator,
         Validator,
@@ -85,9 +85,9 @@ impl ArgsValidator {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ArgsValidatorJson(<Validator as JsonSerializable>::Json);
+pub struct ArgsValidatorJson(<Validator as JsonForm>::Json);
 
-impl JsonSerializable for ArgsValidator {
+impl JsonForm for ArgsValidator {
     type Json = ArgsValidatorJson;
 }
 
@@ -163,9 +163,9 @@ impl ReturnsValidator {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ReturnsValidatorJson(Option<<Validator as JsonSerializable>::Json>);
+pub struct ReturnsValidatorJson(Option<<Validator as JsonForm>::Json>);
 
-impl JsonSerializable for ReturnsValidator {
+impl JsonForm for ReturnsValidator {
     type Json = ReturnsValidatorJson;
 }
 

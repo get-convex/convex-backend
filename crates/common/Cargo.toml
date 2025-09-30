@@ -62,6 +62,7 @@ hyper = { workspace = true }
 hyper-util = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
+json_trait = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 mime = { workspace = true }

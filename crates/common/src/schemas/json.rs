@@ -11,6 +11,7 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use itertools::Itertools;
+use json_trait::JsonForm;
 use serde::{
     Deserialize,
     Serialize,
@@ -45,7 +46,6 @@ use crate::{
         },
         vector_index::VectorDimensions,
     },
-    json::JsonSerializable,
     schemas::{
         invalid_top_level_type_in_schema,
         TableDefinition,
@@ -65,7 +65,7 @@ pub struct DatabaseSchemaJson {
     schema_validation: Option<bool>,
 }
 
-impl JsonSerializable for DatabaseSchema {
+impl JsonForm for DatabaseSchema {
     type Json = DatabaseSchemaJson;
 }
 
@@ -124,7 +124,7 @@ pub struct TableDefinitionJson {
     document_type: Option<ValidatorJson>,
 }
 
-impl JsonSerializable for TableDefinition {
+impl JsonForm for TableDefinition {
     type Json = TableDefinitionJson;
 }
 
@@ -371,7 +371,7 @@ pub struct IndexSchemaJson {
     fields: Vec<String>,
 }
 
-impl JsonSerializable for IndexSchema {
+impl JsonForm for IndexSchema {
     type Json = IndexSchemaJson;
 }
 
@@ -429,7 +429,7 @@ pub struct VectorIndexSchemaJson {
     filter_fields: Vec<String>,
 }
 
-impl JsonSerializable for VectorIndexSchema {
+impl JsonForm for VectorIndexSchema {
     type Json = VectorIndexSchemaJson;
 }
 
@@ -495,7 +495,7 @@ pub struct TextIndexSchemaJson {
     filter_fields: BTreeSet<String>,
 }
 
-impl JsonSerializable for TextIndexSchema {
+impl JsonForm for TextIndexSchema {
     type Json = TextIndexSchemaJson;
 }
 
@@ -605,7 +605,7 @@ pub struct FieldTypeJson {
     optional: bool,
 }
 
-impl JsonSerializable for FieldValidator {
+impl JsonForm for FieldValidator {
     type Json = FieldTypeJson;
 }
 
@@ -671,7 +671,7 @@ pub enum ValidatorJson {
     },
 }
 
-impl JsonSerializable for Validator {
+impl JsonForm for Validator {
     type Json = ValidatorJson;
 }
 

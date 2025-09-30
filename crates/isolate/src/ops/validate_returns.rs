@@ -1,5 +1,5 @@
 use anyhow::Context;
-use common::json::JsonSerializable as _;
+use common::json::JsonForm as _;
 use model::{
     modules::function_validators::ReturnsValidator,
     virtual_system_mapping,
@@ -18,7 +18,7 @@ pub fn op_validate_returns<'b, P: OpProvider<'b>>(
     validator: JsonValue,
     function_result: JsonValue,
 ) -> anyhow::Result<JsonValue> {
-    let JsonValue::String(validator_string) = validator.clone() else {
+    let JsonValue::String(validator_string) = validator else {
         return Err(anyhow::anyhow!("export_args result not a string"));
     };
 
