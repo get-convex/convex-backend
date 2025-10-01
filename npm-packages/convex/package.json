@@ -309,7 +309,7 @@
     "inquirer-search-list": "~1.2.6",
     "jsdom": "~26.1.0",
     "json5": "~2.2.3",
-    "knip": "~5.62.0",
+    "knip": "~5.63.0",
     "napi-wasm": "1.1.3",
     "open": "^8.3.0",
     "openapi-fetch": "~0.14.0",
