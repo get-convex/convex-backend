@@ -39,11 +39,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  const refreshAuth = useCallback(async () => {
-    setIsLoading(true);
-    await fetchSession();
-  }, [fetchSession]);
-
   useEffect(() => {
     void fetchSession();
   }, [fetchSession]);
@@ -59,9 +54,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isAuthenticated: !!session,
       isLoading,
       error,
-      refreshAuth,
     }),
-    [user, session, isLoading, error, refreshAuth],
+    [user, session, isLoading, error],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

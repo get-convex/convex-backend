@@ -6,7 +6,6 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: Error | null;
-  refreshAuth: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
