@@ -1,10 +1,8 @@
 use cmd_util::env::env_config;
+use json_trait::JsonForm;
 use proptest::prelude::*;
 use serde_json::Value as JsonValue;
-use value::{
-    testing::assert_roundtrips,
-    ConvexValue,
-};
+use value::ConvexValue;
 
 use super::Shape;
 use crate::{
@@ -249,8 +247,11 @@ proptest! {
 
     #[test]
     fn proptest_json_roundtrips(
-        t in any::<CountedShape<TestConfig>>()
+        left in any::<CountedShape<TestConfig>>()
     ) {
-        assert_roundtrips::<CountedShape<TestConfig>, JsonValue>(t)
+        let right =
+            CountedShape::<TestConfig>::json_deserialize_value(JsonValue::from(&left))
+                .unwrap();
+        assert_eq!(left, right);
     }
 }

@@ -15,6 +15,7 @@ testing = ["proptest", "value/testing"]
 anyhow = { workspace = true }
 base64 = { workspace = true }
 itertools = { workspace = true }
+json_trait = { workspace = true }
 maplit = { workspace = true }
 proptest = { workspace = true, optional = true }
 serde = { workspace = true }

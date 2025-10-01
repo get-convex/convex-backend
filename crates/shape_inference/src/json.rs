@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use json_trait::JsonForm;
 use serde::Deserialize;
 use serde_json::{
     json,
@@ -31,93 +32,100 @@ use crate::{
     UnionBuilder,
 };
 
-impl<C: ShapeConfig> TryFrom<JsonValue> for CountedShape<C> {
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ShapeJson {
+    num_values: u64,
+    variant: Box<ShapeEnumJson>,
+}
+
+impl<C: ShapeConfig> JsonForm for CountedShape<C> {
+    type Json = ShapeJson;
+}
+
+impl<C: ShapeConfig> TryFrom<ShapeJson> for CountedShape<C> {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct ShapeJson {
-            num_values: u64,
-            variant: JsonValue,
-        }
-        let shape: ShapeJson = serde_json::from_value(value)?;
+    fn try_from(shape: ShapeJson) -> Result<Self, Self::Error> {
         Ok(Shape {
             num_values: shape.num_values,
-            variant: Arc::new(ShapeEnum::try_from(shape.variant)?),
+            variant: Arc::new(ShapeEnum::try_from(*shape.variant)?),
         })
     }
 }
 
-impl<C: ShapeConfig> TryFrom<JsonValue> for CountedShapeEnum<C> {
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldPair {
+    field_name: String,
+    r#type: ObjectFieldJson,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ObjectFieldJson {
+    r#type: ShapeJson,
+    optional: bool,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "kind")]
+pub enum ShapeEnumJson {
+    Never,
+    Null,
+    Int64,
+    Float64,
+    NegativeInf,
+    PositiveInf,
+    NegativeZero,
+    NaN,
+    NormalFloat64,
+    Boolean,
+    StringLiteral {
+        literal: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    Id {
+        table_number: u32,
+    },
+    FieldName,
+    String,
+    Bytes,
+    #[serde(rename_all = "camelCase")]
+    Array {
+        element_type: ShapeJson,
+    },
+    #[serde(rename_all = "camelCase")]
+    Set {
+        element_type: ShapeJson,
+    },
+    #[serde(rename_all = "camelCase")]
+    Map {
+        key_type: ShapeJson,
+        value_type: ShapeJson,
+    },
+    #[serde(rename_all = "camelCase")]
+    Object {
+        fields: Vec<FieldPair>,
+    },
+    #[serde(rename_all = "camelCase")]
+    Record {
+        field_type: ShapeJson,
+        value_type: ShapeJson,
+    },
+    Union {
+        types: Vec<ShapeJson>,
+    },
+    Unknown,
+}
+
+impl<C: ShapeConfig> JsonForm for CountedShapeEnum<C> {
+    type Json = ShapeEnumJson;
+}
+impl<C: ShapeConfig> TryFrom<ShapeEnumJson> for CountedShapeEnum<C> {
     type Error = anyhow::Error;
 
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct FieldPair {
-            field_name: String,
-            r#type: JsonValue,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct ObjectFieldJson {
-            r#type: JsonValue,
-            optional: bool,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(tag = "kind")]
-        enum ShapeEnumJson {
-            Never,
-            Null,
-            Int64,
-            Float64,
-            NegativeInf,
-            PositiveInf,
-            NegativeZero,
-            NaN,
-            NormalFloat64,
-            Boolean,
-            StringLiteral {
-                literal: String,
-            },
-            #[serde(rename_all = "camelCase")]
-            Id {
-                table_number: u32,
-            },
-            FieldName,
-            String,
-            Bytes,
-            #[serde(rename_all = "camelCase")]
-            Array {
-                element_type: JsonValue,
-            },
-            #[serde(rename_all = "camelCase")]
-            Set {
-                element_type: JsonValue,
-            },
-            #[serde(rename_all = "camelCase")]
-            Map {
-                key_type: JsonValue,
-                value_type: JsonValue,
-            },
-            #[serde(rename_all = "camelCase")]
-            Object {
-                fields: Vec<FieldPair>,
-            },
-            #[serde(rename_all = "camelCase")]
-            Record {
-                field_type: JsonValue,
-                value_type: JsonValue,
-            },
-            Union {
-                types: Vec<JsonValue>,
-            },
-            Unknown,
-        }
-        let shape_enum: ShapeEnumJson = serde_json::from_value(value)?;
+    fn try_from(shape_enum: ShapeEnumJson) -> Result<Self, Self::Error> {
         let result = match shape_enum {
             ShapeEnumJson::Never => ShapeEnum::Never,
             ShapeEnumJson::Null => ShapeEnum::Null,
@@ -158,10 +166,9 @@ impl<C: ShapeConfig> TryFrom<JsonValue> for CountedShapeEnum<C> {
                     .into_iter()
                     .map(|f| {
                         let field_name = IdentifierFieldName::from_str(&f.field_name)?;
-                        let object_field_json: ObjectFieldJson = serde_json::from_value(f.r#type)?;
                         let object_field = ObjectField {
-                            value_shape: Shape::try_from(object_field_json.r#type)?,
-                            optional: object_field_json.optional,
+                            value_shape: Shape::try_from(f.r#type.r#type)?,
+                            optional: f.r#type.optional,
                         };
                         anyhow::Ok((field_name, object_field))
                     })
@@ -200,13 +207,6 @@ impl<C: ShapeConfig> From<&CountedShape<C>> for JsonValue {
 impl<C: ShapeConfig> From<&CountedShapeEnum<C>> for JsonValue {
     fn from(value: &CountedShapeEnum<C>) -> Self {
         value.to_json(true)
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl<C: ShapeConfig> From<CountedShape<C>> for JsonValue {
-    fn from(value: CountedShape<C>) -> Self {
-        JsonValue::from(&value)
     }
 }
 

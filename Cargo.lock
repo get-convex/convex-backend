@@ -8516,6 +8516,7 @@ dependencies = [
  "cmd_util",
  "convex_sync_types",
  "itertools 0.14.0",
+ "json_trait",
  "maplit",
  "proptest",
  "serde",

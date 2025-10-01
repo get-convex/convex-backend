@@ -6,6 +6,7 @@ use std::{
 };
 
 use common::{
+    json::JsonForm,
     persistence::{
         new_static_repeatable_recent,
         LatestDocument,
@@ -154,7 +155,7 @@ impl TryFrom<JsonValue> for TableSummary {
                 };
                 anyhow::ensure!(total_size >= 0);
                 let inferred_type = match v.remove("inferredTypeWithOptionalFields") {
-                    Some(v) => CountedShape::<ProdConfig>::try_from(v)?,
+                    Some(v) => CountedShape::<ProdConfig>::json_deserialize_value(v)?,
                     None => anyhow::bail!("Missing field inferredTypeWithOptionalFields"),
                 };
                 Ok(TableSummary {
