@@ -188,8 +188,7 @@ pub fn nonempty_shape_strategy<C: ShapeConfig>() -> impl Strategy<Value = Counte
                 let adjusted_fields = fields
                     .into_iter()
                     .map(|(field_name, (value_shape, optional))| {
-                        let is_field_optional =
-                            C::allow_optional_object_fields() && optional && num_values > 1;
+                        let is_field_optional = optional && num_values > 1;
                         let field_num_values = if is_field_optional {
                             cmp::min(num_values - 1, value_shape.num_values)
                         } else {

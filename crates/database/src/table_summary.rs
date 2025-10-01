@@ -52,7 +52,7 @@ use serde_json::{
 };
 use shape_inference::{
     CountedShape,
-    ProdConfigWithOptionalFields,
+    ProdConfig,
     Shape,
     ShapeEnum,
 };
@@ -70,7 +70,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableSummary {
-    inferred_type: CountedShape<ProdConfigWithOptionalFields>,
+    inferred_type: CountedShape<ProdConfig>,
     total_size: u64,
 }
 
@@ -104,7 +104,7 @@ impl TableSummary {
         *self.inferred_type.num_values()
     }
 
-    pub fn inferred_type(&self) -> &CountedShape<ProdConfigWithOptionalFields> {
+    pub fn inferred_type(&self) -> &CountedShape<ProdConfig> {
         &self.inferred_type
     }
 
@@ -154,7 +154,7 @@ impl TryFrom<JsonValue> for TableSummary {
                 };
                 anyhow::ensure!(total_size >= 0);
                 let inferred_type = match v.remove("inferredTypeWithOptionalFields") {
-                    Some(v) => CountedShape::<ProdConfigWithOptionalFields>::try_from(v)?,
+                    Some(v) => CountedShape::<ProdConfig>::try_from(v)?,
                     None => anyhow::bail!("Missing field inferredTypeWithOptionalFields"),
                 };
                 Ok(TableSummary {

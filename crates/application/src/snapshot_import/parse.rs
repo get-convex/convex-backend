@@ -45,7 +45,7 @@ use shape_inference::{
         ExportContext,
         GeneratedSchema,
     },
-    ProdConfigWithOptionalFields,
+    ProdConfig,
     Shape,
     ShapeConfig,
 };
@@ -74,11 +74,7 @@ use crate::snapshot_import::import_error::ImportError;
 pub enum ImportUnit {
     Object(JsonValue),
     NewTable(ComponentPath, TableName),
-    GeneratedSchema(
-        ComponentPath,
-        TableName,
-        GeneratedSchema<ProdConfigWithOptionalFields>,
-    ),
+    GeneratedSchema(ComponentPath, TableName, GeneratedSchema<ProdConfig>),
     StorageFileChunk(DeveloperDocumentId, Bytes),
 }
 

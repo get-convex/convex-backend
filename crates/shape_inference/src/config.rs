@@ -12,8 +12,6 @@ pub trait ShapeConfig: Copy + Clone + Debug + Eq + Ord + PartialEq + PartialOrd 
 
     fn is_valid_string_literal(s: &str) -> bool;
 
-    fn allow_optional_object_fields() -> bool;
-
     #[cfg(any(test, feature = "testing"))]
     fn string_literal_strategy() -> proptest::strategy::BoxedStrategy<String>;
     #[cfg(any(test, feature = "testing"))]
@@ -21,18 +19,14 @@ pub trait ShapeConfig: Copy + Clone + Debug + Eq + Ord + PartialEq + PartialOrd 
 }
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum ProdConfigWithOptionalFields {}
+pub enum ProdConfig {}
 
-impl ShapeConfig for ProdConfigWithOptionalFields {
+impl ShapeConfig for ProdConfig {
     const MAX_OBJECT_FIELDS: usize = 64;
     const MAX_UNION_LENGTH: usize = 16;
 
     fn is_valid_string_literal(s: &str) -> bool {
         is_valid_identifier(s)
-    }
-
-    fn allow_optional_object_fields() -> bool {
-        true
     }
 
     #[cfg(any(test, feature = "testing"))]

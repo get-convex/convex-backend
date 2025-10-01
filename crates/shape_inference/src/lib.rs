@@ -52,7 +52,7 @@ use value::{
 };
 
 pub use self::config::{
-    ProdConfigWithOptionalFields,
+    ProdConfig,
     ShapeConfig,
 };
 use self::{

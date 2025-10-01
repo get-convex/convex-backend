@@ -319,9 +319,6 @@ fn object_candidate<C: ShapeConfig>(
         }
         num_values += types[j].num_values;
     }
-    if !optional_fields.is_empty() && !C::allow_optional_object_fields() {
-        return None;
-    }
     if field_builders.len() > C::MAX_OBJECT_FIELDS {
         return None;
     }

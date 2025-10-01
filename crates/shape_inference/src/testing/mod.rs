@@ -18,10 +18,6 @@ impl ShapeConfig for TestConfig {
         s.len() <= 4 && s.chars().all(|c| c.is_ascii_alphabetic())
     }
 
-    fn allow_optional_object_fields() -> bool {
-        true
-    }
-
     #[cfg(any(test, feature = "testing"))]
     fn string_literal_strategy() -> proptest::strategy::BoxedStrategy<String> {
         "[a-z]{0,4}".prop_map(String::from).boxed()
@@ -42,10 +38,6 @@ impl ShapeConfig for SmallTestConfig {
 
     fn is_valid_string_literal(s: &str) -> bool {
         s.len() <= 4 && s.chars().all(|c| c.is_ascii_alphabetic())
-    }
-
-    fn allow_optional_object_fields() -> bool {
-        true
     }
 
     #[cfg(any(test, feature = "testing"))]

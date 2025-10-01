@@ -90,7 +90,7 @@ use model::{
 use serde_json::Value as JsonValue;
 use shape_inference::{
     export_context::GeneratedSchema,
-    ProdConfigWithOptionalFields,
+    ProdConfig,
 };
 use storage::Storage;
 use sync_types::{
@@ -1047,10 +1047,7 @@ async fn import_single_table<RT: Runtime>(
     identity: &Identity,
     mode: ImportMode,
     mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
-    generated_schemas: &mut BTreeMap<
-        (ComponentPath, TableName),
-        GeneratedSchema<ProdConfigWithOptionalFields>,
-    >,
+    generated_schemas: &mut BTreeMap<(ComponentPath, TableName), GeneratedSchema<ProdConfig>>,
     table_mapping_for_import: &mut TableMappingForImport,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
@@ -1185,11 +1182,9 @@ async fn import_single_table<RT: Runtime>(
             continue;
         }
         let row_number = (num_objects + 1) as usize;
-        let convex_value = GeneratedSchema::<ProdConfigWithOptionalFields>::apply(
-            &mut generated_schema,
-            exported_value,
-        )
-        .map_err(|e| ImportError::InvalidConvexValue(row_number, e))?;
+        let convex_value =
+            GeneratedSchema::<ProdConfig>::apply(&mut generated_schema, exported_value)
+                .map_err(|e| ImportError::InvalidConvexValue(row_number, e))?;
         let ConvexValue::Object(convex_object) = convex_value else {
             anyhow::bail!(ImportError::NotAnObject(row_number));
         };

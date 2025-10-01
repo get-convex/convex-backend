@@ -9,7 +9,7 @@ use std::{
 use serde_json::Value as JsonValue;
 use shape_inference::{
     CountedShape,
-    ProdConfigWithOptionalFields,
+    ProdConfig,
     Shape,
     ShapeConfig,
 };
@@ -25,21 +25,17 @@ impl ShapeConfig for SmallConfig {
     const MAX_UNION_LENGTH: usize = 4;
 
     fn is_valid_string_literal(s: &str) -> bool {
-        ProdConfigWithOptionalFields::is_valid_string_literal(s)
-    }
-
-    fn allow_optional_object_fields() -> bool {
-        ProdConfigWithOptionalFields::allow_optional_object_fields()
+        ProdConfig::is_valid_string_literal(s)
     }
 
     #[cfg(feature = "testing")]
     fn string_literal_strategy() -> proptest::strategy::BoxedStrategy<String> {
-        ProdConfigWithOptionalFields::string_literal_strategy()
+        ProdConfig::string_literal_strategy()
     }
 
     #[cfg(feature = "testing")]
     fn object_field_strategy() -> proptest::strategy::BoxedStrategy<IdentifierFieldName> {
-        ProdConfigWithOptionalFields::object_field_strategy()
+        ProdConfig::object_field_strategy()
     }
 }
 
@@ -89,6 +85,6 @@ fn main() -> anyhow::Result<()> {
     if env::args().nth(1).unwrap_or_default() == "small" {
         repl::<SmallConfig>()
     } else {
-        repl::<ProdConfigWithOptionalFields>()
+        repl::<ProdConfig>()
     }
 }

@@ -158,18 +158,10 @@ impl<C: ShapeConfig> TryFrom<JsonValue> for CountedShapeEnum<C> {
                     .into_iter()
                     .map(|f| {
                         let field_name = IdentifierFieldName::from_str(&f.field_name)?;
-                        let object_field = if C::allow_optional_object_fields() {
-                            let object_field_json: ObjectFieldJson =
-                                serde_json::from_value(f.r#type)?;
-                            ObjectField {
-                                value_shape: Shape::try_from(object_field_json.r#type)?,
-                                optional: object_field_json.optional,
-                            }
-                        } else {
-                            ObjectField {
-                                value_shape: Shape::try_from(f.r#type)?,
-                                optional: false,
-                            }
+                        let object_field_json: ObjectFieldJson = serde_json::from_value(f.r#type)?;
+                        let object_field = ObjectField {
+                            value_shape: Shape::try_from(object_field_json.r#type)?,
+                            optional: object_field_json.optional,
                         };
                         anyhow::Ok((field_name, object_field))
                     })
@@ -266,14 +258,10 @@ impl<C: ShapeConfig> CountedShapeEnum<C> {
                 let field_json = object_shape
                     .iter()
                     .map(|(field_name, field)| {
-                        let shape_json = if C::allow_optional_object_fields() {
-                            json!({
-                                "type": field.value_shape.to_json(include_pii),
-                                "optional": field.optional
-                            })
-                        } else {
-                            field.value_shape.to_json(include_pii)
-                        };
+                        let shape_json = json!({
+                            "type": field.value_shape.to_json(include_pii),
+                            "optional": field.optional
+                        });
                         json!({
                             "fieldName": String::from(field_name.clone()),
                             "type": shape_json
