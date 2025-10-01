@@ -67,7 +67,7 @@
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
-    "@eslint/js": "~9.32.0",
+    "@eslint/js": "~9.34.0",
     "@types/node": "^18.17.0",
     "prettier": "3.6.2",
     "typescript": "~5.0.3",

@@ -22,7 +22,7 @@
     "@types/node": "^18.17.0",
     "@typescript-eslint/rule-tester": "~8.38.0",
     "@typescript-eslint/types": "~8.38.0",
-    "eslint": "9.32.0",
+    "eslint": "9.34.0",
     "eslint-doc-generator": "^1.7.1",
     "tshy": "^3.0.0",
     "typescript": "^5.9.2",
