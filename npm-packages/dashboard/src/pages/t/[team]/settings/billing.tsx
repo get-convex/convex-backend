@@ -176,7 +176,7 @@ function BillingPage() {
 export default withAuthenticatedPage(BillingPage);
 
 function BillingErrorFallback({ eventId }: { eventId: string | null }) {
-  captureMessage("BillingErrorFallback triggered");
+  captureMessage("BillingErrorFallback triggered", "info");
   return (
     <Callout variant="error" className="w-fit">
       <div className="flex flex-col gap-2">

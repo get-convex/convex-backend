@@ -105,6 +105,7 @@ export function spendingLimitValueToCents(value: SpendingLimitsValue) {
     spendingLimitWarningThresholdUsd = null;
     Sentry.captureMessage(
       "Spending limits form submitted with empty warning threshold",
+      "error",
     );
   }
 
@@ -112,6 +113,7 @@ export function spendingLimitValueToCents(value: SpendingLimitsValue) {
     spendingLimitDisableThresholdUsd = null;
     Sentry.captureMessage(
       "Spending limits form submitted with empty disable threshold",
+      "error",
     );
   }
 

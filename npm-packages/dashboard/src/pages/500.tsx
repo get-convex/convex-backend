@@ -13,7 +13,7 @@ export function Fallback({
   eventId: string | null;
   error: Error;
 }) {
-  captureMessage("ErrorBoundary triggered");
+  captureMessage("ErrorBoundary triggered", "info");
   if (
     error.message.includes("Couldn't find system module") ||
     /Couldn't find ".+" in module/.test(error.message)

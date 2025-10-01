@@ -83,7 +83,10 @@ export function CronJobsProviderWithCronHistory({
         .map((identifier) => {
           const cronJob = cronJobsMap.get(identifier)!;
           if (!cronJob) {
-            captureMessage(`No CronJob found for CronSpec ${identifier}`);
+            captureMessage(
+              `No CronJob found for CronSpec ${identifier}`,
+              "error",
+            );
           }
           return cronJob;
         })

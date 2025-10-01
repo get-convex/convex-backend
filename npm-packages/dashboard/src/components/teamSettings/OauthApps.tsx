@@ -141,7 +141,7 @@ Please review this OAuth application for verification.`,
       try {
         if (resp.status < 500 || resp.status >= 400) {
           const { error } = await resp.json();
-          captureMessage(error);
+          captureMessage(error, "error");
         }
       } catch (e) {
         captureException(e);

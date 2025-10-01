@@ -117,7 +117,10 @@ export function TableContextMenu({
         const selectedRowId = state.selectedCell?.rowId;
         const document = data.find((row) => row._id === selectedRowId);
         if (!document) {
-          captureMessage("Can’t find the right-clicked document in data");
+          captureMessage(
+            "Can’t find the right-clicked document in data",
+            "error",
+          );
           return;
         }
       }
@@ -406,7 +409,7 @@ function FilterWithSubmenu({
 }) {
   const { captureMessage } = useContext(DeploymentInfoContext);
   if (!state.selectedCell) {
-    captureMessage("No selected cell in FilterWithSubmenu");
+    captureMessage("No selected cell in FilterWithSubmenu", "error");
     return null;
   }
   return (

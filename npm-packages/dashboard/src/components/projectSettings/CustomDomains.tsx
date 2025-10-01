@@ -381,7 +381,10 @@ export function CanonicalUrlCombobox({
         selectedOption={canonicalUrlOption}
         setSelectedOption={async (value: UrlOption | null) => {
           if (value === null || value.kind === "loading") {
-            captureMessage("Unexpected value selected in CanonicalUrlCombobox");
+            captureMessage(
+              "Unexpected value selected in CanonicalUrlCombobox",
+              "error",
+            );
             return;
           }
           await updateCanonicalUrl(

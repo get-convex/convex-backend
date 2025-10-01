@@ -301,7 +301,7 @@ export function registerIdCommands({
 }: {
   monaco: Parameters<BeforeMount>[0];
   deploymentsURI: string;
-  captureMessage: (message: string) => void;
+  captureMessage: (message: string, severity: "error") => void;
 }) {
   monaco.editor.registerCommand(
     GO_TO_DOCUMENT_COMMAND,

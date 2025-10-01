@@ -120,7 +120,7 @@ export function DirectoryItem({
 
   if (disclosure) {
     if (href) {
-      captureMessage("DirectoryItem with href and disclosure");
+      captureMessage("DirectoryItem with href and disclosure", "error");
     }
 
     return (

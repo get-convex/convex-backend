@@ -72,7 +72,10 @@ export function UsageStackedBarChart({
                 groupBy(row.metrics, (metric) => {
                   const tag = categoryRenames[metric.tag] ?? metric.tag;
                   if (!(tag in categories)) {
-                    Sentry.captureMessage(`Unexpected call tag “${tag}”`);
+                    Sentry.captureMessage(
+                      `Unexpected call tag “${tag}”`,
+                      "error",
+                    );
                   }
                   return tag;
                 }),
@@ -131,7 +134,7 @@ export function UsageStackedBarChart({
                 typeof dateNumeric !== "number" ||
                 typeof categoryName !== "string"
               ) {
-                Sentry.captureMessage("Invalid props in stacked bar");
+                Sentry.captureMessage("Invalid props in stacked bar", "error");
                 return <Rectangle {...props} />;
               }
 

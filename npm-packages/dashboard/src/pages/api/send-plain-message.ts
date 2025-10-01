@@ -257,7 +257,10 @@ async function upsertPlainTenant(
   });
 
   if (upsertTenantRes.error) {
-    captureMessage(`Couldn't upsert tenant: ${upsertTenantRes.error.message}`);
+    captureMessage(
+      `Couldn't upsert tenant: ${upsertTenantRes.error.message}`,
+      "error",
+    );
     return;
   }
 
@@ -272,7 +275,7 @@ async function upsertPlainTenant(
 
   if (!subscriptionResp.ok) {
     const responseText = await subscriptionResp.text();
-    captureMessage(`Couldn't fetch subscription: ${responseText}`);
+    captureMessage(`Couldn't fetch subscription: ${responseText}`, "error");
     return;
   }
 
@@ -299,6 +302,7 @@ async function upsertPlainTenant(
   if (updateTenantTierRes.error) {
     captureMessage(
       `Couldn't update tenant tier: ${updateTenantTierRes.error.message}`,
+      "error",
     );
   }
 }
@@ -320,6 +324,7 @@ async function setPlainCustomerTenants(
   if (setCustomerTenantsRes.error) {
     captureMessage(
       `Couldn't set customer tenants: ${setCustomerTenantsRes.error.message}`,
+      "error",
     );
   }
 }

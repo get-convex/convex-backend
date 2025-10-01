@@ -51,9 +51,9 @@ const dashboardVersionFetcher = async (url: string) => {
   if (!res.ok) {
     try {
       const { error } = await res.json();
-      captureMessage(error);
+      captureMessage(error, "error");
     } catch (e) {
-      captureMessage("Failed to fetch dashboard version information.");
+      captureMessage("Failed to fetch dashboard version information.", "error");
     }
     throw new Error("Failed to fetch dashboard version information.");
   }

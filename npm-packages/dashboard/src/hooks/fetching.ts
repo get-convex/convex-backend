@@ -35,6 +35,7 @@ export const reportHttpError = (
 ) => {
   captureMessage(
     `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+    "error",
   );
 };
 

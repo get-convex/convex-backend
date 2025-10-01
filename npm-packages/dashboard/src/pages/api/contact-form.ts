@@ -21,7 +21,7 @@ export default async function handler(
 ) {
   const session = await getSession(req);
   if (!session) {
-    captureMessage("No session found");
+    captureMessage("No session found", "warning");
     return res.status(401).json({ error: "Unauthorized" });
   }
 

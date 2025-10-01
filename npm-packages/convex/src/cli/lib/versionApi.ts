@@ -36,12 +36,12 @@ export async function getVersion(): Promise<VersionResult | null> {
 
 export function validateVersionResult(json: any): VersionResult | null {
   if (typeof json !== "object" || json === null) {
-    Sentry.captureMessage("Invalid version result");
+    Sentry.captureMessage("Invalid version result", "error");
     return null;
   }
 
   if (typeof json.message !== "string" && json.message !== null) {
-    Sentry.captureMessage("Invalid version.message result");
+    Sentry.captureMessage("Invalid version.message result", "error");
     return null;
   }
 
@@ -49,7 +49,7 @@ export function validateVersionResult(json: any): VersionResult | null {
     typeof json.cursorRulesHash !== "string" &&
     json.cursorRulesHash !== null
   ) {
-    Sentry.captureMessage("Invalid version.cursorRulesHash result");
+    Sentry.captureMessage("Invalid version.cursorRulesHash result", "error");
     return null;
   }
 

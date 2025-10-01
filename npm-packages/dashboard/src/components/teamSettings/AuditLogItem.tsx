@@ -161,7 +161,7 @@ function EntryAction({
       return <span>updated the payment method</span>;
     case "removeMember":
       if (!metadata.previous?.email) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -173,7 +173,7 @@ function EntryAction({
       );
     case "inviteMember":
       if (!metadata.current?.email) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -185,7 +185,7 @@ function EntryAction({
       );
     case "cancelMemberInvitation":
       if (!metadata.previous?.email) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -200,7 +200,7 @@ function EntryAction({
         !metadata.current?.id ||
         (!metadata.current?.name && !metadata.current?.email)
       ) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -254,7 +254,7 @@ function EntryAction({
         );
       }
 
-      captureMessage(`Found malformed metadata for ${action}`);
+      captureMessage(`Found malformed metadata for ${action}`, "error");
       return <UnhandledAction action={action} />;
 
     case "joinTeam":
@@ -267,7 +267,7 @@ function EntryAction({
       return <span>deleted the team</span>;
     case "createDeployment":
       if (!metadata.current?.type || !metadata.current?.projectId) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
 
@@ -286,7 +286,7 @@ function EntryAction({
       );
     case "deleteDeployment":
       if (!metadata.previous?.type || !metadata.previous?.projectId) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -331,7 +331,7 @@ function EntryAction({
       );
     case "changeSubscriptionPlan":
       if (!metadata.previous?.plan || !metadata.current?.plan) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -396,7 +396,7 @@ function EntryAction({
       );
     case "viewTeamAccessToken":
       // we expect these to never be logged
-      captureMessage("Found viewTeamAccessToken audit log");
+      captureMessage("Found viewTeamAccessToken audit log", "error");
       return (
         <span>
           {metadata.current && (
@@ -447,7 +447,7 @@ function EntryAction({
         metadata.current?.sourceDeploymentId ||
         metadata.previous?.sourceDeploymentId;
       if (!deploymentId) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -469,7 +469,7 @@ function EntryAction({
         !metadata.current?.backup?.sourceDeploymentId ||
         !metadata.current?.backup?.requestedTime
       ) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       return (
@@ -490,7 +490,7 @@ function EntryAction({
         !metadata.current?.sourceDeploymentId &&
         !metadata.previous?.sourceDeploymentId
       ) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
       const verb =
@@ -530,7 +530,7 @@ function EntryAction({
         !isValidSpendingLimitDiff(previous) ||
         !isValidSpendingLimitDiff(current)
       ) {
-        captureMessage(`Found malformed metadata for ${action}`);
+        captureMessage(`Found malformed metadata for ${action}`, "error");
         return <UnhandledAction action={action} />;
       }
 
@@ -587,7 +587,7 @@ function EntryAction({
     }
     default:
       action satisfies never;
-      captureMessage(`Unhandled audit log action: ${action}`);
+      captureMessage(`Unhandled audit log action: ${action}`, "error");
       return <UnhandledAction action={action} />;
   }
 }
@@ -636,7 +636,7 @@ function EnvironmentVariableEntryAction({
   metadata: AuditLogEntryMetadata;
 }) {
   if (!metadata.current?.projectId && !metadata.previous?.projectId) {
-    captureMessage(`Found malformed metadata for ${action}`);
+    captureMessage(`Found malformed metadata for ${action}`, "error");
     return <UnhandledAction action={action} />;
   }
   const verb =
@@ -649,7 +649,10 @@ function EnvironmentVariableEntryAction({
   const variableName = metadata.current?.name || metadata.previous?.name;
 
   if (!variableName) {
-    captureMessage(`Could not find variable name in metadata for ${action}`);
+    captureMessage(
+      `Could not find variable name in metadata for ${action}`,
+      "error",
+    );
     return <UnhandledAction action={action} />;
   }
 
@@ -679,7 +682,7 @@ function ProjectEntryAction({
   metadata: AuditLogEntryMetadata;
 }) {
   if (!metadata.current?.id && !metadata.previous?.id) {
-    captureMessage(`Found malformed metadata for ${action}`);
+    captureMessage(`Found malformed metadata for ${action}`, "error");
     return <UnhandledAction action={action} />;
   }
 
@@ -819,6 +822,7 @@ function DeploymentSettingsLink({
       `Malformed deploy key audit log entry:
       deployment ${deploymentId} has project id ${deployment.projectId}
       which is not found within the projects of team ${team.id}`,
+      "error",
     );
     return <span>a deployment</span>;
   }

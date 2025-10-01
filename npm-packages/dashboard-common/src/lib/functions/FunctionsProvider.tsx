@@ -155,6 +155,7 @@ export function useModuleFunctions(): ModuleFunction[] {
     if (!nents) {
       captureMessage(
         "File tree map called before modules or nents were loaded",
+        "error",
       );
       return [];
     }
@@ -195,7 +196,7 @@ export function useRootEntries() {
 
   const rootEntries = useMemo(() => {
     if (!nents) {
-      captureMessage("Root entries called before nents were loaded");
+      captureMessage("Root entries called before nents were loaded", "error");
       return [];
     }
 
@@ -218,7 +219,7 @@ export function useRootEntries() {
     );
 
     if (rootDirectory && rootDirectory.type !== "folder") {
-      captureMessage("Root directory is not a folder");
+      captureMessage("Root directory is not a folder", "error");
       return [];
     }
 

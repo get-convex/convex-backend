@@ -40,7 +40,10 @@ export type DeploymentInfo = (
       [key: string]: any;
     };
   }) => void;
-  captureMessage: (msg: string) => void;
+  captureMessage: (
+    msg: string,
+    severity: "fatal" | "error" | "warning" | "log" | "debug" | "info",
+  ) => void;
   captureException: (e: any) => void;
   reportHttpError: (
     method: string,
@@ -305,6 +308,7 @@ export function DeploymentApiProvider({
   } else if (connected && !connected?.ok) {
     deploymentInfoContext?.captureMessage(
       `Can't connect to deployment ${connected?.errorCode} ${connected?.errorMessage}`,
+      "warning",
     );
   }
 
@@ -472,7 +476,7 @@ function DeploymentWithConnectionState({
                 },
               });
               // Log to sentry including the instance name when we seem to be unable to connect to a cloud deployment
-              captureMessage(`Cloud deployment is disconnected`);
+              captureMessage(`Cloud deployment is disconnected`, "warning");
             }
           }
           setIsDisconnected(true);
@@ -491,7 +495,7 @@ function DeploymentWithConnectionState({
                 message: `Cloud deployment reconnected: ${deploymentName}`,
               });
               // Log to sentry including the instance name when we seem to be unable to connect to a cloud deployment
-              captureMessage(`Cloud deployment has reconnected`);
+              captureMessage(`Cloud deployment has reconnected`, "warning");
             }
           }
           setIsDisconnected(false);

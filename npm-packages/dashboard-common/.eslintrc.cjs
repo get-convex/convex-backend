@@ -103,6 +103,18 @@ module.exports = {
       },
       {
         message:
+          "Please call `captureMessage` with an explicit severity level (e.g., 'error', 'warning', 'info').",
+        selector:
+          "CallExpression[callee.name='captureMessage'][arguments.length=1]",
+      },
+      {
+        message:
+          "Please call `Sentry.captureMessage` with an explicit severity level (e.g., 'error', 'warning', 'info').",
+        selector:
+          "CallExpression[callee.type='MemberExpression'][callee.property.name='captureMessage'][arguments.length=1]",
+      },
+      {
+        message:
           "You probably want to use the themed error colors instead  (e.g. text-content-error). If you really want red, disable this lint rule for this line",
         selector: "Literal[value=/^.*-red-.*$/i]",
       },

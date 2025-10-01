@@ -107,7 +107,7 @@ export function documentHref({
   tableName: string;
   id: string;
   componentId: string | null;
-  captureMessage: (message: string) => void;
+  captureMessage: (message: string, severity: "error") => void;
 }): {
   pathname: string;
   query: { [key: string]: string };
@@ -129,7 +129,10 @@ export function documentHref({
   }
 
   if (tableName.startsWith("_")) {
-    captureMessage(`Linking to an unsupported system table: ${tableName}`);
+    captureMessage(
+      `Linking to an unsupported system table: ${tableName}`,
+      "error",
+    );
   }
 
   const filter: FilterExpression = {

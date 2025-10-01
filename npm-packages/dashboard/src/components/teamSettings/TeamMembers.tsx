@@ -105,7 +105,7 @@ function joinInstructionsForTeamManagedBy(managedBy: string) {
     case "vercel":
       return 'Your team members may join the team by clicking "Open in Convex" when viewing the Convex integration in their Vercel dashboard.';
     default:
-      captureMessage(`Unknown team managed by: ${managedBy}`);
+      captureMessage(`Unknown team managed by: ${managedBy}`, "error");
       return "";
   }
 }

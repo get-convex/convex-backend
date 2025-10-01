@@ -356,9 +356,11 @@ describe("spendingLimitValuesToCents", () => {
     expect(captureMessage).toHaveBeenCalledTimes(2);
     expect(captureMessage).toHaveBeenCalledWith(
       "Spending limits form submitted with empty warning threshold",
+      "error",
     );
     expect(captureMessage).toHaveBeenCalledWith(
       "Spending limits form submitted with empty disable threshold",
+      "error",
     );
 
     expect(result).toEqual({

@@ -219,6 +219,7 @@ export function DataContent({
     ) {
       captureMessage(
         `Encountered unexpected state in data page: status: ${status}, numRowsInTable: ${numRowsInTable}, numRowsRead: ${numRowsRead}, isLoading: ${isLoading}`,
+        "warning",
       );
     }
   }, [

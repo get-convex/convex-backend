@@ -235,6 +235,7 @@ function EditSingleDocumentPanel({
         if (documents.length !== 1) {
           captureMessage(
             `Unexpected documents array with ${documents.length} elements`,
+            "error",
           );
         }
         const [document] = documents;

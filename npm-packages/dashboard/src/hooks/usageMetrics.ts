@@ -69,6 +69,7 @@ export function useUsageTeamSummary(
   if (data.length !== 1) {
     captureMessage(
       `Unexpected number of rows in usage summary query: ${data.length}`,
+      "error",
     );
   }
 
