@@ -463,7 +463,8 @@ impl<RT: Runtime> Request<RT> {
     fn expire(self, error: ExpiredInQueue) {
         let error = anyhow::anyhow!(error).context(ErrorMetadata::overloaded(
             "ExpiredInQueue",
-            "Too many concurrent requests, backoff and try again.",
+            "Too many concurrent requests in a short period of time. Spread out your requests out \
+             over time or throttle them to avoid errors.",
         ));
         match self.inner {
             RequestType::Udf { response, .. } => {

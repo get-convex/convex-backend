@@ -1258,7 +1258,7 @@ impl FinalTransaction {
             anyhow::bail!(ErrorMetadata::overloaded(
                 format!("{}IndexTooLarge", index_type.as_ref()),
                 format!(
-                    "Too many writes to {}, backoff and try again",
+                    "Too many writes to {}. Spread your writes out over time or throttle them to avoid errors. If you’re importing data into a new application, consider removing the index and adding it again after the import (you can re-add the index as a staged index to avoid blocking your pushes: https://docs.convex.dev/database/reading-data/indexes/#staged-indexes).",
                     index.map_table(&table_mapping.tablet_to_name())?
                 )
             ))

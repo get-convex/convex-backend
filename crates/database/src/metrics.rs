@@ -384,7 +384,8 @@ pub fn committer_full_error() -> ErrorMetadata {
 
     ErrorMetadata::overloaded(
         "CommitterFullError",
-        "Too many concurrent commits, backoff and try again",
+        "Too many concurrent commits in a short period of time. Spread your writes out over time \
+         or throttle them to avoid errors.",
     )
 }
 
@@ -396,7 +397,8 @@ pub fn subscriptions_worker_full_error() -> ErrorMetadata {
     log_counter(&SUBSCRIPTIONS_WORKER_FULL_TOTAL, 1);
     ErrorMetadata::overloaded(
         "SubscriptionsWorkerFullError",
-        "Too many concurrent subscription messages, backoff and try again",
+        "Too many concurrent subscription requests in a short period of time. Reduce the number \
+         of subscriptions or throttle them to avoid errors.",
     )
 }
 

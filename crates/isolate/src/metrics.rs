@@ -130,7 +130,8 @@ pub fn execute_full_error() -> ErrorMetadata {
     log_counter(&UDF_EXECUTE_FULL_TOTAL, 1);
     ErrorMetadata::overloaded(
         "ExecuteFullError",
-        "Too many concurrent requests, backoff and try again.",
+        "Too many concurrent requests in a short period of time. Spread out your requests out \
+         over time or throttle them to avoid errors.",
     )
 }
 
