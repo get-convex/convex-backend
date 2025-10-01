@@ -39,7 +39,7 @@
     "stripe": "^18.0.0",
     "twilio": "^5.0.0",
     "typescript": "~5.0.3",
-    "undici": "7.11.0",
+    "undici": "7.15.0",
     "vitest": "^3.2.4",
     "zod": "^3.24.0",
     "@commander-js/extra-typings": "^11.1.0"
