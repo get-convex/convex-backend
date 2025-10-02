@@ -131,6 +131,7 @@ async-broadcast = { workspace = true }
 async-channel = { workspace = true }
 common = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
+divan = { workspace = true }
 errors = { workspace = true, features = ["testing"] }
 hyper = { workspace = true }
 keybroker = { workspace = true, features = ["testing"] }
@@ -150,6 +151,10 @@ udf = { workspace = true, features = ["testing"] }
 usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }
 vector = { workspace = true, features = ["testing"] }
+
+[[bench]]
+name = "new_context"
+harness = false
 
 [lints]
 workspace = true

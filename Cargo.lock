@@ -4809,6 +4809,7 @@ dependencies = [
  "deno_core",
  "deno_core_icudata",
  "derive_more",
+ "divan",
  "elliptic-curve 0.13.8",
  "encoding_rs",
  "errors",
