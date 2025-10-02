@@ -3,6 +3,7 @@ import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Menu, MenuItem } from "@ui/Menu";
 import {
   useDeleteProfileEmail,
+  useIdentities,
   useResendProfileEmailVerification,
   useUpdatePrimaryProfileEmail,
 } from "api/profile";
@@ -10,6 +11,10 @@ import { useState } from "react";
 import { MemberEmailResponse } from "generatedApi";
 
 export function EmailListItem({ email }: { email: MemberEmailResponse }) {
+  const identities = useIdentities();
+  const emailIsAnIdentity = identities?.some(
+    (identity) => identity.email === email.email,
+  );
   const deleteEmail = useDeleteProfileEmail();
   const updatePrimaryEmail = useUpdatePrimaryProfileEmail();
   const resentEmailVerification = useResendProfileEmailVerification();
@@ -60,12 +65,14 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
         ) : null}
         <MenuItem
           action={() => setShowDeleteConfirmation(true)}
-          disabled={email.isPrimary}
+          disabled={email.isPrimary || emailIsAnIdentity}
           variant="danger"
           tip={
             email.isPrimary
               ? "You cannot delete your primary email."
-              : undefined
+              : emailIsAnIdentity
+                ? "You cannot delete this email because it is associated with an identity on your account. Delete the identity first to remove this email from your account."
+                : undefined
           }
           tipSide="right"
         >

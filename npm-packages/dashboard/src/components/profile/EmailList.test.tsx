@@ -7,6 +7,7 @@ jest.mock("api/profile", () => ({
   useDeleteProfileEmail: jest.fn(),
   useUpdatePrimaryProfileEmail: jest.fn(),
   useResendProfileEmailVerification: jest.fn(),
+  useIdentities: jest.fn(),
 }));
 
 const mockEmails: MemberEmailResponse[] = [

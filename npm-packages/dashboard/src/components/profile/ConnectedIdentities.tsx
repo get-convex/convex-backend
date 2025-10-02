@@ -38,13 +38,13 @@ export function ConnectedIdentities() {
     <Sheet className="flex flex-col gap-4">
       <h3>Identities</h3>
       <p className="max-w-prose text-sm">
-        These are the identities associated with your account. Identities are
-        used to login to Convex, and are distinct from the emails connected to
-        your account for communication purposes.
+        These are the identities associated with your account.
       </p>
       <p>
-        When you login with an identity, it's email is automatically associated
-        with your account.
+        Identities are used to login to Convex, and are distinct from the emails
+        connected to your account for communication purposes. However, you can
+        only login with identities that are verified emails on your Convex
+        account.
       </p>
       <LoadingTransition loadingProps={{ className: "h-[13rem]" }}>
         {identities && (
@@ -67,11 +67,11 @@ export function ConnectedIdentities() {
           dialogTitle="Unlink Identity"
           dialogBody={
             <div className="flex flex-col gap-1">
+              <p>Are you sure you want to unlink this identity? </p>
               <p>
-                Are you sure you want to unlink this identity? You will no
-                longer be able to sign in with the providers associated with
-                this identity unless the email associated with this identity is
-                verified to your account.
+                After you unlink this identity, you must also delete the
+                associated email to restrict this email from logging in to
+                Convex.
               </p>
               <p>
                 Once you unlink this identity, you will be logged out of the
