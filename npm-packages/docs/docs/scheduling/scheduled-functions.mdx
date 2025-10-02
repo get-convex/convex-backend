@@ -55,11 +55,11 @@ scheduling call.
 
 ### Scheduling from actions
 
-Unlike mutations, [actions](//docs/functions/actions.mdx) don't execute as a
-single database transaction and can have side effects. Thus, scheduling from
-actions does not depend on the outcome of the function. This means that an
-action might succeed to schedule some functions and later fail due to transient
-error or a timeout. The scheduled functions will still be executed.
+Unlike mutations, [actions](/functions/actions.mdx) don't execute as a single
+database transaction and can have side effects. Thus, scheduling from actions
+does not depend on the outcome of the function. This means that an action might
+succeed to schedule some functions and later fail due to transient error or a
+timeout. The scheduled functions will still be executed.
 
 ### Scheduling immediately
 
