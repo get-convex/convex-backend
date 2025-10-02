@@ -476,7 +476,7 @@ function FilterWithSubmenu({
                 addDraftFilter({
                   id: Math.random().toString(),
                   field: state.selectedCell?.column,
-                  op: "eq",
+                  op: operator,
                   value:
                     selectedValue === undefined
                       ? undefined
