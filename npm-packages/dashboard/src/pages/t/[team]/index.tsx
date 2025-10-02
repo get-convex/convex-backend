@@ -1,8 +1,8 @@
 import {
+  ExternalLinkIcon,
   GridIcon,
   ListBulletIcon,
   PlusIcon,
-  RocketIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Callout } from "@ui/Callout";
@@ -24,6 +24,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@ui/cn";
 import { PaginationControls } from "elements/PaginationControls";
 import { usePagination } from "hooks/usePagination";
+import { EmptySection } from "@common/elements/EmptySection";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -173,7 +174,7 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
               href="https://docs.convex.dev/tutorial"
               size="sm"
               target="_blank"
-              icon={<RocketIcon />}
+              icon={<ExternalLinkIcon />}
             >
               Start Tutorial
             </Button>
@@ -192,20 +193,28 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
         </div>
       )}
       {projects.length === 0 && (
-        <div className="mt-8 mb-24 flex w-full animate-fadeInFromLoading flex-col items-center justify-center gap-6">
-          <h3>Welcome to Convex!</h3>
-          <p>Get started by following the tutorial.</p>
-
-          <Button
-            size="lg"
-            href="https://docs.convex.dev/tutorial"
-            target="_blank"
-            className="gap-3 text-base"
-          >
-            <RocketIcon className="h-8 w-8 text-white" />
-            Start Tutorial
-          </Button>
-        </div>
+        <EmptySection
+          header="Welcome to Convex!"
+          sheet={false}
+          body={
+            <>
+              <p className="text-sm">
+                This team doesn't have an projects yet.{" "}
+              </p>
+              <p className="text-sm">Get started by following the tutorial.</p>
+            </>
+          }
+          action={
+            <Button
+              href="https://docs.convex.dev/tutorial"
+              target="_blank"
+              icon={<ExternalLinkIcon />}
+              className="mt-2"
+            >
+              Start Tutorial
+            </Button>
+          }
+        />
       )}
       <div
         className={cn(
