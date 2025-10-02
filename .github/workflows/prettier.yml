@@ -1,0 +1,35 @@
+# Be sure to update .mergify.yml rules if adding/renaming any jobs.
+
+name: Prettier
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check:
+    name: Prettier
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: scripts/check_prettier_matches_dprint.py
+
+      - name: Get dprint version
+        run: |
+          echo DPRINT_VERSION=$(node -p "require('./scripts/package.json').devDependencies['dprint']") >> $GITHUB_ENV
+
+      - uses: dprint/check@v2.3
+        with:
+          dprint-version: ${{ env.DPRINT_VERSION }}
