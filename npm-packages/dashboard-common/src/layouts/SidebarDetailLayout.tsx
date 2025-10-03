@@ -12,7 +12,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "react-resizable-panels";
-import { DragHandleDots2Icon } from "@radix-ui/react-icons";
+import { DotFilledIcon, DragHandleDots2Icon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 
 import { PageContent } from "@common/elements/PageContent";
@@ -59,7 +59,7 @@ export function SidebarDetailLayout({
           maxSize={75}
           className={classNames(
             "h-full flex",
-            !collapsed && "border-r min-w-[10rem] max-w-[26rem]",
+            !collapsed && "min-w-[10rem] max-w-[26rem]",
           )}
           collapsedSize={0}
           onCollapse={() => setCollapsed(true)}
@@ -164,39 +164,47 @@ export function ResizeHandle({
     <PanelResizeHandle
       className={cn("relative", className)}
       onDragging={setDragging}
-      hitAreaMargins={{ coarse: 32, fine: 20 }}
+      hitAreaMargins={{ coarse: 4, fine: 3 }}
     >
-      <div
-        className={cn(
-          "h-full w-0 transition-all duration-300",
-          !collapsed && dragging && "w-1 bg-util-accent",
-        )}
-      />
-      <Button
-        variant="unstyled"
-        onClick={() => panelRef?.current?.expand()}
-        disabled={!collapsed}
-        className={cn(
-          "absolute top-1/2 left-0 z-20 flex -translate-y-1/2 flex-col items-center gap-1 border bg-background-secondary px-0.5 py-2 text-xs transition-all",
-          dragging && "border-4 border-util-accent text-content-primary",
-          direction === "right"
-            ? "rounded-r-md border-l-0"
-            : "ml-[-1.25rem] rounded-l-md border-r-0",
-        )}
-        icon={<DragHandleDots2Icon className="text-content-secondary" />}
-      >
-        {handleTitle && collapsed && (
-          <span
-            style={{ writingMode: "vertical-rl" }}
-            className={cn(
-              direction === "right" && "rotate-180",
-              dragging ? "text-content-primary" : "text-content-secondary",
-            )}
-          >
-            {handleTitle}
-          </span>
-        )}
-      </Button>
+      {!collapsed ? (
+        <div
+          className={cn(
+            "flex h-full w-2 items-center justify-center border-l bg-background-secondary/70 transition-all duration-300",
+            direction === "right" ? "border-r" : "border-l",
+            dragging && "bg-util-accent/10",
+          )}
+        >
+          <div className="flex flex-col gap-0">
+            <DotFilledIcon className="text-content-tertiary/50" />
+          </div>
+        </div>
+      ) : (
+        <Button
+          variant="unstyled"
+          onClick={() => panelRef?.current?.expand()}
+          disabled={!collapsed}
+          className={cn(
+            "absolute top-1/2 left-0 z-20 flex -translate-y-1/2 flex-col items-center gap-1 border bg-background-secondary px-0.5 py-2 text-xs transition-all",
+            dragging && "border-4 border-util-accent text-content-primary",
+            direction === "right"
+              ? "rounded-r-md border-l-0"
+              : "ml-[-1.25rem] rounded-l-md border-r-0",
+          )}
+          icon={<DragHandleDots2Icon className="text-content-secondary" />}
+        >
+          {handleTitle && collapsed && (
+            <span
+              style={{ writingMode: "vertical-rl" }}
+              className={cn(
+                direction === "right" && "rotate-180",
+                dragging ? "text-content-primary" : "text-content-secondary",
+              )}
+            >
+              {handleTitle}
+            </span>
+          )}
+        </Button>
+      )}
     </PanelResizeHandle>
   );
 }
