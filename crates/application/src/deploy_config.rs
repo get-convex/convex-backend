@@ -262,6 +262,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(resp)
     }
 
+    #[fastrace::trace]
     async fn _handle_schema_change_in_start_push(
         &self,
         app: &CheckedComponent,

@@ -1715,6 +1715,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(Ok(()))
     }
 
+    #[fastrace::trace]
     pub async fn evaluate_schema(
         &self,
         schema_bundle: ModuleSource,

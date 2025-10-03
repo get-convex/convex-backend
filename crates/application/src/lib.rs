@@ -1724,6 +1724,7 @@ impl<RT: Runtime> Application<RT> {
         Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await
     }
 
+    #[fastrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -1770,12 +1771,14 @@ impl<RT: Runtime> Application<RT> {
         fields.try_into()
     }
 
+    #[fastrace::trace]
     pub async fn evaluate_schema(&self, schema: ModuleConfig) -> anyhow::Result<DatabaseSchema> {
         self._evaluate_schema(schema).await.map_err(|e| {
             e.wrap_error_message(|msg| format!("Hit an error while evaluating your schema:\n{msg}"))
         })
     }
 
+    #[fastrace::trace]
     async fn _evaluate_schema(&self, schema: ModuleConfig) -> anyhow::Result<DatabaseSchema> {
         let rng_seed = self.runtime().rng().random();
         let unix_timestamp = self.runtime().unix_timestamp();
@@ -2092,6 +2095,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     // Helper method to call analyze and throw appropriate HttpError.
+    #[fastrace::trace]
     pub async fn analyze_modules(
         &self,
         udf_config: UdfConfig,
