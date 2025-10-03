@@ -274,7 +274,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
   );
 }
 
-const CLEARED_LOGS_BUTTON_HEIGHT = 36;
+const CLEARED_LOGS_BUTTON_HEIGHT = 24;
 
 function RequestIdLogs({
   requestId,

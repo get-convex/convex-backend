@@ -13,7 +13,7 @@ type LogListItemProps = {
   focused?: boolean;
 };
 
-export const ITEM_SIZE = 36;
+export const ITEM_SIZE = 24;
 
 export function LogListItem({
   log,
