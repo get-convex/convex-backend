@@ -65,8 +65,20 @@ export function isComponentDirectory(
   | { kind: "ok"; component: ComponentDirectory }
   | { kind: "err"; why: string } {
   let isRootWithoutConfig = false;
+
+  // If the directory doesn't exist, we need to create one.
   if (!ctx.fs.exists(directory)) {
-    return { kind: "err", why: `Directory doesn't exist` };
+    return {
+      kind: "ok",
+      component: {
+        isRoot,
+        path: path.resolve(directory),
+        definitionPath: path.resolve(
+          path.join(directory, DEFINITION_FILENAME_TS),
+        ),
+        isRootWithoutConfig: true,
+      },
+    };
   }
   const dirStat = ctx.fs.stat(directory);
   if (!dirStat.isDirectory()) {

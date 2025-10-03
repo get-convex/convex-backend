@@ -152,11 +152,7 @@ pub struct PushMetrics {
 
 impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
-    pub async fn start_push(
-        &self,
-        config: &ProjectConfig,
-        dry_run: bool,
-    ) -> anyhow::Result<StartPushResponse> {
+    pub async fn start_push(&self, config: &ProjectConfig) -> anyhow::Result<StartPushResponse> {
         let unix_timestamp = self.runtime.unix_timestamp();
         let (external_deps_id, component_definition_packages) =
             self.upload_packages(config).await?;
@@ -236,7 +232,7 @@ impl<RT: Runtime> Application<RT> {
         let app = ctx.instantiate_root().await?;
 
         let schema_change = self
-            ._handle_schema_change_in_start_push(&app, &evaluated_components, dry_run)
+            ._handle_schema_change_in_start_push(&app, &evaluated_components)
             .await?;
         self.database
             .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
@@ -270,16 +266,9 @@ impl<RT: Runtime> Application<RT> {
         &self,
         app: &CheckedComponent,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
-        dry_run: bool,
     ) -> anyhow::Result<SchemaChange> {
-        if dry_run {
-            let mut tx = self.begin(Identity::system()).await?;
-            let schema_change = ComponentConfigModel::new(&mut tx)
-                .start_component_schema_changes(app, evaluated_components)
-                .await?;
-            return Ok(schema_change);
-        }
-
+        // Even in dry run mode, we need to commit the schema changes so that
+        // wait_for_schema can validate the schema against existing data.
         let (_ts, schema_change) = self
             .execute_with_occ_retries(
                 Identity::system(),
@@ -819,7 +808,6 @@ impl<RT: Runtime> InitializerEvaluator for ApplicationInitializerEvaluator<'_, R
 #[serde(rename_all = "camelCase")]
 pub struct StartPushRequest {
     pub admin_key: String,
-    pub dry_run: bool,
 
     pub functions: String,
 

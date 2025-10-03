@@ -45,7 +45,6 @@ async fn test_max_size_push(rt: TestRuntime) -> anyhow::Result<()> {
         application
             .run_test_push(StartPushRequest {
                 admin_key: "".into(),
-                dry_run: false,
                 functions: "convex/".into(),
                 app_definition: AppDefinitionConfigJson {
                     definition: None,
@@ -101,7 +100,6 @@ async fn test_change_node_version(rt: TestRuntime) -> anyhow::Result<()> {
     application
         .run_test_push(StartPushRequest {
             admin_key: "".into(),
-            dry_run: false,
             functions: "convex/".into(),
             app_definition: AppDefinitionConfigJson {
                 definition: None,

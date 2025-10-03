@@ -150,12 +150,12 @@ export async function runPush(ctx: Context, options: PushOptions) {
   const convexDir = functionsDir(configPath, projectConfig);
   const componentRootPath = await findComponentRootPath(ctx, convexDir);
   if (
-    ctx.fs.exists(componentRootPath) ||
-    process.env.USE_COMPONENTS_PUSH === "true"
+    !ctx.fs.exists(componentRootPath) &&
+    process.env.USE_LEGACY_PUSH === "true"
   ) {
-    await runComponentsPush(ctx, options, configPath, projectConfig);
-  } else {
     await runNonComponentsPush(ctx, options, configPath, projectConfig);
+  } else {
+    await runComponentsPush(ctx, options, configPath, projectConfig);
   }
 }
 

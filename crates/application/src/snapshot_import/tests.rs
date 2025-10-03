@@ -1537,7 +1537,7 @@ async fn test_import_over_componentless_namespace(rt: TestRuntime) -> anyhow::Re
     // Do just a start_push w/o finish_push
     let request = Application::<TestRuntime>::load_start_push_request(Path::new("basic"))?;
     let config = request.into_project_config()?;
-    app.start_push(&config, false).await?;
+    app.start_push(&config).await?;
 
     let test_csv = r#"
 a,b
