@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as action from "../action.js";
 import type * as actions_auth from "../actions/auth.js";
 import type * as actions_externalNodeDeps from "../actions/externalNodeDeps.js";
 import type * as actions_simple from "../actions/simple.js";
@@ -66,6 +67,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  action: typeof action;
   "actions/auth": typeof actions_auth;
   "actions/externalNodeDeps": typeof actions_externalNodeDeps;
   "actions/simple": typeof actions_simple;

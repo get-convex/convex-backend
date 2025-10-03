@@ -8,6 +8,7 @@ use application::{
 use axum::{
     debug_handler,
     extract::{
+        DefaultBodyLimit,
         FromRef,
         State,
     },
@@ -29,6 +30,7 @@ use common::{
         ExtractResolvedHostname,
         HttpResponseError,
     },
+    knobs::MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
     types::FunctionCaller,
     version::ClientVersion,
 };
@@ -741,6 +743,7 @@ where
         .routes(utoipa_axum::routes!(public_action_post))
         .routes(utoipa_axum::routes!(public_function_post))
         .routes(utoipa_axum::routes!(public_function_post_with_path))
+        .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 
 #[cfg(test)]

@@ -1166,7 +1166,7 @@ pub static MAX_BACKEND_RPC_RESPONSE_SIZE: LazyLock<usize> =
 pub static MAX_BACKEND_RPC_HTTP_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_BACKEND_RPC_RESPONSE_SIZE", 1 << 23)); // 8 MiB
 
-/// The maximum size for requests to the backend public API. Must be at least 8
+/// The maximum size for requests to the backend public API. Must be at least 16
 /// MiB for function arguments.
 pub static MAX_BACKEND_PUBLIC_API_REQUEST_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_BACKEND_PUBLIC_API_REQUEST_SIZE", (1 << 24) + 2000)); // 16 MiB
