@@ -18,6 +18,7 @@ export type ButtonProps = {
   disabled?: boolean;
   tip?: React.ReactNode;
   tipSide?: TooltipSide;
+  tipDisableHoverableContent?: boolean;
   loading?: boolean;
 } & Pick<
   React.HTMLProps<HTMLElement>,
@@ -62,6 +63,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
     icon,
     tip,
     tipSide,
+    tipDisableHoverableContent,
     loading = false,
     ...props
   },
@@ -87,7 +89,12 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         });
   if (href !== undefined && !disabled) {
     return (
-      <Tooltip tip={tip} side={tipSide} wrapsButton>
+      <Tooltip
+        tip={tip}
+        side={tipSide}
+        disableHoverableContent={tipDisableHoverableContent}
+        wrapsButton
+      >
         <Link
           passHref
           href={href}
@@ -108,7 +115,12 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
     );
   }
   return (
-    <Tooltip tip={tip} side={tipSide} wrapsButton>
+    <Tooltip
+      tip={tip}
+      side={tipSide}
+      disableHoverableContent={tipDisableHoverableContent}
+      wrapsButton
+    >
       {/* we're allowed to use button here. It's the Button component */}
       {/* eslint-disable-next-line react/forbid-elements */}
       <button
@@ -124,10 +136,10 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         ref={ref as any}
         {...htmlProps}
       >
-        {/* This needs to be wrapped in a dom element to 
+        {/* This needs to be wrapped in a dom element to
           fix an issue with the google translate extension
           throwing errors when the icon switches between different icons.
-          The negative margin is added when the icon doesn't exist 
+          The negative margin is added when the icon doesn't exist
           to not render the flex gap.
           https://github.com/facebook/react/issues/11538#issuecomment-390386520
        */}

@@ -14,6 +14,7 @@ export function Tooltip({
   wrapsButton = false,
   delayDuration = 0,
   maxWidthClassName = "max-w-[16rem]",
+  disableHoverableContent = false,
 }: {
   children: React.ReactNode;
   tip: React.ReactNode | undefined;
@@ -24,13 +25,17 @@ export function Tooltip({
   maxWidthClassName?: string;
   wrapsButton?: boolean;
   delayDuration?: number;
+  disableHoverableContent?: boolean;
 }) {
   // Some existing callsites pass in boolean so we do a truthy check
   if (!tip) {
     return <>{children}</>;
   }
   return (
-    <RadixTooltip.Provider delayDuration={delayDuration}>
+    <RadixTooltip.Provider
+      delayDuration={delayDuration}
+      disableHoverableContent={disableHoverableContent}
+    >
       <RadixTooltip.Root>
         <RadixTooltip.Trigger
           asChild={wrapsButton}

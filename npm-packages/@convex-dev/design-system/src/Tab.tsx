@@ -20,10 +20,11 @@ export function Tab({
           tip={tip}
           variant="unstyled"
           className={cn(
-            "cursor-pointer px-3 py-2 text-sm whitespace-nowrap",
+            "cursor-pointer px-3 py-2 text-xs whitespace-nowrap",
+            "focus:outline-none",
             "focus-visible:outline-border-selected",
             !disabled && selected
-              ? "border-b-2 border-content-primary text-content-primary"
+              ? "border-b-2 border-content-primary font-semibold text-content-primary"
               : "border-b-2 border-transparent text-content-secondary",
             disabled
               ? "cursor-not-allowed disabled:text-content-secondary"
