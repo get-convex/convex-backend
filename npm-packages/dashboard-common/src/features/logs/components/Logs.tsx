@@ -187,8 +187,8 @@ export function Logs({
       : latestAuditLog?._creationTime;
 
   return (
-    <div className="flex h-full w-full min-w-[48rem] flex-col gap-2 p-6 py-4">
-      <div className="flex flex-col gap-4">
+    <div className="flex h-full w-full min-w-[48rem] flex-col overflow-hidden p-6 py-4">
+      <div className="flex shrink-0 flex-col gap-4">
         <LogToolbar
           firstItem={<LogsHeader />}
           selectedLevels={levels}
@@ -236,21 +236,23 @@ export function Logs({
           </Button>
         </div>
       </div>
-      <LogList
-        nents={nents}
-        logs={logs}
-        filteredLogs={filteredLogs}
-        deploymentAuditLogs={deploymentAuditLogs}
-        filter={filter}
-        clearedLogs={clearedLogs}
-        setClearedLogs={setClearedLogs}
-        paused={paused > 0 || manuallyPaused}
-        setPaused={onPause}
-        setManuallyPaused={(p) => {
-          onPause(p);
-          setManuallyPaused(p);
-        }}
-      />
+      <div className="flex-1 overflow-hidden">
+        <LogList
+          nents={nents}
+          logs={logs}
+          filteredLogs={filteredLogs}
+          deploymentAuditLogs={deploymentAuditLogs}
+          filter={filter}
+          clearedLogs={clearedLogs}
+          setClearedLogs={setClearedLogs}
+          paused={paused > 0 || manuallyPaused}
+          setPaused={onPause}
+          setManuallyPaused={(p) => {
+            onPause(p);
+            setManuallyPaused(p);
+          }}
+        />
+      </div>
     </div>
   );
 }

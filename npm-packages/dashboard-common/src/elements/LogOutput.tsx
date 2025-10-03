@@ -5,15 +5,18 @@ import { LogLevel } from "@common/elements/LogLevel";
 export function LogOutput({
   output,
   wrap,
+  secondary,
 }: {
   output: Output;
   wrap?: boolean;
+  secondary?: boolean;
 }) {
   return (
     <div
       className={classNames(
-        "text-xs overflow-y-auto text-content-secondary",
+        "text-xs overflow-y-auto",
         wrap ? "whitespace-pre-wrap break-all" : "truncate",
+        secondary && "text-content-secondary",
       )}
     >
       {output.messages &&

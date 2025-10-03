@@ -6,7 +6,7 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import { Fragment, memo, useCallback, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useMemo, useRef, useState } from "react";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useDebounce, useMeasure } from "react-use";
 import { Transition, Dialog } from "@headlessui/react";
@@ -35,6 +35,8 @@ import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { TextInput } from "@ui/TextInput";
 import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 import { LogListResources } from "@common/features/logs/components/LogListResources";
+import { shallowNavigate } from "@common/lib/useTableMetadata";
+import { useRouter } from "next/router";
 
 export type LogListProps = {
   logs?: UdfLog[];
@@ -60,6 +62,8 @@ export function LogList({
   setPaused,
   setManuallyPaused,
 }: LogListProps) {
+  const router = useRouter();
+
   const interleavedLogs = interleaveLogs(
     filteredLogs ?? [],
     deploymentAuditLogs ?? [],
@@ -69,7 +73,31 @@ export function LogList({
   const [sheetRef, { height: heightOfListContainer }] =
     useMeasure<HTMLDivElement>();
 
-  const [shownLog, setShownLog] = useState<UdfLog>();
+  // Derive shownLog from URL query parameters
+  const shownLog = useMemo(() => {
+    const logTs = router.query.logTs as string | undefined;
+
+    if (logTs && filteredLogs) {
+      // Find the log with this timestamp in filtered logs
+      const matchingLog = filteredLogs.find(
+        (log) => log.timestamp === Number(logTs),
+      );
+      return matchingLog;
+    }
+
+    return undefined;
+  }, [router.query.logTs, filteredLogs]);
+
+  // Update URL when log selection changesAdd a comment on lines R88 to R90Add diff commentMarkdown input:  edit mode selected.WritePreviewAdd a suggestionHeadingBoldItalicQuoteCodeLinkUnordered listNumbered listTask listMentionReferenceSaved repliesAdd FilesPaste, drop, or click to add filesCancelCommentStart a reviewReturn to code
+  const setShownLog = useCallback(
+    (log: UdfLog | undefined) => {
+      void shallowNavigate(router, {
+        ...router.query,
+        logTs: log ? log.timestamp.toString() : undefined,
+      });
+    },
+    [router],
+  );
 
   const hasFilters =
     !!logs && !!filteredLogs && filteredLogs.length !== logs.length;
@@ -126,6 +154,7 @@ function WindowedLogList({
   hasFilters,
   paused,
   setManuallyPaused,
+  shownLog,
 }: {
   interleavedLogs: InterleavedLog[];
   setClearedLogs: (clearedLogs: number[]) => void;
@@ -135,6 +164,7 @@ function WindowedLogList({
   hasFilters: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
+  shownLog?: UdfLog;
 }) {
   const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -189,6 +219,7 @@ configure a log stream."
               setClearedLogs,
               clearedLogs,
               setShownLog,
+              selectedLogTimestamp: shownLog?.timestamp,
             }}
             RowOrLoading={LogListRow}
           />
@@ -221,6 +252,7 @@ type LogItemProps = {
     setClearedLogs: (clearedLogs: number[]) => void;
     setShownLog(shown: UdfLog | undefined): void;
     clearedLogs: number[];
+    selectedLogTimestamp?: number;
   };
   index: number;
   style: any;

@@ -114,7 +114,7 @@ export function LogListItem({
           <LogLevel level={log.output.level} />
         )}
         {log.kind === "log" && (
-          <LogOutput output={log.output} wrap={!setShownLog} />
+          <LogOutput output={log.output} wrap={!setShownLog} secondary />
         )}
         {log.kind === "outcome" && log.error && (
           <LogOutput
@@ -123,6 +123,7 @@ export function LogListItem({
               messages: [log.error],
               level: "FAILURE",
             }}
+            secondary
             wrap={!setShownLog}
           />
         )}
