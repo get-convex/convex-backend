@@ -353,7 +353,7 @@ html.dark {
   --background-brand: var(--background-primary);
   --background-primary: rgb(30, 28, 26);
   --background-secondary: rgb(42, 40, 37);
-  --background-tertiary: rgb(60, 58, 65);
+  --background-tertiary: rgb(60, 58, 55);
   --background-highlight: var(--yellow-900);
   --background-success: var(--green-900);
   --background-warning: var(--yellow-900);
@@ -455,7 +455,7 @@ html [data-sonner-toast][data-type="error"] [data-close-button] {
 }
 
 /* Used for elements that need to fade in to a specific opacity
-   this can't be defined in the tailwind config because you cannot interpolate 
+   this can't be defined in the tailwind config because you cannot interpolate
    variables in tailwind keyframes.
  */
 @keyframes fadeInToVar {
