@@ -1,7 +1,6 @@
 import {
   CaretRightIcon,
   CheckCircledIcon,
-  CommitIcon,
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
 import { useMemo } from "react";
@@ -43,28 +42,19 @@ export function FunctionCallTree({
   const rootNode = executionNodes[0];
 
   return (
-    <div className="mx-6 mb-4 rounded-md border bg-background-secondary">
-      <div className="flex w-full items-center gap-1 p-2">
-        <CommitIcon className="size-4 text-content-secondary" />
-        <h5>Functions Called</h5>
-        <span className="ml-auto text-xs text-content-secondary">
-          Select a function to view log lines
-        </span>
-      </div>
-      <div className="scrollbar max-h-80 overflow-auto p-2 pt-0 text-xs">
-        {rootNode && (
-          <div>
-            {executionNodes.map((node) => (
-              <ExecutionTreeNode
-                key={node.executionId}
-                node={node}
-                level={0}
-                onFunctionSelect={onFunctionSelect}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="scrollbar overflow-auto p-2 text-xs">
+      {rootNode && (
+        <div>
+          {executionNodes.map((node) => (
+            <ExecutionTreeNode
+              key={node.executionId}
+              node={node}
+              level={0}
+              onFunctionSelect={onFunctionSelect}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
