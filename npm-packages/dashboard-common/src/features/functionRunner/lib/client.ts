@@ -31,7 +31,9 @@ export function useGlobalReactClient(identity?: UserIdentityAttributes) {
         void c.close();
       }
       // We don't have a client yet or the deployment url has changed. Let's create a new one.
-      c = new ConvexReactClient(deploymentUrl);
+      c = new ConvexReactClient(deploymentUrl, {
+        reportDebugInfoToConvex: true,
+      });
       setClient(c);
     } else {
       // There's either a new client, or a change to the dependencies

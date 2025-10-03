@@ -413,14 +413,18 @@ pub fn log_client_transition(partition_id: u64, transition_transit_time: f64, me
             partition_id.to_string(),
         )],
     );
-    log_distribution_with_labels(
-        &SYNC_TRANSITION_BYTES_PER_SECOND,
-        message_length / (transition_transit_time / 1000.0),
-        vec![StaticMetricLabel::new(
-            "partition_id",
-            partition_id.to_string(),
-        )],
-    );
+    // Only log this for messages 100KB or larger so the portion due to clock skew
+    // is smaller.
+    if message_length >= 100_000.0 {
+        log_distribution_with_labels(
+            &SYNC_TRANSITION_BYTES_PER_SECOND,
+            message_length / (transition_transit_time / 1000.0),
+            vec![StaticMetricLabel::new(
+                "partition_id",
+                partition_id.to_string(),
+            )],
+        );
+    }
 }
 
 #[derive(Clone, Debug)]
