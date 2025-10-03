@@ -10,7 +10,7 @@ const DEFAULT_PORT = 3002;
 async function startServer(port: number, debug: boolean, tempdir: string) {
   setDebugLogging(debug);
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: "6MB" })); // 5 MiB for args (https://docs.convex.dev/production/state/limits#functions) + extra space
 
   // Override os.tmpdir to use the provided tempdir
   os.tmpdir = () => tempdir;
