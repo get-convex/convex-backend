@@ -26,7 +26,8 @@ jobs:
     uses: ./.github/workflows/test_self_hosted_backend.yml
     with:
       image_digest_x64: ${{ needs.release_backend.outputs.backend_x64_digest }}
-      image_digest_arm64: ${{ needs.release_backend.outputs.backend_arm64_digest }}
+      image_digest_arm64:
+        ${{ needs.release_backend.outputs.backend_arm64_digest }}
 
   tag_images:
     needs: [release_backend, release_dashboard, test_backend]

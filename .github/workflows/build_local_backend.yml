@@ -74,7 +74,8 @@ jobs:
           path: |
             npm-packages/common/temp/build-cache
             npm-packages/common/temp/pnpm-store
-          key: pnpm-cache-${{
+          key:
+            pnpm-cache-${{
             hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
           restore-keys: pnpm-cache-
 

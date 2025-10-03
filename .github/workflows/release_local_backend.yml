@@ -37,7 +37,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get UTC ISO8601 timestamp
-        run: echo "COMMIT_TIMESTAMP=$(git log -1 --format='%aI' | date -f - --utc '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+        run:
+          echo "COMMIT_TIMESTAMP=$(git log -1 --format='%aI' | date -f - --utc
+          '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
 
       - name: Build and push backend
         uses: docker/build-push-action@v6

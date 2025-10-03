@@ -30,11 +30,8 @@ jobs:
           - "3210:3210" # Backend API
           - "3211:3211" # Site proxy
         options: >-
-          --health-cmd "curl -f http://localhost:3210/version"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --health-start-period 10s
+          --health-cmd "curl -f http://localhost:3210/version" --health-interval
+          10s --health-timeout 5s --health-retries 5 --health-start-period 10s
 
     steps:
       - name: Checkout
@@ -49,7 +46,8 @@ jobs:
           path: |
             npm-packages/common/temp/build-cache
             npm-packages/common/temp/pnpm-store
-          key: pnpm-cache-${{
+          key:
+            pnpm-cache-${{
             hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
           restore-keys: pnpm-cache-
 

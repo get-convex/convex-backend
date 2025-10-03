@@ -9,5 +9,11 @@ module.exports = {
         proseWrap: "preserve",
       },
     },
+    {
+      files: ["*.yml.oss"],
+      options: {
+        parser: "yaml",
+      },
+    },
   ],
 };

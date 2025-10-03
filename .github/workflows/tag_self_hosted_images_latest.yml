@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       github_sha:
-        description: "Rev to tag as latest. Pick from https://github.com/get-convex/convex-backend/pkgs/container/convex-backend"
+        description:
+          "Rev to tag as latest. Pick from
+          https://github.com/get-convex/convex-backend/pkgs/container/convex-backend"
         type: string
         required: true
 
