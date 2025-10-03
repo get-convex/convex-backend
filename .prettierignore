@@ -49,6 +49,8 @@ npm-packages/**/convex/README.md
 npm-packages/**/convex/_generated/*
 npm-packages-private/**/convex/README.md
 npm-packages-private/**/convex/_generated/*
+demo/convex/README.md
+demo/convex/_generated/*
 # copied from elsewhere
 npm-packages/convex/src/vendor/**/*
 # compiled artifacts
