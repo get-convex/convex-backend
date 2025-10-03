@@ -142,7 +142,7 @@ Saving to the files has 3 components:
    provided in
    [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L556).
 
-### Can I just store the file myself an pass in a URL?
+### Can I just store the file myself and pass in a URL?
 
 Yes! You can always pass a URL in the place of an image or file to the LLM.
 
