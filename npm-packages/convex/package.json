@@ -296,7 +296,7 @@
     "dotenv": "^16.4.7",
     "esbuild": "0.25.4",
     "esbuild-plugin-external-global": "~1.0.1",
-    "eslint": "9.34.0",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",

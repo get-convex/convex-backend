@@ -27,7 +27,7 @@
     "@types/react-dom": "^18.0.0",
     "@vercel/node": "^5.0.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "9.34.0",
+    "eslint": "^9.37.0",
     "shx": "~0.3.4",
     "typescript": "~5.0.3",
     "typescript-eslint": "~8.38.0",
