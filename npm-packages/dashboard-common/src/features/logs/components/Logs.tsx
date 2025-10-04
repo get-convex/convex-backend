@@ -169,6 +169,15 @@ export function Logs({
     [innerFilter],
   );
 
+  // Function to set filter that also updates the text input
+  const setFilterAndInput = useCallback(
+    (newFilter: string) => {
+      setFilter(newFilter);
+      setInnerFilter(newFilter);
+    },
+    [setFilter],
+  );
+
   // Note: fromTimestamp used to be a `useMemo` result, but it was causing a bug
   // where fromTimestamp would keep changing and causing the query to be refetched
   // every time the first log entry changed
@@ -243,6 +252,7 @@ export function Logs({
           filteredLogs={filteredLogs}
           deploymentAuditLogs={deploymentAuditLogs}
           filter={filter}
+          setFilter={setFilterAndInput}
           clearedLogs={clearedLogs}
           setClearedLogs={setClearedLogs}
           paused={paused > 0 || manuallyPaused}

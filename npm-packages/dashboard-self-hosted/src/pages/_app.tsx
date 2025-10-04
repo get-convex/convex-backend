@@ -224,6 +224,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   projectsURI: "",
   deploymentsURI: "",
   isSelfHosted: true,
+  newLogsPageSidepanel: false,
 };
 
 function DeploymentInfoProvider({

@@ -6,7 +6,15 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import { Fragment, memo, useCallback, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useDebounce, useMeasure } from "react-use";
 import { Transition, Dialog } from "@headlessui/react";
@@ -37,12 +45,18 @@ import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 import { LogListResources } from "@common/features/logs/components/LogListResources";
 import { shallowNavigate } from "@common/lib/useTableMetadata";
 import { useRouter } from "next/router";
+import { Panel, PanelGroup } from "react-resizable-panels";
+import { cn } from "@ui/cn";
+import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { LogDrilldown } from "./LogDrilldown";
 
 export type LogListProps = {
   logs?: UdfLog[];
   filteredLogs?: UdfLog[];
   deploymentAuditLogs?: DeploymentAuditLogEvent[];
   filter: string;
+  setFilter?: (filter: string) => void;
   clearedLogs: number[];
   setClearedLogs: (clearedLogs: number[]) => void;
   nents: Nent[];
@@ -61,6 +75,7 @@ export function LogList({
   paused,
   setPaused,
   setManuallyPaused,
+  setFilter,
 }: LogListProps) {
   const router = useRouter();
 
@@ -99,6 +114,16 @@ export function LogList({
     [router],
   );
 
+  const selectLogByTimestamp = useCallback(
+    (timestamp: number) => {
+      void shallowNavigate(router, {
+        ...router.query,
+        logTs: timestamp.toString(),
+      });
+    },
+    [router],
+  );
+
   const hasFilters =
     !!logs && !!filteredLogs && filteredLogs.length !== logs.length;
 
@@ -113,19 +138,25 @@ export function LogList({
     [paused, setPaused],
   );
 
+  const { newLogsPageSidepanel } = useContext(DeploymentInfoContext);
+
   return (
-    <div className="flex h-full w-full flex-auto flex-col gap-2 overflow-hidden">
-      {shownLog && logs && (
-        <RequestIdLogs
-          requestId={shownLog}
-          logs={logs.filter((log) => log.requestId === shownLog?.requestId)}
-          onClose={() => setShownLog(undefined)}
-          nents={nents}
-        />
-      )}
-      {interleavedLogs !== undefined && (
-        <Sheet className="min-h-full w-full" padding={false} ref={sheetRef}>
-          {heightOfListContainer !== 0 && (
+    <Sheet className="h-full w-full" padding={false} ref={sheetRef}>
+      <PanelGroup
+        direction="horizontal"
+        className="flex h-full w-full flex-auto overflow-hidden"
+        autoSaveId="logs-content"
+      >
+        <Panel
+          className={cn(
+            "flex shrink flex-col",
+            "max-w-full",
+            shownLog ? "min-w-[16rem]" : "min-w-[20rem]",
+          )}
+          defaultSize={shownLog ? 60 : 100}
+          minSize={10}
+        >
+          {interleavedLogs !== undefined && heightOfListContainer !== 0 && (
             <WindowedLogList
               {...{
                 onScroll,
@@ -139,9 +170,45 @@ export function LogList({
               }}
             />
           )}
-        </Sheet>
-      )}
-    </div>
+        </Panel>
+        {shownLog &&
+          logs &&
+          (newLogsPageSidepanel ? (
+            <>
+              <ResizeHandle collapsed={false} direction="left" />
+              <Panel
+                defaultSize={0}
+                minSize={10}
+                className="flex min-w-[32rem] flex-col"
+              >
+                <LogDrilldown
+                  requestId={shownLog.requestId}
+                  logs={
+                    filteredLogs
+                      ? filteredLogs.filter(
+                          (log) => log.requestId === shownLog.requestId,
+                        )
+                      : []
+                  }
+                  onClose={() => setShownLog(undefined)}
+                  selectedLogTimestamp={shownLog.timestamp}
+                  onFilterByRequestId={(requestId) => {
+                    setFilter?.(requestId);
+                  }}
+                  onSelectLog={selectLogByTimestamp}
+                />
+              </Panel>
+            </>
+          ) : (
+            <RequestIdLogs
+              requestId={shownLog}
+              logs={logs.filter((log) => log.requestId === shownLog?.requestId)}
+              onClose={() => setShownLog(undefined)}
+              nents={nents}
+            />
+          ))}
+      </PanelGroup>
+    </Sheet>
   );
 }
 

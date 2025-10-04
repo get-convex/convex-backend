@@ -106,6 +106,7 @@ export type DeploymentInfo = (
   projectsURI: string;
   deploymentsURI: string;
   isSelfHosted: boolean;
+  newLogsPageSidepanel: boolean;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(
