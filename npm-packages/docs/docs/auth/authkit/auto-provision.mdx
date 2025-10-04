@@ -52,5 +52,5 @@ deployments. Preview and production deployments must be manually configured.
 To manually configure the production deployment, visit the WorkOS page for the
 production environment for this project and
 [follow these steps](/docs/auth/authkit/index.mdx#configuring-an-existing-workos-account).
-. Only one production deployment exists by default per WorkOS team so additional
+Only one production deployment exists by default per WorkOS team so additional
 project may need to use separate WorkOS teams.
