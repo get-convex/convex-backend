@@ -3,7 +3,7 @@
 /* eslint-disable @convex-dev/no-old-registered-function-syntax */
 import { action } from "./_generated/server";
 import { Tiktoken } from "tiktoken/lite";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const gpt2_base = require("tiktoken/encoders/gpt2.json");
 
 export const encode = action(

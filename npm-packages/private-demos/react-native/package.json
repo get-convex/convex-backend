@@ -21,6 +21,8 @@
     "@babel/core": "^7.27.1",
     "@babel/preset-env": "^7.27.1",
     "@babel/runtime": "^7.27.1",
+    "@eslint/js": "~9.34.0",
+    "@eslint/eslintrc": "^3",
     "@react-native/babel-preset": "0.80.2",
     "@react-native/eslint-config": "0.80.2",
     "@react-native/metro-config": "0.80.2",

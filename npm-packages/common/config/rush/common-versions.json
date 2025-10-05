@@ -108,9 +108,10 @@
     "@types/node": ["^20", "^22.5.4"],
     "@types/react": ["^18", "^18.3.17", "^18.2.65"],
     "@types/react-dom": ["^18", "^18.3.1", "^18.2.21"],
+    "@typescript-eslint/eslint-plugin": ["^8.45.0"],
     //"eslint": ["^8"],
     "@eslint/eslintrc": ["^3"],
-    "eslint-config-next": ["15.2.3"],
+    "eslint-config-next": ["~13.4.16", "15.2.3"],
 
     // Keep the TanStack Start + Clerk demo on a pre-RC version since Clerk doesn’t support RC yet
     "@tanstack/react-start": ["1.120.11"],

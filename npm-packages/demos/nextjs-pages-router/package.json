@@ -9,7 +9,7 @@
     "dev:frontend": "next dev",
     "predev": "convex dev --until-success",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "next": "^14.2.33",
@@ -20,12 +20,14 @@
     "prettier": "3.6.2"
   },
   "devDependencies": {
+    "@eslint/js": "~9.34.0",
+    "@eslint/eslintrc": "^3",
     "@types/babel__core": "^7.20.0",
     "@types/node": "^18.17.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "^8.29.0",
+    "eslint": "^9.37.0",
     "eslint-config-next": "~13.4.16",
     "npm-run-all2": "^7.0.0",
     "typescript": "~5.0.3",

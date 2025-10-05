@@ -8,7 +8,7 @@
     "dev:db": "convex dev",
     "dev:frontend": "vite --open --clearScreen false",
     "build": "tshy",
-    "lint": "eslint",
+    "lint": "eslint .",
     "preview": "vite preview",
     "test:types": "tsc --noEmit",
     "prepare": "tshy"
@@ -38,6 +38,9 @@
     "convex": "^1.27.3"
   },
   "devDependencies": {
+    "@eslint/compat": "~1.3.0",
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "~9.34.0",
     "@tanstack/eslint-plugin-query": "^5.74.7",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-query-devtools": "^5.90.2",
@@ -46,7 +49,7 @@
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "convex": "workspace:*",
-    "eslint": "^8.29.0",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.0.0",
     "npm-run-all2": "^7.0.0",
     "react": "^18.0.0",

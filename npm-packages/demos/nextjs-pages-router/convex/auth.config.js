@@ -1,4 +1,4 @@
-export default {
+const config = {
   providers: [
     {
       // Go to your Convex dashboard deployment Settings to configure
@@ -8,3 +8,5 @@ export default {
     },
   ],
 };
+
+export default config;

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "convex": "workspace:*",
@@ -18,12 +18,13 @@
     "tailwindcss": "^3.2.4"
   },
   "devDependencies": {
+    "@eslint/js": "~9.34.0",
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.1",
-    "eslint": "^9",
-    "eslint-config-next": "15.2.3",
+    "eslint": "^9.37.0",
+    "eslint-config-next": "^15.5.4",
     "typescript": "^5.1.3"
   }
 }
