@@ -453,6 +453,10 @@
       "projectFolder": "private-demos/pagination-adversarial"
     },
     {
+      "packageName": "pagination-visualization",
+      "projectFolder": "private-demos/pagination-visualization"
+    },
+    {
       "packageName": "presence-facepile",
       "projectFolder": "demos/presence-facepile"
     },
