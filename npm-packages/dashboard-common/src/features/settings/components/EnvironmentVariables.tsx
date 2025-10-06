@@ -2,16 +2,16 @@ import { Form, Formik, getIn, useFormikContext } from "formik";
 
 import {
   ClipboardCopyIcon,
-  Cross2Icon,
   EyeNoneIcon,
   EyeOpenIcon,
-  Pencil1Icon,
-  PlusIcon,
-  TrashIcon,
+  MinusCircledIcon,
+  Pencil2Icon,
+  PlusCircledIcon,
+  ResetIcon,
 } from "@radix-ui/react-icons";
 
 import classNames from "classnames";
-import {
+import React, {
   ClipboardEventHandler,
   useEffect,
   useId,
@@ -28,7 +28,7 @@ import { TextInput } from "@ui/TextInput";
 const MAX_NUMBER_OF_ENV_VARS = 100;
 
 export const ENVIRONMENT_VARIABLES_ROW_CLASSES =
-  "grid grid-cols-[minmax(0,1fr)_7.5rem] gap-4 py-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7.5rem] items-start";
+  "grid grid-cols-[minmax(0,1fr)_6.5rem] gap-4 py-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem]";
 export const ENVIRONMENT_VARIABLE_NAME_COLUMN = "col-span-2 md:col-span-1";
 
 const ERROR_ENV_VAR_NOT_UNIQUE = "Environment variable name is not unique";
@@ -207,16 +207,16 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
               <div
                 className={classNames(
                   ENVIRONMENT_VARIABLES_ROW_CLASSES,
-                  "hidden md:grid",
+                  "hidden md:grid mb-0.5",
                 )}
               >
                 <div
                   className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
                 >
-                  <span className="text-xs text-content-secondary">Name</span>
+                  <span className="text-sm text-content-secondary">Name</span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs text-content-secondary">Value</span>
+                  <span className="text-sm text-content-secondary">Value</span>
                 </div>
               </div>
             )}
@@ -318,39 +318,38 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
 
   return (
     <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
-      <div
-        className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
-      >
-        <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
+      <div className={ENVIRONMENT_VARIABLE_NAME_COLUMN}>
+        <div className="flex items-start font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
           {environmentVariable.name}
         </div>
       </div>
-      <div className="flex flex-col gap-1">
-        <div className="flex h-[2.375rem] items-center gap-1 font-mono">
-          <Button
-            tip={showValue ? "Hide" : "Show"}
-            type="button"
-            onClick={() => setShowValue(!showValue)}
-            variant="neutral"
-            inline
-            size="sm"
-            icon={showValue ? <EyeNoneIcon /> : <EyeOpenIcon />}
-          />
+      <div className="flex min-h-[2.125rem] min-w-0 items-center gap-1 font-mono">
+        <Button
+          tip={showValue ? "Hide" : "Show"}
+          type="button"
+          onClick={() => setShowValue(!showValue)}
+          variant="neutral"
+          inline
+          size="sm"
+          className="h-full"
+          icon={showValue ? <EyeNoneIcon /> : <EyeOpenIcon />}
+        />
+        <div className="min-w-0 flex-1">
           {showValue ? (
-            <span className="truncate text-content-primary">
+            <pre className="animate-fadeInFromLoading rounded-md border p-1.5 px-2 break-all whitespace-pre-wrap text-content-primary">
               {environmentVariable.value}
-            </span>
+            </pre>
           ) : (
             <span
               title="Hidden environment variable"
-              className="text-content-primary"
+              className="block truncate text-xs text-content-primary"
             >
-              ••••••
+              •••••••••••••••
             </span>
           )}
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex h-[2.125rem] justify-between gap-2">
         <Button
           tip={
             !hasAdminPermissions
@@ -360,9 +359,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           type="button"
           onClick={() => onEdit()}
           variant="neutral"
-          size="sm"
-          inline
-          icon={<Pencil1Icon />}
+          icon={<Pencil2Icon />}
           disabled={formState.isSubmitting || !hasAdminPermissions}
         />
         <Button
@@ -376,8 +373,6 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
             );
           }}
           variant="neutral"
-          size="sm"
-          inline
           icon={<ClipboardCopyIcon />}
           disabled={formState.isSubmitting}
         />
@@ -390,9 +385,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           type="button"
           onClick={() => onDelete()}
           variant="danger"
-          size="sm"
-          inline
-          icon={<TrashIcon />}
+          icon={<MinusCircledIcon />}
           disabled={formState.isSubmitting || !hasAdminPermissions}
         />
       </div>
@@ -418,21 +411,19 @@ function DeletedEnvVar<T extends BaseEnvironmentVariable>({
           {environmentVariable.name}
         </div>
       </div>
-      <div className="flex flex-col gap-1">
-        <div className="flex h-[2.375rem] items-center justify-center gap-1 bg-background-error">
-          <TrashIcon className="text-content-error" /> Will be deleted
-        </div>
+      <div className="flex h-[2.375rem] items-center justify-center gap-1 rounded-md border bg-background-error text-content-error">
+        <MinusCircledIcon /> Will be deleted
       </div>
-      <div className="flex items-center justify-center">
-        <Button
-          inline
-          size="sm"
-          onClick={() => onCancelDelete()}
-          disabled={formState.isSubmitting}
-        >
-          Cancel
-        </Button>
-      </div>
+      <Button
+        variant="neutral"
+        className="min-h-[2.125rem] w-full justify-center"
+        size="sm"
+        onClick={() => onCancelDelete()}
+        disabled={formState.isSubmitting}
+        icon={<ResetIcon />}
+      >
+        Restore
+      </Button>
     </div>
   );
 }
@@ -465,35 +456,34 @@ function EditEnvVarForm<T extends BaseEnvironmentVariable>({
   const { value } = (formState.values as any).editedVars[editIndex].newEnvVar;
 
   return (
-    <div>
+    <div className="animate-fadeInFromLoading">
       <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
         <label
           htmlFor={nameId}
           className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
         >
-          <ValidatedTextInput
+          <EnvVarNameInput
             formKey={`editedVars[${editIndex}].newEnvVar.name`}
             id={nameId}
           />
         </label>
         <label htmlFor={valueId} className="flex grow flex-col flex-wrap gap-1">
-          <ValidatedTextInput
+          <EnvVarValueInput
             formKey={`editedVars[${editIndex}].newEnvVar.value`}
             id={valueId}
-            noAutocomplete
           />
         </label>
-        <div className="flex items-center justify-center">
-          <Button
-            type="button"
-            inline
-            size="sm"
-            onClick={() => onCancelEdit()}
-            disabled={formState.isSubmitting}
-          >
-            Cancel
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="neutral"
+          className="h-fit min-h-[2.125rem] w-full justify-center"
+          size="sm"
+          onClick={() => onCancelEdit()}
+          disabled={formState.isSubmitting}
+          icon={<ResetIcon />}
+        >
+          Undo Edit
+        </Button>
       </div>
       {value.length > 1 && value.startsWith('"') && value.endsWith('"') && (
         <Callout className="mb-2 w-full">
@@ -678,7 +668,7 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
                   },
                 ]);
               }}
-              icon={<PlusIcon />}
+              icon={<PlusCircledIcon />}
               disabled={!hasAdminPermissions}
               tip={
                 !hasAdminPermissions
@@ -694,7 +684,6 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
             <Button
               type="button"
               variant="neutral"
-              inline
               onClick={async () => {
                 await copyTextToClipboard(
                   existingEnvVars
@@ -765,7 +754,7 @@ function NewEnvVar({
         className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
       >
         <div>
-          <ValidatedTextInput
+          <EnvVarNameInput
             formKey={`newVars[${newVarIndex}].name`}
             id={nameId}
             onPaste={(e) => {
@@ -782,10 +771,9 @@ function NewEnvVar({
 
       <label htmlFor={valueId} className="flex grow flex-col gap-1">
         <div>
-          <ValidatedTextInput
+          <EnvVarValueInput
             formKey={`newVars[${newVarIndex}].value`}
             id={valueId}
-            noAutocomplete
           />
           {value.length > 1 && value.startsWith('"') && value.endsWith('"') && (
             <Callout>
@@ -797,53 +785,189 @@ function NewEnvVar({
         </div>
       </label>
 
-      <div className="pt-1">
-        <Button
-          tip="Remove"
-          type="button"
-          onClick={() => {
-            onDelete();
-          }}
-          variant="neutral"
-          inline
-          size="sm"
-          icon={<Cross2Icon />}
-        />
-      </div>
+      <Button
+        tip="Remove"
+        type="button"
+        onClick={() => {
+          onDelete();
+        }}
+        className="w-fit"
+        variant="neutral"
+        size="sm"
+        icon={<MinusCircledIcon />}
+      />
     </div>
   );
 }
 
-function ValidatedTextInput({
+function EnvVarNameInput({
   formKey,
   id,
-  noAutocomplete = false,
-  onPaste = undefined,
+  onPaste,
   autoFocus = false,
 }: {
   formKey: string;
   id: string;
-  noAutocomplete?: boolean;
   onPaste?: ClipboardEventHandler;
   autoFocus?: boolean;
 }) {
   const formState = useFormikContext();
   const error = (formState.errors as Record<string, string>)[formKey];
+  const touched = getIn(formState.touched, formKey);
 
   return (
     <TextInput
       id={id}
+      className="font-mono"
       labelHidden
       disabled={formState.isSubmitting}
       {...formState.getFieldProps(formKey)}
-      autoComplete={noAutocomplete ? "off" : undefined}
       onPaste={onPaste}
       error={
-        (getIn(formState.touched, formKey) ||
-          error === ERROR_ENV_VAR_NOT_UNIQUE) &&
-        error
+        (touched || error === ERROR_ENV_VAR_NOT_UNIQUE) && error
+          ? error
+          : undefined
       }
       autoFocus={autoFocus}
     />
+  );
+}
+
+function EnvVarValueInput({
+  formKey,
+  id,
+  autoFocus = false,
+}: {
+  formKey: string;
+  id: string;
+  autoFocus?: boolean;
+}) {
+  const formState = useFormikContext();
+  const error = (formState.errors as Record<string, string>)[formKey];
+  const value = getIn(formState.values, formKey) as string;
+  const touched = getIn(formState.touched, formKey);
+
+  const hasAnyWhitespace = value.includes(" ");
+  const hasLeadingOrTrailingWhitespace =
+    value.length > 0 && value !== value.trim();
+  const hasReturnCharacter = value.includes("\n");
+
+  // Build whitespace error message
+  let whitespaceError = "";
+  if (hasLeadingOrTrailingWhitespace || hasReturnCharacter) {
+    const hasLeading = value !== value.trimStart();
+    const hasTrailing = value !== value.trimEnd();
+    if (hasLeading && hasTrailing) {
+      whitespaceError = "This value has leading and trailing whitespace.";
+    } else if (hasLeading) {
+      whitespaceError = "This value has leading whitespace.";
+    } else if (hasTrailing) {
+      whitespaceError = "This value has trailing whitespace.";
+    } else {
+      whitespaceError = "This value contains return characters.";
+    }
+  }
+
+  // Build whitespace indicator overlay parts - one element per character
+  const whitespaceOverlayParts: { text: string; className: string }[] = [];
+  if (hasAnyWhitespace) {
+    const trimmedStart = value.trimStart();
+    const trimmedEnd = value.trimEnd();
+    const leadingCount = value.length - trimmedStart.length;
+    const trailingCount = value.length - trimmedEnd.length;
+
+    for (let i = 0; i < value.length; i++) {
+      const char = value[i];
+      const isSpace = char === " " || char === "\n";
+      const isLeading = i < leadingCount;
+      const isTrailing = i >= value.length - trailingCount;
+      const colorClass =
+        isSpace && (isLeading || isTrailing)
+          ? "text-content-errorSecondary bg-background-error/60"
+          : isSpace
+            ? "text-content-tertiary/50"
+            : "text-transparent";
+      const displayChar = isSpace ? (char === "\n" ? "↵\n" : "␣") : char;
+
+      whitespaceOverlayParts.push({ text: displayChar, className: colorClass });
+    }
+  }
+
+  // Combine validation error with whitespace error
+  const displayError = error || whitespaceError;
+  const hasError = Boolean((touched || whitespaceError) && displayError);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value]);
+
+  const textareaClasses = `
+    w-full
+    min-h-[2.125rem]
+    font-mono
+    block
+    rounded-md
+    bg-background-secondary
+    p-1.5
+    whitespace-break-spaces
+    px-2
+    text-sm
+    border
+    placeholder-content-tertiary
+    focus:outline-hidden
+    disabled:bg-background-tertiary
+    disabled:text-content-secondary
+    break-all
+    disabled:cursor-not-allowed
+    resize-none
+    overflow-hidden
+    ${hasError ? "focus:border-content-error" : "text-content-primary focus:border-border-selected"}
+  `
+    .trim()
+    .replace(/\s+/g, " ");
+
+  return (
+    <>
+      <div className="relative overflow-hidden">
+        <textarea
+          ref={textareaRef}
+          id={id}
+          className={textareaClasses}
+          disabled={formState.isSubmitting}
+          {...formState.getFieldProps(formKey)}
+          autoComplete="off"
+          spellCheck={false}
+          autoFocus={autoFocus}
+          rows={1}
+        />
+        {hasAnyWhitespace && (
+          <pre
+            className="pointer-events-none absolute inset-0 mt-0.5 ml-px max-h-full max-w-full animate-fadeInFromLoading overflow-hidden rounded-md p-1.5 px-2 font-mono break-all whitespace-pre-wrap"
+            aria-hidden="true"
+          >
+            {whitespaceOverlayParts.map((part, i) => (
+              <span key={i} className={part.className}>
+                {part.text}
+              </span>
+            ))}
+          </pre>
+        )}
+      </div>
+      {hasError && displayError && (
+        <p
+          className="mt-1 flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words text-content-errorSecondary"
+          role="alert"
+        >
+          {displayError}
+        </p>
+      )}
+    </>
   );
 }

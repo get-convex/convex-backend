@@ -333,10 +333,10 @@ function ProjectSettings() {
           <div className="m-auto flex min-h-0 max-w-(--container-width) gap-(--sidebar-gap) px-(--container-px)">
             <div className="hidden w-(--sidebar-width) shrink-0 md:block" />
 
-            <div className="flex flex-col items-start">
+            <div className="flex grow flex-col items-start">
               <div className="md:hidden">{title}</div>
 
-              <div className="flex grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3">
+              <div className="flex w-full grow flex-col gap-6 pr-2 pb-6 md:pt-20 [&>*]:scroll-mt-3">
                 {team && project ? (
                   <div id={SECTION_IDS.projectForm}>
                     <ProjectForm
