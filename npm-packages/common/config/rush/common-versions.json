@@ -28,7 +28,7 @@
     /**
      * At verison 4.22.0 domain-browser moved from MIT to "Artistic License"
      */
-     "domain-browser": "4.22.0"
+    "domain-browser": "4.22.0"
   },
 
   /**
@@ -119,7 +119,7 @@
     /**
      * Until an upgrade to ESLint 9 is done
      */
-     "eslint": ["^8.29.0", "^9"],
-     "eslint-plugin-react-hooks": ["^4.6.2"]
+    "eslint": ["^8.29.0", "^9"],
+    "eslint-plugin-react-hooks": ["^4.6.2"]
   }
 }
