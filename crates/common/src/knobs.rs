@@ -938,7 +938,7 @@ pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =
 
 /// Whether to use prepared statements or not in Persistence.
 pub static DATABASE_USE_PREPARED_STATEMENTS: LazyLock<bool> =
-    LazyLock::new(|| env_config("DATABASE_USE_PREPARED_STATEMENTS", false));
+    LazyLock::new(|| env_config("DATABASE_USE_PREPARED_STATEMENTS", true));
 
 /// The amount of time to allow for downloading a single file in the archive
 /// cache on searchlight before timing out. If a fetch times out, no progress is
