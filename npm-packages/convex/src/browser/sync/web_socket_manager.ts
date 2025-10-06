@@ -706,13 +706,11 @@ export class WebSocketManager {
 
     if (this.debug) {
       // debug means "reportDebugInfoToConvex" is set so this can be aggressive.
-      if (transitionTransitTime > 2_000) {
-        this.sendMessage({
-          type: "Event",
-          eventType: "ClientReceivedTransition",
-          event: { transitionTransitTime, messageLength },
-        });
-      }
+      this.sendMessage({
+        type: "Event",
+        eventType: "ClientReceivedTransition",
+        event: { transitionTransitTime, messageLength },
+      });
     }
   }
 }
