@@ -11,6 +11,7 @@ import isEqual from "lodash/isEqual";
 import { dismissToast, toast } from "@common/lib/utils";
 import { LogList } from "@common/features/logs/components/LogList";
 import { LogToolbar } from "@common/features/logs/components/LogToolbar";
+import { SearchLogsInput } from "@common/features/logs/components/SearchLogsInput";
 import { filterLogs } from "@common/features/logs/lib/filterLogs";
 import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
 import {
@@ -20,7 +21,6 @@ import {
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { MAX_LOGS, UdfLog, useLogs } from "@common/lib/useLogs";
 import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
-import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -214,12 +214,10 @@ export function Logs({
           setSelectedNents={setSelectedNents}
         />
         <div className="mb-2 flex w-full gap-2">
-          <TextInput
-            id="Search logs"
-            placeholder="Filter logs..."
+          <SearchLogsInput
             value={innerFilter}
             onChange={(e) => setInnerFilter(e.target.value)}
-            type="search"
+            logs={logs}
           />
           <Button
             size="sm"

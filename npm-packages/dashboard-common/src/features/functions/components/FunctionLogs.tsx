@@ -1,8 +1,8 @@
 import { useContext, useEffect, useState } from "react";
 import { useDebounce, useLocalStorage } from "react-use";
-import { TextInput } from "@ui/TextInput";
 import { LogList } from "@common/features/logs/components/LogList";
 import { LogToolbar } from "@common/features/logs/components/LogToolbar";
+import { SearchLogsInput } from "@common/features/logs/components/SearchLogsInput";
 import { filterLogs } from "@common/features/logs/lib/filterLogs";
 import { displayNameToIdentifier } from "@common/lib/functions/FunctionsProvider";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
@@ -140,12 +140,10 @@ export function FunctionLogs({
               >
                 View all Logs
               </Button>
-              <TextInput
-                id="Search logs"
-                placeholder="Filter logs..."
+              <SearchLogsInput
                 value={innerFilter}
                 onChange={(e) => setFilter(e.target.value)}
-                type="search"
+                logs={logs}
               />
             </div>
           }
