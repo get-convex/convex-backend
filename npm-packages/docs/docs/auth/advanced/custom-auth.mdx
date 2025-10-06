@@ -26,9 +26,11 @@ Just like with [Clerk](/auth/clerk.mdx) and [Auth0](/auth/auth0.mdx), the
 backend needs to be aware of the domain of the Issuer and your application's
 specific applicationID for a given identity provider.
 
-Add these to your `convex/auth.config.js` file:
+Add these to your `convex/auth.config.ts` file:
 
-```js noDialect title="convex/auth.config.js"
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
 export default {
   providers: [
     {
@@ -36,7 +38,7 @@ export default {
       applicationID: "your-application-id",
     },
   ],
-};
+} satisfies AuthConfig;
 ```
 
 The `applicationID` property must exactly match the `aud` field of your JWT and

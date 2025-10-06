@@ -1,3 +1,4 @@
+import { AuthConfig } from "convex/server";
 import { jwksDataUri } from "../authCredentials.js";
 
 // This deploy needs to succeed for these tests to work so these providers
@@ -35,4 +36,4 @@ export default {
       algorithm: "RS256",
     },
   ],
-};
+} satisfies AuthConfig;

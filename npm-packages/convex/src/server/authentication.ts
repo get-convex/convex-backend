@@ -1,6 +1,75 @@
 import { JSONValue } from "../values/index.js";
 
 /**
+ * The value exported by your Convex project in `auth.config.ts`.
+ *
+ * ```ts
+ * import { AuthConfig } from "convex/server";
+ *
+ * export default {
+ *   providers: [
+ *     {
+ *       domain: "https://your.issuer.url.com",
+ *       applicationID: "your-application-id",
+ *     },
+ *   ],
+ * } satisfies AuthConfig;
+ * ```
+ */
+export type AuthConfig = {
+  providers: AuthProvider[];
+};
+
+/**
+ * An authentication provider allowed to issue JWTs for your app.
+ *
+ * See: https://docs.convex.dev/auth/advanced/custom-auth and https://docs.convex.dev/auth/advanced/custom-jwt
+ */
+export type AuthProvider =
+  // OIDC provider
+  | {
+      /**
+       * Tokens issued by the auth provider must have this application ID
+       * in their audiences.
+       */
+      applicationID: string;
+
+      /**
+       * The domain of the OIDC auth provider.
+       */
+      domain: string;
+    }
+  // Custom JWT provider (see https://docs.convex.dev/auth/advanced/custom-jwt)
+  | {
+      type: "customJwt";
+
+      /**
+       * Tokens issued by the auth provider must have this application ID
+       * in their audiences.
+       *
+       * Warning: omitting applicationID is often insecure
+       * (see https://docs.convex.dev/auth/advanced/custom-jwt#warning-omitting-applicationid-is-often-insecure).
+       */
+      applicationID?: string;
+
+      /**
+       * The issuer of the JWT auth provider (e.g. `https://auth.example.com`)
+       */
+      issuer: string;
+
+      /**
+       * The URL to fetch the JWKS (e.g. `https://auth.example.com/.well-known/jwks.json`)
+       */
+      jwks: string;
+
+      /**
+       * The algorithm used to sign the JWT tokens. Convex currently only
+       * supports RS256 and ES256.
+       */
+      algorithm: "RS256" | "ES256";
+    };
+
+/**
  * Information about an authenticated user, derived from a
  * [JWT](https://datatracker.ietf.org/doc/html/rfc7519).
  *

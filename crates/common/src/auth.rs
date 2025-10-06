@@ -117,6 +117,8 @@ impl FromStr for SignatureAlgorithm {
     }
 }
 
+// Keep in sync with `AuthProvider` in
+// `npm-packages/convex/src/server/authentication.ts`
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Ord, PartialOrd)]
 #[serde(tag = "type")]
 pub enum SerializedAuthInfo {

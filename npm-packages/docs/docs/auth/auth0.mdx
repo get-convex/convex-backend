@@ -52,6 +52,8 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
     in your Auth0 application's Settings dashboard.
 
     ```ts title="convex/auth.config.ts"
+    import { AuthConfig } from "convex/server";
+
     export default {
       providers: [
         {
@@ -59,7 +61,7 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
           applicationID: "yourclientid",
         },
       ]
-    };
+    } satisfies AuthConfig;
     ```
 
   </Step>
@@ -203,14 +205,16 @@ First, change your <JSDialectFileName name="auth.config.ts" /> file to use
 environment variables:
 
 ```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
 export default {
   providers: [
     {
-      domain: process.env.AUTH0_DOMAIN,
-      applicationID: process.env.AUTH0_CLIENT_ID,
+      domain: process.env.AUTH0_DOMAIN!,
+      applicationID: process.env.AUTH0_CLIENT_ID!,
     },
   ],
-};
+} satisfies AuthConfig;
 ```
 
 **Development configuration**

@@ -53,6 +53,8 @@
 
 export type {
   Auth,
+  AuthConfig,
+  AuthProvider,
   UserIdentity,
   UserIdentityAttributes,
 } from "./authentication.js";

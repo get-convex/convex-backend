@@ -14,4 +14,4 @@ Because this app uses authentication, it requires a bit of an additional setup.
 
 Follow these instructions https://docs.convex.dev/auth/auth0 to set up Auth0
 with Convex. You will have to update the client in `main.tsx` and the server in
-`auth.config.js`.
+`auth.config.ts`.

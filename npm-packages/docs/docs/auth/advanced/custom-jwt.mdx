@@ -37,7 +37,9 @@ Convex clients to implement token refreshing.
 
 Use `type: "customJwt"` to configure a Custom JWT auth provider:
 
-```js noDialect title="convex/auth.config.js"
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
 export default {
   providers: [
     {

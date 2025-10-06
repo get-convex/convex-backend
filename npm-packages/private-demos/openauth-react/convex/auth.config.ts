@@ -1,3 +1,5 @@
+import { AuthConfig } from "convex/server";
+
 export default {
   providers: [
     {
@@ -16,4 +18,4 @@ export default {
       algorithm: "ES256",
     },
   ],
-};
+} satisfies AuthConfig;
