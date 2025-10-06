@@ -28,7 +28,10 @@ use common::{
         Persistence,
         RetentionValidator,
     },
-    runtime::Runtime,
+    runtime::{
+        JoinMap,
+        Runtime,
+    },
     types::{
         IndexId,
         RepeatableTimestamp,
@@ -39,7 +42,6 @@ use futures::FutureExt;
 use hashlink::LinkedHashSet;
 use keybroker::Identity;
 use tokio::select;
-use tokio_util::task::JoinMap;
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
@@ -269,6 +271,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             self.in_progress_index_ids.insert(index_id);
         }
         self.in_progress.spawn(
+            "backfill_tablet",
             index_ids.clone(),
             Self::backfill_tablet(
                 tablet_id,

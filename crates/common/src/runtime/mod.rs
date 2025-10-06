@@ -65,7 +65,10 @@ use tokio_util::task::AbortOnDropHandle;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
 
-pub use self::join_set::JoinSet;
+pub use self::{
+    join_map::JoinMap,
+    join_set::JoinSet,
+};
 use crate::{
     errors::recapture_stacktrace,
     is_canceled::IsCanceled,
@@ -73,6 +76,7 @@ use crate::{
     types::Timestamp,
 };
 
+mod join_map;
 mod join_set;
 
 #[cfg(any(test, feature = "testing"))]
