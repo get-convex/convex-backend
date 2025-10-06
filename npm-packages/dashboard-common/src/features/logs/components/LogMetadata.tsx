@@ -108,11 +108,13 @@ export function LogMetadata({
           </li>
           <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
             <span className="text-content-secondary">Function</span>
-            <span className="min-w-0 truncate font-mono text-content-primary">
+            <span className="min-w-0 truncate">
               {rootNode?.functionName ? (
-                <FunctionNameOption label={rootNode.functionName} />
+                <span className="font-mono text-content-primary">
+                  <FunctionNameOption label={rootNode.functionName} />
+                </span>
               ) : (
-                "Pending..."
+                <span className="text-content-tertiary">Pending...</span>
               )}
             </span>
           </li>

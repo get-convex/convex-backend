@@ -55,11 +55,11 @@ function Functions() {
     );
   } else {
     content = (
-      <div className="flex h-full max-w-[110rem] grow flex-col">
+      <div className="flex h-full max-w-[110rem] min-w-0 grow flex-col overflow-hidden">
         <HeadlessTab.Group
           selectedIndex={selectedTabIndex}
           onChange={setSelectedTabIndex}
-          className="flex grow flex-col"
+          className="flex min-h-0 grow flex-col"
           as="div"
         >
           <div className="sticky top-0 z-10 mb-6 scrollbar overflow-x-auto bg-background-secondary">
@@ -73,7 +73,7 @@ function Functions() {
             </div>
           </div>
 
-          <HeadlessTab.Panels className="scrollbar flex w-full grow overflow-x-auto px-6 pb-4">
+          <HeadlessTab.Panels className="scrollbar flex w-full min-w-0 grow overflow-x-auto px-6 pb-4">
             <HeadlessTab.Panel className="grow">
               <PerformanceGraphs />
             </HeadlessTab.Panel>
@@ -82,7 +82,7 @@ function Functions() {
               <FileEditor moduleFunction={currentOpenFunction} />
             </HeadlessTab.Panel>
 
-            <HeadlessTab.Panel className="grow">
+            <HeadlessTab.Panel className="flex min-h-0 min-w-0 grow">
               <FunctionLogs
                 key={currentOpenFunction.displayName}
                 currentOpenFunction={currentOpenFunction}

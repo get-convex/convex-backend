@@ -11,6 +11,8 @@ type LogListItemProps = {
   log: UdfLog;
   setShownLog?(shown: UdfLog | undefined): void;
   focused?: boolean;
+  selected?: boolean;
+  hitBoundary?: "top" | "bottom" | null;
 };
 
 export const ITEM_SIZE = 24;
@@ -19,18 +21,42 @@ export function LogListItem({
   log,
   setShownLog,
   focused = false,
+  selected = false,
+  hitBoundary,
 }: LogListItemProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const prevFocusedRef = useRef(focused);
+
+  // Pass the button ref to parent
   useEffect(() => {
-    if (focused && ref.current) {
+    if (focused) {
+      buttonRef.current?.focus();
+    }
+  }, [focused]);
+
+  useEffect(() => {
+    // Only scroll into view when transitioning to focused (not already focused)
+    if (focused && !prevFocusedRef.current && ref.current) {
       ref.current.scrollIntoView({
         block: "center",
         inline: "nearest",
       });
     }
+    prevFocusedRef.current = focused;
   }, [focused, ref]);
+
+  // When the item receives focus and setShownLog is available, call it
+  const handleFocus = () => {
+    if (setShownLog) {
+      setShownLog(log);
+    }
+  };
   const isFailure =
     log.kind === "outcome" ? !!log.error : log.output.level === "ERROR";
+
+  // Only show boundary animation on the selected/focused item
+  const showBoundary = focused && hitBoundary;
 
   return (
     <div
@@ -38,13 +64,20 @@ export function LogListItem({
       className={classNames(
         "flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
-        setShownLog && "hover:bg-background-tertiary/80",
+        setShownLog && "hover:bg-background-tertiary/70",
+        selected && "bg-background-tertiary",
+        showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
+        showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
       )}
       style={{
         height: setShownLog ? ITEM_SIZE : undefined,
       }}
     >
-      <Wrapper setShownLog={setShownLog ? () => setShownLog(log) : undefined}>
+      <Wrapper
+        setShownLog={setShownLog ? () => setShownLog(log) : undefined}
+        buttonRef={buttonRef}
+        onFocus={handleFocus}
+      >
         <div
           className={classNames(
             "flex gap-4 items-center",
@@ -135,23 +168,31 @@ export function LogListItem({
 function Wrapper({
   children,
   setShownLog,
+  buttonRef,
+  onFocus,
 }: {
   children: React.ReactNode;
   setShownLog?: () => void;
+  buttonRef?: React.RefObject<HTMLButtonElement>;
+  onFocus?: () => void;
 }) {
   return setShownLog ? (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
     <button
+      ref={buttonRef}
       type="button"
       className={classNames(
         "flex gap-2 truncate p-0.5",
         "group w-full font-mono text-xs",
+        "focus:outline-none",
         "items-center",
         // Make space for the focus outline
         "h-[calc(100%-1px)]",
       )}
       onClick={() => setShownLog()}
+      onFocus={onFocus}
+      tabIndex={0}
     >
       {children}
     </button>

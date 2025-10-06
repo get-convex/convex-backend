@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useDebounce, useLocalStorage } from "react-use";
 import { TextInput } from "@ui/TextInput";
 import { LogList } from "@common/features/logs/components/LogList";
@@ -74,6 +74,13 @@ export function FunctionLogs({
     [innerFilter],
   );
 
+  // Sync innerFilter when filter changes externally (e.g., from side panel)
+  useEffect(() => {
+    if (filter !== undefined && filter !== innerFilter) {
+      setInnerFilter(filter);
+    }
+  }, [filter, innerFilter]);
+
   const onPause = (p: boolean) => {
     const now = new Date().getTime();
     setPaused(p ? now : 0);
@@ -112,60 +119,65 @@ export function FunctionLogs({
   const { deploymentsURI } = useContext(DeploymentInfoContext);
 
   return (
-    <div className="flex h-full w-full min-w-[48rem] grow flex-col gap-2">
-      <LogToolbar
-        functions={[functionId]}
-        selectedFunctions={[functionId]}
-        setSelectedFunctions={(_functions) => {}}
-        selectedLevels={selectedLevels}
-        setSelectedLevels={setSelectedLevels}
-        selectedNents={selectedNent ? [selectedNent.path] : "all"}
-        setSelectedNents={() => {}}
-        hideFunctionFilter
-        firstItem={
-          <div className="flex grow gap-2">
-            <Button
-              variant="neutral"
-              size="sm"
-              icon={<ExternalLinkIcon />}
-              href={`${deploymentsURI}/logs${router.query.component ? `?component=${router.query.component}` : ""}`}
-            >
-              View all Logs
-            </Button>
-            <TextInput
-              id="Search logs"
-              placeholder="Filter logs..."
-              value={innerFilter}
-              onChange={(e) => setInnerFilter(e.target.value)}
-              type="search"
-            />
-          </div>
-        }
-      />
-      <LogList
-        nents={selectedNent ? [selectedNent] : []}
-        logs={logs}
-        filteredLogs={filterLogs(
-          {
-            logTypes: selectedLevels,
-            functions: [functionId],
-            selectedFunctions: [functionId],
-            selectedNents: selectedNent ? [selectedNent.path] : "all",
-            filter: filter ?? "",
-          },
-          logs,
-        )}
-        deploymentAuditLogs={[]}
-        filter={filter ?? ""}
-        clearedLogs={[]}
-        setClearedLogs={() => {}}
-        paused={paused > 0 || manuallyPaused}
-        setPaused={onPause}
-        setManuallyPaused={(p) => {
-          onPause(p);
-          setManuallyPaused(p);
-        }}
-      />
+    <div className="flex h-full w-full max-w-full min-w-0 grow flex-col gap-2 overflow-hidden">
+      <div className="flex min-w-0 shrink-0">
+        <LogToolbar
+          functions={[functionId]}
+          selectedFunctions={[functionId]}
+          setSelectedFunctions={(_functions) => {}}
+          selectedLevels={selectedLevels}
+          setSelectedLevels={setSelectedLevels}
+          selectedNents={selectedNent ? [selectedNent.path] : "all"}
+          setSelectedNents={() => {}}
+          hideFunctionFilter
+          firstItem={
+            <div className="flex min-w-0 grow gap-2">
+              <Button
+                variant="neutral"
+                size="sm"
+                icon={<ExternalLinkIcon />}
+                href={`${deploymentsURI}/logs${router.query.component ? `?component=${router.query.component}` : ""}`}
+              >
+                View all Logs
+              </Button>
+              <TextInput
+                id="Search logs"
+                placeholder="Filter logs..."
+                value={innerFilter}
+                onChange={(e) => setInnerFilter(e.target.value)}
+                type="search"
+              />
+            </div>
+          }
+        />
+      </div>
+      <div className="flex min-h-0 min-w-0 grow">
+        <LogList
+          nents={selectedNent ? [selectedNent] : []}
+          logs={logs}
+          filteredLogs={filterLogs(
+            {
+              logTypes: selectedLevels,
+              functions: [functionId],
+              selectedFunctions: [functionId],
+              selectedNents: selectedNent ? [selectedNent.path] : "all",
+              filter: filter ?? "",
+            },
+            logs,
+          )}
+          deploymentAuditLogs={[]}
+          filter={filter ?? ""}
+          setFilter={setFilter}
+          clearedLogs={[]}
+          setClearedLogs={() => {}}
+          paused={paused > 0 || manuallyPaused}
+          setPaused={onPause}
+          setManuallyPaused={(p) => {
+            onPause(p);
+            setManuallyPaused(p);
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -6,36 +6,38 @@ import { functionIdentifierValue } from "@common/lib/functions/generateFileTree"
 import { formatDateTime } from "@common/lib/format";
 import { useState } from "react";
 
-// Wrapper component that manages execution state
-function ExecutionWrapper({
+// Wrapper component that manages log selection state
+function LogSelectionWrapper({
   children,
-  initialExecutionId,
+  initialLogTimestamp,
 }: {
   children: (props: {
-    executionId?: string;
-    onGoBack: () => void;
-    onGoToExecutionId: (executionId: string, functionName: string) => void;
+    selectedLogTimestamp?: number;
+    onSelectLog: (timestamp: number) => void;
+    onHitBoundary: (boundary: "top" | "bottom" | null) => void;
+    onFilterByRequestId?: (requestId: string) => void;
   }) => React.ReactNode;
-  initialExecutionId?: string;
+  initialLogTimestamp?: number;
 }) {
-  const [currentExecutionId, setCurrentExecutionId] = useState<
-    string | undefined
-  >(initialExecutionId);
+  const [selectedLogTimestamp, setSelectedLogTimestamp] = useState<
+    number | undefined
+  >(initialLogTimestamp);
 
-  const handleGoBack = () => {
-    setCurrentExecutionId(undefined);
+  const handleSelectLog = (timestamp: number) => {
+    setSelectedLogTimestamp(timestamp);
   };
 
-  const handleGoToExecutionId = (executionId: string, functionName: string) => {
-    setCurrentExecutionId(executionId);
-  };
+  const handleHitBoundary = (_boundary: "top" | "bottom" | null) => {};
+
+  const handleFilterByRequestId = (_requestId: string) => {};
 
   return (
     <>
       {children({
-        executionId: currentExecutionId,
-        onGoBack: handleGoBack,
-        onGoToExecutionId: handleGoToExecutionId,
+        selectedLogTimestamp,
+        onSelectLog: handleSelectLog,
+        onHitBoundary: handleHitBoundary,
+        onFilterByRequestId: handleFilterByRequestId,
       })}
     </>
   );
@@ -214,26 +216,22 @@ const mockLogs: UdfLog[] = [
 // Stories
 export const Default: Story = {
   render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-root-123">
+    <LogSelectionWrapper initialLogTimestamp={mockLogs[0].timestamp}>
       {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
+    </LogSelectionWrapper>
   ),
   args: {
     requestId: "req-abc123",
     logs: mockLogs,
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const WithCachedQuery: Story = {
-  render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-cached-456">
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
-  ),
-  args: {
-    requestId: "req-cached-123",
-    logs: [
+  render: (args) => {
+    const cachedLogs = [
       createMockOutcomeLog({
         id: "cached-1",
         call: functionIdentifierValue("users:getProfile"),
@@ -256,20 +254,27 @@ export const WithCachedQuery: Story = {
           level: "INFO",
         } as UdfLogOutput,
       }),
-    ],
+    ];
+    return (
+      <LogSelectionWrapper initialLogTimestamp={cachedLogs[0].timestamp}>
+        {(navProps) => (
+          <LogDrilldown {...args} {...navProps} logs={cachedLogs} />
+        )}
+      </LogSelectionWrapper>
+    );
+  },
+  args: {
+    requestId: "req-cached-123",
+    logs: [],
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const WithErrorExecution: Story = {
-  render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-error-456">
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
-  ),
-  args: {
-    requestId: "req-error-123",
-    logs: [
+  render: (args) => {
+    const errorLogs = [
       createMockLogEntry({
         id: "error-2",
         call: functionIdentifierValue("auth:validateToken"),
@@ -293,20 +298,27 @@ export const WithErrorExecution: Story = {
         outcome: { status: "failure", statusCode: null } as LogOutcome,
         error: "AuthError: Invalid token signature",
       }),
-    ],
+    ];
+    return (
+      <LogSelectionWrapper initialLogTimestamp={errorLogs[0].timestamp}>
+        {(navProps) => (
+          <LogDrilldown {...args} {...navProps} logs={errorLogs} />
+        )}
+      </LogSelectionWrapper>
+    );
+  },
+  args: {
+    requestId: "req-error-123",
+    logs: [],
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const HttpActionExecution: Story = {
-  render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-http-456">
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
-  ),
-  args: {
-    requestId: "req-http-123",
-    logs: [
+  render: (args) => {
+    const httpLogs = [
       createMockOutcomeLog({
         id: "http-1",
         call: functionIdentifierValue("api:uploadFile"),
@@ -329,20 +341,25 @@ export const HttpActionExecution: Story = {
           level: "INFO",
         } as UdfLogOutput,
       }),
-    ],
+    ];
+    return (
+      <LogSelectionWrapper initialLogTimestamp={httpLogs[0].timestamp}>
+        {(navProps) => <LogDrilldown {...args} {...navProps} logs={httpLogs} />}
+      </LogSelectionWrapper>
+    );
+  },
+  args: {
+    requestId: "req-http-123",
+    logs: [],
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const LongRunningAction: Story = {
-  render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-long-456">
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
-  ),
-  args: {
-    requestId: "req-long-123",
-    logs: [
+  render: (args) => {
+    const longLogs = [
       createMockOutcomeLog({
         id: "long-1",
         call: functionIdentifierValue("background:processLargeDataset"),
@@ -374,46 +391,55 @@ export const LongRunningAction: Story = {
           level: "INFO",
         } as UdfLogOutput,
       }),
-    ],
+    ];
+    return (
+      <LogSelectionWrapper initialLogTimestamp={longLogs[0].timestamp}>
+        {(navProps) => <LogDrilldown {...args} {...navProps} logs={longLogs} />}
+      </LogSelectionWrapper>
+    );
+  },
+  args: {
+    requestId: "req-long-123",
+    logs: [],
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const MultipleExecutions: Story = {
   render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-root-123">
+    <LogSelectionWrapper initialLogTimestamp={mockLogs[0].timestamp}>
       {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
+    </LogSelectionWrapper>
   ),
   args: {
     requestId: "req-multi-123",
     logs: mockLogs,
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const OverviewMode: Story = {
   render: (args) => (
-    <ExecutionWrapper>
+    <LogSelectionWrapper initialLogTimestamp={mockLogs[0].timestamp}>
       {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
+    </LogSelectionWrapper>
   ),
   args: {
     requestId: "req-multi-123",
     logs: mockLogs,
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };
 
 export const IncompleteActionExecution: Story = {
-  render: (args) => (
-    <ExecutionWrapper initialExecutionId="exec-incomplete-456">
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </ExecutionWrapper>
-  ),
-  args: {
-    requestId: "req-incomplete-123",
-    logs: [
+  render: (args) => {
+    const incompleteLogs = [
       // Log entries for the running action (no outcome yet)
       createMockLogEntry({
         id: "incomplete-1",
@@ -561,7 +587,20 @@ export const IncompleteActionExecution: Story = {
         } as UdfLogOutput,
       }),
       // Note: No outcome log for the root action - it's still running
-    ],
+    ];
+    return (
+      <LogSelectionWrapper initialLogTimestamp={incompleteLogs[0].timestamp}>
+        {(navProps) => (
+          <LogDrilldown {...args} {...navProps} logs={incompleteLogs} />
+        )}
+      </LogSelectionWrapper>
+    );
+  },
+  args: {
+    requestId: "req-incomplete-123",
+    logs: [],
     onClose: () => {},
+    onSelectLog: () => {},
+    onHitBoundary: () => {},
   },
 };

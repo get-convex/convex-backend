@@ -11,6 +11,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -65,6 +66,47 @@ export type LogListProps = {
   setManuallyPaused: (paused: boolean) => void;
 };
 
+/**
+ * Hook to manage hit boundary state with automatic timeout reset.
+ * When a boundary is hit, it will automatically reset to null after 750ms.
+ */
+export function useHitBoundary() {
+  const [hitBoundary, setHitBoundaryState] = useState<"top" | "bottom" | null>(
+    null,
+  );
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const setHitBoundary = useCallback((boundary: "top" | "bottom" | null) => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    setHitBoundaryState(boundary);
+
+    // If setting a boundary (not null), schedule auto-reset
+    if (boundary !== null) {
+      timeoutRef.current = setTimeout(() => {
+        setHitBoundaryState(null);
+        timeoutRef.current = null;
+      }, 750);
+    }
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(
+    () => () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  return { hitBoundary, setHitBoundary };
+}
+
 export function LogList({
   logs,
   filteredLogs,
@@ -87,6 +129,9 @@ export function LogList({
 
   const [sheetRef, { height: heightOfListContainer }] =
     useMeasure<HTMLDivElement>();
+
+  // Local state for hit boundary with automatic timeout reset
+  const { hitBoundary, setHitBoundary } = useHitBoundary();
 
   // Derive shownLog from URL query parameters
   const shownLog = useMemo(() => {
@@ -141,7 +186,11 @@ export function LogList({
   const { newLogsPageSidepanel } = useContext(DeploymentInfoContext);
 
   return (
-    <Sheet className="h-full w-full" padding={false} ref={sheetRef}>
+    <Sheet
+      className="h-full w-full overflow-hidden"
+      padding={false}
+      ref={sheetRef}
+    >
       <PanelGroup
         direction="horizontal"
         className="flex h-full w-full flex-auto overflow-hidden"
@@ -167,6 +216,8 @@ export function LogList({
                 hasFilters,
                 paused,
                 setManuallyPaused,
+                hitBoundary,
+                shownLog,
               }}
             />
           )}
@@ -179,23 +230,18 @@ export function LogList({
               <Panel
                 defaultSize={0}
                 minSize={10}
-                className="flex min-w-[32rem] flex-col"
+                className="flex min-w-[24rem] flex-col"
               >
                 <LogDrilldown
                   requestId={shownLog.requestId}
-                  logs={
-                    filteredLogs
-                      ? filteredLogs.filter(
-                          (log) => log.requestId === shownLog.requestId,
-                        )
-                      : []
-                  }
+                  logs={filteredLogs ?? []}
                   onClose={() => setShownLog(undefined)}
                   selectedLogTimestamp={shownLog.timestamp}
                   onFilterByRequestId={(requestId) => {
                     setFilter?.(requestId);
                   }}
                   onSelectLog={selectLogByTimestamp}
+                  onHitBoundary={setHitBoundary}
                 />
               </Panel>
             </>
@@ -222,6 +268,7 @@ function WindowedLogList({
   paused,
   setManuallyPaused,
   shownLog,
+  hitBoundary,
 }: {
   interleavedLogs: InterleavedLog[];
   setClearedLogs: (clearedLogs: number[]) => void;
@@ -232,66 +279,73 @@ function WindowedLogList({
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
   shownLog?: UdfLog;
+  hitBoundary: "top" | "bottom" | null;
 }) {
   const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="flex h-full flex-col">
-      <LogListHeader
-        paused={paused}
-        setManuallyPaused={setManuallyPaused}
-        listRef={listRef}
-        outerRef={outerRef}
-      />
-      {interleavedLogs.length === 0 ? (
-        <div className="mt-2 ml-2 animate-fadeInFromLoading text-sm text-content-secondary">
-          {hasFilters && (
-            <p className="mb-2 flex items-center gap-1">
-              No logs match your filters{" "}
-              <Tooltip
-                tip="The logs page is a realtime stream of events in this deployment. To store a longer history of logs, you may
+    <div className="scrollbar flex h-full min-w-0 flex-col overflow-x-auto overflow-y-hidden">
+      <div className="flex h-full min-w-fit flex-col">
+        <LogListHeader
+          paused={paused}
+          setManuallyPaused={setManuallyPaused}
+          listRef={listRef}
+          outerRef={outerRef}
+        />
+        {interleavedLogs.length === 0 ? (
+          <div className="mt-2 ml-2 animate-fadeInFromLoading text-sm text-content-secondary">
+            {hasFilters && (
+              <p className="mb-2 flex items-center gap-1">
+                No logs match your filters{" "}
+                <Tooltip
+                  tip="The logs page is a realtime stream of events in this deployment. To store a longer history of logs, you may
 configure a log stream."
-              >
-                <InfoCircledIcon />
-              </Tooltip>
-            </p>
-          )}
-          <p className="animate-blink">Waiting for new logs...</p>
-        </div>
-      ) : (
-        <div className="grow overflow-hidden rounded-b">
-          <InfiniteScrollList
-            className="scrollbar bg-background-secondary"
-            overscanCount={25}
-            onScroll={onScroll}
-            outerRef={outerRef}
-            listRef={listRef}
-            itemKey={(index) => {
-              const log = interleavedLogs[index];
-              switch (log.kind) {
-                case "ExecutionLog":
-                  return log.executionLog.id;
-                case "DeploymentEvent":
-                  return log.deploymentEvent._id;
-                default:
-                  return "clearedLogs";
-              }
-            }}
-            items={interleavedLogs}
-            totalNumItems={interleavedLogs.length}
-            itemSize={ITEM_SIZE}
-            itemData={{
-              interleavedLogs,
-              setClearedLogs,
-              clearedLogs,
-              setShownLog,
-              selectedLogTimestamp: shownLog?.timestamp,
-            }}
-            RowOrLoading={LogListRow}
-          />
-        </div>
-      )}
+                >
+                  <InfoCircledIcon />
+                </Tooltip>
+              </p>
+            )}
+            <p className="animate-blink">Waiting for new logs...</p>
+          </div>
+        ) : (
+          <div className="grow rounded-b-lg">
+            <InfiniteScrollList
+              className="scrollbar bg-background-secondary"
+              style={{
+                overflowX: "hidden",
+              }}
+              overscanCount={25}
+              onScroll={onScroll}
+              outerRef={outerRef}
+              listRef={listRef}
+              itemKey={(index) => {
+                const log = interleavedLogs[index];
+                switch (log.kind) {
+                  case "ExecutionLog":
+                    return log.executionLog.id;
+                  case "DeploymentEvent":
+                    return log.deploymentEvent._id;
+                  default:
+                    return "clearedLogs";
+                }
+              }}
+              items={interleavedLogs}
+              totalNumItems={interleavedLogs.length}
+              itemSize={ITEM_SIZE}
+              itemData={{
+                interleavedLogs,
+                setClearedLogs,
+                clearedLogs,
+                setShownLog,
+                selectedLogTimestamp: shownLog?.timestamp,
+                hitBoundary,
+              }}
+              RowOrLoading={LogListRow}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -320,6 +374,7 @@ type LogItemProps = {
     setShownLog(shown: UdfLog | undefined): void;
     clearedLogs: number[];
     selectedLogTimestamp?: number;
+    hitBoundary?: "top" | "bottom" | null;
   };
   index: number;
   style: any;
@@ -328,7 +383,14 @@ type LogItemProps = {
 const LogListRow = memo(LogListRowImpl, areEqual);
 
 function LogListRowImpl({ data, index, style }: LogItemProps) {
-  const { setClearedLogs, clearedLogs, interleavedLogs, setShownLog } = data;
+  const {
+    setClearedLogs,
+    clearedLogs,
+    interleavedLogs,
+    setShownLog,
+    selectedLogTimestamp,
+    hitBoundary,
+  } = data;
   const log = interleavedLogs[index];
 
   let item: React.ReactNode = null;
@@ -356,7 +418,15 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
       item = <DeploymentEventListItem event={log.deploymentEvent} />;
       break;
     default:
-      item = <LogListItem log={log.executionLog} setShownLog={setShownLog} />;
+      item = (
+        <LogListItem
+          log={log.executionLog}
+          setShownLog={setShownLog}
+          selected={log.executionLog.timestamp === selectedLogTimestamp}
+          focused={log.executionLog.timestamp === selectedLogTimestamp}
+          hitBoundary={hitBoundary}
+        />
+      );
       break;
   }
 
