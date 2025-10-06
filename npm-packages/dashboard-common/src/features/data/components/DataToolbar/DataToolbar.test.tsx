@@ -127,6 +127,7 @@ describe("DataToolbar", () => {
           tableSchemaStatus={{
             tableName,
             isDefined: false,
+            isDefinedInInProgressSchema: false,
             referencedByTable: undefined,
             isValidationRunning: false,
           }}
@@ -420,6 +421,7 @@ describe("DataToolbar", () => {
         tableSchemaStatus: {
           tableName: "messages",
           isDefined: false,
+          isDefinedInInProgressSchema: false,
           isValidationRunning: true,
           referencedByTable: undefined,
         },
@@ -435,6 +437,7 @@ describe("DataToolbar", () => {
         tableSchemaStatus: {
           tableName: "messages",
           isDefined: true,
+          isDefinedInInProgressSchema: false,
           isValidationRunning: false,
           referencedByTable: undefined,
         },
@@ -450,6 +453,7 @@ describe("DataToolbar", () => {
         tableSchemaStatus: {
           tableName: "messages",
           isDefined: false,
+          isDefinedInInProgressSchema: false,
           isValidationRunning: false,
           referencedByTable: "users",
         },
@@ -468,6 +472,7 @@ describe("DataToolbar", () => {
         tableSchemaStatus: {
           tableName: "messages",
           isDefined: false,
+          isDefinedInInProgressSchema: false,
           isValidationRunning: false,
           referencedByTable: undefined,
         },
@@ -502,6 +507,7 @@ describe("DataToolbar", () => {
         tableSchemaStatus: {
           tableName: "messages",
           isDefined: false,
+          isDefinedInInProgressSchema: false,
           isValidationRunning: false,
           referencedByTable: undefined,
         },

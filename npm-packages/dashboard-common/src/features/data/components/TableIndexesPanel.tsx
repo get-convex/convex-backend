@@ -34,7 +34,8 @@ function IndexBody({ tableName }: { tableName: string }) {
 
   return (
     <div className="grow p-4 pt-0 sm:p-6">
-      {tableSchemaStatus.isDefined ? (
+      {tableSchemaStatus.isDefined ||
+      tableSchemaStatus.isDefinedInInProgressSchema ? (
         <IndexList tableName={tableName} />
       ) : (
         <>

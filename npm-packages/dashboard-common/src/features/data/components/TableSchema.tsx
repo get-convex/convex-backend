@@ -12,6 +12,7 @@ import { ShowSchema } from "@common/features/data/components/ShowSchema";
 export interface TableSchemaStatus {
   tableName: string;
   isDefined: boolean;
+  isDefinedInInProgressSchema: boolean;
   referencedByTable: string | undefined;
   isValidationRunning: boolean;
 }
@@ -95,11 +96,23 @@ export function useSingleTableSchemaStatus(
     };
   }, [schemas?.active, tableName]);
 
+  const isDefinedInInProgressSchema = useMemo(() => {
+    const inProgress: Schema | undefined = schemas?.inProgress
+      ? JSON.parse(schemas.inProgress)
+      : undefined;
+
+    return (
+      inProgress?.tables.find((table) => table.tableName === tableName) !==
+      undefined
+    );
+  }, [schemas?.inProgress, tableName]);
+
   const isValidationRunning = schemas?.inProgress !== undefined;
   return schemas
     ? {
         tableName,
         isDefined,
+        isDefinedInInProgressSchema,
         referencedByTable,
         isValidationRunning,
       }
