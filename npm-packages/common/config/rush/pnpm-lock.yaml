@@ -176,8 +176,8 @@ importers:
         specifier: ~10.4.0
         version: 10.4.0
       '@testing-library/jest-dom':
-        specifier: ~6.6.0
-        version: 6.6.3
+        specifier: ~6.8.0
+        version: 6.8.0
       '@testing-library/react':
         specifier: ~16.3.0
         version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1058,8 +1058,8 @@ importers:
         specifier: ~10.4.0
         version: 10.4.0
       '@testing-library/jest-dom':
-        specifier: ~6.6.0
-        version: 6.6.3
+        specifier: ~6.8.0
+        version: 6.8.0
       '@testing-library/react':
         specifier: ~16.3.0
         version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1374,8 +1374,8 @@ importers:
         specifier: ~10.4.0
         version: 10.4.0
       '@testing-library/jest-dom':
-        specifier: ~6.6.0
-        version: 6.6.3
+        specifier: ~6.8.0
+        version: 6.8.0
       '@testing-library/react':
         specifier: ~16.3.0
         version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -11157,8 +11157,8 @@ packages:
     resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
     engines: {node: '>=18'}
 
-  '@testing-library/jest-dom@6.6.3':
-    resolution: {integrity: sha512-IteBhl4XqYNkM54f4ejhLRJiZNqcSCoXUOG2CPK7qbD322KjQozM4kHQOfkG2oln9b9HTYqs+Sae8vBATubxxA==}
+  '@testing-library/jest-dom@6.8.0':
+    resolution: {integrity: sha512-WgXcWzVM6idy5JaftTVC8Vs83NKRmGJz4Hqs4oyOuO2J4r/y79vvKZsb+CaGyCSEbUPI6OsewfPd0G1A0/TUZQ==}
     engines: {node: '>=14', npm: '>=6', yarn: '>=1'}
 
   '@testing-library/react@16.3.0':
@@ -34042,14 +34042,13 @@ snapshots:
       lz-string: 1.5.0
       pretty-format: 27.5.1
 
-  '@testing-library/jest-dom@6.6.3':
+  '@testing-library/jest-dom@6.8.0':
     dependencies:
       '@adobe/css-tools': 4.4.1
       aria-query: 5.3.2
-      chalk: 3.0.0
       css.escape: 1.5.1
       dom-accessibility-api: 0.6.3
-      lodash: 4.17.21
+      picocolors: 1.1.1
       redent: 3.0.0
 
   '@testing-library/react@16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
@@ -49375,7 +49374,7 @@ snapshots:
   storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10):
     dependencies:
       '@storybook/global': 5.0.0
-      '@testing-library/jest-dom': 6.6.3
+      '@testing-library/jest-dom': 6.8.0
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.0)
       '@vitest/expect': 3.2.4
       '@vitest/mocker': 3.2.4(vite@6.3.6(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
@@ -49399,7 +49398,7 @@ snapshots:
   storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.3.6(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)):
     dependencies:
       '@storybook/global': 5.0.0
-      '@testing-library/jest-dom': 6.6.3
+      '@testing-library/jest-dom': 6.8.0
       '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.0)
       '@vitest/expect': 3.2.4
       '@vitest/mocker': 3.2.4(vite@6.3.6(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
