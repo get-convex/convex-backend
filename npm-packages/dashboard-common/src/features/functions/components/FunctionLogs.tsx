@@ -144,7 +144,7 @@ export function FunctionLogs({
                 id="Search logs"
                 placeholder="Filter logs..."
                 value={innerFilter}
-                onChange={(e) => setInnerFilter(e.target.value)}
+                onChange={(e) => setFilter(e.target.value)}
                 type="search"
               />
             </div>
