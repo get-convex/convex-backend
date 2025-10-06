@@ -6,13 +6,14 @@ import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { LogLevel } from "@common/elements/LogLevel";
 import { LogOutput } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
+import { cn } from "@ui/cn";
 
 type LogListItemProps = {
   log: UdfLog;
   setShownLog?(shown: UdfLog | undefined): void;
   focused?: boolean;
-  selected?: boolean;
   hitBoundary?: "top" | "bottom" | null;
+  newLogsPageSidepanel?: boolean;
 };
 
 export const ITEM_SIZE = 24;
@@ -21,8 +22,8 @@ export function LogListItem({
   log,
   setShownLog,
   focused = false,
-  selected = false,
   hitBoundary,
+  newLogsPageSidepanel,
 }: LogListItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -30,21 +31,26 @@ export function LogListItem({
 
   // Pass the button ref to parent
   useEffect(() => {
-    if (focused) {
+    if (newLogsPageSidepanel && focused) {
       buttonRef.current?.focus();
     }
-  }, [focused]);
+  }, [newLogsPageSidepanel, focused]);
 
   useEffect(() => {
-    // Only scroll into view when transitioning to focused (not already focused)
-    if (focused && !prevFocusedRef.current && ref.current) {
+    // Only scroll into view when transitioning to focused (not already focused) and in side panel mode
+    if (
+      focused &&
+      !prevFocusedRef.current &&
+      ref.current &&
+      newLogsPageSidepanel
+    ) {
       ref.current.scrollIntoView({
         block: "center",
         inline: "nearest",
       });
     }
     prevFocusedRef.current = focused;
-  }, [focused, ref]);
+  }, [focused, ref, newLogsPageSidepanel]);
 
   // When the item receives focus and setShownLog is available, call it
   const handleFocus = () => {
@@ -55,7 +61,7 @@ export function LogListItem({
   const isFailure =
     log.kind === "outcome" ? !!log.error : log.output.level === "ERROR";
 
-  // Only show boundary animation on the selected/focused item
+  // Only show boundary animation on the focused item
   const showBoundary = focused && hitBoundary;
 
   return (
@@ -64,8 +70,6 @@ export function LogListItem({
       className={classNames(
         "flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
-        setShownLog && "hover:bg-background-tertiary/70",
-        selected && "bg-background-tertiary",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
         showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
       )}
@@ -77,6 +81,7 @@ export function LogListItem({
         setShownLog={setShownLog ? () => setShownLog(log) : undefined}
         buttonRef={buttonRef}
         onFocus={handleFocus}
+        newLogsPageSidepanel={newLogsPageSidepanel}
       >
         <div
           className={classNames(
@@ -96,7 +101,12 @@ export function LogListItem({
             </span>
           </div>
           {setShownLog && (
-            <div className="-ml-0.5 min-w-8 overflow-hidden rounded-sm border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected">
+            <div
+              className={cn(
+                "-ml-0.5 min-w-8 overflow-hidden rounded-sm border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected",
+                isFailure && "border-background-errorSecondary",
+              )}
+            >
               {log.requestId.slice(0, 4)}
             </div>
           )}
@@ -128,7 +138,12 @@ export function LogListItem({
             )
           )}
           <div className="flex items-center gap-2">
-            <p className="rounded-sm bg-background-tertiary/80 p-0.5 px-1 text-[11px]">
+            <p
+              className={cn(
+                "rounded-sm p-0.5 px-1 text-[11px]",
+                isFailure ? "bg-background-error" : "bg-background-tertiary/80",
+              )}
+            >
               {log.udfType.charAt(0).toUpperCase()}
             </p>
             <FunctionNameOption
@@ -170,11 +185,13 @@ function Wrapper({
   setShownLog,
   buttonRef,
   onFocus,
+  newLogsPageSidepanel,
 }: {
   children: React.ReactNode;
   setShownLog?: () => void;
   buttonRef?: React.RefObject<HTMLButtonElement>;
   onFocus?: () => void;
+  newLogsPageSidepanel?: boolean;
 }) {
   return setShownLog ? (
     // We do not use Button here because it's expensive and this table needs to be fast
@@ -185,13 +202,14 @@ function Wrapper({
       className={classNames(
         "flex gap-2 truncate p-0.5",
         "group w-full font-mono text-xs",
-        "focus:outline-none",
+        "hover:bg-background-tertiary/70",
+        "focus:outline-none focus:border focus:border-border-selected",
         "items-center",
         // Make space for the focus outline
         "h-[calc(100%-1px)]",
       )}
       onClick={() => setShownLog()}
-      onFocus={onFocus}
+      onFocus={newLogsPageSidepanel ? onFocus : undefined}
       tabIndex={0}
     >
       {children}

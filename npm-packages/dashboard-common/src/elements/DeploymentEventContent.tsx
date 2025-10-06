@@ -22,6 +22,7 @@ import { Button } from "@ui/Button";
 import { ReadonlyCodeDiff } from "@common/elements/ReadonlyCode";
 import { NentNameOption } from "@common/elements/NentSwitcher";
 import { NENT_APP_PLACEHOLDER } from "@common/lib/useNents";
+import { cn } from "@ui/cn";
 
 function useSchemaCode(schema: null | string): string {
   return useMemo(() => {
@@ -33,8 +34,10 @@ function useSchemaCode(schema: null | string): string {
 
 export function DeploymentEventContent({
   event,
+  inPanel = false,
 }: {
   event: DeploymentAuditLogEvent;
+  inPanel?: boolean;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
   let body;
@@ -88,14 +91,19 @@ export function DeploymentEventContent({
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center justify-between">
-        <div className="flex h-6 flex-wrap items-center gap-1">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-1",
+            inPanel ? "" : "h-6",
+          )}
+        >
           <TeamMemberLink
             memberId={Number(event.member_id)}
             name={event.memberName}
           />
           <ActionText event={event} />
         </div>
-        <TimestampDistance date={new Date(event._creationTime)} />
+        {!inPanel && <TimestampDistance date={new Date(event._creationTime)} />}
       </div>
       {body && <div className="ml-4 rounded-md border px-3 py-2.5">{body}</div>}
     </div>

@@ -32,6 +32,7 @@ import { UdfLog } from "@common/lib/useLogs";
 import {
   InterleavedLog,
   interleaveLogs,
+  getTimestamp,
 } from "@common/features/logs/lib/interleaveLogs";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
@@ -133,27 +134,35 @@ export function LogList({
   // Local state for hit boundary with automatic timeout reset
   const { hitBoundary, setHitBoundary } = useHitBoundary();
 
-  // Derive shownLog from URL query parameters
+  // Derive shownLog from URL query parameters - now supports all interleaved log types
   const shownLog = useMemo(() => {
     const logTs = router.query.logTs as string | undefined;
 
-    if (logTs && filteredLogs) {
-      // Find the log with this timestamp in filtered logs
-      const matchingLog = filteredLogs.find(
-        (log) => log.timestamp === Number(logTs),
+    if (logTs && interleavedLogs) {
+      // Find the log with this timestamp in interleaved logs
+      const matchingLog = interleavedLogs.find(
+        (log) => getTimestamp(log) === Number(logTs),
       );
       return matchingLog;
     }
 
     return undefined;
-  }, [router.query.logTs, filteredLogs]);
+  }, [router.query.logTs, interleavedLogs]);
 
-  // Update URL when log selection changesAdd a comment on lines R88 to R90Add diff commentMarkdown input:  edit mode selected.WritePreviewAdd a suggestionHeadingBoldItalicQuoteCodeLinkUnordered listNumbered listTask listMentionReferenceSaved repliesAdd FilesPaste, drop, or click to add filesCancelCommentStart a reviewReturn to code
+  // Update URL when log selection changes
   const setShownLog = useCallback(
-    (log: UdfLog | undefined) => {
+    (log: InterleavedLog | UdfLog | undefined) => {
+      if (!log) {
+        void shallowNavigate(router, {
+          ...router.query,
+          logTs: undefined,
+        });
+        return;
+      }
+      const timestamp = "timestamp" in log ? log.timestamp : getTimestamp(log);
       void shallowNavigate(router, {
         ...router.query,
-        logTs: log ? log.timestamp.toString() : undefined,
+        logTs: timestamp.toString(),
       });
     },
     [router],
@@ -218,6 +227,7 @@ export function LogList({
                 setManuallyPaused,
                 hitBoundary,
                 shownLog,
+                newLogsPageSidepanel,
               }}
             />
           )}
@@ -233,10 +243,14 @@ export function LogList({
                 className="flex min-w-[24rem] flex-col"
               >
                 <LogDrilldown
-                  requestId={shownLog.requestId}
-                  logs={filteredLogs ?? []}
+                  requestId={
+                    shownLog.kind === "ExecutionLog"
+                      ? shownLog.executionLog.requestId
+                      : undefined
+                  }
+                  logs={interleavedLogs ?? []}
                   onClose={() => setShownLog(undefined)}
-                  selectedLogTimestamp={shownLog.timestamp}
+                  selectedLogTimestamp={getTimestamp(shownLog)}
                   onFilterByRequestId={(requestId) => {
                     setFilter?.(requestId);
                   }}
@@ -246,12 +260,16 @@ export function LogList({
               </Panel>
             </>
           ) : (
-            <RequestIdLogs
-              requestId={shownLog}
-              logs={logs.filter((log) => log.requestId === shownLog?.requestId)}
-              onClose={() => setShownLog(undefined)}
-              nents={nents}
-            />
+            shownLog.kind === "ExecutionLog" && (
+              <RequestIdLogs
+                requestId={shownLog.executionLog}
+                logs={logs.filter(
+                  (log) => log.requestId === shownLog.executionLog.requestId,
+                )}
+                onClose={() => setShownLog(undefined)}
+                nents={nents}
+              />
+            )
           ))}
       </PanelGroup>
     </Sheet>
@@ -269,17 +287,19 @@ function WindowedLogList({
   setManuallyPaused,
   shownLog,
   hitBoundary,
+  newLogsPageSidepanel,
 }: {
   interleavedLogs: InterleavedLog[];
   setClearedLogs: (clearedLogs: number[]) => void;
   clearedLogs: number[];
   onScroll: (e: ListOnScrollProps) => void;
-  setShownLog(shown: UdfLog | undefined): void;
+  setShownLog(shown: InterleavedLog | UdfLog | undefined): void;
   hasFilters: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
-  shownLog?: UdfLog;
+  shownLog?: InterleavedLog;
   hitBoundary: "top" | "bottom" | null;
+  newLogsPageSidepanel?: boolean;
 }) {
   const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -338,8 +358,11 @@ configure a log stream."
                 setClearedLogs,
                 clearedLogs,
                 setShownLog,
-                selectedLogTimestamp: shownLog?.timestamp,
+                selectedLogTimestamp: shownLog
+                  ? getTimestamp(shownLog)
+                  : undefined,
                 hitBoundary,
+                newLogsPageSidepanel,
               }}
               RowOrLoading={LogListRow}
             />
@@ -371,10 +394,11 @@ type LogItemProps = {
   data: {
     interleavedLogs: InterleavedLog[];
     setClearedLogs: (clearedLogs: number[]) => void;
-    setShownLog(shown: UdfLog | undefined): void;
+    setShownLog(shown: InterleavedLog | UdfLog | undefined): void;
     clearedLogs: number[];
     selectedLogTimestamp?: number;
     hitBoundary?: "top" | "bottom" | null;
+    newLogsPageSidepanel?: boolean;
   };
   index: number;
   style: any;
@@ -390,6 +414,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     setShownLog,
     selectedLogTimestamp,
     hitBoundary,
+    newLogsPageSidepanel,
   } = data;
   const log = interleavedLogs[index];
 
@@ -398,33 +423,37 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
   switch (log.kind) {
     case "ClearedLogs":
       item = (
-        <div style={{ height: CLEARED_LOGS_BUTTON_HEIGHT }}>
-          <Button
-            icon={<ArrowDownIcon />}
-            inline
-            size="xs"
-            className="w-full rounded-none pl-2"
-            style={{ height: ITEM_SIZE }}
-            onClick={() => {
-              setClearedLogs(clearedLogs.slice(0, clearedLogs.length - 1));
-            }}
-          >
-            Show previous logs
-          </Button>
-        </div>
+        <ClearedLogsButton
+          focused={getTimestamp(log) === selectedLogTimestamp}
+          hitBoundary={hitBoundary}
+          onClick={() => {
+            setClearedLogs(clearedLogs.slice(0, clearedLogs.length - 1));
+          }}
+          onFocus={() => newLogsPageSidepanel && setShownLog(log)}
+          newLogsPageSidepanel={newLogsPageSidepanel}
+        />
       );
       break;
     case "DeploymentEvent":
-      item = <DeploymentEventListItem event={log.deploymentEvent} />;
+      item = (
+        <DeploymentEventListItem
+          event={log.deploymentEvent}
+          focused={getTimestamp(log) === selectedLogTimestamp}
+          hitBoundary={hitBoundary}
+          setShownLog={() => setShownLog(log)}
+          onCloseDialog={() => setShownLog(undefined)}
+          newLogsPageSidepanel={newLogsPageSidepanel}
+        />
+      );
       break;
     default:
       item = (
         <LogListItem
           log={log.executionLog}
           setShownLog={setShownLog}
-          selected={log.executionLog.timestamp === selectedLogTimestamp}
-          focused={log.executionLog.timestamp === selectedLogTimestamp}
+          focused={getTimestamp(log) === selectedLogTimestamp}
           hitBoundary={hitBoundary}
+          newLogsPageSidepanel={newLogsPageSidepanel}
         />
       );
       break;
@@ -445,6 +474,79 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
 
 const CLEARED_LOGS_BUTTON_HEIGHT = 24;
 
+function ClearedLogsButton({
+  focused,
+  hitBoundary,
+  onClick,
+  onFocus,
+  newLogsPageSidepanel,
+}: {
+  focused: boolean;
+  hitBoundary?: "top" | "bottom" | null;
+  onClick: () => void;
+  onFocus: () => void;
+  newLogsPageSidepanel?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const prevFocusedRef = useRef(focused);
+
+  // Focus the button when focused prop changes to true
+  useEffect(() => {
+    if (focused) {
+      buttonRef.current?.focus();
+    }
+  }, [focused]);
+
+  // Scroll into view when transitioning to focused (only in side panel mode)
+  useEffect(() => {
+    if (
+      focused &&
+      !prevFocusedRef.current &&
+      ref.current &&
+      newLogsPageSidepanel
+    ) {
+      ref.current.scrollIntoView({
+        block: "center",
+        inline: "nearest",
+      });
+    }
+    prevFocusedRef.current = focused;
+  }, [focused, ref, newLogsPageSidepanel]);
+
+  const handleClick = () => {
+    onClick();
+    onFocus();
+  };
+
+  // Only show boundary animation on the focused item
+  const showBoundary = focused && hitBoundary;
+
+  return (
+    <div
+      ref={ref}
+      style={{ height: CLEARED_LOGS_BUTTON_HEIGHT }}
+      className={cn(
+        showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
+        showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
+      )}
+    >
+      <Button
+        ref={buttonRef}
+        icon={<ArrowDownIcon />}
+        inline
+        size="xs"
+        className="w-full rounded-none pl-2"
+        style={{ height: ITEM_SIZE }}
+        onClick={handleClick}
+        tabIndex={0}
+      >
+        Show previous logs
+      </Button>
+    </div>
+  );
+}
+
 function RequestIdLogs({
   requestId,
   logs,
@@ -456,7 +558,21 @@ function RequestIdLogs({
   onClose: () => void;
   nents: Nent[];
 }) {
+  const [isOpen, setIsOpen] = useState(true);
   const [filter, setFilter] = useState("");
+
+  const handleClose = () => {
+    // Blur the currently focused element to prevent focus from returning to the list button
+    // which would re-trigger the selection via onFocus
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setIsOpen(false);
+  };
+
+  const handleAfterLeave = () => {
+    onClose();
+  };
 
   const functions = Array.from(
     new Set(
@@ -494,11 +610,16 @@ function RequestIdLogs({
   const filteredLogs = filterLogs(filters, logs);
 
   return (
-    <Transition.Root show as={Fragment} appear afterLeave={onClose}>
+    <Transition.Root
+      show={isOpen}
+      as={Fragment}
+      appear
+      afterLeave={handleAfterLeave}
+    >
       <Dialog
         as="div"
         className="fixed inset-0 z-40 overflow-hidden"
-        onClose={onClose}
+        onClose={handleClose}
       >
         <div className="absolute inset-0 overflow-hidden">
           <Transition.Child
@@ -535,7 +656,7 @@ function RequestIdLogs({
                           text={requestId.requestId}
                         />
                       </Dialog.Title>
-                      <ClosePanelButton onClose={onClose} />
+                      <ClosePanelButton onClose={handleClose} />
                     </div>
                   </div>
                   <LogListResources logs={logs} />

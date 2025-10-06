@@ -15,6 +15,21 @@ export type InterleavedLog =
       timestamp: number;
     };
 
+// Helper to get timestamp from InterleavedLog
+export function getTimestamp(log: InterleavedLog): number {
+  switch (log.kind) {
+    case "ExecutionLog":
+      return log.executionLog.timestamp;
+    case "DeploymentEvent":
+      return log.deploymentEvent._creationTime;
+    case "ClearedLogs":
+      return log.timestamp;
+    default:
+      log satisfies never;
+      return 0;
+  }
+}
+
 /**
  * Given two arrays of logs sorted from least recent to most recent, interleave
  * them based on time.

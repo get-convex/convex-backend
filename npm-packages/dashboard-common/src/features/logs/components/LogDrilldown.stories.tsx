@@ -5,6 +5,15 @@ import { UsageStats } from "system-udfs/convex/_system/frontend/common";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { formatDateTime } from "@common/lib/format";
 import { useState } from "react";
+import { InterleavedLog } from "../lib/interleaveLogs";
+
+// Helper to convert UdfLog[] to InterleavedLog[]
+function toInterleavedLogs(logs: UdfLog[]): InterleavedLog[] {
+  return logs.map((log) => ({
+    kind: "ExecutionLog" as const,
+    executionLog: log,
+  }));
+}
 
 // Wrapper component that manages log selection state
 function LogSelectionWrapper({
@@ -222,7 +231,7 @@ export const Default: Story = {
   ),
   args: {
     requestId: "req-abc123",
-    logs: mockLogs,
+    logs: toInterleavedLogs(mockLogs),
     onClose: () => {},
     onSelectLog: () => {},
     onHitBoundary: () => {},
@@ -258,7 +267,11 @@ export const WithCachedQuery: Story = {
     return (
       <LogSelectionWrapper initialLogTimestamp={cachedLogs[0].timestamp}>
         {(navProps) => (
-          <LogDrilldown {...args} {...navProps} logs={cachedLogs} />
+          <LogDrilldown
+            {...args}
+            {...navProps}
+            logs={toInterleavedLogs(cachedLogs)}
+          />
         )}
       </LogSelectionWrapper>
     );
@@ -302,7 +315,11 @@ export const WithErrorExecution: Story = {
     return (
       <LogSelectionWrapper initialLogTimestamp={errorLogs[0].timestamp}>
         {(navProps) => (
-          <LogDrilldown {...args} {...navProps} logs={errorLogs} />
+          <LogDrilldown
+            {...args}
+            {...navProps}
+            logs={toInterleavedLogs(errorLogs)}
+          />
         )}
       </LogSelectionWrapper>
     );
@@ -344,7 +361,13 @@ export const HttpActionExecution: Story = {
     ];
     return (
       <LogSelectionWrapper initialLogTimestamp={httpLogs[0].timestamp}>
-        {(navProps) => <LogDrilldown {...args} {...navProps} logs={httpLogs} />}
+        {(navProps) => (
+          <LogDrilldown
+            {...args}
+            {...navProps}
+            logs={toInterleavedLogs(httpLogs)}
+          />
+        )}
       </LogSelectionWrapper>
     );
   },
@@ -394,7 +417,13 @@ export const LongRunningAction: Story = {
     ];
     return (
       <LogSelectionWrapper initialLogTimestamp={longLogs[0].timestamp}>
-        {(navProps) => <LogDrilldown {...args} {...navProps} logs={longLogs} />}
+        {(navProps) => (
+          <LogDrilldown
+            {...args}
+            {...navProps}
+            logs={toInterleavedLogs(longLogs)}
+          />
+        )}
       </LogSelectionWrapper>
     );
   },
@@ -415,7 +444,7 @@ export const MultipleExecutions: Story = {
   ),
   args: {
     requestId: "req-multi-123",
-    logs: mockLogs,
+    logs: toInterleavedLogs(mockLogs),
     onClose: () => {},
     onSelectLog: () => {},
     onHitBoundary: () => {},
@@ -430,7 +459,7 @@ export const OverviewMode: Story = {
   ),
   args: {
     requestId: "req-multi-123",
-    logs: mockLogs,
+    logs: toInterleavedLogs(mockLogs),
     onClose: () => {},
     onSelectLog: () => {},
     onHitBoundary: () => {},
@@ -591,7 +620,11 @@ export const IncompleteActionExecution: Story = {
     return (
       <LogSelectionWrapper initialLogTimestamp={incompleteLogs[0].timestamp}>
         {(navProps) => (
-          <LogDrilldown {...args} {...navProps} logs={incompleteLogs} />
+          <LogDrilldown
+            {...args}
+            {...navProps}
+            logs={toInterleavedLogs(incompleteLogs)}
+          />
         )}
       </LogSelectionWrapper>
     );

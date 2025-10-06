@@ -264,7 +264,7 @@ export function DataContent({
           isLoadingMore={isLoading && !isPaused}
         />
 
-        <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded-lg">
+        <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded-b-lg">
           {numRowsInTable !== undefined && numRowsInTable > 0 && (
             <DataFilters
               tableName={tableName}

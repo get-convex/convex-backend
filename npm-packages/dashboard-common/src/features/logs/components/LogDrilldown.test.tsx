@@ -2,6 +2,7 @@ import { renderHook, act } from "@testing-library/react";
 import { createRef } from "react";
 import { UdfLog } from "@common/lib/useLogs";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
+import { InterleavedLog } from "../lib/interleaveLogs";
 
 // Mock react-hotkeys-hook
 const mockHotkeys: Record<string, () => void> = {};
@@ -15,6 +16,14 @@ jest.mock("react-hotkeys-hook", () => ({
 // Import after mocking
 // eslint-disable-next-line import/first
 import { useNavigateLogs } from "./LogDrilldown";
+
+// Helper to convert UdfLog to InterleavedLog
+function toInterleavedLog(log: UdfLog): InterleavedLog {
+  return {
+    kind: "ExecutionLog",
+    executionLog: log,
+  };
+}
 
 describe("useNavigateLogs", () => {
   const createLog = (
@@ -69,15 +78,16 @@ describe("useNavigateLogs", () => {
         createLog(2000, "req1", "exec1"),
         createLog(1000, "req1", "exec1"),
       ];
+      const interleavedLogs = logs.map(toInterleavedLog);
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[1]; // timestamp 2000
+      const selectedLog = interleavedLogs[1]; // timestamp 2000
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -102,14 +112,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[1]; // timestamp 2000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[1]; // timestamp 2000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -134,14 +145,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[2]; // timestamp 1000 (last log)
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[2]; // timestamp 1000 (last log)
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -166,14 +178,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[0]; // timestamp 3000 (first log)
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[0]; // timestamp 3000 (first log)
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -201,14 +214,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[1]; // req1, timestamp 3000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[1]; // req1, timestamp 3000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -234,14 +248,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[2]; // req1, timestamp 2000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[2]; // req1, timestamp 2000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -267,14 +282,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[2]; // req1, timestamp 2000 (last in request)
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[2]; // req1, timestamp 2000 (last in request)
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -302,14 +318,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[1]; // exec1, timestamp 3000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[1]; // exec1, timestamp 3000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -335,14 +352,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[2]; // exec1, timestamp 2000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[2]; // exec1, timestamp 2000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -368,14 +386,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[2]; // exec1, timestamp 2000 (last in execution)
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[2]; // exec1, timestamp 2000 (last in execution)
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -402,14 +421,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[0]; // timestamp 2000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[0]; // timestamp 2000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -431,12 +451,19 @@ describe("useNavigateLogs", () => {
         createLog(3000, "req1", "exec1"),
         createLog(2000, "req1", "exec1"),
       ];
+      const interleavedLogs = logs.map(toInterleavedLog);
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
-        useNavigateLogs(null, logs, onSelectLog, onHitBoundary, rightPanelRef),
+        useNavigateLogs(
+          null,
+          interleavedLogs,
+          onSelectLog,
+          onHitBoundary,
+          rightPanelRef,
+        ),
       );
 
       // Trigger the down arrow hotkey
@@ -453,14 +480,15 @@ describe("useNavigateLogs", () => {
       const logs: UdfLog[] = [createLog(1000, "req1", "exec1")];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[0];
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[0];
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
@@ -485,14 +513,15 @@ describe("useNavigateLogs", () => {
       ];
       const onSelectLog = jest.fn();
       const onHitBoundary = jest.fn();
-      const selectedLog = logs[1]; // log type, timestamp 2000
+      const interleavedLogs = logs.map(toInterleavedLog);
+      const selectedLog = interleavedLogs[1]; // log type, timestamp 2000
 
       const rightPanelRef = createRef<HTMLDivElement>();
 
       renderHook(() =>
         useNavigateLogs(
           selectedLog,
-          logs,
+          interleavedLogs,
           onSelectLog,
           onHitBoundary,
           rightPanelRef,
