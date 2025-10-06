@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.27.4
+
+- Add a `getAuth()` method to the client which returns the current token and
+  claims. This method is intended for instrumentation purposes like adding this
+  information to a reported Sentry error or event.
+
+- Change to CLI `--admin-key` and `--url` arg parsing logic to avoid coercing
+  empty strings to booleans.
+
+- Vendor jwt-decode along with a few other dependnecies; this brings the number
+  of runtime dependencies for Convex from 3 to 2: esbuild (binary) and prettier.
+
+- Fix ConvexProviderWithClerk to catch `getToken()` errors. This could cause
+  changes in behavior of refreshing Clerk tokens, we'll be watching this one.
+
 ## 1.27.3
 
 - Convex CLI now respects `HTTPS_PROXY` / `HTTP_PROXY` environment variables.
