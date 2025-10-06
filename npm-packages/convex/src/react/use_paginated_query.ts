@@ -164,6 +164,32 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   args: PaginatedQueryArgs<Query> | "skip",
   options: { initialNumItems: number },
 ): UsePaginatedQueryReturnType<Query> {
+  const { user } = usePaginatedQueryInternal(query, args, options);
+  return user;
+}
+
+/** @internal */
+export const includePage = Symbol("includePageKeys");
+
+/** @internal */
+export const page = Symbol("page");
+
+/**
+ * @internal
+ */
+export function usePaginatedQueryInternal<
+  Query extends PaginatedQueryReference,
+>(
+  query: Query,
+  args: PaginatedQueryArgs<Query> | "skip",
+  options: {
+    initialNumItems: number;
+    [includePage]?: boolean;
+  },
+): {
+  user: UsePaginatedQueryReturnType<Query>;
+  internal: { state: UsePaginatedQueryState };
+} {
   if (
     typeof options?.initialNumItems !== "number" ||
     options.initialNumItems < 0
@@ -234,6 +260,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
 
   const resultsObject = useQueries(currState.queries);
 
+  const isIncludingPageKeys = options[includePage] ?? false;
   const [results, maybeLastResult]: [
     Value[],
     undefined | PaginationResult<Value>,
@@ -303,7 +330,14 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
         // page and return 'LoadingMore' while the page is splitting.
         return [allItems, undefined];
       }
-      allItems.push(...currResult.page);
+      allItems.push(
+        ...(isIncludingPageKeys
+          ? currResult.page.map((i: any) => ({
+              ...i,
+              [page]: pageKey.toString(),
+            }))
+          : currResult.page),
+      );
     }
     return [allItems, currResult];
   }, [
@@ -313,6 +347,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
     options.initialNumItems,
     createInitialState,
     logger,
+    isIncludingPageKeys,
   ]);
 
   const statusObject = useMemo(() => {
@@ -379,8 +414,11 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
   }, [maybeLastResult, currState.nextPageKey]);
 
   return {
-    results,
-    ...statusObject,
+    user: {
+      results,
+      ...statusObject,
+    },
+    internal: { state: currState },
   };
 }
 

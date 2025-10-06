@@ -1,7 +1,7 @@
 /**
  * @vitest-environment custom-vitest-environment.ts
  */
-import { expect, vi, test, describe, beforeEach } from "vitest";
+import { expect, vi, test, describe, beforeEach, it } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import React from "react";
 
@@ -26,6 +26,9 @@ import {
   insertAtTop,
   insertAtPosition,
   PaginatedQueryReference,
+  usePaginatedQueryInternal,
+  includePage,
+  page,
 } from "./use_paginated_query.js";
 import { OptimisticLocalStore } from "../browser/index.js";
 
@@ -399,6 +402,54 @@ describe("usePaginatedQuery pages", () => {
       "item3S",
       "item4S",
     ]);
+  });
+
+  describe("usePaginatedQueryInternal", () => {
+    it("doesn’t expose the page keys by default", () => {
+      const { result } = renderHook(
+        () => usePaginatedQueryInternal(query, {}, { initialNumItems: 1 }),
+        { wrapper },
+      );
+      mockPage(
+        {
+          numItems: 1,
+          cursor: null,
+        },
+        {
+          page: [{ name: "item1" }],
+          continueCursor: "abc",
+          isDone: true,
+        },
+      );
+      const item = result.current.user.results[0];
+      expect(page in item).to.be.false;
+      expect("0" in result.current.internal.state.queries).to.be.true;
+    });
+
+    it("exposes the page keys when asked", () => {
+      const { result } = renderHook(
+        () =>
+          usePaginatedQueryInternal(
+            query,
+            {},
+            { initialNumItems: 1, [includePage]: true },
+          ),
+        { wrapper },
+      );
+      mockPage(
+        {
+          numItems: 1,
+          cursor: null,
+        },
+        {
+          page: [{ name: "item1" }],
+          continueCursor: "abc",
+          isDone: true,
+        },
+      );
+      const item = result.current.user.results[0];
+      expect(item[page]).to.equal("0");
+    });
   });
 });
 
