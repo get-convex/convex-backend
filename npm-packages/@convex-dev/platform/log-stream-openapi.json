@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Convex Log Stream Events",
-    "description": "Schema definitions for Convex log stream events (V2 format)",
+    "description": "Schema definitions for Convex log stream events",
     "contact": {
       "name": "Convex, Inc.",
       "email": "no-reply@convex.dev"

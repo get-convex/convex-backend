@@ -179,7 +179,7 @@ impl LogLineStructured {
                 messages: messages.into(),
                 is_truncated,
                 timestamp: timestamp.as_ms_since_epoch()?,
-                level: level.to_string(),
+                level: level.into(),
                 system_metadata: system_metadata.map(SystemLogMetadataJson::from),
                 component_path: sub_function_path.as_ref().map(|p| p.component.to_string()),
                 udf_path: sub_function_path.map(|p| p.udf_path.to_string()),
@@ -581,24 +581,66 @@ impl TryFrom<LogLine> for ConvexValue {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct LogLineJson {
-    messages: Vec<String>,
-    is_truncated: bool,
-    timestamp: u64,
-    level: String,
-    system_metadata: Option<SystemLogMetadataJson>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    component_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    udf_path: Option<String>,
+// JSON representation of LogLevel with uppercase string serialization
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+pub enum LogLevelJson {
+    #[serde(rename = "DEBUG")]
+    Debug,
+    #[serde(rename = "ERROR")]
+    Error,
+    #[serde(rename = "WARN")]
+    Warn,
+    #[serde(rename = "INFO")]
+    Info,
+    #[serde(rename = "LOG")]
+    Log,
+}
+
+impl From<LogLevel> for LogLevelJson {
+    fn from(level: LogLevel) -> Self {
+        match level {
+            LogLevel::Debug => LogLevelJson::Debug,
+            LogLevel::Error => LogLevelJson::Error,
+            LogLevel::Warn => LogLevelJson::Warn,
+            LogLevel::Info => LogLevelJson::Info,
+            LogLevel::Log => LogLevelJson::Log,
+        }
+    }
+}
+
+impl From<LogLevelJson> for LogLevel {
+    fn from(level: LogLevelJson) -> Self {
+        match level {
+            LogLevelJson::Debug => LogLevel::Debug,
+            LogLevelJson::Error => LogLevel::Error,
+            LogLevelJson::Warn => LogLevel::Warn,
+            LogLevelJson::Info => LogLevel::Info,
+            LogLevelJson::Log => LogLevel::Log,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct LogLineJson {
+    pub messages: Vec<String>,
+    pub is_truncated: bool,
+    pub timestamp: u64,
+    pub level: LogLevelJson,
+    pub system_metadata: Option<SystemLogMetadataJson>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub component_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub udf_path: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct SystemLogMetadataJson {
-    code: String,
+    pub code: String,
 }
 
 impl From<SystemLogMetadataJson> for SystemLogMetadata {
@@ -647,7 +689,7 @@ impl TryFrom<JsonValue> for LogLineStructured {
             messages: log_line_json.messages.into(),
             is_truncated: log_line_json.is_truncated,
             timestamp: UnixTimestamp::from_millis(log_line_json.timestamp),
-            level: log_line_json.level.parse()?,
+            level: log_line_json.level.into(),
             system_metadata: log_line_json.system_metadata.map(SystemLogMetadata::from),
         })
     }

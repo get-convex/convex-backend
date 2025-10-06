@@ -38,6 +38,37 @@ pub enum UdfType {
     HttpAction,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+pub enum UdfTypeJson {
+    Query,
+    Mutation,
+    Action,
+    HttpAction,
+}
+
+impl From<UdfType> for UdfTypeJson {
+    fn from(udf_type: UdfType) -> Self {
+        match udf_type {
+            UdfType::Query => UdfTypeJson::Query,
+            UdfType::Mutation => UdfTypeJson::Mutation,
+            UdfType::Action => UdfTypeJson::Action,
+            UdfType::HttpAction => UdfTypeJson::HttpAction,
+        }
+    }
+}
+
+impl From<UdfTypeJson> for UdfType {
+    fn from(udf_type: UdfTypeJson) -> Self {
+        match udf_type {
+            UdfTypeJson::Query => UdfType::Query,
+            UdfTypeJson::Mutation => UdfType::Mutation,
+            UdfTypeJson::Action => UdfType::Action,
+            UdfTypeJson::HttpAction => UdfType::HttpAction,
+        }
+    }
+}
+
 impl UdfType {
     pub fn metric_label(self) -> StaticMetricLabel {
         StaticMetricLabel::new("udf_type", self.to_lowercase_string())

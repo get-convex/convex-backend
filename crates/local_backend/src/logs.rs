@@ -19,70 +19,23 @@ use common::{
         ExtractClientVersion,
         HttpResponseError,
     },
+    log_streaming::{
+        FunctionExecutionJson,
+        StreamFunctionLogs,
+        StreamUdfExecutionQueryArgs,
+        StreamUdfExecutionResponse,
+    },
     version::ClientType,
     RequestId,
 };
 use errors::ErrorMetadata;
 use futures::FutureExt;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 use serde_json::Value as JsonValue;
 
 use crate::{
     authentication::ExtractIdentity,
     LocalAppState,
 };
-
-#[derive(Deserialize)]
-pub struct StreamUdfExecutionQueryArgs {
-    cursor: f64,
-}
-
-#[derive(Serialize)]
-#[serde(tag = "kind")]
-pub enum FunctionExecutionJson {
-    #[serde(rename_all = "camelCase")]
-    Completion {
-        udf_type: String,
-        component_path: Option<String>,
-        identifier: String,
-        log_lines: Vec<JsonValue>,
-        timestamp: f64,
-        cached_result: bool,
-        caller: String,
-        parent_execution_id: Option<String>,
-        execution_time: f64,
-        success: Option<JsonValue>,
-        error: Option<String>,
-        request_id: String,
-        execution_id: String,
-        usage_stats: JsonValue,
-        return_bytes: Option<f64>,
-        occ_info: Option<JsonValue>,
-        execution_timestamp: f64,
-        identity_type: String,
-        environment: String,
-    },
-    #[serde(rename_all = "camelCase")]
-    Progress {
-        udf_type: String,
-        component_path: Option<String>,
-        identifier: String,
-        timestamp: f64,
-        log_lines: Vec<JsonValue>,
-        request_id: String,
-        execution_id: String,
-    },
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StreamUdfExecutionResponse {
-    entries: Vec<FunctionExecutionJson>,
-    new_cursor: f64,
-}
 
 pub async fn stream_udf_execution(
     State(st): State<LocalAppState>,
@@ -120,20 +73,6 @@ pub async fn stream_udf_execution(
     }
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StreamFunctionLogsResponse {
-    entries: Vec<FunctionExecutionJson>,
-    new_cursor: f64,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StreamFunctionLogs {
-    cursor: f64,
-    session_id: Option<String>,
-    client_request_counter: Option<u32>,
-}
 // Streams log lines + function completion events.
 // Log lines can either appear in the completion (mutations, queries) or as
 // separate messages (actions, HTTP actions), but will only appear once.
@@ -202,7 +141,7 @@ pub async fn stream_function_logs(
                         },
                         FunctionExecutionPart::Progress(c) => {
                             FunctionExecutionJson::Progress {
-                                udf_type: c.event_source.udf_type.to_string(),
+                                udf_type: c.event_source.udf_type.into(),
                                 component_path: c.event_source.component_path.serialize(),
                                 identifier: c.event_source.udf_path,
                                 timestamp: c.function_start_timestamp.as_secs_f64(),
@@ -242,17 +181,17 @@ pub async fn stream_function_logs(
 fn usage_stats_to_json(
     stats: &usage_tracking::AggregatedFunctionUsageStats,
     action_memory_used_mb: Option<u64>,
-) -> JsonValue {
-    serde_json::json!({
-        "databaseReadBytes": stats.database_read_bytes,
-        "databaseWriteBytes": stats.database_write_bytes,
-        "databaseReadDocuments": stats.database_read_documents,
-        "storageReadBytes": stats.storage_read_bytes,
-        "storageWriteBytes": stats.storage_write_bytes,
-        "vectorIndexReadBytes": stats.vector_index_read_bytes,
-        "vectorIndexWriteBytes": stats.vector_index_write_bytes,
-        "actionMemoryUsedMb": action_memory_used_mb,
-    })
+) -> common::log_streaming::UsageStatsJson {
+    common::log_streaming::UsageStatsJson {
+        database_read_bytes: stats.database_read_bytes,
+        database_write_bytes: stats.database_write_bytes,
+        database_read_documents: stats.database_read_documents,
+        storage_read_bytes: stats.storage_read_bytes,
+        storage_write_bytes: stats.storage_write_bytes,
+        vector_index_read_bytes: stats.vector_index_read_bytes,
+        vector_index_write_bytes: stats.vector_index_write_bytes,
+        action_memory_used_mb,
+    }
 }
 
 fn execution_to_json(
@@ -264,16 +203,12 @@ fn execution_to_json(
     let occ_info_json = execution
         .occ_info
         .as_ref()
-        .map(|occ| {
-            let log_occ_info = common::log_streaming::OccInfo {
-                table_name: occ.table_name.clone(),
-                document_id: occ.document_id.clone(),
-                write_source: occ.write_source.clone(),
-                retry_count: occ.retry_count,
-            };
-            serde_json::to_value(log_occ_info)
-        })
-        .transpose()?;
+        .map(|occ| common::log_streaming::OccInfoJson {
+            table_name: occ.table_name.clone(),
+            document_id: occ.document_id.clone(),
+            write_source: occ.write_source.clone(),
+            retry_count: occ.retry_count,
+        });
     let identity_type = execution.identity.tag().value.to_string();
     let environment = execution.environment.to_string();
     let execution_timestamp = execution.execution_timestamp.as_secs_f64();
@@ -282,7 +217,7 @@ fn execution_to_json(
             let component_path = identifier.component.serialize();
             let identifier: String = identifier.udf_path.strip().into();
             FunctionExecutionJson::Completion {
-                udf_type: execution.udf_type.to_string(),
+                udf_type: execution.udf_type.into(),
                 component_path,
                 identifier,
                 log_lines: execution
@@ -315,7 +250,7 @@ fn execution_to_json(
                 Err(e) => (None, Some(e)),
             };
             FunctionExecutionJson::Completion {
-                udf_type: execution.udf_type.to_string(),
+                udf_type: execution.udf_type.into(),
                 component_path: None,
                 identifier,
                 log_lines: execution

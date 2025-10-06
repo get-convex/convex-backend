@@ -5,7 +5,7 @@ api-extractor-configs/reports
 api-extractor-configs/temp
 tmpDist*
 management-openapi.json
-log-stream-openapi.json
+function-logs-openapi.json
 src/cli/generatedApi.ts
-src/cli/lib/generatedLogStreamApi.ts
+src/cli/lib/generatedFunctionLogsApi.ts
 src/vendor

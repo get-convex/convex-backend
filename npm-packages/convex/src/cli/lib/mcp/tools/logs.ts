@@ -3,7 +3,8 @@ import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 import { deploymentFetch } from "../../utils/utils.js";
-import { components } from "../../generatedLogStreamApi.js";
+import { FunctionExecution } from "../../apiTypes.js";
+import { formatLogsAsText } from "../../logs.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -33,16 +34,24 @@ const inputSchema = z.object({
     .describe(
       "Approximate maximum number of tokens to return (applied to the JSON payload). Defaults to 20000.",
     ),
+  jsonl: z
+    .boolean()
+    .default(false)
+    .optional()
+    .describe(
+      "If true, return raw log entries as JSONL. If false (default), return formatted text logs.",
+    ),
 });
 
 const outputSchema = z.object({
-  entries: z.array(z.any()),
+  entries: z.string(),
   newCursor: z.number(),
 });
 
-const logsResponseSchema = outputSchema;
-
-type LogEntry = components["schemas"]["LogStreamEvent"];
+const logsResponseSchema = z.object({
+  entries: z.array(z.any()),
+  newCursor: z.number(),
+});
 
 const description = `
 Fetch a chunk of recent log entries from your Convex deployment.
@@ -90,12 +99,23 @@ export const LogsTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       .json()
       .then(logsResponseSchema.parse);
 
+    const limitedEntries = limitLogs({
+      entries,
+      tokensLimit: args.tokensLimit ?? 20000,
+      entriesLimit: args.entriesLimit ?? entries.length,
+    });
+
+    if (args.jsonl) {
+      return {
+        entries: limitedEntries
+          .map((entry) => JSON.stringify(entry))
+          .join("\n"),
+        newCursor,
+      };
+    }
+
     return {
-      entries: limitLogs({
-        entries,
-        tokensLimit: args.tokensLimit ?? 20000,
-        entriesLimit: args.entriesLimit ?? entries.length,
-      }),
+      entries: formatLogsAsText(limitedEntries),
       newCursor,
     };
   },
@@ -106,10 +126,10 @@ export function limitLogs({
   tokensLimit,
   entriesLimit,
 }: {
-  entries: LogEntry[];
+  entries: FunctionExecution[];
   tokensLimit: number;
   entriesLimit: number;
-}): LogEntry[] {
+}): FunctionExecution[] {
   // 1) Apply entries limit first so we cut off neatly at entry boundaries (latest entries kept)
   const limitedByEntries = entries.slice(entries.length - entriesLimit);
 
@@ -127,10 +147,10 @@ function limitEntriesByTokenBudget({
   entries,
   tokensLimit,
 }: {
-  entries: LogEntry[];
+  entries: FunctionExecution[];
   tokensLimit: number;
-}): LogEntry[] {
-  const result: LogEntry[] = [];
+}): FunctionExecution[] {
+  const result: FunctionExecution[] = [];
   let tokens = 0;
   for (const entry of entries) {
     const entryString = JSON.stringify(entry);
@@ -144,38 +164,4 @@ function limitEntriesByTokenBudget({
 
 function estimateTokenCount(entryString: string): number {
   return entryString.length * 0.33;
-}
-
-export function formatEntriesTerse(entries: LogEntry[]): string[] {
-  return entries
-    .map((entry) => {
-      const ts = entry.timestamp;
-
-      switch (entry.topic) {
-        case "console": {
-          return `${ts} ${entry.function.type} ${entry.function.path} ${entry.message}`;
-        }
-        case "verification": {
-          return `${entry.message}`;
-        }
-        case "function_execution": {
-          return `${entry.function.type} ${entry.function.path}`;
-        }
-        case "audit_log": {
-          return `${entry.audit_log_action}`;
-        }
-        case "scheduler_stats": {
-          return `${entry.num_running_jobs} running jobs`;
-        }
-        case "scheduled_job_lag": {
-          // skip it
-          return null;
-        }
-        default: {
-          entry satisfies never;
-          return null;
-        }
-      }
-    })
-    .filter((x): x is string => !!x);
 }

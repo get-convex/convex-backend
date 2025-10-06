@@ -68,6 +68,7 @@ pub use functions::{
     ModuleEnvironment,
     UdfIdentifier,
     UdfType,
+    UdfTypeJson,
 };
 pub use index::{
     DatabaseIndexUpdate,

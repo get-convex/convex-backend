@@ -136,6 +136,7 @@ declare module "@commander-js/extra-typings" {
       Opts & {
         history: number;
         success: boolean;
+        jsonl: boolean;
       }
     >;
 
@@ -507,11 +508,13 @@ Command.prototype.addLogsOptions = function () {
     "--history [n]",
     "Show `n` most recent logs. Defaults to showing all available logs.",
     parseInteger,
-  ).option(
-    "--success",
-    "Print a log line for every successful function execution",
-    false,
-  );
+  )
+    .option(
+      "--success",
+      "Print a log line for every successful function execution",
+      false,
+    )
+    .option("--jsonl", "Output raw log events as JSONL", false);
 };
 
 Command.prototype.addNetworkTestOptions = function () {

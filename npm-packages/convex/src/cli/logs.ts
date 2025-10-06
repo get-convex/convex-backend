@@ -35,6 +35,7 @@ export const logs = new Command("logs")
     await logsForDeployment(ctx, deployment, {
       history: cmdOptions.history,
       success: cmdOptions.success,
+      jsonl: cmdOptions.jsonl,
       deploymentNotice,
     });
   });

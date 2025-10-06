@@ -2,7 +2,11 @@ import createClient from "openapi-fetch";
 
 import type { paths as ConvexManagementPaths } from "./generatedManagementApi.js";
 import type { paths as ConvexDeploymentPaths } from "./generatedDeploymentApi.js";
+import type { paths as ConvexEventLogPaths } from "./generatedLogStreamApi.js";
 import { version } from "./version.js";
+
+type ConvexEventLog = ConvexEventLogPaths["schemas"];
+export type { ConvexEventLog };
 
 export const productionProvisionHost = "https://api.convex.dev";
 export const provisionHost =

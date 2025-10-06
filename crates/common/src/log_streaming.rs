@@ -30,6 +30,7 @@ use crate::{
     types::{
         ModuleEnvironment,
         UdfType,
+        UdfTypeJson,
     },
 };
 
@@ -75,6 +76,30 @@ pub struct OccInfo {
     pub document_id: Option<String>,
     pub write_source: Option<String>,
     pub retry_count: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct OccInfoJson {
+    pub table_name: Option<String>,
+    pub document_id: Option<String>,
+    pub write_source: Option<String>,
+    pub retry_count: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct UsageStatsJson {
+    pub database_read_bytes: u64,
+    pub database_write_bytes: u64,
+    pub database_read_documents: u64,
+    pub storage_read_bytes: u64,
+    pub storage_write_bytes: u64,
+    pub vector_index_read_bytes: u64,
+    pub vector_index_write_bytes: u64,
+    pub action_memory_used_mb: Option<u64>,
 }
 
 // Nothing yet. Can add information like parent scheduled job, scheduler lag,
@@ -547,6 +572,68 @@ impl HeapSize for FunctionEventSource {
     }
 }
 
+// Types for the /api/stream_function_logs
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+#[serde(tag = "kind")]
+pub enum FunctionExecutionJson {
+    #[serde(rename_all = "camelCase")]
+    Completion {
+        udf_type: UdfTypeJson,
+        component_path: Option<String>,
+        identifier: String,
+        log_lines: Vec<JsonValue>,
+        timestamp: f64,
+        cached_result: bool,
+        caller: String,
+        parent_execution_id: Option<String>,
+        execution_time: f64,
+        success: Option<JsonValue>,
+        error: Option<String>,
+        request_id: String,
+        execution_id: String,
+        usage_stats: UsageStatsJson,
+        return_bytes: Option<f64>,
+        occ_info: Option<OccInfoJson>,
+        execution_timestamp: f64,
+        identity_type: String,
+        environment: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    Progress {
+        udf_type: UdfTypeJson,
+        component_path: Option<String>,
+        identifier: String,
+        timestamp: f64,
+        log_lines: Vec<JsonValue>,
+        request_id: String,
+        execution_id: String,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct StreamUdfExecutionResponse {
+    pub entries: Vec<FunctionExecutionJson>,
+    pub new_cursor: f64,
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct StreamFunctionLogs {
+    pub cursor: f64,
+    pub session_id: Option<String>,
+    pub client_request_counter: Option<u32>,
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(utoipa::ToSchema))]
+pub struct StreamUdfExecutionQueryArgs {
+    pub cursor: f64,
+}
+
 #[cfg(test)]
 mod tests {
     use serde::{
@@ -761,18 +848,6 @@ mod tests {
         ScheduledJobLag(ScheduledJobLagEvent),
     }
 
-    // OpenAPI document for log stream schemas
-    #[derive(OpenApi)]
-    #[openapi(
-        info(
-            title = "Convex Log Stream Events",
-            version = "2.0.0",
-            description = "Schema definitions for Convex log stream events (V2 format)"
-        ),
-        components(schemas(LogStreamEvent))
-    )]
-    struct LogStreamApiDoc;
-
     #[test]
     fn test_v2_events_deserialize_to_schemas() -> anyhow::Result<()> {
         let verification_json = serde_json::to_value(
@@ -896,40 +971,133 @@ mod tests {
         Ok(())
     }
 
+    // OpenAPI document for function execution API (for /api/stream_function_logs)
+    use crate::{
+        log_lines::{
+            LogLevelJson,
+            LogLineJson,
+            SystemLogMetadataJson,
+        },
+        log_streaming::{
+            FunctionExecutionJson,
+            OccInfoJson,
+            StreamFunctionLogs,
+            StreamUdfExecutionQueryArgs,
+            StreamUdfExecutionResponse,
+            UsageStatsJson,
+        },
+        types::UdfTypeJson,
+    };
+
+    #[derive(utoipa::OpenApi)]
+    #[openapi(
+        info(
+            title = "Convex Function Logs API",
+            version = "1.0.0",
+            description = "Schema definitions for /api/stream_function_logs and \
+                           /api/stream_udf_execution endpoints"
+        ),
+        components(schemas(
+            FunctionExecutionJson,
+            StreamUdfExecutionResponse,
+            StreamFunctionLogs,
+            StreamUdfExecutionQueryArgs,
+            LogLineJson,
+            LogLevelJson,
+            SystemLogMetadataJson,
+            UsageStatsJson,
+            UdfTypeJson,
+            OccInfoJson,
+        ))
+    )]
+    struct FunctionLogsApiDoc;
+
     #[test]
-    fn test_log_stream_schema_matches() -> anyhow::Result<()> {
+    fn test_function_logs_api_schema_matches() -> anyhow::Result<()> {
         use std::{
             fs,
             path::Path,
         };
 
-        const LOG_STREAM_SCHEMA_FILE: &str = "../../npm-packages/convex/log-stream-openapi.json";
+        const SCHEMA_FILE: &str = "../../npm-packages/convex/function-logs-openapi.json";
+
+        // Generate OpenAPI spec using utoipa
+        let openapi_spec = FunctionLogsApiDoc::openapi();
+        let current_schema = openapi_spec.to_pretty_json()?;
+
+        // Check if file exists and compare
+        if Path::new(SCHEMA_FILE).exists() {
+            let existing_schema = fs::read_to_string(SCHEMA_FILE)?;
+            if existing_schema.trim() != current_schema.trim() {
+                // Write updated schema
+                fs::write(SCHEMA_FILE, &current_schema)?;
+                panic!(
+                    "{SCHEMA_FILE} does not match current schema. This test automatically updated \
+                     the file so you can run again: `cargo test -p common \
+                     test_function_logs_api_schema_matches`"
+                );
+            }
+        } else {
+            // Create directory if it doesn't exist
+            if let Some(parent) = Path::new(SCHEMA_FILE).parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::write(SCHEMA_FILE, &current_schema)?;
+            panic!(
+                "Created new {SCHEMA_FILE}. Run the test again to verify: `cargo test -p common \
+                 test_function_logs_api_schema_matches`"
+            );
+        }
+
+        Ok(())
+    }
+
+    // OpenAPI document for log stream events (for external sinks)
+    #[derive(utoipa::OpenApi)]
+    #[openapi(
+        info(
+            title = "Convex Log Stream Events",
+            version = "2.0.0",
+            description = "Schema definitions for Convex log stream events"
+        ),
+        components(schemas(LogStreamEvent))
+    )]
+    struct LogStreamApiDoc;
+
+    #[test]
+    fn test_log_stream_api_schema_matches() -> anyhow::Result<()> {
+        use std::{
+            fs,
+            path::Path,
+        };
+
+        const SCHEMA_FILE: &str = "../../npm-packages/@convex-dev/platform/log-stream-openapi.json";
 
         // Generate OpenAPI spec using utoipa
         let openapi_spec = LogStreamApiDoc::openapi();
         let current_schema = openapi_spec.to_pretty_json()?;
 
         // Check if file exists and compare
-        if Path::new(LOG_STREAM_SCHEMA_FILE).exists() {
-            let existing_schema = fs::read_to_string(LOG_STREAM_SCHEMA_FILE)?;
+        if Path::new(SCHEMA_FILE).exists() {
+            let existing_schema = fs::read_to_string(SCHEMA_FILE)?;
             if existing_schema.trim() != current_schema.trim() {
                 // Write updated schema
-                fs::write(LOG_STREAM_SCHEMA_FILE, &current_schema)?;
+                fs::write(SCHEMA_FILE, &current_schema)?;
                 panic!(
-                    "{LOG_STREAM_SCHEMA_FILE} does not match current schema. This test \
-                     automatically updated the file so you can run again: `cargo test -p common \
-                     test_log_stream_schema_matches`"
+                    "{SCHEMA_FILE} does not match current schema. This test automatically updated \
+                     the file so you can run again: `cargo test -p common \
+                     test_log_stream_api_schema_matches`"
                 );
             }
         } else {
             // Create directory if it doesn't exist
-            if let Some(parent) = Path::new(LOG_STREAM_SCHEMA_FILE).parent() {
+            if let Some(parent) = Path::new(SCHEMA_FILE).parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::write(LOG_STREAM_SCHEMA_FILE, &current_schema)?;
+            fs::write(SCHEMA_FILE, &current_schema)?;
             panic!(
-                "Created new {LOG_STREAM_SCHEMA_FILE}. Run the test again to verify: `cargo test \
-                 -p common test_log_stream_schema_matches`"
+                "Created new {SCHEMA_FILE}. Run the test again to verify: `cargo test -p common \
+                 test_log_stream_api_schema_matches`"
             );
         }
 

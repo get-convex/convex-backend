@@ -1,0 +1,416 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Convex Function Logs API",
+    "description": "Schema definitions for /api/stream_function_logs and /api/stream_udf_execution endpoints",
+    "contact": {
+      "name": "Convex, Inc.",
+      "email": "no-reply@convex.dev"
+    },
+    "license": {
+      "name": "LicenseRef-FSL-1.1-Apache-2.0",
+      "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "FunctionExecutionJson": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "udfType",
+              "identifier",
+              "logLines",
+              "timestamp",
+              "cachedResult",
+              "caller",
+              "executionTime",
+              "requestId",
+              "executionId",
+              "usageStats",
+              "executionTimestamp",
+              "identityType",
+              "environment",
+              "kind"
+            ],
+            "properties": {
+              "cachedResult": {
+                "type": "boolean"
+              },
+              "caller": {
+                "type": "string"
+              },
+              "componentPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "environment": {
+                "type": "string"
+              },
+              "error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "executionId": {
+                "type": "string"
+              },
+              "executionTime": {
+                "type": "number",
+                "format": "double"
+              },
+              "executionTimestamp": {
+                "type": "number",
+                "format": "double"
+              },
+              "identifier": {
+                "type": "string"
+              },
+              "identityType": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "Completion"
+                ]
+              },
+              "logLines": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Value"
+                }
+              },
+              "occInfo": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OccInfoJson"
+                  }
+                ]
+              },
+              "parentExecutionId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "returnBytes": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "format": "double"
+              },
+              "success": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  }
+                ]
+              },
+              "timestamp": {
+                "type": "number",
+                "format": "double"
+              },
+              "udfType": {
+                "$ref": "#/components/schemas/UdfTypeJson"
+              },
+              "usageStats": {
+                "$ref": "#/components/schemas/UsageStatsJson"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "udfType",
+              "identifier",
+              "timestamp",
+              "logLines",
+              "requestId",
+              "executionId",
+              "kind"
+            ],
+            "properties": {
+              "componentPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "executionId": {
+                "type": "string"
+              },
+              "identifier": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "Progress"
+                ]
+              },
+              "logLines": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Value"
+                }
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "number",
+                "format": "double"
+              },
+              "udfType": {
+                "$ref": "#/components/schemas/UdfTypeJson"
+              }
+            }
+          }
+        ]
+      },
+      "LogLevelJson": {
+        "type": "string",
+        "enum": [
+          "DEBUG",
+          "ERROR",
+          "WARN",
+          "INFO",
+          "LOG"
+        ]
+      },
+      "LogLineJson": {
+        "type": "object",
+        "required": [
+          "messages",
+          "isTruncated",
+          "timestamp",
+          "level"
+        ],
+        "properties": {
+          "componentPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isTruncated": {
+            "type": "boolean"
+          },
+          "level": {
+            "$ref": "#/components/schemas/LogLevelJson"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "systemMetadata": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SystemLogMetadataJson"
+              }
+            ]
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "udfPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OccInfoJson": {
+        "type": "object",
+        "required": [
+          "retryCount"
+        ],
+        "properties": {
+          "documentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "retryCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tableName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "writeSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "StreamFunctionLogs": {
+        "type": "object",
+        "required": [
+          "cursor"
+        ],
+        "properties": {
+          "clientRequestCounter": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "cursor": {
+            "type": "number",
+            "format": "double"
+          },
+          "sessionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "StreamUdfExecutionQueryArgs": {
+        "type": "object",
+        "required": [
+          "cursor"
+        ],
+        "properties": {
+          "cursor": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "StreamUdfExecutionResponse": {
+        "type": "object",
+        "required": [
+          "entries",
+          "newCursor"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FunctionExecutionJson"
+            }
+          },
+          "newCursor": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "SystemLogMetadataJson": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "UdfTypeJson": {
+        "type": "string",
+        "enum": [
+          "Query",
+          "Mutation",
+          "Action",
+          "HttpAction"
+        ]
+      },
+      "UsageStatsJson": {
+        "type": "object",
+        "required": [
+          "databaseReadBytes",
+          "databaseWriteBytes",
+          "databaseReadDocuments",
+          "storageReadBytes",
+          "storageWriteBytes",
+          "vectorIndexReadBytes",
+          "vectorIndexWriteBytes"
+        ],
+        "properties": {
+          "actionMemoryUsedMb": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "databaseReadBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "databaseReadDocuments": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "databaseWriteBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "storageReadBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "storageWriteBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "vectorIndexReadBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "vectorIndexWriteBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "Value": {}
+    }
+  }
+}
