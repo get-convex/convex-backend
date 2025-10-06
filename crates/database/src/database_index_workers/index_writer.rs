@@ -1,8 +1,5 @@
 use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     fmt::Display,
     num::NonZeroU32,
     sync::{
@@ -58,7 +55,6 @@ use futures::{
 };
 use governor::Quota;
 use indexing::index_registry::IndexRegistry;
-use itertools::Itertools;
 use maplit::btreeset;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -549,7 +545,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 futures::future::ready(result)
             })
             .chunks(*INDEX_BACKFILL_CHUNK_SIZE)
-            .map(|chunk| async move {
+            .map(|mut chunk| async move {
                 let persistence = self.persistence.clone();
                 let rate_limiter = self.rate_limiter.clone();
                 let size = chunk.len();
@@ -564,19 +560,12 @@ impl<RT: Runtime> IndexWriter<RT> {
                     let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
                     self.runtime.wait(delay).await;
                 }
+                // There might be duplicates in the index entries from the
+                // backfill backwards algorithm that need to be deduped.
+                chunk.sort_unstable();
+                chunk.dedup();
                 persistence
-                    .write(
-                        &[],
-                        // We collect into a BTreeSet here because there might be duplicates in the
-                        // index entries from the backfill backwards algorithm that need to be
-                        // deduped before batch inserting into Persistence.
-                        &chunk
-                            .into_iter()
-                            .collect::<BTreeSet<_>>()
-                            .into_iter()
-                            .collect_vec(),
-                        ConflictStrategy::Overwrite,
-                    )
+                    .write(&[], &chunk, ConflictStrategy::Overwrite)
                     .await?;
                 anyhow::Ok(size)
             })
