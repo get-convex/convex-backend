@@ -76,24 +76,34 @@ export function useSingleTableSchemaStatus(
   const schemas = useQuery(udfs.getSchemas.default, {
     componentId: useNents().selectedNent?.id ?? null,
   });
-  if (!schemas) {
-    return undefined;
-  }
-  const active: Schema | undefined = schemas.active
-    ? JSON.parse(schemas.active)
+
+  const { isDefined, referencedByTable } = useMemo(() => {
+    const active: Schema | undefined = schemas?.active
+      ? JSON.parse(schemas.active)
+      : undefined;
+
+    return {
+      isDefined:
+        active?.tables.find((table) => table.tableName === tableName) !==
+        undefined,
+      referencedByTable: active?.tables.find((table) =>
+        validatorReferencesTable(
+          table.documentType ?? { type: "any" },
+          tableName,
+        ),
+      )?.tableName,
+    };
+  }, [schemas?.active, tableName]);
+
+  const isValidationRunning = schemas?.inProgress !== undefined;
+  return schemas
+    ? {
+        tableName,
+        isDefined,
+        referencedByTable,
+        isValidationRunning,
+      }
     : undefined;
-  const isDefined =
-    active?.tables.find((table) => table.tableName === tableName) !== undefined;
-  const referencedByTable = active?.tables.find((table) =>
-    validatorReferencesTable(table.documentType ?? { type: "any" }, tableName),
-  )?.tableName;
-  const isValidationRunning = schemas.inProgress !== undefined;
-  return {
-    tableName,
-    isDefined,
-    referencedByTable,
-    isValidationRunning,
-  };
 }
 
 export function useSingleTableEnforcedSchema(tableName: string): Table | null {
