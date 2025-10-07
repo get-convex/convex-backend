@@ -1016,6 +1016,11 @@ pub static FUNRUN_SCHEDULER_MAX_PERCENT_PER_CLIENT: LazyLock<usize> =
 pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("FUNRUN_CLUSTER_NAME", String::from("funrun-default")));
 
+/// The amount of time for clients to stop sending requests to a saturated
+/// upstream for
+pub static UPSTREAM_SATURATION_TTL: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("UPSTREAM_SATURATION_TTL_SECS", 600)));
+
 /// Name of the service to discover for when connecting to Searchlight. (e.g.
 /// searchlight-default, searchlight-staging, etc.)
 // cluster is created.
