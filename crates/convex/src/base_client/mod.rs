@@ -674,6 +674,11 @@ impl BaseConvexClient {
             ServerMessage::Ping => {
                 // Do nothing
             },
+            ServerMessage::TransitionChunk { .. } => {
+                // The Rust client should never receive TransitionChunk messages
+                // as this feature is only enabled for npm clients
+                return Err("Unexpected TransitionChunk message received".to_string());
+            },
         }
         Ok(None)
     }

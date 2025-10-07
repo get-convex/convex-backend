@@ -14,7 +14,7 @@ import { Long } from "../vendor/long.js";
 import {
   AuthError,
   ClientMessage,
-  ServerMessage,
+  WireServerMessage,
 } from "../browser/sync/protocol.js";
 
 const testReactClient = (address: string, options?: ConvexReactClientOptions) =>
@@ -1152,7 +1152,7 @@ async function assertReconnectWithAuth(
 }
 
 async function simulateAuthError(args: {
-  send: (message: ServerMessage) => void;
+  send: (message: WireServerMessage) => void;
   close: () => void;
   authError: AuthError;
 }) {

@@ -80,6 +80,7 @@ register_convex_counter!(
 pub fn log_websocket_message_out(message: &ServerMessage, delay: Duration) {
     let endpoint = match message {
         ServerMessage::Transition { .. } => "Transition",
+        ServerMessage::TransitionChunk { .. } => "TransitionChunk",
         ServerMessage::MutationResponse { .. } => "MutationResponse",
         ServerMessage::ActionResponse { .. } => "ActionResponse",
         ServerMessage::AuthError { .. } => "AuthError",

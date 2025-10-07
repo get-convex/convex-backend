@@ -5,6 +5,7 @@ import {
   parseServerMessage,
   ServerMessage,
   Transition,
+  TransitionChunk,
 } from "./protocol.js";
 
 const CLOSE_NORMAL = 1000;
@@ -162,6 +163,13 @@ export class WebSocketManager {
     | (string & {}) // a full serverErrorReason (not just the prefix) or a new one
     | null;
 
+  // State for assembling the split-up Transition currently being received.
+  private transitionChunkBuffer: {
+    chunks: string[];
+    totalParts: number;
+    messageLength: number;
+  } | null = null;
+
   /** Upon HTTPS/WSS failure, the first jittered backoff duration, in ms. */
   private readonly defaultInitialBackoff: number;
 
@@ -239,6 +247,60 @@ export class WebSocketManager {
     this.markConnectionStateDirty();
   }
 
+  private assembleTransition(chunk: TransitionChunk): Transition | null {
+    if (
+      chunk.partNumber < 0 ||
+      chunk.partNumber >= chunk.totalParts ||
+      chunk.totalParts === 0 ||
+      (this.transitionChunkBuffer &&
+        (this.transitionChunkBuffer.totalParts !== chunk.totalParts ||
+          this.transitionChunkBuffer.messageLength !== chunk.messageLength))
+    ) {
+      // Throwing an error doesn't crash the client, so clear the buffer.
+      this.transitionChunkBuffer = null;
+      throw new Error("Invalid TransitionChunk");
+    }
+
+    if (this.transitionChunkBuffer === null) {
+      this.transitionChunkBuffer = {
+        chunks: [],
+        totalParts: chunk.totalParts,
+        messageLength: chunk.messageLength,
+      };
+    }
+
+    if (chunk.partNumber !== this.transitionChunkBuffer.chunks.length) {
+      // Throwing an error doesn't crash the client, so clear the buffer.
+      const expectedLength = this.transitionChunkBuffer.chunks.length;
+      this.transitionChunkBuffer = null;
+      throw new Error(
+        `TransitionChunk received out of order: expected part ${expectedLength}, got ${chunk.partNumber}`,
+      );
+    }
+
+    this.transitionChunkBuffer.chunks.push(chunk.chunk);
+
+    if (this.transitionChunkBuffer.chunks.length === chunk.totalParts) {
+      const fullJson = this.transitionChunkBuffer.chunks.join("");
+      this.transitionChunkBuffer = null;
+
+      if (fullJson.length !== chunk.messageLength) {
+        throw new Error(
+          `Assembled Transition length mismatch: expected ${chunk.messageLength}, got ${fullJson.length}`,
+        );
+      }
+      const transition = parseServerMessage(JSON.parse(fullJson));
+      if (transition.type !== "Transition") {
+        throw new Error(
+          `Expected Transition, got ${transition.type} after assembling chunks`,
+        );
+      }
+      return transition;
+    }
+
+    return null;
+  }
+
   private connect() {
     if (this.socket.state === "terminated") {
       return;
@@ -304,6 +366,7 @@ export class WebSocketManager {
     };
     // NB: The WebSocket API calls `onclose` even if connection fails, so we can route all error paths through `onclose`.
     ws.onerror = (error) => {
+      this.transitionChunkBuffer = null;
       const message = (error as ErrorEvent).message;
       if (message) {
         this.logger.log(`WebSocket error message: ${message}`);
@@ -312,8 +375,32 @@ export class WebSocketManager {
     ws.onmessage = (message) => {
       this.resetServerInactivityTimeout();
       const messageLength = message.data.length;
-      const serverMessage = parseServerMessage(JSON.parse(message.data));
+      let serverMessage = parseServerMessage(JSON.parse(message.data));
       this._logVerbose(`received ws message with type ${serverMessage.type}`);
+
+      // Ping's only purpose is to reset the server inactivity timer.
+      if (serverMessage.type === "Ping") {
+        return;
+      }
+
+      // TransitionChunks never reach the main client logic.
+      if (serverMessage.type === "TransitionChunk") {
+        const transition = this.assembleTransition(serverMessage);
+        if (!transition) {
+          return;
+        }
+        serverMessage = transition;
+        this._logVerbose(
+          `assembled full ws message of type ${serverMessage.type}`,
+        );
+      }
+
+      if (this.transitionChunkBuffer !== null) {
+        throw new Error(
+          `Received unexpected ${serverMessage.type} while buffering TransitionChunks`,
+        );
+      }
+
       if (serverMessage.type === "Transition") {
         this.reportLargeTransition({
           messageLength,
@@ -329,6 +416,7 @@ export class WebSocketManager {
     };
     ws.onclose = (event) => {
       this._logVerbose("begin ws.onclose");
+      this.transitionChunkBuffer = null;
       if (this.lastCloseReason === null) {
         // event.reason is often an empty string
         this.lastCloseReason = event.reason || `closed with code ${event.code}`;

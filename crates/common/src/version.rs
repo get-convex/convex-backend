@@ -46,6 +46,14 @@ pub static DEPRECATION_THRESHOLD: LazyLock<DeprecationThreshold> = LazyLock::new
 pub static MIN_NPM_VERSION_FOR_FUZZY_SEARCH: LazyLock<Version> =
     LazyLock::new(|| env_config("MIN_NPM_VERSION_FOR_FUZZY_SEARCH", Version::new(1, 6, 1000)));
 
+// Enabled in 1.27.5
+pub static MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS: LazyLock<Version> = LazyLock::new(|| {
+    env_config(
+        "MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS",
+        Version::parse("1.27.5").expect("Invalid version"),
+    )
+});
+
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub enum ClientVersionState {
     Unsupported(String),
@@ -559,6 +567,20 @@ mod tests {
                 .current_state(),
             ClientVersionState::Supported
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_prerelease_version_comparison() -> anyhow::Result<()> {
+        // alpha versions are greater than the previous release
+        let v1_27_3 = Version::new(1, 27, 3);
+        let v1_27_4_alpha_0 = Version::parse("1.27.4-alpha.0")?;
+        assert!(v1_27_4_alpha_0 > v1_27_3);
+
+        // prerelease is less than the final release
+        let v1_27_4 = Version::new(1, 27, 4);
+        assert!(v1_27_4_alpha_0 < v1_27_4);
+
         Ok(())
     }
 

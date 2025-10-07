@@ -7,7 +7,7 @@ import WebSocket, { WebSocketServer } from "ws";
 // Let's pretend this ws WebSocket is a browser WebSocket (it's very close)
 export const nodeWebSocket = WebSocket as unknown as typeof window.WebSocket;
 
-import { ClientMessage, ServerMessage } from "./protocol.js";
+import { ClientMessage, WireServerMessage } from "./protocol.js";
 import { QueryToken } from "./udf_path_utils.js";
 import { BaseConvexClient } from "./client.js";
 
@@ -15,7 +15,7 @@ export type InMemoryWebSocketTest = (args: {
   address: string;
   socket: () => WebSocket;
   receive: () => Promise<ClientMessage>;
-  send: (message: ServerMessage) => void;
+  send: (message: WireServerMessage) => void;
   close: () => void;
 }) => Promise<void>;
 
@@ -66,7 +66,7 @@ export async function withInMemoryWebSocket(
     const structured = JSON.parse(text);
     return structured;
   }
-  function send(message: ServerMessage) {
+  function send(message: WireServerMessage) {
     // eslint-disable-next-line no-console
     if (debug) console.debug(`      <--${message.type}-- server`);
     socket!.send(encodeServerMessage(message));
@@ -97,7 +97,7 @@ export async function withInMemoryWebSocket(
   }
 }
 
-export function encodeServerMessage(message: ServerMessage): string {
+export function encodeServerMessage(message: WireServerMessage): string {
   function replacer(_key: string, value: any) {
     if (Long.isLong(value)) {
       return encodeLong(value);

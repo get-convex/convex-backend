@@ -119,12 +119,14 @@ const SYNC_WORKER_PROCESS_TIMEOUT: Duration = Duration::from_secs(60);
 #[derive(Clone, Debug)]
 pub struct SyncWorkerConfig {
     pub client_version: ClientVersion,
+    pub supports_transition_chunks: bool,
 }
 
 impl Default for SyncWorkerConfig {
     fn default() -> Self {
         Self {
             client_version: ClientVersion::unknown(),
+            supports_transition_chunks: false,
         }
     }
 }

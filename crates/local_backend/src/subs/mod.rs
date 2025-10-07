@@ -33,7 +33,12 @@ use common::{
         ResolvedHostname,
     },
     runtime::Runtime,
-    version::ClientVersion,
+    value::heap_size::HeapSize,
+    version::{
+        self,
+        ClientType,
+        ClientVersion,
+    },
     ws::is_connection_closed_error,
 };
 use futures::{
@@ -230,9 +235,13 @@ async fn run_sync_socket(
                     let delay = st.runtime.monotonic_now() - send_time;
                     log_websocket_message_out(&message, delay);
                     message.inject_server_ts(st.runtime.generate_timestamp()?);
-                    let serialized = serde_json::to_string(&JsonValue::from(message))?;
-                    if tx.send(Message::Text(serialized.into())).await.is_err() {
-                        break 'top;
+                    let messages =
+                        maybe_split_transition(message, config.supports_transition_chunks)?;
+                    for msg in messages {
+                        let serialized = serde_json::to_string(&JsonValue::from(msg))?;
+                        if tx.send(Message::Text(serialized.into())).await.is_err() {
+                            break 'top;
+                        }
                     }
                 },
             }
@@ -352,7 +361,70 @@ async fn run_sync_socket(
 }
 
 fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncWorkerConfig> {
-    Ok(SyncWorkerConfig { client_version })
+    let supports_transition_chunks = match client_version.client() {
+        ClientType::NPM => match client_version.version() {
+            version::ClientVersionIdent::Semver(v) => {
+                v >= &*version::MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS
+            },
+            version::ClientVersionIdent::Unrecognized(_) => false,
+        },
+        _ => false,
+    };
+    Ok(SyncWorkerConfig {
+        client_version,
+        supports_transition_chunks,
+    })
+}
+
+// Maximum size of a single message before splitting into chunks (5MB)
+const MAX_MESSAGE_SIZE: usize = 5_000_000;
+
+/// Split a large Transition message into TransitionChunk messages if needed.
+fn maybe_split_transition(
+    message: ServerMessage,
+    supports_chunks: bool,
+) -> anyhow::Result<Vec<ServerMessage>> {
+    if !supports_chunks {
+        return Ok(vec![message]);
+    }
+
+    let transition = match message {
+        ServerMessage::Transition { .. } => message,
+        other => return Ok(vec![other]),
+    };
+
+    // heap_size is just a (low) estimate of the serialized size
+    if transition.heap_size() <= MAX_MESSAGE_SIZE {
+        return Ok(vec![transition]);
+    }
+
+    let transition_json = serde_json::to_string(&JsonValue::from(transition))?;
+
+    // Careful with UTF-8, use valid boundaries
+    let mut chunks = Vec::new();
+    let mut start = 0;
+    while start < transition_json.len() {
+        let mut end = (start + MAX_MESSAGE_SIZE).min(transition_json.len());
+        while end > start && !transition_json.is_char_boundary(end) {
+            end -= 1;
+        }
+        chunks.push(transition_json[start..end].to_string());
+        start = end;
+    }
+
+    let total_parts = chunks.len() as u32;
+    let message_length = transition_json.len();
+
+    Ok(chunks
+        .into_iter()
+        .enumerate()
+        .map(|(idx, chunk)| ServerMessage::TransitionChunk {
+            chunk,
+            part_number: idx as u32,
+            total_parts,
+            message_length,
+        })
+        .collect())
 }
 
 pub async fn sync_handler(

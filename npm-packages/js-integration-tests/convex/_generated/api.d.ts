@@ -33,6 +33,7 @@ import type * as getObject from "../getObject.js";
 import type * as getUsers from "../getUsers.js";
 import type * as http from "../http.js";
 import type * as internal_ from "../internal.js";
+import type * as largeResponse from "../largeResponse.js";
 import type * as logging from "../logging.js";
 import type * as maps from "../maps.js";
 import type * as messages from "../messages.js";
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   getUsers: typeof getUsers;
   http: typeof http;
   internal: typeof internal_;
+  largeResponse: typeof largeResponse;
   logging: typeof logging;
   maps: typeof maps;
   messages: typeof messages;

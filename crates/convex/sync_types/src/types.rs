@@ -341,6 +341,16 @@ pub enum ServerMessage<V: 'static> {
         /// client.
         server_ts: Option<Timestamp>,
     },
+    TransitionChunk {
+        /// The chunk of the serialized Transition message.
+        chunk: String,
+        /// 0-indexed part number.
+        part_number: u32,
+        /// Total number of parts for this transition.
+        total_parts: u32,
+        /// Total length of the full serialized Transition message.
+        message_length: usize,
+    },
     MutationResponse {
         request_id: SessionRequestSeqNumber,
         result: Result<V, ErrorPayload<V>>,

@@ -9,7 +9,7 @@ import {
   MutationRequest,
   parseServerMessage,
   RequestId,
-  ServerMessage,
+  WireServerMessage,
 } from "./protocol.js";
 import {
   encodeServerMessage,
@@ -62,7 +62,7 @@ test("BaseConvexClient closes cleanly", () => {
 });
 
 test("Tests can encode longs in server messages", () => {
-  const orig: ServerMessage = {
+  const orig: WireServerMessage = {
     type: "Transition",
     startVersion: { querySet: 0, identity: 0, ts: Long.fromNumber(0) },
     endVersion: { querySet: 1, identity: 0, ts: Long.fromNumber(1) },
@@ -103,7 +103,7 @@ test("Actions can be called immediately", async () => {
   });
 });
 
-function actionSuccess(requestId: RequestId): ServerMessage {
+function actionSuccess(requestId: RequestId): WireServerMessage {
   return {
     type: "ActionResponse",
     requestId: requestId,
@@ -778,4 +778,75 @@ test("Query unsubscription triggers empty transition for listeners", async () =>
 
     await client.close();
   }, true);
+});
+
+test("TransitionChunk messages are assembled into a Transition", async () => {
+  await withInMemoryWebSocket(async ({ address, receive, send }) => {
+    const client = new BaseConvexClient(address, () => null, {
+      webSocketConstructor: nodeWebSocket,
+      unsavedChangesWarning: false,
+    });
+    expect((await receive()).type).toEqual("Connect");
+    expect((await receive()).type).toEqual("ModifyQuerySet");
+
+    const fullTransition: WireServerMessage = {
+      type: "Transition",
+      startVersion: {
+        querySet: 0,
+        ts: Long.fromNumber(0),
+        identity: 0,
+      },
+      endVersion: {
+        querySet: 1,
+        ts: Long.fromNumber(1000),
+        identity: 0,
+      },
+      modifications: [
+        {
+          type: "QueryUpdated",
+          queryId: 0,
+          value: { result: "chunk test data" },
+          logLines: [],
+          journal: null,
+        },
+      ],
+    };
+
+    const fullJson = encodeServerMessage(fullTransition);
+    const midpoint = Math.floor(fullJson.length / 2);
+    const chunk1 = fullJson.substring(0, midpoint);
+    const chunk2 = fullJson.substring(midpoint);
+
+    send({
+      type: "TransitionChunk",
+      chunk: chunk1,
+      partNumber: 0,
+      totalParts: 2,
+      messageLength: fullJson.length,
+    });
+
+    expect(client.getMaxObservedTimestamp()).toBeUndefined();
+
+    send({
+      type: "TransitionChunk",
+      chunk: chunk2,
+      partNumber: 1,
+      totalParts: 2,
+      messageLength: fullJson.length,
+    });
+
+    // synchronously, it's still undefined
+    expect(client.getMaxObservedTimestamp()).toEqual(undefined);
+
+    for (let i = 0; i < 10; i++) {
+      if (client.getMaxObservedTimestamp()) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    expect(client.getMaxObservedTimestamp()).toEqual(Long.fromNumber(1000));
+
+    await client.close();
+  });
 });

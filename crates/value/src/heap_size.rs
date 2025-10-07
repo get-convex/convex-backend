@@ -959,6 +959,12 @@ impl<V: HeapSize> HeapSize for ServerMessage<V> {
             },
             ServerMessage::FatalError { error_message } => error_message.heap_size(),
             ServerMessage::Ping => 0,
+            ServerMessage::TransitionChunk {
+                chunk,
+                part_number: _,
+                total_parts: _,
+                message_length: _,
+            } => chunk.heap_size(),
         }
     }
 }

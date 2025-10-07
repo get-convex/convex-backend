@@ -23,8 +23,8 @@ import {
   MutationRequest,
   QueryId,
   QueryJournal,
-  RequestId,
   ServerMessage,
+  RequestId,
   TS,
   UserIdentityAttributes,
 } from "./protocol.js";
@@ -485,8 +485,6 @@ export class BaseConvexClient {
               void this.webSocketManager.terminate();
               throw error;
             }
-            case "Ping":
-              break; // do nothing
             default: {
               serverMessage satisfies never;
             }

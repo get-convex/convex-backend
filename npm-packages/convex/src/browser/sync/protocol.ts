@@ -19,11 +19,12 @@ export function longToU64(raw: U64): EncodedU64 {
 
 export function parseServerMessage(
   encoded: EncodedServerMessage,
-): ServerMessage {
+): WireServerMessage {
   switch (encoded.type) {
     case "FatalError":
     case "AuthError":
     case "ActionResponse":
+    case "TransitionChunk":
     case "Ping": {
       return { ...encoded };
     }
@@ -262,6 +263,14 @@ export type Transition = {
   serverTs?: number;
 };
 
+export type TransitionChunk = {
+  type: "TransitionChunk";
+  chunk: string;
+  partNumber: number;
+  totalParts: number;
+  messageLength: number;
+};
+
 type MutationSuccess = {
   type: "MutationResponse";
   requestId: RequestId;
@@ -312,8 +321,17 @@ type Ping = {
   type: "Ping";
 };
 
+// Server Messages without the messages only visible to WebSocketManager
 export type ServerMessage =
   | Transition
+  | MutationResponse
+  | ActionResponse
+  | FatalError
+  | AuthError;
+
+export type WireServerMessage =
+  | Transition
+  | TransitionChunk
   | MutationResponse
   | ActionResponse
   | FatalError
@@ -329,6 +347,7 @@ type EncodedMutationResponse = MutationFailed | EncodedMutationSuccess;
 
 type EncodedServerMessage =
   | EncodedTransition
+  | TransitionChunk
   | EncodedMutationResponse
   | ActionResponse
   | FatalError
