@@ -16,10 +16,10 @@ a rule you would find helpful!
 For ESLint 8, install these two libraries
 
 ```bash
-npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin
+npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
 ```
 
-and in .eslintrc.js:
+and in `.eslintrc.js`:
 
 ```js
 module.exports = {
@@ -37,18 +37,20 @@ module.exports = {
 For ESLint 9 (flat config), install just this library
 
 ```bash
-npm i @convex-dev/eslint-plugin
+npm i @convex-dev/eslint-plugin --save-dev
 ```
 
-and in eslint.config.js:
+and in `eslint.config.js`:
 
-```bash
+```ts
 import convexPlugin from "@convex-dev/eslint-plugin";
+import { defineConfig } from "eslint/config";
 
-export default [
+export default defineConfig([
   // Other configurations
-  ...convexPlugin.configs.recommended
-];
+
+  ...convexPlugin.configs.recommended,
+]);
 ```
 
 ## Rules
@@ -62,7 +64,7 @@ with an object containing a handler property. Using the objects makes it
 possible to add argument and return value validators, so is always preferable.
 
 ```ts
-// Allowed by this rule:
+// ✅ Allowed by this rule:
 export const list = query({
   handler: async (ctx) => {
     const data = await ctx.db.query("messages").collect();
@@ -70,7 +72,7 @@ export const list = query({
   },
 });
 
-// Not allowed by this rule:
+// ❌ Not allowed by this rule:
 export const list = query(async (ctx) => {
   const data = await ctx.db.query("messages").collect();
   ...
@@ -87,7 +89,7 @@ the types of arguments, using argument validators enables generating more
 descriptive function specs and therefore OpenAPI bindings.
 
 ```ts
-// Allowed by this rule:
+// ✅ Allowed by this rule:
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -95,7 +97,7 @@ export const list = query({
   },
 });
 
-// Allowed by this rule:
+// ✅ Allowed by this rule:
 export const list = query({
   args: { channel: v.id('channel') },
   handler: async (ctx, { channel }) => {
@@ -103,9 +105,9 @@ export const list = query({
   },
 });
 
-// Not allowed by this rule:
+// ❌ Not allowed by this rule:
 export const list = query({
-  handler: async (ctx, { channel }: { channel: Id<"channel">}) => {
+  handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
     ...
   },
 });
