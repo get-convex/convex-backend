@@ -413,19 +413,24 @@ pub static VECTOR_INDEX_SIZE_HARD_LIMIT: LazyLock<usize> =
 pub static ENABLE_INDEX_BACKFILL: LazyLock<bool> =
     LazyLock::new(|| env_config("INDEX_BACKFILL_ENABLE", true));
 
-/// Number of index chunks processed per second during a backfill.
-pub static INDEX_BACKFILL_CHUNK_RATE: LazyLock<usize> =
-    LazyLock::new(|| env_config("INDEX_BACKFILL_CHUNK_RATE", 8));
+/// Maximum number of index chunks processed per second during a backfill.
+pub static INDEX_BACKFILL_CHUNK_RATE: LazyLock<NonZeroU32> =
+    LazyLock::new(|| env_config("INDEX_BACKFILL_CHUNK_RATE", NonZeroU32::new(16).unwrap()));
 
 /// How many index entries to write within a single database transaction.
 /// Value is a tradeoff between grouping work, vs tying up resources on the
 /// database, vs holding all entries in memory.
-pub static INDEX_BACKFILL_CHUNK_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("INDEX_BACKFILL_CHUNK_SIZE", 256));
+pub static INDEX_BACKFILL_CHUNK_SIZE: LazyLock<NonZeroU32> =
+    LazyLock::new(|| env_config("INDEX_BACKFILL_CHUNK_SIZE", NonZeroU32::new(1024).unwrap()));
 
 /// Number of workers to use for index backfill.
 pub static INDEX_BACKFILL_WORKERS: LazyLock<usize> =
-    LazyLock::new(|| env_config("INDEX_BACKFILL_WORKERS", 1));
+    LazyLock::new(|| env_config("INDEX_BACKFILL_WORKERS", 4));
+
+/// How often to persist index backfill progress updates.
+pub static INDEX_BACKFILL_PROGRESS_INTERVAL: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("INDEX_BACKFILL_PROGRESS_INTERVAL_SECONDS", 1))
+});
 
 /// Chunk size of index entries for deleting from Persistence.
 pub static INDEX_RETENTION_DELETE_CHUNK: LazyLock<usize> =

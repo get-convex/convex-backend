@@ -1,21 +1,23 @@
 use std::{
     collections::BTreeMap,
     fmt::Display,
-    num::NonZeroU32,
     sync::{
+        atomic::{
+            AtomicU64,
+            Ordering,
+        },
         Arc,
-        LazyLock,
     },
     time::Duration,
 };
 
-use cmd_util::env::env_config;
 use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
     knobs::{
         INDEX_BACKFILL_CHUNK_RATE,
         INDEX_BACKFILL_CHUNK_SIZE,
+        INDEX_BACKFILL_PROGRESS_INTERVAL,
         INDEX_BACKFILL_WORKERS,
     },
     persistence::{
@@ -45,11 +47,10 @@ use common::{
     value::TabletId,
 };
 use futures::{
+    future,
     pin_mut,
-    stream::{
-        self,
-        FusedStream,
-    },
+    stream,
+    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -67,18 +68,6 @@ use crate::{
 };
 
 pub const PERFORM_BACKFILL_LABEL: &str = "perform_backfill";
-
-static ENTRIES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
-    NonZeroU32::new(
-        (*INDEX_BACKFILL_CHUNK_RATE * *INDEX_BACKFILL_CHUNK_SIZE)
-            .try_into()
-            .unwrap(),
-    )
-    .unwrap()
-});
-
-static INDEX_WORKER_SLEEP_TIME: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKER_SLEEP_TIME_MS", 0)));
 
 #[derive(Clone)]
 pub enum IndexSelector {
@@ -175,8 +164,10 @@ impl<RT: Runtime> IndexWriter<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         runtime: RT,
     ) -> Self {
+        let entries_per_second =
+            INDEX_BACKFILL_CHUNK_RATE.saturating_mul(*INDEX_BACKFILL_CHUNK_SIZE);
         debug_assert!(
-            ENTRIES_PER_SECOND.get() >= *INDEX_BACKFILL_CHUNK_SIZE as u32,
+            entries_per_second >= *INDEX_BACKFILL_CHUNK_SIZE,
             "Entries per second must be at least {}",
             *INDEX_BACKFILL_CHUNK_SIZE
         );
@@ -186,7 +177,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             retention_validator,
             rate_limiter: Arc::new(new_rate_limiter(
                 runtime.clone(),
-                Quota::per_second(*ENTRIES_PER_SECOND),
+                Quota::per_second(entries_per_second),
             )),
             runtime,
         }
@@ -296,74 +287,78 @@ impl<RT: Runtime> IndexWriter<RT> {
             snapshot_ts,
             self.reader.clone(),
             self.retention_validator.clone(),
-            *INDEX_BACKFILL_CHUNK_SIZE,
+            INDEX_BACKFILL_CHUNK_SIZE.get() as usize,
         );
 
-        let by_id = index_registry.must_get_by_id(tablet_id)?.id();
-        let stream = table_iterator
-            .stream_documents_in_table(tablet_id, by_id, None)
-            .fuse();
-        pin_mut!(stream);
-        let mut index_updates_written = 0;
-        let mut last_logged = self.runtime.system_time();
-        let mut last_logged_count = 0;
-        while !stream.is_done() {
-            if !INDEX_WORKER_SLEEP_TIME.is_zero() {
-                tokio::time::sleep(*INDEX_WORKER_SLEEP_TIME).await;
-            }
-            // Number of documents in the table that have been indexed in this iteration
-            let mut num_docs_indexed = 0u64;
-            let mut chunk = Vec::new();
-            while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
+        let (index_update_tx, index_update_rx) = mpsc::channel(32);
+        let num_docs_indexed = AtomicU64::new(0);
+        let producer = async {
+            let by_id = index_registry.must_get_by_id(tablet_id)?.id();
+            let mut stream =
+                std::pin::pin!(table_iterator.stream_documents_in_table(tablet_id, by_id, None));
+            while let Some(item) = stream.try_next().await? {
                 let LatestDocument {
                     ts,
                     value: document,
                     ..
-                } = match stream.try_next().await? {
-                    Some(d) => d,
-                    None => break,
-                };
-                num_docs_indexed += 1;
-                let index_updates = index_registry.index_updates(None, Some(&document));
-                chunk.extend(
-                    index_updates
-                        .into_iter()
-                        .filter(|update| index_selector.filter_index_update(update))
-                        .map(|update| PersistenceIndexEntry::from_index_update(ts, &update)),
+                } = item;
+                num_docs_indexed.store(
+                    num_docs_indexed.load(Ordering::Relaxed) + 1,
+                    Ordering::Relaxed,
                 );
-            }
-            if !chunk.is_empty() {
-                index_updates_written += chunk.len();
-                self.persistence
-                    .write(&[], &chunk, ConflictStrategy::Overwrite)
-                    .await?;
-                if let Some(db) = &database {
-                    let mut tx = db.begin_system().await?;
-                    let mut model = IndexBackfillModel::new(&mut tx);
-                    for index_id in index_selector.index_ids() {
-                        model
-                            .update_index_backfill_progress(index_id, tablet_id, num_docs_indexed)
-                            .await?;
-                    }
-                    db.commit_with_write_source(tx, "index_worker_backfill_progress")
-                        .await?;
+                let index_updates = index_registry.index_updates(None, Some(&document));
+                for index_update in index_updates
+                    .into_iter()
+                    .filter(|update| index_selector.filter_index_update(update))
+                {
+                    _ = index_update_tx.send((ts, index_update)).await;
                 }
             }
-            if last_logged.elapsed()? >= Duration::from_secs(60) {
-                tracing::info!(
-                    "backfilled {index_updates_written} index rows for table {tablet_id} at \
-                     snapshot {snapshot_ts} ({} rows/s)",
-                    (index_updates_written - last_logged_count) as f64
-                        / last_logged.elapsed()?.as_secs_f64()
-                );
-                last_logged = self.runtime.system_time();
-                last_logged_count = index_updates_written;
+            drop(index_update_tx);
+            Ok(())
+        };
+
+        let consumer = self.write_index_entries(
+            format!("for table {tablet_id} at snapshot {snapshot_ts}"),
+            ReceiverStream::new(index_update_rx),
+            index_selector,
+            false, /* deduplicate */
+        );
+        let report_progress = async {
+            if let Some(db) = database {
+                let mut last_num_docs_indexed = 0;
+                loop {
+                    let num_docs_indexed = num_docs_indexed.load(Ordering::Relaxed);
+                    if num_docs_indexed > last_num_docs_indexed {
+                        let mut tx = db.begin_system().await?;
+                        let mut model = IndexBackfillModel::new(&mut tx);
+                        for index_id in index_selector.index_ids() {
+                            model
+                                .update_index_backfill_progress(
+                                    index_id,
+                                    tablet_id,
+                                    num_docs_indexed - last_num_docs_indexed,
+                                )
+                                .await?;
+                        }
+                        db.commit_with_write_source(tx, "index_worker_backfill_progress")
+                            .await?;
+                        last_num_docs_indexed = num_docs_indexed;
+                    }
+                    self.runtime.wait(*INDEX_BACKFILL_PROGRESS_INTERVAL).await;
+                }
+            } else {
+                future::pending::<anyhow::Result<!>>().await
+            }
+        };
+        tokio::select! {
+            r = future::try_join(producer, consumer) => {
+                let ((), ()) = r?;
+            },
+            r = report_progress => {
+                r?
             }
         }
-        tracing::info!(
-            "backfilled {index_updates_written} index rows for table {tablet_id} at snapshot \
-             {snapshot_ts}"
-        );
         Ok(())
     }
 
@@ -415,7 +410,12 @@ impl<RT: Runtime> IndexWriter<RT> {
             drop(tx);
             Ok(())
         };
-        let consumer = self.write_index_entries(ReceiverStream::new(rx).fuse(), index_selector);
+        let consumer = self.write_index_entries(
+            format!("going forward from {start_ts} to {end_ts}"),
+            ReceiverStream::new(rx),
+            index_selector,
+            false, /* deduplicate */
+        );
 
         // Consider ourselves successful if both the producer and consumer exit
         // successfully.
@@ -515,7 +515,12 @@ impl<RT: Runtime> IndexWriter<RT> {
             Ok(end_ts)
         };
 
-        let consumer = self.write_index_entries(ReceiverStream::new(rx).fuse(), index_selector);
+        let consumer = self.write_index_entries(
+            format!("going backward from {start_ts} to {end_ts}"),
+            ReceiverStream::new(rx),
+            index_selector,
+            true, /* deduplicate */
+        );
 
         // Consider ourselves successful if both the reader and writer exit
         // successfully.
@@ -525,12 +530,13 @@ impl<RT: Runtime> IndexWriter<RT> {
 
     async fn write_index_entries(
         &self,
-        updates: impl FusedStream<Item = (Timestamp, DatabaseIndexUpdate)>,
+        phase: String,
+        updates: impl Stream<Item = (Timestamp, DatabaseIndexUpdate)>,
         index_selector: &IndexSelector,
+        deduplicate: bool,
     ) -> anyhow::Result<()> {
-        futures::pin_mut!(updates);
-
         let mut last_logged = self.runtime.system_time();
+        let mut last_logged_entries_written = 0;
         let mut num_entries_written = 0;
 
         let updates = updates
@@ -544,7 +550,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 };
                 futures::future::ready(result)
             })
-            .chunks(*INDEX_BACKFILL_CHUNK_SIZE)
+            .chunks(INDEX_BACKFILL_CHUNK_SIZE.get() as usize)
             .map(|mut chunk| async move {
                 let persistence = self.persistence.clone();
                 let rate_limiter = self.rate_limiter.clone();
@@ -560,10 +566,12 @@ impl<RT: Runtime> IndexWriter<RT> {
                     let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
                     self.runtime.wait(delay).await;
                 }
-                // There might be duplicates in the index entries from the
-                // backfill backwards algorithm that need to be deduped.
-                chunk.sort_unstable();
-                chunk.dedup();
+                if deduplicate {
+                    // There might be duplicates in the index entries from the
+                    // backfill backwards algorithm that need to be deduped.
+                    chunk.sort_unstable();
+                    chunk.dedup();
+                }
                 persistence
                     .write(&[], &chunk, ConflictStrategy::Overwrite)
                     .await?;
@@ -576,15 +584,21 @@ impl<RT: Runtime> IndexWriter<RT> {
             let entries_written = result?;
             num_entries_written += entries_written;
             if last_logged.elapsed()? >= Duration::from_secs(60) {
+                let now = self.runtime.system_time();
                 tracing::info!(
-                    "Backfilled {} index entries of index {}",
-                    num_entries_written,
-                    index_selector,
+                    "Backfilled {num_entries_written} rows of index {index_selector} {phase} ({} \
+                     rows/s)",
+                    (num_entries_written - last_logged_entries_written) as f64
+                        / (now.duration_since(last_logged).unwrap_or_default()).as_secs_f64(),
                 );
-                last_logged = self.runtime.system_time();
+                last_logged = now;
+                last_logged_entries_written = num_entries_written;
             }
         }
 
+        tracing::info!(
+            "Done backfilling {num_entries_written} rows of index {index_selector} {phase}",
+        );
         Ok(())
     }
 
