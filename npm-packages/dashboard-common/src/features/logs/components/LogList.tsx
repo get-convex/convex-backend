@@ -138,6 +138,9 @@ export function LogList({
   // Ref to the virtualized list for programmatic scrolling
   const listRef = useRef<FixedSizeList>(null);
 
+  // Ref to the outer div container for calculating page size
+  const outerRef = useRef<HTMLDivElement>(null);
+
   const { newLogsPageSidepanel } = useContext(DeploymentInfoContext);
 
   const handleSelectLog = useCallback(
@@ -219,6 +222,7 @@ export function LogList({
                 hitBoundary,
                 shownLog,
                 listRef,
+                outerRef,
                 newLogsPageSidepanel,
               }}
             />
@@ -258,6 +262,7 @@ export function LogList({
                   }}
                   onSelectLog={handleSelectLog}
                   onHitBoundary={setHitBoundary}
+                  logListContainerRef={outerRef}
                 />
               </Panel>
             </>
@@ -290,6 +295,7 @@ function WindowedLogList({
   shownLog,
   hitBoundary,
   listRef,
+  outerRef,
   newLogsPageSidepanel,
 }: {
   interleavedLogs: InterleavedLog[];
@@ -303,10 +309,9 @@ function WindowedLogList({
   shownLog?: InterleavedLog;
   hitBoundary: "top" | "bottom" | null;
   listRef: React.RefObject<FixedSizeList>;
+  outerRef: React.RefObject<HTMLDivElement>;
   newLogsPageSidepanel?: boolean;
 }) {
-  const outerRef = useRef<HTMLDivElement>(null);
-
   return (
     <div className="scrollbar flex h-full min-w-0 flex-col overflow-x-auto overflow-y-hidden">
       <div className="flex h-full min-w-fit flex-col">

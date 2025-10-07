@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useHotkeys } from "react-hotkeys-hook";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { Callout } from "@ui/Callout";
+import { ITEM_SIZE } from "@common/features/logs/components/LogListItem";
 import { FunctionCallTree } from "./FunctionCallTree";
 import { LogMetadata } from "./LogMetadata";
 import { InterleavedLog, getTimestamp, getLogKey } from "../lib/interleaveLogs";
@@ -28,6 +29,7 @@ export function LogDrilldown({
   onHitBoundary,
   shownInterleavedLogs,
   allUdfLogs,
+  logListContainerRef,
 }: {
   requestId?: string;
   shownInterleavedLogs: InterleavedLog[];
@@ -37,6 +39,7 @@ export function LogDrilldown({
   onFilterByRequestId?: (requestId: string) => void;
   onSelectLog: (log: InterleavedLog) => void;
   onHitBoundary: (boundary: "top" | "bottom" | null) => void;
+  logListContainerRef?: React.RefObject<HTMLDivElement>;
 }) {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const tabGroupRef = useRef<HTMLDivElement>(null);
@@ -51,6 +54,7 @@ export function LogDrilldown({
     onClose,
     onHitBoundary,
     rightPanelRef,
+    logListContainerRef,
   );
 
   if (!selectedLog) {
@@ -267,49 +271,130 @@ export function LogDrilldown({
   );
 }
 
+const shortcutItemClass = "grid grid-cols-[1fr_9.5rem] gap-x-2 min-w-0";
+const shortcutKeysClass = "flex items-center justify-end gap-1";
+const shortcutLabelClass = "truncate min-w-0";
+
 function KeyboardShortcutsSection({
   selectedLog,
 }: {
   selectedLog: InterleavedLog;
 }) {
   return (
-    <section className="border-t bg-background-tertiary px-4 py-2">
-      <div className="grid grid-cols-[auto_1fr] gap-x-1 gap-y-1 text-xs text-content-secondary">
-        <div className="flex items-center justify-end gap-1">
-          <KeyboardShortcut value={["Down"]} />
-          <span>/</span>
-          <KeyboardShortcut value={["Up"]} />
+    <section className="scrollbar overflow-x-auto border-t bg-background-tertiary px-4 py-2">
+      <div className="grid grid-cols-[16.5rem_14rem] gap-x-4 gap-y-1 text-xs text-content-secondary">
+        <div className={shortcutItemClass}>
+          <div className={shortcutKeysClass}>
+            <KeyboardShortcut value={["Down"]} />
+            <span>/</span>
+            <KeyboardShortcut value={["Up"]} />
+          </div>
+          <span className={shortcutLabelClass}>Navigate</span>
         </div>
-        <span>Navigate</span>
+
+        <div className={shortcutItemClass}>
+          <div className={shortcutKeysClass}>
+            <KeyboardShortcut value={["CtrlOrCmd"]} />
+            <span>+</span>
+            <KeyboardShortcut value={["A"]} />
+          </div>
+          <span className={shortcutLabelClass}>Jump to top</span>
+        </div>
 
         {selectedLog.kind === "ExecutionLog" && (
           <>
-            <div className="flex items-center justify-end gap-1">
-              <KeyboardShortcut value={["Shift"]} />
-              <span>+</span>
-              <KeyboardShortcut value={["Down"]} />
-              <span>/</span>
-              <KeyboardShortcut value={["Up"]} />
+            <div className={shortcutItemClass}>
+              <div className={shortcutKeysClass}>
+                <KeyboardShortcut value={["Shift"]} />
+                <span>+</span>
+                <KeyboardShortcut value={["Down"]} />
+                <span>/</span>
+                <KeyboardShortcut value={["Up"]} />
+              </div>
+              <span className={shortcutLabelClass}>Navigate request</span>
             </div>
-            <span>Navigate within request</span>
 
-            <div className="flex items-center justify-end gap-1">
-              <KeyboardShortcut value={["CtrlOrCmd"]} />
-              <span>+</span>
-              <KeyboardShortcut value={["Down"]} />
-              <span>/</span>
-              <KeyboardShortcut value={["Up"]} />
+            <div className={shortcutItemClass}>
+              <div className={shortcutKeysClass}>
+                <KeyboardShortcut value={["CtrlOrCmd"]} />
+                <span>+</span>
+                <KeyboardShortcut value={["E"]} />
+              </div>
+              <span className={shortcutLabelClass}>Jump to bottom</span>
             </div>
-            <span>Navigate within execution</span>
+
+            <div className={shortcutItemClass}>
+              <div className={shortcutKeysClass}>
+                <KeyboardShortcut value={["CtrlOrCmd"]} />
+                <span>+</span>
+                <KeyboardShortcut value={["Down"]} />
+                <span>/</span>
+                <KeyboardShortcut value={["Up"]} />
+              </div>
+              <span className={shortcutLabelClass}>Navigate execution</span>
+            </div>
+
+            <div className={shortcutItemClass}>
+              <div className={shortcutKeysClass}>
+                <KeyboardShortcut value={["CtrlOrCmd"]} />
+                <KeyboardShortcut value={["Shift"]} />
+                <span>+</span>
+                <KeyboardShortcut value={["A"]} />
+              </div>
+              <span className={shortcutLabelClass}>Jump to top of request</span>
+            </div>
           </>
         )}
 
-        <div className="flex items-center justify-end gap-1">
-          <KeyboardShortcut value={["Shift"]} />
-          <span>+</span>
-          <KeyboardShortcut value={["Right"]} />
+        <div className={shortcutItemClass}>
+          <div className={shortcutKeysClass}>
+            <KeyboardShortcut value={["CtrlOrCmd"]} />
+            <span>+</span>
+            <KeyboardShortcut value={["PageUp"]} />
+            <span>/</span>
+            <KeyboardShortcut value={["PageDown"]} />
+          </div>
+          <span className={shortcutLabelClass}>Navigate page</span>
         </div>
-        <span>Focus this panel</span>
+
+        {selectedLog.kind === "ExecutionLog" ? (
+          <div className={shortcutItemClass}>
+            <div className={shortcutKeysClass}>
+              <KeyboardShortcut value={["CtrlOrCmd"]} />
+              <KeyboardShortcut value={["Shift"]} />
+              <span>+</span>
+              <KeyboardShortcut value={["E"]} />
+            </div>
+            <span className={shortcutLabelClass}>
+              Jump to bottom of request
+            </span>
+          </div>
+        ) : (
+          <div className={shortcutItemClass}>
+            <div className={shortcutKeysClass}>
+              <KeyboardShortcut value={["CtrlOrCmd"]} />
+              <span>+</span>
+              <KeyboardShortcut value={["E"]} />
+            </div>
+            <span className={shortcutLabelClass}>Jump to bottom</span>
+          </div>
+        )}
+
+        <div className={shortcutItemClass}>
+          <div className={shortcutKeysClass}>
+            <KeyboardShortcut value={["Shift"]} />
+            <span>+</span>
+            <KeyboardShortcut value={["Right"]} />
+          </div>
+          <span className={shortcutLabelClass}>Focus this panel</span>
+        </div>
+
+        <div className={shortcutItemClass}>
+          <div className={shortcutKeysClass}>
+            <KeyboardShortcut value={["Esc"]} />
+          </div>
+          <span className={shortcutLabelClass}>Close this panel</span>
+        </div>
       </div>
     </section>
   );
@@ -322,7 +407,16 @@ export function useNavigateLogs(
   onClose: () => void,
   onHitBoundary: (boundary: "top" | "bottom" | null) => void,
   rightPanelRef: React.RefObject<HTMLDivElement>,
+  logListContainerRef?: React.RefObject<HTMLDivElement>,
 ) {
+  // Calculate the number of items that fit in one page based on container height
+  const calculatePageSize = useCallback(() => {
+    if (!logListContainerRef?.current) {
+      return 10; // Default fallback
+    }
+    const containerHeight = logListContainerRef.current.clientHeight;
+    return Math.floor(containerHeight / ITEM_SIZE);
+  }, [logListContainerRef]);
   // Get logs for the current execution (both log entries and outcomes)
   const executionLogs =
     selectedLog && selectedLog.kind === "ExecutionLog"
@@ -432,5 +526,107 @@ export function useNavigateLogs(
     {
       preventDefault: true,
     },
+  );
+
+  // Navigate to top/bottom of list
+  useHotkeys(
+    ["ctrl+a", "meta+a"],
+    () => {
+      if (logs.length > 0) {
+        onSelectLog(logs[0]);
+        onHitBoundary(null);
+      }
+    },
+    {
+      preventDefault: true,
+    },
+  );
+  useHotkeys(
+    ["ctrl+e", "meta+e"],
+    () => {
+      if (logs.length > 0) {
+        onSelectLog(logs[logs.length - 1]);
+        onHitBoundary(null);
+      }
+    },
+    {
+      preventDefault: true,
+    },
+  );
+
+  // Navigate to top/bottom within request
+  useHotkeys(
+    ["ctrl+shift+a", "meta+shift+a"],
+    () => {
+      if (requestLogs && requestLogs.length > 0) {
+        onSelectLog(requestLogs[0]);
+        onHitBoundary(null);
+      }
+    },
+    {
+      preventDefault: true,
+    },
+  );
+  useHotkeys(
+    ["ctrl+shift+e", "meta+shift+e"],
+    () => {
+      if (requestLogs && requestLogs.length > 0) {
+        onSelectLog(requestLogs[requestLogs.length - 1]);
+        onHitBoundary(null);
+      }
+    },
+    {
+      preventDefault: true,
+    },
+  );
+
+  // Navigate by page (based on container height)
+  useHotkeys(
+    ["ctrl+pageup", "meta+pageup"],
+    () => {
+      if (!selectedLog) return;
+      const pageSize = calculatePageSize();
+      const selectedLogKey = getLogKey(selectedLog);
+      const currentIndex = logs.findIndex(
+        (log) => getLogKey(log) === selectedLogKey,
+      );
+      if (currentIndex === -1) return;
+
+      const newIndex = Math.max(0, currentIndex - pageSize);
+      onSelectLog(logs[newIndex]);
+      if (newIndex === 0) {
+        onHitBoundary("top");
+      } else {
+        onHitBoundary(null);
+      }
+    },
+    {
+      preventDefault: true,
+    },
+    [selectedLog, logs, onSelectLog, onHitBoundary, calculatePageSize],
+  );
+  useHotkeys(
+    ["ctrl+pagedown", "meta+pagedown"],
+    () => {
+      if (!selectedLog) return;
+      const pageSize = calculatePageSize();
+      const selectedLogKey = getLogKey(selectedLog);
+      const currentIndex = logs.findIndex(
+        (log) => getLogKey(log) === selectedLogKey,
+      );
+      if (currentIndex === -1) return;
+
+      const newIndex = Math.min(logs.length - 1, currentIndex + pageSize);
+      onSelectLog(logs[newIndex]);
+      if (newIndex === logs.length - 1) {
+        onHitBoundary("bottom");
+      } else {
+        onHitBoundary(null);
+      }
+    },
+    {
+      preventDefault: true,
+    },
+    [selectedLog, logs, onSelectLog, onHitBoundary, calculatePageSize],
   );
 }

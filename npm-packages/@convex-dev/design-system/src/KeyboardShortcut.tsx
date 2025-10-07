@@ -2,6 +2,8 @@ import classNames from "classnames";
 import { useEffect, useState } from "react";
 
 export type Key =
+  | "PageUp"
+  | "PageDown"
   | "CtrlOrCmd" // depending on platform
   | "Ctrl"
   | "Alt"
@@ -70,9 +72,13 @@ const appleKeyNameOverrides: PlatformKeyNameOverrides = {
   Up: "↑",
   Down: "↓",
   Tab: "⇥",
+  PageUp: "PgUp",
+  PageDown: "PgDn",
 };
 const nonAppleKeyNameOverrides: PlatformKeyNameOverrides = {
   CtrlOrCmd: "Ctrl",
+  PageUp: "PgUp",
+  PageDown: "PgDn",
 };
 
 export function KeyboardShortcut({
