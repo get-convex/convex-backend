@@ -24,11 +24,7 @@ export const noImportUseNode = createRule({
     if (!entry) return {};
 
     const currentDir = path.dirname(filename);
-    let isNodeJs: null | boolean = null;
     return {
-      Program(node) {
-        isNodeJs = isUseNode(node);
-      },
       ImportDeclaration(node) {
         if (typeof node.source.value !== "string") return {};
         const relative = node.source.value;
@@ -55,14 +51,6 @@ export const noImportUseNode = createRule({
     };
   },
 });
-
-function isUseNode(node: TSESTree.Program) {
-  const first = node.body[0];
-  if (!first) return false;
-  if (first.type !== AST_NODE_TYPES.ExpressionStatement) return false;
-  if (first.expression.type !== AST_NODE_TYPES.Literal) return false;
-  return first.expression.value === "use node";
-}
 
 // Implement basic module resolution for relative paths only.
 // This doesn't work with path aliases and so many other cases;
