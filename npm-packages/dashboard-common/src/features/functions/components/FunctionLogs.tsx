@@ -6,7 +6,7 @@ import { SearchLogsInput } from "@common/features/logs/components/SearchLogsInpu
 import { filterLogs } from "@common/features/logs/lib/filterLogs";
 import { displayNameToIdentifier } from "@common/lib/functions/FunctionsProvider";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
-import { UdfLog, useLogs } from "@common/lib/useLogs";
+import { MAX_LOGS, UdfLog, useLogs } from "@common/lib/useLogs";
 import { ModuleFunction } from "@common/lib/functions/types";
 import { Nent } from "@common/lib/useNents";
 import { Button } from "@ui/Button";
@@ -107,7 +107,7 @@ export function FunctionLogs({
         return prev;
       }
       return [...prev, ...newLogs].slice(
-        Math.max(prev.length + entries.length - 10000, 0),
+        Math.max(prev.length + entries.length - MAX_LOGS, 0),
         prev.length + entries.length,
       );
     });

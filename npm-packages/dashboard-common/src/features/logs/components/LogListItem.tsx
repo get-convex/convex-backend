@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { LogStatusLine } from "@common/features/logs/components/LogStatusLine";
 import { UdfLog } from "@common/lib/useLogs";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
@@ -7,11 +7,12 @@ import { LogLevel } from "@common/elements/LogLevel";
 import { LogOutput } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
 import { cn } from "@ui/cn";
+import { useScrollIntoViewAndFocus } from "@common/features/logs/hooks/useScrollIntoViewAndFocus";
 
 type LogListItemProps = {
   log: UdfLog;
-  setShownLog?(shown: UdfLog | undefined): void;
-  focused?: boolean;
+  setShownLog?: () => void;
+  focused: boolean;
   hitBoundary?: "top" | "bottom" | null;
   newLogsPageSidepanel?: boolean;
 };
@@ -21,41 +22,19 @@ export const ITEM_SIZE = 24;
 export function LogListItem({
   log,
   setShownLog,
-  focused = false,
+  focused,
   hitBoundary,
   newLogsPageSidepanel,
 }: LogListItemProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const prevFocusedRef = useRef(focused);
-
-  // Pass the button ref to parent
-  useEffect(() => {
-    if (newLogsPageSidepanel && focused) {
-      buttonRef.current?.focus();
-    }
-  }, [newLogsPageSidepanel, focused]);
-
-  useEffect(() => {
-    // Only scroll into view when transitioning to focused (not already focused) and in side panel mode
-    if (
-      focused &&
-      !prevFocusedRef.current &&
-      ref.current &&
-      newLogsPageSidepanel
-    ) {
-      ref.current.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-      });
-    }
-    prevFocusedRef.current = focused;
-  }, [focused, ref, newLogsPageSidepanel]);
+  const { elementRef: ref, buttonRef } = useScrollIntoViewAndFocus({
+    focused,
+    enabled: !!newLogsPageSidepanel,
+  });
 
   // When the item receives focus and setShownLog is available, call it
   const handleFocus = () => {
     if (setShownLog) {
-      setShownLog(log);
+      setShownLog();
     }
   };
   const isFailure =
@@ -70,6 +49,7 @@ export function LogListItem({
       className={classNames(
         "flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
+        focused && "bg-background-highlight",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
         showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
       )}
@@ -78,7 +58,7 @@ export function LogListItem({
       }}
     >
       <Wrapper
-        setShownLog={setShownLog ? () => setShownLog(log) : undefined}
+        setShownLog={setShownLog}
         buttonRef={buttonRef}
         onFocus={handleFocus}
         newLogsPageSidepanel={newLogsPageSidepanel}

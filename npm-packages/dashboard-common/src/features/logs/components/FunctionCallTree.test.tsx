@@ -55,7 +55,6 @@ describe("createExecutionNodes", () => {
       functionName: functionIdentifierValue("api/users:list"),
       status: "success",
       executionTime: 1000,
-      logCount: 1,
       children: [],
     });
   });
@@ -102,12 +101,11 @@ describe("createExecutionNodes", () => {
       functionName: functionIdentifierValue("api/batch:process"),
       status: "running",
       executionTime: undefined,
-      logCount: 2,
       children: [],
     });
   });
 
-  it("should correctly count logs per execution", () => {
+  it("should handle multiple executions", () => {
     const logs: UdfLog[] = [
       // Execution 1: 3 logs
       {
@@ -203,8 +201,8 @@ describe("createExecutionNodes", () => {
     const exec1 = result.find((n) => n.executionId === "exec_1");
     const exec2 = result.find((n) => n.executionId === "exec_2");
 
-    expect(exec1?.logCount).toBe(3);
-    expect(exec2?.logCount).toBe(1);
+    expect(exec1?.status).toBe("success");
+    expect(exec2?.status).toBe("failure");
   });
 
   it("should build parent-child relationships correctly", () => {

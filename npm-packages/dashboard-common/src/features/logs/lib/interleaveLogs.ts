@@ -17,6 +17,9 @@ export type InterleavedLog =
 
 // Helper to get timestamp from InterleavedLog
 export function getTimestamp(log: InterleavedLog): number {
+  if (!log) {
+    return 0;
+  }
   switch (log.kind) {
     case "ExecutionLog":
       return log.executionLog.timestamp;
@@ -28,6 +31,24 @@ export function getTimestamp(log: InterleavedLog): number {
       log satisfies never;
       return 0;
   }
+}
+
+/**
+ * Get a unique key for an InterleavedLog that can be used for comparison.
+ * Uses kind, timestamp, and id (if available) to ensure uniqueness.
+ */
+export function getLogKey(log: InterleavedLog): string {
+  if (!log) {
+    return "";
+  }
+  const timestamp = getTimestamp(log);
+  if (log.kind === "ExecutionLog") {
+    return `${log.kind}-${timestamp}-${log.executionLog.id}`;
+  }
+  if (log.kind === "DeploymentEvent") {
+    return `${log.kind}-${timestamp}-${log.deploymentEvent._id}`;
+  }
+  return `${log.kind}-${timestamp}`;
 }
 
 /**

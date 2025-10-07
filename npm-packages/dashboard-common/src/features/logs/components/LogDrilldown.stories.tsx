@@ -18,22 +18,24 @@ function toInterleavedLogs(logs: UdfLog[]): InterleavedLog[] {
 // Wrapper component that manages log selection state
 function LogSelectionWrapper({
   children,
-  initialLogTimestamp,
+  initialLog,
+  logs,
 }: {
   children: (props: {
-    selectedLogTimestamp?: number;
-    onSelectLog: (timestamp: number) => void;
+    selectedLog?: InterleavedLog;
+    onSelectLog: (log: InterleavedLog) => void;
     onHitBoundary: (boundary: "top" | "bottom" | null) => void;
     onFilterByRequestId?: (requestId: string) => void;
   }) => React.ReactNode;
-  initialLogTimestamp?: number;
+  initialLog?: InterleavedLog;
+  logs: InterleavedLog[];
 }) {
-  const [selectedLogTimestamp, setSelectedLogTimestamp] = useState<
-    number | undefined
-  >(initialLogTimestamp);
+  const [selectedLog, setSelectedLog] = useState<InterleavedLog | undefined>(
+    initialLog || (logs.length > 0 ? logs[0] : undefined),
+  );
 
-  const handleSelectLog = (timestamp: number) => {
-    setSelectedLogTimestamp(timestamp);
+  const handleSelectLog = (log: InterleavedLog) => {
+    setSelectedLog(log);
   };
 
   const handleHitBoundary = (_boundary: "top" | "bottom" | null) => {};
@@ -43,7 +45,7 @@ function LogSelectionWrapper({
   return (
     <>
       {children({
-        selectedLogTimestamp,
+        selectedLog,
         onSelectLog: handleSelectLog,
         onHitBoundary: handleHitBoundary,
         onFilterByRequestId: handleFilterByRequestId,
@@ -57,6 +59,7 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
+  args: {} as any,
 } satisfies Meta<typeof LogDrilldown>;
 
 export default meta;
@@ -224,22 +227,29 @@ const mockLogs: UdfLog[] = [
 
 // Stories
 export const Default: Story = {
-  render: (args) => (
-    <LogSelectionWrapper initialLogTimestamp={mockLogs[0].timestamp}>
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </LogSelectionWrapper>
-  ),
-  args: {
-    requestId: "req-abc123",
-    logs: toInterleavedLogs(mockLogs),
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
+  render: () => {
+    const interleavedLogs = toInterleavedLogs(mockLogs);
+    return (
+      <LogSelectionWrapper logs={interleavedLogs}>
+        {(navProps) => (
+          <LogDrilldown
+            requestId="req-abc123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={mockLogs}
+            onClose={() => {}}
+            {...navProps}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
+          />
+        )}
+      </LogSelectionWrapper>
+    );
   },
+  args: {} as any,
 };
 
 export const WithCachedQuery: Story = {
-  render: (args) => {
+  render: () => {
     const cachedLogs = [
       createMockOutcomeLog({
         id: "cached-1",
@@ -264,29 +274,28 @@ export const WithCachedQuery: Story = {
         } as UdfLogOutput,
       }),
     ];
+    const interleavedLogs = toInterleavedLogs(cachedLogs);
     return (
-      <LogSelectionWrapper initialLogTimestamp={cachedLogs[0].timestamp}>
+      <LogSelectionWrapper logs={interleavedLogs}>
         {(navProps) => (
           <LogDrilldown
-            {...args}
+            requestId="req-cached-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={cachedLogs}
+            onClose={() => {}}
             {...navProps}
-            logs={toInterleavedLogs(cachedLogs)}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
     );
   },
-  args: {
-    requestId: "req-cached-123",
-    logs: [],
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
-  },
+  args: {} as any,
 };
 
 export const WithErrorExecution: Story = {
-  render: (args) => {
+  render: () => {
     const errorLogs = [
       createMockLogEntry({
         id: "error-2",
@@ -312,29 +321,28 @@ export const WithErrorExecution: Story = {
         error: "AuthError: Invalid token signature",
       }),
     ];
+    const interleavedLogs = toInterleavedLogs(errorLogs);
     return (
-      <LogSelectionWrapper initialLogTimestamp={errorLogs[0].timestamp}>
+      <LogSelectionWrapper logs={interleavedLogs}>
         {(navProps) => (
           <LogDrilldown
-            {...args}
+            requestId="req-error-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={errorLogs}
+            onClose={() => {}}
             {...navProps}
-            logs={toInterleavedLogs(errorLogs)}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
     );
   },
-  args: {
-    requestId: "req-error-123",
-    logs: [],
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
-  },
+  args: {} as any,
 };
 
 export const HttpActionExecution: Story = {
-  render: (args) => {
+  render: () => {
     const httpLogs = [
       createMockOutcomeLog({
         id: "http-1",
@@ -359,29 +367,28 @@ export const HttpActionExecution: Story = {
         } as UdfLogOutput,
       }),
     ];
+    const interleavedLogs = toInterleavedLogs(httpLogs);
     return (
-      <LogSelectionWrapper initialLogTimestamp={httpLogs[0].timestamp}>
+      <LogSelectionWrapper logs={interleavedLogs}>
         {(navProps) => (
           <LogDrilldown
-            {...args}
+            requestId="req-http-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={httpLogs}
+            onClose={() => {}}
             {...navProps}
-            logs={toInterleavedLogs(httpLogs)}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
     );
   },
-  args: {
-    requestId: "req-http-123",
-    logs: [],
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
-  },
+  args: {} as any,
 };
 
 export const LongRunningAction: Story = {
-  render: (args) => {
+  render: () => {
     const longLogs = [
       createMockOutcomeLog({
         id: "long-1",
@@ -415,59 +422,94 @@ export const LongRunningAction: Story = {
         } as UdfLogOutput,
       }),
     ];
+    const interleavedLogs = toInterleavedLogs(longLogs);
     return (
-      <LogSelectionWrapper initialLogTimestamp={longLogs[0].timestamp}>
+      <LogSelectionWrapper logs={interleavedLogs}>
         {(navProps) => (
           <LogDrilldown
-            {...args}
+            requestId="req-long-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={longLogs}
+            onClose={() => {}}
             {...navProps}
-            logs={toInterleavedLogs(longLogs)}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
     );
   },
-  args: {
-    requestId: "req-long-123",
-    logs: [],
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
-  },
+  args: {} as any,
 };
 
 export const MultipleExecutions: Story = {
-  render: (args) => (
-    <LogSelectionWrapper initialLogTimestamp={mockLogs[0].timestamp}>
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </LogSelectionWrapper>
-  ),
-  args: {
-    requestId: "req-multi-123",
-    logs: toInterleavedLogs(mockLogs),
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
+  render: () => {
+    const interleavedLogs = toInterleavedLogs(mockLogs);
+    return (
+      <LogSelectionWrapper logs={interleavedLogs}>
+        {(navProps) => (
+          <LogDrilldown
+            requestId="req-multi-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={mockLogs}
+            onClose={() => {}}
+            {...navProps}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
+          />
+        )}
+      </LogSelectionWrapper>
+    );
   },
+  args: {} as any,
 };
 
 export const OverviewMode: Story = {
-  render: (args) => (
-    <LogSelectionWrapper initialLogTimestamp={mockLogs[0].timestamp}>
-      {(navProps) => <LogDrilldown {...args} {...navProps} />}
-    </LogSelectionWrapper>
-  ),
-  args: {
-    requestId: "req-multi-123",
-    logs: toInterleavedLogs(mockLogs),
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
+  render: () => {
+    const interleavedLogs = toInterleavedLogs(mockLogs);
+    return (
+      <LogSelectionWrapper logs={interleavedLogs}>
+        {(navProps) => (
+          <LogDrilldown
+            requestId="req-multi-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={mockLogs}
+            onClose={() => {}}
+            {...navProps}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
+          />
+        )}
+      </LogSelectionWrapper>
+    );
   },
+  args: {} as any,
+};
+
+export const Paused: Story = {
+  render: () => {
+    const interleavedLogs = toInterleavedLogs(mockLogs);
+    return (
+      <LogSelectionWrapper logs={interleavedLogs}>
+        {(navProps) => (
+          <LogDrilldown
+            requestId="req-paused-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={mockLogs}
+            onClose={() => {}}
+            {...navProps}
+            selectedLog={navProps.selectedLog!}
+            isPaused={true}
+          />
+        )}
+      </LogSelectionWrapper>
+    );
+  },
+  args: {} as any,
 };
 
 export const IncompleteActionExecution: Story = {
-  render: (args) => {
+  render: () => {
     const incompleteLogs = [
       // Log entries for the running action (no outcome yet)
       createMockLogEntry({
@@ -617,23 +659,22 @@ export const IncompleteActionExecution: Story = {
       }),
       // Note: No outcome log for the root action - it's still running
     ];
+    const interleavedLogs = toInterleavedLogs(incompleteLogs);
     return (
-      <LogSelectionWrapper initialLogTimestamp={incompleteLogs[0].timestamp}>
+      <LogSelectionWrapper logs={interleavedLogs}>
         {(navProps) => (
           <LogDrilldown
-            {...args}
+            requestId="req-incomplete-123"
+            shownInterleavedLogs={interleavedLogs}
+            allUdfLogs={incompleteLogs}
+            onClose={() => {}}
             {...navProps}
-            logs={toInterleavedLogs(incompleteLogs)}
+            selectedLog={navProps.selectedLog!}
+            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
     );
   },
-  args: {
-    requestId: "req-incomplete-123",
-    logs: [],
-    onClose: () => {},
-    onSelectLog: () => {},
-    onHitBoundary: () => {},
-  },
+  args: {} as any,
 };

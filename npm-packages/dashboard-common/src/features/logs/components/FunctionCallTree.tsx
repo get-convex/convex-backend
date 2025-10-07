@@ -1,14 +1,14 @@
 import {
-  CaretRightIcon,
   CheckCircledIcon,
   CrossCircledIcon,
+  SewingPinFilledIcon,
 } from "@radix-ui/react-icons";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { UdfLog, UdfLogOutcome } from "@common/lib/useLogs";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
-import { Button } from "@ui/Button";
 import { msFormat } from "@common/lib/format";
 import { Spinner } from "@ui/Spinner";
+import { cn } from "@ui/cn";
 
 type ExecutionNode = {
   executionId: string;
@@ -22,16 +22,15 @@ type ExecutionNode = {
   identityType?: string;
   children: ExecutionNode[];
   error?: string;
-  logCount: number;
   udfType: string;
 };
 
 export function FunctionCallTree({
   logs,
-  onFunctionSelect,
+  currentLog,
 }: {
   logs: UdfLog[];
-  onFunctionSelect: (executionId: string, functionName: string) => void;
+  currentLog: UdfLog;
 }) {
   const executionNodes = useMemo(() => createExecutionNodes(logs), [logs]);
 
@@ -42,7 +41,10 @@ export function FunctionCallTree({
   const rootNode = executionNodes[0];
 
   return (
-    <div className="scrollbar overflow-auto p-2 text-xs">
+    <div className="max-h-full p-2 text-xs">
+      <p className="pb-1 text-content-tertiary">
+        This is an outline of the functions called in this request.
+      </p>
       {rootNode && (
         <div>
           {executionNodes.map((node) => (
@@ -50,7 +52,7 @@ export function FunctionCallTree({
               key={node.executionId}
               node={node}
               level={0}
-              onFunctionSelect={onFunctionSelect}
+              currentLog={currentLog}
             />
           ))}
         </div>
@@ -62,20 +64,33 @@ export function FunctionCallTree({
 function ExecutionTreeNode({
   node,
   level,
-  onFunctionSelect,
+  currentLog,
 }: {
   node: ExecutionNode;
   level: number;
-  onFunctionSelect: (executionId: string, functionName: string) => void;
+  currentLog: UdfLog;
 }) {
   const hasChildren = node.children.length > 0;
+  const nodeRef = useRef<HTMLDivElement>(null);
+
+  const isCurrent = node.executionId === currentLog.executionId;
+
+  useEffect(() => {
+    if (isCurrent && nodeRef.current) {
+      nodeRef.current.scrollIntoView({
+        block: "start",
+      });
+    }
+  }, [isCurrent]);
 
   return (
     <div className="font-mono text-xs">
-      <Button
-        className="flex h-[30px] w-full cursor-pointer items-center rounded-md pr-2 pl-4 hover:bg-background-tertiary"
-        variant="unstyled"
-        onClick={() => onFunctionSelect(node.executionId, node.functionName)}
+      <div
+        ref={nodeRef}
+        className={cn(
+          "flex h-[30px] w-full items-center rounded-md pr-2 pl-4",
+          isCurrent && "-ml-px rounded border bg-background-highlight",
+        )}
       >
         <div className="flex h-full items-center">
           {level !== 0 &&
@@ -87,7 +102,7 @@ function ExecutionTreeNode({
             ))}
         </div>
 
-        <div className="-ml-1.5 flex items-center gap-1">
+        <div className="-ml-1.5 flex shrink items-center gap-1">
           {node.status === "running" ? (
             <Spinner className="size-4" />
           ) : node.error ? (
@@ -109,15 +124,8 @@ function ExecutionTreeNode({
             ({msFormat(node.executionTime)})
           </span>
         )}
-        <div className="ml-auto flex items-center gap-1">
-          {node.logCount > 0 && (
-            <span className="font-sans text-xs text-content-secondary">
-              {node.logCount} log{node.logCount === 1 ? "" : "s"}
-            </span>
-          )}
-          <CaretRightIcon />
-        </div>
-      </Button>
+        {isCurrent && <SewingPinFilledIcon />}
+      </div>
 
       {hasChildren && (
         <div>
@@ -126,7 +134,7 @@ function ExecutionTreeNode({
               key={child.executionId}
               node={child}
               level={level + 1}
-              onFunctionSelect={onFunctionSelect}
+              currentLog={currentLog}
             />
           ))}
         </div>
@@ -135,23 +143,10 @@ function ExecutionTreeNode({
   );
 }
 
-function countLogsByExecution(logs: UdfLog[]): Map<string, number> {
-  const logCountMap = new Map<string, number>();
-  logs
-    .filter((log) => log.kind === "log")
-    .forEach((log) => {
-      logCountMap.set(
-        log.executionId,
-        (logCountMap.get(log.executionId) || 0) + 1,
-      );
-    });
-  return logCountMap;
-}
-
-function createCompletedExecutionNodes(
-  logs: UdfLog[],
-  logCountMap: Map<string, number>,
-): { nodeMap: Map<string, ExecutionNode>; outcomeSet: Set<string> } {
+function createCompletedExecutionNodes(logs: UdfLog[]): {
+  nodeMap: Map<string, ExecutionNode>;
+  outcomeSet: Set<string>;
+} {
   const nodeMap = new Map<string, ExecutionNode>();
   const outcomeSet = new Set<string>();
 
@@ -170,7 +165,6 @@ function createCompletedExecutionNodes(
         identityType: log.identityType,
         children: [],
         error: log.error,
-        logCount: logCountMap.get(log.executionId) || 0,
         udfType: log.udfType,
       };
 
@@ -183,7 +177,6 @@ function createCompletedExecutionNodes(
 
 function createRunningExecutionNodes(
   logs: UdfLog[],
-  logCountMap: Map<string, number>,
   nodeMap: Map<string, ExecutionNode>,
   outcomeSet: Set<string>,
 ): void {
@@ -215,7 +208,6 @@ function createRunningExecutionNodes(
         identityType: undefined,
         children: [],
         error: undefined,
-        logCount: logCountMap.get(executionId) || 0,
         udfType: firstLog.udfType,
       };
 
@@ -256,11 +248,7 @@ function buildExecutionTree(
 }
 
 export function createExecutionNodes(logs: UdfLog[]): ExecutionNode[] {
-  const logCountMap = countLogsByExecution(logs);
-  const { nodeMap, outcomeSet } = createCompletedExecutionNodes(
-    logs,
-    logCountMap,
-  );
-  createRunningExecutionNodes(logs, logCountMap, nodeMap, outcomeSet);
+  const { nodeMap, outcomeSet } = createCompletedExecutionNodes(logs);
+  createRunningExecutionNodes(logs, nodeMap, outcomeSet);
   return buildExecutionTree(nodeMap);
 }

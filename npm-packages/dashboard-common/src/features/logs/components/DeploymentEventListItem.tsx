@@ -1,4 +1,4 @@
-import { useContext, useState, useRef, useEffect } from "react";
+import { useContext, useState } from "react";
 import classNames from "classnames";
 import { GearIcon } from "@radix-ui/react-icons";
 import {
@@ -10,6 +10,7 @@ import { formatDateTime } from "@common/lib/format";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { DetailPanel } from "@common/elements/DetailPanel";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useScrollIntoViewAndFocus } from "@common/features/logs/hooks/useScrollIntoViewAndFocus";
 
 export function DeploymentEventListItem({
   event,
@@ -31,32 +32,10 @@ export function DeploymentEventListItem({
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
   const [showDetails, setShowDetails] = useState(false);
   const timestamp = formatDateTime(new Date(event._creationTime));
-  const ref = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const prevFocusedRef = useRef(focused);
-
-  // Focus the button when focused prop changes to true
-  useEffect(() => {
-    if (newLogsPageSidepanel && focused) {
-      buttonRef.current?.focus();
-    }
-  }, [focused, newLogsPageSidepanel]);
-
-  // Scroll into view when transitioning to focused (only in side panel mode)
-  useEffect(() => {
-    if (
-      focused &&
-      !prevFocusedRef.current &&
-      ref.current &&
-      newLogsPageSidepanel
-    ) {
-      ref.current.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-      });
-    }
-    prevFocusedRef.current = focused;
-  }, [focused, ref, newLogsPageSidepanel]);
+  const { elementRef: ref, buttonRef } = useScrollIntoViewAndFocus({
+    focused,
+    enabled: !!newLogsPageSidepanel,
+  });
 
   // When the button receives focus and setShownLog is available, call it
   const handleFocus = () => {
@@ -95,6 +74,7 @@ export function DeploymentEventListItem({
           setShownLog && "hover:bg-background-tertiary/70",
           setShownLog &&
             "focus:outline-none focus:border focus:border-border-selected",
+          focused && "bg-background-highlight",
         )}
         style={{
           height: ITEM_SIZE,

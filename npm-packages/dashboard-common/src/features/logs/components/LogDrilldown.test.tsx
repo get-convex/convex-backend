@@ -100,7 +100,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the next log (timestamp 1000) and clear boundary
-      expect(onSelectLog).toHaveBeenCalledWith(1000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -133,7 +133,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the previous log (timestamp 3000) and clear boundary
-      expect(onSelectLog).toHaveBeenCalledWith(3000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[0], "up");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -235,7 +235,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the next log in the same request (req1, timestamp 2000)
-      expect(onSelectLog).toHaveBeenCalledWith(2000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -269,7 +269,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the previous log in the same request (req1, timestamp 3000)
-      expect(onSelectLog).toHaveBeenCalledWith(3000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1], "up");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -339,7 +339,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the next log in the same execution (exec1, timestamp 2000)
-      expect(onSelectLog).toHaveBeenCalledWith(2000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -373,7 +373,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the previous log in the same execution (exec1, timestamp 3000)
-      expect(onSelectLog).toHaveBeenCalledWith(3000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1], "up");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -441,8 +441,9 @@ describe("useNavigateLogs", () => {
         mockHotkeys.down?.();
       });
 
-      // Should select the next log after sorting (timestamp 1000)
-      expect(onSelectLog).toHaveBeenCalledWith(1000);
+      // Should select the next log in array order (not sorted by timestamp)
+      // Navigation works on the array as-is; logs should be pre-sorted in production
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1], "down");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -534,7 +535,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should navigate to the next log regardless of type
-      expect(onSelectLog).toHaveBeenCalledWith(1000);
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
   });

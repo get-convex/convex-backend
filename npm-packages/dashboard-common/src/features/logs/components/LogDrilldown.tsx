@@ -1,7 +1,7 @@
-import { Crosshair2Icon } from "@radix-ui/react-icons";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Crosshair2Icon, InfoCircledIcon } from "@radix-ui/react-icons";
+import { useCallback, useRef, useState } from "react";
 import { Tab as HeadlessTab } from "@headlessui/react";
-import { UdfLog } from "@common/lib/useLogs";
+import { MAX_LOGS, UdfLog } from "@common/lib/useLogs";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Button } from "@ui/Button";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
@@ -11,44 +11,48 @@ import { LogOutput, messagesToString } from "@common/elements/LogOutput";
 import { CopyButton } from "@common/elements/CopyButton";
 import { DeploymentEventContent } from "@common/elements/DeploymentEventContent";
 import { Tab } from "@ui/Tab";
+import Link from "next/link";
 import { useHotkeys } from "react-hotkeys-hook";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
+import { Callout } from "@ui/Callout";
 import { FunctionCallTree } from "./FunctionCallTree";
 import { LogMetadata } from "./LogMetadata";
-import { InterleavedLog, getTimestamp } from "../lib/interleaveLogs";
+import { InterleavedLog, getTimestamp, getLogKey } from "../lib/interleaveLogs";
 
 export function LogDrilldown({
   requestId,
-  logs,
   onClose,
-  selectedLogTimestamp,
+  selectedLog: selectedLogProp,
   onFilterByRequestId,
   onSelectLog,
   onHitBoundary,
+  isPaused,
+  shownInterleavedLogs,
+  allUdfLogs,
 }: {
   requestId?: string;
-  logs: InterleavedLog[];
+  shownInterleavedLogs: InterleavedLog[];
+  allUdfLogs: UdfLog[];
   onClose: () => void;
-  selectedLogTimestamp?: number;
+  selectedLog: InterleavedLog;
   onFilterByRequestId?: (requestId: string) => void;
-  onSelectLog: (timestamp: number) => void;
+  onSelectLog: (log: InterleavedLog, direction?: "up" | "down") => void;
   onHitBoundary: (boundary: "top" | "bottom" | null) => void;
+  isPaused: boolean;
 }) {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const tabGroupRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
-  // Get the selected log to display based on timestamp
-  const selectedLog = useMemo(() => {
-    if (selectedLogTimestamp !== undefined) {
-      return (
-        logs.find((log) => getTimestamp(log) === selectedLogTimestamp) || null
-      );
-    }
-    return null;
-  }, [logs, selectedLogTimestamp]);
+  const selectedLog = selectedLogProp;
 
-  useNavigateLogs(selectedLog, logs, onSelectLog, onHitBoundary, rightPanelRef);
+  useNavigateLogs(
+    selectedLog,
+    shownInterleavedLogs,
+    onSelectLog,
+    onHitBoundary,
+    rightPanelRef,
+  );
 
   if (!selectedLog) {
     return null;
@@ -137,7 +141,7 @@ export function LogDrilldown({
       <div
         ref={rightPanelRef}
         tabIndex={-1}
-        className="scrollbar grow animate-fadeInFromLoading gap-2 overflow-y-auto py-2"
+        className="my-2 scrollbar grow animate-fadeInFromLoading gap-2 overflow-y-auto"
       >
         {/* Deployment Event Content */}
         {selectedLog.kind === "DeploymentEvent" && (
@@ -163,7 +167,7 @@ export function LogDrilldown({
                   inline
                 />
               </div>
-              <div className="px-2 pb-2 font-mono text-xs">
+              <div className="scrollbar max-h-60 overflow-y-auto px-2 pb-2 font-mono text-xs">
                 <LogOutput output={selectedLog.executionLog.output} wrap />
               </div>
             </div>
@@ -190,84 +194,74 @@ export function LogDrilldown({
               </div>
             </div>
           )}
+        {allUdfLogs.length === 0 && (
+          <Callout
+            className="mx-2 mb-2 flex items-center gap-2 p-1.5 text-xs"
+            variant="upsell"
+          >
+            <InfoCircledIcon className="min-w-4" />
+            <div>
+              Heads up! The logs page only keeps track of the latest{" "}
+              {MAX_LOGS.toLocaleString()} logs. This panel is missing
+              information for this log because it is older than the maximum
+              number of logs. If you need log persistence, try out{" "}
+              <Link
+                href="https://docs.convex.dev/production/integrations/log-streams/"
+                className="text-content-link hover:underline"
+                target="_blank"
+              >
+                Log Streams
+              </Link>
+              .
+            </div>
+          </Callout>
+        )}
 
         {/* Tabs for Execution Info, Request Info, and Functions Called - only for ExecutionLog */}
         {selectedLog.kind === "ExecutionLog" && requestId && (
-          <HeadlessTab.Group
-            selectedIndex={selectedTabIndex}
-            onChange={setSelectedTabIndex}
-          >
-            <div className="px-2" ref={tabGroupRef}>
-              <HeadlessTab.List className="flex gap-1 rounded-t-md border bg-background-secondary px-1">
-                <Tab>Execution</Tab>
-                <Tab>Request</Tab>
-                <Tab>Functions Called</Tab>
-              </HeadlessTab.List>
-            </div>
-
-            <div className="mx-2 scrollbar flex h-fit min-h-0 flex-col overflow-y-auto rounded rounded-t-none border border-t-0 bg-background-secondary">
-              <div className="flex flex-col gap-2">
-                <HeadlessTab.Panels>
-                  <HeadlessTab.Panel>
-                    <LogMetadata
-                      requestId={requestId}
-                      logs={logs
-                        .filter((log) => log.kind === "ExecutionLog")
-                        .map((log) =>
-                          log.kind === "ExecutionLog"
-                            ? log.executionLog
-                            : undefined,
-                        )
-                        .filter((log): log is UdfLog => log !== undefined)}
-                      executionId={selectedLog.executionLog.executionId}
-                    />
-                  </HeadlessTab.Panel>
-                  <HeadlessTab.Panel>
-                    <LogMetadata
-                      requestId={requestId}
-                      logs={logs
-                        .filter((log) => log.kind === "ExecutionLog")
-                        .map((log) =>
-                          log.kind === "ExecutionLog"
-                            ? log.executionLog
-                            : undefined,
-                        )
-                        .filter((log): log is UdfLog => log !== undefined)}
-                      executionId={undefined}
-                    />
-                  </HeadlessTab.Panel>
-                  <HeadlessTab.Panel>
-                    <FunctionCallTree
-                      logs={logs
-                        .filter(
-                          (log) =>
-                            log.kind === "ExecutionLog" &&
-                            log.executionLog.requestId === requestId,
-                        )
-                        .map((log) =>
-                          log.kind === "ExecutionLog"
-                            ? log.executionLog
-                            : undefined,
-                        )
-                        .filter((log): log is UdfLog => log !== undefined)}
-                      onFunctionSelect={(executionId) => {
-                        // Find the outcome log for this execution
-                        const outcomeLog = logs.find(
-                          (log) =>
-                            log.kind === "ExecutionLog" &&
-                            log.executionLog.kind === "outcome" &&
-                            log.executionLog.executionId === executionId,
-                        );
-                        if (outcomeLog && onSelectLog) {
-                          onSelectLog(getTimestamp(outcomeLog));
-                        }
-                      }}
-                    />
-                  </HeadlessTab.Panel>
-                </HeadlessTab.Panels>
+          <div className="relative flex grow flex-col">
+            <HeadlessTab.Group
+              selectedIndex={selectedTabIndex}
+              onChange={setSelectedTabIndex}
+            >
+              <div className="sticky top-0 z-10 px-2" ref={tabGroupRef}>
+                <HeadlessTab.List className="flex gap-1 rounded-t-md border bg-background-secondary px-1">
+                  <Tab>Execution</Tab>
+                  <Tab>Request</Tab>
+                  <Tab>Functions Called</Tab>
+                </HeadlessTab.List>
               </div>
-            </div>
-          </HeadlessTab.Group>
+
+              <div className="mx-2 flex h-fit max-h-full min-h-0 flex-col rounded rounded-t-none border border-t-0 bg-background-secondary">
+                <div className="flex flex-col gap-2">
+                  <HeadlessTab.Panels>
+                    <HeadlessTab.Panel>
+                      <LogMetadata
+                        isPaused={isPaused}
+                        requestId={requestId}
+                        logs={allUdfLogs}
+                        executionId={selectedLog.executionLog.executionId}
+                      />
+                    </HeadlessTab.Panel>
+                    <HeadlessTab.Panel>
+                      <LogMetadata
+                        isPaused={isPaused}
+                        requestId={requestId}
+                        logs={allUdfLogs}
+                        executionId={undefined}
+                      />
+                    </HeadlessTab.Panel>
+                    <HeadlessTab.Panel>
+                      <FunctionCallTree
+                        logs={allUdfLogs}
+                        currentLog={selectedLog.executionLog}
+                      />
+                    </HeadlessTab.Panel>
+                  </HeadlessTab.Panels>
+                </div>
+              </div>
+            </HeadlessTab.Group>
+          </div>
         )}
       </div>
 
@@ -327,7 +321,7 @@ function KeyboardShortcutsSection({
 export function useNavigateLogs(
   selectedLog: InterleavedLog | null,
   logs: InterleavedLog[],
-  onSelectLog: (timestamp: number) => void,
+  onSelectLog: (log: InterleavedLog, direction?: "up" | "down") => void,
   onHitBoundary: (boundary: "top" | "bottom" | null) => void,
   rightPanelRef: React.RefObject<HTMLDivElement>,
 ) {
@@ -368,28 +362,27 @@ export function useNavigateLogs(
 
       if (!targetLogs) return;
 
-      // Sort logs by timestamp to ensure correct order
-      const sortedLogs = [...targetLogs].sort(
-        (a, b) => getTimestamp(a) - getTimestamp(b),
-      );
-
-      const currentIndex = sortedLogs.findIndex(
-        (log) => getTimestamp(log) === getTimestamp(selectedLog),
+      const selectedLogKey = getLogKey(selectedLog);
+      const currentIndex = targetLogs.findIndex(
+        (log) => getLogKey(log) === selectedLogKey,
       );
 
       if (currentIndex === -1) {
         console.warn("Current log not found in target logs", {
           selectedLog,
-          targetLogsCount: sortedLogs.length,
+          targetLogsCount: targetLogs.length,
           scope,
         });
         return;
       }
 
       const nextIndex =
-        direction === "next" ? currentIndex - 1 : currentIndex + 1;
-      if (nextIndex >= 0 && nextIndex < sortedLogs.length) {
-        onSelectLog(getTimestamp(sortedLogs[nextIndex]));
+        direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+      if (nextIndex >= 0 && nextIndex < targetLogs.length) {
+        onSelectLog(
+          targetLogs[nextIndex],
+          direction === "prev" ? "up" : "down",
+        );
         onHitBoundary(null);
       } else {
         // Hit the boundary - trigger animation

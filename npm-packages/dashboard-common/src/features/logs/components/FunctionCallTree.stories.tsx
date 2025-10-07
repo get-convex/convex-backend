@@ -7,6 +7,29 @@ const meta: Meta<typeof FunctionCallTree> = {
   parameters: {
     layout: "padded",
   },
+  args: {
+    currentLog: {
+      id: "1",
+      udfType: "Query" as const,
+      localizedTimestamp: "2023-10-15 10:30:00",
+      timestamp: 1697365800000,
+      call: functionIdentifierValue("api/users:list"),
+      cachedResult: false,
+      requestId: "req_123",
+      executionId: "exec_1",
+      caller: "dashboard",
+      environment: "production",
+      identityType: "user",
+      parentExecutionId: null,
+      executionTimestamp: 1697365800000,
+      kind: "outcome" as const,
+      outcome: {
+        status: "success" as const,
+        statusCode: null,
+      },
+      executionTimeMs: 3000,
+    },
+  },
 };
 
 export default meta;
@@ -100,6 +123,27 @@ const mockRunningLogs = [
 
 export const WithSuccessfulFunctions: Story = {
   args: {
+    currentLog: {
+      id: "1",
+      udfType: "Query" as const,
+      localizedTimestamp: "2023-10-15 10:30:00",
+      timestamp: 1697365800000,
+      call: functionIdentifierValue("api/users:list"),
+      cachedResult: false,
+      requestId: "req_123",
+      executionId: "exec_1",
+      caller: "dashboard",
+      environment: "production",
+      identityType: "user",
+      parentExecutionId: null,
+      executionTimestamp: 1697365800000,
+      kind: "outcome" as const,
+      outcome: {
+        status: "success" as const,
+        statusCode: null,
+      },
+      executionTimeMs: 45,
+    },
     logs: [
       // Log messages for exec_1
       {
@@ -191,14 +235,33 @@ export const WithSuccessfulFunctions: Story = {
         executionTimeMs: 120,
       },
     ],
-    onFunctionSelect: (executionId: string, functionName: string) => {
-      alert(`Selected function: ${functionName} (${executionId})`);
-    },
   },
 };
 
 export const WithFailedFunction: Story = {
   args: {
+    currentLog: {
+      id: "1",
+      udfType: "Query" as const,
+      localizedTimestamp: "2023-10-15 10:30:00",
+      timestamp: 1697365800000,
+      call: functionIdentifierValue("api/users:list"),
+      cachedResult: false,
+      requestId: "req_123",
+      executionId: "exec_1",
+      caller: "dashboard",
+      environment: "production",
+      identityType: "user",
+      parentExecutionId: null,
+      executionTimestamp: 1697365800000,
+      kind: "outcome" as const,
+      outcome: {
+        status: "failure" as const,
+        statusCode: null,
+      },
+      executionTimeMs: 1500,
+      error: "User validation failed",
+    },
     logs: [
       {
         id: "1",
@@ -245,14 +308,26 @@ export const WithFailedFunction: Story = {
         error: "Payment gateway timeout",
       },
     ],
-    onFunctionSelect: (executionId: string, functionName: string) => {
-      alert(`Selected function: ${functionName} (${executionId})`);
-    },
   },
 };
 
 export const WithRunningFunction: Story = {
   args: {
+    currentLog: {
+      id: "1",
+      udfType: "Action" as const,
+      timestamp: Date.now() - 5000,
+      call: functionIdentifierValue("api/batch:process"),
+      executionId: "exec_1",
+      localizedTimestamp: "2023-10-15 10:30:00",
+      requestId: "req_123",
+      kind: "log" as const,
+      output: {
+        isTruncated: false,
+        messages: ["Starting batch processing..."],
+        level: "INFO" as const,
+      },
+    },
     logs: [
       {
         id: "1",
@@ -336,23 +411,39 @@ export const WithRunningFunction: Story = {
         },
       },
     ],
-    onFunctionSelect: (executionId: string, functionName: string) => {
-      alert(`Selected function: ${functionName} (${executionId})`);
-    },
   },
 };
 
 export const WithNestedFunctions: Story = {
   args: {
+    currentLog: mockLogs[0],
     logs: mockLogs,
-    onFunctionSelect: (executionId: string, functionName: string) => {
-      alert(`Selected function: ${functionName} (${executionId})`);
-    },
   },
 };
 
 export const WithComplexNesting: Story = {
   args: {
+    currentLog: {
+      id: "1",
+      udfType: "Query" as const,
+      localizedTimestamp: "2023-10-15 10:30:00",
+      timestamp: 1697365800000,
+      call: functionIdentifierValue("api/orders:process"),
+      cachedResult: false,
+      requestId: "req_123",
+      executionId: "exec_1",
+      caller: "dashboard",
+      environment: "production",
+      identityType: "user",
+      parentExecutionId: null,
+      executionTimestamp: 1697365800000,
+      kind: "outcome" as const,
+      outcome: {
+        status: "success" as const,
+        statusCode: null,
+      },
+      executionTimeMs: 2500,
+    },
     logs: [
       {
         id: "1",
@@ -460,8 +551,5 @@ export const WithComplexNesting: Story = {
         executionTimeMs: 400,
       },
     ],
-    onFunctionSelect: (executionId: string, functionName: string) => {
-      alert(`Selected function: ${functionName} (${executionId})`);
-    },
   },
 };

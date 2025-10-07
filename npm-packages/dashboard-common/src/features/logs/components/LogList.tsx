@@ -12,7 +12,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -32,7 +31,7 @@ import { UdfLog } from "@common/lib/useLogs";
 import {
   InterleavedLog,
   interleaveLogs,
-  getTimestamp,
+  getLogKey,
 } from "@common/features/logs/lib/interleaveLogs";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
@@ -45,12 +44,11 @@ import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { TextInput } from "@ui/TextInput";
 import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 import { LogListResources } from "@common/features/logs/components/LogListResources";
-import { shallowNavigate } from "@common/lib/useTableMetadata";
-import { useRouter } from "next/router";
 import { Panel, PanelGroup } from "react-resizable-panels";
 import { cn } from "@ui/cn";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useScrollIntoViewAndFocus } from "@common/features/logs/hooks/useScrollIntoViewAndFocus";
 import { LogDrilldown } from "./LogDrilldown";
 
 export type LogListProps = {
@@ -120,8 +118,6 @@ export function LogList({
   setManuallyPaused,
   setFilter,
 }: LogListProps) {
-  const router = useRouter();
-
   const interleavedLogs = interleaveLogs(
     filteredLogs ?? [],
     deploymentAuditLogs ?? [],
@@ -134,48 +130,29 @@ export function LogList({
   // Local state for hit boundary with automatic timeout reset
   const { hitBoundary, setHitBoundary } = useHitBoundary();
 
-  // Derive shownLog from URL query parameters - now supports all interleaved log types
-  const shownLog = useMemo(() => {
-    const logTs = router.query.logTs as string | undefined;
-
-    if (logTs && interleavedLogs) {
-      // Find the log with this timestamp in interleaved logs
-      const matchingLog = interleavedLogs.find(
-        (log) => getTimestamp(log) === Number(logTs),
-      );
-      return matchingLog;
-    }
-
-    return undefined;
-  }, [router.query.logTs, interleavedLogs]);
-
-  // Update URL when log selection changes
-  const setShownLog = useCallback(
-    (log: InterleavedLog | UdfLog | undefined) => {
-      if (!log) {
-        void shallowNavigate(router, {
-          ...router.query,
-          logTs: undefined,
-        });
-        return;
-      }
-      const timestamp = "timestamp" in log ? log.timestamp : getTimestamp(log);
-      void shallowNavigate(router, {
-        ...router.query,
-        logTs: timestamp.toString(),
-      });
-    },
-    [router],
+  // Local state for shown log
+  const [shownLog, setShownLog] = useState<InterleavedLog | undefined>(
+    undefined,
   );
 
-  const selectLogByTimestamp = useCallback(
-    (timestamp: number) => {
-      void shallowNavigate(router, {
-        ...router.query,
-        logTs: timestamp.toString(),
-      });
+  // Ref to the virtualized list for programmatic scrolling
+  const listRef = useRef<FixedSizeList>(null);
+
+  const handleSelectLog = useCallback(
+    (log: InterleavedLog) => {
+      setShownLog(log);
+
+      // Scroll to the log in the virtualized list
+      if (listRef.current && interleavedLogs) {
+        const index = interleavedLogs.findIndex(
+          (l) => getLogKey(l) === getLogKey(log),
+        );
+        if (index !== -1) {
+          listRef.current.scrollToItem(index, "smart");
+        }
+      }
     },
-    [router],
+    [interleavedLogs],
   );
 
   const hasFilters =
@@ -183,13 +160,13 @@ export function LogList({
 
   const onScroll = useCallback(
     ({ scrollOffset }: ListOnScrollProps) => {
-      if (scrollOffset === 0) {
+      if (scrollOffset === 0 && !shownLog) {
         setPaused(false);
       } else {
         !paused && setPaused(true);
       }
     },
-    [paused, setPaused],
+    [paused, setPaused, shownLog],
   );
 
   const { newLogsPageSidepanel } = useContext(DeploymentInfoContext);
@@ -221,12 +198,13 @@ export function LogList({
                 interleavedLogs,
                 setClearedLogs,
                 clearedLogs,
-                setShownLog,
+                setShownLog: handleSelectLog,
                 hasFilters,
                 paused,
                 setManuallyPaused,
                 hitBoundary,
                 shownLog,
+                listRef,
                 newLogsPageSidepanel,
               }}
             />
@@ -238,23 +216,32 @@ export function LogList({
             <>
               <ResizeHandle collapsed={false} direction="left" />
               <Panel
-                defaultSize={0}
+                defaultSize={10}
                 minSize={10}
                 className="flex min-w-[24rem] flex-col"
               >
                 <LogDrilldown
+                  isPaused={paused}
                   requestId={
                     shownLog.kind === "ExecutionLog"
                       ? shownLog.executionLog.requestId
                       : undefined
                   }
-                  logs={interleavedLogs ?? []}
+                  shownInterleavedLogs={interleavedLogs}
+                  allUdfLogs={
+                    shownLog.kind === "ExecutionLog"
+                      ? logs.filter(
+                          (log) =>
+                            log.requestId === shownLog.executionLog.requestId,
+                        )
+                      : []
+                  }
                   onClose={() => setShownLog(undefined)}
-                  selectedLogTimestamp={getTimestamp(shownLog)}
+                  selectedLog={shownLog}
                   onFilterByRequestId={(requestId) => {
                     setFilter?.(requestId);
                   }}
-                  onSelectLog={selectLogByTimestamp}
+                  onSelectLog={handleSelectLog}
                   onHitBoundary={setHitBoundary}
                 />
               </Panel>
@@ -287,21 +274,22 @@ function WindowedLogList({
   setManuallyPaused,
   shownLog,
   hitBoundary,
+  listRef,
   newLogsPageSidepanel,
 }: {
   interleavedLogs: InterleavedLog[];
   setClearedLogs: (clearedLogs: number[]) => void;
   clearedLogs: number[];
   onScroll: (e: ListOnScrollProps) => void;
-  setShownLog(shown: InterleavedLog | UdfLog | undefined): void;
+  setShownLog(shown: InterleavedLog | undefined): void;
   hasFilters: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
   shownLog?: InterleavedLog;
   hitBoundary: "top" | "bottom" | null;
+  listRef: React.RefObject<FixedSizeList>;
   newLogsPageSidepanel?: boolean;
 }) {
-  const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -358,9 +346,7 @@ configure a log stream."
                 setClearedLogs,
                 clearedLogs,
                 setShownLog,
-                selectedLogTimestamp: shownLog
-                  ? getTimestamp(shownLog)
-                  : undefined,
+                selectedLog: shownLog,
                 hitBoundary,
                 newLogsPageSidepanel,
               }}
@@ -394,9 +380,9 @@ type LogItemProps = {
   data: {
     interleavedLogs: InterleavedLog[];
     setClearedLogs: (clearedLogs: number[]) => void;
-    setShownLog(shown: InterleavedLog | UdfLog | undefined): void;
+    setShownLog(shown: InterleavedLog | undefined): void;
     clearedLogs: number[];
-    selectedLogTimestamp?: number;
+    selectedLog?: InterleavedLog;
     hitBoundary?: "top" | "bottom" | null;
     newLogsPageSidepanel?: boolean;
   };
@@ -412,11 +398,15 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     clearedLogs,
     interleavedLogs,
     setShownLog,
-    selectedLogTimestamp,
+    selectedLog,
     hitBoundary,
     newLogsPageSidepanel,
   } = data;
   const log = interleavedLogs[index];
+
+  const isFocused = selectedLog
+    ? getLogKey(log) === getLogKey(selectedLog)
+    : false;
 
   let item: React.ReactNode = null;
 
@@ -424,10 +414,11 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     case "ClearedLogs":
       item = (
         <ClearedLogsButton
-          focused={getTimestamp(log) === selectedLogTimestamp}
+          focused={isFocused}
           hitBoundary={hitBoundary}
           onClick={() => {
             setClearedLogs(clearedLogs.slice(0, clearedLogs.length - 1));
+            setShownLog(undefined);
           }}
           onFocus={() => newLogsPageSidepanel && setShownLog(log)}
           newLogsPageSidepanel={newLogsPageSidepanel}
@@ -438,7 +429,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
       item = (
         <DeploymentEventListItem
           event={log.deploymentEvent}
-          focused={getTimestamp(log) === selectedLogTimestamp}
+          focused={isFocused}
           hitBoundary={hitBoundary}
           setShownLog={() => setShownLog(log)}
           onCloseDialog={() => setShownLog(undefined)}
@@ -450,8 +441,8 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
       item = (
         <LogListItem
           log={log.executionLog}
-          setShownLog={setShownLog}
-          focused={getTimestamp(log) === selectedLogTimestamp}
+          setShownLog={() => setShownLog(log)}
+          focused={isFocused}
           hitBoundary={hitBoundary}
           newLogsPageSidepanel={newLogsPageSidepanel}
         />
@@ -487,36 +478,14 @@ function ClearedLogsButton({
   onFocus: () => void;
   newLogsPageSidepanel?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const prevFocusedRef = useRef(focused);
-
-  // Focus the button when focused prop changes to true
-  useEffect(() => {
-    if (focused) {
-      buttonRef.current?.focus();
-    }
-  }, [focused]);
-
-  // Scroll into view when transitioning to focused (only in side panel mode)
-  useEffect(() => {
-    if (
-      focused &&
-      !prevFocusedRef.current &&
-      ref.current &&
-      newLogsPageSidepanel
-    ) {
-      ref.current.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-      });
-    }
-    prevFocusedRef.current = focused;
-  }, [focused, ref, newLogsPageSidepanel]);
+  const { elementRef: ref, buttonRef } = useScrollIntoViewAndFocus({
+    focused,
+    enabled: !!newLogsPageSidepanel,
+  });
 
   const handleClick = () => {
-    onClick();
     onFocus();
+    onClick();
   };
 
   // Only show boundary animation on the focused item

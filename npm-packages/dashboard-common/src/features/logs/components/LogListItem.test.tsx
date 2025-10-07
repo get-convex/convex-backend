@@ -18,7 +18,7 @@ describe("LogListItem render benchmark", () => {
       requestId: `request`,
       executionId: `id`,
     };
-    render(<LogListItem log={log} setShownLog={jest.fn()} />);
+    render(<LogListItem log={log} setShownLog={jest.fn()} focused={false} />);
     const end = performance.now();
     const renderTime = end - start;
 
