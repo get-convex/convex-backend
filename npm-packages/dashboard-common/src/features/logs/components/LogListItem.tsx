@@ -7,7 +7,6 @@ import { LogLevel } from "@common/elements/LogLevel";
 import { LogOutput } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
 import { cn } from "@ui/cn";
-import { useScrollIntoViewAndFocus } from "@common/features/logs/hooks/useScrollIntoViewAndFocus";
 
 type LogListItemProps = {
   log: UdfLog;
@@ -15,6 +14,7 @@ type LogListItemProps = {
   focused: boolean;
   hitBoundary?: "top" | "bottom" | null;
   newLogsPageSidepanel?: boolean;
+  logKey?: string;
 };
 
 export const ITEM_SIZE = 24;
@@ -25,12 +25,8 @@ export function LogListItem({
   focused,
   hitBoundary,
   newLogsPageSidepanel,
+  logKey,
 }: LogListItemProps) {
-  const { elementRef: ref, buttonRef } = useScrollIntoViewAndFocus({
-    focused,
-    enabled: !!newLogsPageSidepanel,
-  });
-
   // When the item receives focus and setShownLog is available, call it
   const handleFocus = () => {
     if (setShownLog) {
@@ -45,9 +41,8 @@ export function LogListItem({
 
   return (
     <div
-      ref={ref}
       className={classNames(
-        "flex gap-2",
+        "flex gap-2 animate-fadeInFromLoading",
         isFailure && "bg-background-error/50 text-content-error",
         focused && "bg-background-highlight",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
@@ -59,9 +54,9 @@ export function LogListItem({
     >
       <Wrapper
         setShownLog={setShownLog}
-        buttonRef={buttonRef}
         onFocus={handleFocus}
         newLogsPageSidepanel={newLogsPageSidepanel}
+        logKey={logKey}
       >
         <div
           className={classNames(
@@ -163,22 +158,22 @@ export function LogListItem({
 function Wrapper({
   children,
   setShownLog,
-  buttonRef,
   onFocus,
   newLogsPageSidepanel,
+  logKey,
 }: {
   children: React.ReactNode;
   setShownLog?: () => void;
-  buttonRef?: React.RefObject<HTMLButtonElement>;
   onFocus?: () => void;
   newLogsPageSidepanel?: boolean;
+  logKey?: string;
 }) {
   return setShownLog ? (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
     <button
-      ref={buttonRef}
       type="button"
+      data-log-key={logKey}
       className={classNames(
         "flex gap-2 truncate p-0.5",
         "group w-full font-mono text-xs",

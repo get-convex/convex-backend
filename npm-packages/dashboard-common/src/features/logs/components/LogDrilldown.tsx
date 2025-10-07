@@ -36,7 +36,7 @@ export function LogDrilldown({
   onClose: () => void;
   selectedLog: InterleavedLog;
   onFilterByRequestId?: (requestId: string) => void;
-  onSelectLog: (log: InterleavedLog, direction?: "up" | "down") => void;
+  onSelectLog: (log: InterleavedLog) => void;
   onHitBoundary: (boundary: "top" | "bottom" | null) => void;
   isPaused: boolean;
 }) {
@@ -50,6 +50,7 @@ export function LogDrilldown({
     selectedLog,
     shownInterleavedLogs,
     onSelectLog,
+    onClose,
     onHitBoundary,
     rightPanelRef,
   );
@@ -321,7 +322,8 @@ function KeyboardShortcutsSection({
 export function useNavigateLogs(
   selectedLog: InterleavedLog | null,
   logs: InterleavedLog[],
-  onSelectLog: (log: InterleavedLog, direction?: "up" | "down") => void,
+  onSelectLog: (log: InterleavedLog) => void,
+  onClose: () => void,
   onHitBoundary: (boundary: "top" | "bottom" | null) => void,
   rightPanelRef: React.RefObject<HTMLDivElement>,
 ) {
@@ -379,10 +381,7 @@ export function useNavigateLogs(
       const nextIndex =
         direction === "prev" ? currentIndex - 1 : currentIndex + 1;
       if (nextIndex >= 0 && nextIndex < targetLogs.length) {
-        onSelectLog(
-          targetLogs[nextIndex],
-          direction === "prev" ? "up" : "down",
-        );
+        onSelectLog(targetLogs[nextIndex]);
         onHitBoundary(null);
       } else {
         // Hit the boundary - trigger animation
@@ -423,6 +422,16 @@ export function useNavigateLogs(
       if (rightPanelRef.current) {
         rightPanelRef.current.focus();
       }
+    },
+    {
+      preventDefault: true,
+    },
+  );
+
+  useHotkeys(
+    "esc",
+    () => {
+      onClose();
     },
     {
       preventDefault: true,

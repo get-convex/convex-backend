@@ -10,7 +10,6 @@ import { formatDateTime } from "@common/lib/format";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { DetailPanel } from "@common/elements/DetailPanel";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useScrollIntoViewAndFocus } from "@common/features/logs/hooks/useScrollIntoViewAndFocus";
 
 export function DeploymentEventListItem({
   event,
@@ -20,6 +19,7 @@ export function DeploymentEventListItem({
   setShownLog,
   onCloseDialog,
   newLogsPageSidepanel,
+  logKey,
 }: {
   event: DeploymentAuditLogEvent;
   inline?: boolean;
@@ -28,14 +28,11 @@ export function DeploymentEventListItem({
   setShownLog?: () => void;
   onCloseDialog?: () => void;
   newLogsPageSidepanel?: boolean;
+  logKey?: string;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
   const [showDetails, setShowDetails] = useState(false);
   const timestamp = formatDateTime(new Date(event._creationTime));
-  const { elementRef: ref, buttonRef } = useScrollIntoViewAndFocus({
-    focused,
-    enabled: !!newLogsPageSidepanel,
-  });
 
   // When the button receives focus and setShownLog is available, call it
   const handleFocus = () => {
@@ -58,7 +55,6 @@ export function DeploymentEventListItem({
 
   return (
     <div
-      ref={ref}
       className={classNames(
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
         showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
@@ -66,9 +62,10 @@ export function DeploymentEventListItem({
     >
       {/* eslint-disable-next-line react/forbid-elements */}
       <button
-        ref={buttonRef}
         type="button"
+        data-log-key={logKey}
         className={classNames(
+          "animate-fadeInFromLoading",
           "group pl-3 flex items-center gap-3 w-full text-xs",
           inline ? "items-start" : "pl-1 items-center",
           setShownLog && "hover:bg-background-tertiary/70",

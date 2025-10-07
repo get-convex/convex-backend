@@ -48,7 +48,6 @@ import { Panel, PanelGroup } from "react-resizable-panels";
 import { cn } from "@ui/cn";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useScrollIntoViewAndFocus } from "@common/features/logs/hooks/useScrollIntoViewAndFocus";
 import { LogDrilldown } from "./LogDrilldown";
 
 export type LogListProps = {
@@ -138,6 +137,8 @@ export function LogList({
   // Ref to the virtualized list for programmatic scrolling
   const listRef = useRef<FixedSizeList>(null);
 
+  const { newLogsPageSidepanel } = useContext(DeploymentInfoContext);
+
   const handleSelectLog = useCallback(
     (log: InterleavedLog) => {
       setShownLog(log);
@@ -149,6 +150,18 @@ export function LogList({
         );
         if (index !== -1) {
           listRef.current.scrollToItem(index, "smart");
+
+          // Focus the button element after scroll completes
+          // Use a short timeout to allow the scroll to complete
+          setTimeout(() => {
+            const logKey = getLogKey(log);
+            const button = document.querySelector(
+              `[data-log-key="${logKey}"]`,
+            ) as HTMLButtonElement;
+            if (button && document.activeElement !== button) {
+              button.focus();
+            }
+          }, 50);
         }
       }
     },
@@ -169,8 +182,6 @@ export function LogList({
     [paused, setPaused, shownLog],
   );
 
-  const { newLogsPageSidepanel } = useContext(DeploymentInfoContext);
-
   return (
     <Sheet
       className="h-full w-full overflow-hidden"
@@ -183,12 +194,14 @@ export function LogList({
         autoSaveId="logs-content"
       >
         <Panel
+          id="log-list-panel"
+          order={0}
           className={cn(
             "flex shrink flex-col",
             "max-w-full",
             shownLog ? "min-w-[16rem]" : "min-w-[20rem]",
           )}
-          defaultSize={shownLog ? 60 : 100}
+          defaultSize={100}
           minSize={10}
         >
           {interleavedLogs !== undefined && heightOfListContainer !== 0 && (
@@ -216,6 +229,8 @@ export function LogList({
             <>
               <ResizeHandle collapsed={false} direction="left" />
               <Panel
+                id="log-drilldown-panel"
+                order={1}
                 defaultSize={10}
                 minSize={10}
                 className="flex min-w-[24rem] flex-col"
@@ -296,6 +311,7 @@ function WindowedLogList({
     <div className="scrollbar flex h-full min-w-0 flex-col overflow-x-auto overflow-y-hidden">
       <div className="flex h-full min-w-fit flex-col">
         <LogListHeader
+          hasLogOpen={shownLog !== undefined}
           paused={paused}
           setManuallyPaused={setManuallyPaused}
           listRef={listRef}
@@ -408,6 +424,8 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
     ? getLogKey(log) === getLogKey(selectedLog)
     : false;
 
+  const logKey = getLogKey(log);
+
   let item: React.ReactNode = null;
 
   switch (log.kind) {
@@ -421,7 +439,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
             setShownLog(undefined);
           }}
           onFocus={() => newLogsPageSidepanel && setShownLog(log)}
-          newLogsPageSidepanel={newLogsPageSidepanel}
+          logKey={logKey}
         />
       );
       break;
@@ -434,6 +452,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
           setShownLog={() => setShownLog(log)}
           onCloseDialog={() => setShownLog(undefined)}
           newLogsPageSidepanel={newLogsPageSidepanel}
+          logKey={logKey}
         />
       );
       break;
@@ -445,6 +464,7 @@ function LogListRowImpl({ data, index, style }: LogItemProps) {
           focused={isFocused}
           hitBoundary={hitBoundary}
           newLogsPageSidepanel={newLogsPageSidepanel}
+          logKey={logKey}
         />
       );
       break;
@@ -470,19 +490,14 @@ function ClearedLogsButton({
   hitBoundary,
   onClick,
   onFocus,
-  newLogsPageSidepanel,
+  logKey,
 }: {
   focused: boolean;
   hitBoundary?: "top" | "bottom" | null;
   onClick: () => void;
   onFocus: () => void;
-  newLogsPageSidepanel?: boolean;
+  logKey?: string;
 }) {
-  const { elementRef: ref, buttonRef } = useScrollIntoViewAndFocus({
-    focused,
-    enabled: !!newLogsPageSidepanel,
-  });
-
   const handleClick = () => {
     onFocus();
     onClick();
@@ -493,7 +508,6 @@ function ClearedLogsButton({
 
   return (
     <div
-      ref={ref}
       style={{ height: CLEARED_LOGS_BUTTON_HEIGHT }}
       className={cn(
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
@@ -501,7 +515,7 @@ function ClearedLogsButton({
       )}
     >
       <Button
-        ref={buttonRef}
+        data-log-key={logKey}
         icon={<ArrowDownIcon />}
         inline
         size="xs"
@@ -682,18 +696,20 @@ function RequestIdLogs({
 }
 
 function LogListHeader({
+  hasLogOpen,
   paused,
   setManuallyPaused,
   listRef,
   outerRef,
 }: {
+  hasLogOpen: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
   listRef: React.RefObject<FixedSizeList>;
   outerRef: React.RefObject<HTMLDivElement>;
 }) {
   return (
-    <div className="flex items-center gap-4 border-b p-1 pl-2.5 text-xs text-content-secondary">
+    <div className="flex w-full items-center gap-4 border-b p-1 pl-2.5 text-xs text-content-secondary">
       <TimestampColumn />
       <div className="flex min-w-8 items-center gap-1 text-center">
         ID
@@ -704,7 +720,7 @@ function LogListHeader({
       <StatusColumn />
       <FunctionColumn />
 
-      <div className="ml-auto">
+      <div className={cn("sticky right-1", hasLogOpen ? "shadow-lg" : "")}>
         <Button
           size="xs"
           className="text-xs"
@@ -761,7 +777,7 @@ function TimestampColumn() {
   );
 }
 function FunctionColumn() {
-  return <div className="flex min-w-60 items-center gap-1">Function</div>;
+  return <div className="flex min-w-60 grow items-center gap-1">Function</div>;
 }
 
 function StatusColumn() {

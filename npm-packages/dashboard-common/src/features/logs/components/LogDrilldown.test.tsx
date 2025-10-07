@@ -89,6 +89,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -100,7 +101,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the next log (timestamp 1000) and clear boundary
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -122,6 +123,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -133,7 +135,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the previous log (timestamp 3000) and clear boundary
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[0], "up");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[0]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -155,6 +157,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -188,6 +191,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -224,6 +228,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -235,7 +240,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the next log in the same request (req1, timestamp 2000)
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -258,6 +263,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -269,7 +275,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the previous log in the same request (req1, timestamp 3000)
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1], "up");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -292,6 +298,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -328,6 +335,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -339,7 +347,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the next log in the same execution (exec1, timestamp 2000)
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -362,6 +370,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -373,7 +382,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should select the previous log in the same execution (exec1, timestamp 3000)
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1], "up");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -396,6 +405,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -431,6 +441,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -443,7 +454,7 @@ describe("useNavigateLogs", () => {
 
       // Should select the next log in array order (not sorted by timestamp)
       // Navigation works on the array as-is; logs should be pre-sorted in production
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1], "down");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[1]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
 
@@ -462,6 +473,7 @@ describe("useNavigateLogs", () => {
           null,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -491,6 +503,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -524,6 +537,7 @@ describe("useNavigateLogs", () => {
           selectedLog,
           interleavedLogs,
           onSelectLog,
+          jest.fn(),
           onHitBoundary,
           rightPanelRef,
         ),
@@ -535,7 +549,7 @@ describe("useNavigateLogs", () => {
       });
 
       // Should navigate to the next log regardless of type
-      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2], "down");
+      expect(onSelectLog).toHaveBeenCalledWith(interleavedLogs[2]);
       expect(onHitBoundary).toHaveBeenCalledWith(null);
     });
   });
