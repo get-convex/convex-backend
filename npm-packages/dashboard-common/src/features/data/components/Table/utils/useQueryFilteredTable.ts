@@ -1,18 +1,36 @@
 import { GenericDocument } from "convex/server";
 import { useRouter } from "next/router";
-import { useMemo, useCallback, useRef, useEffect, useState } from "react";
+import {
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+  useState,
+  useContext,
+} from "react";
 import { usePaginatedQuery, PaginationStatus } from "convex/react";
 import udfs from "@common/udfs";
 import { useCounter, useIdle, usePrevious } from "react-use";
 import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
 import { maximumRowsRead } from "system-udfs/convex/_system/paginationLimits";
 import { useNents } from "@common/lib/useNents";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
-export const pageSize = 25;
+const DEFAULT_DATA_PAGE_SIZE = 25;
 const dataPageInactivityTimeMinutes = 1;
 
 // Declared outside of the hook to be referentially stable without useMemo
 const dataOnError: GenericDocument[] = [];
+
+export function useDataPageSize(componentId: string | null, tableName: string) {
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  return useGlobalLocalStorage(
+    `dataPageSize/${deployment?.name}/${componentId ? `${componentId}/` : ""}${tableName}`,
+    DEFAULT_DATA_PAGE_SIZE,
+  );
+}
 
 export const useQueryFilteredTable = (tableName: string) => {
   const router = useRouter();
@@ -22,6 +40,9 @@ export const useQueryFilteredTable = (tableName: string) => {
   const isPaused = useIdle(dataPageInactivityTimeMinutes * 1000 * 60, false);
 
   const { selectedNent } = useNents();
+
+  const [pageSize] = useDataPageSize(selectedNent?.id ?? null, tableName);
+
   const { results, loadMore, isLoading, status } = usePaginatedQuery(
     udfs.paginatedTableDocuments.default,
     isPaused
@@ -55,7 +76,7 @@ export const useQueryFilteredTable = (tableName: string) => {
 
   const loadNextPage = useCallback(() => {
     if (status === "CanLoadMore") {
-      loadMore(pageSize);
+      loadMore(DEFAULT_DATA_PAGE_SIZE);
       incNumRowsReadEstimate(maximumRowsRead);
     }
   }, [status, loadMore, incNumRowsReadEstimate]);

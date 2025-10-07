@@ -22,9 +22,12 @@ import { LoadingTransition } from "@ui/Loading";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { useRouter } from "next/router";
 import omit from "lodash/omit";
+import { useDataPageSize } from "./Table/utils/useQueryFilteredTable";
 
 export function DataView() {
-  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const { useCurrentDeployment, ErrorBoundary } = useContext(
+    DeploymentInfoContext,
+  );
   const { id: deploymentId } = useCurrentDeployment() ?? {
     id: undefined,
     kind: undefined,
@@ -36,6 +39,11 @@ export function DataView() {
   const schemas = useQuery(udfs.getSchemas.default, {
     componentId: componentId ?? null,
   });
+
+  const [currentPageSize, setPageSize] = useDataPageSize(
+    componentId ?? null,
+    tableMetadata?.name ?? "",
+  );
 
   const schemaValidationProgress = useQuery(
     udfs.getSchemas.schemaValidationProgress,
@@ -140,15 +148,25 @@ export function DataView() {
                   loadingProps={{ shimmer: false }}
                 >
                   {activeSchema !== undefined && (
-                    <DataContent
-                      key={tableMetadata.name}
-                      tableName={tableMetadata.name}
-                      componentId={componentId ?? null}
-                      shape={
-                        tableMetadata.tables.get(tableMetadata.name) ?? null
-                      }
-                      activeSchema={activeSchema}
-                    />
+                    <ErrorBoundary
+                      fallback={(props) => (
+                        <HandleTimeout
+                          {...props}
+                          setPageSize={setPageSize}
+                          currentPageSize={currentPageSize}
+                        />
+                      )}
+                    >
+                      <DataContent
+                        key={tableMetadata.name}
+                        tableName={tableMetadata.name}
+                        componentId={componentId ?? null}
+                        shape={
+                          tableMetadata.tables.get(tableMetadata.name) ?? null
+                        }
+                        activeSchema={activeSchema}
+                      />
+                    </ErrorBoundary>
                   )}
                 </LoadingTransition>
               )
@@ -158,4 +176,30 @@ export function DataView() {
       </LoadingTransition>
     </>
   );
+}
+
+function HandleTimeout({
+  error,
+  resetError,
+  setPageSize,
+  currentPageSize,
+}: {
+  error: Error;
+  resetError(): void;
+  currentPageSize: number;
+  setPageSize: (pageSize: number) => void;
+}) {
+  if (
+    error.message.startsWith(
+      "[CONVEX Q(_system/frontend/paginatedTableDocuments:default)]",
+    ) &&
+    error.message.includes("Function execution timed out") &&
+    currentPageSize !== 1
+  ) {
+    setPageSize(Math.floor(Math.max(currentPageSize / 2, 1)));
+    resetError();
+  } else {
+    throw error;
+  }
+  return null;
 }

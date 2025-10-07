@@ -46,7 +46,7 @@ import {
 import { TableHeader } from "@common/features/data/components/Table/TableHeader";
 import { useStoredColumnOrder } from "@common/features/data/components/Table/utils/useDataColumns";
 import { ViewDocument } from "@common/features/data/components/Table/ViewDocument";
-import { pageSize } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
+import { useDataPageSize } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
 import { LoadingLogo } from "@ui/Loading";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
@@ -105,6 +105,7 @@ export function Table({
     field: string;
   };
 }) {
+  const [pageSize] = useDataPageSize(componentId, tableName);
   const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
     DeploymentInfoContext,
   );
