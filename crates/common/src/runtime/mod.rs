@@ -34,6 +34,7 @@ use futures::{
     select_biased,
     stream,
     FutureExt,
+    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -49,6 +50,7 @@ use governor::{
 };
 use metrics::CONVEX_METRICS_REGISTRY;
 use parking_lot::Mutex;
+use pin_project::pin_project;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use rand::RngCore;
@@ -698,5 +700,55 @@ where
         f()
     } else {
         tokio::task::block_in_place(f)
+    }
+}
+
+#[pin_project]
+pub struct CoopStream<S> {
+    #[pin]
+    inner: S,
+    /// If false, we need to consume budget before proceeding
+    proceed: bool,
+}
+
+pub trait CoopStreamExt: Sized {
+    /// Wraps `self` in a stream that participates in Tokio's cooperative
+    /// scheduling system.
+    /// If the current task is out of budget, the stream may yield
+    /// `Poll::Pending` even if the underlying stream still has elements to
+    /// yield.
+    fn cooperative(self) -> CoopStream<Self>;
+}
+
+impl<S: Stream> CoopStreamExt for S {
+    fn cooperative(self) -> CoopStream<Self> {
+        CoopStream {
+            inner: self,
+            proceed: false,
+        }
+    }
+}
+
+impl<S: Stream> Stream for CoopStream<S> {
+    type Item = S::Item;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        if !*this.proceed {
+            std::task::ready!(tokio::task::coop::poll_proceed(cx)).made_progress();
+            *this.proceed = true;
+        }
+        let r = this.inner.poll_next(cx);
+        if r.is_ready() {
+            *this.proceed = false;
+        }
+        r
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
     }
 }

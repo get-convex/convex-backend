@@ -82,7 +82,10 @@ use common::{
         RevisionPair,
     },
     query::Order,
-    runtime::assert_send,
+    runtime::{
+        assert_send,
+        CoopStreamExt as _,
+    },
     sha256::Sha256,
     shutdown::ShutdownSignal,
     types::{
@@ -1389,6 +1392,7 @@ impl PersistenceReader for PostgresReader {
     ) -> DocumentStream<'_> {
         self._load_documents(None, false, range, order, page_size, retention_validator)
             .map_ok(RevisionPair::into_log_entry)
+            .cooperative()
             .boxed()
     }
 
@@ -1409,6 +1413,7 @@ impl PersistenceReader for PostgresReader {
             retention_validator,
         )
         .map_ok(RevisionPair::into_log_entry)
+        .cooperative()
         .boxed()
     }
 
@@ -1428,6 +1433,7 @@ impl PersistenceReader for PostgresReader {
             page_size,
             retention_validator,
         )
+        .cooperative()
         .boxed()
     }
 

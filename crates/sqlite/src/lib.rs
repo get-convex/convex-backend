@@ -43,6 +43,7 @@ use common::{
         TimestampRange,
     },
     query::Order,
+    runtime::CoopStreamExt as _,
     types::{
         IndexId,
         PersistenceVersion,
@@ -469,7 +470,7 @@ impl PersistenceReader for SqlitePersistence {
         let validate =
             self.validate_document_snapshot(range.min_timestamp_inclusive(), retention_validator);
         match triples {
-            Ok(s) => (validate.chain(stream::iter(s))).boxed(),
+            Ok(s) => validate.chain(stream::iter(s).cooperative()).boxed(),
             Err(e) => stream::once(async { Err(e) }).boxed(),
         }
     }

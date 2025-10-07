@@ -79,7 +79,10 @@ use common::{
         RevisionPair,
     },
     query::Order,
-    runtime::Runtime,
+    runtime::{
+        CoopStreamExt as _,
+        Runtime,
+    },
     sha256::Sha256,
     shutdown::ShutdownSignal,
     types::{
@@ -1063,6 +1066,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             retention_validator,
         )
         .map_ok(RevisionPair::into_log_entry)
+        .cooperative()
         .boxed()
     }
 
@@ -1083,6 +1087,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             retention_validator,
         )
         .map_ok(RevisionPair::into_log_entry)
+        .cooperative()
         .boxed()
     }
 
@@ -1102,6 +1107,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             page_size,
             retention_validator,
         )
+        .cooperative()
         .boxed()
     }
 

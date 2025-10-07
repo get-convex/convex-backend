@@ -32,7 +32,7 @@ proptest-derive = { optional = true, version = "0.5.0" }
 rand = { version = "0.9" }
 serde_json = { features = [ "float_roundtrip", "preserve_order", "raw_value" ], version = "1" }
 thiserror = { version = "2" }
-tokio = { features = [ "full" ], version = "1" }
+tokio = { features = [ "full" ], version = "1.47.1" }
 tokio-stream = { features = [ "io-util", "sync" ], version = "0.1" }
 tokio-tungstenite = { features = [ "url" ], version = "0.26.2" }
 tracing = { version = "0.1" }
