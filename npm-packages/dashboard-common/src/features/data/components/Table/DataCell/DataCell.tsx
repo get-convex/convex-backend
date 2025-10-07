@@ -1,18 +1,15 @@
 import { GenericId, Value } from "convex/values";
 import { GenericDocument } from "convex/server";
 import classNames from "classnames";
-import React, { Fragment, memo, useRef, useState } from "react";
+import React, { memo, useRef, useState } from "react";
 import { useClickAway, useHoverDirty } from "react-use";
 import { areEqual } from "react-window";
 import { usePopper } from "react-popper";
 import { ColumnInstance } from "react-table";
-import {
-  CheckCircledIcon,
-  DotsVerticalIcon,
-  Link2Icon,
-} from "@radix-ui/react-icons";
-import { Portal, Transition } from "@headlessui/react";
+import { DotsVerticalIcon, Link2Icon } from "@radix-ui/react-icons";
+import { Portal } from "@headlessui/react";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
+import { CopiedPopper } from "@common/elements/CopiedPopper";
 
 import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
 
@@ -168,19 +165,6 @@ function DataCellImpl({
   // Controls the copied value popper that shows up when a value is copied
   const [copiedPopperElement, setCopiedPopperElement] =
     useState<HTMLDivElement | null>(null);
-  const { styles, attributes } = usePopper(
-    cellRef.current,
-    copiedPopperElement,
-    {
-      placement: "bottom-start",
-      modifiers: [
-        {
-          name: "offset",
-          options: { offset: [densityValues.paddingX - 4, 4] },
-        },
-      ],
-    },
-  );
 
   // Controls the editor popper -- the popper that shows the ObjectEditor for the cell
   const [editorPopper, setEditorPopper] = useState<HTMLDivElement | null>(null);
@@ -403,30 +387,18 @@ function DataCellImpl({
         />
       )}
       {/* Show the popper when a value is copied */}
-      <Transition
+      <CopiedPopper
+        referenceElement={cellRef.current}
+        copiedPopperElement={copiedPopperElement}
+        setCopiedPopperElement={setCopiedPopperElement}
         show={didJustCopy !== null}
-        as={Fragment}
-        enter="transition-opacity ease-in-out duration-200"
-        enterFrom="opacity-0"
-        enterTo="opacity-100"
-        leave="transition-opacity ease-in-out duration-200"
-        leaveFrom="opacity-100"
-        leaveTo="opacity-0"
-      >
-        <div
-          ref={setCopiedPopperElement}
-          style={styles.popper}
-          className="z-50 flex items-center gap-1 rounded-sm border bg-background-tertiary p-1 text-xs"
-          data-testid="copied-popper"
-          {...attributes.popper}
-        >
-          <CheckCircledIcon />
-          Copied{" "}
-          {didJustCopy && (
-            <code>{didJustCopy === "value" ? columnName : "document"}</code>
-          )}
-        </div>
-      </Transition>
+        message={
+          didJustCopy
+            ? `Copied ${didJustCopy === "value" ? columnName : "document"}`
+            : "Copied"
+        }
+        offset={[densityValues.paddingX - 4, 4]}
+      />
     </>
   );
 }

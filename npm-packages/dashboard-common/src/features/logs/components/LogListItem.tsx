@@ -1,12 +1,19 @@
 import classNames from "classnames";
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { Portal } from "@headlessui/react";
 import { LogStatusLine } from "@common/features/logs/components/LogStatusLine";
 import { UdfLog } from "@common/lib/useLogs";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { LogLevel } from "@common/elements/LogLevel";
-import { LogOutput } from "@common/elements/LogOutput";
+import { LogOutput, messagesToString } from "@common/elements/LogOutput";
 import { msFormat } from "@common/lib/format";
 import { cn } from "@ui/cn";
+import { useHotkeys } from "react-hotkeys-hook";
+import {
+  displayName,
+  functionIdentifierFromValue,
+} from "@common/lib/functions/generateFileTree";
+import { CopiedPopper } from "@common/elements/CopiedPopper";
 
 type LogListItemProps = {
   log: UdfLog;
@@ -27,6 +34,35 @@ export function LogListItem({
   newLogsPageSidepanel,
   logKey,
 }: LogListItemProps) {
+  const wrapperRef = useRef<HTMLButtonElement | HTMLSpanElement>(null);
+  const [didJustCopy, setDidJustCopy] = useState(false);
+  const [copiedPopperElement, setCopiedPopperElement] =
+    useState<HTMLDivElement | null>(null);
+
+  // Reset copied state after 800ms
+  useEffect(() => {
+    if (didJustCopy) {
+      const timeout = setTimeout(() => setDidJustCopy(false), 800);
+      return () => clearTimeout(timeout);
+    }
+  }, [didJustCopy]);
+
+  // Copy entire log line on Cmd/Ctrl+C
+  useHotkeys(
+    ["meta+c", "ctrl+c"],
+    (e) => {
+      e.preventDefault();
+      const logText = formatLogToString(log);
+      void navigator.clipboard.writeText(logText);
+      setDidJustCopy(true);
+    },
+    {
+      enabled: focused && !!setShownLog,
+      preventDefault: true,
+    },
+    [log, focused, setShownLog],
+  );
+
   // When the item receives focus and setShownLog is available, call it
   const handleFocus = () => {
     if (setShownLog) {
@@ -42,7 +78,7 @@ export function LogListItem({
   return (
     <div
       className={classNames(
-        "flex gap-2",
+        "relative flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
         focused && "bg-background-highlight",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
@@ -57,6 +93,7 @@ export function LogListItem({
         onFocus={handleFocus}
         newLogsPageSidepanel={newLogsPageSidepanel}
         logKey={logKey}
+        ref={wrapperRef}
       >
         <div
           className={classNames(
@@ -151,29 +188,40 @@ export function LogListItem({
           />
         )}
       </Wrapper>
+      <Portal>
+        <CopiedPopper
+          referenceElement={wrapperRef.current}
+          copiedPopperElement={copiedPopperElement}
+          setCopiedPopperElement={setCopiedPopperElement}
+          show={didJustCopy}
+          message="Copied log line"
+          placement="bottom"
+        />
+      </Portal>
     </div>
   );
 }
 
-function Wrapper({
-  children,
-  setShownLog,
-  onFocus,
-  newLogsPageSidepanel,
-  logKey,
-}: {
-  children: React.ReactNode;
-  setShownLog?: () => void;
-  onFocus?: () => void;
-  newLogsPageSidepanel?: boolean;
-  logKey?: string;
-}) {
+const Wrapper = React.forwardRef<
+  HTMLButtonElement | HTMLSpanElement,
+  {
+    children: React.ReactNode;
+    setShownLog?: () => void;
+    onFocus?: () => void;
+    newLogsPageSidepanel?: boolean;
+    logKey?: string;
+  }
+>(function Wrapper(
+  { children, setShownLog, onFocus, newLogsPageSidepanel, logKey },
+  ref,
+) {
   return setShownLog ? (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
     <button
       type="button"
       data-log-key={logKey}
+      ref={ref as React.Ref<HTMLButtonElement>}
       className={classNames(
         "flex gap-2 truncate p-0.5 animate-fadeInFromLoading",
         "group w-full font-mono text-xs",
@@ -190,8 +238,54 @@ function Wrapper({
       {children}
     </button>
   ) : (
-    <span className="flex w-full flex-col items-start gap-2 p-2">
+    <span
+      className="flex w-full flex-col items-start gap-2 p-2"
+      ref={ref as React.Ref<HTMLSpanElement>}
+    >
       {children}
     </span>
   );
+});
+
+function formatLogToString(log: UdfLog): string {
+  const timestamp = log.localizedTimestamp;
+  const milliseconds = new Date(log.timestamp)
+    .toISOString()
+    .split(".")[1]
+    .slice(0, -1);
+  const fullTimestamp = `${timestamp}.${milliseconds}`;
+
+  // Parse the call field to get identifier and componentPath
+  let functionName: string;
+  if (log.kind === "log" && log.output.subfunction) {
+    const { identifier, componentPath } = functionIdentifierFromValue(
+      log.output.subfunction,
+    );
+    functionName = displayName(identifier, componentPath);
+  } else {
+    const { identifier, componentPath } = functionIdentifierFromValue(log.call);
+    functionName = displayName(identifier, componentPath);
+  }
+
+  const udfType = log.udfType.charAt(0).toUpperCase();
+
+  let content = "";
+  if (log.kind === "log") {
+    const level = log.output.level ? `[${log.output.level}] ` : "";
+    const message = messagesToString(log.output);
+    content = `${level}${message}`;
+  } else if (log.error) {
+    content = log.error;
+  } else {
+    content = log.outcome.status;
+  }
+
+  const executionTime =
+    log.kind === "outcome" &&
+    log.executionTimeMs !== null &&
+    log.executionTimeMs > 0
+      ? ` ${msFormat(log.executionTimeMs)}`
+      : "";
+
+  return `${fullTimestamp} ${udfType} ${functionName}${executionTime} ${content}`;
 }
