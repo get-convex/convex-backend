@@ -135,11 +135,16 @@ fn trace_error(err: &mut anyhow::Error) {
 
     let label = err.metric_status_label_value();
     let err_for_tracing = format!("{err:#}").replace("\n", "\\n");
-    tracing::error!(
+    let full_msg = format!(
         "Caught {label} error (RUST_BACKTRACE=1 RUST_LOG=info,{}=debug for full trace): \
          {err_for_tracing}",
-        module_path!(),
+        module_path!()
     );
+    if err.metric_server_error_label().is_some() {
+        tracing::error!("{full_msg}");
+    } else {
+        tracing::warn!("{full_msg}");
+    }
     tracing::debug!("{err:?}");
 }
 
