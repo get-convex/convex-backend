@@ -4,6 +4,7 @@ use std::{
 };
 
 use value::{
+    identifier::is_valid_identifier,
     ConvexObject,
     IdentifierFieldName,
 };
@@ -75,22 +76,25 @@ impl<C: ShapeConfig> ObjectShape<C, u64> {
     }
 
     pub fn shape_of(object: &ConvexObject) -> CountedShapeEnum<C> {
-        if object.len() <= C::MAX_OBJECT_FIELDS {
-            if let Ok(fields) = object
+        // N.B.: check is_valid_identifier separately to avoid creating
+        // anyhow::Errors, which is expensive
+        if object.len() <= C::MAX_OBJECT_FIELDS
+            && object.iter().all(|(f, _)| is_valid_identifier(f))
+        {
+            let field_shapes: BTreeMap<_, _> = object
                 .iter()
-                .map(|(f, v)| Ok((IdentifierFieldName::try_from(f.clone())?, v)))
-                .collect::<anyhow::Result<BTreeMap<_, _>>>()
-            {
-                let mut field_shapes = BTreeMap::new();
-                for (field_name, value) in fields {
-                    let field = ObjectField {
-                        value_shape: Shape::shape_of(value),
-                        optional: false,
-                    };
-                    field_shapes.insert(field_name.clone(), field);
-                }
-                return ShapeEnum::Object(Self::new(field_shapes));
-            }
+                .map(|(field_name, value)| {
+                    (
+                        IdentifierFieldName::try_from(field_name.clone())
+                            .expect("checked is_valid_identifier above"),
+                        ObjectField {
+                            value_shape: Shape::shape_of(value),
+                            optional: false,
+                        },
+                    )
+                })
+                .collect();
+            return ShapeEnum::Object(Self::new(field_shapes));
         }
         let mut fields = UnionBuilder::new();
         let mut values = UnionBuilder::new();
