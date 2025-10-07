@@ -11,36 +11,13 @@ a rule you would find helpful!
 
 ## Setup
 
-### ESLint 8 (.eslintrc.js)
-
-For ESLint 8, install these two libraries
-
-```bash
-npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
-```
-
-and in `.eslintrc.js`:
-
-```js
-module.exports = {
-  extends: [
-    // Other configurations
-    "plugin:@typescript-eslint/recommended",
-    "plugin:@convex-dev/recommended",
-  ],
-  ignorePatterns: ["node_modules/", "dist/", "build/"],
-};
-```
-
-### ESLint 9 (eslint.config.js)
-
-For ESLint 9 (flat config), install just this library
+For ESLint 9 (flat config, using `eslint.config.js`), install the rules with:
 
 ```bash
 npm i @convex-dev/eslint-plugin --save-dev
 ```
 
-and in `eslint.config.js`:
+and add this to your `eslint.config.js` file:
 
 ```ts
 import convexPlugin from "@convex-dev/eslint-plugin";
@@ -53,7 +30,37 @@ export default defineConfig([
 ]);
 ```
 
+<Details summary={<>If you’re using the deprecated <code>.eslintrc.js</code> format</>}>
+
+Install these two libraries:
+
+```bash
+npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
+```
+
+In `.eslintrc.js`, add:
+
+```js
+module.exports =
+  extends: [
+    // Other configurations
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@convex-dev/recommended",
+  ],
+  ignorePatterns: ["node_modules/", "dist/", "build/"],
+};
+```
+
+</Details>
+
 ## Rules
+
+| Rule                                                                                                                                          | Recommended | Auto-fixable |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: |
+| [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br/>Prefer object syntax for registered functions       |     ✅      |      🔧      |
+| [`@convex-dev/no-missing-args-validator`](#no-missing-args-validator)<br/>Require argument validators for all Convex functions                |             |      🔧      |
+| [`@convex-dev/no-args-without-validator`](#no-args-without-validator)<br/>Require argument validators for all Convex functions with arguments |     ✅      |      🔧      |
+| [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files           |             |              |
 
 ### no-old-registered-function-syntax
 
@@ -81,7 +88,7 @@ export const list = query(async (ctx) => {
 
 ### no-missing-args-validator
 
-Use argument validators.
+Require argument validators for all Convex functions.
 
 Convex queries, mutations, and actions can validate their arguments before
 beginning to run the handler function. Besides being a concise way to validate,
@@ -107,8 +114,72 @@ export const list = query({
 
 // ❌ Not allowed by this rule:
 export const list = query({
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query({
   handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
     ...
   },
 });
+```
+
+### no-args-without-validator
+
+Require argument validators for all Convex functions with arguments.
+
+This rule is similar to
+[`no-missing-args-validator`](#no-missing-args-validator), but it doesn’t throw
+an error if the function has no arguments.
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ✅ Allowed by this rule:
+export const list = query({
+  args: { channel: v.id('channel') },
+  handler: async (ctx, { channel }) => {
+    ...
+  },
+});
+
+// ✅ Allowed by this rule:
+export const list = query({
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query({
+  handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
+    ...
+  },
+});
+```
+
+### import-wrong-runtime
+
+Prevent Convex runtime files from importing from Node runtime files (files with
+a `"use node"` directive).
+
+This rule is experimental. Please let us know if you find it helpful!
+
+```ts
+// In a file that doesn’t use `"use node"`:
+
+// ✅ Allowed by this rule:
+import { someFunction } from "./someOtherFile"; // where someOtherFile doesn't use `"use node"`
+
+// ❌ Not allowed by this rule:
+import { someFunction } from "./someNodeFile"; // where someNodeFile uses `"use node"`
 ```
