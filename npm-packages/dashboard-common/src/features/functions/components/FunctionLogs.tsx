@@ -41,6 +41,7 @@ export function FunctionLogs({
   );
 
   const [logs, setLogs] = useState<UdfLog[]>([]);
+  const [pausedLogs, setPausedLogs] = useState<UdfLog[]>([]);
   const [paused, setPaused] = useState<number>(0);
   const [manuallyPaused, setManuallyPaused] = useState(false);
 
@@ -84,6 +85,18 @@ export function FunctionLogs({
   const onPause = (p: boolean) => {
     const now = new Date().getTime();
     setPaused(p ? now : 0);
+
+    // When unpausing, merge pausedLogs into logs
+    if (!p && pausedLogs.length > 0) {
+      setLogs((prev) => {
+        const combined = [...prev, ...pausedLogs];
+        return combined.slice(
+          Math.max(combined.length - MAX_LOGS, 0),
+          combined.length,
+        );
+      });
+      setPausedLogs([]);
+    }
   };
 
   const logsConnectivityCallbacks = {
@@ -91,29 +104,39 @@ export function FunctionLogs({
     onDisconnected: () => {},
   };
 
-  const receiveLogs = (entries: UdfLog[]) => {
-    setLogs((prev) => {
-      const newLogs = filterLogs(
-        {
-          logTypes: DEFAULT_LOG_LEVELS,
-          functions: [functionId],
-          selectedFunctions: [functionId],
-          selectedNents: selectedNent ? [selectedNent.path] : "all",
-          filter: "",
-        },
-        entries,
+  const receiveLogs = (entries: UdfLog[], isPaused: boolean) => {
+    const newLogs = filterLogs(
+      {
+        logTypes: DEFAULT_LOG_LEVELS,
+        functions: [functionId],
+        selectedFunctions: [functionId],
+        selectedNents: selectedNent ? [selectedNent.path] : "all",
+        filter: "",
+      },
+      entries,
+    );
+    if (!newLogs || newLogs.length === 0) {
+      return;
+    }
+
+    if (isPaused) {
+      // When paused, store new logs separately
+      setPausedLogs((prev) => [...prev, ...newLogs]);
+    } else {
+      setLogs((prev) =>
+        [...prev, ...newLogs].slice(
+          Math.max(prev.length + newLogs.length - MAX_LOGS, 0),
+          prev.length + newLogs.length,
+        ),
       );
-      if (!newLogs) {
-        return prev;
-      }
-      return [...prev, ...newLogs].slice(
-        Math.max(prev.length + entries.length - MAX_LOGS, 0),
-        prev.length + entries.length,
-      );
-    });
+    }
   };
 
-  useLogs(logsConnectivityCallbacks, receiveLogs, paused > 0 || manuallyPaused);
+  useLogs(
+    logsConnectivityCallbacks,
+    (entries) => receiveLogs(entries, paused > 0 || manuallyPaused),
+    false, // Never skip the stream, always stay connected
+  );
 
   const router = useRouter();
   const { deploymentsURI } = useContext(DeploymentInfoContext);
@@ -153,6 +176,7 @@ export function FunctionLogs({
         <LogList
           nents={selectedNent ? [selectedNent] : []}
           logs={logs}
+          pausedLogs={pausedLogs}
           filteredLogs={filterLogs(
             {
               logTypes: selectedLevels,
@@ -164,7 +188,6 @@ export function FunctionLogs({
             logs,
           )}
           deploymentAuditLogs={[]}
-          filter={filter ?? ""}
           setFilter={setFilter}
           clearedLogs={[]}
           setClearedLogs={() => {}}

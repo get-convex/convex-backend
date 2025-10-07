@@ -52,9 +52,9 @@ import { LogDrilldown } from "./LogDrilldown";
 
 export type LogListProps = {
   logs?: UdfLog[];
+  pausedLogs?: UdfLog[];
   filteredLogs?: UdfLog[];
   deploymentAuditLogs?: DeploymentAuditLogEvent[];
-  filter: string;
   setFilter?: (filter: string) => void;
   clearedLogs: number[];
   setClearedLogs: (clearedLogs: number[]) => void;
@@ -107,6 +107,7 @@ export function useHitBoundary() {
 
 export function LogList({
   logs,
+  pausedLogs,
   filteredLogs,
   deploymentAuditLogs,
   clearedLogs,
@@ -236,7 +237,6 @@ export function LogList({
                 className="flex min-w-[24rem] flex-col"
               >
                 <LogDrilldown
-                  isPaused={paused}
                   requestId={
                     shownLog.kind === "ExecutionLog"
                       ? shownLog.executionLog.requestId
@@ -245,7 +245,7 @@ export function LogList({
                   shownInterleavedLogs={interleavedLogs}
                   allUdfLogs={
                     shownLog.kind === "ExecutionLog"
-                      ? logs.filter(
+                      ? [...logs, ...(pausedLogs ?? [])].filter(
                           (log) =>
                             log.requestId === shownLog.executionLog.requestId,
                         )
@@ -265,7 +265,7 @@ export function LogList({
             shownLog.kind === "ExecutionLog" && (
               <RequestIdLogs
                 requestId={shownLog.executionLog}
-                logs={logs.filter(
+                logs={[...logs, ...(pausedLogs ?? [])].filter(
                   (log) => log.requestId === shownLog.executionLog.requestId,
                 )}
                 onClose={() => setShownLog(undefined)}
@@ -345,14 +345,7 @@ configure a log stream."
               listRef={listRef}
               itemKey={(index) => {
                 const log = interleavedLogs[index];
-                switch (log.kind) {
-                  case "ExecutionLog":
-                    return log.executionLog.id;
-                  case "DeploymentEvent":
-                    return log.deploymentEvent._id;
-                  default:
-                    return "clearedLogs";
-                }
+                return getLogKey(log);
               }}
               items={interleavedLogs}
               totalNumItems={interleavedLogs.length}

@@ -239,7 +239,6 @@ export const Default: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -285,7 +284,6 @@ export const WithCachedQuery: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -332,7 +330,6 @@ export const WithErrorExecution: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -378,7 +375,6 @@ export const HttpActionExecution: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -433,7 +429,6 @@ export const LongRunningAction: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -455,7 +450,6 @@ export const MultipleExecutions: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -477,7 +471,6 @@ export const OverviewMode: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>
@@ -499,7 +492,6 @@ export const Paused: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={true}
           />
         )}
       </LogSelectionWrapper>
@@ -670,7 +662,6 @@ export const IncompleteActionExecution: Story = {
             onClose={() => {}}
             {...navProps}
             selectedLog={navProps.selectedLog!}
-            isPaused={false}
           />
         )}
       </LogSelectionWrapper>

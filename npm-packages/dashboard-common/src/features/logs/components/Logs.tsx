@@ -104,6 +104,8 @@ export function Logs({
 
   const [logs, setLogs] = useState<UdfLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<UdfLog[]>([]);
+  const [pausedLogs, setPausedLogs] = useState<UdfLog[]>([]);
+  const [pausedFilteredLogs, setPausedFilteredLogs] = useState<UdfLog[]>([]);
 
   const filters = useMemo(
     () => ({
@@ -123,19 +125,27 @@ export function Logs({
   const deploymentAuditLogs = useDeploymentAuditLogs(fromTimestamp);
 
   const receiveLogs = useCallback(
-    (entries: UdfLog[]) => {
-      setLogs((prev) =>
-        [...prev, ...entries].slice(
-          Math.max(prev.length + entries.length - MAX_LOGS, 0),
-          prev.length + entries.length,
-        ),
-      );
-      setFilteredLogs((prev) =>
-        [...prev, ...(filterLogs(filters, entries) || [])].slice(
-          Math.max(prev.length + entries.length - MAX_LOGS, 0),
-          prev.length + entries.length,
-        ),
-      );
+    (entries: UdfLog[], isPaused: boolean) => {
+      if (isPaused) {
+        // When paused, store new logs separately (except logs for existing requests)
+        setPausedLogs((prev) => [...prev, ...entries]);
+        const filteredEntries = filterLogs(filters, entries) || [];
+        setPausedFilteredLogs((prev) => [...prev, ...filteredEntries]);
+      } else {
+        setLogs((prev) =>
+          [...prev, ...entries].slice(
+            Math.max(prev.length + entries.length - MAX_LOGS, 0),
+            prev.length + entries.length,
+          ),
+        );
+        setFilteredLogs((prev) => {
+          const filteredEntries = filterLogs(filters, entries) || [];
+          return [...prev, ...filteredEntries].slice(
+            Math.max(prev.length + filteredEntries.length - MAX_LOGS, 0),
+            prev.length + filteredEntries.length,
+          );
+        });
+      }
     },
     [filters],
   );
@@ -145,11 +155,31 @@ export function Logs({
   const onPause = (p: boolean) => {
     const now = new Date().getTime();
     setPaused(p ? now : 0);
+
+    // When unpausing, merge pausedLogs into logs
+    if (!p && pausedLogs.length > 0) {
+      setLogs((prev) => {
+        const combined = [...prev, ...pausedLogs];
+        return combined.slice(
+          Math.max(combined.length - MAX_LOGS, 0),
+          combined.length,
+        );
+      });
+      setFilteredLogs((prev) => {
+        const combined = [...prev, ...pausedFilteredLogs];
+        return combined.slice(
+          Math.max(combined.length - MAX_LOGS, 0),
+          combined.length,
+        );
+      });
+      setPausedLogs([]);
+      setPausedFilteredLogs([]);
+    }
   };
   useLogs(
     logsConnectivityCallbacks.current,
-    receiveLogs,
-    paused > 0 || manuallyPaused,
+    (entries) => receiveLogs(entries, paused > 0 || manuallyPaused),
+    false, // Never skip the stream, always stay connected
   );
 
   useEffect(() => {
@@ -247,9 +277,9 @@ export function Logs({
         <LogList
           nents={nents}
           logs={logs}
+          pausedLogs={pausedLogs}
           filteredLogs={filteredLogs}
           deploymentAuditLogs={deploymentAuditLogs}
-          filter={filter}
           setFilter={setFilterAndInput}
           clearedLogs={clearedLogs}
           setClearedLogs={setClearedLogs}

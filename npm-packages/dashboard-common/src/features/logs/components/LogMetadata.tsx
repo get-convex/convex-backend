@@ -11,7 +11,6 @@ import { msFormat, formatBytes } from "@common/lib/format";
 import { UsageStats } from "system-udfs/convex/_system/frontend/common";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { Disclosure } from "@headlessui/react";
-import { PauseCircleIcon } from "@heroicons/react/24/outline";
 import { Spinner } from "@ui/Spinner";
 
 type RequestUsageStats = UsageStats & {
@@ -37,12 +36,10 @@ export function LogMetadata({
   requestId,
   logs,
   executionId,
-  isPaused,
 }: {
   requestId: string;
   logs: UdfLog[];
   executionId?: string;
-  isPaused: boolean;
 }) {
   const isExecutionView = !!executionId;
 
@@ -166,25 +163,22 @@ export function LogMetadata({
     : !requestOutcomeNode || requestOutcomeNode.inProgress;
 
   return (
-    <div className="p-2 text-xs">
+    <div className="animate-fadeInFromLoading p-2 text-xs">
       {isExecutionView ? (
         <ExecutionInfoList
           outcomeNode={executionOutcomeNode}
           executionId={executionId}
-          isPaused={isPaused && isInProgress}
         />
       ) : (
         <RequestInfoList
           outcomeNode={requestOutcomeNode}
           requestId={requestId}
-          isPaused={isPaused && isInProgress}
         />
       )}
       <ResourcesUsed
         usageStats={usageStats}
         filteredLogs={filteredLogs}
         isExecutionView={isExecutionView}
-        isPaused={isPaused && isInProgress}
         isInProgress={isInProgress}
       />
     </div>
@@ -195,13 +189,11 @@ function ResourcesUsed({
   usageStats,
   filteredLogs,
   isExecutionView,
-  isPaused,
   isInProgress,
 }: {
   usageStats: RequestUsageStats;
   filteredLogs: UdfLog[];
   isExecutionView: boolean;
-  isPaused: boolean;
   isInProgress: boolean;
 }) {
   return (
@@ -221,99 +213,112 @@ function ResourcesUsed({
                   <ChevronDownIcon className="size-3" />
                 )}
               </Disclosure.Button>
-              {isInProgress && open && (
-                <Pending
-                  isPaused={isPaused}
-                  isExecutionView={isExecutionView}
-                />
-              )}
             </div>
 
-            <Disclosure.Panel className="mt-2">
-              <ul className="divide-y text-xs">
-                <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                  <span className="text-content-secondary">Action Compute</span>
-                  <span className="min-w-0 text-content-primary">
-                    <strong>
-                      {Number(
-                        usageStats.actionComputeMbMs / (1024 * 3_600_000),
-                      ).toFixed(7)}{" "}
-                      GB-hr
-                    </strong>{" "}
-                    ({usageStats.actionMemoryUsedMb ?? 0} MB for{" "}
-                    {Number(usageStats.actionsRuntimeMs / 1000).toFixed(2)}s)
-                  </span>
-                </li>
-                <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                  <span className="text-content-secondary">DB Bandwidth</span>
-                  <span className="min-w-0 text-content-primary">
-                    Accessed{" "}
-                    <strong>
-                      {usageStats.databaseReadDocuments.toLocaleString()}{" "}
-                      {usageStats.databaseReadDocuments === 1
-                        ? "document"
-                        : "documents"}
-                    </strong>
-                    ,{" "}
-                    <strong>{formatBytes(usageStats.databaseReadBytes)}</strong>{" "}
-                    read,{" "}
-                    <strong>
-                      {formatBytes(usageStats.databaseWriteBytes)}
-                    </strong>{" "}
-                    written
-                  </span>
-                </li>
-                <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                  <span className="text-content-secondary">File Bandwidth</span>
-                  <span className="min-w-0 text-content-primary">
-                    <strong>{formatBytes(usageStats.storageReadBytes)}</strong>{" "}
-                    read,{" "}
-                    <strong>{formatBytes(usageStats.storageWriteBytes)}</strong>{" "}
-                    written
-                  </span>
-                </li>
-                <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                  <span className="text-content-secondary">
-                    Vector Bandwidth
-                  </span>
-                  <span className="min-w-0 text-content-primary">
-                    <strong>
-                      {formatBytes(usageStats.vectorIndexReadBytes)}
-                    </strong>{" "}
-                    read,{" "}
-                    <strong>
-                      {formatBytes(usageStats.vectorIndexWriteBytes)}
-                    </strong>{" "}
-                    written
-                  </span>
-                </li>
-                {usageStats.returnBytes && (
+            <Disclosure.Panel className="mt-2 animate-fadeInFromLoading">
+              {isInProgress && <Running />}
+
+              {isInProgress && isExecutionView ? (
+                <span className="mt-2 text-content-tertiary">
+                  Resource usage will appear here once the function call
+                  completes.
+                </span>
+              ) : (
+                <ul className="divide-y text-xs">
                   <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                    <span className="flex items-center gap-1 text-content-secondary">
-                      Return Size
-                      <Tooltip tip="Bandwidth from sending the return value of a function call to the user does not incur costs.">
-                        <QuestionMarkCircledIcon />
-                      </Tooltip>
+                    <span className="text-content-secondary">
+                      Action Compute
                     </span>
                     <span className="min-w-0 text-content-primary">
-                      <strong>{formatBytes(usageStats.returnBytes)}</strong>{" "}
-                      returned
+                      <strong>
+                        {Number(
+                          usageStats.actionComputeMbMs / (1024 * 3_600_000),
+                        ).toFixed(7)}{" "}
+                        GB-hr
+                      </strong>{" "}
+                      ({usageStats.actionMemoryUsedMb ?? 0} MB for{" "}
+                      {Number(usageStats.actionsRuntimeMs / 1000).toFixed(2)}s)
                     </span>
                   </li>
-                )}
-                {filteredLogs.filter((log) => log.kind === "outcome").length >
-                  1 && (
-                  <li className="py-2 text-content-secondary">
-                    Total resources used across{" "}
-                    {filteredLogs.filter((l) => l.kind === "outcome").length}{" "}
-                    executions
-                    {isExecutionView
-                      ? " in this execution"
-                      : " in this request"}
-                    .
+                  <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+                    <span className="text-content-secondary">DB Bandwidth</span>
+                    <span className="min-w-0 text-content-primary">
+                      Accessed{" "}
+                      <strong>
+                        {usageStats.databaseReadDocuments.toLocaleString()}{" "}
+                        {usageStats.databaseReadDocuments === 1
+                          ? "document"
+                          : "documents"}
+                      </strong>
+                      ,{" "}
+                      <strong>
+                        {formatBytes(usageStats.databaseReadBytes)}
+                      </strong>{" "}
+                      read,{" "}
+                      <strong>
+                        {formatBytes(usageStats.databaseWriteBytes)}
+                      </strong>{" "}
+                      written
+                    </span>
                   </li>
-                )}
-              </ul>
+                  <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+                    <span className="text-content-secondary">
+                      File Bandwidth
+                    </span>
+                    <span className="min-w-0 text-content-primary">
+                      <strong>
+                        {formatBytes(usageStats.storageReadBytes)}
+                      </strong>{" "}
+                      read,{" "}
+                      <strong>
+                        {formatBytes(usageStats.storageWriteBytes)}
+                      </strong>{" "}
+                      written
+                    </span>
+                  </li>
+                  <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+                    <span className="text-content-secondary">
+                      Vector Bandwidth
+                    </span>
+                    <span className="min-w-0 text-content-primary">
+                      <strong>
+                        {formatBytes(usageStats.vectorIndexReadBytes)}
+                      </strong>{" "}
+                      read,{" "}
+                      <strong>
+                        {formatBytes(usageStats.vectorIndexWriteBytes)}
+                      </strong>{" "}
+                      written
+                    </span>
+                  </li>
+                  {usageStats.returnBytes && (
+                    <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+                      <span className="flex items-center gap-1 text-content-secondary">
+                        Return Size
+                        <Tooltip tip="Bandwidth from sending the return value of a function call to the user does not incur costs.">
+                          <QuestionMarkCircledIcon />
+                        </Tooltip>
+                      </span>
+                      <span className="min-w-0 text-content-primary">
+                        <strong>{formatBytes(usageStats.returnBytes)}</strong>{" "}
+                        returned
+                      </span>
+                    </li>
+                  )}
+                  {filteredLogs.filter((log) => log.kind === "outcome").length >
+                    1 && (
+                    <li className="py-2 text-content-secondary">
+                      Total resources used across{" "}
+                      {filteredLogs.filter((l) => l.kind === "outcome").length}{" "}
+                      executions
+                      {isExecutionView
+                        ? " in this execution"
+                        : " in this request"}
+                      .
+                    </li>
+                  )}
+                </ul>
+              )}
             </Disclosure.Panel>
           </>
         )}
@@ -322,15 +327,7 @@ function ResourcesUsed({
   );
 }
 
-function FunctionEnvironment({
-  environment,
-  isPaused,
-  isExecutionView,
-}: {
-  environment?: string;
-  isPaused?: boolean;
-  isExecutionView?: boolean;
-}) {
+function FunctionEnvironment({ environment }: { environment?: string }) {
   switch (environment) {
     case "isolate":
       return (
@@ -351,20 +348,16 @@ function FunctionEnvironment({
         </div>
       );
     default:
-      return <Pending isPaused={isPaused} isExecutionView={isExecutionView} />;
+      return <Running />;
   }
 }
 
 function FunctionIdentity({
   identity,
   caller,
-  isPaused,
-  isExecutionView,
 }: {
   identity?: string;
   caller?: string;
-  isPaused?: boolean;
-  isExecutionView?: boolean;
 }) {
   switch (identity) {
     case "instance_admin":
@@ -421,19 +414,11 @@ function FunctionIdentity({
         </div>
       );
     default:
-      return <Pending isPaused={isPaused} isExecutionView={isExecutionView} />;
+      return <Running />;
   }
 }
 
-function FunctionCaller({
-  caller,
-  isPaused,
-  isExecutionView,
-}: {
-  caller?: string;
-  isPaused?: boolean;
-  isExecutionView?: boolean;
-}) {
+function FunctionCaller({ caller }: { caller?: string }) {
   switch (caller) {
     case "Tester":
       return (
@@ -499,20 +484,16 @@ function FunctionCaller({
         </div>
       );
     default:
-      return <Pending isPaused={isPaused} isExecutionView={isExecutionView} />;
+      return <Running />;
   }
 }
 
 function FunctionType({
   udfType,
   cachedResult,
-  isPaused,
-  isExecutionView,
 }: {
   udfType?: string;
   cachedResult?: boolean;
-  isPaused?: boolean;
-  isExecutionView?: boolean;
 }) {
   const getTypeDisplay = () => {
     switch (udfType) {
@@ -525,9 +506,7 @@ function FunctionType({
       case "HttpAction":
         return "HTTP Action";
       default:
-        return (
-          <Pending isPaused={isPaused} isExecutionView={isExecutionView} />
-        );
+        return <Running />;
     }
   };
 
@@ -537,11 +516,9 @@ function FunctionType({
 function RequestInfoList({
   outcomeNode,
   requestId,
-  isPaused,
 }: {
   outcomeNode: OutcomeNode | null;
   requestId: string;
-  isPaused: boolean;
 }) {
   return (
     <ul className="divide-y">
@@ -563,7 +540,7 @@ function RequestInfoList({
           {outcomeNode?.endTime ? (
             new Date(outcomeNode.endTime).toLocaleString()
           ) : (
-            <Pending isPaused={isPaused} isExecutionView={false} />
+            <Running />
           )}
         </span>
       </li>
@@ -579,7 +556,7 @@ function RequestInfoList({
           {outcomeNode?.executionTime ? (
             msFormat(outcomeNode.executionTime)
           ) : (
-            <Pending isPaused={isPaused} isExecutionView={false} />
+            <Running />
           )}
         </span>
       </li>
@@ -589,29 +566,19 @@ function RequestInfoList({
           <FunctionIdentity
             identity={outcomeNode?.identityType}
             caller={outcomeNode?.caller}
-            isPaused={isPaused}
-            isExecutionView={false}
           />
         </span>
       </li>
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Caller</span>
         <span className="truncate text-content-primary">
-          <FunctionCaller
-            caller={outcomeNode?.caller}
-            isPaused={isPaused}
-            isExecutionView={false}
-          />
+          <FunctionCaller caller={outcomeNode?.caller} />
         </span>
       </li>
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Environment</span>
         <span className="truncate text-content-primary">
-          <FunctionEnvironment
-            environment={outcomeNode?.environment}
-            isPaused={isPaused}
-            isExecutionView={false}
-          />
+          <FunctionEnvironment environment={outcomeNode?.environment} />
         </span>
       </li>
     </ul>
@@ -621,11 +588,9 @@ function RequestInfoList({
 function ExecutionInfoList({
   outcomeNode,
   executionId,
-  isPaused,
 }: {
   outcomeNode: OutcomeNode | null;
   executionId?: string;
-  isPaused: boolean;
 }) {
   const duration =
     typeof outcomeNode?.executionTime === "number"
@@ -648,7 +613,7 @@ function ExecutionInfoList({
               <FunctionNameOption label={outcomeNode.functionName} />
             </span>
           ) : (
-            <Pending isPaused={isPaused} isExecutionView />
+            <Running />
           )}
         </span>
       </li>
@@ -658,8 +623,6 @@ function ExecutionInfoList({
           <FunctionType
             udfType={outcomeNode?.udfType}
             cachedResult={outcomeNode?.cachedResult}
-            isPaused={isPaused}
-            isExecutionView
           />
         </span>
       </li>
@@ -675,7 +638,7 @@ function ExecutionInfoList({
           {outcomeNode?.endTime ? (
             new Date(outcomeNode.endTime).toLocaleString()
           ) : (
-            <Pending isPaused={isPaused} isExecutionView />
+            <Running />
           )}
         </span>
       </li>
@@ -688,49 +651,24 @@ function ExecutionInfoList({
               : "flex min-w-0 items-center gap-1 text-content-tertiary"
           }
         >
-          {duration || <Pending isPaused={isPaused} isExecutionView />}
+          {duration || <Running />}
         </span>
       </li>
       <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Environment</span>
         <span className="truncate text-content-primary">
-          <FunctionEnvironment
-            environment={outcomeNode?.environment}
-            isPaused={isPaused}
-            isExecutionView
-          />
+          <FunctionEnvironment environment={outcomeNode?.environment} />
         </span>
       </li>
     </ul>
   );
 }
 
-function Pending({
-  isPaused,
-  isExecutionView,
-}: {
-  isPaused?: boolean;
-  isExecutionView?: boolean;
-}) {
-  if (isPaused) {
-    return (
-      <Tooltip
-        tip={`The log stream was paused before this ${isExecutionView ? "execution" : "request"} completed. Unpause the log stream to see status updates.`}
-        disableHoverableContent
-        side="left"
-      >
-        <div className="flex animate-fadeInFromLoading items-center gap-1 text-content-tertiary">
-          <PauseCircleIcon className="size-3" />
-          Log Stream Paused
-        </div>
-      </Tooltip>
-    );
-  }
-
+function Running() {
   return (
     <span className="flex animate-fadeInFromLoading items-center gap-1 text-content-tertiary">
       <Spinner className="ml-0 size-3" />
-      Pending...
+      Running...
     </span>
   );
 }

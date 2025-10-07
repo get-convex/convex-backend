@@ -41,8 +41,8 @@ export function FunctionCallTree({
   const rootNode = executionNodes[0];
 
   return (
-    <div className="max-h-full p-2 text-xs">
-      <p className="pb-1 text-content-tertiary">
+    <div className="max-h-full animate-fadeInFromLoading p-2 text-xs">
+      <p className="pb-2 text-content-tertiary">
         This is an outline of the functions called in this request.
       </p>
       {rootNode && (
@@ -78,7 +78,7 @@ function ExecutionTreeNode({
   useEffect(() => {
     if (isCurrent && nodeRef.current) {
       nodeRef.current.scrollIntoView({
-        block: "start",
+        block: "nearest",
       });
     }
   }, [isCurrent]);

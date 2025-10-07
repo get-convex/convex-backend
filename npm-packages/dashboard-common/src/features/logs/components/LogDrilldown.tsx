@@ -26,7 +26,6 @@ export function LogDrilldown({
   onFilterByRequestId,
   onSelectLog,
   onHitBoundary,
-  isPaused,
   shownInterleavedLogs,
   allUdfLogs,
 }: {
@@ -38,7 +37,6 @@ export function LogDrilldown({
   onFilterByRequestId?: (requestId: string) => void;
   onSelectLog: (log: InterleavedLog) => void;
   onHitBoundary: (boundary: "top" | "bottom" | null) => void;
-  isPaused: boolean;
 }) {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const tabGroupRef = useRef<HTMLDivElement>(null);
@@ -195,7 +193,7 @@ export function LogDrilldown({
               </div>
             </div>
           )}
-        {allUdfLogs.length === 0 && (
+        {selectedLog.kind === "ExecutionLog" && allUdfLogs.length === 0 && (
           <Callout
             className="mx-2 mb-2 flex items-center gap-2 p-1.5 text-xs"
             variant="upsell"
@@ -238,7 +236,6 @@ export function LogDrilldown({
                   <HeadlessTab.Panels>
                     <HeadlessTab.Panel>
                       <LogMetadata
-                        isPaused={isPaused}
                         requestId={requestId}
                         logs={allUdfLogs}
                         executionId={selectedLog.executionLog.executionId}
@@ -246,7 +243,6 @@ export function LogDrilldown({
                     </HeadlessTab.Panel>
                     <HeadlessTab.Panel>
                       <LogMetadata
-                        isPaused={isPaused}
                         requestId={requestId}
                         logs={allUdfLogs}
                         executionId={undefined}
