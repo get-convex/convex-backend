@@ -42,7 +42,7 @@ export function LogListItem({
   return (
     <div
       className={classNames(
-        "flex gap-2 animate-fadeInFromLoading",
+        "flex gap-2",
         isFailure && "bg-background-error/50 text-content-error",
         focused && "bg-background-highlight",
         showBoundary === "top" && "animate-[bounceTop_0.375s_ease-out]",
@@ -175,7 +175,7 @@ function Wrapper({
       type="button"
       data-log-key={logKey}
       className={classNames(
-        "flex gap-2 truncate p-0.5",
+        "flex gap-2 truncate p-0.5 animate-fadeInFromLoading",
         "group w-full font-mono text-xs",
         "hover:bg-background-tertiary/70",
         "focus:outline-none focus:border focus:border-border-selected",
