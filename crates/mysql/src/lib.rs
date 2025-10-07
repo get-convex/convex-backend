@@ -669,10 +669,6 @@ impl<RT: Runtime> MySqlReader<RT> {
     ) {
         anyhow::ensure!(page_size > 0); // 0 size pages loop forever.
         let timer = metrics::load_documents_timer(self.read_pool.cluster_name());
-        let mut client = self
-            .read_pool
-            .acquire("load_documents", &self.db_name)
-            .await?;
         let mut num_returned = 0;
         let mut last_ts = match order {
             Order::Asc => Timestamp::MIN,
@@ -681,7 +677,12 @@ impl<RT: Runtime> MySqlReader<RT> {
         let mut last_tablet_id_param = Self::initial_id_param(order);
         let mut last_id_param = Self::initial_id_param(order);
         loop {
-            let mut rows_loaded = 0;
+            // Avoid holding connections across yield points, to limit lifetime
+            // and improve fairness.
+            let mut client = self
+                .read_pool
+                .acquire("load_documents", &self.db_name)
+                .await?;
 
             let query = match order {
                 Order::Asc => sql::load_docs_by_ts_page_asc(
@@ -711,17 +712,19 @@ impl<RT: Runtime> MySqlReader<RT> {
                 params.push(self.instance_name.to_string().into());
             }
             params.push((page_size as i64).into());
-            let row_stream = client
+            let rows: Vec<_> = client
                 .query_stream(query, params, page_size as usize)
+                .await?
+                .try_collect()
                 .await?;
+            drop(client);
 
             retention_validator
                 .validate_document_snapshot(range.min_timestamp_inclusive())
                 .await?;
 
-            futures::pin_mut!(row_stream);
-
-            while let Some(row) = row_stream.try_next().await? {
+            let rows_loaded = rows.len();
+            for row in rows {
                 let prev_rev_value: Option<Vec<u8>> = if include_prev_rev {
                     row.get_opt(6).context("missing column")??
                 } else {
@@ -737,7 +740,6 @@ impl<RT: Runtime> MySqlReader<RT> {
                         ResolvedDocument::from_database(document_id.table(), value)
                     })
                     .transpose()?;
-                rows_loaded += 1;
                 last_ts = ts;
                 last_tablet_id_param = internal_id_param(document_id.table().0);
                 last_id_param = internal_doc_id_param(document_id);
@@ -751,7 +753,7 @@ impl<RT: Runtime> MySqlReader<RT> {
                     }),
                 }
             }
-            if rows_loaded < page_size {
+            if rows_loaded < page_size as usize {
                 break;
             }
         }
