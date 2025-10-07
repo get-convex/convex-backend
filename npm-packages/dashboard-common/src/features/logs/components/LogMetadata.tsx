@@ -529,7 +529,25 @@ function RequestInfoList({
         </span>
       </li>
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
-        <span className="text-content-secondary">Completed At</span>
+        <span className="text-content-secondary">Started at</span>
+        <span
+          className={
+            outcomeNode?.endTime && outcomeNode?.executionTime
+              ? "truncate text-content-primary"
+              : "truncate text-content-tertiary"
+          }
+        >
+          {outcomeNode?.endTime && outcomeNode?.executionTime ? (
+            new Date(
+              outcomeNode.endTime - outcomeNode.executionTime,
+            ).toLocaleString()
+          ) : (
+            <Running />
+          )}
+        </span>
+      </li>
+      <li className="grid grid-cols-2 items-center gap-2 py-1.5">
+        <span className="text-content-secondary">Completed at</span>
         <span
           className={
             outcomeNode?.endTime
@@ -627,7 +645,25 @@ function ExecutionInfoList({
         </span>
       </li>
       <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-        <span className="text-content-secondary">Completed At</span>
+        <span className="text-content-secondary">Started at</span>
+        <span
+          className={
+            outcomeNode?.endTime && outcomeNode?.executionTime
+              ? "truncate text-content-primary"
+              : "truncate text-content-tertiary"
+          }
+        >
+          {outcomeNode?.endTime && outcomeNode?.executionTime ? (
+            new Date(
+              outcomeNode.endTime - outcomeNode.executionTime,
+            ).toLocaleString()
+          ) : (
+            <Running />
+          )}
+        </span>
+      </li>
+      <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
+        <span className="text-content-secondary">Completed at</span>
         <span
           className={
             outcomeNode?.endTime
