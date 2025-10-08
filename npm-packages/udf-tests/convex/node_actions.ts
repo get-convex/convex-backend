@@ -104,3 +104,9 @@ export const actionCallsAction = actionGeneric(
 export const partialEscapeSequence = actionGeneric(async () => {
   return "\ud83c...";
 });
+
+export const echoMessage = actionGeneric(
+  async (_, { message }: { message: string }) => {
+    return message;
+  },
+);

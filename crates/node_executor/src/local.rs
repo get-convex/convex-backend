@@ -31,6 +31,7 @@ use crate::{
         ExecutorRequest,
         InvokeResponse,
         NodeExecutor,
+        ARGS_TOO_LARGE_RESPONSE_MESSAGE,
         EXECUTE_TIMEOUT_RESPONSE_JSON,
     },
     handle_node_executor_stream,
@@ -252,7 +253,15 @@ impl NodeExecutor for LocalNodeExecutor {
             },
         };
 
-        if !response.status().is_success() {
+        if let Err(e) = response.error_for_status_ref() {
+            if e.status() == Some(reqwest::StatusCode::PAYLOAD_TOO_LARGE) {
+                return Err(
+                    anyhow::anyhow!(e.without_url()).context(ErrorMetadata::bad_request(
+                        "ArgsTooLarge",
+                        ARGS_TOO_LARGE_RESPONSE_MESSAGE,
+                    )),
+                );
+            }
             let error = response.text().await?;
             anyhow::bail!("Node executor server returned error: {}", error);
         }
@@ -301,7 +310,10 @@ mod tests {
         value::ConvexValue,
         version::Version,
     };
-    use errors::ErrorMetadataAnyhowExt;
+    use errors::{
+        ErrorMetadata,
+        ErrorMetadataAnyhowExt,
+    };
     use futures::FutureExt;
     use isolate::test_helpers::TEST_SOURCE;
     use keybroker::{
@@ -647,6 +659,40 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["[LOG] 'About to do something...'".to_owned()]
         );
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_args_too_large(rt: ProdRuntime) -> anyhow::Result<()> {
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt).await;
+        let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
+
+        // Create ~6MB of args data, which is too large for Node functions.
+        let args = create_args(assert_obj!(
+            "message" =>  "a".repeat(6 * 1024 * 1024)
+        ))?;
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
+            "node_actions.js:echoMessage".parse()?,
+            args,
+            VERSION.clone(),
+        );
+        let error = execute(
+            &actions,
+            execute_request(path_and_args, source_package),
+            empty_source_maps_callback(),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(
+            &error.to_string(),
+            "Node actions arguments size is too large. The maximum size is 5 MiB. Reduce the size \
+             of the arguments or consider using V8 actions instead, which have a 16 MiB limit."
+        );
+        let metadata = error.downcast_ref::<ErrorMetadata>().unwrap();
+        assert!(metadata.is_deterministic_user_error());
+
         Ok(())
     }
 

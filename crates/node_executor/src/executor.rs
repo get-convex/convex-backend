@@ -126,6 +126,10 @@ pub static EXECUTE_TIMEOUT_RESPONSE_JSON: LazyLock<JsonValue> = LazyLock::new(||
     )
 });
 
+pub const ARGS_TOO_LARGE_RESPONSE_MESSAGE: &str =
+    "Node actions arguments size is too large. The maximum size is 5 MiB. Reduce the size of the \
+     arguments or consider using V8 actions instead, which have a 16 MiB limit.";
+
 const NODE_ANALYZE_INITIAL_BACKOFF: Duration = Duration::from_millis(100);
 const NODE_ANALYZE_MAX_BACKOFF: Duration = Duration::from_secs(5);
 
