@@ -1,5 +1,9 @@
 import type { TSESTree } from "@typescript-eslint/utils";
 import { CONVEX_REGISTRARS, createRule } from "../util.js";
+import {
+  ReportFixFunction,
+  RuleContext,
+} from "@typescript-eslint/utils/ts-eslint";
 
 /**
  * Helper function to check if an object expression has an args property
@@ -44,9 +48,9 @@ function getHandlerProperty(
  * Helper function to create a fix for missing args property
  */
 function createArgsFix(
-  context: any,
+  context: RuleContext<string, unknown[]>,
   objectArg: TSESTree.ObjectExpression,
-): ((fixer: any) => any) | undefined {
+): ReportFixFunction {
   return (fixer) => {
     const sourceCode = context.getSourceCode();
     const objectText = sourceCode.getText(objectArg);

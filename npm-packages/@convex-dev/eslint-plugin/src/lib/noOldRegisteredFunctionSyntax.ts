@@ -74,9 +74,6 @@ export const noOldRegisteredFunctionSyntax = createRule({
             node: node.init,
             messageId: "use-object-syntax",
             fix: (fixer) => {
-              // Get function parameters and body
-              const params = functionArg.params;
-
               // Check if the function has a second parameter (args)
               const hasArgsParam = hasFunctionArgs(functionArg);
 

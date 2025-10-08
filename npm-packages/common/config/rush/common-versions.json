@@ -108,6 +108,7 @@
     "@types/node": ["^20", "^22.5.4"],
     "@types/react": ["^18", "^18.3.17", "^18.2.65"],
     "@types/react-dom": ["^18", "^18.3.1", "^18.2.21"],
+    "typescript-eslint": ["^8.45.0"],
     "@typescript-eslint/eslint-plugin": ["^8.45.0"],
     //"eslint": ["^8"],
     "@eslint/eslintrc": ["^3"],

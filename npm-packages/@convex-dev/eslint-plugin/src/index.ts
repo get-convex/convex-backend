@@ -8,7 +8,7 @@ const rules = {
   "no-args-without-validator": noArgsWithoutValidator,
   "no-missing-args-validator": noMissingArgs,
   "import-wrong-runtime": noImportUseNode,
-} satisfies Record<string, RuleModule<any>>;
+} satisfies Record<string, RuleModule<string, unknown[]>>;
 
 const recommendedRules = {
   // This rule is a good idea but bothersome to convert projects to later:
@@ -32,8 +32,10 @@ const isESM = typeof require === "undefined";
 const plugin = {
   // loose types so this can work with ESlint 8 and 9
   configs: {} as {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recommended: any;
     /** Only available in ESlint 8 */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recommendedRulesCustomConvexDirectoryLocation: any;
   },
   meta: {

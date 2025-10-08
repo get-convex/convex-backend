@@ -1,6 +1,5 @@
 import path from "path";
 import fs from "fs";
-import { AST_NODE_TYPES, TSESTree } from "@typescript-eslint/utils";
 import { createRule, isEntryPoint } from "../util.js";
 
 export const noImportUseNode = createRule({

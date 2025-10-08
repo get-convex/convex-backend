@@ -4,28 +4,28 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "npm-run-all --parallel dev:db dev:frontend",
-    "dev:db": "convex dev",
-    "dev:frontend": "vite --open --clearScreen false",
     "build": "tshy",
-    "preview": "vite preview",
     "test": "vitest run",
     "test:types": "tsc --noEmit",
     "test:watch": "vitest",
-    "prepare": "tshy"
+    "prepare": "tshy",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@typescript-eslint/utils": "~8.38.0"
   },
   "devDependencies": {
+    "@eslint/js": "~9.34.0",
     "@types/eslint": "~9.6.1",
     "@types/node": "^18.17.0",
     "@typescript-eslint/rule-tester": "~8.38.0",
     "@typescript-eslint/types": "~8.38.0",
     "eslint": "^9.37.0",
     "eslint-doc-generator": "^1.7.1",
+    "eslint-plugin-eslint-plugin": "~7.0.0",
     "tshy": "^3.0.0",
     "typescript": "^5.9.2",
+    "typescript-eslint": "^8.45.0",
     "vitest": "^3.2.4"
   },
   "tshy": {
