@@ -76,10 +76,10 @@ export const useQueryFilteredTable = (tableName: string) => {
 
   const loadNextPage = useCallback(() => {
     if (status === "CanLoadMore") {
-      loadMore(DEFAULT_DATA_PAGE_SIZE);
+      loadMore(pageSize);
       incNumRowsReadEstimate(maximumRowsRead);
     }
-  }, [status, loadMore, incNumRowsReadEstimate]);
+  }, [status, loadMore, incNumRowsReadEstimate, pageSize]);
 
   useEffect(() => {
     if (staleAsOf) {
