@@ -334,7 +334,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             };
             let index_registry = snapshot.index_registry;
             index_writer
-                .perform_backfill(
+                .backfill_from_ts(
                     ts,
                     &index_registry,
                     index_selector,

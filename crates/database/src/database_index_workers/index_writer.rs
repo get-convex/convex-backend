@@ -207,7 +207,7 @@ impl<RT: Runtime> IndexWriter<RT> {
     ///    with a timestamp <= `snapshot_ts`.
     ///
     /// Takes a an optional database to update progress on the index backfill
-    pub async fn perform_backfill(
+    pub async fn backfill_from_retention_cutoff(
         &self,
         snapshot_ts: RepeatableTimestamp,
         index_metadata: &IndexRegistry,
@@ -262,6 +262,52 @@ impl<RT: Runtime> IndexWriter<RT> {
                 )
                 .await?;
         }
+        Ok(())
+    }
+
+    /// Backfill indexes based on a snapshot at the current time.  After the
+    /// current snapshot is backfilled, index snapshot reads at >=ts are
+    /// valid.
+    ///
+    /// The goal of this backfill is to make snapshot reads of `index_name`
+    /// valid at or after snapshot_ts.
+    /// To support:
+    /// 1. Latest documents as of snapshot_ts.
+    /// 2. Document changes after `snapshot_ts`. These are handled by active
+    ///    writes, assuming `snapshot_ts` is after the index was created. If
+    ///    there are no active writes, then `backfill_forwards` must be called
+    ///    with a timestamp <= `snapshot_ts`.
+    ///
+    /// Takes a an optional database to update progress on the index backfill
+    pub async fn backfill_from_ts(
+        &self,
+        snapshot_ts: RepeatableTimestamp,
+        index_metadata: &IndexRegistry,
+        index_selector: IndexSelector,
+        concurrency: usize,
+        database: Option<Database<RT>>,
+    ) -> anyhow::Result<()> {
+        let pause_client = self.runtime.pause_client();
+        pause_client.wait(PERFORM_BACKFILL_LABEL).await;
+        stream::iter(index_selector.iterate_tables().map(Ok))
+            .try_for_each_concurrent(concurrency, |table_id| {
+                let index_metadata = index_metadata.clone();
+                let index_selector = index_selector.clone();
+                let database = database.clone();
+                let self_ = (*self).clone();
+                try_join("index_backfill_table_snapshot", async move {
+                    self_
+                        .backfill_exact_snapshot_of_table(
+                            snapshot_ts,
+                            &index_selector,
+                            &index_metadata,
+                            table_id,
+                            database,
+                        )
+                        .await
+                })
+            })
+            .await?;
         Ok(())
     }
 
