@@ -11002,6 +11002,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "workos_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "common",
+ "errors",
+ "http 1.3.1",
+ "oauth2",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "write16"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
