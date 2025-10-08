@@ -345,7 +345,7 @@ describe("File storage with HTTPClient", () => {
   test("expired upload url", async () => {
     // This test uses a token that was created with the dev secret. The target will fail to decode the token if the secret is different.
     if (!process.env.SKIP_INSTANCE_SECRET_TESTS) {
-      const expiredPostUrl = `${deploymentUrl}/api/storage/upload?token=012df53dad7f240d44729afc7d018378f47916060026f5870066118050545b6f45f52467338e8bd2826bf358c80b7d7846a080719fa0fc0a2d69e7`;
+      const expiredPostUrl = `${deploymentUrl}/api/storage/upload?token=01fadba622425353075d310561a03992352aa952b2f0113f3cd713b6bfa023c765be18fb122abb7ffd5505b81e8362`;
       const postResult = await fetch(expiredPostUrl, {
         method: "POST",
         body: "helloworld",

@@ -105,6 +105,7 @@ use crate::{
     legacy_encryptor::LegacyEncryptor,
     metrics::{
         log_actions_token_expired,
+        log_legacy_admin_key,
         log_store_file_auth_expired,
     },
     secret::InstanceSecret,
@@ -886,11 +887,12 @@ impl KeyBroker {
     pub fn is_encrypted_admin_key(&self, key: &str) -> bool {
         let encrypted_part = split_admin_key(key).map(|(_, key)| key).unwrap_or(key);
         let admin_key: Result<AdminKeyProto, _> = self
-            .encryptor
-            .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
+            .admin_key_encryptor
+            .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
             .or_else(|_| {
-                self.admin_key_encryptor
-                    .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
+                self.encryptor
+                    .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
+                    .inspect(|_| log_legacy_admin_key())
             });
         admin_key.is_ok()
     }
@@ -905,11 +907,12 @@ impl KeyBroker {
             identity,
             is_read_only,
         } = self
-            .encryptor
-            .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
+            .admin_key_encryptor
+            .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
             .or_else(|_| {
-                self.admin_key_encryptor
-                    .decrypt_proto(ADMIN_KEY_VERSION, encrypted_part)
+                self.encryptor
+                    .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
+                    .inspect(|_| log_legacy_admin_key())
             })
             .with_context(|| format!("Couldn't decode the AdminKeyProto {key}"))?;
         let instance_name = instance_name
@@ -947,12 +950,8 @@ impl KeyBroker {
             authorization_type,
             component_id,
         } = self
-            .encryptor
-            .decode_proto(STORE_FILE_AUTHZ_VERSION, store_file_authorization)
-            .or_else(|_| {
-                self.store_file_encryptor
-                    .decrypt_proto(STORE_FILE_AUTHZ_VERSION, store_file_authorization)
-            })
+            .store_file_encryptor
+            .decrypt_proto(STORE_FILE_AUTHZ_VERSION, store_file_authorization)
             .context(ErrorMetadata::unauthenticated(
                 "StorageTokenInvalid",
                 "Couldn't decode the StoreFileAuthorization token",
@@ -1047,9 +1046,8 @@ impl KeyBroker {
     ) -> anyhow::Result<Cursor> {
         let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
         let proto: InstanceCursorProto = self
-            .encryptor
-            .decode_proto(cursor_version, &cursor)
-            .or_else(|_| self.cursor_encryptor.decrypt_proto(cursor_version, &cursor))
+            .cursor_encryptor
+            .decrypt_proto(cursor_version, &cursor)
             .with_context(cursor_parse_error)?;
         self.proto_to_cursor(proto)
     }
@@ -1081,12 +1079,8 @@ impl KeyBroker {
             None => Ok(QueryJournal::new()),
             Some(journal) => {
                 let proto: InstanceQueryJournalProto = self
-                    .encryptor
-                    .decode_proto(query_journal_version, &journal)
-                    .or_else(|_| {
-                        self.journal_encryptor
-                            .decrypt_proto(query_journal_version, &journal)
-                    })
+                    .journal_encryptor
+                    .decrypt_proto(query_journal_version, &journal)
                     .with_context(cursor_parse_error)?;
                 let end_cursor = match proto.end_cursor {
                     Some(cursor) => Some(self.proto_to_cursor(cursor)?),
@@ -1122,12 +1116,8 @@ impl KeyBroker {
             issued_s,
             component_id,
         } = self
-            .encryptor
-            .decode_proto(ACTION_KEY_VERSION, token)
-            .or_else(|_| {
-                self.action_callback_encryptor
-                    .decrypt_proto(ACTION_KEY_VERSION, token)
-            })
+            .action_callback_encryptor
+            .decrypt_proto(ACTION_KEY_VERSION, token)
             .with_context(|| format!("Couldn't decode ActionCallbackTokenProto {token}"))?;
 
         anyhow::ensure!(issued_s != 0, "ActionCallbackTokenProto missing issued_s");
@@ -1395,5 +1385,6 @@ mod tests {
             let roundtripped = AdminIdentity::from_proto_unchecked(proto).unwrap();
             assert_eq!(admin_identity, roundtripped);
         }
+
     }
 }

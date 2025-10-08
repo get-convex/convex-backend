@@ -18,3 +18,11 @@ register_convex_counter!(
 pub fn log_actions_token_expired() {
     log_counter(&KEYBROKER_ACTIONS_TOKEN_EXPIRED_TOTAL, 1);
 }
+
+register_convex_counter!(
+    KEYBROKER_LEGACY_ADMIN_KEY_TOTAL,
+    "Number of times that a LegacyEncryptor-issued admin key is encountered"
+);
+pub fn log_legacy_admin_key() {
+    log_counter(&KEYBROKER_LEGACY_ADMIN_KEY_TOTAL, 1);
+}
