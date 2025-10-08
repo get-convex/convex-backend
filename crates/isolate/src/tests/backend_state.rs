@@ -135,7 +135,7 @@ async fn test_http_action_helper(
     error_message: &str,
 ) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
-    toggle_backend_state(&t.database, backend_state.clone()).await?;
+    toggle_backend_state(&t.database, backend_state).await?;
     let (http_response_sender, _http_response_receiver) = mpsc::unbounded_channel();
     let result = t
         .raw_http_action(

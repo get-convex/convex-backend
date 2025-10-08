@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[derive(Clone, Copy, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "snake_case")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 /// Represents the different states a backend can be in.
