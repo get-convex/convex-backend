@@ -44,6 +44,7 @@ use serde_json::json;
 use utoipa::ToSchema;
 use utoipa_axum::router::OpenApiRouter;
 use value::{
+    serialized_args_ext::SerializedArgsExt,
     TableName,
     TableNamespace,
 };

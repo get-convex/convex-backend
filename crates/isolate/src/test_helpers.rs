@@ -151,6 +151,7 @@ use udf::{
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
+    serialized_args_ext::SerializedArgsExt,
     ConvexArray,
     ConvexObject,
     TableName,

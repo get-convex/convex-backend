@@ -94,6 +94,7 @@ use udf::{
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    serialized_args_ext::SerializedArgsExt,
     ConvexArray,
     ConvexObject,
     TableName,

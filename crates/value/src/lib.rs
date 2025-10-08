@@ -22,6 +22,7 @@ mod metrics;
 pub mod numeric;
 mod object;
 pub mod serde;
+pub mod serialized_args_ext;
 mod set;
 pub mod sha256;
 mod size;

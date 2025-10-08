@@ -65,6 +65,7 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     export::ValueFormat,
     id_v6::DeveloperDocumentId,
+    serialized_args_ext::SerializedArgsExt,
 };
 use vector::{
     VectorSearch,

@@ -127,10 +127,6 @@ impl SerializedArgs {
     pub fn from_slice(value: &[u8]) -> Result<Self, serde_json::Error> {
         Ok(Self(serde_json::from_slice(value)?))
     }
-
-    pub fn into_args(self) -> anyhow::Result<Vec<JsonValue>> {
-        Ok(serde_json::from_str(self.0.get())?)
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, AsRefStr)]

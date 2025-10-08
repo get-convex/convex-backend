@@ -185,6 +185,7 @@ use usage_tracking::{
 use value::{
     id_v6::DeveloperDocumentId,
     identifier::Identifier,
+    serialized_args_ext::SerializedArgsExt,
     JsonPackedValue,
     TableNamespace,
 };

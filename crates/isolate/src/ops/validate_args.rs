@@ -8,7 +8,10 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::ConvexArray;
+use value::{
+    serialized_args_ext::SerializedArgsExt,
+    ConvexArray,
+};
 
 use super::OpProvider;
 use crate::helpers::UdfArgsJson;
