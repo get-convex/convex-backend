@@ -79,7 +79,6 @@ export const noMissingArgs = createRule({
     },
     schema: [],
     fixable: "code",
-    hasSuggestions: true,
   },
   defaultOptions: [],
   create: (context) => {
@@ -147,7 +146,6 @@ export const noArgsWithoutValidator = createRule({
     },
     schema: [],
     fixable: "code",
-    hasSuggestions: true,
   },
   defaultOptions: [],
   create: (context) => {
