@@ -2,6 +2,9 @@ import { forwardRef } from "react";
 import { isInCommonUTCTimestampRange } from "@common/features/data/lib/helpers";
 import { Tooltip } from "@ui/Tooltip";
 
+// We only render the first bit of a string inside of cells for performance.
+const MAX_CHARS_TO_RENDER = 150;
+
 type DataCellValueProps = {
   isDateField: boolean;
   inferIsDate: boolean;
@@ -52,12 +55,12 @@ export const DataCellValue = forwardRef<HTMLSpanElement, DataCellValueProps>(
           <span
             className={`before:text-content-secondary before:content-['"'] after:text-content-secondary after:content-['"']`}
           >
-            {stringValue}
+            {stringValue.slice(0, MAX_CHARS_TO_RENDER)}
           </span>
         ) : value === undefined ? (
           <span className="text-content-secondary italic">unset</span>
         ) : (
-          <span>{stringValue}</span>
+          <span>{stringValue.slice(0, MAX_CHARS_TO_RENDER)}</span>
         )}
       </span>
     );

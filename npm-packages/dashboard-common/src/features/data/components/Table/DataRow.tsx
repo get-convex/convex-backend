@@ -166,6 +166,7 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
   return (
     <div
       className={classNames(
+        "animate-fadeInFromLoading",
         // Make sure the focus ring is visible on first and last cell
         "focus:ring-none focus:border",
         didJustCreate && "animate-highlight",
