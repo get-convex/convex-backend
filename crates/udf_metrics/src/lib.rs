@@ -604,8 +604,8 @@ impl TryFrom<serde_json::Value> for MetricsWindow {
                 parsed.start
             );
         }
-        if parsed.num_buckets == 0 {
-            anyhow::bail!("Invalid query num_buckets: 0");
+        if parsed.num_buckets == 0 || parsed.num_buckets > 10000 {
+            anyhow::bail!("Invalid query num_buckets: {}", parsed.num_buckets);
         }
         Ok(Self {
             start: parsed.start,
