@@ -188,8 +188,8 @@ Schema:
   - `vector_storage_read_bytes`: number
   - `vector_storage_write_bytes`: number, this and `vector_storage_read_bytes`
     make up the vector bandwidth used by the function
-  - `action_memory_used_mb`: number, for actions, the memory used in MiB. This
-    combined with `execution_time_ms` makes up the action compute.
+  - `memory_used_mb`: number, for queries, mutations, and actions, the memory
+    used in MiB. This combined with `execution_time_ms` makes up the compute.
 
 Example event for a query:
 

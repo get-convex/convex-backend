@@ -362,17 +362,10 @@
           "storageReadBytes",
           "storageWriteBytes",
           "vectorIndexReadBytes",
-          "vectorIndexWriteBytes"
+          "vectorIndexWriteBytes",
+          "memoryUsedMb"
         ],
         "properties": {
-          "actionMemoryUsedMb": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "minimum": 0
-          },
           "databaseReadBytes": {
             "type": "integer",
             "format": "int64",
@@ -384,6 +377,11 @@
             "minimum": 0
           },
           "databaseWriteBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "memoryUsedMb": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

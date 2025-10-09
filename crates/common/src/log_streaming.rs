@@ -66,7 +66,7 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
-    pub action_memory_used_mb: Option<u64>,
+    pub memory_used_mb: u64,
     pub return_bytes: Option<u64>,
 }
 
@@ -99,7 +99,7 @@ pub struct UsageStatsJson {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
-    pub action_memory_used_mb: Option<u64>,
+    pub memory_used_mb: u64,
 }
 
 // Nothing yet. Can add information like parent scheduled job, scheduler lag,
@@ -414,8 +414,16 @@ impl LogEvent {
                         file_storage_write_bytes: u64,
                         vector_storage_read_bytes: u64,
                         vector_storage_write_bytes: u64,
+                        memory_used_mb: u64,
                         action_memory_used_mb: Option<u64>,
                     }
+                    let action_memory_used_mb = if source.udf_type == UdfType::Action
+                        || source.udf_type == UdfType::HttpAction
+                    {
+                        Some(usage_stats.memory_used_mb)
+                    } else {
+                        None
+                    };
                     serialize_map!({
                         "timestamp": ms,
                         "topic": "function_execution",
@@ -433,7 +441,8 @@ impl LogEvent {
                             file_storage_write_bytes: usage_stats.storage_write_bytes,
                             vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
                             vector_storage_write_bytes: usage_stats.vector_index_write_bytes,
-                            action_memory_used_mb: usage_stats.action_memory_used_mb
+                            memory_used_mb: usage_stats.memory_used_mb,
+                            action_memory_used_mb,
                         }
                     })
                 },
@@ -910,7 +919,7 @@ mod tests {
                         storage_write_bytes: 0,
                         vector_index_read_bytes: 0,
                         vector_index_write_bytes: 0,
-                        action_memory_used_mb: None,
+                        memory_used_mb: 0,
                         return_bytes: Some(64),
                     },
                     occ_info: Some(OccInfo {

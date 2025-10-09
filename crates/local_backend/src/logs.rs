@@ -180,7 +180,7 @@ pub async fn stream_function_logs(
 
 fn usage_stats_to_json(
     stats: &usage_tracking::AggregatedFunctionUsageStats,
-    action_memory_used_mb: Option<u64>,
+    memory_used_mb: u64,
 ) -> common::log_streaming::UsageStatsJson {
     common::log_streaming::UsageStatsJson {
         database_read_bytes: stats.database_read_bytes,
@@ -190,7 +190,7 @@ fn usage_stats_to_json(
         storage_write_bytes: stats.storage_write_bytes,
         vector_index_read_bytes: stats.vector_index_read_bytes,
         vector_index_write_bytes: stats.vector_index_write_bytes,
-        action_memory_used_mb,
+        memory_used_mb,
     }
 }
 
@@ -198,8 +198,7 @@ fn execution_to_json(
     execution: FunctionExecution,
     supports_structured_log_lines: bool,
 ) -> anyhow::Result<FunctionExecutionJson> {
-    let usage_stats_json =
-        usage_stats_to_json(&execution.usage_stats, execution.action_memory_used_mb);
+    let usage_stats_json = usage_stats_to_json(&execution.usage_stats, execution.memory_used_mb);
     let occ_info_json = execution
         .occ_info
         .as_ref()
