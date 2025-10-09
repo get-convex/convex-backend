@@ -14,7 +14,10 @@ use metrics::{
     Timer,
     STATUS_LABEL,
 };
-use mysql_async::Row;
+use mysql_async::{
+    Row,
+    Value,
+};
 use prometheus::VMHistogramVec;
 
 fn cluster_name_label(cluster_name: &str) -> StaticMetricLabel {
@@ -433,9 +436,8 @@ pub fn log_query_result(row: &Row, labels: Vec<StaticMetricLabel>) {
         // Only counts size from BLOBs because the interface doesn't allow
         // generic parsing. All JsonValues are BLOBs though so this is almost
         // everything.
-        let col_bytes: Option<Result<Vec<u8>, _>> = row.get_opt(i);
-        if let Some(Ok(col_bytes)) = col_bytes {
-            total_data_size += col_bytes.len();
+        if let Some(Value::Bytes(col)) = row.as_ref(i) {
+            total_data_size += col.len();
         }
     }
     log_counter_with_labels(&MYSQL_QUERY_RESULT_BYTES, total_data_size as u64, labels);

@@ -111,7 +111,10 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use metrics::write_persistence_global_timer;
-use mysql_async::Row;
+use mysql_async::{
+    Row,
+    Value,
+};
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use smallvec::SmallVec;
@@ -527,7 +530,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         params.push((chunk_size as i64).into());
         let row_stream = client.query_stream(stmt, params, chunk_size).await?;
 
-        let parsed = row_stream.map(|row| parse_row(&row?));
+        let parsed = row_stream.map(|row| parse_row(&mut row?));
         parsed.try_collect().await
     }
 
@@ -603,6 +606,20 @@ pub struct MySqlReader<RT: Runtime> {
     version: PersistenceVersion,
 }
 
+fn maybe_bytes_col(row: &Row, col: usize) -> anyhow::Result<Option<&[u8]>> {
+    match row.as_ref(col) {
+        Some(Value::Bytes(b)) => Ok(Some(b)),
+        Some(Value::NULL) => Ok(None),
+        _ => anyhow::bail!("row[{col}] must be Bytes or NULL"),
+    }
+}
+fn bytes_col(row: &Row, col: usize) -> anyhow::Result<&[u8]> {
+    match row.as_ref(col) {
+        Some(Value::Bytes(b)) => Ok(b),
+        _ => anyhow::bail!("row[{col}] must be Bytes"),
+    }
+}
+
 impl<RT: Runtime> MySqlReader<RT> {
     fn initial_id_param(order: Order) -> Vec<u8> {
         match order {
@@ -613,35 +630,20 @@ impl<RT: Runtime> MySqlReader<RT> {
 
     fn row_to_document(
         &self,
-        row: Row,
+        row: &Row,
     ) -> anyhow::Result<(
         Timestamp,
         InternalDocumentId,
         Option<ResolvedDocument>,
         Option<Timestamp>,
     )> {
-        let (ts, id, doc, prev_ts) = self.row_to_document_inner(row)?;
-        Ok((ts, id, doc, prev_ts))
-    }
-
-    fn row_to_document_inner(
-        &self,
-        row: Row,
-    ) -> anyhow::Result<(
-        Timestamp,
-        InternalDocumentId,
-        Option<ResolvedDocument>,
-        Option<Timestamp>,
-    )> {
-        let bytes: Vec<u8> = row.get(0).unwrap();
-        let internal_id = InternalId::try_from(bytes)?;
-        let ts: i64 = row.get(1).unwrap();
+        let internal_id = InternalId::try_from(bytes_col(row, 0)?)?;
+        let ts: i64 = row.get_opt(1).context("row[1]")??;
         let ts = Timestamp::try_from(ts)?;
-        let table_b: Vec<u8> = row.get(2).unwrap();
-        let json_value: Vec<u8> = row.get(3).unwrap();
-        let json_value: JsonValue = serde_json::from_slice(&json_value)?;
-        let deleted: bool = row.get(4).unwrap();
-        let table = TabletId(table_b.try_into()?);
+        let table_b = bytes_col(row, 2)?;
+        let json_value: JsonValue = serde_json::from_slice(bytes_col(row, 3)?)?;
+        let deleted: bool = row.get_opt(4).context("row[4]")??;
+        let table = TabletId(table_b[..].try_into()?);
         let document_id = InternalDocumentId::new(table, internal_id);
         let document = if !deleted {
             let value: ConvexValue = json_value.try_into()?;
@@ -649,7 +651,7 @@ impl<RT: Runtime> MySqlReader<RT> {
         } else {
             None
         };
-        let prev_ts: Option<i64> = row.get(5).unwrap();
+        let prev_ts: Option<i64> = row.get_opt(5).context("row[5]")??;
         let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
         Ok((ts, document_id, document, prev_ts))
     }
@@ -728,21 +730,21 @@ impl<RT: Runtime> MySqlReader<RT> {
 
             let rows_loaded = rows.len();
             for row in rows {
-                let prev_rev_value: Option<Vec<u8>> = if include_prev_rev {
-                    row.get_opt(6).context("missing column")??
+                let (ts, document_id, document, prev_ts) = self.row_to_document(&row)?;
+                let prev_rev_document: Option<ResolvedDocument> = if include_prev_rev {
+                    maybe_bytes_col(&row, 6)?
+                        .map(|v| {
+                            let json_value: JsonValue = serde_json::from_slice(v)
+                                .context("Failed to deserialize database value")?;
+                            // N.B.: previous revisions should never be deleted, so we don't check
+                            // that.
+                            let value: ConvexValue = json_value.try_into()?;
+                            ResolvedDocument::from_database(document_id.table(), value)
+                        })
+                        .transpose()?
                 } else {
                     None
                 };
-                let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
-                let prev_rev_document: Option<ResolvedDocument> = prev_rev_value
-                    .map(|v| {
-                        let json_value: JsonValue = serde_json::from_slice(&v)
-                            .context("Failed to deserialize database value")?;
-                        // N.B.: previous revisions should never be deleted, so we don't check that.
-                        let value: ConvexValue = json_value.try_into()?;
-                        ResolvedDocument::from_database(document_id.table(), value)
-                    })
-                    .transpose()?;
                 last_ts = ts;
                 last_tablet_id_param = internal_id_param(document_id.table().0);
                 last_id_param = internal_doc_id_param(document_id);
@@ -867,12 +869,12 @@ impl<RT: Runtime> MySqlReader<RT> {
                 futures::pin_mut!(row_stream);
 
                 let mut batch_rows = 0;
-                while let Some(row) = row_stream.try_next().await? {
+                while let Some(mut row) = row_stream.try_next().await? {
                     batch_rows += 1;
                     stats.rows_read += 1;
 
                     // Fetch
-                    let internal_row = parse_row(&row)?;
+                    let internal_row = parse_row(&mut row)?;
 
                     // Yield buffered results if applicable.
                     if let Some((buffer_key, ..)) = result_buffer.first() {
@@ -915,12 +917,11 @@ impl<RT: Runtime> MySqlReader<RT> {
                     let ts = internal_row.ts;
 
                     // Fetch the remaining columns and construct the document
-                    let table_b: Option<Vec<u8>> = row.get(7).unwrap();
+                    let table_b = maybe_bytes_col(&row, 7)?;
                     table_b.ok_or_else(|| {
                         anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
                     })?;
-                    let json_value: Vec<u8> = row.get(8).unwrap();
-                    let json_value: JsonValue = serde_json::from_slice(&json_value)?;
+                    let json_value: JsonValue = serde_json::from_slice(bytes_col(&row, 8)?)?;
                     anyhow::ensure!(
                         json_value != serde_json::Value::Null,
                         "Index reference to deleted document {:?} {:?}",
@@ -929,7 +930,7 @@ impl<RT: Runtime> MySqlReader<RT> {
                     );
                     let value: ConvexValue = json_value.try_into()?;
 
-                    let prev_ts: Option<i64> = row.get(9).unwrap();
+                    let prev_ts: Option<i64> = row.get_opt(9).context("row[9]")??;
                     let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
 
                     if key.len() < MAX_INDEX_KEY_PREFIX_LEN {
@@ -1028,16 +1029,16 @@ impl<RT: Runtime> MySqlReader<RT> {
     }
 }
 
-fn parse_row(row: &Row) -> anyhow::Result<IndexEntry> {
-    let bytes: Vec<u8> = row.get(0).unwrap();
-    let index_id = InternalId::try_from(bytes).context("index_id wrong size")?;
+/// Takes the key columns out of the `Row`
+fn parse_row(row: &mut Row) -> anyhow::Result<IndexEntry> {
+    let index_id = InternalId::try_from(bytes_col(row, 0)?).context("index_id wrong size")?;
 
-    let key_prefix: Vec<u8> = row.get(1).unwrap();
-    let key_sha256: Vec<u8> = row.get(2).unwrap();
-    let key_suffix: Option<Vec<u8>> = row.get(3).unwrap();
-    let ts: i64 = row.get(4).unwrap();
+    let key_prefix: Vec<u8> = row.take_opt(1).context("row[1]")??;
+    let key_sha256: Vec<u8> = row.take_opt(2).context("row[2]")??;
+    let key_suffix: Option<Vec<u8>> = row.take_opt(3).context("row[3]")??;
+    let ts: i64 = row.get_opt(4).context("row[4]")??;
     let ts = Timestamp::try_from(ts)?;
-    let deleted: bool = row.get(5).unwrap();
+    let deleted: bool = row.get_opt(5).context("row[5]")??;
     Ok(IndexEntry {
         index_id,
         key_prefix,
@@ -1157,7 +1158,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 .await?;
             pin_mut!(result_stream);
             while let Some(row) = result_stream.try_next().await? {
-                let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
+                let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(&row)?;
                 let entry = DocumentLogEntry {
                     ts: prev_ts,
                     id,
@@ -1234,9 +1235,9 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             }
         }
         for row in results.into_iter() {
-            let ts: i64 = row.get(6).unwrap();
+            let ts: i64 = row.get_opt(6).context("row[6]")??;
             let ts = Timestamp::try_from(ts)?;
-            let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
+            let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(&row)?;
             anyhow::ensure!(result
                 .insert(
                     (id, ts),
@@ -1299,8 +1300,8 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 
         let row = row_stream.try_next().await?;
         let value = row.map(|r| -> anyhow::Result<JsonValue> {
-            let binary_value: Vec<u8> = r.get(0).unwrap();
-            let mut json_deserializer = serde_json::Deserializer::from_slice(&binary_value);
+            let binary_value = bytes_col(&r, 0)?;
+            let mut json_deserializer = serde_json::Deserializer::from_slice(binary_value);
             // XXX: this is bad, but shapes can get much more nested than convex values
             json_deserializer.disable_recursion_limit();
             let json_value = JsonValue::deserialize(&mut json_deserializer)
@@ -1326,10 +1327,10 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             .map(|row| {
                 let row = row?;
                 anyhow::Ok(PersistenceTableSize {
-                    table_name: row.get_opt(0).unwrap()?,
-                    data_bytes: row.get_opt(1).unwrap()?,
-                    index_bytes: row.get_opt(2).unwrap()?,
-                    row_count: row.get_opt(3).unwrap()?,
+                    table_name: row.get_opt(0).context("row[0]")??,
+                    data_bytes: row.get_opt(1).context("row[1]")??,
+                    index_bytes: row.get_opt(2).context("row[2]")??,
+                    row_count: row.get_opt(3).context("row[3]")??,
                 })
             })
             .try_collect()
