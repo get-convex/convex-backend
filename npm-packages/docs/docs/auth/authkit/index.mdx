@@ -777,8 +777,19 @@ Common issues with WorkOS AuthKit integration:
    matches what's configured in your WorkOS Dashboard
 4. **Missing `aud` claim**: WorkOS JWTs may not include the `aud` (audience)
    claim by default, which Convex requires for token validation. Check your
-   WorkOS Dashboard JWT configuration to ensure the audience claim is properly
-   set to your Client ID
+   WorkOS Dashboard under `Authentication > Sessions > JWT Template` to ensure the audience claim is properly
+   set to your Client ID. If you have not added any custom JWT properties, this will look like the following (make sure to replace the `aud` key's value with your client id).
+
+  ```
+    {
+      "aud": "client_xxxxxxxxxxxxxxx",
+      "urn:myapp:full_name": "{{ user.first_name || 'Someone' }} {{ user.last_name || 'Unknown' }}",
+      "urn:myapp:email": "{{ user.email }}",
+      "urn:myapp:organization_tier": "{{ organization.metadata.tier || 'bronze' }}",
+      "urn:myapp:user_language": "{{ user.metadata.language || 'en' }}",
+      "urn:myapp:organization_domain": "{{ organization.domains.0.domain }}"
+    }
+  ```
 
 For more thorough debugging steps, see the WorkOS AuthKit documentation or
 [Debugging Authentication](/auth/debug.mdx).
