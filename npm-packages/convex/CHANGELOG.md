@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.27.5
+
+- Export an `AuthConfig` type to describe the object exportect from
+  `convex/auth.config.ts`.
+
+- WebSocket sync protocol support for TransitionChunk messages: just splitting a
+  Transition (containing new query results) into multiple WebSocket messages in
+  order prevent the server from appearing non-responsive.
+
 ## 1.27.4
 
 - Add a `getAuth()` method to the client which returns the current token and
