@@ -32,7 +32,6 @@ import { useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
 import { useProjects } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
-import Link from "next/link";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
 import { Tab } from "@headlessui/react";
@@ -44,6 +43,7 @@ import { DateRange, useCurrentBillingPeriod } from "api/usage";
 import { cn } from "@ui/cn";
 import { usePagination } from "hooks/usePagination";
 import { PaginationControls } from "elements/PaginationControls";
+import { useProfile } from "api/profile";
 import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,
@@ -456,24 +456,36 @@ function FunctionUsageBreakdownByProject({
   projectTotal: number;
 }) {
   const { deployments } = useDeployments(project?.id);
+  const member = useProfile();
   const isLoadingDeployments = project && !deployments;
+
+  const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
+  const devDeployment = deployments?.find(
+    (d) => d.deploymentType === "dev" && d.creator === member?.id,
+  );
+  const anyDeployment = deployments?.[0];
+  const shownDeployment = devDeployment ?? prodDeployment ?? anyDeployment;
+  const shownDeploymentName = shownDeployment?.name;
 
   return (
     <div className="mb-4">
-      <p className="flex align-baseline font-medium">
+      <p className="flex align-baseline">
         {project && (
-          <Link
-            href={`/t/${team.slug}/${project.slug}/`}
-            passHref
-            className="inline-flex items-baseline gap-2 py-2"
+          <Button
+            href={`/t/${team.slug}/${project.slug}/${shownDeploymentName}`}
+            inline
+            variant="neutral"
+            disabled={!shownDeployment}
+            className="gap-1 font-semibold"
           >
             <span>{project.name}</span>
             {project.name?.toLowerCase() !== project.slug ? (
-              <span className="text-sm text-content-secondary">
+              <span className="text-sm font-semibold text-content-secondary">
                 {project.slug}
               </span>
             ) : null}
-          </Link>
+            <ExternalLinkIcon />
+          </Button>
         )}
         {!project && (
           <span className="inline-block py-2 italic">Deleted Project</span>

@@ -23,7 +23,8 @@ export default withAuthenticatedPage(function RedirectToDeployment() {
   const devDeployment = deployments?.find(
     (d) => d.deploymentType === "dev" && d.creator === member?.id,
   );
-  const shownDeployment = devDeployment ?? prodDeployment;
+  const anyDeployment = deployments?.[0];
+  const shownDeployment = devDeployment ?? prodDeployment ?? anyDeployment;
   const shownDeploymentName = shownDeployment?.name;
 
   useEffect(() => {
@@ -31,12 +32,13 @@ export default withAuthenticatedPage(function RedirectToDeployment() {
       void router.replace(
         `/t/${currentTeam!.slug}/${
           currentProject!.slug
-        }/${shownDeploymentName}${
-          router.pathname.endsWith("/try") ? "/try" : ""
-        }`,
+        }/${shownDeploymentName}`,
       );
+    } else if (deployments) {
+      // Couldn't find a deployment to display
+      void router.replace("/404");
     }
-  }, [currentTeam, currentProject, shownDeploymentName, router]);
+  }, [deployments, currentTeam, currentProject, shownDeploymentName, router]);
 
   return <Loading />;
 });
