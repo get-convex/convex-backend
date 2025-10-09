@@ -31,6 +31,7 @@ message UdfOutcome {
   SyscallTrace syscall_trace = 8;
 
   optional bool observed_identity = 10;
+  uint64 memory_in_mb = 11;
 }
 
 message ActionOutcome {

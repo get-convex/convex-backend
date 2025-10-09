@@ -638,7 +638,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         if was_cached {
                             CallType::CachedQuery
                         } else {
-                            CallType::UncachedQuery
+                            CallType::UncachedQuery {
+                                duration: execution_time,
+                                memory_in_mb: outcome.memory_in_mb,
+                            }
                         },
                         outcome.result.is_ok(),
                         usage_stats,
@@ -794,6 +797,8 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         context.execution_id,
                         context.request_id.clone(),
                         CallType::Mutation {
+                            duration: execution_time,
+                            memory_in_mb: outcome.memory_in_mb,
                             occ_info: occ_info.clone(),
                         },
                         outcome.result.is_ok(),

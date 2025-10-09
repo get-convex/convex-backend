@@ -21,10 +21,6 @@ use pb::{
     },
     outcome::UdfOutcome as UdfOutcomeProto,
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::Arbitrary;
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::Strategy;
 use rand::Rng;
 use value::{
     heap_size::HeapSize,
@@ -37,7 +33,10 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
 pub struct UdfOutcome {
     pub path: CanonicalizedComponentFunctionPath,
     pub arguments: ConvexArray,
@@ -59,63 +58,9 @@ pub struct UdfOutcome {
 
     pub syscall_trace: SyscallTrace,
 
+    #[cfg_attr(any(test, feature = "testing"), proptest(value = "None"))]
     pub udf_server_version: Option<semver::Version>,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for UdfOutcome {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = UdfOutcome>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        (
-            any::<CanonicalizedComponentFunctionPath>(),
-            any::<ConvexArray>(),
-            any::<InertIdentity>(),
-            any::<[u8; 32]>(),
-            any::<bool>(),
-            any::<UnixTimestamp>(),
-            any::<bool>(),
-            any::<bool>(),
-            any::<LogLines>(),
-            any::<QueryJournal>(),
-            any::<Result<JsonPackedValue, JsError>>(),
-            any::<SyscallTrace>(),
-        )
-            .prop_map(
-                |(
-                    path,
-                    arguments,
-                    identity,
-                    rng_seed,
-                    observed_rng,
-                    unix_timestamp,
-                    observed_time,
-                    observed_identity,
-                    log_lines,
-                    journal,
-                    result,
-                    syscall_trace,
-                )| Self {
-                    path,
-                    arguments,
-                    identity,
-                    rng_seed,
-                    observed_rng,
-                    unix_timestamp,
-                    observed_time,
-                    observed_identity,
-                    log_lines,
-                    journal,
-                    result,
-                    syscall_trace,
-                    // Ok to not generate semver::Version because it is not serialized anyway
-                    udf_server_version: None,
-                },
-            )
-    }
+    pub memory_in_mb: u64,
 }
 
 impl HeapSize for UdfOutcome {
@@ -148,6 +93,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             result,
             syscall_trace,
             udf_server_version: _,
+            memory_in_mb,
         }: UdfOutcome,
     ) -> anyhow::Result<Self> {
         let result = match result {
@@ -166,6 +112,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             }),
             syscall_trace: Some(syscall_trace.try_into()?),
             observed_identity: Some(observed_identity),
+            memory_in_mb,
         })
     }
 }
@@ -195,6 +142,7 @@ impl UdfOutcome {
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
             observed_identity: false,
+            memory_in_mb: 0,
         })
     }
 
@@ -209,6 +157,7 @@ impl UdfOutcome {
             result,
             syscall_trace,
             observed_identity,
+            memory_in_mb,
         }: UdfOutcomeProto,
         path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
@@ -249,6 +198,7 @@ impl UdfOutcome {
             udf_server_version,
             // TODO(lee): Remove the default once we've pushed all services.
             observed_identity: observed_identity.unwrap_or(true),
+            memory_in_mb,
         })
     }
 }

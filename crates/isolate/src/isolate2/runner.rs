@@ -19,6 +19,7 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
+    knobs::ISOLATE_MAX_USER_HEAP_SIZE,
     log_lines::{
         LogLevel,
         LogLine,
@@ -553,6 +554,7 @@ async fn run_request<RT: Runtime>(
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
+            memory_in_mb: 0,
         };
         return Ok(outcome);
     }
@@ -696,6 +698,9 @@ async fn run_request<RT: Runtime>(
         result: result.map(JsonPackedValue::pack),
         syscall_trace: provider.syscall_trace,
         udf_server_version,
+        memory_in_mb: (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
+            .try_into()
+            .unwrap(),
     };
     Ok(outcome)
 }

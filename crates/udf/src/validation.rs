@@ -806,6 +806,7 @@ pub struct ValidatedUdfOutcome {
 
     pub udf_server_version: Option<semver::Version>,
     pub mutation_queue_length: Option<usize>,
+    pub memory_in_mb: u64,
 }
 
 impl HeapSize for ValidatedUdfOutcome {
@@ -845,6 +846,7 @@ impl ValidatedUdfOutcome {
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
             mutation_queue_length: None,
+            memory_in_mb: 0,
         })
     }
 
@@ -868,6 +870,7 @@ impl ValidatedUdfOutcome {
             syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
             mutation_queue_length,
+            memory_in_mb: outcome.memory_in_mb,
         };
 
         // TODO(CX-6318) Don't pack json value until it's been validated.

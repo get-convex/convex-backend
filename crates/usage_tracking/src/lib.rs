@@ -112,8 +112,13 @@ pub enum CallType {
     },
     Export,
     CachedQuery,
-    UncachedQuery,
+    UncachedQuery {
+        duration: Duration,
+        memory_in_mb: u64,
+    },
     Mutation {
+        duration: Duration,
+        memory_in_mb: u64,
         occ_info: Option<OccInfo>,
     },
     Import,
@@ -127,7 +132,7 @@ impl CallType {
             Self::Action { .. } => "action",
             Self::Export => "export",
             Self::CachedQuery => "cached_query",
-            Self::UncachedQuery => "uncached_query",
+            Self::UncachedQuery { .. } => "uncached_query",
             Self::Mutation { .. } => "mutation",
             Self::HttpAction { .. } => "http_action",
             Self::Import => "import",
@@ -145,7 +150,7 @@ impl CallType {
 
     fn occ_document_id(&self) -> Option<String> {
         match self {
-            Self::Mutation { occ_info } => {
+            Self::Mutation { occ_info, .. } => {
                 occ_info.as_ref().and_then(|info| info.document_id.clone())
             },
             _ => None,
@@ -179,19 +184,21 @@ impl CallType {
 
     fn memory_megabytes(&self) -> u64 {
         match self {
-            CallType::Action { memory_in_mb, .. } | CallType::HttpAction { memory_in_mb, .. } => {
-                *memory_in_mb
-            },
+            CallType::UncachedQuery { memory_in_mb, .. }
+            | CallType::Mutation { memory_in_mb, .. }
+            | CallType::Action { memory_in_mb, .. }
+            | CallType::HttpAction { memory_in_mb, .. } => *memory_in_mb,
             _ => 0,
         }
     }
 
     fn duration_millis(&self) -> u64 {
         match self {
-            CallType::Action { duration, .. } | CallType::HttpAction { duration, .. } => {
-                u64::try_from(duration.as_millis())
-                    .expect("Action was running for over 584 billion years??")
-            },
+            CallType::UncachedQuery { duration, .. }
+            | CallType::Mutation { duration, .. }
+            | CallType::Action { duration, .. }
+            | CallType::HttpAction { duration, .. } => u64::try_from(duration.as_millis())
+                .expect("Function was running for over 584 billion years??"),
             _ => 0,
         }
     }

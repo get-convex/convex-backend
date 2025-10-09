@@ -4,6 +4,7 @@ use common::{
         ResolvedComponentFunctionPath,
     },
     execution_context::ExecutionContext,
+    knobs::ISOLATE_MAX_USER_HEAP_SIZE,
 };
 use futures::{
     future::BoxFuture,
@@ -450,6 +451,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 ));
             },
         )?;
+        let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
+            .try_into()
+            .unwrap();
         let outcome = match self.udf_type {
             UdfType::Query => FunctionOutcome::Query(UdfOutcome {
                 path: self.path.for_logging(),
@@ -468,6 +472,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 },
                 syscall_trace: self.syscall_trace,
                 udf_server_version: self.udf_server_version,
+                memory_in_mb,
             }),
             // TODO: Add num_writes and write_bandwidth to UdfOutcome,
             // and use them in log_mutation.
@@ -488,6 +493,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 },
                 syscall_trace: self.syscall_trace,
                 udf_server_version: self.udf_server_version,
+                memory_in_mb,
             }),
             _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
         };
