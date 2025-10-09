@@ -17,11 +17,11 @@ message FunctionOutcome {
 }
 
 message UdfOutcome {
-  optional bytes rng_seed = 1;
-  optional bool observed_rng = 2;
+  bytes rng_seed = 1;
+  bool observed_rng = 2;
 
-  optional google.protobuf.Timestamp unix_timestamp = 3;
-  optional bool observed_time = 4;
+  google.protobuf.Timestamp unix_timestamp = 3;
+  bool observed_time = 4;
 
   reserved 5;
   repeated LogLine log_lines = 9;
@@ -30,12 +30,12 @@ message UdfOutcome {
   common.FunctionResult result = 7;
   SyscallTrace syscall_trace = 8;
 
-  optional bool observed_identity = 10;
+  bool observed_identity = 10;
   uint64 memory_in_mb = 11;
 }
 
 message ActionOutcome {
-  optional google.protobuf.Timestamp unix_timestamp = 3;
+  google.protobuf.Timestamp unix_timestamp = 3;
 
   reserved 5;
   reserved 9;
@@ -53,8 +53,8 @@ message HttpActionOutcome {
 
   uint64 memory_in_mb = 4;
 
-  optional string path = 5;
-  optional string method = 6;
+  string path = 5;
+  string method = 6;
 }
 
 message SyscallTrace {
@@ -62,9 +62,9 @@ message SyscallTrace {
 }
 
 message SyscallStats {
-  optional uint32 invocations = 1;
-  optional uint32 errors = 2;
-  optional google.protobuf.Duration total_duration = 3;
+  uint32 invocations = 1;
+  uint32 errors = 2;
+  google.protobuf.Duration total_duration = 3;
 }
 
 message SystemLogMetadata {
@@ -76,7 +76,7 @@ message StructuredLogLine {
   string level = 2;
   bool is_truncated = 3;
   google.protobuf.Timestamp timestamp = 4;
-  optional SystemLogMetadata system_metadata = 5;
+  SystemLogMetadata system_metadata = 5;
   repeated string messages = 6;
 }
 

@@ -66,8 +66,8 @@ impl TryFrom<SyscallStats> for SyscallStatsProto {
         }: SyscallStats,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            invocations: Some(invocations),
-            errors: Some(errors),
+            invocations,
+            errors,
             total_duration: Some(total_duration.try_into()?),
         })
     }
@@ -84,9 +84,8 @@ impl TryFrom<SyscallStatsProto> for SyscallStats {
         }: SyscallStatsProto,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            invocations: invocations.ok_or_else(|| anyhow::anyhow!("Missing invocations"))?,
-            errors: errors
-                .ok_or_else(|| anyhow::anyhow!("Missing errors in SyscallStats deserialization"))?,
+            invocations,
+            errors,
             total_duration: total_duration
                 .ok_or_else(|| anyhow::anyhow!("Missing total duration"))?
                 .try_into()?,
