@@ -1416,7 +1416,7 @@ impl<RT: Runtime> Lease<RT> {
         F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
         let mut client = self.pool.acquire("transact", &self.db_name).await?;
-        let mut tx = client.transaction(&self.db_name).await?;
+        let mut tx = client.transaction(self.pool.cluster_name()).await?;
 
         let timer = metrics::lease_precond_timer(self.pool.cluster_name());
         let mut params = vec![mysql_async::Value::Int(self.lease_ts)];
