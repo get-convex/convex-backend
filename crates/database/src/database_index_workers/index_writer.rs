@@ -1,5 +1,8 @@
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     fmt::Display,
     sync::{
         atomic::{
@@ -72,10 +75,6 @@ pub const PERFORM_BACKFILL_LABEL: &str = "perform_backfill";
 #[derive(Clone)]
 pub enum IndexSelector {
     All(IndexRegistry),
-    Index {
-        name: TabletIndexName,
-        id: IndexId,
-    },
     ManyIndexes {
         tablet_id: TabletId,
         indexes: BTreeMap<IndexId, TabletIndexName>,
@@ -86,7 +85,6 @@ impl Display for IndexSelector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::All(_) => write!(f, "ALL"),
-            Self::Index { name, .. } => write!(f, "{name}"),
             Self::ManyIndexes { ref indexes, .. } => {
                 write!(f, "ManyIndexes(")?;
                 let mut first = true;
@@ -107,7 +105,6 @@ impl IndexSelector {
     fn filter_index_update(&self, index_update: &DatabaseIndexUpdate) -> bool {
         match self {
             Self::All(_) => true,
-            Self::Index { id, .. } => id == &index_update.index_id,
             Self::ManyIndexes { indexes, .. } => indexes.contains_key(&index_update.index_id),
         }
     }
@@ -118,20 +115,17 @@ impl IndexSelector {
                 .all_tables_with_indexes()
                 .into_iter()
                 .collect(),
-            Self::Index { name, .. } => btreeset! { *name.table() },
             Self::ManyIndexes { tablet_id, .. } => btreeset! { *tablet_id },
         };
         tables.into_iter()
     }
 
     fn index_ids(&self) -> impl Iterator<Item = IndexId> {
-        let indexes = match self {
+        let indexes: BTreeSet<_> = match self {
             Self::All(index_registry) => index_registry
                 .all_indexes()
                 .map(|doc| doc.id().internal_id())
                 .collect(),
-
-            Self::Index { id, .. } => btreeset! { *id },
             Self::ManyIndexes { indexes, .. } => indexes.keys().copied().collect(),
         };
         indexes.into_iter()
@@ -140,7 +134,6 @@ impl IndexSelector {
     fn tablet_id(&self) -> Option<TabletId> {
         match self {
             Self::All(_) => None,
-            Self::Index { name, .. } => Some(*name.table()),
             Self::ManyIndexes { tablet_id, .. } => Some(*tablet_id),
         }
     }
