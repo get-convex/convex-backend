@@ -10,7 +10,8 @@
     "test:watch": "vitest",
     "prepare": "tshy",
     "lint": "eslint .",
-    "prepublishOnly": "node src/scripts/checkVersion.mjs"
+    "prepublishOnly": "node src/scripts/check-version.mjs",
+    "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "dependencies": {
     "@typescript-eslint/utils": "~8.38.0"
