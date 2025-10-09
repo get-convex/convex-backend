@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* eslint-disable no-console */
+
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
@@ -9,8 +11,7 @@ const __dirname = dirname(__filename);
 
 const packageJsonPath = join(__dirname, "../../package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-
-const version = packageJson.version;
+const { version } = packageJson;
 
 // Check if this is an alpha version
 const isAlpha = version.includes("alpha") || version.includes("-alpha.");

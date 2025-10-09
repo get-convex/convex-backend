@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:types": "tsc --noEmit",
-    "prepare": "tshy"
+    "prepare": "tshy",
+    "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "files": [
     "dist",
