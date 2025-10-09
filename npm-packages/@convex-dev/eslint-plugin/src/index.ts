@@ -2,6 +2,7 @@ import { noImportUseNode } from "./lib/noImportUseNode.js";
 import noOldRegisteredFunctionSyntax from "./lib/noOldRegisteredFunctionSyntax.js";
 import { noMissingArgs, noArgsWithoutValidator } from "./lib/noMissingArgs.js";
 import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
+import { version } from "./version.js";
 
 const rules = {
   "no-old-registered-function-syntax": noOldRegisteredFunctionSyntax,
@@ -40,7 +41,7 @@ const plugin = {
   },
   meta: {
     name: "@convex-dev/eslint-plugin",
-    version: "0.0.0-alpha.0",
+    version,
   },
   rules,
   processors: {},
