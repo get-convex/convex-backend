@@ -232,7 +232,7 @@ pub struct SearcherImpl<RT: Runtime> {
 }
 
 impl<RT: Runtime> SearcherImpl<RT> {
-    pub async fn new<P: AsRef<Path>>(
+    pub fn new<P: AsRef<Path>>(
         local_storage_path: P,
         max_disk_cache_size: u64,
         slow_vector_query_threshold_millis: u64,
@@ -255,8 +255,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
             // maximum bound.
             *MAX_CONCURRENT_SEGMENT_FETCHES,
             runtime.clone(),
-        )
-        .await?;
+        )?;
         let vector_search_pool = BoundedThreadPool::new(
             runtime.clone(),
             *MAX_CONCURRENT_VECTOR_SEARCHES * *QUEUE_SIZE_MULTIPLIER,
@@ -1564,7 +1563,7 @@ mod tests {
         let revision_stream = futures::stream::iter(revisions).boxed();
         let mut previous_segments = PreviousTextSegments::default();
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone())?);
 
         let new_segment = build_new_segment(
             revision_stream,
@@ -1764,7 +1763,7 @@ mod tests {
         // tests because they don't use the same directory that the indexes are stored
         // in, which means we must use empty PreviousTextSegments in these tests.
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone())?);
         let mut previous_segments = PreviousTextSegments::default();
         let new_segment = build_new_segment(
             revision_stream,

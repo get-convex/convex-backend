@@ -226,11 +226,11 @@ pub async fn validate_run_function_result(
 }
 
 impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
-    pub async fn new(rt: RT, storage: S, max_percent_per_client: usize) -> anyhow::Result<Self> {
-        Self::_new(rt, storage, max_percent_per_client, MAX_ISOLATE_WORKERS).await
+    pub fn new(rt: RT, storage: S, max_percent_per_client: usize) -> anyhow::Result<Self> {
+        Self::_new(rt, storage, max_percent_per_client, MAX_ISOLATE_WORKERS)
     }
 
-    async fn _new(
+    fn _new(
         rt: RT,
         storage: S,
         max_percent_per_client: usize,

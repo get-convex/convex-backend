@@ -146,11 +146,10 @@ pub async fn make_app(
     preempt_tx: ShutdownSignal,
 ) -> anyhow::Result<LocalAppState> {
     let key_broker = config.key_broker()?;
-    let in_process_searcher = InProcessSearcher::new(runtime.clone()).await?;
-    let searcher: Arc<dyn Searcher> = Arc::new(in_process_searcher.clone());
+    let in_process_searcher = Arc::new(InProcessSearcher::new(runtime.clone())?);
+    let searcher: Arc<dyn Searcher> = in_process_searcher.clone();
     // TODO(CX-6572) Separate `SegmentMetadataFetcher` from `SearcherImpl`
-    let segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher> =
-        Arc::new(in_process_searcher);
+    let segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher> = in_process_searcher;
     let database = Database::load(
         persistence.clone(),
         runtime.clone(),
@@ -201,8 +200,8 @@ pub async fn make_app(
         config.convex_http_proxy.clone(),
         config.name(),
     ));
-    let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> = Arc::new(
-        InProcessFunctionRunner::new(
+    let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> =
+        Arc::new(InProcessFunctionRunner::new(
             config.name().clone(),
             config.secret()?,
             config.convex_origin_url()?,
@@ -214,9 +213,7 @@ pub async fn make_app(
             },
             database.clone(),
             fetch_client.clone(),
-        )
-        .await?,
-    );
+        )?);
 
     let application = Application::new(
         runtime.clone(),

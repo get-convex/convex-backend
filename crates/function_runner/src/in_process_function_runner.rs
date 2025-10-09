@@ -110,7 +110,7 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
 }
 
 impl<RT: Runtime> InProcessFunctionRunner<RT> {
-    pub async fn new(
+    pub fn new(
         instance_name: String,
         instance_secret: InstanceSecret,
         convex_origin: ConvexOrigin,
@@ -122,7 +122,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
     ) -> anyhow::Result<Self> {
         // InProcessFunrun is single tenant and thus can use the full capacity.
         let max_percent_per_client = 100;
-        let server = FunctionRunnerCore::new(rt, storage, max_percent_per_client).await?;
+        let server = FunctionRunnerCore::new(rt, storage, max_percent_per_client)?;
         Ok(Self {
             server,
             persistence_reader,

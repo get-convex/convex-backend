@@ -108,7 +108,7 @@ impl TextFixtures {
         rt: TestRuntime,
         config: CompactionConfig,
     ) -> anyhow::Result<Self> {
-        let in_process_searcher = InProcessSearcher::new(rt.clone()).await?;
+        let in_process_searcher = InProcessSearcher::new(rt.clone())?;
         let DbFixtures {
             tp,
             db,

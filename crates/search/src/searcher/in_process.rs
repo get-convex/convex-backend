@@ -129,13 +129,16 @@ pub struct InProcessSearcher<RT: Runtime> {
 }
 
 impl<RT: Runtime> InProcessSearcher<RT> {
-    pub async fn new(runtime: RT) -> anyhow::Result<Self> {
+    pub fn new(runtime: RT) -> anyhow::Result<Self> {
         let tmpdir = TempDir::new()?;
         Ok(Self {
-            searcher: Arc::new(
-                SearcherImpl::new(tmpdir.path(), bytesize::mib(500u64), 100, false, runtime)
-                    .await?,
-            ),
+            searcher: Arc::new(SearcherImpl::new(
+                tmpdir.path(),
+                bytesize::mib(500u64),
+                100,
+                false,
+                runtime,
+            )?),
             _tmpdir: Arc::new(tmpdir),
         })
     }

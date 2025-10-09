@@ -159,7 +159,7 @@ pub async fn backfill_indexes(
     tp: Arc<dyn Persistence>,
 ) -> anyhow::Result<()> {
     let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-    let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+    let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone())?);
     backfill_text_indexes(
         rt.clone(),
         db.clone(),

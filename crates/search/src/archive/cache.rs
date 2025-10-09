@@ -271,7 +271,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
     ///
     /// Returns an error if the manager is unable to create a directory under
     /// `storage_path`, or if `storage_path` doesn't already exist.
-    pub async fn new<P: AsRef<Path>>(
+    pub fn new<P: AsRef<Path>>(
         local_storage_path: P,
         max_size: u64,
         blocking_thread_pool: BoundedThreadPool<RT>,
@@ -532,8 +532,7 @@ mod tests {
             BoundedThreadPool::new(rt.clone(), 100, 10, "test"),
             1,
             rt,
-        )
-        .await?;
+        )?;
         assert_eq!(manager.usage(), 0);
         let path = manager
             .get(storage.clone(), &key, SearchFileType::Text)

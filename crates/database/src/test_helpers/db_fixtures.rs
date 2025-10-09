@@ -101,7 +101,7 @@ impl<RT: Runtime> DbFixtures<RT> {
         }
         let build_index_args = BuildTextIndexArgs {
             search_storage: search_storage.clone(),
-            segment_term_metadata_fetcher: Arc::new(InProcessSearcher::new(rt.clone()).await?),
+            segment_term_metadata_fetcher: Arc::new(InProcessSearcher::new(rt.clone())?),
         };
         if bootstrap_table_summaries {
             db.finish_table_summary_bootstrap().await?;

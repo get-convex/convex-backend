@@ -941,7 +941,7 @@ mod tests {
         )
         .await?;
 
-        let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+        let searcher = Arc::new(InProcessSearcher::new(rt.clone())?);
         let search_storage = Arc::new(LocalDirStorage::new(rt)?);
         let mut index = TransactionIndex::new(
             index_registry.clone(),
@@ -1040,7 +1040,7 @@ mod tests {
         let (index_registry, inner, search, _) =
             bootstrap_index(&mut id_generator, vec![], rp).await?;
 
-        let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+        let searcher = Arc::new(InProcessSearcher::new(rt.clone())?);
         let search_storage = Arc::new(LocalDirStorage::new(rt)?);
         let mut index = TransactionIndex::new(
             index_registry.clone(),
@@ -1242,7 +1242,7 @@ mod tests {
         let ps = RepeatablePersistence::new(ps, unchecked_repeatable_ts(now4), retention_manager)
             .read_snapshot(unchecked_repeatable_ts(now4))?;
 
-        let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+        let searcher = Arc::new(InProcessSearcher::new(rt.clone())?);
         let search_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let mut index = TransactionIndex::new(
             index_registry.clone(),

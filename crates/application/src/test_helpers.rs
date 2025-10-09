@@ -226,22 +226,19 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         .await?;
 
         let fetch_client = Arc::new(StaticFetchClient::new());
-        let function_runner = Arc::new(
-            InProcessFunctionRunner::new(
-                DEV_INSTANCE_NAME.into(),
-                DEV_SECRET.try_into()?,
-                convex_origin.clone(),
-                rt.clone(),
-                persistence.reader(),
-                InstanceStorage {
-                    files_storage: application_storage.files_storage.clone(),
-                    modules_storage: application_storage.modules_storage.clone(),
-                },
-                database.clone(),
-                fetch_client.clone(),
-            )
-            .await?,
-        );
+        let function_runner = Arc::new(InProcessFunctionRunner::new(
+            DEV_INSTANCE_NAME.into(),
+            DEV_SECRET.try_into()?,
+            convex_origin.clone(),
+            rt.clone(),
+            persistence.reader(),
+            InstanceStorage {
+                files_storage: application_storage.files_storage.clone(),
+                modules_storage: application_storage.modules_storage.clone(),
+            },
+            database.clone(),
+            fetch_client.clone(),
+        )?);
 
         let file_storage = FileStorage {
             transactional_file_storage: TransactionalFileStorage::new(

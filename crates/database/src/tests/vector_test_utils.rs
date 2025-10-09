@@ -144,7 +144,7 @@ impl VectorFixtures {
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
-                searcher: Some(Arc::new(InProcessSearcher::new(rt.clone()).await?)),
+                searcher: Some(Arc::new(InProcessSearcher::new(rt.clone())?)),
                 ..Default::default()
             },
         )

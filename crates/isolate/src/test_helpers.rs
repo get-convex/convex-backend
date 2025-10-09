@@ -318,7 +318,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             &rt,
             DbFixturesArgs {
                 tp: Some(persistence.clone()),
-                searcher: Some(Arc::new(InProcessSearcher::new(rt.clone()).await?)),
+                searcher: Some(Arc::new(InProcessSearcher::new(rt.clone())?)),
                 virtual_system_mapping: virtual_system_mapping().clone(),
                 ..Default::default()
             },
@@ -867,8 +867,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
     }
 
     pub async fn backfill_text_indexes(&self) -> anyhow::Result<()> {
-        let segment_term_metadata_fetcher =
-            Arc::new(InProcessSearcher::new(self.rt.clone()).await?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(self.rt.clone())?);
         backfill_text_indexes(
             self.rt.clone(),
             self.database.clone(),

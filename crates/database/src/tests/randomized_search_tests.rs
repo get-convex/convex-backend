@@ -145,7 +145,7 @@ struct Scenario {
 
 impl Scenario {
     async fn new(rt: TestRuntime) -> anyhow::Result<Self> {
-        Self::new_with_searcher(rt.clone(), InProcessSearcher::new(rt).await?).await
+        Self::new_with_searcher(rt.clone(), InProcessSearcher::new(rt)?).await
     }
 
     async fn new_with_searcher(rt: TestRuntime, searcher: impl Searcher) -> anyhow::Result<Self> {
