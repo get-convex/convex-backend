@@ -35,7 +35,7 @@ export class RemoteQuerySet {
       this.version.identity !== start.identity
     ) {
       throw new Error(
-        `Invalid start version: ${start.ts.toString()}:${start.querySet}`,
+        `Invalid start version: ${start.ts.toString()}:${start.querySet}:${start.identity}, transitioning from ${this.version.ts.toString()}:${this.version.querySet}:${this.version.identity}`,
       );
     }
     for (const modification of transition.modifications) {
