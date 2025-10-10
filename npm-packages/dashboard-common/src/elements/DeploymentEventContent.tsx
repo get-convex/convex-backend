@@ -195,7 +195,6 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
         case "disabled":
           return <span>disabled the deployment</span>;
         default:
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
           event.metadata.new_state satisfies never;
           return null;
       }
@@ -228,7 +227,6 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           format = "ZIP";
           break;
         default:
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
           event.metadata.import_format satisfies never;
           return null;
       }
@@ -236,7 +234,6 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
     }
 
     default:
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
       event satisfies never;
       return null;
   }
@@ -442,7 +439,6 @@ function PushContentForComponents({
       pastTenseDiff = "Remounted";
       break;
     default:
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
       diffType.type satisfies never;
   }
   const authElement = auth ? AuthElement({ diff: auth }) : null;
@@ -576,7 +572,6 @@ function SnapshotImportIntoTable({
       break;
     default:
       console.error(`Unexpected import_mode ${import_mode}`);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
       import_mode satisfies never;
       return null;
   }
