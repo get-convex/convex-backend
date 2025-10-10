@@ -641,6 +641,8 @@ pub enum ValidatorJson {
     Boolean,
     String,
     Bytes,
+    #[serde(alias = "map")]
+    #[serde(alias = "set")]
     Any,
     Literal {
         value: JsonValue,
@@ -651,13 +653,6 @@ pub enum ValidatorJson {
     },
     Array {
         value: Box<ValidatorJson>,
-    },
-    Set {
-        value: Box<ValidatorJson>,
-    },
-    Map {
-        keys: Box<ValidatorJson>,
-        values: Box<ValidatorJson>,
     },
     Record {
         keys: Box<ValidatorJson>,
@@ -690,11 +685,6 @@ impl TryFrom<ValidatorJson> for Validator {
             ValidatorJson::Literal { value } => Ok(Validator::Literal(value.try_into()?)),
             ValidatorJson::Id { table_name } => Ok(Validator::Id(table_name.parse()?)),
             ValidatorJson::Array { value } => Ok(Validator::Array(Box::new((*value).try_into()?))),
-            ValidatorJson::Set { value } => Ok(Validator::Set(Box::new((*value).try_into()?))),
-            ValidatorJson::Map { keys, values } => Ok(Validator::Map(
-                Box::new((*keys).try_into()?),
-                Box::new((*values).try_into()?),
-            )),
             ValidatorJson::Record { keys, values } => {
                 let error_short_code = "InvalidRecordType";
                 let keys_validator = Validator::try_from(*keys)?;
@@ -757,13 +747,6 @@ impl TryFrom<Validator> for ValidatorJson {
             },
             Validator::Array(t) => ValidatorJson::Array {
                 value: Box::new(ValidatorJson::try_from(*t)?),
-            },
-            Validator::Set(t) => ValidatorJson::Set {
-                value: Box::new(ValidatorJson::try_from(*t)?),
-            },
-            Validator::Map(k, v) => ValidatorJson::Map {
-                keys: Box::new(ValidatorJson::try_from(*k)?),
-                values: Box::new(ValidatorJson::try_from(*v)?),
             },
             Validator::Record(k, v) => ValidatorJson::Record {
                 keys: Box::new(ValidatorJson::try_from(*k)?),
@@ -853,9 +836,15 @@ impl TryFrom<ObjectValidator> for BTreeMap<String, FieldTypeJson> {
 #[cfg(test)]
 mod tests {
     use errors::ErrorMetadataAnyhowExt;
-    use serde_json::Value as JsonValue;
+    use serde_json::{
+        json,
+        Value as JsonValue,
+    };
 
-    use crate::schemas::validator::LiteralValidator;
+    use crate::schemas::{
+        json::ValidatorJson,
+        validator::LiteralValidator,
+    };
 
     #[test]
     fn test_infinite_literal_is_user_error() -> anyhow::Result<()> {
@@ -870,6 +859,23 @@ mod tests {
         let validator = LiteralValidator::Float64(f64::NAN.into());
         let error = JsonValue::try_from(validator).unwrap_err();
         assert!(error.is_bad_request());
+        Ok(())
+    }
+
+    #[test]
+    fn test_map_set_are_any() -> anyhow::Result<()> {
+        assert_eq!(
+            serde_json::from_value::<ValidatorJson>(
+                json!({"type": "map", "keys": {"type": "string"}, "values": {"type": "string"}})
+            )?,
+            ValidatorJson::Any
+        );
+        assert_eq!(
+            serde_json::from_value::<ValidatorJson>(
+                json!({"type": "set", "value": {"type": "string"}})
+            )?,
+            ValidatorJson::Any
+        );
         Ok(())
     }
 }

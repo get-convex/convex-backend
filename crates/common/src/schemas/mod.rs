@@ -805,15 +805,6 @@ impl DocumentSchema {
         }
     }
 
-    pub fn has_map_or_set(&self) -> bool {
-        match &self {
-            DocumentSchema::Any => false,
-            DocumentSchema::Union(validators) => validators
-                .iter()
-                .any(|root_validator| root_validator.has_map_or_set()),
-        }
-    }
-
     pub fn is_vector_index_eligible(&self, field_path: &FieldPath) -> bool {
         match &self {
             DocumentSchema::Any => true,

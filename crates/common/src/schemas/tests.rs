@@ -1234,54 +1234,6 @@ mod validator_subset {
     }
 
     #[test]
-    fn test_sets_are_covariant() -> anyhow::Result<()> {
-        assert_is_strict_subset(
-            Validator::Set(Box::new(Validator::String)),
-            Validator::Set(Box::new(Validator::Any)),
-        )
-    }
-
-    #[test]
-    fn test_arrays_and_sets_dont_mix() -> anyhow::Result<()> {
-        assert_is_unrelated(
-            Validator::Array(Box::new(Validator::String)),
-            Validator::Set(Box::new(Validator::String)),
-        )
-    }
-
-    #[test]
-    fn test_maps_are_covariant_over_keys() -> anyhow::Result<()> {
-        assert_is_strict_subset(
-            Validator::Map(Box::new(Validator::String), Box::new(Validator::Any)),
-            Validator::Map(Box::new(Validator::Any), Box::new(Validator::Any)),
-        )
-    }
-
-    #[test]
-    fn test_maps_are_covariant_over_values() -> anyhow::Result<()> {
-        assert_is_strict_subset(
-            Validator::Map(Box::new(Validator::Any), Box::new(Validator::String)),
-            Validator::Map(Box::new(Validator::Any), Box::new(Validator::Any)),
-        )
-    }
-
-    #[test]
-    fn test_maps_not_related_when_key_not_related() -> anyhow::Result<()> {
-        assert_is_unrelated(
-            Validator::Map(Box::new(Validator::String), Box::new(Validator::Any)),
-            Validator::Map(Box::new(Validator::Int64), Box::new(Validator::Any)),
-        )
-    }
-
-    #[test]
-    fn test_maps_not_related_when_value_not_related() -> anyhow::Result<()> {
-        assert_is_unrelated(
-            Validator::Map(Box::new(Validator::Any), Box::new(Validator::String)),
-            Validator::Map(Box::new(Validator::Any), Box::new(Validator::Int64)),
-        )
-    }
-
-    #[test]
     fn test_changing_union_order() -> anyhow::Result<()> {
         assert_is_equivalent(
             Validator::Union(vec![Validator::Int64, Validator::Float64]),

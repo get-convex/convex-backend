@@ -69,9 +69,7 @@ pub enum Validator {
     Bytes,
     Literal(LiteralValidator),
     Array(Box<Validator>),
-    Set(Box<Validator>),
     Record(Box<Validator>, Box<Validator>),
-    Map(Box<Validator>, Box<Validator>),
     Object(ObjectValidator),
     Union(Vec<Validator>),
     Any,
@@ -107,9 +105,6 @@ impl proptest::arbitrary::Arbitrary for Validator {
         leaf.prop_recursive(3, 8, 8, move |inner| {
             prop_oneof![
                 inner.clone().prop_map(Box::new).prop_map(Validator::Array),
-                inner.clone().prop_map(Box::new).prop_map(Validator::Set),
-                (inner.clone(), inner.clone())
-                    .prop_map(|(s1, s2)| Validator::Map(Box::new(s1), Box::new(s2))),
                 prop::collection::btree_map(
                     any::<IdentifierFieldName>(),
                     (inner.clone(), proptest::bool::ANY).prop_map(|(validator, optional)| {
@@ -140,8 +135,6 @@ impl Display for Validator {
             Validator::Bytes => write!(f, "v.bytes()"),
             Validator::Literal(literal) => write!(f, "v.literal({literal})"),
             Validator::Array(validator) => write!(f, "v.array({validator})"),
-            Validator::Set(validator) => write!(f, "v.set({validator})"),
-            Validator::Map(keys, values) => write!(f, "v.map({keys}, {values})"),
             Validator::Record(keys, values) => write!(f, "v.record({keys}, {values})"),
             Validator::Object(object_validator) => write!(f, "{object_validator}"),
             Validator::Union(validators) => {
@@ -224,29 +217,6 @@ impl Validator {
                         elt,
                         all_tables_number_to_name,
                         context.with(format!("[{i}]")),
-                    )?;
-                }
-            },
-            (Validator::Set(t), ConvexValue::Set(v)) => {
-                for (i, elt) in v.into_iter().enumerate() {
-                    t.check_value_internal(
-                        elt,
-                        all_tables_number_to_name,
-                        context.with(format!(".keys()[{i}]")),
-                    )?;
-                }
-            },
-            (Validator::Map(key_type, value_type), ConvexValue::Map(map)) => {
-                for (i, (key, value)) in map.into_iter().enumerate() {
-                    key_type.check_value_internal(
-                        key,
-                        all_tables_number_to_name,
-                        context.with(format!("keys()[{i}]")),
-                    )?;
-                    value_type.check_value_internal(
-                        value,
-                        all_tables_number_to_name,
-                        context.with(format!(".values()[{i}]")),
                     )?;
                 }
             },
@@ -364,23 +334,7 @@ impl Validator {
                 table_mapping,
                 virtual_system_mapping,
             ))),
-            ShapeEnum::Set(set_type) => Self::Set(Box::new(Self::from_shape(
-                set_type.element(),
-                table_mapping,
-                virtual_system_mapping,
-            ))),
-            ShapeEnum::Map(map_type) => Self::Map(
-                Box::new(Self::from_shape(
-                    map_type.key(),
-                    table_mapping,
-                    virtual_system_mapping,
-                )),
-                Box::new(Self::from_shape(
-                    map_type.value(),
-                    table_mapping,
-                    virtual_system_mapping,
-                )),
-            ),
+            ShapeEnum::Set(..) | ShapeEnum::Map(..) => Self::Any,
             ShapeEnum::Object(object_type) => {
                 let object_fields = object_type
                     .iter()
@@ -431,12 +385,8 @@ impl Validator {
     pub fn is_subset(&self, superset: &Validator) -> bool {
         match (&self, &superset) {
             // Generic types
-            (Validator::Array(left_contents), Validator::Array(right_contents))
-            | (Validator::Set(left_contents), Validator::Set(right_contents)) => {
+            (Validator::Array(left_contents), Validator::Array(right_contents)) => {
                 left_contents.is_subset(right_contents)
-            },
-            (Validator::Map(left_keys, left_values), Validator::Map(right_keys, right_values)) => {
-                left_keys.is_subset(right_keys) && left_values.is_subset(right_values)
             },
             (
                 Validator::Object(ObjectValidator(left_fields)),
@@ -505,9 +455,7 @@ impl Validator {
             | Validator::String
             | Validator::Bytes
             | Validator::Array(_)
-            | Validator::Set(_)
             | Validator::Record(..)
-            | Validator::Map(..)
             | Validator::Object(_)
             | Validator::Any => false,
             Validator::Literal(l) => match l {
@@ -612,13 +560,6 @@ impl Validator {
             Validator::Array(element_validator) => {
                 element_validator.ensure_supported_for_streaming_export()
             },
-            Validator::Set(element_validator) => {
-                element_validator.ensure_supported_for_streaming_export()
-            },
-            Validator::Map(key_validator, value_validator) => {
-                key_validator.ensure_supported_for_streaming_export()?;
-                value_validator.ensure_supported_for_streaming_export()
-            },
             Validator::Object(object_validator) => {
                 let fields = &object_validator.0;
                 for field_validator in fields.values() {
@@ -664,15 +605,8 @@ impl Validator {
             Validator::Array(element_validator) => {
                 json_schemas::array(element_validator.to_json_schema(value_format))
             },
-            Validator::Set(element_validator) => {
-                json_schemas::set(element_validator.to_json_schema(value_format))
-            },
             Validator::Record(key_validator, value_validator) => json_schemas::record(
                 key_validator.to_string(),
-                value_validator.to_json_schema(value_format),
-            ),
-            Validator::Map(key_validator, value_validator) => json_schemas::map(
-                key_validator.to_json_schema(value_format),
                 value_validator.to_json_schema(value_format),
             ),
             Validator::Object(object_validator) => {
@@ -700,7 +634,7 @@ impl Validator {
                         yield table_name;
                     }
                 },
-                Self::Array(item) | Self::Set(item) => {
+                Self::Array(item) => {
                     for table_name in item.foreign_keys() {
                         yield table_name;
                     }
@@ -710,7 +644,7 @@ impl Validator {
                         yield table_name;
                     }
                 },
-                Self::Record(key, value) | Self::Map(key, value) => {
+                Self::Record(key, value) => {
                     for table_name in key.foreign_keys() {
                         yield table_name;
                     }
@@ -730,25 +664,6 @@ impl Validator {
         ))
     }
 
-    pub fn has_map_or_set(&self) -> bool {
-        match self {
-            Self::Id(_)
-            | Self::Null
-            | Self::Float64
-            | Self::Int64
-            | Self::Boolean
-            | Self::String
-            | Self::Bytes
-            | Self::Literal(_)
-            | Self::Any => false,
-            Self::Set(_) | Self::Map(..) => true,
-            Self::Array(a) => a.has_map_or_set(),
-            Self::Record(k, v) => k.has_map_or_set() || v.has_map_or_set(),
-            Self::Object(o) => o.has_map_or_set(),
-            Self::Union(u) => u.iter().any(|o| o.has_map_or_set()),
-        }
-    }
-
     // Filter out `_id` and `_creationTime` at the top level
     pub fn filter_top_level_system_fields(self) -> Self {
         match self {
@@ -761,9 +676,7 @@ impl Validator {
             | Validator::Bytes
             | Validator::Literal(_)
             | Validator::Array(_)
-            | Validator::Set(_)
             | Validator::Record(..)
-            | Validator::Map(..)
             | Validator::Any => self,
             Validator::Object(o) => Validator::Object(o.filter_system_fields()),
             Validator::Union(validators) => Validator::Union(
@@ -937,11 +850,6 @@ impl ObjectValidator {
         Self(filtered_fields)
     }
 
-    pub fn has_map_or_set(&self) -> bool {
-        let fields = &self.0;
-        fields.values().any(|f| f.has_map_or_set())
-    }
-
     pub fn to_json_schema(
         &self,
         add_top_level_fields: AddTopLevelFields,
@@ -1019,10 +927,6 @@ impl FieldValidator {
             validator,
             optional: true,
         }
-    }
-
-    pub fn has_map_or_set(&self) -> bool {
-        self.validator.has_map_or_set()
     }
 }
 
@@ -1193,16 +1097,6 @@ mod tests {
             Validator::Literal(literal) => literal.into(),
             Validator::Array(v) => {
                 assert_val!([value_from_validator(*v, id_generator)?])
-            },
-            Validator::Set(v) => {
-                ConvexValue::Set(btreeset! { value_from_validator(*v, id_generator)? }.try_into()?)
-            },
-            Validator::Map(k, v) => {
-                let key = value_from_validator(*k, id_generator)?;
-                let map: BTreeMap<ConvexValue, ConvexValue> = btreemap! {
-                    key => value_from_validator(*v, id_generator)?
-                };
-                ConvexValue::Map(map.try_into()?)
             },
             Validator::Record(k, v) => {
                 let key = value_from_validator(*k, id_generator)?;
@@ -1679,13 +1573,6 @@ mod tests {
 
         let array_validator = Validator::Array(Box::new(Validator::String));
         assert_eq!(array_validator.to_string(), "v.array(v.string())");
-
-        let set_validator = Validator::Set(Box::new(Validator::Float64));
-        assert_eq!(set_validator.to_string(), "v.set(v.float64())");
-
-        let map_validator =
-            Validator::Map(Box::new(Validator::Int64), Box::new(Validator::Boolean));
-        assert_eq!(map_validator.to_string(), "v.map(v.int64(), v.boolean())");
 
         let object_validator = Validator::Object(
             object_validator!("required" => FieldValidator::required_field_type(Validator::String), "optional" => FieldValidator::optional_field_type(Validator::Float64)),

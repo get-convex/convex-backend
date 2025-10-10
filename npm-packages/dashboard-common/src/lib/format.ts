@@ -91,12 +91,6 @@ export function displaySchemaFromShape({
       return `v.id("${variant.tableName}")`;
     case "Int64":
       return `v.int64()`;
-    case "Map":
-      return `v.map(${displaySchemaFromShape({
-        shape: variant.keyShape,
-      })}, ${displaySchemaFromShape({
-        shape: variant.valueShape,
-      })})`;
     case "Never":
       // If the developer saves an empty map, set, or array the shape of the values
       // is Never (we don't know it!). Convert to `v.any()` so the schema is at least functional.
@@ -124,10 +118,10 @@ export function displaySchemaFromShape({
       const values = objectFieldToSchema(variant.valueShape);
       return `v.record(${keys}, ${values})`;
     }
+    case "Map":
     case "Set":
-      return `v.set(${displaySchemaFromShape({
-        shape: variant.shape,
-      })})`;
+      // TODO: remove Map and Set as shapes
+      return `v.any()`;
     case "String":
       return `v.string()`;
     case "Union":
@@ -224,12 +218,8 @@ function displayValidator(validator: ValidatorJSON): string {
       )}, ${displayObjectFieldSchema(validator.values)})`;
     // Deprecated, but could be shown in History tab
     case "set" as any:
-      return `v.set(${displayValidator((validator as any).value)})`;
-    // Deprecated, but could be shown in History tab
     case "map" as any:
-      return `v.map(${displayValidator(
-        (validator as any).keys,
-      )}, ${displayValidator((validator as any).values)})`;
+      return `v.any()`;
     case "object":
       return `v.object(${displayObjectSchema(validator.value)})`;
     case "union":

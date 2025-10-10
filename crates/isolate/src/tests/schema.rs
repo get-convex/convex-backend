@@ -98,27 +98,6 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                       },
                       "optional": false
                     },
-                    "setField": {
-                      "fieldType": {
-                        "type": "set",
-                        "value": {
-                          "type": "number"
-                        }
-                      },
-                      "optional": false
-                    },
-                    "mapField": {
-                      "fieldType": {
-                        "type": "map",
-                        "keys": {
-                          "type": "string"
-                        },
-                        "values": {
-                          "type": "number"
-                        }
-                      },
-                      "optional": false
-                    },
                     "anyField": {
                       "fieldType": {
                         "type": "any"
@@ -263,8 +242,6 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
                     "stringField" => FieldValidator::required_field_type(Validator::String),
                     "bytesField" => FieldValidator::required_field_type(Validator::Bytes),
                     "arrayField" => FieldValidator::required_field_type(Validator::Array(Box::new(Validator::Boolean))),
-                    "setField" => FieldValidator::required_field_type(Validator::Set(Box::new(Validator::Float64))),
-                    "mapField" => FieldValidator::required_field_type(Validator::Map(Box::new(Validator::String), Box::new(Validator::Float64))),
                     "anyField" => FieldValidator::required_field_type(Validator::Any),
                     "literalBigint" => FieldValidator::required_field_type(Validator::Literal(LiteralValidator::Int64(1))),
                     "literalNumber" => FieldValidator::required_field_type(Validator::Literal(LiteralValidator::Float64((0.).into()))),

@@ -953,9 +953,7 @@ fn recognize_fivetran_type(validator: &Validator) -> anyhow::Result<FivetranData
         Validator::Null
         | Validator::Literal(_)
         | Validator::Id(_)
-        | Validator::Set(_)
         | Validator::Record(..)
-        | Validator::Map(..)
         | Validator::Any => bail!("The type of this Convex column isn’t supported by Fivetran."),
     }
 }
