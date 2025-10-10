@@ -248,7 +248,13 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         } else {
             // Great! we have enough remaining concurrency and our backend is running, start
             // new job(s) if we can and update our next ready time.
-            self.query_and_start_jobs(&mut tx).await?
+            let root = get_sampled_span(
+                &self.instance_name,
+                "scheduler/query_and_start_jobs",
+                &mut self.context.rt.rng(),
+                BTreeMap::new(),
+            );
+            self.query_and_start_jobs(&mut tx).in_span(root).await?
         };
 
         let now = self.context.rt.system_time();

@@ -1342,6 +1342,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         .boxed()
     }
 
+    #[fastrace::trace(properties = {"key": "{key:?}"})]
     async fn get_persistence_global(
         &self,
         key: PersistenceGlobalKey,
