@@ -2108,6 +2108,7 @@ export interface components {
             periodicBackupsEnabled: boolean;
             /** Format: int64 */
             projectMaxPreviewDeployments: number;
+            ssoEnabled: boolean;
             streamingExportEnabled: boolean;
             /** Format: int64 */
             teamMaxActionCompute: number;

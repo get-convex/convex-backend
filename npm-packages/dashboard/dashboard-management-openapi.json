@@ -4866,7 +4866,8 @@
           "customDomainsEnabled",
           "periodicBackupsEnabled",
           "maxCloudBackups",
-          "maxChefTokens"
+          "maxChefTokens",
+          "ssoEnabled"
         ],
         "properties": {
           "auditLogsEnabled": {
@@ -4905,6 +4906,9 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "ssoEnabled": {
+            "type": "boolean"
           },
           "streamingExportEnabled": {
             "type": "boolean"

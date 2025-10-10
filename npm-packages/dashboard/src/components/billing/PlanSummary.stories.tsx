@@ -41,6 +41,7 @@ export const Primary: Story = {
       maxProjects: 10,
       projectMaxPreviewDeployments: 10,
       maxChefTokens: 8500000,
+      ssoEnabled: false,
     },
     hasFilter: false,
   },
