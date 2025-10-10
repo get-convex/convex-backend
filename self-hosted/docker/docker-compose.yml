@@ -23,6 +23,7 @@ services:
       - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:-http://127.0.0.1:${SITE_PROXY_PORT:-3211}}
       - DATABASE_URL
       - DISABLE_BEACON
+      - DOCUMENT_RETENTION_DELAY=${DOCUMENT_RETENTION_DELAY:-172800} # Lower default document retention to 2 days
       - DO_NOT_REQUIRE_SSL
       - INSTANCE_NAME
       - INSTANCE_SECRET
