@@ -174,7 +174,6 @@ export function FunctionLogs({
       </div>
       <div className="flex min-h-0 min-w-0 grow">
         <LogList
-          nents={selectedNent ? [selectedNent] : []}
           logs={logs}
           pausedLogs={pausedLogs}
           filteredLogs={filterLogs(

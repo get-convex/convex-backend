@@ -1,14 +1,10 @@
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import classNames from "classnames";
 import { GearIcon } from "@radix-ui/react-icons";
-import {
-  DeploymentEventContent,
-  ActionText,
-} from "@common/elements/DeploymentEventContent";
+import { ActionText } from "@common/elements/DeploymentEventContent";
 import { ITEM_SIZE } from "@common/features/logs/components/LogListItem";
 import { formatDateTime } from "@common/lib/format";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
-import { DetailPanel } from "@common/elements/DetailPanel";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function DeploymentEventListItem({
@@ -17,8 +13,6 @@ export function DeploymentEventListItem({
   focused = false,
   hitBoundary,
   setShownLog,
-  onCloseDialog,
-  newLogsPageSidepanel,
   logKey,
 }: {
   event: DeploymentAuditLogEvent;
@@ -26,25 +20,12 @@ export function DeploymentEventListItem({
   focused?: boolean;
   hitBoundary?: "top" | "bottom" | null;
   setShownLog?: () => void;
-  onCloseDialog?: () => void;
-  newLogsPageSidepanel?: boolean;
   logKey?: string;
 }) {
   const { TeamMemberLink } = useContext(DeploymentInfoContext);
-  const [showDetails, setShowDetails] = useState(false);
   const timestamp = formatDateTime(new Date(event._creationTime));
 
-  // When the button receives focus and setShownLog is available, call it
-  const handleFocus = () => {
-    if (setShownLog) {
-      setShownLog();
-    }
-  };
-
   const handleClick = () => {
-    if (!newLogsPageSidepanel) {
-      setShowDetails(true);
-    }
     if (setShownLog) {
       setShownLog();
     }
@@ -77,7 +58,7 @@ export function DeploymentEventListItem({
           height: ITEM_SIZE,
         }}
         onClick={handleClick}
-        onFocus={handleFocus}
+        onFocus={handleClick}
         tabIndex={setShownLog ? 0 : -1}
       >
         <div className="min-w-[9.25rem] text-left font-mono whitespace-nowrap text-content-primary">
@@ -105,17 +86,6 @@ export function DeploymentEventListItem({
           </span>
         </div>
       </button>
-
-      {showDetails && (
-        <DetailPanel
-          onClose={() => {
-            setShowDetails(false);
-            onCloseDialog?.();
-          }}
-          header="Deployment Event"
-          content={<DeploymentEventContent event={event} />}
-        />
-      )}
     </div>
   );
 }

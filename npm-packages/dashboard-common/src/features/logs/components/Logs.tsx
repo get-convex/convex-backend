@@ -275,7 +275,6 @@ export function Logs({
       </div>
       <div className="flex-1 overflow-hidden">
         <LogList
-          nents={nents}
           logs={logs}
           pausedLogs={pausedLogs}
           filteredLogs={filteredLogs}

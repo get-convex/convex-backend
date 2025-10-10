@@ -4,11 +4,9 @@ import kebabCase from "lodash/kebabCase";
 const flagDefaults: {
   commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
-  newLogsPageSidepanel: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
-  newLogsPageSidepanel: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

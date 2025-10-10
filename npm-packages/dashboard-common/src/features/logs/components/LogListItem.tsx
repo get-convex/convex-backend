@@ -17,10 +17,9 @@ import { CopiedPopper } from "@common/elements/CopiedPopper";
 
 type LogListItemProps = {
   log: UdfLog;
-  setShownLog?: () => void;
+  setShownLog: () => void;
   focused: boolean;
   hitBoundary?: "top" | "bottom" | null;
-  newLogsPageSidepanel?: boolean;
   logKey?: string;
 };
 
@@ -31,7 +30,6 @@ export function LogListItem({
   setShownLog,
   focused,
   hitBoundary,
-  newLogsPageSidepanel,
   logKey,
 }: LogListItemProps) {
   const wrapperRef = useRef<HTMLButtonElement | HTMLSpanElement>(null);
@@ -57,18 +55,12 @@ export function LogListItem({
       setDidJustCopy(true);
     },
     {
-      enabled: focused && !!setShownLog,
+      enabled: focused,
       preventDefault: true,
     },
     [log, focused, setShownLog],
   );
 
-  // When the item receives focus and setShownLog is available, call it
-  const handleFocus = () => {
-    if (setShownLog) {
-      setShownLog();
-    }
-  };
   const isFailure =
     log.kind === "outcome" ? !!log.error : log.output.level === "ERROR";
 
@@ -85,22 +77,16 @@ export function LogListItem({
         showBoundary === "bottom" && "animate-[bounceBottom_0.375s_ease-out]",
       )}
       style={{
-        height: setShownLog ? ITEM_SIZE : undefined,
+        height: ITEM_SIZE,
       }}
     >
       <Wrapper
         setShownLog={setShownLog}
-        onFocus={handleFocus}
-        newLogsPageSidepanel={newLogsPageSidepanel}
+        onFocus={setShownLog}
         logKey={logKey}
         ref={wrapperRef}
       >
-        <div
-          className={classNames(
-            "flex gap-4 items-center",
-            setShownLog ? "p-0.5 ml-2" : "w-full",
-          )}
-        >
+        <div className={classNames("flex gap-4 items-center", "p-0.5 ml-2")}>
           <div className="min-w-[9.25rem] text-left whitespace-nowrap">
             {log.localizedTimestamp}
             <span
@@ -112,16 +98,14 @@ export function LogListItem({
               {new Date(log.timestamp).toISOString().split(".")[1].slice(0, -1)}
             </span>
           </div>
-          {setShownLog && (
-            <div
-              className={cn(
-                "-ml-0.5 min-w-8 overflow-hidden rounded-sm border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected",
-                isFailure && "border-background-errorSecondary",
-              )}
-            >
-              {log.requestId.slice(0, 4)}
-            </div>
-          )}
+          <div
+            className={cn(
+              "-ml-0.5 min-w-8 overflow-hidden rounded-sm border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected",
+              isFailure && "border-background-errorSecondary",
+            )}
+          >
+            {log.requestId.slice(0, 4)}
+          </div>
 
           {log.kind === "outcome" ? (
             <div className="flex min-w-[7rem] items-center gap-2">
@@ -139,15 +123,13 @@ export function LogListItem({
               </div>
             </div>
           ) : (
-            setShownLog && (
-              <hr
-                className={classNames(
-                  "min-w-[7rem]",
-                  // eslint-disable-next-line no-restricted-syntax
-                  isFailure ? "bg-content-error" : "bg-background-tertiary",
-                )}
-              />
-            )
+            <hr
+              className={classNames(
+                "min-w-[7rem]",
+                // eslint-disable-next-line no-restricted-syntax
+                isFailure ? "bg-content-error" : "bg-background-tertiary",
+              )}
+            />
           )}
           <div className="flex items-center gap-2">
             <p
@@ -165,7 +147,7 @@ export function LogListItem({
                   : log.call
               }
               oneLine
-              maxChars={setShownLog ? 32 : 60}
+              maxChars={32}
               error={isFailure}
             />
           </div>
@@ -173,9 +155,7 @@ export function LogListItem({
         {log.kind === "log" && log.output.level && (
           <LogLevel level={log.output.level} />
         )}
-        {log.kind === "log" && (
-          <LogOutput output={log.output} wrap={!setShownLog} secondary />
-        )}
+        {log.kind === "log" && <LogOutput output={log.output} secondary />}
         {log.kind === "outcome" && log.error && (
           <LogOutput
             output={{
@@ -184,7 +164,6 @@ export function LogListItem({
               level: "FAILURE",
             }}
             secondary
-            wrap={!setShownLog}
           />
         )}
       </Wrapper>
@@ -206,16 +185,12 @@ const Wrapper = React.forwardRef<
   HTMLButtonElement | HTMLSpanElement,
   {
     children: React.ReactNode;
-    setShownLog?: () => void;
+    setShownLog: () => void;
     onFocus?: () => void;
-    newLogsPageSidepanel?: boolean;
     logKey?: string;
   }
->(function Wrapper(
-  { children, setShownLog, onFocus, newLogsPageSidepanel, logKey },
-  ref,
-) {
-  return setShownLog ? (
+>(function Wrapper({ children, setShownLog, onFocus, logKey }, ref) {
+  return (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
     <button
@@ -232,18 +207,11 @@ const Wrapper = React.forwardRef<
         "h-[calc(100%-1px)]",
       )}
       onClick={() => setShownLog()}
-      onFocus={newLogsPageSidepanel ? onFocus : undefined}
+      onFocus={onFocus}
       tabIndex={0}
     >
       {children}
     </button>
-  ) : (
-    <span
-      className="flex w-full flex-col items-start gap-2 p-2"
-      ref={ref as React.Ref<HTMLSpanElement>}
-    >
-      {children}
-    </span>
   );
 });
 
