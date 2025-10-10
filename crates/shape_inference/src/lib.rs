@@ -12,9 +12,7 @@
 mod array;
 mod config;
 mod float64;
-mod map;
 mod object;
-mod set;
 mod string;
 mod union;
 
@@ -57,12 +55,10 @@ pub use self::config::{
 };
 use self::{
     array::ArrayShape,
-    map::MapShape,
     object::{
         ObjectShape,
         RecordShape,
     },
-    set::SetShape,
     string::StringLiteralShape,
 };
 
@@ -172,12 +168,6 @@ pub enum ShapeEnum<C: ShapeConfig, S: ShapeCounter> {
     /// shape `int64 | string` with five elements.
     Array(ArrayShape<C, S>),
 
-    /// Deprecated.
-    Set(SetShape<C, S>),
-
-    /// Deprecated.
-    Map(MapShape<C, S>),
-
     /// The set of all objects with a set of statically known fields. Not all
     /// objects can become a valid object shape: This behavior is configured
     /// by [`ShapeConfig::MAX_OBJECT_FIELDS`] and
@@ -270,8 +260,6 @@ impl<C: ShapeConfig> CountedShape<C> {
             ConvexValue::String(ref s) => StringLiteralShape::shape_of(s),
             ConvexValue::Bytes(..) => ShapeEnum::Bytes,
             ConvexValue::Array(ref array) => ArrayShape::shape_of(array),
-            ConvexValue::Set(ref set) => SetShape::shape_of(set),
-            ConvexValue::Map(ref map) => MapShape::shape_of(map),
             ConvexValue::Object(ref object) => return Self::shape_of_object(object),
         };
         Self::new(variant, 1)
@@ -393,22 +381,6 @@ impl<C: ShapeConfig> CountedShape<C> {
                     element_shape = element_shape._remove(value)?;
                 }
                 ShapeEnum::Array(ArrayShape::new(element_shape))
-            },
-            (ConvexValue::Set(ref set), ShapeEnum::Set(ref set_shape)) => {
-                let mut element_shape = set_shape.element().clone();
-                for value in set {
-                    element_shape = element_shape._remove(value)?;
-                }
-                ShapeEnum::Set(SetShape::new(element_shape))
-            },
-            (ConvexValue::Map(ref map), ShapeEnum::Map(ref map_shape)) => {
-                let mut key_shape = map_shape.key().clone();
-                let mut value_shape = map_shape.value().clone();
-                for (key, value) in map {
-                    key_shape = key_shape._remove(key)?;
-                    value_shape = value_shape._remove(value)?;
-                }
-                ShapeEnum::Map(MapShape::new(key_shape, value_shape))
             },
             (value, ShapeEnum::Union(ref union_shape)) => {
                 let (existing_shape, removed) = union_shape
@@ -536,8 +508,6 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             | ShapeEnum::String
             | ShapeEnum::Bytes
             | ShapeEnum::Array(_)
-            | ShapeEnum::Set(_)
-            | ShapeEnum::Map(_)
             | ShapeEnum::Object(_)
             | ShapeEnum::Record(_)
             | ShapeEnum::Unknown => false,
@@ -578,8 +548,6 @@ impl<C: ShapeConfig> From<&CountedShapeEnum<C>> for StructuralShapeEnum<C> {
             ShapeEnum::String => Self::String,
             ShapeEnum::Bytes => Self::Bytes,
             ShapeEnum::Array(array) => Self::Array(ArrayShape::new(array.element().into())),
-            ShapeEnum::Set(set) => Self::Set(SetShape::new(set.element().into())),
-            ShapeEnum::Map(map) => Self::Map(MapShape::new(map.key().into(), map.value().into())),
             ShapeEnum::Object(object) => Self::Object(ObjectShape::<C, ()>::new(
                 object
                     .iter()

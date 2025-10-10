@@ -14,13 +14,11 @@ use value::{
 
 use crate::{
     array::ArrayShape,
-    map::MapShape,
     object::{
         ObjectField,
         ObjectShape,
         RecordShape,
     },
-    set::SetShape,
     string::StringLiteralShape,
     union::UnionBuilder,
     CountedShape,
@@ -45,12 +43,6 @@ pub fn supertype_candidates<C: ShapeConfig>(
             // unions as this stage since these types *must* be merged to preserve
             // disjointness.
             if let Some(candidate) = array_candidate(types) {
-                yield candidate;
-            }
-            if let Some(candidate) = set_candidate(types) {
-                yield candidate;
-            }
-            if let Some(candidate) = map_candidate(types) {
                 yield candidate;
             }
             // Include a record type in Phase 1 if we already have a record. Otherwise, we'd
@@ -222,50 +214,6 @@ fn array_candidate<C: ShapeConfig>(
     }
     let new_type = CountedShape::new(
         ShapeEnum::Array(ArrayShape::new(element.build())),
-        indexes.iter().map(|&i| types[i].num_values).sum(),
-    );
-    Some((new_type, indexes))
-}
-
-fn set_candidate<C: ShapeConfig>(
-    types: &[CountedShape<C>],
-) -> Option<(CountedShape<C>, Vec<usize>)> {
-    let mut element = UnionBuilder::new();
-    let mut indexes = vec![];
-    for (i, t) in types.iter().enumerate() {
-        if let ShapeEnum::Set(ref set) = &*t.variant {
-            element = element.push(set.element().clone());
-            indexes.push(i);
-        }
-    }
-    if indexes.len() < 2 {
-        return None;
-    }
-    let new_type = CountedShape::new(
-        ShapeEnum::Set(SetShape::new(element.build())),
-        indexes.iter().map(|&i| types[i].num_values).sum(),
-    );
-    Some((new_type, indexes))
-}
-
-fn map_candidate<C: ShapeConfig>(
-    types: &[CountedShape<C>],
-) -> Option<(CountedShape<C>, Vec<usize>)> {
-    let mut key = UnionBuilder::new();
-    let mut value = UnionBuilder::new();
-    let mut indexes = vec![];
-    for (i, t) in types.iter().enumerate() {
-        if let ShapeEnum::Map(ref map) = &*t.variant {
-            key = key.push(map.key().clone());
-            value = value.push(map.value().clone());
-            indexes.push(i);
-        }
-    }
-    if indexes.len() < 2 {
-        return None;
-    }
-    let new_type = CountedShape::new(
-        ShapeEnum::Map(MapShape::new(key.build(), value.build())),
         indexes.iter().map(|&i| types[i].num_values).sum(),
     );
     Some((new_type, indexes))

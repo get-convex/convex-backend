@@ -116,8 +116,6 @@ impl ConvexValue {
             ConvexValue::Array(values) => {
                 JsonValue::Array(values.into_iter().map(|x| x.export_clean()).collect())
             },
-            // Use the internal representation for deprecated types
-            ConvexValue::Set(_) | ConvexValue::Map(_) => self.to_internal_json(),
             ConvexValue::Object(map) => JsonValue::Object(
                 map.into_iter()
                     .map(|(key, value)| (key.to_string(), value.export_clean()))
@@ -134,7 +132,6 @@ mod tests {
 
     use super::*;
     use crate::proptest::{
-        ExcludeSetsAndMaps,
         RestrictNaNs,
         ValueBranching,
     };
@@ -150,7 +147,6 @@ mod tests {
                 (
                     Default::default(),
                     ValueBranching::default(),
-                    ExcludeSetsAndMaps(true),
                     RestrictNaNs(false),
                 )
             )

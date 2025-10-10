@@ -373,7 +373,6 @@ mod proptest {
             ValueBranching,
         },
         ConvexValue,
-        ExcludeSetsAndMaps,
     };
 
     impl Arbitrary for ConvexObject {
@@ -381,23 +380,17 @@ mod proptest {
             prop::collection::SizeRange,
             <FieldName as Arbitrary>::Parameters,
             ValueBranching,
-            ExcludeSetsAndMaps,
             RestrictNaNs,
         );
 
         type Strategy = impl Strategy<Value = ConvexObject>;
 
         fn arbitrary_with(
-            (size, field_params, branching, exclude_sets_and_maps, restrict_nans): Self::Parameters,
+            (size, field_params, branching, restrict_nans): Self::Parameters,
         ) -> Self::Strategy {
             resolved_object_strategy(
                 any_with::<FieldName>(field_params),
-                any_with::<ConvexValue>((
-                    field_params,
-                    branching,
-                    exclude_sets_and_maps,
-                    restrict_nans,
-                )),
+                any_with::<ConvexValue>((field_params, branching, restrict_nans)),
                 size,
             )
         }

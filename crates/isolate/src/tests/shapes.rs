@@ -8,10 +8,6 @@ use common::{
     testing::TestIdGenerator,
     value::ConvexValue,
 };
-use maplit::{
-    btreemap,
-    btreeset,
-};
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use shape_inference::{
@@ -54,14 +50,6 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
         (val!(""), "string"),
         (val!(Vec::<u8>::new()), "ArrayBuffer"),
         (val!(vec![ConvexValue::Null]), "Array<null>"),
-        (
-            ConvexValue::Set(btreeset!(ConvexValue::Null).try_into()?),
-            "Set<null>",
-        ),
-        (
-            ConvexValue::Map(btreemap!(ConvexValue::Null => ConvexValue::Null).try_into()?),
-            "Map<null,null>",
-        ),
         (assert_val!({"a" => 0, "b" => 0.}), "{a: bigint,b: number}"),
     ];
     for (value, expected) in values {

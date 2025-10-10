@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use serde::{
     de::Error as DeError,
     ser::{
-        Error as SerError,
         SerializeMap,
         SerializeSeq,
     },
@@ -31,8 +30,6 @@ impl Serialize for ConvexValue {
             ConvexValue::String(s) => serializer.serialize_str(s),
             ConvexValue::Bytes(b) => serializer.serialize_bytes(b),
             ConvexValue::Array(a) => a.serialize(serializer),
-            ConvexValue::Set(_) => Err(S::Error::custom("Set serialization not supported")),
-            ConvexValue::Map(_) => Err(S::Error::custom("Map serialization not supported")),
             ConvexValue::Object(o) => o.serialize(serializer),
         }
     }
@@ -209,7 +206,6 @@ mod tests {
             to_value,
         },
         ConvexValue,
-        ExcludeSetsAndMaps,
         FieldType,
     };
 
@@ -223,7 +219,6 @@ mod tests {
             start in any_with::<ConvexValue>((
                 FieldType::User,
                 ValueBranching::default(),
-                ExcludeSetsAndMaps(true),
                 RestrictNaNs(false),
             ))
         ) {

@@ -25,8 +25,6 @@ impl Arbitrary for ExportContext {
             (any::<[u8; 8]>()).prop_map(|nan_le_bytes| ExportContext::Float64NaN { nan_le_bytes }),
             Just(ExportContext::Float64Inf),
             Just(ExportContext::Bytes),
-            Just(ExportContext::Set),
-            Just(ExportContext::Map),
         ];
         leaf.prop_recursive(2, 8, 4, move |inner| {
             prop_oneof![

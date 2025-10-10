@@ -334,7 +334,6 @@ impl Validator {
                 table_mapping,
                 virtual_system_mapping,
             ))),
-            ShapeEnum::Set(..) | ShapeEnum::Map(..) => Self::Any,
             ShapeEnum::Object(object_type) => {
                 let object_fields = object_type
                     .iter()
@@ -1039,7 +1038,6 @@ mod tests {
         },
         ConvexObject,
         ConvexValue,
-        ExcludeSetsAndMaps,
         FieldName,
         FieldType,
         InternalId,
@@ -1792,7 +1790,6 @@ mod tests {
                 (
                     FieldType::User,
                     ValueBranching::default(),
-                    ExcludeSetsAndMaps(false),
                     RestrictNaNs(false),
                 )
             )

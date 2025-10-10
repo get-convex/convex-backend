@@ -8,12 +8,10 @@ use value::{
 use super::{
     array::ArrayShape,
     config::ShapeConfig,
-    map::MapShape,
     object::{
         ObjectShape,
         RecordShape,
     },
-    set::SetShape,
     string::StringLiteralShape,
     ShapeEnum,
 };
@@ -99,14 +97,6 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
                 .element()
                 .variant
                 .is_subtype(&other_array.element().variant),
-            (ShapeEnum::Set(ref set), ShapeEnum::Set(ref other_set)) => set
-                .element()
-                .variant
-                .is_subtype(&other_set.element().variant),
-            (ShapeEnum::Map(ref map), ShapeEnum::Map(ref other_map)) => {
-                map.key().variant.is_subtype(&other_map.key().variant)
-                    && map.value().variant.is_subtype(&other_map.value().variant)
-            },
 
             // We do not perform any structural subtyping in our type system, so the set of all
             // objects in `{a: string}` is completely disjoint from the set of all objects in `{a:
@@ -279,15 +269,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 let element = array.element().merge_if_subtype(other_array.element())?;
                 ShapeEnum::Array(ArrayShape::new(element))
             },
-            (ShapeEnum::Set(ref set), ShapeEnum::Set(ref other_set)) => {
-                let element = set.element().merge_if_subtype(other_set.element())?;
-                ShapeEnum::Set(SetShape::new(element))
-            },
-            (ShapeEnum::Map(ref map), ShapeEnum::Map(ref other_map)) => {
-                let key = map.key().merge_if_subtype(other_map.key())?;
-                let value = map.value().merge_if_subtype(other_map.value())?;
-                ShapeEnum::Map(MapShape::new(key, value))
-            },
+
             (ShapeEnum::Object(ref object), ShapeEnum::Object(ref other_object)) => {
                 let mut fields = BTreeMap::new();
                 for (field_name, field) in object.iter() {

@@ -1,9 +1,5 @@
-use std::{
-    collections::BTreeMap,
-    str::FromStr,
-};
+use std::str::FromStr;
 
-use maplit::btreemap;
 use must_let::must_let;
 use serde_json::json;
 use shape_inference::{
@@ -11,7 +7,6 @@ use shape_inference::{
     CountedShape,
 };
 use value::{
-    assert_obj,
     id_v6::DeveloperDocumentId,
     ConvexValue,
     TableName,
@@ -26,29 +21,6 @@ use crate::{
     testing::TestIdGenerator,
     virtual_system_mapping::VirtualSystemMapping,
 };
-
-#[test]
-fn test_map_reduce_type() -> anyhow::Result<()> {
-    let mut s = CountedShape::<TestConfig>::empty();
-
-    let empty_obj = assert_obj!("fields" => ConvexValue::Map(BTreeMap::new().try_into()?));
-
-    let nonempty_obj = assert_obj!("fields" => ConvexValue::Map(btreemap!{
-        ConvexValue::try_from("hi")? => ConvexValue::try_from("there")?
-    }.try_into()?));
-
-    s = s.insert(&empty_obj);
-    s = s.insert(&nonempty_obj);
-
-    let reduced = ReducedShape::from_type(&s, &|_| false);
-
-    must_let!(let ReducedShape::Object(fields) = reduced);
-    let field = fields.get("fields").unwrap();
-    assert!(!field.optional);
-    must_let!(let ReducedShape::Map {..} = &field.shape);
-
-    Ok(())
-}
 
 // CX-1550 was a bug in our `reduce` logic with reducing object shapes with
 // union shapes as their fields.

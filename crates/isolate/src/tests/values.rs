@@ -17,7 +17,6 @@ use value::{
         RestrictNaNs,
         ValueBranching,
     },
-    ExcludeSetsAndMaps,
     FieldType,
 };
 
@@ -114,7 +113,6 @@ proptest! {
     fn proptest_compare_values(values in prop::collection::vec(any_with::<ConvexValue>((
         FieldType::User,
         ValueBranching::small(),
-        ExcludeSetsAndMaps(true),
         RestrictNaNs(true),
     )), 10)) {
         // This tests that the JS implementation for comparing values matches the Rust implementation.

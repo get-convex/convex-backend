@@ -1041,7 +1041,6 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocument {
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
         use value::proptest::{
-            ExcludeSetsAndMaps,
             RestrictNaNs,
             ValueBranching,
         };
@@ -1052,7 +1051,6 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocument {
                 prop::collection::SizeRange::default(),
                 FieldType::User,
                 ValueBranching::default(),
-                ExcludeSetsAndMaps(false),
                 RestrictNaNs(false),
             ),
         ))
@@ -1092,7 +1090,6 @@ mod tests {
         },
         ConvexObject,
         ConvexValue,
-        ExcludeSetsAndMaps,
         FieldType,
         IdentifierFieldName,
         InternalId,
@@ -1182,7 +1179,6 @@ mod tests {
                 prop::collection::SizeRange::default(),
                 FieldType::UserIdentifier,
                 ValueBranching::medium(),
-                ExcludeSetsAndMaps(false),
                 RestrictNaNs(false),
             )),
             field_paths in prop::collection::vec(

@@ -69,19 +69,6 @@ pub fn dashboard_shape_json(
         ReducedShape::Array(shape) => {
             json!({"type": "Array", "shape": dashboard_shape_json(shape.as_ref(), mapping, virtual_mapping)?})
         },
-        ReducedShape::Set(shape) => {
-            json!({"type": "Set", "shape": dashboard_shape_json(shape.as_ref(), mapping, virtual_mapping)?})
-        },
-        ReducedShape::Map {
-            key_shape,
-            value_shape,
-        } => {
-            json!({
-                "type": "Map",
-                "keyShape": dashboard_shape_json(key_shape.as_ref(), mapping, virtual_mapping)?,
-                "valueShape": dashboard_shape_json(value_shape.as_ref(), mapping, virtual_mapping)?,
-            })
-        },
         ReducedShape::Union(shapes) => {
             json!({
                 "type": "Union",
@@ -162,14 +149,6 @@ mod tests {
             Array {
                 shape: JsonValue,
             },
-            Set {
-                shape: JsonValue,
-            },
-            #[serde(rename_all = "camelCase")]
-            Map {
-                key_shape: JsonValue,
-                value_shape: JsonValue,
-            },
             Union {
                 shapes: Vec<JsonValue>,
             },
@@ -213,16 +192,6 @@ mod tests {
             ShapeEnumJson::Array { shape } => {
                 ReducedShape::Array(Box::new(parse_json(shape, mapping, virtual_mapping)?))
             },
-            ShapeEnumJson::Set { shape } => {
-                ReducedShape::Set(Box::new(parse_json(shape, mapping, virtual_mapping)?))
-            },
-            ShapeEnumJson::Map {
-                key_shape,
-                value_shape,
-            } => ReducedShape::Map {
-                key_shape: Box::new(parse_json(key_shape, mapping, virtual_mapping)?),
-                value_shape: Box::new(parse_json(value_shape, mapping, virtual_mapping)?),
-            },
             ShapeEnumJson::Union { shapes } => ReducedShape::Union(
                 shapes
                     .into_iter()
@@ -252,11 +221,6 @@ mod tests {
                 "fieldB".parse()? => ReducedField { shape: ReducedShape::Bytes, optional: false },
             )),
             ReducedShape::Array(Box::new(ReducedShape::Null)),
-            ReducedShape::Set(Box::new(ReducedShape::Null)),
-            ReducedShape::Map {
-                key_shape: Box::new(ReducedShape::Null),
-                value_shape: Box::new(ReducedShape::Null),
-            },
             ReducedShape::Union(btreeset!(ReducedShape::Boolean, ReducedShape::String)),
         ];
         for shape in shapes {
@@ -296,11 +260,6 @@ mod tests {
                 "fieldB".parse()? => ReducedField { shape: ReducedShape::Bytes, optional: false },
             )),
             ReducedShape::Array(Box::new(ReducedShape::Null)),
-            ReducedShape::Set(Box::new(ReducedShape::Null)),
-            ReducedShape::Map {
-                key_shape: Box::new(ReducedShape::Null),
-                value_shape: Box::new(ReducedShape::Null),
-            },
             ReducedShape::Union(btreeset!(ReducedShape::Boolean, ReducedShape::String)),
         ];
         for shape in shapes {

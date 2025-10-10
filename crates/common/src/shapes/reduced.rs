@@ -41,11 +41,6 @@ pub enum ReducedShape {
     Bytes,
     Object(BTreeMap<FieldName, ReducedField>),
     Array(Box<ReducedShape>),
-    Set(Box<ReducedShape>),
-    Map {
-        key_shape: Box<ReducedShape>,
-        value_shape: Box<ReducedShape>,
-    },
     Record {
         key_shape: Box<ReducedShape>,
         value_shape: Box<ReducedField>,
@@ -111,14 +106,6 @@ impl ReducedShape {
                 array_type.element(),
                 table_exists,
             ))),
-            ShapeEnum::Set(set_type) => ReducedShape::Set(Box::new(ReducedShape::from_type(
-                set_type.element(),
-                table_exists,
-            ))),
-            ShapeEnum::Map(map_type) => ReducedShape::Map {
-                key_shape: Box::new(ReducedShape::from_type(map_type.key(), table_exists)),
-                value_shape: Box::new(ReducedShape::from_type(map_type.value(), table_exists)),
-            },
             ShapeEnum::Object(object_type) => {
                 let reduced_fields = object_type
                     .fields()

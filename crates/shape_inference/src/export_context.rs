@@ -76,8 +76,6 @@ pub enum ExportContext {
     Float64Inf,
     Bytes,
     Array(Vec<ExportContext>),
-    Set,
-    Map,
     Object(BTreeMap<FieldName, ExportContext>),
 }
 
@@ -265,8 +263,6 @@ impl ExportContext {
                 }
             },
             ConvexValue::Object(fields) => Self::of_object_inner(fields, shape),
-            ConvexValue::Map(_) => ExportContext::Map,
-            ConvexValue::Set(_) => ExportContext::Set,
         }
     }
 
@@ -303,12 +299,7 @@ impl ExportContext {
         if shape_options
             .iter()
             .flat_map(|shape| shape.union_options())
-            .any(|shape| {
-                matches!(
-                    shape.variant(),
-                    ShapeEnum::Unknown | ShapeEnum::Map(_) | ShapeEnum::Set(_)
-                )
-            })
+            .any(|shape| matches!(shape.variant(), ShapeEnum::Unknown))
         {
             return true;
         }
@@ -409,8 +400,6 @@ impl ExportContext {
                         | ShapeEnum::NormalFloat64
                         | ShapeEnum::Boolean
                         | ShapeEnum::Array(_)
-                        | ShapeEnum::Set(_)
-                        | ShapeEnum::Map(_)
                         | ShapeEnum::Object(_)
                         | ShapeEnum::Record(_) => {},
                     }
@@ -434,10 +423,6 @@ impl ExportContext {
         exported_value: JsonValue,
         shape: &BTreeSet<&Shape<C, S>>,
     ) -> anyhow::Result<ConvexValue> {
-        if matches!(self, Self::Map | Self::Set) {
-            return ConvexValue::try_from(exported_value)
-                .context("Couldn’t deserialize set/map from internal representation");
-        }
         match exported_value {
             JsonValue::Null => Ok(ConvexValue::Null),
             JsonValue::Bool(value) => Ok(value.into()),
@@ -479,7 +464,7 @@ impl ExportContext {
                         _ => anyhow::bail!("Unexpected string for f64"),
                     },
                     Self::Bytes => ConvexValue::try_from(base64::decode(value)?),
-                    Self::Array(_) | Self::Map | Self::Set | Self::Object(_) => {
+                    Self::Array(_) | Self::Object(_) => {
                         anyhow::bail!("unexpected shape hint for string")
                     },
                 }
@@ -516,51 +501,46 @@ impl ExportContext {
                 | Self::Float64NaN { .. }
                 | Self::Float64Inf
                 | Self::Int64
-                | Self::Map
-                | Self::Object(_)
-                | Self::Set => anyhow::bail!("unsupported shape hint for array value"),
+                | Self::Object(_) => anyhow::bail!("unsupported shape hint for array value"),
             },
-            JsonValue::Object(exported_values) => {
-                match self {
-                    Self::Infer => {
-                        let entries: BTreeMap<FieldName, ConvexValue> = exported_values
-                            .into_iter()
-                            .map(|(key, value)| {
-                                let field: FieldName = key.parse()?;
-                                let field_shape = shape
-                                    .iter()
-                                    .flat_map(|shape| shape.object_field(&field))
-                                    .collect();
-                                anyhow::Ok((field, Self::Infer.apply_inner(value, &field_shape)?))
-                            })
-                            .try_collect()?;
+            JsonValue::Object(exported_values) => match self {
+                Self::Infer => {
+                    let entries: BTreeMap<FieldName, ConvexValue> = exported_values
+                        .into_iter()
+                        .map(|(key, value)| {
+                            let field: FieldName = key.parse()?;
+                            let field_shape = shape
+                                .iter()
+                                .flat_map(|shape| shape.object_field(&field))
+                                .collect();
+                            anyhow::Ok((field, Self::Infer.apply_inner(value, &field_shape)?))
+                        })
+                        .try_collect()?;
 
-                        Ok(ConvexValue::Object(entries.try_into()?))
-                    },
-                    Self::Object(mut shape_hints) => {
-                        let entries: BTreeMap<FieldName, ConvexValue> = exported_values
-                            .into_iter()
-                            .map(|(key, value)| {
-                                let field: FieldName = key.parse()?;
-                                let field_shape = shape
-                                    .iter()
-                                    .flat_map(|shape| shape.object_field(&field))
-                                    .collect();
-                                let shape_hint =
-                                    shape_hints.remove(&field).unwrap_or(ExportContext::Infer);
-                                anyhow::Ok((field, shape_hint.apply_inner(value, &field_shape)?))
-                            })
-                            .try_collect()?;
+                    Ok(ConvexValue::Object(entries.try_into()?))
+                },
+                Self::Object(mut shape_hints) => {
+                    let entries: BTreeMap<FieldName, ConvexValue> = exported_values
+                        .into_iter()
+                        .map(|(key, value)| {
+                            let field: FieldName = key.parse()?;
+                            let field_shape = shape
+                                .iter()
+                                .flat_map(|shape| shape.object_field(&field))
+                                .collect();
+                            let shape_hint =
+                                shape_hints.remove(&field).unwrap_or(ExportContext::Infer);
+                            anyhow::Ok((field, shape_hint.apply_inner(value, &field_shape)?))
+                        })
+                        .try_collect()?;
 
-                        Ok(ConvexValue::Object(entries.try_into()?))
-                    },
-                    Self::Map | Self::Set => unreachable!(), // deprecated, handled above.
-                    Self::Int64
-                    | Self::Float64NaN { .. }
-                    | Self::Float64Inf
-                    | Self::Bytes
-                    | Self::Array(_) => anyhow::bail!("unsupported shape hint for object value"),
-                }
+                    Ok(ConvexValue::Object(entries.try_into()?))
+                },
+                Self::Int64
+                | Self::Float64NaN { .. }
+                | Self::Float64Inf
+                | Self::Bytes
+                | Self::Array(_) => anyhow::bail!("unsupported shape hint for object value"),
             },
         }
     }
@@ -573,8 +553,6 @@ impl From<ExportContext> for JsonValue {
             ExportContext::Int64 => json!("int64"),
             ExportContext::Float64Inf => json!("float64inf"),
             ExportContext::Bytes => json!("bytes"),
-            ExportContext::Set => json!("set"),
-            ExportContext::Map => json!("map"),
             ExportContext::Float64NaN { nan_le_bytes } => {
                 json!({"$float64NaN": base64::encode(nan_le_bytes) })
             },
@@ -599,8 +577,6 @@ impl TryFrom<JsonValue> for ExportContext {
                 "int64" => Self::Int64,
                 "float64inf" => Self::Float64Inf,
                 "bytes" => Self::Bytes,
-                "set" => Self::Set,
-                "map" => Self::Map,
                 _ => anyhow::bail!("invalid export context {s}"),
             },
             JsonValue::Array(array) => ExportContext::Array(
@@ -635,10 +611,7 @@ impl TryFrom<JsonValue> for ExportContext {
 #[cfg(test)]
 mod tests {
     use cmd_util::env::env_config;
-    use maplit::{
-        btreemap,
-        btreeset,
-    };
+    use maplit::btreemap;
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
     use sync_types::testing::assert_roundtrips;
@@ -656,7 +629,6 @@ mod tests {
         Shape,
         ShapeEnum,
         StructuralShape,
-        UnionShape,
     };
 
     fn test_export_context_with_shape(
@@ -760,16 +732,6 @@ mod tests {
             assert_val!([bytes, "1"]),
             ExportContext::Array(vec![ExportContext::Bytes, ExportContext::Infer]),
         );
-    }
-
-    #[test]
-    fn test_set() {
-        let set = ConvexValue::Set(
-            btreeset! {assert_val!(1), assert_val!("hi")}
-                .try_into()
-                .unwrap(),
-        );
-        test_export_context(set, ExportContext::Set);
     }
 
     #[test]
@@ -917,10 +879,6 @@ mod tests {
 
     #[test]
     fn test_is_ambiguous() {
-        let bool_or_empty_set = CountedShape::<SmallTestConfig>::empty()
-            .insert_value(&assert_val!(true))
-            .insert_value(&assert_val!(btreeset! {}));
-        assert!(ExportContext::is_ambiguous(&bool_or_empty_set));
         let object_mismatch_different_fields = CountedShape::<SmallTestConfig>::empty()
             .insert(&assert_obj!("a" => [1, 2]))
             .insert(&assert_obj!("b" => ["1", "2"]));
@@ -1019,23 +977,6 @@ mod tests {
                     shape_hint.apply(exported_value, &shape).unwrap(),
                     "{} should not be ambiguous", shape
                 );
-                // Make the shape ambiguous, and we can still use Infer.
-                // Union unambiguous shape with set<never> to make it ambiguous
-                // without affecting how it is used to apply ExportContexts.
-                let mut shape_union = match shape.variant() {
-                    ShapeEnum::Union(u) => (**u).clone(),
-                    _ => btreeset!(shape.clone()),
-                };
-                // We have to construct directly to avoid the existing shape collapsing.
-                shape_union.insert(Shape::structural_shape_of(&assert_val!(btreeset! {})));
-                let ambiguous_shape = StructuralShape::new(
-                    ShapeEnum::Union(UnionShape::from_parts(shape_union)),
-                );
-                if !matches!(ambiguous_shape.variant(), ShapeEnum::Unknown) {
-                    prop_assert!(ExportContext::is_ambiguous(&ambiguous_shape));
-                    let shape_hint = ExportContext::of(&value, &ambiguous_shape);
-                    prop_assert!(shape_hint.is_infer());
-                }
             }
         }
     }

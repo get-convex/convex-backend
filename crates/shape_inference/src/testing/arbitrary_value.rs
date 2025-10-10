@@ -5,9 +5,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     proptest::float64_strategy,
     ConvexArray,
-    ConvexMap,
     ConvexObject,
-    ConvexSet,
     ConvexValue,
     FieldName,
     InternalId,
@@ -63,18 +61,6 @@ pub fn shape_member_strategy<C: ShapeConfig>(t: &CountedShape<C>) -> BoxedStrate
                 .prop_map(|values| ConvexValue::Array(ConvexArray::try_from(values).unwrap()))
                 .boxed()
         },
-        ShapeEnum::Set(ref set) => {
-            prop::collection::btree_set(shape_member_strategy(set.element()), 0..BRANCHING)
-                .prop_map(|values| ConvexValue::Set(ConvexSet::try_from(values).unwrap()))
-                .boxed()
-        },
-        ShapeEnum::Map(ref map) => prop::collection::btree_map(
-            shape_member_strategy(map.key()),
-            shape_member_strategy(map.value()),
-            0..BRANCHING,
-        )
-        .prop_map(|values| ConvexValue::Map(ConvexMap::try_from(values).unwrap()))
-        .boxed(),
         ShapeEnum::Object(ref object) => {
             let mut strategy = Just(BTreeMap::new()).boxed();
             for (field_name, field) in object.iter() {

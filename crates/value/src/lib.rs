@@ -17,13 +17,10 @@ mod field_name;
 mod field_path;
 pub mod id_v6;
 mod json;
-mod map;
-mod metrics;
 pub mod numeric;
 mod object;
 pub mod serde;
 pub mod serialized_args_ext;
-mod set;
 pub mod sha256;
 mod size;
 pub mod sorting;
@@ -41,10 +38,7 @@ mod macros;
 mod tests;
 
 use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     fmt::{
         self,
         Display,
@@ -88,7 +82,6 @@ pub use crate::{
         object as json_object,
         value as json_value,
     },
-    map::ConvexMap,
     object::{
         remove_boolean,
         remove_int64,
@@ -104,7 +97,6 @@ pub use crate::{
         ConvexObject,
         MAX_OBJECT_FIELDS,
     },
-    set::ConvexSet,
     size::{
         check_nesting_for_documents,
         check_user_size,
@@ -165,12 +157,6 @@ pub enum ConvexValue {
 
     /// Arrays of (potentially heterogeneous) [`ConvexValue`]s.
     Array(ConvexArray),
-
-    /// Set of (potentially heterogeneous) [`ConvexValue`]s.
-    Set(ConvexSet),
-
-    /// Map of (potentially heterogenous) keys and values.
-    Map(ConvexMap),
 
     /// Nested object with [`FieldName`] keys and (potentially heterogenous)
     /// values.
@@ -281,22 +267,6 @@ impl TryFrom<Vec<ConvexValue>> for ConvexValue {
     }
 }
 
-impl TryFrom<BTreeSet<ConvexValue>> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(i: BTreeSet<ConvexValue>) -> anyhow::Result<Self> {
-        Ok(Self::Set(i.try_into()?))
-    }
-}
-
-impl TryFrom<BTreeMap<ConvexValue, ConvexValue>> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(i: BTreeMap<ConvexValue, ConvexValue>) -> anyhow::Result<Self> {
-        Ok(Self::Map(i.try_into()?))
-    }
-}
-
 impl TryFrom<BTreeMap<FieldName, ConvexValue>> for ConvexValue {
     type Error = anyhow::Error;
 
@@ -378,8 +348,6 @@ impl Display for ConvexValue {
             ConvexValue::String(s) => write!(f, "{s:?}"),
             ConvexValue::Bytes(b) => write!(f, "{b}"),
             ConvexValue::Array(arr) => write!(f, "{arr}"),
-            ConvexValue::Set(set) => write!(f, "{set}"),
-            ConvexValue::Map(map) => write!(f, "{map}"),
             ConvexValue::Object(m) => write!(f, "{m}"),
         }
     }
@@ -395,8 +363,6 @@ impl Size for ConvexValue {
             ConvexValue::String(s) => s.size(),
             ConvexValue::Bytes(b) => b.size(),
             ConvexValue::Array(arr) => arr.size(),
-            ConvexValue::Set(set) => set.size(),
-            ConvexValue::Map(map) => map.size(),
             ConvexValue::Object(m) => m.size(),
         }
     }
@@ -410,8 +376,6 @@ impl Size for ConvexValue {
             ConvexValue::String(_) => 0,
             ConvexValue::Bytes(_) => 0,
             ConvexValue::Array(arr) => arr.nesting(),
-            ConvexValue::Set(set) => set.nesting(),
-            ConvexValue::Map(map) => map.nesting(),
             ConvexValue::Object(m) => m.nesting(),
         }
     }
@@ -427,8 +391,6 @@ impl HeapSize for ConvexValue {
             ConvexValue::String(s) => s.heap_size(),
             ConvexValue::Bytes(b) => b.heap_size(),
             ConvexValue::Array(arr) => arr.heap_size(),
-            ConvexValue::Set(set) => set.heap_size(),
-            ConvexValue::Map(map) => map.heap_size(),
             ConvexValue::Object(m) => m.heap_size(),
         }
     }
@@ -465,14 +427,6 @@ impl Hash for ConvexValue {
             ConvexValue::Array(a) => {
                 h.write_u8(8);
                 a.hash(h);
-            },
-            ConvexValue::Set(s) => {
-                h.write_u8(9);
-                s.hash(h);
-            },
-            ConvexValue::Map(m) => {
-                h.write_u8(10);
-                m.hash(h);
             },
             ConvexValue::Object(o) => {
                 h.write_u8(11);
@@ -578,19 +532,17 @@ pub mod proptest {
         type Parameters = (
             <FieldName as Arbitrary>::Parameters,
             ValueBranching,
-            ExcludeSetsAndMaps,
             RestrictNaNs,
         );
 
         type Strategy = impl Strategy<Value = ConvexValue>;
 
         fn arbitrary_with(
-            (field_params, branching, exclude_sets_and_maps, restrict_nans): Self::Parameters,
+            (field_params, branching, restrict_nans): Self::Parameters,
         ) -> Self::Strategy {
             resolved_value_strategy(
                 move || any_with::<FieldName>(field_params),
                 branching,
-                exclude_sets_and_maps,
                 restrict_nans,
             )
         }
@@ -599,9 +551,6 @@ pub mod proptest {
     pub fn float64_strategy() -> impl Strategy<Value = f64> {
         prop::num::f64::ANY | prop::num::f64::SIGNALING_NAN
     }
-
-    #[derive(Default)] // default to include sets and maps
-    pub struct ExcludeSetsAndMaps(pub bool);
 
     // Whether to allow any `NaN` value (e.g. negative `NaN`s) or not.
     // Defaults to including any valid `NaN` value.
@@ -645,7 +594,6 @@ pub mod proptest {
     pub fn resolved_value_strategy<F, S>(
         field_strategy: F,
         branching: ValueBranching,
-        exclude_sets_and_maps: ExcludeSetsAndMaps,
         restrict_nans: RestrictNaNs,
     ) -> impl Strategy<Value = ConvexValue>
     where
@@ -656,8 +604,6 @@ pub mod proptest {
             id_v6::DeveloperDocumentId,
             resolved_object_strategy,
             ConvexArray,
-            ConvexMap,
-            ConvexSet,
         };
 
         // https://altsysrq.github.io/proptest-book/proptest/tutorial/recursive.html
@@ -684,7 +630,6 @@ pub mod proptest {
             }),
             1 => any::<ConvexBytes>().prop_map(ConvexValue::Bytes),
         ];
-        let map_set_weight = if exclude_sets_and_maps.0 { 0 } else { 1 };
         let ValueBranching {
             depth,
             node_target,
@@ -705,20 +650,6 @@ pub mod proptest {
                             ConvexArray::try_from(v).ok()
                         })
                         .prop_map(ConvexValue::Array),
-                    map_set_weight => prop::collection::btree_set(inner.clone(), 0..branching)
-                        .prop_filter_map("BTreeSet wasn't a valid Convex value", |v| {
-                            ConvexSet::try_from(v).ok()
-                        })
-                        .prop_map(ConvexValue::Set),
-                    map_set_weight => prop::collection::btree_map(
-                        inner.clone(),
-                        inner.clone(),
-                        0..branching,
-                    )
-                        .prop_filter_map("BTreeMap wasn't a valid Convex value", |v| {
-                            ConvexMap::try_from(v).ok()
-                        })
-                        .prop_map(ConvexValue::Map),
                     1 => resolved_object_strategy(field_strategy(), inner, 0..branching)
                         .prop_map(ConvexValue::Object),
                 ]
@@ -730,5 +661,4 @@ pub mod proptest {
 pub use self::{
     object::resolved_object_strategy,
     proptest::resolved_value_strategy,
-    proptest::ExcludeSetsAndMaps,
 };

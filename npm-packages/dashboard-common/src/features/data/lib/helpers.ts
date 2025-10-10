@@ -71,9 +71,7 @@ export const defaultValueForShape = (shape: Shape): Value | undefined => {
     case "Null":
       return null;
     case "Bytes":
-    case "Map":
     case "Never":
-    case "Set":
     case "Unknown":
       return undefined;
     default: {

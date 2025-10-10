@@ -11,10 +11,6 @@ use criterion::{
     Criterion,
     PlotConfiguration,
 };
-use maplit::{
-    btreemap,
-    btreeset,
-};
 use packed_value::{
     ByteBuffer,
     PackedValue,
@@ -97,20 +93,6 @@ fn benchmark_values() -> anyhow::Result<Vec<(&'static str, ConvexValue)>> {
         ("bytes-512k", val!(bytes_512k)),
         ("array-4-ints", assert_val!([1, 2, 3, 4])),
         ("array-4-mixed", assert_val!([null, 1, 2., "three"])),
-        (
-            "set",
-            ConvexValue::Set(btreeset!(ConvexValue::from(1), ConvexValue::from(2)).try_into()?),
-        ),
-        (
-            "map",
-            ConvexValue::Map(
-                btreemap!(
-                    ConvexValue::from(1) => ConvexValue::from(2),
-                    ConvexValue::from(3) => ConvexValue::from(4),
-                )
-                .try_into()?,
-            ),
-        ),
         ("object-document", ConvexValue::Object(document)),
         ("object-1024", ConvexValue::Object(large_object.try_into()?)),
     ];

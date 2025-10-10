@@ -596,7 +596,6 @@ mod tests {
         },
         resolved_object_strategy,
         resolved_value_strategy,
-        ExcludeSetsAndMaps,
         TableNamespace,
     };
 
@@ -753,7 +752,6 @@ mod tests {
         let values = resolved_value_strategy(
             FieldName::user_strategy,
             ValueBranching::small(),
-            ExcludeSetsAndMaps(false),
             RestrictNaNs(false),
         );
         resolved_object_strategy(FieldName::user_strategy(), values, 0..4)

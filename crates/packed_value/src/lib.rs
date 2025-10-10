@@ -3,10 +3,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
 use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     ops::Deref,
 };
 
@@ -166,25 +163,7 @@ impl PackedValue<ByteBuffer> {
                 }
                 vector.end_vector();
             },
-            ConvexValue::Set(ref values) => {
-                let mut map = builder.start_map();
-                let mut vector = map.start_vector("$set");
-                for value in values {
-                    Self::_pack(value, &mut vector);
-                }
-                vector.end_vector();
-                map.end_map();
-            },
-            ConvexValue::Map(ref values) => {
-                let mut map = builder.start_map();
-                let mut vector = map.start_vector("$map");
-                for (key, value) in values {
-                    Self::_pack(key, &mut vector);
-                    Self::_pack(value, &mut vector);
-                }
-                vector.end_vector();
-                map.end_map();
-            },
+
             ConvexValue::Object(ref fields) => {
                 Self::_pack_object(fields, builder);
             },
@@ -212,8 +191,6 @@ where
     String(OpenedString<B>),
     Bytes(OpenedBytes<B>),
     Array(OpenedArray<B>),
-    Set(OpenedSet<B>),
-    Map(OpenedMap<B>),
     Object(OpenedObject<B>),
 }
 
@@ -230,8 +207,6 @@ where
             OpenedValue::String(ref s) => OpenedValue::String(s.clone()),
             OpenedValue::Bytes(ref b) => OpenedValue::Bytes(b.clone()),
             OpenedValue::Array(ref a) => OpenedValue::Array(a.clone()),
-            OpenedValue::Set(ref s) => OpenedValue::Set(s.clone()),
-            OpenedValue::Map(ref m) => OpenedValue::Map(m.clone()),
             OpenedValue::Object(ref o) => OpenedValue::Object(o.clone()),
         }
     }
@@ -259,18 +234,7 @@ where
             }),
             FlexBufferType::Map => {
                 let reader = reader.get_map()?;
-                if let Some(ix) = reader.index_key("$set") {
-                    anyhow::ensure!(reader.len() == 1);
-                    let reader = reader.index(ix)?.get_vector()?;
-                    OpenedValue::Set(OpenedSet { reader })
-                } else if let Some(ix) = reader.index_key("$map") {
-                    anyhow::ensure!(reader.len() == 1);
-                    let reader = reader.index(ix)?.get_vector()?;
-                    anyhow::ensure!(reader.len() % 2 == 0);
-                    OpenedValue::Map(OpenedMap { reader })
-                } else {
-                    OpenedValue::Object(OpenedObject { reader })
-                }
+                OpenedValue::Object(OpenedObject { reader })
             },
             // NB: Maps also satisfy `is_vector`, so be sure to check those first above.
             ty if ty.is_vector() => OpenedValue::Array(OpenedArray {
@@ -379,85 +343,6 @@ where
     }
 }
 
-pub struct OpenedSet<B: Buffer>
-where
-    B::BufferString: Clone,
-{
-    // Invariant: items are written in ascending `Value` order.
-    reader: VectorReader<B>,
-}
-
-impl<B: Buffer> Clone for OpenedSet<B>
-where
-    B::BufferString: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            reader: self.reader.clone(),
-        }
-    }
-}
-
-impl<B: Buffer> OpenedSet<B>
-where
-    B::BufferString: Clone,
-{
-    pub fn len(&self) -> usize {
-        self.reader.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.reader.is_empty()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = anyhow::Result<OpenedValue<B>>> + '_ {
-        (0..self.reader.len()).map(|i| OpenedValue::new(self.reader.index(i)?))
-    }
-}
-
-pub struct OpenedMap<B: Buffer>
-where
-    B::BufferString: Clone,
-{
-    // Invariant: alternate keys and values are written in ascending `Value` key order.
-    reader: VectorReader<B>,
-}
-
-impl<B: Buffer> Clone for OpenedMap<B>
-where
-    B::BufferString: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            reader: self.reader.clone(),
-        }
-    }
-}
-
-impl<B: Buffer> OpenedMap<B>
-where
-    B::BufferString: Clone,
-{
-    pub fn len(&self) -> usize {
-        self.reader.len() / 2
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.reader.is_empty()
-    }
-
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = anyhow::Result<(OpenedValue<B>, OpenedValue<B>)>> + '_ {
-        assert_eq!(self.reader.len() % 2, 0);
-        (0..(self.reader.len() / 2)).map(move |i| {
-            let key = OpenedValue::new(self.reader.index(2 * i)?)?;
-            let value = OpenedValue::new(self.reader.index(2 * i + 1)?)?;
-            Ok((key, value))
-        })
-    }
-}
-
 pub struct OpenedObject<B: Buffer>
 where
     B::BufferString: Clone,
@@ -535,23 +420,6 @@ where
                     .map(|r| Self::try_from(r?))
                     .collect::<anyhow::Result<Vec<_>>>()?;
                 Self::Array(values.try_into()?)
-            },
-            OpenedValue::Set(packed_values) => {
-                let values = packed_values
-                    .iter()
-                    .map(|r| Self::try_from(r?))
-                    .collect::<anyhow::Result<BTreeSet<_>>>()?;
-                Self::Set(values.try_into()?)
-            },
-            OpenedValue::Map(packed_values) => {
-                let values = packed_values
-                    .iter()
-                    .map(|r| {
-                        let (k, v) = r?;
-                        Ok((Self::try_from(k)?, Self::try_from(v)?))
-                    })
-                    .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
-                Self::Map(values.try_into()?)
             },
             OpenedValue::Object(packed_values) => {
                 let values = packed_values

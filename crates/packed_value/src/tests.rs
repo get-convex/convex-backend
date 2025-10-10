@@ -25,18 +25,6 @@ fn clone_test(v: OpenedValue<ByteBuffer>) -> anyhow::Result<()> {
                 clone_test(value_r?)?;
             }
         },
-        OpenedValue::Set(ref s) => {
-            for value_r in s.iter() {
-                clone_test(value_r?)?;
-            }
-        },
-        OpenedValue::Map(ref m) => {
-            for r in m.iter() {
-                let (k, v) = r?;
-                clone_test(k)?;
-                clone_test(v)?;
-            }
-        },
         OpenedValue::Object(ref o) => {
             for r in o.iter() {
                 let (_, v) = r?;

@@ -66,7 +66,6 @@ mod proptest {
             ValueBranching,
         },
         ConvexObject,
-        ExcludeSetsAndMaps,
         FieldType,
     };
 
@@ -85,7 +84,6 @@ mod proptest {
                     size_range(0..=4),
                     FieldType::User,
                     ValueBranching::default(),
-                    ExcludeSetsAndMaps(true),
                     RestrictNaNs(false),
                 ))
                 .prop_map(VectorIndexSnapshotData::Unknown),

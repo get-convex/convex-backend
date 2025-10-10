@@ -663,26 +663,6 @@ fn inner_shape_to_json_schema(
             virtual_mapping,
             value_format,
         )?),
-        ReducedShape::Set(item_shape) => {
-            // Unconditionally use ConvexEncodedJson for (deprecated) sets
-            json_schemas::set(shape_to_json_schema(
-                item_shape,
-                mapping,
-                virtual_mapping,
-                ValueFormat::ConvexEncodedJSON,
-            )?)
-        },
-        ReducedShape::Map {
-            key_shape,
-            value_shape,
-        } => {
-            // Unconditionally use ConvexEncodedJson for (deprecated) maps
-            let map_format = ValueFormat::ConvexEncodedJSON;
-            json_schemas::map(
-                shape_to_json_schema(key_shape, mapping, virtual_mapping, map_format)?,
-                shape_to_json_schema(value_shape, mapping, virtual_mapping, map_format)?,
-            )
-        },
         ReducedShape::Union(inner) => {
             let options = inner
                 .iter()
@@ -773,14 +753,6 @@ mod test {
                 .values()
                 .for_each(|f| insert_test_table_ids(&f.shape, mapping)),
             ReducedShape::Array(ref arr) => insert_test_table_ids(arr, mapping),
-            ReducedShape::Set(ref set) => insert_test_table_ids(set, mapping),
-            ReducedShape::Map {
-                ref key_shape,
-                ref value_shape,
-            } => {
-                insert_test_table_ids(key_shape, mapping);
-                insert_test_table_ids(value_shape, mapping);
-            },
             ReducedShape::Union(ref shapes) => shapes
                 .iter()
                 .for_each(|s| insert_test_table_ids(s, mapping)),

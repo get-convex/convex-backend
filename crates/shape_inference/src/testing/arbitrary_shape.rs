@@ -8,13 +8,11 @@ use value::{
 
 use crate::{
     array::ArrayShape,
-    map::MapShape,
     object::{
         ObjectField,
         ObjectShape,
         RecordShape,
     },
-    set::SetShape,
     string::StringLiteralShape,
     union::UnionBuilder,
     CountedShape,
@@ -159,25 +157,11 @@ pub fn nonempty_shape_strategy<C: ShapeConfig>() -> impl Strategy<Value = Counte
     ];
     nonempty_leaf.prop_recursive(2, 16, branching, move |inner| {
         // When generating non-leaf shapes, we need to be sure to adjust the number of
-        // values for variants like maps, objects, and unions. For example, the number
-        // of values in the key and value shapes of a map shape must be equal.
+        // values for variants like objects, and unions.
         let array_strategy =
             (1..MAX_NUM_VALUES, inner.clone()).prop_map(|(num_values, element_shape)| {
                 CountedShape::new(ShapeEnum::Array(ArrayShape::new(element_shape)), num_values)
             });
-        let set_strategy =
-            (1..MAX_NUM_VALUES, inner.clone()).prop_map(|(num_values, element_shape)| {
-                CountedShape::new(ShapeEnum::Set(SetShape::new(element_shape)), num_values)
-            });
-        let map_strategy = (1..MAX_NUM_VALUES, inner.clone(), inner.clone()).prop_map(
-            |(num_values, key_shape, value_shape)| {
-                let adjusted_value_shape = value_shape.adjust_num_values(key_shape.num_values);
-                CountedShape::new(
-                    ShapeEnum::Map(MapShape::new(key_shape, adjusted_value_shape)),
-                    num_values,
-                )
-            },
-        );
         let fields_strategy = prop::collection::btree_map(
             C::object_field_strategy(),
             (inner.clone(), any::<bool>()),
@@ -229,8 +213,6 @@ pub fn nonempty_shape_strategy<C: ShapeConfig>() -> impl Strategy<Value = Counte
             });
         prop_oneof![
             array_strategy,
-            set_strategy,
-            map_strategy,
             object_strategy,
             record_strategy,
             union_strategy

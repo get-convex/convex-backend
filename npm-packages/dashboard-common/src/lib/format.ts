@@ -118,10 +118,6 @@ export function displaySchemaFromShape({
       const values = objectFieldToSchema(variant.valueShape);
       return `v.record(${keys}, ${values})`;
     }
-    case "Map":
-    case "Set":
-      // TODO: remove Map and Set as shapes
-      return `v.any()`;
     case "String":
       return `v.string()`;
     case "Union":

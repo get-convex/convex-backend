@@ -66,9 +66,7 @@ const validateDocumentShape = (shape: Shape | undefined) => {
     case "Float64":
     case "Int64":
     case "Id":
-    case "Map":
     case "Null":
-    case "Set":
     case "String":
     case "Union":
       // Note that Union is not a valid top level shape since our algorithm

@@ -16,13 +16,11 @@ use value::{
 
 use crate::{
     array::ArrayShape,
-    map::MapShape,
     object::{
         ObjectField,
         ObjectShape,
         RecordShape,
     },
-    set::SetShape,
     string::StringLiteralShape,
     CountedShape,
     CountedShapeEnum,
@@ -96,15 +94,6 @@ pub enum ShapeEnumJson {
         element_type: ShapeJson,
     },
     #[serde(rename_all = "camelCase")]
-    Set {
-        element_type: ShapeJson,
-    },
-    #[serde(rename_all = "camelCase")]
-    Map {
-        key_type: ShapeJson,
-        value_type: ShapeJson,
-    },
-    #[serde(rename_all = "camelCase")]
     Object {
         fields: Vec<FieldPair>,
     },
@@ -151,16 +140,6 @@ impl<C: ShapeConfig> TryFrom<ShapeEnumJson> for CountedShapeEnum<C> {
             ShapeEnumJson::Array { element_type } => {
                 ShapeEnum::Array(ArrayShape::new(Shape::try_from(element_type)?))
             },
-            ShapeEnumJson::Set { element_type } => {
-                ShapeEnum::Set(SetShape::new(Shape::try_from(element_type)?))
-            },
-            ShapeEnumJson::Map {
-                key_type,
-                value_type,
-            } => ShapeEnum::Map(MapShape::new(
-                Shape::try_from(key_type)?,
-                Shape::try_from(value_type)?,
-            )),
             ShapeEnumJson::Object { fields } => ShapeEnum::Object(ObjectShape::<C, u64>::new(
                 fields
                     .into_iter()
@@ -247,12 +226,6 @@ impl<C: ShapeConfig> CountedShapeEnum<C> {
             ShapeEnum::Bytes => json!({"kind": "Bytes"}),
             ShapeEnum::Array(array_shape) => {
                 json!({"kind": "Array", "elementType": array_shape.element().to_json(include_pii)})
-            },
-            ShapeEnum::Set(set_shape) => {
-                json!({"kind": "Set", "elementType": set_shape.element().to_json(include_pii)})
-            },
-            ShapeEnum::Map(map_shape) => {
-                json!({"kind": "Map", "keyType": map_shape.key().to_json(include_pii), "valueType": map_shape.value().to_json(include_pii)})
             },
             ShapeEnum::Object(object_shape) => {
                 let field_json = object_shape

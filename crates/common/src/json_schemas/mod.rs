@@ -118,34 +118,6 @@ pub fn array(element_schema: JsonValue) -> JsonValue {
     })
 }
 
-pub fn set(element_schema: JsonValue) -> JsonValue {
-    json!({
-        "type": "object",
-        "$description": "Set",
-        "properties": {
-            "$set": {"type": "array", "items": element_schema}
-        }
-    })
-}
-
-pub fn map(key_schema: JsonValue, value_schema: JsonValue) -> JsonValue {
-    json!({
-        "type": "object",
-        "$description": "Map",
-        "properties": {
-            "$map": {
-                "type": "array",
-                "items": {
-                    "type": "array",
-                    "$description": "[key, value] tuple",
-                    "prefixItems": [key_schema, value_schema],
-                    "additionalItems": false,
-                }
-            }
-        }
-    })
-}
-
 pub fn record(key_type: String, value_schema: JsonValue) -> JsonValue {
     json!({
         "type": "object",

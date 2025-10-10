@@ -107,8 +107,6 @@ impl<'de, W: ConvexValueWalker> serde::Deserializer<'de> for Deserialize<W> {
             ConvexValueType::Bytes(b) => visitor.visit_bytes(b.as_bytes()),
             ConvexValueType::Array(v) => visit_array(v, visitor),
             ConvexValueType::Object(v) => visit_object(v, visitor),
-            ConvexValueType::Set(_) => Err(anyhow::anyhow!("Unsupported Set").into()),
-            ConvexValueType::Map(_) => Err(anyhow::anyhow!("Unsupported Map").into()),
         }
     }
 

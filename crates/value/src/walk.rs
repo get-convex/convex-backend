@@ -8,9 +8,7 @@ use std::fmt::{
 use crate::{
     ConvexArray,
     ConvexBytes,
-    ConvexMap,
     ConvexObject,
-    ConvexSet,
     ConvexString,
     ConvexValue,
     FieldName,
@@ -23,8 +21,6 @@ pub trait ConvexValueWalker {
     type String: ConvexStringWalker;
     type Bytes: ConvexBytesWalker;
     type Array: ConvexArrayWalker<Error = Self::Error>;
-    type Set: ConvexSetWalker<Error = Self::Error>;
-    type Map: ConvexMapWalker<Error = Self::Error>;
     type FieldName: ConvexStringWalker;
     type Object: ConvexObjectWalker<Error = Self::Error>;
 
@@ -39,8 +35,6 @@ pub enum ConvexValueType<V: ConvexValueWalker + ?Sized> {
     String(V::String),
     Bytes(V::Bytes),
     Array(V::Array),
-    Set(V::Set),
-    Map(V::Map),
     Object(V::Object),
 }
 
@@ -54,8 +48,6 @@ impl<V: ConvexValueWalker + ?Sized> ConvexValueType<V> {
             ConvexValueType::String(_) => "String",
             ConvexValueType::Bytes(_) => "Bytes",
             ConvexValueType::Array(_) => "Array",
-            ConvexValueType::Set(_) => "Set",
-            ConvexValueType::Map(_) => "Map",
             ConvexValueType::Object(_) => "Object",
         }
     }
@@ -85,16 +77,6 @@ pub trait ConvexArrayWalker {
     type Walker: ConvexValueWalker<Error = Self::Error>;
     fn walk(self) -> impl Iterator<Item = Result<Self::Walker, Self::Error>>;
 }
-pub trait ConvexSetWalker {
-    type Error;
-    type Walker: ConvexValueWalker<Error = Self::Error>;
-    fn walk(self) -> impl Iterator<Item = Result<Self::Walker, Self::Error>>;
-}
-pub trait ConvexMapWalker {
-    type Error;
-    type Walker: ConvexValueWalker<Error = Self::Error>;
-    fn walk(self) -> impl Iterator<Item = Result<(Self::Walker, Self::Walker), Self::Error>>;
-}
 pub trait ConvexObjectWalker {
     type Error;
     type Walker: ConvexValueWalker<Error = Self::Error>;
@@ -110,9 +92,7 @@ impl ConvexValueWalker for ConvexValue {
     type Bytes = ConvexBytes;
     type Error = !;
     type FieldName = FieldName;
-    type Map = ConvexMap;
     type Object = ConvexObject;
-    type Set = ConvexSet;
     type String = ConvexString;
 
     fn walk(self) -> Result<ConvexValueType<Self>, !> {
@@ -124,8 +104,6 @@ impl ConvexValueWalker for ConvexValue {
             ConvexValue::String(string) => ConvexValueType::String(string),
             ConvexValue::Bytes(bytes) => ConvexValueType::Bytes(bytes),
             ConvexValue::Array(array) => ConvexValueType::Array(array),
-            ConvexValue::Set(set) => ConvexValueType::Set(set),
-            ConvexValue::Map(map) => ConvexValueType::Map(map),
             ConvexValue::Object(object) => ConvexValueType::Object(object),
         })
     }
@@ -136,9 +114,7 @@ impl<'a> ConvexValueWalker for &'a ConvexValue {
     type Bytes = &'a ConvexBytes;
     type Error = !;
     type FieldName = &'a FieldName;
-    type Map = &'a ConvexMap;
     type Object = &'a ConvexObject;
-    type Set = &'a ConvexSet;
     type String = &'a ConvexString;
 
     fn walk(self) -> Result<ConvexValueType<Self>, !> {
@@ -150,8 +126,6 @@ impl<'a> ConvexValueWalker for &'a ConvexValue {
             ConvexValue::String(string) => ConvexValueType::String(string),
             ConvexValue::Bytes(bytes) => ConvexValueType::Bytes(bytes),
             ConvexValue::Array(array) => ConvexValueType::Array(array),
-            ConvexValue::Set(set) => ConvexValueType::Set(set),
-            ConvexValue::Map(map) => ConvexValueType::Map(map),
             ConvexValue::Object(object) => ConvexValueType::Object(object),
         })
     }
@@ -223,42 +197,6 @@ impl<'a> ConvexArrayWalker for &'a ConvexArray {
     }
 }
 
-impl ConvexSetWalker for ConvexSet {
-    type Error = !;
-    type Walker = ConvexValue;
-
-    fn walk(self) -> impl Iterator<Item = Result<Self::Walker, !>> {
-        self.into_iter().map(Ok)
-    }
-}
-
-impl<'a> ConvexSetWalker for &'a ConvexSet {
-    type Error = !;
-    type Walker = &'a ConvexValue;
-
-    fn walk(self) -> impl Iterator<Item = Result<Self::Walker, !>> {
-        self.into_iter().map(Ok)
-    }
-}
-
-impl ConvexMapWalker for ConvexMap {
-    type Error = !;
-    type Walker = ConvexValue;
-
-    fn walk(self) -> impl Iterator<Item = Result<(Self::Walker, Self::Walker), !>> {
-        self.into_iter().map(Ok)
-    }
-}
-
-impl<'a> ConvexMapWalker for &'a ConvexMap {
-    type Error = !;
-    type Walker = &'a ConvexValue;
-
-    fn walk(self) -> impl Iterator<Item = Result<(Self::Walker, Self::Walker), !>> {
-        self.into_iter().map(Ok)
-    }
-}
-
 impl ConvexObjectWalker for ConvexObject {
     type Error = !;
     type Walker = ConvexValue;
@@ -284,9 +222,7 @@ impl<V: ConvexValueWalker> ConvexValueWalker for ConvexValueType<V> {
     type Bytes = V::Bytes;
     type Error = V::Error;
     type FieldName = V::FieldName;
-    type Map = V::Map;
     type Object = V::Object;
-    type Set = V::Set;
     type String = V::String;
 
     fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {
@@ -298,8 +234,6 @@ impl<V: ConvexValueWalker> ConvexValueWalker for ConvexValueType<V> {
             ConvexValueType::String(string) => ConvexValueType::String(string),
             ConvexValueType::Bytes(bytes) => ConvexValueType::Bytes(bytes),
             ConvexValueType::Array(array) => ConvexValueType::Array(array),
-            ConvexValueType::Set(set) => ConvexValueType::Set(set),
-            ConvexValueType::Map(map) => ConvexValueType::Map(map),
             ConvexValueType::Object(object) => ConvexValueType::Object(object),
         })
     }
@@ -310,9 +244,7 @@ impl<'a> ConvexValueWalker for &'a str {
     type Bytes = ConvexBytes;
     type Error = !;
     type FieldName = FieldName;
-    type Map = ConvexMap;
     type Object = ConvexObject;
-    type Set = ConvexSet;
     type String = &'a str;
 
     fn walk(self) -> Result<ConvexValueType<Self>, !> {
@@ -325,9 +257,7 @@ impl ConvexValueWalker for ! {
     type Bytes = &'static [u8];
     type Error = !;
     type FieldName = &'static str;
-    type Map = &'static ConvexMap;
     type Object = &'static ConvexObject;
-    type Set = &'static ConvexSet;
     type String = &'static str;
 
     fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {
@@ -340,9 +270,7 @@ impl ConvexValueWalker for i64 {
     type Bytes = &'static [u8];
     type Error = !;
     type FieldName = &'static str;
-    type Map = &'static ConvexMap;
     type Object = &'static ConvexObject;
-    type Set = &'static ConvexSet;
     type String = &'static str;
 
     fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {
@@ -355,9 +283,7 @@ impl ConvexValueWalker for f64 {
     type Bytes = &'static [u8];
     type Error = !;
     type FieldName = &'static str;
-    type Map = &'static ConvexMap;
     type Object = &'static ConvexObject;
-    type Set = &'static ConvexSet;
     type String = &'static str;
 
     fn walk(self) -> Result<ConvexValueType<Self>, Self::Error> {

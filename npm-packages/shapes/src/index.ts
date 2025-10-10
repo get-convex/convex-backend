@@ -20,8 +20,6 @@ export type Shape =
       fields: Array<{ fieldName: string; optional: boolean; shape: Shape }>;
     }
   | { type: "Array"; shape: Shape }
-  | { type: "Set"; shape: Shape }
-  | { type: "Map"; keyShape: Shape; valueShape: Shape }
   | { type: "Union"; shapes: Array<Shape> }
   | {
       type: "Record";
@@ -63,15 +61,6 @@ export const shapeSchema: z.ZodType<Shape> = z.lazy(() =>
       shape: shapeSchema,
     }),
     z.object({
-      type: z.literal("Set"),
-      shape: shapeSchema,
-    }),
-    z.object({
-      type: z.literal("Map"),
-      keyShape: shapeSchema,
-      valueShape: shapeSchema,
-    }),
-    z.object({
       type: z.literal("Union"),
       shapes: z.array(shapeSchema),
     }),
@@ -101,10 +90,6 @@ export function stringifyShape(shape: Shape): string {
       return `Id<"${variant.tableName}">`;
     case "Int64":
       return "bigint";
-    case "Map":
-      return `Map<${stringifyShape(variant.keyShape)},${stringifyShape(
-        variant.valueShape,
-      )}>`;
     case "Never":
       return "never";
     case "Null":
@@ -129,8 +114,6 @@ export function stringifyShape(shape: Shape): string {
         )}>`;
       }
     }
-    case "Set":
-      return `Set<${stringifyShape(variant.shape)}>`;
     case "String":
       return "string";
     case "Union":

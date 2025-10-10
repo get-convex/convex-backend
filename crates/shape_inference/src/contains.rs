@@ -45,14 +45,6 @@ impl<C: ShapeConfig> CountedShape<C> {
             (ConvexValue::Array(ref array), ShapeEnum::Array(ref array_shape)) => array
                 .iter()
                 .all(|value| array_shape.element().contains(value)),
-            (ConvexValue::Set(ref set), ShapeEnum::Set(ref set_shape)) => {
-                set.iter().all(|value| set_shape.element().contains(value))
-            },
-            (ConvexValue::Map(ref map), ShapeEnum::Map(ref map_shape)) => {
-                map.iter().all(|(key, value)| {
-                    map_shape.key().contains(key) && map_shape.value().contains(value)
-                })
-            },
             (ConvexValue::Object(ref object), ShapeEnum::Object(ref object_shape)) => {
                 for (field_name, value) in object.iter() {
                     let Some(field) = object_shape.get(&field_name[..]) else {

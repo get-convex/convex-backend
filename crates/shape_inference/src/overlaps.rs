@@ -28,8 +28,6 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             // All arrays, sets, and map, and objects overlap with each other, so unions may have at
             // most one of each of these shapes.
             (ShapeEnum::Array(..), ShapeEnum::Array(..)) => true,
-            (ShapeEnum::Set(..), ShapeEnum::Set(..)) => true,
-            (ShapeEnum::Map(..), ShapeEnum::Map(..)) => true,
             (ShapeEnum::Record(..), ShapeEnum::Record(..)) => true,
 
             // Two object shapes overlap if there is some value that satisfies both shapes.

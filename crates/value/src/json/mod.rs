@@ -17,11 +17,7 @@ pub(crate) mod json_packed_value;
 mod tests;
 
 use std::{
-    collections::{
-        btree_map::Entry,
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     num::FpCategory,
 };
 
@@ -32,7 +28,6 @@ use anyhow::{
     Result,
 };
 use serde::{
-    ser::SerializeSeq,
     Serialize,
     Serializer,
 };
@@ -44,7 +39,6 @@ use crate::{
         float::JsonFloat,
         integer::JsonInteger,
     },
-    metrics,
     numeric::is_negative_zero,
     object::ConvexObject,
     ConvexArray,
@@ -69,19 +63,6 @@ pub struct SerializeObject<'a>(pub &'a ConvexObject);
 impl Serialize for SerializeObject<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         object::serialize(self.0, serializer)
-    }
-}
-
-struct SerializeIter<I>(I);
-impl<T: Serialize, I: Clone + Iterator<Item = T> + ExactSizeIterator> Serialize
-    for SerializeIter<I>
-{
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
-        for value in self.0.clone() {
-            seq.serialize_element(&value)?;
-        }
-        seq.end()
     }
 }
 
@@ -131,27 +112,6 @@ pub mod value {
                 obj.end()
             },
             ConvexValue::Array(a) => super::array::serialize(a, serializer),
-            ConvexValue::Set(s) => {
-                crate::metrics::log_serialized_set();
-                let mut obj = serializer.serialize_map(Some(1))?;
-                obj.serialize_entry(
-                    "$set",
-                    &super::SerializeIter(s.iter().map(super::SerializeValue)),
-                )?;
-                obj.end()
-            },
-            ConvexValue::Map(m) => {
-                crate::metrics::log_serialized_map();
-                let mut obj = serializer.serialize_map(Some(1))?;
-                obj.serialize_entry(
-                    "$map",
-                    &super::SerializeIter(
-                        m.iter()
-                            .map(|(k, v)| [super::SerializeValue(k), super::SerializeValue(v)]),
-                    ),
-                )?;
-                obj.end()
-            },
             ConvexValue::Object(o) => super::object::serialize(o, serializer),
         }
     }
@@ -251,36 +211,6 @@ impl TryFrom<JsonValue> for ConvexValue {
                                 }
                             }
                             Self::from(n)
-                        },
-                        "$set" => {
-                            metrics::log_deserialized_set();
-                            let items = match value {
-                                JsonValue::Array(items) => items,
-                                _ => bail!("$set must have an array value"),
-                            };
-                            let mut set = BTreeSet::new();
-                            for item in items {
-                                if let Some(old_value) = set.replace(Self::try_from(item)?) {
-                                    anyhow::bail!("Duplicate value {old_value} in set");
-                                }
-                            }
-                            Self::Set(set.try_into()?)
-                        },
-                        "$map" => {
-                            metrics::log_deserialized_map();
-                            let entries: Vec<[JsonValue; 2]> = serde_json::from_value(value)?;
-                            let mut out = BTreeMap::new();
-                            for [k, v] in entries {
-                                match out.entry(ConvexValue::try_from(k)?) {
-                                    Entry::Vacant(e) => {
-                                        e.insert(ConvexValue::try_from(v)?);
-                                    },
-                                    Entry::Occupied(e) => {
-                                        anyhow::bail!("Duplicate key {} in map", e.key())
-                                    },
-                                }
-                            }
-                            Self::Map(out.try_into()?)
                         },
                         _ => Self::Object(ConvexObject::for_value(
                             key.parse()?,

@@ -27,9 +27,7 @@ use crate::{
     walk::{
         ConvexArrayWalker,
         ConvexBytesWalker,
-        ConvexMapWalker,
         ConvexObjectWalker,
-        ConvexSetWalker,
         ConvexStringWalker,
         ConvexValueType,
         ConvexValueWalker,
@@ -69,8 +67,9 @@ const TRUE_BOOLEAN_TAG: u8 = 0xF;
 const STRING_TAG: u8 = 0x10;
 const BYTES_TAG: u8 = 0x11;
 const ARRAY_TAG: u8 = 0x12;
-const SET_TAG: u8 = 0x13;
-const MAP_TAG: u8 = 0x14;
+// Deprecated datatypes, now unused.
+// const SET_TAG: u8 = 0x13;
+// const MAP_TAG: u8 = 0x14;
 const OBJECT_TAG: u8 = 0x15;
 
 pub const TERMINATOR_BYTE: u8 = 0x0;
@@ -130,10 +129,7 @@ pub fn values_to_bytes(values: &[Option<ConvexValue>]) -> Vec<u8> {
 pub mod sorting_decode {
     use std::{
         cmp,
-        collections::{
-            BTreeMap,
-            BTreeSet,
-        },
+        collections::BTreeMap,
         io::{
             self,
             Read,
@@ -296,28 +292,6 @@ pub mod sorting_decode {
                     })?;
                     ConvexValue::Array(elements.try_into()?)
                 },
-                SET_TAG => {
-                    let mut elements = BTreeSet::new();
-                    read_terminated(reader, |reader| {
-                        if !elements.insert(Self::_read_sort_key(reader)?) {
-                            anyhow::bail!("Duplicate element in encoded set");
-                        }
-                        Ok(())
-                    })?;
-                    ConvexValue::Set(elements.try_into()?)
-                },
-                MAP_TAG => {
-                    let mut elements = BTreeMap::new();
-                    read_terminated(reader, |reader| {
-                        let key = Self::_read_sort_key(reader)?;
-                        let value = Self::_read_sort_key(reader)?;
-                        if elements.insert(key, value).is_some() {
-                            anyhow::bail!("Duplicate element in encoded map");
-                        }
-                        Ok(())
-                    })?;
-                    ConvexValue::Map(elements.try_into()?)
-                },
                 OBJECT_TAG => {
                     let mut elements = BTreeMap::new();
                     read_terminated(reader, |reader| {
@@ -401,22 +375,6 @@ pub fn write_sort_key<V: ConvexValueWalker>(
             }
             writer.put_u8(TERMINATOR_BYTE);
         },
-        ConvexValueType::Set(set) => {
-            writer.put_u8(SET_TAG);
-            for element in set.walk() {
-                write_sort_key(element?, writer)?;
-            }
-            writer.put_u8(TERMINATOR_BYTE);
-        },
-        ConvexValueType::Map(map) => {
-            writer.put_u8(MAP_TAG);
-            for pair in map.walk() {
-                let (key, value) = pair?;
-                write_sort_key(key, writer)?;
-                write_sort_key(value, writer)?;
-            }
-            writer.put_u8(TERMINATOR_BYTE);
-        },
         ConvexValueType::Object(object) => {
             writer.put_u8(OBJECT_TAG);
             for pair in object.walk() {
@@ -460,8 +418,6 @@ impl Ord for ConvexValue {
                 ConvexValue::String(..) => 5,
                 ConvexValue::Bytes(..) => 6,
                 ConvexValue::Array(..) => 7,
-                ConvexValue::Set(..) => 8,
-                ConvexValue::Map(..) => 9,
                 ConvexValue::Object(..) => 10,
             }
         }
@@ -508,18 +464,6 @@ impl Ord for ConvexValue {
             },
             ConvexValue::Array(self_) => {
                 let ConvexValue::Array(other_) = other else {
-                    panic!("Invalid value: {other:?}");
-                };
-                self_.cmp(other_)
-            },
-            ConvexValue::Set(self_) => {
-                let ConvexValue::Set(other_) = other else {
-                    panic!("Invalid value: {other:?}");
-                };
-                self_.cmp(other_)
-            },
-            ConvexValue::Map(self_) => {
-                let ConvexValue::Map(other_) = other else {
                     panic!("Invalid value: {other:?}");
                 };
                 self_.cmp(other_)
@@ -588,10 +532,7 @@ impl From<TotalOrdF64> for f64 {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::{
-            BTreeMap,
-            BTreeSet,
-        },
+        collections::BTreeMap,
         fmt::Debug,
     };
 
@@ -607,9 +548,7 @@ mod tests {
         values_to_bytes,
         ConvexArray,
         ConvexBytes,
-        ConvexMap,
         ConvexObject,
-        ConvexSet,
         ConvexString,
         ConvexValue,
         InternalId,
@@ -745,16 +684,6 @@ mod tests {
         #[test]
         fn test_compatible_with_arr(l in any::<ConvexArray>(), r in any::<ConvexArray>())  {
             test_compatible_with_ord(Vec::from(l), Vec::from(r))
-        }
-
-        #[test]
-        fn test_compatible_with_set(l in any::<ConvexSet>(), r in any::<ConvexSet>())  {
-            test_compatible_with_ord(BTreeSet::from(l), BTreeSet::from(r))
-        }
-
-        #[test]
-        fn test_compatible_with_map(l in any::<ConvexMap>(), r in any::<ConvexMap>())  {
-            test_compatible_with_ord(BTreeMap::from(l), BTreeMap::from(r))
         }
 
         #[test]

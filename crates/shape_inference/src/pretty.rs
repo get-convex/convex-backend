@@ -13,13 +13,11 @@ use value::TableNumber;
 
 use crate::{
     array::ArrayShape,
-    map::MapShape,
     object::{
         ObjectField,
         ObjectShape,
         RecordShape,
     },
-    set::SetShape,
     string::StringLiteralShape,
     Shape,
     ShapeConfig,
@@ -55,8 +53,7 @@ impl<C: ShapeConfig, S: ShapeCounter> fmt::Display for ShapeEnum<C, S> {
             ShapeEnum::String => write!(f, "string"),
             ShapeEnum::Bytes => write!(f, "bytes"),
             ShapeEnum::Array(ref array) => write!(f, "array<{}>", array.element()),
-            ShapeEnum::Set(ref set) => write!(f, "set<{}>", set.element()),
-            ShapeEnum::Map(ref map) => write!(f, "map<{}, {}>", map.key(), map.value()),
+
             ShapeEnum::Object(ref object) => {
                 let mut first = true;
                 write!(f, "{{")?;
@@ -235,13 +232,6 @@ impl<C: ShapeConfig> StructuralShape<C> {
         } else if let Some(mut suffix) = s.strip_prefix("array<") {
             let value = Self::parse_value_with_terminator(&mut suffix, ">")?;
             Ok((Self::new(ShapeEnum::Array(ArrayShape::new(value))), suffix))
-        } else if let Some(mut suffix) = s.strip_prefix("set<") {
-            let value = Self::parse_value_with_terminator(&mut suffix, ">")?;
-            Ok((Self::new(ShapeEnum::Set(SetShape::new(value))), suffix))
-        } else if let Some(mut suffix) = s.strip_prefix("map<") {
-            let key = Self::parse_value_with_terminator(&mut suffix, ", ")?;
-            let value = Self::parse_value_with_terminator(&mut suffix, ">")?;
-            Ok((Self::new(ShapeEnum::Map(MapShape::new(key, value))), suffix))
         } else if let Some(mut suffix) = s.strip_prefix("record<") {
             let key = Self::parse_value_with_terminator(&mut suffix, ", ")?;
             let value = Self::parse_value_with_terminator(&mut suffix, ">")?;

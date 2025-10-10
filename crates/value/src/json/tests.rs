@@ -3,17 +3,6 @@ use serde_json::json;
 use crate::ConvexValue;
 
 #[test]
-fn test_duplicates() {
-    let duplicate_set = json!({"$set": [{}, {}]});
-    let err = ConvexValue::try_from(duplicate_set).unwrap_err();
-    assert!(format!("{err:?}").contains("Duplicate value"));
-
-    let duplicate_set = json!({"$map": [[{}, 1], [{}, 2]]});
-    let err = ConvexValue::try_from(duplicate_set).unwrap_err();
-    assert!(format!("{err:?}").contains("Duplicate key"));
-}
-
-#[test]
 fn test_unrecognized_system_key() {
     let one_key = json!({"$unrecognized": {}});
     let err = ConvexValue::try_from(one_key).unwrap_err();
@@ -38,7 +27,6 @@ mod json_serialize_roundtrip {
     use crate::{
         proptest::RestrictNaNs,
         ConvexValue,
-        ExcludeSetsAndMaps,
     };
 
     fn test(left: ConvexValue) -> anyhow::Result<()> {
@@ -70,7 +58,6 @@ mod json_serialize_roundtrip {
             v in any_with::<ConvexValue>((
                 Default::default(),
                 Default::default(),
-                ExcludeSetsAndMaps(true),
                 RestrictNaNs(false),
             ))
         ) {

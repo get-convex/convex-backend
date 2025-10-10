@@ -16,10 +16,7 @@ use futures::{
     TryStreamExt,
 };
 use itertools::Itertools;
-use maplit::{
-    btreemap,
-    btreeset,
-};
+use maplit::btreeset;
 use proptest::collection::size_range;
 use serde_json::json;
 use value::{
@@ -571,8 +568,6 @@ pub async fn write_and_load_value_types<P: Persistence>(p: Arc<P>) -> anyhow::Re
         ConvexValue::Bytes(vec![3, 3, 4, 4].try_into()?),
         ConvexValue::Bytes(vec![0; (1 << 24) - 10000].try_into()?),
         ConvexValue::Array(vec![ConvexValue::Null].try_into()?),
-        ConvexValue::Set(btreeset!(ConvexValue::Null).try_into()?),
-        ConvexValue::Map(btreemap!(ConvexValue::Null => ConvexValue::Null).try_into()?),
         ConvexValue::Object(assert_obj!("nested" => ConvexValue::Null)),
     ];
     let updates = values
