@@ -13,6 +13,8 @@ import { Button } from "@ui/Button";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 
+const MAX_DISPLAYED_OPTIONS = 100;
+
 export type MultiSelectValue = string[] | "all";
 
 export function MultiSelectCombobox({
@@ -80,6 +82,11 @@ export function MultiSelectCombobox({
     query === ""
       ? options
       : options.filter((option) => test(query, processFilterOption(option)));
+
+  const hasMoreThanMax = filteredOptions.length > MAX_DISPLAYED_OPTIONS;
+  const displayedOptions = hasMoreThanMax
+    ? filteredOptions.slice(0, MAX_DISPLAYED_OPTIONS)
+    : filteredOptions;
 
   // Convert to internal array representation for Combobox
   const selectedArray = selectedOptions === "all" ? options : selectedOptions;
@@ -206,7 +213,7 @@ export function MultiSelectCombobox({
                             : "Select all"}
                         </button>
 
-                        {filteredOptions.map((option) => (
+                        {displayedOptions.map((option) => (
                           <ComboboxOption
                             key={option}
                             value={option}
@@ -222,6 +229,13 @@ export function MultiSelectCombobox({
                             }}
                           />
                         ))}
+
+                        {hasMoreThanMax && (
+                          <div className="w-fit min-w-full cursor-default px-2 py-1.5 text-content-tertiary select-none">
+                            Too many items to display, use the searchbar to
+                            filter {unitPlural}.
+                          </div>
+                        )}
                       </div>
                     </Combobox.Options>
                   </div>,

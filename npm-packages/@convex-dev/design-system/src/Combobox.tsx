@@ -10,6 +10,8 @@ import { usePopper } from "react-popper";
 
 const { test } = fuzzy;
 
+const MAX_DISPLAYED_OPTIONS = 100;
+
 export type Option<T> = { label: string; value: T; disabled?: boolean };
 
 export function Combobox<T>({
@@ -116,6 +118,11 @@ export function Combobox<T>({
       : options.filter((option) =>
           test(query, processFilterOption(option.label)),
         );
+
+  const hasMoreThanMaxOptions = filtered.length > MAX_DISPLAYED_OPTIONS;
+  const displayedOptions = hasMoreThanMaxOptions
+    ? filtered.slice(0, MAX_DISPLAYED_OPTIONS)
+    : filtered;
 
   const selectedOptionData = options.find((o) =>
     isEqual(selectedOption, o.value),
@@ -248,7 +255,7 @@ export function Combobox<T>({
                             />
                           </div>
                         )}
-                        {filtered.map((option, idx) => (
+                        {displayedOptions.map((option, idx) => (
                           <HeadlessCombobox.Option
                             key={idx}
                             value={option.value}
@@ -282,6 +289,13 @@ export function Combobox<T>({
                             )}
                           </HeadlessCombobox.Option>
                         ))}
+
+                        {hasMoreThanMaxOptions && (
+                          <div className="relative w-fit min-w-full cursor-default px-3 py-1.5 text-content-tertiary select-none">
+                            Too many options to display, use the searchbar to
+                            filter.
+                          </div>
+                        )}
 
                         {/* Allow users to type a custom value */}
                         {allowCustomValue &&
