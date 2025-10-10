@@ -1,6 +1,12 @@
-import { Crosshair2Icon, InfoCircledIcon } from "@radix-ui/react-icons";
+import {
+  KeyboardIcon,
+  Crosshair2Icon,
+  InfoCircledIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from "@radix-ui/react-icons";
 import { useCallback, useRef, useState } from "react";
-import { Tab as HeadlessTab } from "@headlessui/react";
+import { Tab as HeadlessTab, Disclosure } from "@headlessui/react";
 import { MAX_LOGS, UdfLog } from "@common/lib/useLogs";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Button } from "@ui/Button";
@@ -16,6 +22,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { Callout } from "@ui/Callout";
 import { ITEM_SIZE } from "@common/features/logs/components/LogListItem";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { cn } from "@ui/cn";
 import { FunctionCallTree } from "./FunctionCallTree";
 import { LogMetadata } from "./LogMetadata";
@@ -145,7 +152,7 @@ export function LogDrilldown({
       <div
         ref={rightPanelRef}
         tabIndex={-1}
-        className="my-2 scrollbar grow animate-fadeInFromLoading gap-2 overflow-y-auto"
+        className="scrollbar grow animate-fadeInFromLoading gap-2 overflow-y-auto py-2"
       >
         {/* Deployment Event Content */}
         {selectedLog.kind === "DeploymentEvent" && (
@@ -297,122 +304,158 @@ function KeyboardShortcutsSection({
 }: {
   selectedLog: InterleavedLog;
 }) {
+  const [isOpen, setIsOpen] = useGlobalLocalStorage(
+    "logDrilldown.keyboardShortcuts.open",
+    false,
+  );
+
   return (
-    <section className="scrollbar overflow-x-auto border-t bg-background-tertiary px-4 py-2">
-      <div className="grid grid-cols-[16.5rem_14rem] gap-x-4 gap-y-1 text-xs text-content-secondary">
-        <div className={shortcutItemClass}>
-          <div className={shortcutKeysClass}>
-            <KeyboardShortcut value={["Down"]} />
-            <span>/</span>
-            <KeyboardShortcut value={["Up"]} />
-          </div>
-          <span className={shortcutLabelClass}>Navigate</span>
-        </div>
-
-        <div className={shortcutItemClass}>
-          <div className={shortcutKeysClass}>
-            <KeyboardShortcut value={["CtrlOrCmd"]} />
-            <span>+</span>
-            <KeyboardShortcut value={["A"]} />
-          </div>
-          <span className={shortcutLabelClass}>Jump to top</span>
-        </div>
-
-        {selectedLog.kind === "ExecutionLog" && (
+    <section className="border-t bg-background-tertiary px-4 py-2">
+      <Disclosure defaultOpen={isOpen}>
+        {({ open }) => (
           <>
-            <div className={shortcutItemClass}>
-              <div className={shortcutKeysClass}>
-                <KeyboardShortcut value={["Shift"]} />
-                <span>+</span>
-                <KeyboardShortcut value={["Down"]} />
-                <span>/</span>
-                <KeyboardShortcut value={["Up"]} />
-              </div>
-              <span className={shortcutLabelClass}>Navigate request</span>
+            <div className="flex items-center justify-between">
+              <Disclosure.Button
+                className="flex items-center gap-1 text-xs"
+                onClick={() => setIsOpen(!isOpen)}
+              >
+                <KeyboardIcon className="relative -left-0.5 text-content-secondary" />
+                <h6 className="font-semibold text-content-secondary">
+                  Keyboard Shortcuts
+                </h6>
+                {open ? (
+                  <ChevronUpIcon className="size-3" />
+                ) : (
+                  <ChevronDownIcon className="size-3" />
+                )}
+              </Disclosure.Button>
             </div>
 
-            <div className={shortcutItemClass}>
-              <div className={shortcutKeysClass}>
-                <KeyboardShortcut value={["CtrlOrCmd"]} />
-                <span>+</span>
-                <KeyboardShortcut value={["E"]} />
-              </div>
-              <span className={shortcutLabelClass}>Jump to bottom</span>
-            </div>
+            <Disclosure.Panel className="mt-2 scrollbar animate-fadeInFromLoading overflow-x-auto">
+              <div className="grid grid-cols-[16.5rem_14rem] gap-x-4 gap-y-1 text-xs text-content-secondary">
+                <div className={shortcutItemClass}>
+                  <div className={shortcutKeysClass}>
+                    <KeyboardShortcut value={["Down"]} />
+                    <span>/</span>
+                    <KeyboardShortcut value={["Up"]} />
+                  </div>
+                  <span className={shortcutLabelClass}>Navigate</span>
+                </div>
 
-            <div className={shortcutItemClass}>
-              <div className={shortcutKeysClass}>
-                <KeyboardShortcut value={["CtrlOrCmd"]} />
-                <span>+</span>
-                <KeyboardShortcut value={["Down"]} />
-                <span>/</span>
-                <KeyboardShortcut value={["Up"]} />
-              </div>
-              <span className={shortcutLabelClass}>Navigate execution</span>
-            </div>
+                <div className={shortcutItemClass}>
+                  <div className={shortcutKeysClass}>
+                    <KeyboardShortcut value={["CtrlOrCmd"]} />
+                    <span>+</span>
+                    <KeyboardShortcut value={["A"]} />
+                  </div>
+                  <span className={shortcutLabelClass}>Jump to top</span>
+                </div>
 
-            <div className={shortcutItemClass}>
-              <div className={shortcutKeysClass}>
-                <KeyboardShortcut value={["CtrlOrCmd"]} />
-                <KeyboardShortcut value={["Shift"]} />
-                <span>+</span>
-                <KeyboardShortcut value={["A"]} />
+                {selectedLog.kind === "ExecutionLog" && (
+                  <>
+                    <div className={shortcutItemClass}>
+                      <div className={shortcutKeysClass}>
+                        <KeyboardShortcut value={["Shift"]} />
+                        <span>+</span>
+                        <KeyboardShortcut value={["Down"]} />
+                        <span>/</span>
+                        <KeyboardShortcut value={["Up"]} />
+                      </div>
+                      <span className={shortcutLabelClass}>
+                        Navigate request
+                      </span>
+                    </div>
+
+                    <div className={shortcutItemClass}>
+                      <div className={shortcutKeysClass}>
+                        <KeyboardShortcut value={["CtrlOrCmd"]} />
+                        <span>+</span>
+                        <KeyboardShortcut value={["E"]} />
+                      </div>
+                      <span className={shortcutLabelClass}>Jump to bottom</span>
+                    </div>
+
+                    <div className={shortcutItemClass}>
+                      <div className={shortcutKeysClass}>
+                        <KeyboardShortcut value={["CtrlOrCmd"]} />
+                        <span>+</span>
+                        <KeyboardShortcut value={["Down"]} />
+                        <span>/</span>
+                        <KeyboardShortcut value={["Up"]} />
+                      </div>
+                      <span className={shortcutLabelClass}>
+                        Navigate execution
+                      </span>
+                    </div>
+
+                    <div className={shortcutItemClass}>
+                      <div className={shortcutKeysClass}>
+                        <KeyboardShortcut value={["CtrlOrCmd"]} />
+                        <KeyboardShortcut value={["Shift"]} />
+                        <span>+</span>
+                        <KeyboardShortcut value={["A"]} />
+                      </div>
+                      <span className={shortcutLabelClass}>
+                        Jump to top of request
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                <div className={shortcutItemClass}>
+                  <div className={shortcutKeysClass}>
+                    <KeyboardShortcut value={["CtrlOrCmd"]} />
+                    <span>+</span>
+                    <KeyboardShortcut value={["PageUp"]} />
+                    <span>/</span>
+                    <KeyboardShortcut value={["PageDown"]} />
+                  </div>
+                  <span className={shortcutLabelClass}>Navigate page</span>
+                </div>
+
+                {selectedLog.kind === "ExecutionLog" ? (
+                  <div className={shortcutItemClass}>
+                    <div className={shortcutKeysClass}>
+                      <KeyboardShortcut value={["CtrlOrCmd"]} />
+                      <KeyboardShortcut value={["Shift"]} />
+                      <span>+</span>
+                      <KeyboardShortcut value={["E"]} />
+                    </div>
+                    <span className={shortcutLabelClass}>
+                      Jump to bottom of request
+                    </span>
+                  </div>
+                ) : (
+                  <div className={shortcutItemClass}>
+                    <div className={shortcutKeysClass}>
+                      <KeyboardShortcut value={["CtrlOrCmd"]} />
+                      <span>+</span>
+                      <KeyboardShortcut value={["E"]} />
+                    </div>
+                    <span className={shortcutLabelClass}>Jump to bottom</span>
+                  </div>
+                )}
+
+                <div className={shortcutItemClass}>
+                  <div className={shortcutKeysClass}>
+                    <KeyboardShortcut value={["Shift"]} />
+                    <span>+</span>
+                    <KeyboardShortcut value={["Right"]} />
+                  </div>
+                  <span className={shortcutLabelClass}>Focus this panel</span>
+                </div>
+
+                <div className={shortcutItemClass}>
+                  <div className={shortcutKeysClass}>
+                    <KeyboardShortcut value={["Esc"]} />
+                  </div>
+                  <span className={shortcutLabelClass}>Close this panel</span>
+                </div>
               </div>
-              <span className={shortcutLabelClass}>Jump to top of request</span>
-            </div>
+            </Disclosure.Panel>
           </>
         )}
-
-        <div className={shortcutItemClass}>
-          <div className={shortcutKeysClass}>
-            <KeyboardShortcut value={["CtrlOrCmd"]} />
-            <span>+</span>
-            <KeyboardShortcut value={["PageUp"]} />
-            <span>/</span>
-            <KeyboardShortcut value={["PageDown"]} />
-          </div>
-          <span className={shortcutLabelClass}>Navigate page</span>
-        </div>
-
-        {selectedLog.kind === "ExecutionLog" ? (
-          <div className={shortcutItemClass}>
-            <div className={shortcutKeysClass}>
-              <KeyboardShortcut value={["CtrlOrCmd"]} />
-              <KeyboardShortcut value={["Shift"]} />
-              <span>+</span>
-              <KeyboardShortcut value={["E"]} />
-            </div>
-            <span className={shortcutLabelClass}>
-              Jump to bottom of request
-            </span>
-          </div>
-        ) : (
-          <div className={shortcutItemClass}>
-            <div className={shortcutKeysClass}>
-              <KeyboardShortcut value={["CtrlOrCmd"]} />
-              <span>+</span>
-              <KeyboardShortcut value={["E"]} />
-            </div>
-            <span className={shortcutLabelClass}>Jump to bottom</span>
-          </div>
-        )}
-
-        <div className={shortcutItemClass}>
-          <div className={shortcutKeysClass}>
-            <KeyboardShortcut value={["Shift"]} />
-            <span>+</span>
-            <KeyboardShortcut value={["Right"]} />
-          </div>
-          <span className={shortcutLabelClass}>Focus this panel</span>
-        </div>
-
-        <div className={shortcutItemClass}>
-          <div className={shortcutKeysClass}>
-            <KeyboardShortcut value={["Esc"]} />
-          </div>
-          <span className={shortcutLabelClass}>Close this panel</span>
-        </div>
-      </div>
+      </Disclosure>
     </section>
   );
 }
