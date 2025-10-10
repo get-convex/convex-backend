@@ -1,10 +1,27 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { DailyPerTagMetrics } from "hooks/usageMetrics";
 import { Sheet } from "@ui/Sheet";
+import { useState } from "react";
 import { UsageStackedBarChart } from "./UsageBarChart";
 
+function UsageStackedBarChartWrapper(
+  args: Omit<
+    React.ComponentProps<typeof UsageStackedBarChart>,
+    "selectedDate" | "setSelectedDate"
+  >,
+) {
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  return (
+    <UsageStackedBarChart
+      {...args}
+      selectedDate={selectedDate}
+      setSelectedDate={setSelectedDate}
+    />
+  );
+}
+
 const meta = {
-  component: UsageStackedBarChart,
+  component: UsageStackedBarChartWrapper,
   args: {
     entity: "animals",
     categories: {
@@ -21,10 +38,10 @@ const meta = {
   render: (args) => (
     <Sheet>
       <h3 className="mb-4">Chart</h3>
-      <UsageStackedBarChart {...args} />
+      <UsageStackedBarChartWrapper {...args} />
     </Sheet>
   ),
-} satisfies Meta<typeof UsageStackedBarChart>;
+} satisfies Meta<typeof UsageStackedBarChartWrapper>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -57,6 +57,7 @@ export function TeamUsageToolbar({
           query.projectSlug = newProject?.slug ?? o?.toString();
           void replace({ query }, undefined, { shallow: true });
         }}
+        unknownLabel={() => "projects"}
       />
 
       <Tooltip

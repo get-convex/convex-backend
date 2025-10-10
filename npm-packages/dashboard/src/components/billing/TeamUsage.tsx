@@ -76,6 +76,7 @@ import {
 } from "./TeamUsageError";
 import { TeamUsageToolbar } from "./TeamUsageToolbar";
 import { GroupBy, GroupBySelector } from "./GroupBySelector";
+import { ProjectLink } from "./ProjectLink";
 
 const FUNCTION_BREAKDOWN_TABS = [
   FunctionBreakdownMetricCalls,
@@ -466,37 +467,10 @@ function FunctionUsageBreakdownByProject({
   const member = useProfile();
   const isLoadingDeployments = project && !deployments;
 
-  const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
-  const devDeployment = deployments?.find(
-    (d) => d.deploymentType === "dev" && d.creator === member?.id,
-  );
-  const anyDeployment = deployments?.[0];
-  const shownDeployment = devDeployment ?? prodDeployment ?? anyDeployment;
-  const shownDeploymentName = shownDeployment?.name;
-
   return (
     <div className="mb-4">
       <p className="flex align-baseline">
-        {project && (
-          <Button
-            href={`/t/${team.slug}/${project.slug}/${shownDeploymentName}`}
-            inline
-            variant="neutral"
-            disabled={!shownDeployment}
-            className="gap-1 font-semibold"
-          >
-            <span>{project.name}</span>
-            {project.name?.toLowerCase() !== project.slug ? (
-              <span className="text-sm font-semibold text-content-secondary">
-                {project.slug}
-              </span>
-            ) : null}
-            <ExternalLinkIcon />
-          </Button>
-        )}
-        {!project && (
-          <span className="inline-block py-2 italic">Deleted Project</span>
-        )}
+        <ProjectLink project={project} team={team} memberId={member?.id} />
         <span className="flex-1 px-4 py-2 text-right tabular-nums">
           {formatQuantity(projectTotal, metric.quantityType)}
         </span>
@@ -559,6 +533,8 @@ function DatabaseUsage({
     "byType",
   );
   const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
   const databaseStorageByProject = useUsageTeamDatabaseStoragePerDayByProject(
     team.id,
@@ -647,7 +623,7 @@ function DatabaseUsage({
       >
         <Tab.Panels className="px-4">
           <Tab.Panel>
-            {showEntitlements && (
+            {showEntitlements && selectedDate === null && (
               <UsageOverview
                 metric={storage}
                 entitlement={storageEntitlement ?? 0}
@@ -667,6 +643,8 @@ function DatabaseUsage({
                   entity="documents"
                   quantityType="storage"
                   showCategoryTotals={false}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
                 />
               )
             ) : databaseStorageByProject === undefined ? (
@@ -677,11 +655,14 @@ function DatabaseUsage({
                 entity="documents"
                 quantityType="storage"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {showEntitlements && (
+            {showEntitlements && selectedDate === null && (
               <UsageOverview
                 metric={bandwidth}
                 entitlement={bandwidthEntitlement ?? 0}
@@ -700,6 +681,8 @@ function DatabaseUsage({
                   categories={BANDWIDTH_CATEGORIES}
                   entity="documents"
                   quantityType="storage"
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
                 />
               )
             ) : databaseBandwidthByProject === undefined ? (
@@ -710,6 +693,9 @@ function DatabaseUsage({
                 entity="documents"
                 quantityType="storage"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
@@ -729,6 +715,9 @@ function DatabaseUsage({
                 rows={documentsCountByProject}
                 entity="documents"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
@@ -762,6 +751,8 @@ function FunctionCallsUsage({
     "byType",
   );
   const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
   const callsByTagByProject = useUsageTeamDailyCallsByTagByProject(
     team.id,
@@ -810,7 +801,7 @@ function FunctionCallsUsage({
       }
     >
       <div className="px-4">
-        {showEntitlements && (
+        {showEntitlements && selectedDate === null && (
           <UsageOverview
             metric={functionCalls}
             entitlement={functionCallsEntitlement ?? 0}
@@ -829,6 +820,8 @@ function FunctionCallsUsage({
               entity="calls"
               categories={TAG_CATEGORIES}
               categoryRenames={CATEGORY_RENAMES}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
             />
           )
         ) : callsByTagByProject === undefined ? (
@@ -838,6 +831,9 @@ function FunctionCallsUsage({
             rows={callsByTagByProject}
             entity="calls"
             projects={projects}
+            team={team}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
           />
         )}
       </div>
@@ -869,6 +865,8 @@ function ActionComputeUsage({
     "byType",
   );
   const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
   const actionComputeDailyByProject = useUsageTeamActionComputeDailyByProject(
     team.id,
@@ -917,7 +915,7 @@ function ActionComputeUsage({
       }
     >
       <div className="px-4">
-        {showEntitlements && (
+        {showEntitlements && selectedDate === null && (
           <UsageOverview
             metric={actionCompute}
             entitlement={actionComputeEntitlement ?? 0}
@@ -946,6 +944,9 @@ function ActionComputeUsage({
             entity="action calls"
             quantityType="actionCompute"
             projects={projects}
+            team={team}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
           />
         )}
       </div>
@@ -981,6 +982,8 @@ function FilesUsage({
     "byType",
   );
   const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
   const filesBandwidthByProject = useUsageTeamStorageThroughputDailyByProject(
     team.id,
@@ -1056,7 +1059,7 @@ function FilesUsage({
       >
         <Tab.Panels className="px-4">
           <Tab.Panel>
-            {showEntitlements && (
+            {showEntitlements && selectedDate === null && (
               <UsageOverview
                 metric={storage}
                 entitlement={storageEntitlement ?? 0}
@@ -1076,6 +1079,8 @@ function FilesUsage({
                   entity="files"
                   quantityType="storage"
                   showCategoryTotals={false}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
                 />
               )
             ) : fileStorageByProject === undefined ? (
@@ -1086,11 +1091,14 @@ function FilesUsage({
                 entity="files"
                 quantityType="storage"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {showEntitlements && (
+            {showEntitlements && selectedDate === null && (
               <UsageOverview
                 metric={bandwidth}
                 entitlement={bandwidthEntitlement ?? 0}
@@ -1109,6 +1117,8 @@ function FilesUsage({
                   categories={FILE_BANDWIDTH_CATEGORIES}
                   entity="files"
                   quantityType="storage"
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
                 />
               )
             ) : filesBandwidthByProject === undefined ? (
@@ -1119,6 +1129,9 @@ function FilesUsage({
                 entity="files"
                 quantityType="storage"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
@@ -1155,6 +1168,8 @@ function VectorUsage({
     "byType",
   );
   const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
   const vectorStorageByProject = useUsageTeamVectorStoragePerDayByProject(
     team.id,
@@ -1230,7 +1245,7 @@ function VectorUsage({
       >
         <Tab.Panels className="px-4">
           <Tab.Panel>
-            {showEntitlements && (
+            {showEntitlements && selectedDate === null && (
               <UsageOverview
                 metric={storage}
                 entitlement={storageEntitlement ?? 0}
@@ -1258,11 +1273,14 @@ function VectorUsage({
                 entity="vectors"
                 quantityType="storage"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {showEntitlements && (
+            {showEntitlements && selectedDate === null && (
               <UsageOverview
                 metric={bandwidth}
                 entitlement={bandwidthEntitlement ?? 0}
@@ -1281,6 +1299,8 @@ function VectorUsage({
                   categories={BANDWIDTH_CATEGORIES}
                   entity="vectors"
                   quantityType="storage"
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
                 />
               )
             ) : vectorBandwidthByProject === undefined ? (
@@ -1291,6 +1311,9 @@ function VectorUsage({
                 entity="vectors"
                 quantityType="storage"
                 projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
               />
             )}
           </Tab.Panel>
