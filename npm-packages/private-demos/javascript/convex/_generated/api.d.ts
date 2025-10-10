@@ -8,13 +8,14 @@
  * @module
  */
 
+import type * as getCounter from "../getCounter.js";
+import type * as incrementCounter from "../incrementCounter.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as getCounter from "../getCounter.js";
-import type * as incrementCounter from "../incrementCounter.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -28,11 +29,15 @@ declare const fullApi: ApiFromModules<{
   getCounter: typeof getCounter;
   incrementCounter: typeof incrementCounter;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

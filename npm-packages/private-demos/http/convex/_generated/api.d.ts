@@ -8,17 +8,18 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
 import type * as actions_longRunning from "../actions/longRunning.js";
 import type * as checkUrl from "../checkUrl.js";
 import type * as getMessagesByAuthor from "../getMessagesByAuthor.js";
 import type * as http from "../http.js";
 import type * as listMessages from "../listMessages.js";
 import type * as sendMessage from "../sendMessage.js";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -36,11 +37,15 @@ declare const fullApi: ApiFromModules<{
   listMessages: typeof listMessages;
   sendMessage: typeof sendMessage;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

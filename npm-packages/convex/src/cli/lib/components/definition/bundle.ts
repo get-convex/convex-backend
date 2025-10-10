@@ -55,7 +55,7 @@ function virtualConfig({
         async (_args) => {
           return {
             contents: VIRTUAL_CONFIG_CONTENTS,
-            resolveDir: rootComponentDirectory.path,
+            resolveDir: path.dirname(rootComponentDirectory.path),
           };
         },
       );
@@ -296,8 +296,7 @@ export async function componentGraph(
     });
   }
   for (const warning of result.warnings) {
-    // eslint-disable-next-line no-console
-    console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
+    logWarning(chalk.yellow(`esbuild warning: ${warning.text}`));
   }
   return await findComponentDependencies(ctx, result.metafile);
 }
@@ -435,8 +434,7 @@ export async function bundleDefinitions(
     });
   }
   for (const warning of result.warnings) {
-    // eslint-disable-next-line no-console
-    console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
+    logWarning(chalk.yellow(`esbuild warning: ${warning.text}`));
   }
 
   const outputs: {

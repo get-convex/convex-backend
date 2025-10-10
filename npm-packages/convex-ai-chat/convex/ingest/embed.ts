@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { map } from "modern-async";
+import { asyncMap } from "modern-async";
 import OpenAI from "openai";
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
@@ -27,7 +27,7 @@ export const embedList = internalAction({
   },
   handler: async (ctx, { documentIds }) => {
     const chunks = (
-      await map(documentIds, (documentId) =>
+      await asyncMap(documentIds, (documentId) =>
         ctx.runQuery(internal.ingest.embed.chunksNeedingEmbedding, {
           documentId,
         }),
@@ -35,7 +35,7 @@ export const embedList = internalAction({
     ).flat();
 
     const embeddings = await embedTexts(chunks.map((chunk) => chunk.text));
-    await map(embeddings, async (embedding, i) => {
+    await asyncMap(embeddings, async (embedding, i) => {
       const { _id: chunkId } = chunks[i];
       await ctx.runMutation(internal.ingest.embed.addEmbedding, {
         chunkId,

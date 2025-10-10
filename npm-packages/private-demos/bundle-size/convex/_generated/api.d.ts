@@ -8,13 +8,14 @@
  * @module
  */
 
+import type * as listMessages from "../listMessages.js";
+import type * as sendMessage from "../sendMessage.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as listMessages from "../listMessages.js";
-import type * as sendMessage from "../sendMessage.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -28,11 +29,15 @@ declare const fullApi: ApiFromModules<{
   listMessages: typeof listMessages;
   sendMessage: typeof sendMessage;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

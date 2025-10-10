@@ -8,14 +8,15 @@
  * @module
  */
 
+import type * as constants from "../constants.js";
+import type * as search from "../search.js";
+import type * as vectorDemo from "../vectorDemo.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as constants from "../constants.js";
-import type * as search from "../search.js";
-import type * as vectorDemo from "../vectorDemo.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -30,11 +31,15 @@ declare const fullApi: ApiFromModules<{
   search: typeof search;
   vectorDemo: typeof vectorDemo;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { map } from "modern-async";
+import { asyncMap } from "modern-async";
 import OpenAI from "openai";
 import {
   internalAction,
@@ -27,7 +27,7 @@ export const answer = internalAction({
       limit: 8,
     });
 
-    const relevantDocuments = await map(
+    const relevantDocuments = await asyncMap(
       searchResults,
       async ({ _id: embeddingId }) =>
         await ctx.runQuery(internal.serve.getChunk, { embeddingId }),

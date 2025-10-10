@@ -8,11 +8,6 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
 import type * as cancelJob from "../cancelJob.js";
 import type * as dangle from "../dangle.js";
 import type * as email from "../email.js";
@@ -30,6 +25,12 @@ import type * as tac from "../tac.js";
 import type * as tic from "../tic.js";
 import type * as toe from "../toe.js";
 import type * as virtualTable from "../virtualTable.js";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -58,11 +59,15 @@ declare const fullApi: ApiFromModules<{
   toe: typeof toe;
   virtualTable: typeof virtualTable;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

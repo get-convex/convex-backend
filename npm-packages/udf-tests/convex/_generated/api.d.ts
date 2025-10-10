@@ -8,11 +8,6 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
 import type * as action from "../action.js";
 import type * as adversarial from "../adversarial.js";
 import type * as adversarialWasm from "../adversarialWasm.js";
@@ -79,6 +74,12 @@ import type * as userError from "../userError.js";
 import type * as values from "../values.js";
 import type * as vector_search from "../vector_search.js";
 import type * as wasmTests from "../wasmTests.js";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -156,11 +157,15 @@ declare const fullApi: ApiFromModules<{
   vector_search: typeof vector_search;
   wasmTests: typeof wasmTests;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

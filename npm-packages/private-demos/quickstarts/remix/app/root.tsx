@@ -1,5 +1,4 @@
 import {
-  data,
   Links,
   Meta,
   Outlet,
@@ -12,7 +11,7 @@ import { useState } from "react";
 
 export async function loader() {
   const CONVEX_URL = process.env["CONVEX_URL"]!;
-  return data({ ENV: { CONVEX_URL } });
+  return { ENV: { CONVEX_URL } };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

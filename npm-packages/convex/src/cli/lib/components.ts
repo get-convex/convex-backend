@@ -89,7 +89,18 @@ export async function runCodegen(
     functionsDirectoryPath,
   );
 
-  if (ctx.fs.exists(componentRootPath)) {
+  if (options.init) {
+    await doInitCodegen(ctx, functionsDirectoryPath, false, {
+      dryRun: options.dryRun,
+      debug: options.debug,
+    });
+  }
+
+  if (
+    (ctx.fs.exists(componentRootPath) ||
+      process.env.USE_LEGACY_PUSH === undefined) &&
+    !options.systemUdfs
+  ) {
     // Early exit for a better error message trying to use a preview key.
     if (deploymentSelection.kind === "preview") {
       return await ctx.crash({
@@ -126,13 +137,6 @@ export async function runCodegen(
       },
     );
   } else {
-    if (options.init) {
-      await doInitCodegen(ctx, functionsDirectoryPath, false, {
-        dryRun: options.dryRun,
-        debug: options.debug,
-      });
-    }
-
     if (options.typecheck !== "disable") {
       logMessage(chalk.gray("Running TypeScript typecheck…"));
     }
@@ -150,12 +154,12 @@ export async function runPush(ctx: Context, options: PushOptions) {
   const convexDir = functionsDir(configPath, projectConfig);
   const componentRootPath = await findComponentRootPath(ctx, convexDir);
   if (
-    ctx.fs.exists(componentRootPath) ||
-    process.env.USE_COMPONENTS_PUSH === "true"
+    !ctx.fs.exists(componentRootPath) &&
+    process.env.USE_LEGACY_PUSH !== undefined
   ) {
-    await runComponentsPush(ctx, options, configPath, projectConfig);
-  } else {
     await runNonComponentsPush(ctx, options, configPath, projectConfig);
+  } else {
+    await runComponentsPush(ctx, options, configPath, projectConfig);
   }
 }
 

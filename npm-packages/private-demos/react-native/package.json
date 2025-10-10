@@ -10,9 +10,9 @@
     "test": "jest"
   },
   "dependencies": {
-    "convex": "latest",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "convex": "^1.27.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "react-native": "0.80.2",
     "react-native-dotenv": "^3.4.7",
     "react-native-get-random-values": "^1.8.0"
@@ -27,15 +27,15 @@
     "@react-native/eslint-config": "0.80.2",
     "@react-native/metro-config": "0.80.2",
     "@react-native/typescript-config": "0.80.2",
-    "@types/react": "^18.2.6",
-    "@types/react-test-renderer": "^18.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-test-renderer": "^19.0.0",
     "babel-jest": "^29.6.3",
     "detox": "^20.40.2",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
     "metro-react-native-babel-preset": "0.77.0",
     "prettier": "3.6.2",
-    "react-test-renderer": "18.2.0",
+    "react-test-renderer": "^19.1.0",
     "typescript": "5.0.4"
   },
   "engines": {

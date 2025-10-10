@@ -10,7 +10,7 @@ export default defineSchema({
     user: v.string(),
     active: v.boolean(),
   })
-    .index("by_active", ["active", "_creationTime"])
+    .index("by_active", ["active"])
     .index("by_user", ["user"]),
   waitlist: defineTable({
     user: v.string(),

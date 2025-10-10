@@ -8,15 +8,16 @@
  * @module
  */
 
+import type * as node_fetch from "../node_fetch.js";
+import type * as sharp from "../sharp.js";
+import type * as snowflake from "../snowflake.js";
+import type * as tiktoken from "../tiktoken.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as node_fetch from "../node_fetch.js";
-import type * as sharp from "../sharp.js";
-import type * as snowflake from "../snowflake.js";
-import type * as tiktoken from "../tiktoken.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -32,11 +33,15 @@ declare const fullApi: ApiFromModules<{
   snowflake: typeof snowflake;
   tiktoken: typeof tiktoken;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

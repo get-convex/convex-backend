@@ -8,14 +8,15 @@
  * @module
  */
 
+import type * as clear from "../clear.js";
+import type * as getPositions from "../getPositions.js";
+import type * as reportPosition from "../reportPosition.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as clear from "../clear.js";
-import type * as getPositions from "../getPositions.js";
-import type * as reportPosition from "../reportPosition.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -30,11 +31,15 @@ declare const fullApi: ApiFromModules<{
   getPositions: typeof getPositions;
   reportPosition: typeof reportPosition;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

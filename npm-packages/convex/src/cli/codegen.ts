@@ -35,6 +35,8 @@ export const codegen = new Command("codegen")
       "Generate CommonJS modules (CJS) instead of ECMAScript modules, the default. Bundlers typically take care of this conversion while bundling, so this setting is generally only useful for projects which do not use a bundler, typically Node.js projects. Convex functions can be written with either syntax.",
     ).hideHelp(),
   )
+  // Only for doing codegen on system UDFs
+  .addOption(new Option("--system-udfs").hideHelp())
   .action(async (options) => {
     const ctx = await oneoffContext(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
@@ -49,5 +51,6 @@ export const codegen = new Command("codegen")
       adminKey: options.adminKey,
       liveComponentSources: !!options.liveComponentSources,
       debugNodeApis: false,
+      systemUdfs: !!options.systemUdfs,
     });
   });

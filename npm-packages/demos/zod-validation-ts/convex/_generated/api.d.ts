@@ -8,13 +8,14 @@
  * @module
  */
 
+import type * as lib_zod from "../lib/zod.js";
+import type * as messages from "../messages.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as lib_zod from "../lib/zod.js";
-import type * as messages from "../messages.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -28,11 +29,15 @@ declare const fullApi: ApiFromModules<{
   "lib/zod": typeof lib_zod;
   messages: typeof messages;
 }>;
+declare const fullApiWithMounts: typeof fullApi;
+
 export declare const api: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "public">
 >;
 export declare const internal: FilterApi<
-  typeof fullApi,
+  typeof fullApiWithMounts,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {};

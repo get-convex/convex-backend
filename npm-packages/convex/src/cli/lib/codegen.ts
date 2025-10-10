@@ -47,6 +47,7 @@ export type CodegenOptions = {
   commonjs: boolean;
   liveComponentSources: boolean;
   debugNodeApis: boolean;
+  systemUdfs: boolean;
 };
 
 export async function doCodegenForNewProject(ctx: Context) {
@@ -317,7 +318,7 @@ export async function doFinalComponentCodegen(
   );
 
   if (opts?.generateCommonJSApi || projectConfig.generateCommonJSApi) {
-    const apiCjsDTSPath = path.join(codegenDir, "api_cjs.d.ts");
+    const apiCjsDTSPath = path.join(codegenDir, "api_cjs.d.cts");
     await writeFormattedFile(
       ctx,
       tmpDir,
