@@ -5,6 +5,7 @@
 #![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
+#![feature(if_let_guard)]
 mod chunks;
 mod connection;
 mod metrics;
@@ -126,6 +127,11 @@ use crate::{
         QueryIndexStats,
     },
 };
+
+// Vitess limits query results to 64MiB.
+// As documents can be up to 1MiB (plus some overhead), we may need to fall back
+// to a much smaller page size if we hit the limit while loading documents.
+const FALLBACK_PAGE_SIZE: u32 = 10;
 
 #[derive(Clone, Debug)]
 pub struct MySqlInstanceName {
@@ -669,7 +675,7 @@ impl<RT: Runtime> MySqlReader<RT> {
         include_prev_rev: bool,
         range: TimestampRange,
         order: Order,
-        page_size: u32,
+        mut page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
         anyhow::ensure!(page_size > 0); // 0 size pages loop forever.
@@ -717,11 +723,33 @@ impl<RT: Runtime> MySqlReader<RT> {
                 params.push(self.instance_name.to_string().into());
             }
             params.push((page_size as i64).into());
-            let rows: Vec<_> = client
-                .query_stream(query, params, page_size as usize)
-                .await?
-                .try_collect()
-                .await?;
+            let stream_result = match client.query_stream(query, params, page_size as usize).await {
+                Ok(stream) => Ok(stream),
+                Err(ref e)
+                    if let Some(db_err) = e.downcast_ref::<mysql_async::ServerError>()
+                        && db_err.state == "HY000"
+                        && db_err.code == 1105
+                        && db_err
+                            .message
+                            .contains("trying to send message larger than max") =>
+                {
+                    if page_size == FALLBACK_PAGE_SIZE {
+                        anyhow::bail!(
+                            "Failed to load documents with fallback page size \
+                             `{FALLBACK_PAGE_SIZE}`: {}",
+                            db_err.message
+                        );
+                    }
+                    tracing::warn!(
+                        "Falling back to page size `{FALLBACK_PAGE_SIZE}` due to server error: {}",
+                        db_err.message
+                    );
+                    page_size = FALLBACK_PAGE_SIZE;
+                    continue;
+                },
+                Err(e) => Err(e),
+            }?;
+            let rows: Vec<_> = stream_result.try_collect().await?;
             drop(client);
 
             retention_validator
@@ -823,7 +851,7 @@ impl<RT: Runtime> MySqlReader<RT> {
         // common case we should do a single query. Exceptions are if the size_hint
         // is wrong or if we truncate it or if we observe too many deletes.
         let mut batch_size =
-            size_hint.clamp(*MYSQL_MIN_QUERY_BATCH_SIZE, *MYSQL_MAX_QUERY_BATCH_SIZE);
+            size_hint.clamp(*MYSQL_MIN_QUERY_BATCH_SIZE, *MYSQL_MAX_QUERY_BATCH_SIZE) as u32;
 
         // We iterate results in (key_prefix, key_sha256) order while we actually
         // need them in (key_prefix, key_suffix order). key_suffix is not part of the
@@ -832,6 +860,7 @@ impl<RT: Runtime> MySqlReader<RT> {
         let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>)> =
             Vec::new();
         let mut has_more = true;
+        let mut fallback = false;
         while has_more {
             let page = {
                 let mut to_yield = vec![];
@@ -845,7 +874,7 @@ impl<RT: Runtime> MySqlReader<RT> {
                     lower.clone(),
                     upper.clone(),
                     order,
-                    batch_size,
+                    batch_size as usize,
                     self.multitenant,
                     &self.instance_name,
                 );
@@ -856,7 +885,37 @@ impl<RT: Runtime> MySqlReader<RT> {
 
                 let execute_timer =
                     metrics::query_index_sql_execute_timer(self.read_pool.cluster_name());
-                let row_stream = client.query_stream(query, params, batch_size).await?;
+                let row_stream = match client
+                    .query_stream(query, params, batch_size as usize)
+                    .await
+                {
+                    Ok(stream) => Ok(stream),
+                    Err(ref e)
+                        if let Some(db_err) = e.downcast_ref::<mysql_async::ServerError>()
+                            && db_err.state == "HY000"
+                            && db_err.code == 1105
+                            && db_err
+                                .message
+                                .contains("trying to send message larger than max") =>
+                    {
+                        if batch_size == FALLBACK_PAGE_SIZE {
+                            anyhow::bail!(
+                                "Failed to load documents with fallback page size \
+                                 `{FALLBACK_PAGE_SIZE}`: {}",
+                                db_err.message
+                            );
+                        }
+                        tracing::warn!(
+                            "Falling back to page size `{FALLBACK_PAGE_SIZE}` due to server \
+                             error: {}",
+                            db_err.message
+                        );
+                        batch_size = FALLBACK_PAGE_SIZE;
+                        fallback = true;
+                        continue;
+                    },
+                    Err(e) => Err(e),
+                }?;
                 execute_timer.finish();
 
                 let retention_validate_timer =
@@ -972,9 +1031,11 @@ impl<RT: Runtime> MySqlReader<RT> {
             // Double the batch size every iteration until we max dynamic batch size. This
             // helps correct for tombstones, long prefixes and wrong client
             // size estimates.
-            // TODO: Take size into consideration and increase the max dynamic batch size.
-            if batch_size < *MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE {
-                batch_size = (batch_size * 2).min(*MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE);
+            // If we've had to fall back to the fallback page size, stay there without
+            // doubling. TODO: Take size into consideration and increase the max
+            // dynamic batch size.
+            if batch_size < *MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE as u32 && !fallback {
+                batch_size = (batch_size * 2).min(*MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE as u32);
             }
         }
     }
