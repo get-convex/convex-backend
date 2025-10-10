@@ -252,7 +252,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 &self.instance_name,
                 "scheduler/query_and_start_jobs",
                 &mut self.context.rt.rng(),
-                BTreeMap::new(),
             );
             self.query_and_start_jobs(&mut tx).in_span(root).await?
         };
@@ -369,7 +368,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 &self.instance_name,
                 "scheduler/execute_job",
                 &mut self.context.rt.rng(),
-                BTreeMap::new(),
             );
             let sentry_hub = sentry::Hub::with(|hub| sentry::Hub::new_from_top(hub));
             self.context.rt.spawn_background(

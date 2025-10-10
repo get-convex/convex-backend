@@ -53,7 +53,6 @@ use futures::{
     TryStreamExt,
 };
 use keybroker::Identity;
-use maplit::btreemap;
 use model::{
     backend_state::BackendStateModel,
     cron_jobs::{
@@ -276,12 +275,14 @@ impl<RT: Runtime> CronJobContext<RT> {
                 &self.instance_name,
                 "crons/run_function",
                 &mut self.rt.rng(),
-                btreemap! {
-                    "job_id".to_string() => job.id.to_string(),
-                    "component".to_string() => format!("{:?}", job.component),
-                    "job_name".to_string() => job.name.to_string(),
-                },
-            );
+            )
+            .with_properties(|| {
+                [
+                    ("job_id", job.id.to_string()),
+                    ("component", format!("{:?}", job.component)),
+                    ("job_name", job.name.to_string()),
+                ]
+            });
             let result = self
                 .run_function(job.clone(), mutation_retry_count)
                 .in_span(root)

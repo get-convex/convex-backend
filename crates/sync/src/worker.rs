@@ -73,7 +73,6 @@ use futures::{
     StreamExt,
 };
 use keybroker::Identity;
-use maplit::btreemap;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
     ClientMessage,
@@ -559,11 +558,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                     &self.host.instance_name,
                     "sync-worker/mutation",
                     &mut self.rt.rng(),
-                    btreemap! {
-                       "udf_type".into() => UdfType::Mutation.to_lowercase_string().into(),
-                       "udf_path".into() => udf_path.clone().into(),
-                    },
-                );
+                )
+                .with_property(|| ("udf_type", UdfType::Mutation.to_lowercase_string()))
+                .with_property(|| ("udf_path", udf_path.to_string()));
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
                 let timer = mutation_queue_timer(self.partition_id);
@@ -666,11 +663,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                     &self.host.instance_name,
                     "sync-worker/action",
                     &mut self.rt.rng(),
-                    btreemap! {
-                       "udf_type".into() => UdfType::Action.to_lowercase_string().into(),
-                       "udf_path".into() => udf_path.clone().into(),
-                    },
-                );
+                )
+                .with_property(|| ("udf_type", UdfType::Action.to_lowercase_string()))
+                .with_property(|| ("udf_path", udf_path.to_string()));
                 let future = async move {
                     let caller = FunctionCaller::SyncWorker(client_version);
                     let result = match component_path {
@@ -783,10 +778,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             &self.host.instance_name,
             "sync-worker/update-queries",
             &mut self.rt.rng(),
-            btreemap! {
-               "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
-            },
-        );
+        )
+        .with_property(|| ("udf_type", UdfType::Query.to_lowercase_string()));
         let _guard = root.set_local_parent();
         let timer = metrics::update_queries_timer(self.partition_id);
         let current_version = self.state.current_version();

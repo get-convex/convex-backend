@@ -43,7 +43,6 @@ use futures::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
-use maplit::btreemap;
 use model::{
     exports::types::{
         ExportFormat,
@@ -308,11 +307,13 @@ where
             &components.instance_name,
             "export_worker/write_table",
             &mut components.runtime.rng(),
-            btreemap! {
-                "dev.convex.component_path".to_string() => component_path.to_string(),
-                "dev.convex.table_name".to_string() => "_tables".to_string(),
-            },
-        );
+        )
+        .with_properties(|| {
+            [
+                ("dev.convex.component_path", component_path.to_string()),
+                ("dev.convex.table_name", "_tables".to_string()),
+            ]
+        });
         write_tables_table(&path_prefix, &mut zip_snapshot_upload, namespace, &tables)
             .in_span(root)
             .await?;
@@ -339,11 +340,13 @@ where
             &components.instance_name,
             "export_worker/write_table",
             &mut components.runtime.rng(),
-            btreemap! {
-                "dev.convex.component_path".to_string() => component_path.to_string(),
-                "dev.convex.table_name".to_string() => table_name.to_string(),
-            },
-        );
+        )
+        .with_properties(|| {
+            [
+                ("dev.convex.component_path", component_path.to_string()),
+                ("dev.convex.table_name", table_name.to_string()),
+            ]
+        });
 
         update_progress(format!("Backing up {table_name}{in_component_str}")).await?;
 
@@ -376,11 +379,13 @@ where
                 &components.instance_name,
                 "export_worker/write_table",
                 &mut components.runtime.rng(),
-                btreemap! {
-                    "dev.convex.component_path".to_string() => component_path.to_string(),
-                    "dev.convex.table_name".to_string() => "_storage".to_string(),
-                },
-            );
+            )
+            .with_properties(|| {
+                [
+                    ("dev.convex.component_path", component_path.to_string()),
+                    ("dev.convex.table_name", "_storage".to_string()),
+                ]
+            });
             write_storage_table(
                 components,
                 &path_prefix,

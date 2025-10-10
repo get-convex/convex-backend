@@ -1113,7 +1113,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 "go_delete_indexes: running, is_working: {is_working}, current_bounds: \
                  {min_snapshot_ts}",
             );
-            let span = get_sampled_span("", "delete_indexes", &mut rt.rng(), BTreeMap::new());
+            let span = get_sampled_span("", "delete_indexes", &mut rt.rng());
             let r: anyhow::Result<()> = async {
                 let _timer = retention_delete_timer();
                 let cursor = Self::get_checkpoint(
