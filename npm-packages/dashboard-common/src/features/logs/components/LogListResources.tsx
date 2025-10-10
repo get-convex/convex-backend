@@ -12,16 +12,16 @@ import { Tooltip } from "@ui/Tooltip";
 import { UsageStats } from "system-udfs/convex/_system/frontend/common";
 
 type RequestUsageStats = UsageStats & {
-  actionsRuntimeMs: number;
-  actionComputeMbMs: number;
+  runtimeMs: number;
+  computeMbMs: number;
   returnBytes?: number;
 };
 
 export function LogListResources({ logs }: { logs: UdfLog[] }) {
-  // Aggregate usage stats across all logs within this request, including total action runtime.
+  // Aggregate usage stats across all logs within this request
   const usageStats = (() => {
     const totals: RequestUsageStats = {
-      actionMemoryUsedMb: 0,
+      memoryUsedMb: 0,
       databaseReadBytes: 0,
       databaseReadDocuments: 0,
       databaseWriteBytes: 0,
@@ -29,8 +29,8 @@ export function LogListResources({ logs }: { logs: UdfLog[] }) {
       storageWriteBytes: 0,
       vectorIndexReadBytes: 0,
       vectorIndexWriteBytes: 0,
-      actionsRuntimeMs: 0,
-      actionComputeMbMs: 0,
+      runtimeMs: 0,
+      computeMbMs: 0,
     };
 
     return logs.reduce((accumulated, log) => {
@@ -45,14 +45,11 @@ export function LogListResources({ logs }: { logs: UdfLog[] }) {
       if ("returnBytes" in log && log.returnBytes) {
         ret.returnBytes = (ret.returnBytes ?? 0) + log.returnBytes;
       }
-      if (
-        log.kind === "outcome" &&
-        (log.udfType === "Action" || log.udfType === "HttpAction")
-      ) {
+      if (log.kind === "outcome") {
         const durationMs = log.executionTimeMs ?? 0;
-        ret.actionsRuntimeMs += durationMs;
-        const memoryMb = (log.usageStats?.actionMemoryUsedMb ?? 0) as number;
-        ret.actionComputeMbMs += durationMs * memoryMb;
+        ret.runtimeMs += durationMs;
+        const memoryMb = (log.usageStats?.memoryUsedMb ?? 0) as number;
+        ret.computeMbMs += durationMs * memoryMb;
       }
       return ret;
     }, totals);
@@ -82,16 +79,16 @@ export function LogListResources({ logs }: { logs: UdfLog[] }) {
           <Disclosure.Panel className="animate-fadeInFromLoading p-2 pt-0 text-xs">
             <ul className="divide-y">
               <li className="flex items-center justify-between py-2">
-                <span className="text-content-secondary">Action Compute</span>
+                <span className="text-content-secondary">Compute</span>
                 <span className="text-content-primary">
                   <strong>
                     {Number(
-                      usageStats.actionComputeMbMs / (1024 * 3_600_000),
+                      usageStats.computeMbMs / (1024 * 3_600_000),
                     ).toFixed(7)}{" "}
                     GB-hr
                   </strong>{" "}
-                  ({usageStats.actionMemoryUsedMb ?? 0} MB for{" "}
-                  {Number(usageStats.actionsRuntimeMs / 1000).toFixed(2)}
+                  ({usageStats.memoryUsedMb ?? 0} MB for{" "}
+                  {Number(usageStats.runtimeMs / 1000).toFixed(2)}
                   s)
                 </span>
               </li>

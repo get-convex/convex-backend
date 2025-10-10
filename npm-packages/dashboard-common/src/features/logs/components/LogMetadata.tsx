@@ -14,8 +14,8 @@ import { Disclosure } from "@headlessui/react";
 import { Spinner } from "@ui/Spinner";
 
 type RequestUsageStats = UsageStats & {
-  actionsRuntimeMs: number;
-  actionComputeMbMs: number;
+  runtimeMs: number;
+  computeMbMs: number;
   returnBytes?: number;
 };
 
@@ -121,7 +121,7 @@ export function LogMetadata({
 
   const usageStats = useMemo(() => {
     const totals: RequestUsageStats = {
-      actionMemoryUsedMb: 0,
+      memoryUsedMb: 0,
       databaseReadBytes: 0,
       databaseReadDocuments: 0,
       databaseWriteBytes: 0,
@@ -129,8 +129,8 @@ export function LogMetadata({
       storageWriteBytes: 0,
       vectorIndexReadBytes: 0,
       vectorIndexWriteBytes: 0,
-      actionsRuntimeMs: 0,
-      actionComputeMbMs: 0,
+      runtimeMs: 0,
+      computeMbMs: 0,
     };
 
     return filteredLogs.reduce((accumulated, log) => {
@@ -145,14 +145,11 @@ export function LogMetadata({
       if ("returnBytes" in log && log.returnBytes) {
         ret.returnBytes = (ret.returnBytes ?? 0) + log.returnBytes;
       }
-      if (
-        log.kind === "outcome" &&
-        (log.udfType === "Action" || log.udfType === "HttpAction")
-      ) {
+      if (log.kind === "outcome") {
         const durationMs = log.executionTimeMs ?? 0;
-        ret.actionsRuntimeMs += durationMs;
-        const memoryMb = (log.usageStats?.actionMemoryUsedMb ?? 0) as number;
-        ret.actionComputeMbMs += durationMs * memoryMb;
+        ret.runtimeMs += durationMs;
+        const memoryMb = (log.usageStats?.memoryUsedMb ?? 0) as number;
+        ret.computeMbMs += durationMs * memoryMb;
       }
       return ret;
     }, totals);
@@ -226,18 +223,21 @@ function ResourcesUsed({
               ) : (
                 <ul className="divide-y text-xs">
                   <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
-                    <span className="text-content-secondary">
-                      Action Compute
+                    <span className="flex items-center gap-1 text-content-secondary">
+                      Compute
+                      <Tooltip tip="Only compute from Actions incur additional cost. Query/Mutation compute are included.">
+                        <QuestionMarkCircledIcon />
+                      </Tooltip>
                     </span>
                     <span className="min-w-0 text-content-primary">
                       <strong>
                         {Number(
-                          usageStats.actionComputeMbMs / (1024 * 3_600_000),
+                          usageStats.computeMbMs / (1024 * 3_600_000),
                         ).toFixed(7)}{" "}
                         GB-hr
                       </strong>{" "}
-                      ({usageStats.actionMemoryUsedMb ?? 0} MB for{" "}
-                      {Number(usageStats.actionsRuntimeMs / 1000).toFixed(2)}s)
+                      ({usageStats.memoryUsedMb ?? 0} MB for{" "}
+                      {Number(usageStats.runtimeMs / 1000).toFixed(2)}s)
                     </span>
                   </li>
                   <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">

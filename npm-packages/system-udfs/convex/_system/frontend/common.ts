@@ -29,7 +29,7 @@ export type StructuredLogLine = {
 export type LogLine = string | StructuredLogLine;
 
 export type UsageStats = {
-  actionMemoryUsedMb: number | null;
+  memoryUsedMb: number | null;
   databaseReadBytes: number;
   databaseWriteBytes: number;
   databaseReadDocuments: number;

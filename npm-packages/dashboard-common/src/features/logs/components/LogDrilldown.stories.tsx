@@ -149,7 +149,7 @@ const mockLogs: UdfLog[] = [
     timestamp: Date.now() - 3800,
     executionTimeMs: 15.2,
     usageStats: {
-      actionMemoryUsedMb: null,
+      memoryUsedMb: null,
       databaseReadBytes: 1024,
       databaseWriteBytes: 0,
       databaseReadDocuments: 5,
@@ -173,7 +173,7 @@ const mockLogs: UdfLog[] = [
     timestamp: Date.now() - 3000,
     executionTimeMs: 250.8,
     usageStats: {
-      actionMemoryUsedMb: 64,
+      memoryUsedMb: 64,
       databaseReadBytes: 512,
       databaseWriteBytes: 256,
       databaseReadDocuments: 2,
@@ -213,7 +213,7 @@ const mockLogs: UdfLog[] = [
     timestamp: Date.now() - 1000,
     executionTimeMs: 500.5,
     usageStats: {
-      actionMemoryUsedMb: null,
+      memoryUsedMb: null,
       databaseReadBytes: 2048,
       databaseWriteBytes: 512,
       databaseReadDocuments: 7,
