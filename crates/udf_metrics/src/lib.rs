@@ -760,6 +760,10 @@ impl MetricsWindow {
         buckets: Vec<&HistogramBucket>,
         percentiles: &[Percentile],
     ) -> anyhow::Result<BTreeMap<Percentile, Timeseries>> {
+        if percentiles.len() > 5 {
+            anyhow::bail!("Invalid query percentiles: {}", percentiles.len());
+        }
+
         let mut histograms = Vec::with_capacity(self.num_buckets);
         for i in 0..self.num_buckets {
             let bucket_start = self.bucket_start(i)?;
