@@ -56,10 +56,66 @@
           }
         }
       }
+    },
+    "/update_canonical_url": {
+      "post": {
+        "summary": "Update canonical URL",
+        "description": "Set or unset the canonical URL for a deployment's convex.cloud or\nconvex.site domain. This allows you to customize the  CONVEX_SITE_URL and\nCONVEX_CLOUD_URL environment variables in your deployment.",
+        "operationId": "update_canonical_url",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCanonicalUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/get_canonical_urls": {
+      "get": {
+        "summary": "Get canonical URLs",
+        "description": "Get the canonical URLs for a deployment.",
+        "operationId": "get_canonical_urls",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCanonicalUrlsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "GetCanonicalUrlsResponse": {
+        "type": "object",
+        "required": [
+          "convexCloudUrl",
+          "convexSiteUrl"
+        ],
+        "properties": {
+          "convexCloudUrl": {
+            "type": "string"
+          },
+          "convexSiteUrl": {
+            "type": "string"
+          }
+        }
+      },
       "ListEnvVarsResponse": {
         "type": "object",
         "required": [
@@ -74,6 +130,32 @@
             "propertyNames": {
               "type": "string"
             }
+          }
+        }
+      },
+      "RequestDestination": {
+        "type": "string",
+        "enum": [
+          "convexCloud",
+          "convexSite"
+        ]
+      },
+      "UpdateCanonicalUrlRequest": {
+        "type": "object",
+        "required": [
+          "requestDestination"
+        ],
+        "properties": {
+          "requestDestination": {
+            "$ref": "#/components/schemas/RequestDestination",
+            "description": "Whether to update the canonical URL for convex.cloud or convex.site"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The new canonical URL. Omit this to reset the canonical URl to the\ndefault value."
           }
         }
       },
