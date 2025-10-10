@@ -26,7 +26,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import {
   Team,
-  VanityDomainRequestArgs,
+  PlatformDeleteCustomDomainArgs,
   VanityDomainResponse,
 } from "generatedApi";
 import {
@@ -407,14 +407,14 @@ function VanityDomainForm({
   disabled?: boolean;
 }) {
   const createVanityDomain = useCreateVanityDomain(deploymentName);
-  const formState = useFormik<VanityDomainRequestArgs>({
+  const formState = useFormik<PlatformDeleteCustomDomainArgs>({
     validateOnChange: true,
     initialValues: {
       domain: "",
       requestDestination: "convexSite",
     },
     validate: (values: { domain?: string }) => {
-      const errors: Partial<VanityDomainRequestArgs> = {};
+      const errors: Partial<PlatformDeleteCustomDomainArgs> = {};
       if (
         !values.domain ||
         values.domain === "" ||
@@ -424,7 +424,7 @@ function VanityDomainForm({
       }
       return errors;
     },
-    onSubmit: async (values: VanityDomainRequestArgs) => {
+    onSubmit: async (values: PlatformDeleteCustomDomainArgs) => {
       await createVanityDomain({
         domain: values.domain,
         requestDestination: values.requestDestination,
@@ -474,7 +474,7 @@ export function VanityDomainInputs({
   deploymentName,
   disabled = false,
 }: {
-  formState: ReturnType<typeof useFormik<VanityDomainRequestArgs>>;
+  formState: ReturnType<typeof useFormik<PlatformDeleteCustomDomainArgs>>;
   deploymentName: string;
   disabled?: boolean;
 }) {
@@ -578,7 +578,7 @@ function DisplayVanityDomain({
           )}
         </div>
       </div>
-      {!vanityDomain.verificationTs && (
+      {!vanityDomain.verificationTime && (
         <>
           <Callout className="mt-0 mb-4 w-72 gap-2 align-middle">
             <div className="ml-1 flex w-full gap-3">

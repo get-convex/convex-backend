@@ -133,6 +133,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}/create_custom_domain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create custom domain */
+        post: operations["create custom domain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{deployment_name}/delete_custom_domain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete custom domain
+         * @description Remove a custom domain from a deployment.
+         */
+        post: operations["delete custom domain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/deployments/{deployment_name}/custom_domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List custom domains
+         * @description Get all custom domains configured for a deployment.
+         */
+        get: operations["list custom domains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -166,6 +223,31 @@ export interface components {
             deploymentUrl: string;
             projectId: components["schemas"]["ProjectId"];
         };
+        PlatformCustomDomainResponse: {
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this domain was created.
+             */
+            creationTime: number;
+            /** @description The deployment name this domain is configured for. */
+            deploymentName: string;
+            /** @description The custom domain name. */
+            domain: string;
+            /** @description The destination for this custom domain (convexCloud or convexSite). */
+            requestDestination: components["schemas"]["RequestDestination"];
+            /**
+             * Format: int64
+             * @description Timestamp in milliseconds when this domain was verified, or null if not
+             *     yet verified.
+             */
+            verificationTime?: number | null;
+        };
+        PlatformDeleteCustomDomainArgs: {
+            /** @description The custom domain name to delete. */
+            domain: string;
+            /** @description The destination for this custom domain (convexCloud or convexSite). */
+            requestDestination: components["schemas"]["RequestDestination"];
+        };
         PlatformDeploymentResponse: {
             /**
              * Format: int64
@@ -181,6 +263,10 @@ export interface components {
             previewIdentifier?: null | components["schemas"]["PreviewDeploymentIdentifier"];
             /** @description The project this deployment belongs to. */
             projectId: components["schemas"]["ProjectId"];
+        };
+        PlatformListCustomDomainsResponse: {
+            /** @description List of custom domains configured for this deployment. */
+            domains: components["schemas"]["PlatformCustomDomainResponse"][];
         };
         /** @enum {string} */
         PlatformProjectDeploymentType: "dev" | "prod";
@@ -227,6 +313,8 @@ export interface components {
         ProjectId: number;
         ProjectName: string;
         ProjectSlug: string;
+        /** @enum {string} */
+        RequestDestination: "convexCloud" | "convexSite";
         /** Format: int64 */
         TeamId: number;
     };
@@ -243,7 +331,10 @@ export type PlatformCreateDeployKeyArgs = components['schemas']['PlatformCreateD
 export type PlatformCreateDeployKeyResponse = components['schemas']['PlatformCreateDeployKeyResponse'];
 export type PlatformCreateProjectArgs = components['schemas']['PlatformCreateProjectArgs'];
 export type PlatformCreateProjectResponse = components['schemas']['PlatformCreateProjectResponse'];
+export type PlatformCustomDomainResponse = components['schemas']['PlatformCustomDomainResponse'];
+export type PlatformDeleteCustomDomainArgs = components['schemas']['PlatformDeleteCustomDomainArgs'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
+export type PlatformListCustomDomainsResponse = components['schemas']['PlatformListCustomDomainsResponse'];
 export type PlatformProjectDeploymentType = components['schemas']['PlatformProjectDeploymentType'];
 export type PlatformProjectDetails = components['schemas']['PlatformProjectDetails'];
 export type PlatformTokenDetailsResponse = components['schemas']['PlatformTokenDetailsResponse'];
@@ -251,6 +342,7 @@ export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeployme
 export type ProjectId = components['schemas']['ProjectId'];
 export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type RequestDestination = components['schemas']['RequestDestination'];
 export type TeamId = components['schemas']['TeamId'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -385,6 +477,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformTokenDetailsResponse"];
+                };
+            };
+        };
+    };
+    "create custom domain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformDeleteCustomDomainArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "delete custom domain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformDeleteCustomDomainArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "list custom domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformListCustomDomainsResponse"];
                 };
             };
         };

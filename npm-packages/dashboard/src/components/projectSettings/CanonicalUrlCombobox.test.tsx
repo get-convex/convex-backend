@@ -27,8 +27,6 @@ const defaultProps: React.ComponentProps<typeof CanonicalUrlCombobox> = {
       requestDestination: "convexCloud",
       domain: "api.chess.convex.dev",
       verificationTime: 1741726688,
-      creationTs: "2025-03-03 15:10:40.760874 UTC",
-      verificationTs: "2025-03-11 20:58:08.146394 UTC",
     },
     {
       creationTime: 1736874886,
@@ -36,8 +34,6 @@ const defaultProps: React.ComponentProps<typeof CanonicalUrlCombobox> = {
       requestDestination: "convexSite",
       domain: "chess.convex.dev",
       verificationTime: 1741726560,
-      creationTs: "2025-01-14 17:14:46.332041 UTC",
-      verificationTs: "2025-03-11 20:56:00.634010 UTC",
     },
   ],
   requestDestination: "convexCloud",

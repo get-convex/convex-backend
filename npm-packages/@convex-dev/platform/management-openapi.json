@@ -239,6 +239,113 @@
           }
         ]
       }
+    },
+    "/deployments/{deployment_name}/create_custom_domain": {
+      "post": {
+        "summary": "Create custom domain",
+        "operationId": "create custom domain",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDeleteCustomDomainArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": [],
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/deployments/{deployment_name}/delete_custom_domain": {
+      "post": {
+        "summary": "Delete custom domain",
+        "description": "Remove a custom domain from a deployment.",
+        "operationId": "delete custom domain",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformDeleteCustomDomainArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": [],
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/deployments/{deployment_name}/custom_domains": {
+      "get": {
+        "summary": "List custom domains",
+        "description": "Get all custom domains configured for a deployment.",
+        "operationId": "list custom domains",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformListCustomDomainsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth Project Token": [],
+            "OAuth Team Token": [],
+            "Team Token": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -322,6 +429,59 @@
           }
         }
       },
+      "PlatformCustomDomainResponse": {
+        "type": "object",
+        "required": [
+          "creationTime",
+          "deploymentName",
+          "requestDestination",
+          "domain"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this domain was created."
+          },
+          "deploymentName": {
+            "type": "string",
+            "description": "The deployment name this domain is configured for."
+          },
+          "domain": {
+            "type": "string",
+            "description": "The custom domain name."
+          },
+          "requestDestination": {
+            "$ref": "#/components/schemas/RequestDestination",
+            "description": "The destination for this custom domain (convexCloud or convexSite)."
+          },
+          "verificationTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Timestamp in milliseconds when this domain was verified, or null if not\nyet verified."
+          }
+        }
+      },
+      "PlatformDeleteCustomDomainArgs": {
+        "type": "object",
+        "required": [
+          "requestDestination",
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "The custom domain name to delete."
+          },
+          "requestDestination": {
+            "$ref": "#/components/schemas/RequestDestination",
+            "description": "The destination for this custom domain (convexCloud or convexSite)."
+          }
+        }
+      },
       "PlatformDeploymentResponse": {
         "type": "object",
         "required": [
@@ -358,6 +518,21 @@
           "projectId": {
             "$ref": "#/components/schemas/ProjectId",
             "description": "The project this deployment belongs to."
+          }
+        }
+      },
+      "PlatformListCustomDomainsResponse": {
+        "type": "object",
+        "required": [
+          "domains"
+        ],
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformCustomDomainResponse"
+            },
+            "description": "List of custom domains configured for this deployment."
           }
         }
       },
@@ -476,6 +651,13 @@
       },
       "ProjectSlug": {
         "type": "string"
+      },
+      "RequestDestination": {
+        "type": "string",
+        "enum": [
+          "convexCloud",
+          "convexSite"
+        ]
       },
       "TeamId": {
         "type": "integer",

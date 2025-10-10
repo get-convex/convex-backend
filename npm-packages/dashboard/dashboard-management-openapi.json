@@ -1323,7 +1323,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VanityDomainRequestArgs"
+                "$ref": "#/components/schemas/PlatformDeleteCustomDomainArgs"
               }
             }
           },
@@ -1351,7 +1351,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VanityDomainRequestArgs"
+                "$ref": "#/components/schemas/PlatformDeleteCustomDomainArgs"
               }
             }
           },
@@ -4404,6 +4404,23 @@
           }
         }
       },
+      "PlatformDeleteCustomDomainArgs": {
+        "type": "object",
+        "required": [
+          "requestDestination",
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "The custom domain name to delete."
+          },
+          "requestDestination": {
+            "$ref": "#/components/schemas/RequestDestination",
+            "description": "The destination for this custom domain (convexCloud or convexSite)."
+          }
+        }
+      },
       "PreviewDeploymentIdentifier": {
         "type": "string"
       },
@@ -5260,38 +5277,18 @@
         ]
       },
       "Value": {},
-      "VanityDomainRequestArgs": {
-        "type": "object",
-        "required": [
-          "requestDestination",
-          "domain"
-        ],
-        "properties": {
-          "domain": {
-            "type": "string"
-          },
-          "requestDestination": {
-            "$ref": "#/components/schemas/RequestDestination"
-          }
-        }
-      },
       "VanityDomainResponse": {
         "type": "object",
         "required": [
           "creationTime",
           "instanceName",
           "requestDestination",
-          "domain",
-          "creationTs"
+          "domain"
         ],
         "properties": {
           "creationTime": {
             "type": "integer",
             "format": "int64"
-          },
-          "creationTs": {
-            "type": "string",
-            "deprecated": true
           },
           "domain": {
             "type": "string"
@@ -5308,13 +5305,6 @@
               "null"
             ],
             "format": "int64"
-          },
-          "verificationTs": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "deprecated": true
           }
         }
       }

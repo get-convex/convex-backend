@@ -1963,6 +1963,12 @@ export interface components {
         PlansResponse: {
             plans: components["schemas"]["PlanResponse"][];
         };
+        PlatformDeleteCustomDomainArgs: {
+            /** @description The custom domain name to delete. */
+            domain: string;
+            /** @description The destination for this custom domain (convexCloud or convexSite). */
+            requestDestination: components["schemas"]["RequestDestination"];
+        };
         PreviewDeploymentIdentifier: string;
         ProfileEmailArgs: {
             email: string;
@@ -2191,22 +2197,14 @@ export interface components {
             };
         } | "Invalid";
         Value: unknown;
-        VanityDomainRequestArgs: {
-            domain: string;
-            requestDestination: components["schemas"]["RequestDestination"];
-        };
         VanityDomainResponse: {
             /** Format: int64 */
             creationTime: number;
-            /** @deprecated */
-            creationTs: string;
             domain: string;
             instanceName: components["schemas"]["InstanceName"];
             requestDestination: components["schemas"]["RequestDestination"];
             /** Format: int64 */
             verificationTime?: number | null;
-            /** @deprecated */
-            verificationTs?: string | null;
         };
     };
     responses: never;
@@ -2285,6 +2283,7 @@ export type PaymentMethodResponse = components['schemas']['PaymentMethodResponse
 export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig'];
 export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
+export type PlatformDeleteCustomDomainArgs = components['schemas']['PlatformDeleteCustomDomainArgs'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
@@ -2336,7 +2335,6 @@ export type UpdateTeamArgs = components['schemas']['UpdateTeamArgs'];
 export type UsageState = components['schemas']['UsageState'];
 export type ValidateReferralCodeResult = components['schemas']['ValidateReferralCodeResult'];
 export type Value = components['schemas']['Value'];
-export type VanityDomainRequestArgs = components['schemas']['VanityDomainRequestArgs'];
 export type VanityDomainResponse = components['schemas']['VanityDomainResponse'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -3450,7 +3448,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VanityDomainRequestArgs"];
+                "application/json": components["schemas"]["PlatformDeleteCustomDomainArgs"];
             };
         };
         responses: {
@@ -3473,7 +3471,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VanityDomainRequestArgs"];
+                "application/json": components["schemas"]["PlatformDeleteCustomDomainArgs"];
             };
         };
         responses: {
