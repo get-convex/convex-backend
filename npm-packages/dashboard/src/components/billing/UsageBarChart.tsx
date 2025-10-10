@@ -1,30 +1,13 @@
 import * as Sentry from "@sentry/nextjs";
 import { DailyMetric, DailyPerTagMetrics } from "hooks/usageMetrics";
-import {
-  Bar,
-  BarChart,
-  Legend,
-  Rectangle,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, Legend, Rectangle } from "recharts";
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
-import { useMeasure } from "react-use";
-import { ChartTooltip } from "@common/elements/ChartTooltip";
 import { toNumericUTC } from "@common/lib/format";
-import {
-  QuantityType,
-  formatQuantity,
-  formatQuantityCompact,
-} from "./lib/formatQuantity";
+import { QuantityType, formatQuantity } from "./lib/formatQuantity";
 import { UsageNoDataError } from "./TeamUsageError";
-
-// To avoid having a bar displayed too wide, we set a minimum amount of days for the chart’s x-axis span.
-const MIN_DAY_SPAN = 6;
+import { DailyChart } from "./DailyChart";
 
 // When there is only a data point, we have to set the bar width manually to make it appear (https://github.com/recharts/recharts/issues/3640).
 // This value has been measured manually on a desktop screen size, but it should also look good in other contexts where there is only one bar.
@@ -117,6 +100,7 @@ export function UsageStackedBarChart({
         data={chartData}
         quantityType={quantityType}
         showCategoryInTooltip
+        yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
       >
         {Object.entries(categories).map(([tag, { name, color }]) => (
           <Bar
@@ -204,7 +188,11 @@ export function UsageBarChart({
 
   return (
     <div className="h-48 animate-fadeInFromLoading">
-      <DailyChart data={chartData} quantityType={quantityType}>
+      <DailyChart
+        data={chartData}
+        quantityType={quantityType}
+        yAxisWidth={quantityType === "actionCompute" ? 80 : 60}
+      >
         <Bar
           dataKey="value"
           isAnimationActive={false}
@@ -214,132 +202,6 @@ export function UsageBarChart({
           minPointSize={4}
         />
       </DailyChart>
-    </div>
-  );
-}
-
-function DailyChart({
-  data,
-  showCategoryInTooltip = false,
-  children,
-  quantityType,
-}: React.PropsWithChildren<{
-  data: { dateNumeric: number }[];
-  categoryInTooltip?: boolean;
-  showCategoryInTooltip?: boolean;
-  quantityType: QuantityType;
-}>) {
-  const { daysWithValues, minDate, daysCount } = useMemo(() => {
-    const values = new Set(data.map(({ dateNumeric }) => dateNumeric));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return {
-      daysWithValues: values,
-      minDate: min,
-      daysCount: Math.max(MIN_DAY_SPAN, (max - min) / MS_IN_DAY) + 1,
-    };
-  }, [data]);
-
-  const [containerRef, { width: containerWidth }] =
-    useMeasure<HTMLDivElement>();
-  const ticks = useMemo(() => {
-    if (containerWidth === 0) {
-      return [];
-    }
-
-    const graphMargin = 90;
-    const minBarWidth = 50;
-
-    const barsWidth = containerWidth - graphMargin;
-    const dayWidth = barsWidth / daysCount;
-    const daysByTick = Math.ceil(minBarWidth / dayWidth);
-    const ticksCount = Math.ceil(daysCount / daysByTick);
-
-    return [...Array(ticksCount).keys()]
-      .map((i) => minDate + i * daysByTick * MS_IN_DAY)
-      .filter((day) => daysWithValues.has(day));
-  }, [containerWidth, daysCount, minDate, daysWithValues]);
-
-  return (
-    <div ref={containerRef} className="h-full animate-fadeInFromLoading">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} className="text-xs text-content-primary">
-          <XAxis
-            scale="time"
-            type="number"
-            domain={[
-              minDate - MS_IN_DAY / 2,
-              minDate + (daysCount - 1) * MS_IN_DAY + MS_IN_DAY / 2,
-            ]}
-            axisLine={false}
-            tickSize={0}
-            tick={{
-              fill: "currentColor",
-            }}
-            ticks={ticks}
-            dataKey="dateNumeric"
-            padding={{ left: 12 }}
-            tickFormatter={(dateNumeric) =>
-              new Date(dateNumeric).toLocaleDateString("en-us", {
-                month: "short",
-                day: "numeric",
-                timeZone: "UTC",
-              })
-            }
-          />
-          <YAxis
-            axisLine={false}
-            tickSize={0}
-            tickFormatter={(value) =>
-              formatQuantityCompact(value, quantityType)
-            }
-            padding={{ top: 8, bottom: 8 }}
-            tick={{
-              fill: "currentColor",
-            }}
-            style={{
-              fontVariantNumeric: "tabular-nums",
-            }}
-            width={60}
-          />
-          <Tooltip
-            isAnimationActive={false}
-            cursor={{
-              fill: undefined, // Set in globals.css
-            }}
-            allowEscapeViewBox={{ y: true }}
-            content={({ active, payload, label }) => (
-              <ChartTooltip
-                active={active}
-                payload={payload?.map((dataPoint) => {
-                  const prefix = showCategoryInTooltip
-                    ? `${dataPoint.name}: `
-                    : "";
-                  const value = dataPoint.value as number;
-                  const suffix =
-                    !showCategoryInTooltip && quantityType === "unit"
-                      ? ` ${dataPoint.name}`
-                      : "";
-                  return {
-                    ...dataPoint,
-                    formattedValue:
-                      prefix + formatQuantity(value, quantityType) + suffix,
-                  };
-                })}
-                label={new Date(label).toLocaleDateString("en-us", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  timeZone: "UTC",
-                })}
-                showLegend={showCategoryInTooltip}
-              />
-            )}
-            labelClassName="font-semibold"
-          />
-          {children}
-        </BarChart>
-      </ResponsiveContainer>
     </div>
   );
 }

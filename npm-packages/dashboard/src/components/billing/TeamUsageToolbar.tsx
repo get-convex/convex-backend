@@ -20,6 +20,13 @@ export function TeamUsageToolbar({
   currentBillingPeriod: { start: string; end: string };
 }) {
   const { query, replace } = useRouter();
+
+  // Detect duplicate project names
+  const nameCountMap = new Map<string, number>();
+  projects.forEach((p) => {
+    nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1);
+  });
+
   return (
     <div className="sticky top-0 z-20 mb-6 flex h-(--team-usage-toolbar-height) flex-wrap content-center items-center gap-2 border-b bg-background-primary">
       <UsagePeriodSelector
@@ -31,10 +38,20 @@ export function TeamUsageToolbar({
         label="Projects"
         options={[
           { label: "All Projects", value: null },
-          ...projects.map((p) => ({ label: p.name, value: p.id })),
+          ...projects.map((p) => {
+            const isDuplicate = (nameCountMap.get(p.name) || 0) > 1;
+            const label =
+              isDuplicate && p.slug ? `${p.name} (${p.slug})` : p.name;
+            return { label, value: p.id };
+          }),
         ]}
         allowCustomValue
         selectedOption={projectId}
+        innerButtonClasses={
+          projectId
+            ? "bg-yellow-100/50 dark:bg-yellow-600/20 hover:bg-yellow-100 dark:hover:bg-yellow-600/50"
+            : ""
+        }
         setSelectedOption={(o) => {
           const newProject = projects?.find((p) => p.id === o);
           query.projectSlug = newProject?.slug ?? o?.toString();

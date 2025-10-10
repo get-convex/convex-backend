@@ -25,12 +25,17 @@ export function ChartTooltip({
             className="flex items-center justify-end gap-1 tabular-nums"
           >
             {showLegend && (
-              <div
-                className="h-0.5 w-2.5"
-                style={{
-                  backgroundColor: dataPoint.stroke,
-                }}
-              />
+              <svg className="w-3" viewBox="0 0 50 50" aria-hidden>
+                <circle
+                  cx="20"
+                  cy="20"
+                  r="20"
+                  className={dataPoint.className}
+                  style={{
+                    fill: dataPoint.stroke || dataPoint.fill || undefined,
+                  }}
+                />
+              </svg>
             )}
 
             {dataPoint.formattedValue

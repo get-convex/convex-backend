@@ -125,7 +125,7 @@ const sections: {
   {
     metric: "chefTokens",
     entitlement: "maxChefTokens",
-    format: formatNumberCompact,
+    format: (n: number) => `${formatNumberCompact(n)} Tokens`,
     detail: "The number of Chef tokens used",
     title: "Chef Tokens",
   },
@@ -149,7 +149,10 @@ export function PlanSummaryForTeam({
   hasFilter,
 }: PlanSummaryForTeamProps) {
   return (
-    <Sheet className="animate-fadeInFromLoading" padding={false}>
+    <Sheet
+      className="animate-fadeInFromLoading overflow-hidden"
+      padding={false}
+    >
       <div className="flex flex-col gap-1 overflow-x-auto">
         <div
           className={cn(

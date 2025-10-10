@@ -8,31 +8,35 @@ import {
 } from "api/usage";
 
 const DATABRICKS_QUERY_IDS: {
-  teamActionCompute: DatabricksQueryId;
-  teamDatabaseBandwidth: DatabricksQueryId;
-  teamDocumentCount: DatabricksQueryId;
-  teamDatabaseStorage: DatabricksQueryId;
-  teamFileBandwidth: DatabricksQueryId;
-  teamFileStorage: DatabricksQueryId;
   teamFunctionBreakdown: DatabricksQueryId;
-  teamFunctionCalls: DatabricksQueryId;
-  teamStorageCalls: DatabricksQueryId;
   teamSummary: DatabricksQueryId;
-  teamVectorBandwidth: DatabricksQueryId;
-  teamVectorStorage: DatabricksQueryId;
 } = {
-  teamActionCompute: "544ac7ed-a3bc-43b6-9ee1-a8ef6ae283a9",
-  teamDatabaseBandwidth: "20db8d1c-d08c-41da-93c6-5cecb6b97118",
-  teamDocumentCount: "da7e013a-3042-48a4-ad85-cc3f035a035e",
-  teamDatabaseStorage: "051e19e8-d9bf-4a80-81d1-f10c92b94ee6",
-  teamFileBandwidth: "c9d757fb-7372-4d6a-9a8a-66ee7436ed47",
-  teamFileStorage: "d0b4f882-48f5-4ad7-99e7-0b18f16355eb",
   teamFunctionBreakdown: "8e6592dd-12a0-4ddf-bc79-7498e07352d4",
-  teamFunctionCalls: "46aa42bb-1f90-4fb5-8466-10bc52fcb43f",
-  teamStorageCalls: "fe187e75-8670-4c16-a5c4-2cf7b0c5406f",
   teamSummary: "15fbb132-6641-4f17-9156-b05e9ee966d9",
-  teamVectorBandwidth: "e24b4660-5dc4-4e41-a895-a91a66dede80",
-  teamVectorStorage: "6cf7ee95-c39e-419e-ac3e-cb0acfcc2a0b",
+};
+
+const DATABRICKS_BY_PROJECT_QUERY_IDS: {
+  teamActionComputeByProject: DatabricksQueryId;
+  teamDatabaseBandwidthByProject: DatabricksQueryId;
+  teamDocumentCountByProject: DatabricksQueryId;
+  teamDatabaseStorageByProject: DatabricksQueryId;
+  teamFileBandwidthByProject: DatabricksQueryId;
+  teamFileStorageByProject: DatabricksQueryId;
+  teamFunctionCallsByProject: DatabricksQueryId;
+  teamStorageCallsByProject: DatabricksQueryId;
+  teamVectorBandwidthByProject: DatabricksQueryId;
+  teamVectorStorageByProject: DatabricksQueryId;
+} = {
+  teamActionComputeByProject: "56e7167c-ae79-417a-8876-100a6e5db902",
+  teamDatabaseBandwidthByProject: "27330248-82cd-42dd-bc23-a7edc667e1ba",
+  teamDocumentCountByProject: "2a5120a1-b334-4d99-b378-1028487c2202",
+  teamDatabaseStorageByProject: "25ee9158-a11c-45f9-8fd7-c9262c81e99f",
+  teamFileBandwidthByProject: "bc8ac376-b0fd-4745-a1b3-ed7bf73f7825",
+  teamFileStorageByProject: "e4cb8bdc-f54e-497d-947e-b373d51fe86a",
+  teamFunctionCallsByProject: "2cc73be2-3eb0-4069-ad44-749c619b0aa4",
+  teamStorageCallsByProject: "11d0124f-32c9-446f-b65c-cde3971d2017",
+  teamVectorBandwidthByProject: "256e0060-8d24-4d30-968c-d6f531168328",
+  teamVectorStorageByProject: "6f3c9a52-f3c2-46c2-89b2-6cb95fc7cdf5",
 };
 
 export function useTokenUsage(teamSlug: string, period: DateRange | null) {
@@ -113,142 +117,6 @@ export type DailyMetric = {
   value: number;
 };
 
-export function useUsageTeamDocumentsPerDay(
-  teamId: number,
-  projectId: number | null,
-  period: DateRange | null,
-  componentPrefix: string | null,
-): DailyMetric[] | undefined {
-  const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamDocumentCount,
-    teamId,
-    projectId,
-    period,
-    componentPrefix,
-  });
-
-  return data?.map(([_teamId, ds, count]) => ({
-    ds,
-    value: Number(count),
-  }));
-}
-
-export function useUsageTeamDatabaseBandwidthPerDay(
-  teamId: number,
-  projectId: number | null,
-  period: DateRange | null,
-  componentPrefix: string | null,
-) {
-  const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamDatabaseBandwidth,
-    teamId,
-    projectId,
-    period,
-    componentPrefix,
-  });
-  return data?.map(([_teamId, ds, ingressSize, egressSize]) => ({
-    ds,
-    metrics: [
-      { tag: "ingress", value: Number(ingressSize) },
-      {
-        tag: "egress",
-        value: Number(egressSize),
-      },
-    ],
-  }));
-}
-
-export function useUsageTeamVectorStoragePerDay(
-  teamId: number,
-  projectId: number | null,
-  period: DateRange | null,
-  componentPrefix: string | null,
-): DailyMetric[] | undefined {
-  const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamVectorStorage,
-    teamId,
-    projectId,
-    period,
-    componentPrefix,
-  });
-  return data?.map(([_teamId, ds, vectorStorage]) => ({
-    ds,
-    value: Number(vectorStorage),
-  }));
-}
-
-export function useUsageTeamVectorBandwidthPerDay(
-  teamId: number,
-  projectId: number | null,
-  period: DateRange | null,
-  componentPrefix: string | null,
-) {
-  const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamVectorBandwidth,
-    teamId,
-    projectId,
-    period,
-    componentPrefix,
-  });
-  return data?.map(([_teamId, ds, ingressSize, egressSize]) => ({
-    ds,
-    metrics: [
-      { tag: "ingress", value: Number(ingressSize) },
-      {
-        tag: "egress",
-        value: Number(egressSize),
-      },
-    ],
-  }));
-}
-
-export function useUsageTeamDatabaseStoragePerDay(
-  teamId: number,
-  projectId: number | null,
-  period: DateRange | null,
-  componentPrefix: string | null,
-): DailyPerTagMetrics[] | undefined {
-  const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamDatabaseStorage,
-    teamId,
-    projectId,
-    period,
-    componentPrefix,
-  });
-  return data?.map(([_teamId, ds, documentStorage, indexStorage]) => ({
-    ds,
-    metrics: [
-      { tag: "document", value: Number(documentStorage) },
-      {
-        tag: "index",
-        value: Number(indexStorage),
-      },
-    ],
-  }));
-}
-
-export function useUsageTeamActionComputeDaily(
-  teamId: number,
-  projectId: number | null,
-  period: DateRange | null,
-  componentPrefix: string | null,
-): DailyMetric[] | undefined {
-  const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamActionCompute,
-    teamId,
-    projectId,
-    period,
-    componentPrefix,
-  });
-  return data?.map(([_teamId, ds, valueGbS]) => {
-    const valueGbHour = Number(valueGbS) / 60 / 60;
-    return {
-      ds,
-      value: valueGbHour,
-    };
-  });
-}
-
 export interface AggregatedFunctionMetrics {
   function: string;
   projectId: number;
@@ -309,24 +177,178 @@ export interface DailyPerTagMetrics {
   ds: string;
   metrics: { tag: string; value: number }[];
 }
-export function useUsageTeamDailyCallsByTag(
+
+// By-project query hooks
+export interface DailyMetricByProject extends DailyMetric {
+  projectId: number | string; // Can be a number or "_rest"
+}
+
+export interface DailyPerTagMetricsByProject extends DailyPerTagMetrics {
+  projectId: number | string; // Can be a number or "_rest"
+}
+
+function parseProjectId(projectId: string | number): number | string {
+  if (projectId === "_rest") {
+    return "_rest";
+  }
+  return Number(projectId);
+}
+
+export function useUsageTeamDocumentsPerDayByProject(
   teamId: number,
-  projectId: number | null,
   period: DateRange | null,
   componentPrefix: string | null,
-) {
-  const { data: functionData } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamFunctionCalls,
+): DailyMetricByProject[] | undefined {
+  const { data } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamDocumentCountByProject,
     teamId,
-    projectId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+
+  return data?.map(([_teamId, projectId, ds, count]) => ({
+    ds,
+    projectId: parseProjectId(projectId),
+    value: Number(count),
+  }));
+}
+
+export function useUsageTeamDatabaseBandwidthPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): DailyPerTagMetricsByProject[] | undefined {
+  const { data } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamDatabaseBandwidthByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+  return data?.map(([_teamId, projectId, ds, ingressSize, egressSize]) => ({
+    ds,
+    projectId: parseProjectId(projectId),
+    metrics: [
+      { tag: "egress", value: Number(egressSize) },
+      {
+        tag: "ingress",
+        value: Number(ingressSize),
+      },
+    ],
+  }));
+}
+
+export function useUsageTeamVectorStoragePerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): DailyMetricByProject[] | undefined {
+  const { data } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamVectorStorageByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+  return data?.map(([_teamId, projectId, ds, vectorStorage]) => ({
+    ds,
+    projectId: parseProjectId(projectId),
+    value: Number(vectorStorage),
+  }));
+}
+
+export function useUsageTeamVectorBandwidthPerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): DailyPerTagMetricsByProject[] | undefined {
+  const { data } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamVectorBandwidthByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+  return data?.map(([_teamId, projectId, ds, ingressSize, egressSize]) => ({
+    ds,
+    projectId: parseProjectId(projectId),
+    metrics: [
+      { tag: "egress", value: Number(egressSize) },
+      {
+        tag: "ingress",
+        value: Number(ingressSize),
+      },
+    ],
+  }));
+}
+
+export function useUsageTeamDatabaseStoragePerDayByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): DailyPerTagMetricsByProject[] | undefined {
+  const { data } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamDatabaseStorageByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+  return data?.map(
+    ([_teamId, projectId, ds, documentStorage, indexStorage]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
+      metrics: [
+        { tag: "document", value: Number(documentStorage) },
+        {
+          tag: "index",
+          value: Number(indexStorage),
+        },
+      ],
+    }),
+  );
+}
+
+export function useUsageTeamActionComputeDailyByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): DailyMetricByProject[] | undefined {
+  const { data } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamActionComputeByProject,
+    teamId,
+    projectId: null,
+    period,
+    componentPrefix,
+  });
+  return data?.map(([_teamId, projectId, ds, valueGbS]) => {
+    const valueGbHour = Number(valueGbS) / 60 / 60;
+    return {
+      ds,
+      projectId: parseProjectId(projectId),
+      value: valueGbHour,
+    };
+  });
+}
+
+export function useUsageTeamDailyCallsByTagByProject(
+  teamId: number,
+  period: DateRange | null,
+  componentPrefix: string | null,
+): DailyPerTagMetricsByProject[] | undefined {
+  const { data: functionData } = useUsageQuery({
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamFunctionCallsByProject,
+    teamId,
+    projectId: null,
     period,
     componentPrefix,
   });
 
   const { data: storageData } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamStorageCalls,
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamStorageCallsByProject,
     teamId,
-    projectId,
+    projectId: null,
     period,
     componentPrefix,
   });
@@ -335,6 +357,7 @@ export function useUsageTeamDailyCallsByTag(
   const metrics = functionData?.map(
     ([
       _teamId,
+      projectId,
       ds,
       cachedQueries,
       uncachedQueries,
@@ -343,6 +366,7 @@ export function useUsageTeamDailyCallsByTag(
       httpActions,
     ]) => ({
       ds,
+      projectId: parseProjectId(projectId),
       metrics: [
         { tag: "uncached_query", value: Number(uncachedQueries) },
         {
@@ -366,40 +390,49 @@ export function useUsageTeamDailyCallsByTag(
   );
 
   // Augment with storage data
-  const storageDataByDs = (storageData || []).reduce(
-    (acc, [_teamId, ds, storageCalls]) => {
-      acc[ds] = Number(storageCalls);
+  const storageDataByDsAndProject = (storageData || []).reduce(
+    (acc, [_teamId, projectId, ds, storageCalls]) => {
+      const key = `${ds}-${projectId}`;
+      acc[key] = Number(storageCalls);
       return acc;
     },
     {} as Record<string, number>,
   );
   for (const metric of metrics || []) {
-    const storageCalls = storageDataByDs[metric.ds];
+    const key = `${metric.ds}-${metric.projectId}`;
+    const storageCalls = storageDataByDsAndProject[key];
     if (storageCalls) {
       metric.metrics.push({ tag: "storage_api", value: storageCalls });
-      delete storageDataByDs[metric.ds];
+      delete storageDataByDsAndProject[key];
     }
   }
 
   return metrics;
 }
 
-export function useUsageTeamStoragePerDay(
+export function useUsageTeamStoragePerDayByProject(
   teamId: number,
-  projectId: number | null,
   period: DateRange | null,
   componentPrefix: string | null,
-): DailyPerTagMetrics[] | undefined {
+): DailyPerTagMetricsByProject[] | undefined {
   const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamFileStorage,
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamFileStorageByProject,
     teamId,
-    projectId,
+    projectId: null,
     period,
     componentPrefix,
   });
   return data?.map(
-    ([_teamId, ds, _totalFileSize, userFileSize, cloudBackupSize]) => ({
+    ([
+      _teamId,
+      projectId,
       ds,
+      _totalFileSize,
+      userFileSize,
+      cloudBackupSize,
+    ]) => ({
+      ds,
+      projectId: parseProjectId(projectId),
       metrics: [
         { tag: "userFiles", value: Number(userFileSize) },
         {
@@ -411,22 +444,22 @@ export function useUsageTeamStoragePerDay(
   );
 }
 
-export function useUsageTeamStorageThroughputDaily(
+export function useUsageTeamStorageThroughputDailyByProject(
   teamId: number,
-  projectId: number | null,
   period: DateRange | null,
   componentPrefix: string | null,
-) {
+): DailyPerTagMetricsByProject[] | undefined {
   const { data } = useUsageQuery({
-    queryId: DATABRICKS_QUERY_IDS.teamFileBandwidth,
+    queryId: DATABRICKS_BY_PROJECT_QUERY_IDS.teamFileBandwidthByProject,
     teamId,
-    projectId,
+    projectId: null,
     period,
     componentPrefix,
   });
   return data?.map(
     ([
       _teamId,
+      projectId,
       ds,
       servingIngressSize,
       servingEgressSize,
@@ -438,27 +471,28 @@ export function useUsageTeamStorageThroughputDaily(
       snapshotImportSize,
     ]) => ({
       ds,
+      projectId: parseProjectId(projectId),
       metrics: [
-        { tag: "servingIngress", value: Number(servingIngressSize) },
+        { tag: "servingEgress", value: Number(servingEgressSize) },
         {
-          tag: "servingEgress",
-          value: Number(servingEgressSize),
-        },
-        {
-          tag: "userFunctionIngress",
-          value: Number(userFunctionIngressSize),
+          tag: "servingIngress",
+          value: Number(servingIngressSize),
         },
         {
           tag: "userFunctionEgress",
           value: Number(userFunctionEgressSize),
         },
         {
-          tag: "cloudBackup",
-          value: Number(cloudBackupSize),
+          tag: "userFunctionIngress",
+          value: Number(userFunctionIngressSize),
         },
         {
           tag: "cloudRestore",
           value: Number(cloudRestoreSize),
+        },
+        {
+          tag: "cloudBackup",
+          value: Number(cloudBackupSize),
         },
         {
           tag: "snapshotExport",

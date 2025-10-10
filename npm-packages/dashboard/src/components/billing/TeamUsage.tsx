@@ -6,18 +6,22 @@ import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { sidebarLinkClassNames } from "@common/elements/Sidebar";
 import {
   AggregatedFunctionMetrics,
-  useUsageTeamActionComputeDaily,
+  useUsageTeamActionComputeDailyByProject,
   useUsageTeamMetricsByFunction,
-  useUsageTeamDailyCallsByTag,
-  useUsageTeamDatabaseBandwidthPerDay,
-  useUsageTeamDocumentsPerDay,
-  useUsageTeamDatabaseStoragePerDay,
-  useUsageTeamStoragePerDay,
-  useUsageTeamStorageThroughputDaily,
-  useUsageTeamVectorBandwidthPerDay,
-  useUsageTeamVectorStoragePerDay,
+  useUsageTeamDailyCallsByTagByProject,
+  useUsageTeamDatabaseBandwidthPerDayByProject,
+  useUsageTeamDocumentsPerDayByProject,
+  useUsageTeamDatabaseStoragePerDayByProject,
+  useUsageTeamStoragePerDayByProject,
+  useUsageTeamStorageThroughputDailyByProject,
+  useUsageTeamVectorBandwidthPerDayByProject,
+  useUsageTeamVectorStoragePerDayByProject,
   useUsageTeamSummary,
   useTokenUsage,
+  DailyMetric,
+  DailyMetricByProject,
+  DailyPerTagMetrics,
+  DailyPerTagMetricsByProject,
 } from "hooks/usageMetrics";
 import { Team, ProjectDetails } from "generatedApi";
 import {
@@ -28,6 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
 import { useProjects } from "api/projects";
@@ -63,12 +68,14 @@ import {
   TeamUsageByFunctionChart,
 } from "./TeamUsageByFunctionChart";
 import { UsageBarChart, UsageStackedBarChart } from "./UsageBarChart";
+import { UsageByProjectChart } from "./UsageByProjectChart";
 import {
   UsageChartUnavailable,
   UsageDataNotAvailable,
   UsageNoDataError,
 } from "./TeamUsageError";
 import { TeamUsageToolbar } from "./TeamUsageToolbar";
+import { GroupBy, GroupBySelector } from "./GroupBySelector";
 
 const FUNCTION_BREAKDOWN_TABS = [
   FunctionBreakdownMetricCalls,
@@ -545,26 +552,47 @@ function DatabaseUsage({
   bandwidthEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const databaseStorage = useUsageTeamDatabaseStoragePerDay(
+  const projects = useProjects(team.id);
+
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+    "usageViewMode_database",
+    "byType",
+  );
+  const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const databaseStorageByProject = useUsageTeamDatabaseStoragePerDayByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
 
-  const documentsCount = useUsageTeamDocumentsPerDay(
+  const documentsCountByProject = useUsageTeamDocumentsPerDayByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
 
-  const databaseBandwidth = useUsageTeamDatabaseBandwidthPerDay(
-    team.id,
-    projectId,
-    dateRange,
-    componentPrefix,
-  );
+  const databaseBandwidthByProject =
+    useUsageTeamDatabaseBandwidthPerDayByProject(
+      team.id,
+      dateRange,
+      componentPrefix,
+    );
+
+  const databaseStorage =
+    viewMode === "byType"
+      ? aggregateByProjectToByType(databaseStorageByProject, projectId)
+      : null;
+
+  const documentsCount =
+    viewMode === "byType"
+      ? aggregateSimpleByProjectToByType(documentsCountByProject, projectId)
+      : null;
+
+  const databaseBandwidth =
+    viewMode === "byType"
+      ? aggregateByProjectToByType(databaseBandwidthByProject, projectId)
+      : null;
 
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -602,11 +630,18 @@ function DatabaseUsage({
         header={
           <>
             <h3>Database</h3>
-            <Tab.List className="flex gap-2">
-              <UsageTab>Storage</UsageTab>
-              <UsageTab>Bandwidth</UsageTab>
-              <UsageTab>Document Count</UsageTab>
-            </Tab.List>
+            <div className="flex flex-wrap items-center gap-2">
+              <Tab.List className="flex gap-2">
+                <UsageTab>Storage</UsageTab>
+                <UsageTab>Bandwidth</UsageTab>
+                <UsageTab>Document Count</UsageTab>
+              </Tab.List>
+              <GroupBySelector
+                value={viewMode}
+                onChange={setViewMode}
+                disabled={projectId !== null}
+              />
+            </div>
           </>
         }
       >
@@ -620,17 +655,28 @@ function DatabaseUsage({
                 showEntitlements={showEntitlements}
               />
             )}
-            {databaseStorage === undefined ? (
+            {viewMode === "byType" ? (
+              databaseStorage === undefined ? (
+                <ChartLoading />
+              ) : databaseStorage === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageStackedBarChart
+                  rows={databaseStorage}
+                  categories={DATABASE_STORAGE_CATEGORIES}
+                  entity="documents"
+                  quantityType="storage"
+                  showCategoryTotals={false}
+                />
+              )
+            ) : databaseStorageByProject === undefined ? (
               <ChartLoading />
-            ) : databaseStorage === null ? (
-              <UsageChartUnavailable />
             ) : (
-              <UsageStackedBarChart
-                rows={databaseStorage}
-                categories={DATABASE_STORAGE_CATEGORIES}
+              <UsageByProjectChart
+                rows={databaseStorageByProject}
                 entity="documents"
                 quantityType="storage"
-                showCategoryTotals={false}
+                projects={projects}
               />
             )}
           </Tab.Panel>
@@ -643,24 +689,47 @@ function DatabaseUsage({
                 showEntitlements={showEntitlements}
               />
             )}
-            {databaseBandwidth === undefined ? (
+            {viewMode === "byType" ? (
+              databaseBandwidth === undefined ? (
+                <ChartLoading />
+              ) : databaseBandwidth === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageStackedBarChart
+                  rows={databaseBandwidth}
+                  categories={BANDWIDTH_CATEGORIES}
+                  entity="documents"
+                  quantityType="storage"
+                />
+              )
+            ) : databaseBandwidthByProject === undefined ? (
               <ChartLoading />
             ) : (
-              <UsageStackedBarChart
-                rows={databaseBandwidth}
-                categories={BANDWIDTH_CATEGORIES}
+              <UsageByProjectChart
+                rows={databaseBandwidthByProject}
                 entity="documents"
                 quantityType="storage"
+                projects={projects}
               />
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {documentsCount === undefined ? (
+            {viewMode === "byType" ? (
+              documentsCount === undefined ? (
+                <ChartLoading />
+              ) : documentsCount === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageBarChart rows={documentsCount} entity="documents" />
+              )
+            ) : documentsCountByProject === undefined ? (
               <ChartLoading />
-            ) : documentsCount === null ? (
-              <UsageChartUnavailable />
             ) : (
-              <UsageBarChart rows={documentsCount} entity="documents" />
+              <UsageByProjectChart
+                rows={documentsCountByProject}
+                entity="documents"
+                projects={projects}
+              />
             )}
           </Tab.Panel>
         </Tab.Panels>
@@ -686,12 +755,25 @@ function FunctionCallsUsage({
   functionCallsEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const callsByTag = useUsageTeamDailyCallsByTag(
+  const projects = useProjects(team.id);
+
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+    "usageViewMode_functionCalls",
+    "byType",
+  );
+  const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const callsByTagByProject = useUsageTeamDailyCallsByTagByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
+
+  const callsByTag =
+    viewMode === "byType"
+      ? aggregateByProjectToByType(callsByTagByProject, projectId)
+      : null;
+
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -716,7 +798,16 @@ function FunctionCallsUsage({
   return (
     <TeamUsageSection
       ref={ref}
-      header={<h3 className="py-2">Daily function calls</h3>}
+      header={
+        <>
+          <h3 className="py-2">Daily function calls</h3>
+          <GroupBySelector
+            value={viewMode}
+            onChange={setViewMode}
+            disabled={projectId !== null}
+          />
+        </>
+      }
     >
       <div className="px-4">
         {showEntitlements && (
@@ -727,14 +818,26 @@ function FunctionCallsUsage({
             showEntitlements={showEntitlements}
           />
         )}
-        {callsByTag === undefined ? (
+        {viewMode === "byType" ? (
+          callsByTag === undefined ? (
+            <ChartLoading />
+          ) : callsByTag === null ? (
+            <UsageChartUnavailable />
+          ) : (
+            <UsageStackedBarChart
+              rows={callsByTag}
+              entity="calls"
+              categories={TAG_CATEGORIES}
+              categoryRenames={CATEGORY_RENAMES}
+            />
+          )
+        ) : callsByTagByProject === undefined ? (
           <ChartLoading />
         ) : (
-          <UsageStackedBarChart
-            rows={callsByTag}
+          <UsageByProjectChart
+            rows={callsByTagByProject}
             entity="calls"
-            categories={TAG_CATEGORIES}
-            categoryRenames={CATEGORY_RENAMES}
+            projects={projects}
           />
         )}
       </div>
@@ -759,12 +862,24 @@ function ActionComputeUsage({
   actionComputeEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const actionComputeDaily = useUsageTeamActionComputeDaily(
+  const projects = useProjects(team.id);
+
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+    "usageViewMode_actionCompute",
+    "byType",
+  );
+  const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const actionComputeDailyByProject = useUsageTeamActionComputeDailyByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
+
+  const actionComputeDaily =
+    viewMode === "byType"
+      ? aggregateSimpleByProjectToByType(actionComputeDailyByProject, projectId)
+      : null;
 
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -790,7 +905,16 @@ function ActionComputeUsage({
   return (
     <TeamUsageSection
       ref={ref}
-      header={<h3 className="py-2">Action Compute</h3>}
+      header={
+        <>
+          <h3 className="py-2">Action Compute</h3>
+          <GroupBySelector
+            value={viewMode}
+            onChange={setViewMode}
+            disabled={projectId !== null}
+          />
+        </>
+      }
     >
       <div className="px-4">
         {showEntitlements && (
@@ -802,13 +926,26 @@ function ActionComputeUsage({
             suffix="GB-hours"
           />
         )}
-        {actionComputeDaily === undefined ? (
+        {viewMode === "byType" ? (
+          actionComputeDaily === undefined ? (
+            <ChartLoading />
+          ) : actionComputeDaily === null ? (
+            <UsageChartUnavailable />
+          ) : (
+            <UsageBarChart
+              rows={actionComputeDaily}
+              entity="action calls"
+              quantityType="actionCompute"
+            />
+          )
+        ) : actionComputeDailyByProject === undefined ? (
           <ChartLoading />
         ) : (
-          <UsageBarChart
-            rows={actionComputeDaily}
+          <UsageByProjectChart
+            rows={actionComputeDailyByProject}
             entity="action calls"
             quantityType="actionCompute"
+            projects={projects}
           />
         )}
       </div>
@@ -837,19 +974,35 @@ function FilesUsage({
   bandwidth?: number;
   bandwidthEntitlement?: number | null;
 }) {
-  const filesBandwidth = useUsageTeamStorageThroughputDaily(
+  const projects = useProjects(team.id);
+
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+    "usageViewMode_files",
+    "byType",
+  );
+  const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const filesBandwidthByProject = useUsageTeamStorageThroughputDailyByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
 
-  const fileStorage = useUsageTeamStoragePerDay(
+  const fileStorageByProject = useUsageTeamStoragePerDayByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
+
+  const filesBandwidth =
+    viewMode === "byType"
+      ? aggregateByProjectToByType(filesBandwidthByProject, projectId)
+      : null;
+
+  const fileStorage =
+    viewMode === "byType"
+      ? aggregateByProjectToByType(fileStorageByProject, projectId)
+      : null;
 
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -887,10 +1040,17 @@ function FilesUsage({
         header={
           <>
             <h3>Files</h3>
-            <Tab.List className="flex gap-2">
-              <UsageTab>Storage</UsageTab>
-              <UsageTab>Bandwidth</UsageTab>
-            </Tab.List>
+            <div className="flex flex-wrap items-center gap-2">
+              <Tab.List className="flex gap-2">
+                <UsageTab>Storage</UsageTab>
+                <UsageTab>Bandwidth</UsageTab>
+              </Tab.List>
+              <GroupBySelector
+                value={viewMode}
+                onChange={setViewMode}
+                disabled={projectId !== null}
+              />
+            </div>
           </>
         }
       >
@@ -904,17 +1064,28 @@ function FilesUsage({
                 showEntitlements={showEntitlements}
               />
             )}
-            {fileStorage === undefined ? (
+            {viewMode === "byType" ? (
+              fileStorage === undefined ? (
+                <ChartLoading />
+              ) : fileStorage === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageStackedBarChart
+                  rows={fileStorage}
+                  categories={FILE_STORAGE_CATEGORIES}
+                  entity="files"
+                  quantityType="storage"
+                  showCategoryTotals={false}
+                />
+              )
+            ) : fileStorageByProject === undefined ? (
               <ChartLoading />
-            ) : fileStorage === null ? (
-              <UsageChartUnavailable />
             ) : (
-              <UsageStackedBarChart
-                rows={fileStorage}
-                categories={FILE_STORAGE_CATEGORIES}
+              <UsageByProjectChart
+                rows={fileStorageByProject}
                 entity="files"
                 quantityType="storage"
-                showCategoryTotals={false}
+                projects={projects}
               />
             )}
           </Tab.Panel>
@@ -927,14 +1098,27 @@ function FilesUsage({
                 showEntitlements={showEntitlements}
               />
             )}
-            {filesBandwidth === undefined ? (
+            {viewMode === "byType" ? (
+              filesBandwidth === undefined ? (
+                <ChartLoading />
+              ) : filesBandwidth === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageStackedBarChart
+                  rows={filesBandwidth}
+                  categories={FILE_BANDWIDTH_CATEGORIES}
+                  entity="files"
+                  quantityType="storage"
+                />
+              )
+            ) : filesBandwidthByProject === undefined ? (
               <ChartLoading />
             ) : (
-              <UsageStackedBarChart
-                rows={filesBandwidth}
-                categories={FILE_BANDWIDTH_CATEGORIES}
+              <UsageByProjectChart
+                rows={filesBandwidthByProject}
                 entity="files"
                 quantityType="storage"
+                projects={projects}
               />
             )}
           </Tab.Panel>
@@ -964,18 +1148,35 @@ function VectorUsage({
   bandwidthEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const vectorStorage = useUsageTeamVectorStoragePerDay(
+  const projects = useProjects(team.id);
+
+  const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
+    "usageViewMode_vector",
+    "byType",
+  );
+  const viewMode = projectId !== null ? "byType" : storedViewMode;
+
+  const vectorStorageByProject = useUsageTeamVectorStoragePerDayByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
-  const vectorBandwidth = useUsageTeamVectorBandwidthPerDay(
+
+  const vectorBandwidthByProject = useUsageTeamVectorBandwidthPerDayByProject(
     team.id,
-    projectId,
     dateRange,
     componentPrefix,
   );
+
+  const vectorStorage =
+    viewMode === "byType"
+      ? aggregateSimpleByProjectToByType(vectorStorageByProject, projectId)
+      : null;
+
+  const vectorBandwidth =
+    viewMode === "byType"
+      ? aggregateByProjectToByType(vectorBandwidthByProject, projectId)
+      : null;
 
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -1013,10 +1214,17 @@ function VectorUsage({
         header={
           <>
             <h3>Vector Indexes</h3>
-            <Tab.List className="flex gap-2">
-              <UsageTab>Storage</UsageTab>
-              <UsageTab>Bandwidth</UsageTab>
-            </Tab.List>
+            <div className="flex flex-wrap items-center gap-2">
+              <Tab.List className="flex gap-2">
+                <UsageTab>Storage</UsageTab>
+                <UsageTab>Bandwidth</UsageTab>
+              </Tab.List>
+              <GroupBySelector
+                value={viewMode}
+                onChange={setViewMode}
+                disabled={projectId !== null}
+              />
+            </div>
           </>
         }
       >
@@ -1030,15 +1238,26 @@ function VectorUsage({
                 showEntitlements={showEntitlements}
               />
             )}
-            {vectorStorage === undefined ? (
+            {viewMode === "byType" ? (
+              vectorStorage === undefined ? (
+                <ChartLoading />
+              ) : vectorStorage === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageBarChart
+                  rows={vectorStorage}
+                  entity="vectors"
+                  quantityType="storage"
+                />
+              )
+            ) : vectorStorageByProject === undefined ? (
               <ChartLoading />
-            ) : vectorStorage === null ? (
-              <UsageChartUnavailable />
             ) : (
-              <UsageBarChart
-                rows={vectorStorage}
+              <UsageByProjectChart
+                rows={vectorStorageByProject}
                 entity="vectors"
                 quantityType="storage"
+                projects={projects}
               />
             )}
           </Tab.Panel>
@@ -1051,14 +1270,27 @@ function VectorUsage({
                 showEntitlements={showEntitlements}
               />
             )}
-            {vectorBandwidth === undefined ? (
+            {viewMode === "byType" ? (
+              vectorBandwidth === undefined ? (
+                <ChartLoading />
+              ) : vectorBandwidth === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageStackedBarChart
+                  rows={vectorBandwidth}
+                  categories={BANDWIDTH_CATEGORIES}
+                  entity="vectors"
+                  quantityType="storage"
+                />
+              )
+            ) : vectorBandwidthByProject === undefined ? (
               <ChartLoading />
             ) : (
-              <UsageStackedBarChart
-                rows={vectorBandwidth}
-                categories={BANDWIDTH_CATEGORIES}
+              <UsageByProjectChart
+                rows={vectorBandwidthByProject}
                 entity="vectors"
                 quantityType="storage"
+                projects={projects}
               />
             )}
           </Tab.Panel>
@@ -1100,3 +1332,59 @@ const TeamUsageSection = forwardRef<
     </section>
   );
 });
+
+// Aggregate by-project data to by-type view by summing across all projects
+function aggregateByProjectToByType(
+  rows: DailyPerTagMetricsByProject[] | undefined | null,
+  projectId: number | null,
+): DailyPerTagMetrics[] | undefined | null {
+  if (rows === undefined) return undefined;
+  if (rows === null) return null;
+
+  // If a project filter is active, filter to that project
+  const filteredRows =
+    projectId === null
+      ? rows
+      : rows.filter((row) => row.projectId === projectId);
+
+  const grouped = groupBy(filteredRows, (row) => row.ds);
+  return Object.entries(grouped).map(([ds, dayRows]) => {
+    // For each day, aggregate metrics across all projects
+    const metricsMap = new Map<string, number>();
+    for (const row of dayRows) {
+      for (const metric of row.metrics) {
+        metricsMap.set(
+          metric.tag,
+          (metricsMap.get(metric.tag) || 0) + metric.value,
+        );
+      }
+    }
+    return {
+      ds,
+      metrics: Array.from(metricsMap.entries()).map(([tag, value]) => ({
+        tag,
+        value,
+      })),
+    };
+  });
+}
+
+// Aggregate simple by-project data to by-type view
+function aggregateSimpleByProjectToByType(
+  rows: DailyMetricByProject[] | undefined | null,
+  projectId: number | null,
+): DailyMetric[] | undefined | null {
+  if (rows === undefined) return undefined;
+  if (rows === null) return null;
+  // If a project filter is active, filter to that project
+  const filteredRows =
+    projectId === null
+      ? rows
+      : rows.filter((row) => row.projectId === projectId);
+
+  const grouped = groupBy(filteredRows, (row) => row.ds);
+  return Object.entries(grouped).map(([ds, dayRows]) => ({
+    ds,
+    value: sumBy(dayRows, (row) => row.value),
+  }));
+}

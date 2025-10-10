@@ -21,43 +21,43 @@ export const FILE_STORAGE_CATEGORIES = {
 };
 
 export const BANDWIDTH_CATEGORIES = {
+  egress: {
+    name: "Reads",
+    color: "fill-chart-line-1",
+    backgroundColor: "bg-background-success",
+  },
   ingress: {
     name: "Writes",
     // eslint-disable-next-line no-restricted-syntax
-    color: "fill-chart-line-1",
+    color: "fill-chart-line-2",
     // eslint-disable-next-line no-restricted-syntax
     backgroundColor: "bg-background-error",
-  },
-  egress: {
-    name: "Reads",
-    color: "fill-chart-line-2",
-    backgroundColor: "bg-background-success",
   },
 };
 
 export const FILE_BANDWIDTH_CATEGORIES = {
-  servingIngress: {
-    name: "Serving Writes",
-    color: "fill-chart-line-1",
-  },
   servingEgress: {
     name: "Serving Reads",
-    color: "fill-chart-line-2",
+    color: "fill-chart-line-1",
   },
-  userFunctionIngress: {
-    name: "User Function Writes",
-    color: "fill-chart-line-3",
+  servingIngress: {
+    name: "Serving Writes",
+    color: "fill-chart-line-2",
   },
   userFunctionEgress: {
     name: "User Function Reads",
-    color: "fill-chart-line-4",
+    color: "fill-chart-line-3",
   },
-  cloudBackup: {
-    name: "Cloud Backup",
-    color: "fill-chart-line-5",
+  userFunctionIngress: {
+    name: "User Function Writes",
+    color: "fill-chart-line-4",
   },
   cloudRestore: {
     name: "Cloud Restore",
+    color: "fill-chart-line-5",
+  },
+  cloudBackup: {
+    name: "Cloud Backup",
     color: "fill-chart-line-6",
   },
   snapshotExport: {
