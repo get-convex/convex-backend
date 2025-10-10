@@ -8,6 +8,7 @@ import { useNents } from "@common/lib/useNents";
 import { useTableShapes } from "@common/lib/deploymentApi";
 import { LoadingTransition } from "@ui/Loading";
 import { ShowSchema } from "@common/features/data/components/ShowSchema";
+import { ValidatorJSON } from "convex/values";
 
 export interface TableSchemaStatus {
   tableName: string;
@@ -117,25 +118,6 @@ export function useSingleTableSchemaStatus(
         isValidationRunning,
       }
     : undefined;
-}
-
-export function useSingleTableEnforcedSchema(tableName: string): Table | null {
-  const schemas = useQuery(udfs.getSchemas.default, {
-    componentId: useNents().selectedNent?.id ?? null,
-  });
-  if (!schemas) {
-    return null;
-  }
-  const active: Schema | undefined = schemas.active
-    ? JSON.parse(schemas.active)
-    : undefined;
-  if (active?.schemaValidation === false) {
-    return null;
-  }
-  const tableSchema = active?.tables.find(
-    (table) => table.tableName === tableName,
-  );
-  return tableSchema ?? null;
 }
 
 // Adds a comment '// Other tables here...' into code, assuming that code
@@ -268,7 +250,7 @@ export function TableSchemaContainer({ tableName }: { tableName: string }) {
   );
 }
 
-export function topLevelFieldsForValidator(validator: Validator): {
+export function topLevelFieldsForValidator(validator: ValidatorJSON): {
   fields: Array<string>;
   areFieldsComplete: boolean;
 } {

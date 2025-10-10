@@ -118,7 +118,7 @@ export function DataContent({
 
   const selectedRows = useSelectionState(allIds, status === "Exhausted");
 
-  const tableFields = useTableFields(tableName, shape, data);
+  const tableFields = useTableFields(tableName, shape, activeSchema);
 
   const columns = useDataColumns({
     tableName,
