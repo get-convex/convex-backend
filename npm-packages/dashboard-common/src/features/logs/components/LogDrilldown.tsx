@@ -16,6 +16,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { Callout } from "@ui/Callout";
 import { ITEM_SIZE } from "@common/features/logs/components/LogListItem";
+import { cn } from "@ui/cn";
 import { FunctionCallTree } from "./FunctionCallTree";
 import { LogMetadata } from "./LogMetadata";
 import { InterleavedLog, getTimestamp, getLogKey } from "../lib/interleaveLogs";
@@ -162,11 +163,23 @@ export function LogDrilldown({
         {/* Selected Log Output - show when a log is selected and it's not a completion */}
         {selectedLog.kind === "ExecutionLog" &&
           selectedLog.executionLog.kind === "log" && (
-            <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-secondary">
+            <div
+              className={cn(
+                "m-2 mt-0 animate-fadeInFromLoading rounded-md border",
+                selectedLog.executionLog.output.level === "ERROR"
+                  ? "bg-background-error text-content-error"
+                  : "bg-background-secondary",
+              )}
+            >
               <div className="mb-1 flex items-center justify-between gap-1 px-2 pt-2">
                 <p className="text-xs font-semibold">Log Message</p>
                 <CopyButton
                   text={`${messagesToString(selectedLog.executionLog.output)}${selectedLog.executionLog.output.isTruncated ? " (truncated due to length)" : ""}`}
+                  className={
+                    selectedLog.executionLog.output.level === "ERROR"
+                      ? "text-content-error"
+                      : ""
+                  }
                   inline
                 />
               </div>
@@ -180,10 +193,14 @@ export function LogDrilldown({
         {selectedLog.kind === "ExecutionLog" &&
           selectedLog.executionLog.kind === "outcome" &&
           selectedLog.executionLog.error && (
-            <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-secondary">
+            <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-error text-content-error">
               <div className="mb-1 flex items-center justify-between gap-1 px-2 pt-2">
                 <p className="text-xs font-semibold">Error</p>
-                <CopyButton text={selectedLog.executionLog.error} inline />
+                <CopyButton
+                  text={selectedLog.executionLog.error}
+                  inline
+                  className="text-content-error"
+                />
               </div>
               <div className="px-2 pb-2 font-mono text-xs">
                 <LogOutput
