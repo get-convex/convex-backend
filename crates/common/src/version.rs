@@ -49,8 +49,9 @@ pub static MIN_NPM_VERSION_FOR_FUZZY_SEARCH: LazyLock<Version> =
 // Enabled in 1.27.5
 pub static MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS: LazyLock<Version> = LazyLock::new(|| {
     env_config(
+        // Until clients can handle these better use a large number we'll never hit.
         "MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS",
-        Version::parse("1.27.5").expect("Invalid version"),
+        Version::parse("1.999.0").expect("Invalid version"),
     )
 });
 
