@@ -396,7 +396,8 @@ export class WebSocketManager {
       }
 
       if (this.transitionChunkBuffer !== null) {
-        throw new Error(
+        this.transitionChunkBuffer = null;
+        this.logger.log(
           `Received unexpected ${serverMessage.type} while buffering TransitionChunks`,
         );
       }
@@ -552,6 +553,7 @@ export class WebSocketManager {
    * closed socket is not accessible or used again after this method is called
    */
   private close(): Promise<void> {
+    this.transitionChunkBuffer = null;
     switch (this.socket.state) {
       case "disconnected":
       case "terminated":
@@ -560,6 +562,10 @@ export class WebSocketManager {
         return Promise.resolve();
       case "connecting": {
         const ws = this.socket.ws;
+        // Messages can still be received after close but we're not interested.
+        ws.onmessage = (_message) => {
+          this._logVerbose("Ignoring message received after close");
+        };
         return new Promise((r) => {
           ws.onclose = () => {
             this._logVerbose("Closed after connecting");
@@ -574,6 +580,10 @@ export class WebSocketManager {
       case "ready": {
         this._logVerbose("ws.close called");
         const ws = this.socket.ws;
+        // Messages can still be received after close but we're not interested.
+        ws.onmessage = (_message) => {
+          this._logVerbose("Ignoring message received after close");
+        };
         const result: Promise<void> = new Promise((r) => {
           ws.onclose = () => {
             r();
