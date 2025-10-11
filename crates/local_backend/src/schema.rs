@@ -74,13 +74,17 @@ struct BackfillResponse {
     state: String,
 }
 
+// When updating this, please keep `IndexMetadata`
+// in `npm-packages/convex/src/cli/lib/indexes.ts` in sync
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexMetadataResponse {
     table: String,
     name: String,
-    // Either an array of fields (`string[]`) for a database index or an object of
-    // `{ searchField: string, filterFields: string }` for a search index.
+    // Either:
+    // - an array of fields (`string[]`) for a database index
+    // - `{ searchField: string, filterFields: string[] }` for a search index
+    // - `{ dimensions: number, vectorField: string, filterFields: string[] }` for a vector index
     fields: JsonValue,
     backfill: BackfillResponse,
     staged: bool,

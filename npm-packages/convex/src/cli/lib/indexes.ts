@@ -24,6 +24,11 @@ type IndexMetadata = {
     | {
         searchField: string;
         filterFields: string[];
+      }
+    | {
+        dimensions: number;
+        vectorField: string;
+        filterFields: string[];
       };
   backfill: {
     state: "in_progress" | "done";
