@@ -50,6 +50,7 @@ pub fn register_prometheus_exporter<RT: Runtime>(
                 "Prometheus exporter server failed with error {e:?}, restarting after {}ms delay",
                 delay.as_millis()
             );
+            rt.wait(delay).await;
         }
     });
     let flush = || {
