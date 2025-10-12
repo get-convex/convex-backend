@@ -963,7 +963,7 @@ impl<V: HeapSize> HeapSize for ServerMessage<V> {
                 chunk,
                 part_number: _,
                 total_parts: _,
-                message_length: _,
+                transition_id: _,
             } => chunk.heap_size(),
         }
     }

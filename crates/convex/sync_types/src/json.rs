@@ -684,13 +684,13 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
                 chunk,
                 part_number,
                 total_parts,
-                message_length,
+                transition_id,
             } => json!({
                 "type": "TransitionChunk",
                 "chunk": chunk,
                 "partNumber": part_number,
                 "totalParts": total_parts,
-                "messageLength": message_length,
+                "transitionId": transition_id,
             }),
             ServerMessage::FatalError { error_message } => json!({
                 "type": "FatalError",
@@ -750,7 +750,7 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 chunk: String,
                 part_number: u32,
                 total_parts: u32,
-                message_length: usize,
+                transition_id: String,
             },
             #[serde(rename_all = "camelCase")]
             Ping {},
@@ -847,12 +847,12 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
                 chunk,
                 part_number,
                 total_parts,
-                message_length,
+                transition_id,
             } => ServerMessage::TransitionChunk {
                 chunk,
                 part_number,
                 total_parts,
-                message_length,
+                transition_id,
             },
             ServerMessageJson::Ping {} => ServerMessage::Ping {},
         };

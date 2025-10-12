@@ -268,7 +268,7 @@ export type TransitionChunk = {
   chunk: string;
   partNumber: number;
   totalParts: number;
-  messageLength: number;
+  transitionId: string;
 };
 
 type MutationSuccess = {

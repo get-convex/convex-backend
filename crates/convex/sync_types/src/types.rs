@@ -344,8 +344,8 @@ pub enum ServerMessage<V: 'static> {
         part_number: u32,
         /// Total number of parts for this transition.
         total_parts: u32,
-        /// Total length of the full serialized Transition message.
-        message_length: usize,
+        /// All chunks of the same transition share this ID.
+        transition_id: String,
     },
     MutationResponse {
         request_id: SessionRequestSeqNumber,

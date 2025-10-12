@@ -167,7 +167,7 @@ export class WebSocketManager {
   private transitionChunkBuffer: {
     chunks: string[];
     totalParts: number;
-    messageLength: number;
+    transitionId: string;
   } | null = null;
 
   /** Upon HTTPS/WSS failure, the first jittered backoff duration, in ms. */
@@ -254,7 +254,7 @@ export class WebSocketManager {
       chunk.totalParts === 0 ||
       (this.transitionChunkBuffer &&
         (this.transitionChunkBuffer.totalParts !== chunk.totalParts ||
-          this.transitionChunkBuffer.messageLength !== chunk.messageLength))
+          this.transitionChunkBuffer.transitionId !== chunk.transitionId))
     ) {
       // Throwing an error doesn't crash the client, so clear the buffer.
       this.transitionChunkBuffer = null;
@@ -265,7 +265,7 @@ export class WebSocketManager {
       this.transitionChunkBuffer = {
         chunks: [],
         totalParts: chunk.totalParts,
-        messageLength: chunk.messageLength,
+        transitionId: chunk.transitionId,
       };
     }
 
@@ -284,11 +284,6 @@ export class WebSocketManager {
       const fullJson = this.transitionChunkBuffer.chunks.join("");
       this.transitionChunkBuffer = null;
 
-      if (fullJson.length !== chunk.messageLength) {
-        throw new Error(
-          `Assembled Transition length mismatch: expected ${chunk.messageLength}, got ${fullJson.length}`,
-        );
-      }
       const transition = parseServerMessage(JSON.parse(fullJson));
       if (transition.type !== "Transition") {
         throw new Error(

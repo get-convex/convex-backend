@@ -817,12 +817,14 @@ test("TransitionChunk messages are assembled into a Transition", async () => {
     const chunk1 = fullJson.substring(0, midpoint);
     const chunk2 = fullJson.substring(midpoint);
 
+    const transitionId = "12345";
+
     send({
       type: "TransitionChunk",
       chunk: chunk1,
       partNumber: 0,
       totalParts: 2,
-      messageLength: fullJson.length,
+      transitionId,
     });
 
     expect(client.getMaxObservedTimestamp()).toBeUndefined();
@@ -832,7 +834,7 @@ test("TransitionChunk messages are assembled into a Transition", async () => {
       chunk: chunk2,
       partNumber: 1,
       totalParts: 2,
-      messageLength: fullJson.length,
+      transitionId,
     });
 
     // synchronously, it's still undefined

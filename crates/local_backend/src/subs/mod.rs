@@ -413,7 +413,7 @@ fn maybe_split_transition(
     }
 
     let total_parts = chunks.len() as u32;
-    let message_length = transition_json.len();
+    let transition_id = transition_json.len().to_string();
 
     Ok(chunks
         .into_iter()
@@ -422,7 +422,7 @@ fn maybe_split_transition(
             chunk,
             part_number: idx as u32,
             total_parts,
-            message_length,
+            transition_id: transition_id.clone(),
         })
         .collect())
 }
