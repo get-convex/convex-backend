@@ -199,7 +199,7 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
           body={
             <>
               <p className="text-sm">
-                This team doesn't have an projects yet.{" "}
+                This team doesn't have any projects yet.{" "}
               </p>
               <p className="text-sm">Get started by following the tutorial.</p>
             </>
