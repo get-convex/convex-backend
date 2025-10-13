@@ -19,14 +19,10 @@ use crate::helpers::UdfArgsJson;
 #[convex_macro::v8_op]
 pub fn op_validate_args<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    validator: JsonValue,
-    args: JsonValue,
+    validator: String,
+    args: String,
 ) -> anyhow::Result<JsonValue> {
-    let JsonValue::String(validator_string) = validator.clone() else {
-        return Err(anyhow::anyhow!("export_args result not a string"));
-    };
-
-    let args_validator = match ArgsValidator::json_deserialize(&validator_string) {
+    let args_validator = match ArgsValidator::json_deserialize(&validator) {
         Ok(v) => v,
         Err(json_error) => {
             let message = format!("Unable to parse JSON returned from `exportArgs`: {json_error}");
@@ -34,7 +30,7 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
         },
     };
 
-    let args: UdfArgsJson = serde_json::from_value(args)?;
+    let args: UdfArgsJson = serde_json::from_str(&args)?;
     let args_array = args
         .into_serialized_args()?
         .into_args()?

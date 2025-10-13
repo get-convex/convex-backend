@@ -8,21 +8,16 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::ConvexValue;
 
 use super::OpProvider;
 
 #[convex_macro::v8_op]
 pub fn op_validate_returns<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    validator: JsonValue,
-    function_result: JsonValue,
+    validator: String,
+    function_result: String,
 ) -> anyhow::Result<JsonValue> {
-    let JsonValue::String(validator_string) = validator else {
-        return Err(anyhow::anyhow!("export_args result not a string"));
-    };
-
-    let returns_validator = match ReturnsValidator::json_deserialize(&validator_string) {
+    let returns_validator = match ReturnsValidator::json_deserialize(&validator) {
         Ok(v) => v,
         Err(json_error) => {
             let message =
@@ -31,7 +26,7 @@ pub fn op_validate_returns<'b, P: OpProvider<'b>>(
         },
     };
 
-    let function_result = ConvexValue::try_from(function_result)?;
+    let function_result = value::json_deserialize(&function_result)?;
 
     let table_mapping = provider.get_all_table_mappings()?;
     match returns_validator.check_output(&function_result, &table_mapping, virtual_system_mapping())
