@@ -654,11 +654,15 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
     async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
         let mut completed_parts = Vec::new();
         for part in &self.uploaded_parts {
-            let part = CompletedPart::builder()
+            let mut builder = CompletedPart::builder()
                 .part_number(Into::<u16>::into(part.part_number()) as i32)
-                .e_tag(part.etag())
-                .checksum_crc32(part.checksum())
-                .build();
+                .e_tag(part.etag());
+
+            if !are_checksums_disabled() && part.checksum() != "disabled" {
+                builder = builder.checksum_crc32(part.checksum());
+            }
+
+            let part = builder.build();
             completed_parts.push(part);
         }
         // parallel_writes will write out of order.
