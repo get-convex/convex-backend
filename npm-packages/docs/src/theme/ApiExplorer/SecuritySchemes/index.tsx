@@ -170,7 +170,7 @@ function SecuritySchemes(props: any) {
         }
 
         if (isApiKey) {
-          const { name, key, type, scopes, ...rest } = auth;
+          const { name, key, type: _, scopes, ...rest } = auth;
           return (
             <React.Fragment key={auth.key}>
               <pre
@@ -178,16 +178,19 @@ function SecuritySchemes(props: any) {
                   display: "flex",
                   flexDirection: "column",
                   background: "var(--openapi-card-background-color)",
+                  whiteSpace: "pre-wrap",
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
                 }}
               >
                 <span>
-                  <strong>name:</strong>{" "}
-                  <Link to={infoAuthPath}>{name ?? key}</Link>
+                  <strong>
+                    <Link to={AuthTypeLinks[key] || infoAuthPath}>
+                      {name ?? key}
+                    </Link>
+                  </strong>
                 </span>
-                <span>
-                  <strong>type: </strong>
-                  {type}
-                </span>
+                <span>API Key in {auth.in}</span>
                 {scopes && scopes.length > 0 && (
                   <span>
                     <strong>scopes: </strong>
@@ -199,10 +202,16 @@ function SecuritySchemes(props: any) {
                 {Object.keys(rest).map((k, _i) => {
                   return (
                     <span key={k}>
-                      <strong>{k}: </strong>
-                      {typeof rest[k] === "object"
-                        ? JSON.stringify(rest[k], null, 2)
-                        : String(rest[k])}
+                      {typeof rest[k] === "object" ? (
+                        JSON.stringify(rest[k], null, 2)
+                      ) : typeof rest[k] === "string" &&
+                        rest[k].includes("](") ? (
+                        <Markdown components={{ a: Link, p: Passthrough }}>
+                          {rest[k]}
+                        </Markdown>
+                      ) : (
+                        String(rest[k])
+                      )}
                     </span>
                   );
                 })}

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Convex Deployment API",
-    "description": "Admin API for interacting with deployments",
+    "description": "Admin API for interacting with deployments.",
     "license": {
       "name": "LicenseRef-FSL-1.1-Apache-2.0",
       "identifier": "LicenseRef-FSL-1.1-Apache-2.0"
@@ -11,8 +11,14 @@
   },
   "servers": [
     {
-      "url": "/api/v1",
-      "description": "Deployment API"
+      "url": "{deployment-url}/api/v1",
+      "description": "Your Convex deployment",
+      "variables": {
+        "deployment-url": {
+          "default": "https://happy-animal-123.convex.cloud",
+          "description": "Your deployment URL"
+        }
+      }
     }
   ],
   "paths": {
@@ -35,7 +41,21 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     },
     "/list_environment_variables": {
@@ -54,7 +74,21 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     },
     "/update_canonical_url": {
@@ -189,6 +223,32 @@
             }
           }
         }
+      }
+    },
+    "securitySchemes": {
+      "Deploy Key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Deploy keys are used for deployment operations. See [deploy key types](https://docs.convex.dev/cli/deploy-key-types) for more information. Use the `Convex ` prefix (e.g., `Convex <deploy_key>`)."
+      },
+      "OAuth Project Token": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api) with project scope. Use the `Convex ` prefix (e.g., `Convex <oauth_project_token>`)."
+      },
+      "OAuth Team Token": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api). Use the `Convex ` prefix (e.g., `Convex <oauth_token>`)."
+      },
+      "Team Token": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Created in the dashboard under team settings for any team you can manage. Use the `Convex ` prefix (e.g., `Convex <team_token>`)."
       }
     }
   }

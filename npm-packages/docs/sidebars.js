@@ -1,6 +1,6 @@
 // @ts-check
 
-//import { default as deploymentApiSidebar } from "./docs/deployment-api/sidebar";
+import { default as deploymentApiSidebar } from "./docs/deployment-api/sidebar";
 //import { default as publicHttpApiSidebar } from "./docs/public-deployment-api/sidebar";
 import { default as managementApiSidebar } from "./docs/management-api/sidebar";
 
@@ -345,21 +345,36 @@ const sidebars = {
     },
     */
     {
-      type: "doc",
-      id: "http-api/index",
-      label: "HTTP API",
-      className: "convex-sidebar-http-api",
-    },
-    /*
-    {
       type: "category",
       label: "Deployment API",
       link: { type: "doc", id: "deployment-api" },
-      // the UNTAGGED section
-      items: deploymentApiSidebar[1].items,
+      items: [
+        {
+          type: "doc",
+          id: "http-api/index",
+          label: "HTTP API",
+          className: "convex-sidebar-http-api",
+        },
+        {
+          type: "doc",
+          id: "streaming-export-api",
+          label: "Streaming Export",
+        },
+        {
+          type: "doc",
+          id: "streaming-import-api",
+          label: "Streaming Import",
+        },
+        {
+          type: "category",
+          label: "Platform",
+          link: { type: "doc", id: "deployment-platform-api" },
+          // the UNTAGGED section
+          items: deploymentApiSidebar[1].items,
+        },
+      ],
       className: "convex-sidebar-http-api",
     },
-    */
     {
       type: "category",
       label: "Management API",

@@ -43,7 +43,15 @@ use tower_http::{
     decompression::RequestDecompressionLayer,
 };
 use udf::HTTP_ACTION_BODY_LIMIT;
-use utoipa::OpenApi;
+use utoipa::{
+    openapi::security::{
+        ApiKey,
+        ApiKeyValue,
+        SecurityScheme,
+    },
+    Modify,
+    OpenApi,
+};
 use utoipa_axum::router::OpenApiRouter;
 
 use crate::{
@@ -152,17 +160,87 @@ use crate::{
     RouterState,
 };
 
-// TODO security per endpoint
+// Security addon for documenting authentication methods
+#[derive(Debug)]
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(schema) = openapi.components.as_mut() {
+            /*
+            // Admin keys look just like deployment keys but there's no need to
+            // contact api.convex.dev to validate them) and cannot be revoked.
+            // The Convex Cloud product avoids giving them out.
+            // We can document this once the distinction between these is clearer.
+            schema.add_security_scheme(
+                "Admin Key",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .description(Some(
+                            "Admin keys provide full access to a deployment. Created in the \
+                             [dashboard](https://docs.convex.dev/dashboard/deployments/deployment-settings#url-and-deploy-key) \
+                             or via API. Use the `Convex ` prefix (e.g., `Convex <admin_key>`).",
+                        ))
+                        .build(),
+                ),
+            );
+            */
+            schema.add_security_scheme(
+                "Deploy Key",
+                SecurityScheme::ApiKey(ApiKey::Header(
+                    ApiKeyValue::with_description(
+                        "Authorization",
+                        "Deploy keys are used for deployment operations. See \
+                         [deploy key types](https://docs.convex.dev/cli/deploy-key-types) for more information. \
+                         Use the `Convex ` prefix (e.g., `Convex <deploy_key>`).",
+                    ),
+                )),
+            );
+            schema.add_security_scheme(
+                "OAuth Team Token",
+                SecurityScheme::ApiKey(ApiKey::Header(
+                    ApiKeyValue::with_description(
+                        "Authorization",
+                        "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api). \
+                         Use the `Convex ` prefix (e.g., `Convex <oauth_token>`).",
+                    ),
+                )),
+            );
+            schema.add_security_scheme(
+                "Team Token",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::with_description(
+                    "Authorization",
+                    "Created in the dashboard under team settings for any team you can manage. \
+                     Use the `Convex ` prefix (e.g., `Convex <team_token>`).",
+                ))),
+            );
+            schema.add_security_scheme(
+                "OAuth Project Token",
+                SecurityScheme::ApiKey(ApiKey::Header(
+                    ApiKeyValue::with_description(
+                        "Authorization",
+                        "Obtained through a [Convex OAuth application](https://docs.convex.dev/management-api) \
+                         with project scope. Use the `Convex ` prefix (e.g., `Convex <oauth_project_token>`).",
+                    ),
+                )),
+            );
+        }
+    }
+}
 
 #[derive(OpenApi)]
 #[openapi(
+    modifiers(&SecurityAddon),
     info(
         title = "Convex Deployment API",
         version = "1.0.0",
-        description = "Admin API for interacting with deployments",
+        description = "Admin API for interacting with deployments.",
     ),
     servers(
-        (url = "/api/v1", description = "Deployment API")
+        (url = "{deployment-url}/api/v1", description = "Your Convex deployment", variables(
+            ("deployment-url" = (default = "https://happy-animal-123.convex.cloud", description = "Your deployment URL"))
+        ))
     )
 )]
 struct PlatformApiDoc;

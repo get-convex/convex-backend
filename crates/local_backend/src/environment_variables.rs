@@ -76,6 +76,12 @@ pub struct UpdateEnvVarsRequest {
     path = "/update_environment_variables",
     request_body = UpdateEnvVarsRequest,
     responses((status = 200)),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
 )]
 pub async fn update_environment_variables(
     State(st): State<LocalAppState>,
@@ -119,6 +125,12 @@ pub struct ListEnvVarsResponse {
     path = "/list_environment_variables",
     responses(
         (status = 200, body = ListEnvVarsResponse)
+    ),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
     ),
 )]
 pub async fn list_environment_variables(
