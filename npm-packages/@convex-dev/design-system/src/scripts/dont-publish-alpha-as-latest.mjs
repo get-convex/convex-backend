@@ -14,7 +14,7 @@ const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
 const { version } = packageJson;
 
 // Check if this is an alpha version
-const isAlpha = version.includes("alpha") || version.includes("-alpha.");
+const isAlpha = version.includes("alpha");
 
 if (isAlpha) {
   // For alpha versions, require --tag=alpha
