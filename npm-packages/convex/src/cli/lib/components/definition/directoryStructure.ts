@@ -53,7 +53,10 @@ export function qualifiedDefinitionPath(
   workingDir = ".",
 ) {
   const definitionPath = path.relative(workingDir, directory.definitionPath);
-  return `./${definitionPath}`;
+  const posixDefinitionPath = definitionPath
+    .split(path.sep)
+    .join(path.posix.sep);
+  return `./${posixDefinitionPath}`;
 }
 
 // NB: The process cwd will be used to resolve the directory specified in the constructor.
