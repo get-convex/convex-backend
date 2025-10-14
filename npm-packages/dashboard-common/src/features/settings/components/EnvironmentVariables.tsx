@@ -855,7 +855,7 @@ function EnvVarValueInput({
   const value = getIn(formState.values, formKey) as string;
   const touched = getIn(formState.touched, formKey);
 
-  const hasAnyWhitespace = value.includes(" ");
+  const hasAnyWhitespace = /\s/.test(value);
   const hasLeadingOrTrailingWhitespace =
     value.length > 0 && value !== value.trim();
   const hasReturnCharacter = value.includes("\n");
