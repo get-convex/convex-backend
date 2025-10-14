@@ -4,50 +4,47 @@ import inspect from "object-inspect";
 
 type Update =
   | {
-      type: "hash";
-      value: string | null;
+      hash: string | null;
     }
   | {
-      type: "hostname";
-      value: string | null;
+      hostname: string | null;
     }
   | {
-      type: "href";
-      value: string;
+      href: string;
     }
   | {
-      type: "port";
-      value: string | null;
+      port: string | null;
     }
   | {
-      type: "protocol";
-      value: string;
+      protocol: string;
     }
   | {
-      type: "pathname";
-      value: string;
+      pathname: string;
     }
   | {
-      type: "search";
-      value: string | null;
+      search: string | null;
     }
   | {
-      type: "searchParams";
-      value: [string, string][];
+      searchParams: [string, string][];
     };
 
+// Private symbols for URL to poke at the internals of URLSearchParams
+const _searchParamPairs = Symbol("_searchParamPairs");
+const _urlObjectUpdate = Symbol("_urlObjectUpdate");
+
 class URLSearchParams {
-  private _searchParamPairs: [string, string][];
-  private _urlObject: URL | null = null;
+  [_searchParamPairs]: [string, string][];
+  // Reference back to the parent URL's `#updateUrl` method
+  [_urlObjectUpdate]?: (update: { searchParams: [string, string][] }) => void;
   constructor(
     init?: string[][] | Record<string, string> | string | URLSearchParams,
   ) {
-    this._searchParamPairs = [];
+    this[_searchParamPairs] = [];
     if (init === undefined) {
-      this._searchParamPairs = [];
+      this[_searchParamPairs] = [];
     } else if (typeof init === "string") {
       const queryString = init.startsWith("?") ? init.slice(1) : init;
-      this._searchParamPairs = performOp(
+      this[_searchParamPairs] = performOp(
         "url/getUrlSearchParamPairs",
         queryString,
       );
@@ -72,34 +69,33 @@ class URLSearchParams {
   }
 
   private _updateUrl() {
-    if (this._urlObject !== null) {
-      this._urlObject.updateUrl({
-        type: "searchParams",
-        value: this._searchParamPairs,
+    if (this[_urlObjectUpdate] !== undefined) {
+      this[_urlObjectUpdate]({
+        searchParams: this[_searchParamPairs],
       });
     }
   }
 
   append(name: string, value: string): void {
-    this._searchParamPairs.push([String(name), String(value)]);
+    this[_searchParamPairs].push([String(name), String(value)]);
     this._updateUrl();
   }
 
   delete(name: string) {
-    this._searchParamPairs = this._searchParamPairs.filter(([key]) => {
+    this[_searchParamPairs] = this[_searchParamPairs].filter(([key]) => {
       return key !== String(name);
     });
     this._updateUrl();
   }
 
   entries(): IterableIterator<[string, string]> {
-    return this._searchParamPairs[Symbol.iterator]();
+    return this[_searchParamPairs][Symbol.iterator]();
   }
 
   forEach(
     callbackFn: (value: string, key: string, parent: URLSearchParams) => void,
   ) {
-    this._searchParamPairs.forEach(([key, value]) => {
+    this[_searchParamPairs].forEach(([key, value]) => {
       callbackFn(value, key, this);
     });
   }
@@ -110,7 +106,7 @@ class URLSearchParams {
 
   getAll(name: string): string[] {
     const values: string[] = [];
-    for (const [key, value] of this._searchParamPairs) {
+    for (const [key, value] of this[_searchParamPairs]) {
       if (key === name) {
         values.push(value);
       }
@@ -120,12 +116,13 @@ class URLSearchParams {
 
   has(name: string): boolean {
     return (
-      this._searchParamPairs.find(([key]) => key === String(name)) !== undefined
+      this[_searchParamPairs].find(([key]) => key === String(name)) !==
+      undefined
     );
   }
 
   keys(): IterableIterator<string> {
-    return this._searchParamPairs.map(([key]) => key)[Symbol.iterator]();
+    return this[_searchParamPairs].map(([key]) => key)[Symbol.iterator]();
   }
 
   set(name: string, value: string) {
@@ -135,14 +132,14 @@ class URLSearchParams {
   }
 
   sort() {
-    this._searchParamPairs.sort((a, b) => {
+    this[_searchParamPairs].sort((a, b) => {
       return a[0].localeCompare(b[0]);
     });
     this._updateUrl();
   }
 
   toString() {
-    return performOp("url/stringifyUrlSearchParams", this._searchParamPairs);
+    return performOp("url/stringifyUrlSearchParams", this[_searchParamPairs]);
   }
 
   toJSON() {
@@ -154,7 +151,24 @@ class URLSearchParams {
   }
 
   values(): IterableIterator<string> {
-    return this._searchParamPairs.map(([, value]) => value)[Symbol.iterator]();
+    return this[_searchParamPairs].map(([, value]) => value)[Symbol.iterator]();
+  }
+
+  get [Symbol.toStringTag]() {
+    return "URLSearchParams";
+  }
+
+  inspect() {
+    let inner = "";
+    if (this[_searchParamPairs].length !== 0) {
+      inner =
+        " " +
+        this[_searchParamPairs]
+          .map(([k, v]) => `${inspect(k)} => ${inspect(v)}`)
+          .join(", ") +
+        " ";
+    }
+    return `${this.constructor.name} {${inner}}`;
   }
 }
 
@@ -180,8 +194,8 @@ type URLInfoResult =
     };
 
 class URL {
-  private _urlInfo: UrlInfo;
-  private _searchParams: URLSearchParams;
+  #urlInfo: UrlInfo;
+  #searchParams: URLSearchParams;
 
   constructor(url: string | URL, base?: string | URL) {
     let baseHref: string | null = null;
@@ -202,29 +216,28 @@ class URL {
             throw new TypeError(urlInfoResult.message ?? "Unsupported URL");
         }
       }
-      this._urlInfo = urlInfoResult.urlInfo;
+      this.#urlInfo = urlInfoResult.urlInfo;
     } else {
-      this._urlInfo = { ...url._urlInfo };
+      this.#urlInfo = { ...url.#urlInfo };
     }
-    this._searchParams = new URLSearchParams(this._urlInfo.search ?? "");
-    (this._searchParams as any)._urlObject = this;
+    this.#searchParams = new URLSearchParams(this.#urlInfo.search ?? "");
+    this.#searchParams[_urlObjectUpdate] = this.#updateUrl.bind(this);
   }
 
   get hash() {
-    return this._urlInfo.hash !== "" ? `#${this._urlInfo.hash}` : "";
+    return this.#urlInfo.hash !== "" ? `#${this.#urlInfo.hash}` : "";
   }
 
   set hash(_hash: string) {
     let newHash: string | null = _hash.startsWith("#") ? _hash.slice(1) : _hash;
     newHash = newHash === "" ? null : newHash;
-    this.updateUrl({
-      type: "hash",
-      value: newHash,
+    this.#updateUrl({
+      hash: newHash,
     });
   }
 
   get host() {
-    return this._urlInfo.host;
+    return this.#urlInfo.host;
   }
 
   set host(_host: string) {
@@ -232,18 +245,17 @@ class URL {
   }
 
   get hostname() {
-    return this._urlInfo.hostname;
+    return this.#urlInfo.hostname;
   }
 
   set hostname(_hostname: string) {
-    this.updateUrl({
-      type: "hostname",
-      value: _hostname === "" ? null : _hostname,
+    this.#updateUrl({
+      hostname: _hostname === "" ? null : _hostname,
     });
   }
 
   get href() {
-    return this._urlInfo.href;
+    return this.#urlInfo.href;
   }
 
   set href(_href: string) {
@@ -253,27 +265,26 @@ class URL {
         "Failed to set the 'href' property on 'URL': Invalid URL",
       );
     }
-    this.updateUrl({
-      type: "href",
-      value: _href,
+    this.#updateUrl({
+      href: _href,
     });
   }
 
   get origin() {
-    switch (this._urlInfo.scheme) {
+    switch (this.#urlInfo.scheme) {
       case "ftp":
       case "http":
       case "https":
       case "ws":
       case "wss":
-        return `${this._urlInfo.scheme}://${this.host}`;
+        return `${this.#urlInfo.scheme}://${this.host}`;
       default:
         return "null";
     }
   }
 
   get password() {
-    return this._urlInfo.password;
+    return this.#urlInfo.password;
   }
 
   set password(_password: string) {
@@ -281,40 +292,37 @@ class URL {
   }
 
   get pathname() {
-    return this._urlInfo.pathname;
+    return this.#urlInfo.pathname;
   }
 
   set pathname(_pathname: string) {
-    this.updateUrl({
-      type: "pathname",
-      value: _pathname,
+    this.#updateUrl({
+      pathname: _pathname,
     });
   }
 
   get port() {
-    return this._urlInfo.port?.toString() ?? "";
+    return this.#urlInfo.port?.toString() ?? "";
   }
 
   set port(_port: string) {
-    this.updateUrl({
-      type: "port",
-      value: _port === "" ? null : _port,
+    this.#updateUrl({
+      port: _port === "" ? null : _port,
     });
   }
 
   get protocol() {
-    return this._urlInfo.scheme.toString() + ":";
+    return this.#urlInfo.scheme.toString() + ":";
   }
 
   set protocol(_protocol: string) {
-    this.updateUrl({
-      type: "protocol",
-      value: _protocol,
+    this.#updateUrl({
+      protocol: _protocol,
     });
   }
 
   get search() {
-    return this._urlInfo.search === "" ? "" : `?${this._urlInfo.search}`;
+    return this.#urlInfo.search === "" ? "" : `?${this.#urlInfo.search}`;
   }
 
   set search(_search: string) {
@@ -322,18 +330,17 @@ class URL {
       ? _search.slice(1)
       : _search;
     newSearch = newSearch === "" ? null : newSearch;
-    this.updateUrl({
-      type: "search",
-      value: newSearch,
+    this.#updateUrl({
+      search: newSearch,
     });
   }
 
   get searchParams() {
-    return this._searchParams;
+    return this.#searchParams;
   }
 
   get username() {
-    return this._urlInfo.username;
+    return this.#urlInfo.username;
   }
 
   set username(_username: string) {
@@ -348,14 +355,14 @@ class URL {
     return this.href;
   }
 
-  updateUrl(update: Update) {
-    this._urlInfo = performOp("url/updateUrlInfo", this.href, update);
+  #updateUrl(update: Update) {
+    this.#urlInfo = performOp("url/updateUrlInfo", this.href, update);
     // Mutate the existing searchParams object
     const searchPairs = performOp(
       "url/getUrlSearchParamPairs",
-      this._urlInfo.search,
+      this.#urlInfo.search,
     );
-    (this._searchParams as any)._searchParamPairs = searchPairs;
+    this.#searchParams[_searchParamPairs] = searchPairs;
   }
 
   get [Symbol.toStringTag]() {

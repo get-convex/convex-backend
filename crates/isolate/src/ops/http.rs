@@ -131,32 +131,30 @@ pub fn op_url_stringify_url_search_params<'b, P: OpProvider<'b>>(
     Ok(search)
 }
 
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+enum UrlInfoUpdate {
+    Hash(Option<String>),
+    Hostname(Option<String>),
+    Href(String),
+    Protocol(String),
+    Port(Option<String>),
+    Pathname(String),
+    Search(Option<String>),
+    SearchParams(Vec<(String, String)>),
+}
+
 #[convex_macro::v8_op]
 pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
     provider: &mut P,
     original_url: String,
-    update: JsonValue,
+    update: UrlInfoUpdate,
 ) -> anyhow::Result<JsonValue> {
-    #[derive(Deserialize, Debug, Clone)]
-    #[serde(rename_all = "camelCase")]
-    #[serde(tag = "type")]
-    enum Update {
-        Hash { value: Option<String> },
-        Hostname { value: Option<String> },
-        Href { value: String },
-        Protocol { value: String },
-        Port { value: Option<String> },
-        Pathname { value: String },
-        Search { value: Option<String> },
-        SearchParams { value: Vec<(String, String)> },
-    }
-
-    let update: Update = serde_json::from_value(update)?;
     let mut parsed_url = Url::parse(&original_url)?;
 
     match update {
-        Update::Hash { value } => parsed_url.set_fragment(value.as_deref()),
-        Update::SearchParams { value } => {
+        UrlInfoUpdate::Hash(value) => parsed_url.set_fragment(value.as_deref()),
+        UrlInfoUpdate::SearchParams(value) => {
             if value.is_empty() {
                 parsed_url.set_query(None)
             } else {
@@ -167,21 +165,21 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
                     .finish();
             }
         },
-        Update::Hostname { value } => parsed_url.set_host(value.as_deref())?,
-        Update::Href { value } => {
+        UrlInfoUpdate::Hostname(value) => parsed_url.set_host(value.as_deref())?,
+        UrlInfoUpdate::Href(value) => {
             parsed_url = Url::parse(&value).context(ErrorMetadata::bad_request(
                 "BadUrl",
                 format!("Could not parse URL: {original_url}"),
             ))?;
         },
-        Update::Protocol { value } => {
+        UrlInfoUpdate::Protocol(value) => {
             if value != "http" && value != "https" {
                 parsed_url
                     .set_scheme(&value)
                     .map_err(|_e| anyhow::anyhow!("Failed to set scheme"))?
             }
         },
-        Update::Port { value } => match value {
+        UrlInfoUpdate::Port(value) => match value {
             Some(port_str) => match port_str.parse::<u16>() {
                 Ok(port_number) => parsed_url
                     .set_port(Some(port_number))
@@ -192,8 +190,8 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
                 .set_port(None)
                 .map_err(|_e| anyhow::anyhow!("Failed to set port"))?,
         },
-        Update::Pathname { value } => parsed_url.set_path(&value),
-        Update::Search { value } => parsed_url.set_query(value.as_deref()),
+        UrlInfoUpdate::Pathname(value) => parsed_url.set_path(&value),
+        UrlInfoUpdate::Search(value) => parsed_url.set_query(value.as_deref()),
     }
 
     let url_info: UrlInfo = parsed_url.try_into()?;
