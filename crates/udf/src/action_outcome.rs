@@ -241,7 +241,15 @@ impl HttpActionOutcome {
             },
             None => HttpActionResult::Streamed,
         };
-        let method = method.parse()?;
+        // TODO: Add `.context()` and remove fallback to `HttpRequestHead`
+        let method = match method {
+            Some(m) => m.parse()?,
+            None => http_request.method.clone().try_into()?,
+        };
+        let path = match path {
+            Some(p) => p,
+            None => http_request.url.to_string(),
+        };
         Ok(Self {
             identity,
             unix_timestamp: unix_timestamp
@@ -283,8 +291,8 @@ impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
             result: Some(FunctionResultProto { result }),
             syscall_trace: Some(syscall_trace.try_into()?),
             memory_in_mb,
-            path: route.path.to_string(),
-            method: route.method.to_string(),
+            path: Some(route.path.to_string()),
+            method: Some(route.method.to_string()),
         })
     }
 }
