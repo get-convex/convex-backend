@@ -1,13 +1,28 @@
 # Changelog
 
-## 1.27.5
+## 1.28.0
 
-- Export an `AuthConfig` type to describe the object exportect from
-  `convex/auth.config.ts`.
+- Deploy code path unification: all deploys now use a codepath that supports
+  components, whether or not any components are used in the project. Generating
+  the files in `convex/_generated/` now requires a deployment to be present and
+  for all environment variables used in convex/auth.config.ts to be set.
+
+  Scripts that call `npx convex codegen` are the most likely to be affected by
+  this change, and `npx convex codgen` no longer works for any projects in
+  preview deployments because preview deployments may not exist until the
+  deploy.
+
+  Committing generated code is recommended and this change makes this
+  recommendation more important.
 
 - WebSocket sync protocol support for TransitionChunk messages: just splitting a
   Transition (containing new query results) into multiple WebSocket messages in
   order prevent the server from appearing non-responsive.
+
+## 1.27.5
+
+- Export an `AuthConfig` type to describe the object exported from
+  `convex/auth.config.ts`.
 
 ## 1.27.4
 
