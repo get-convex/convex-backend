@@ -58,21 +58,51 @@
         }
       }
     },
-    "/workos/provision_associated_workos_team": {
-      "post": {
-        "description": "Provision a WorkOS team for a Convex team",
-        "operationId": "provision_associated_workos_team",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProvisionWorkOSTeamRequest"
+    "/workos/available_workos_team_emails": {
+      "get": {
+        "description": "Get candidate email addresses to be WorkOS admins.",
+        "operationId": "get_available_workos_team_emails",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailableWorkOSTeamEmailsResponse"
+                }
               }
             }
-          },
-          "required": true
-        },
-        "responses": {}
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_name}/has_associated_workos_team": {
+      "get": {
+        "description": "Check if a deployment has an associated WorkOS team",
+        "operationId": "get_has_associated_workos_team",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HasAssociatedWorkOSTeamResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/workos/get_or_provision_workos_environment": {
@@ -89,7 +119,18 @@
           },
           "required": true
         },
-        "responses": {}
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/workos/has_associated_workos_team": {
@@ -106,19 +147,72 @@
           },
           "required": true
         },
-        "responses": {}
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HasAssociatedWorkOSTeamResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/workos/available_workos_team_emails": {
-      "get": {
-        "description": "Get candidate email addresses to be WorkOS admins.",
-        "operationId": "get_available_workos_team_emails",
-        "responses": {}
+    "/workos/provision_associated_workos_team": {
+      "post": {
+        "description": "Provision a WorkOS team for a Convex team",
+        "operationId": "provision_associated_workos_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionWorkOSTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionWorkOSTeamResponse"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
   "components": {
     "schemas": {
+      "AvailableWorkOSTeamEmailsResponse": {
+        "type": "object",
+        "required": [
+          "availableEmails",
+          "usedEmails"
+        ],
+        "properties": {
+          "availableEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usedEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "GetOrProvisionEnvironmentRequest": {
         "type": "object",
         "required": [
@@ -138,6 +232,42 @@
         "properties": {
           "deploymentName": {
             "type": "string"
+          }
+        }
+      },
+      "HasAssociatedWorkOSTeamResponse": {
+        "type": "object",
+        "required": [
+          "hasAssociatedWorkosTeam",
+          "teamId"
+        ],
+        "properties": {
+          "adminConvexEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email of Convex team member who created the WorkOS account.\nThis field should always be present when has_associated_workos_team is\ntrue."
+          },
+          "adminEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email address used to provision the WorkOS account. This field should\nalways be present if has_associated_workos_team is true."
+          },
+          "adminName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of Convex team member who created the WorkOS account.\nThis field is optional even when has_associated_workos_team is true."
+          },
+          "hasAssociatedWorkosTeam": {
+            "type": "boolean"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           }
         }
       },
@@ -201,6 +331,33 @@
       "ProjectSlug": {
         "type": "string"
       },
+      "ProvisionEnvironmentResponse": {
+        "type": "object",
+        "required": [
+          "environmentId",
+          "environmentName",
+          "clientId",
+          "apiKey",
+          "newlyProvisioned"
+        ],
+        "properties": {
+          "apiKey": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "environmentId": {
+            "type": "string"
+          },
+          "environmentName": {
+            "type": "string"
+          },
+          "newlyProvisioned": {
+            "type": "boolean"
+          }
+        }
+      },
       "ProvisionWorkOSTeamRequest": {
         "type": "object",
         "required": [
@@ -215,6 +372,25 @@
           "teamId": {
             "$ref": "#/components/schemas/TeamId",
             "description": "Convex team ID, no WorkOS team exists at this point"
+          }
+        }
+      },
+      "ProvisionWorkOSTeamResponse": {
+        "type": "object",
+        "required": [
+          "workosTeamId",
+          "workosTeamName",
+          "adminEmail"
+        ],
+        "properties": {
+          "adminEmail": {
+            "type": "string"
+          },
+          "workosTeamId": {
+            "type": "string"
+          },
+          "workosTeamName": {
+            "type": "string"
           }
         }
       },
