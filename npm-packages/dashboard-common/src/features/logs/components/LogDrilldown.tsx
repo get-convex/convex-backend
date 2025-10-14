@@ -4,10 +4,12 @@ import {
   InfoCircledIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  DotFilledIcon,
 } from "@radix-ui/react-icons";
 import { useCallback, useRef, useState } from "react";
 import { Tab as HeadlessTab, Disclosure } from "@headlessui/react";
-import { MAX_LOGS, UdfLog } from "@common/lib/useLogs";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { MAX_LOGS, UdfLog, UdfLogOutput } from "@common/lib/useLogs";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Button } from "@ui/Button";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
@@ -152,142 +154,41 @@ export function LogDrilldown({
       <div
         ref={rightPanelRef}
         tabIndex={-1}
-        className="scrollbar grow animate-fadeInFromLoading gap-2 overflow-y-auto py-2"
+        className="scrollbar grow animate-fadeInFromLoading overflow-y-auto"
       >
-        {/* Deployment Event Content */}
-        {selectedLog.kind === "DeploymentEvent" && (
-          <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-secondary">
-            <div className="px-2 pt-2 pb-2">
-              <p className="mb-1 text-xs font-semibold">Deployment Event</p>
-              <DeploymentEventContent
-                event={selectedLog.deploymentEvent}
-                inPanel
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Selected Log Output - show when a log is selected and it's not a completion */}
+        {/* Callout - outside of resizable panels */}
         {selectedLog.kind === "ExecutionLog" &&
-          selectedLog.executionLog.kind === "log" && (
-            <div
-              className={cn(
-                "m-2 mt-0 animate-fadeInFromLoading rounded-md border",
-                selectedLog.executionLog.output.level === "ERROR"
-                  ? "bg-background-error text-content-error"
-                  : "bg-background-secondary",
-              )}
+          requestId &&
+          allUdfLogs.length === 0 && (
+            <Callout
+              className="mx-2 mb-2 flex items-center gap-2 p-1.5 text-xs"
+              variant="upsell"
             >
-              <div className="mb-1 flex items-center justify-between gap-1 px-2 pt-2">
-                <p className="text-xs font-semibold">Log Message</p>
-                <CopyButton
-                  text={`${messagesToString(selectedLog.executionLog.output)}${selectedLog.executionLog.output.isTruncated ? " (truncated due to length)" : ""}`}
-                  className={
-                    selectedLog.executionLog.output.level === "ERROR"
-                      ? "text-content-error"
-                      : ""
-                  }
-                  inline
-                />
+              <InfoCircledIcon className="min-w-4" />
+              <div>
+                Heads up! The logs page only keeps track of the latest{" "}
+                {MAX_LOGS.toLocaleString()} logs. This panel is missing
+                information for this log because it is older than the maximum
+                number of logs. If you need log persistence, try out{" "}
+                <Link
+                  href="https://docs.convex.dev/production/integrations/log-streams/"
+                  className="text-content-link hover:underline"
+                  target="_blank"
+                >
+                  Log Streams
+                </Link>
+                .
               </div>
-              <div className="scrollbar max-h-60 overflow-y-auto px-2 pb-2 font-mono text-xs">
-                <LogOutput output={selectedLog.executionLog.output} wrap />
-              </div>
-            </div>
+            </Callout>
           )}
 
-        {/* Error message for outcome logs with errors */}
-        {selectedLog.kind === "ExecutionLog" &&
-          selectedLog.executionLog.kind === "outcome" &&
-          selectedLog.executionLog.error && (
-            <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-error text-content-error">
-              <div className="mb-1 flex items-center justify-between gap-1 px-2 pt-2">
-                <p className="text-xs font-semibold">Error</p>
-                <CopyButton
-                  text={selectedLog.executionLog.error}
-                  inline
-                  className="text-content-error"
-                />
-              </div>
-              <div className="px-2 pb-2 font-mono text-xs">
-                <LogOutput
-                  output={{
-                    isTruncated: false,
-                    messages: [selectedLog.executionLog.error],
-                    level: "FAILURE",
-                  }}
-                  wrap
-                />
-              </div>
-            </div>
-          )}
-        {selectedLog.kind === "ExecutionLog" && allUdfLogs.length === 0 && (
-          <Callout
-            className="mx-2 mb-2 flex items-center gap-2 p-1.5 text-xs"
-            variant="upsell"
-          >
-            <InfoCircledIcon className="min-w-4" />
-            <div>
-              Heads up! The logs page only keeps track of the latest{" "}
-              {MAX_LOGS.toLocaleString()} logs. This panel is missing
-              information for this log because it is older than the maximum
-              number of logs. If you need log persistence, try out{" "}
-              <Link
-                href="https://docs.convex.dev/production/integrations/log-streams/"
-                className="text-content-link hover:underline"
-                target="_blank"
-              >
-                Log Streams
-              </Link>
-              .
-            </div>
-          </Callout>
-        )}
-
-        {/* Tabs for Execution Info, Request Info, and Functions Called - only for ExecutionLog */}
-        {selectedLog.kind === "ExecutionLog" && requestId && (
-          <div className="relative flex grow flex-col">
-            <HeadlessTab.Group
-              selectedIndex={selectedTabIndex}
-              onChange={setSelectedTabIndex}
-            >
-              <div className="sticky top-0 z-10 px-2" ref={tabGroupRef}>
-                <HeadlessTab.List className="flex gap-1 rounded-t-md border bg-background-secondary px-1">
-                  <Tab>Execution</Tab>
-                  <Tab>Request</Tab>
-                  <Tab>Functions Called</Tab>
-                </HeadlessTab.List>
-              </div>
-
-              <div className="mx-2 flex h-fit max-h-full min-h-0 flex-col rounded rounded-t-none border border-t-0 bg-background-secondary">
-                <div className="flex flex-col gap-2">
-                  <HeadlessTab.Panels>
-                    <HeadlessTab.Panel>
-                      <LogMetadata
-                        requestId={requestId}
-                        logs={allUdfLogs}
-                        executionId={selectedLog.executionLog.executionId}
-                      />
-                    </HeadlessTab.Panel>
-                    <HeadlessTab.Panel>
-                      <LogMetadata
-                        requestId={requestId}
-                        logs={allUdfLogs}
-                        executionId={undefined}
-                      />
-                    </HeadlessTab.Panel>
-                    <HeadlessTab.Panel>
-                      <FunctionCallTree
-                        logs={allUdfLogs}
-                        currentLog={selectedLog.executionLog}
-                      />
-                    </HeadlessTab.Panel>
-                  </HeadlessTab.Panels>
-                </div>
-              </div>
-            </HeadlessTab.Group>
-          </div>
-        )}
+        <LogContentLayout
+          selectedLog={selectedLog}
+          allUdfLogs={allUdfLogs}
+          selectedTabIndex={selectedTabIndex}
+          setSelectedTabIndex={setSelectedTabIndex}
+          tabGroupRef={tabGroupRef}
+        />
       </div>
 
       <KeyboardShortcutsSection selectedLog={selectedLog} />
@@ -688,5 +589,202 @@ export function useNavigateLogs(
       preventDefault: true,
     },
     [selectedLog, logs, onSelectLog, onHitBoundary, calculatePageSize],
+  );
+}
+
+function LogMessageCard({
+  output,
+  title = "Log Message",
+  isError = false,
+  maxHeight,
+}: {
+  output: UdfLogOutput;
+  title?: string;
+  isError?: boolean;
+  maxHeight?: string;
+}) {
+  const copyText = `${messagesToString(output as any)}${output.isTruncated ? " (truncated due to length)" : ""}`;
+
+  return (
+    <div
+      className={cn(
+        "animate-fadeInFromLoading rounded-md border",
+        "mx-2 flex h-full flex-col overflow-hidden",
+        isError
+          ? "bg-background-error text-content-error"
+          : "bg-background-secondary",
+      )}
+    >
+      <div className="mb-1 flex items-center justify-between gap-1 px-2 pt-2">
+        <p className="text-xs font-semibold">{title}</p>
+        <CopyButton
+          text={copyText}
+          className={isError ? "text-content-error" : ""}
+          inline
+        />
+      </div>
+      <div
+        className={cn(
+          "scrollbar overflow-y-auto px-2 pb-2 font-mono text-xs",
+          maxHeight,
+        )}
+      >
+        <LogOutput output={output} wrap />
+      </div>
+    </div>
+  );
+}
+
+function LogContentLayout({
+  selectedLog,
+  allUdfLogs,
+  selectedTabIndex,
+  setSelectedTabIndex,
+  tabGroupRef,
+}: {
+  selectedLog: InterleavedLog;
+  allUdfLogs: UdfLog[];
+  selectedTabIndex: number;
+  setSelectedTabIndex: (index: number) => void;
+  tabGroupRef: React.RefObject<HTMLDivElement>;
+}) {
+  const hasLogOutput =
+    selectedLog.kind === "DeploymentEvent" ||
+    (selectedLog.kind === "ExecutionLog" &&
+      selectedLog.executionLog.kind === "log") ||
+    (selectedLog.kind === "ExecutionLog" &&
+      selectedLog.executionLog.kind === "outcome" &&
+      selectedLog.executionLog.error);
+
+  const showTabs = selectedLog.kind === "ExecutionLog";
+
+  const renderTabs = (log: UdfLog, className?: string) => (
+    <div className={cn("relative flex flex-col", className)}>
+      <HeadlessTab.Group
+        selectedIndex={selectedTabIndex}
+        onChange={setSelectedTabIndex}
+      >
+        <div className="sticky top-0 z-10 px-2" ref={tabGroupRef}>
+          <HeadlessTab.List className="flex gap-1 rounded-t-md border bg-background-secondary px-1">
+            <Tab>Execution</Tab>
+            <Tab>Request</Tab>
+            <Tab>Functions Called</Tab>
+          </HeadlessTab.List>
+        </div>
+
+        <div className="mx-2 h-full min-h-0 overflow-hidden rounded rounded-t-none border border-t-0 bg-background-secondary">
+          <div className="scrollbar flex h-full flex-col gap-2 overflow-y-auto">
+            <HeadlessTab.Panels>
+              <HeadlessTab.Panel>
+                <LogMetadata
+                  requestId={log.requestId}
+                  logs={allUdfLogs}
+                  executionId={log.executionId}
+                />
+              </HeadlessTab.Panel>
+              <HeadlessTab.Panel>
+                <LogMetadata
+                  requestId={log.requestId}
+                  logs={allUdfLogs}
+                  executionId={undefined}
+                />
+              </HeadlessTab.Panel>
+              <HeadlessTab.Panel>
+                <FunctionCallTree logs={allUdfLogs} currentLog={log} />
+              </HeadlessTab.Panel>
+            </HeadlessTab.Panels>
+          </div>
+        </div>
+      </HeadlessTab.Group>
+    </div>
+  );
+
+  // Render log output content
+  const renderLogOutput = () => (
+    <>
+      {/* Deployment Event Content */}
+      {selectedLog.kind === "DeploymentEvent" && (
+        <div className="m-2 mt-0 animate-fadeInFromLoading rounded-md border bg-background-secondary">
+          <div className="px-2 pt-2 pb-2">
+            <p className="mb-1 text-xs font-semibold">Deployment Event</p>
+            <DeploymentEventContent
+              event={selectedLog.deploymentEvent}
+              inPanel
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Selected Log Output - show when a log is selected and it's not a completion */}
+      {selectedLog.kind === "ExecutionLog" &&
+        selectedLog.executionLog.kind === "log" && (
+          <LogMessageCard
+            output={selectedLog.executionLog.output}
+            isError={selectedLog.executionLog.output.level === "ERROR"}
+          />
+        )}
+
+      {/* Error message for outcome logs with errors */}
+      {selectedLog.kind === "ExecutionLog" &&
+        selectedLog.executionLog.kind === "outcome" &&
+        selectedLog.executionLog.error && (
+          <LogMessageCard
+            output={{
+              isTruncated: false,
+              messages: [selectedLog.executionLog.error],
+              level: "FAILURE",
+            }}
+            title="Error"
+            isError
+          />
+        )}
+    </>
+  );
+
+  // If both sections exist, use resizable panels
+  if (hasLogOutput && showTabs) {
+    return (
+      <PanelGroup direction="vertical" autoSaveId="log-drilldown-content">
+        {/* First Panel: Deployment Event or Log Output/Error */}
+        <Panel
+          id="log-output-panel"
+          order={0}
+          defaultSize={50}
+          minSize={10}
+          className="max-h-fit"
+        >
+          <div className="h-full overflow-hidden pt-2">{renderLogOutput()}</div>
+        </Panel>
+
+        {/* Resize Handle */}
+        <PanelResizeHandle
+          className="group relative"
+          hitAreaMargins={{ coarse: 8, fine: 8 }}
+        >
+          <div className="flex h-2 items-center justify-center bg-background-primary/70 transition-all group-hover:bg-util-accent/10">
+            <DotFilledIcon className="text-content-tertiary/50" />
+          </div>
+        </PanelResizeHandle>
+
+        {/* Second Panel: Tabs */}
+        <Panel
+          id="log-tabs-panel"
+          order={1}
+          defaultSize={50}
+          minSize={20}
+          className="pb-2"
+        >
+          {renderTabs(selectedLog.executionLog, "h-full")}
+        </Panel>
+      </PanelGroup>
+    );
+  }
+
+  // Otherwise, render without PanelGroup
+  return (
+    <div className="my-2">
+      {hasLogOutput && renderLogOutput()}
+      {showTabs && renderTabs(selectedLog.executionLog, "grow")}
+    </div>
   );
 }

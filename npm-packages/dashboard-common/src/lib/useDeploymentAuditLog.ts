@@ -101,7 +101,10 @@ export function useDeploymentAuditLogs(
       loadMore(initialNumItems);
     }
   }, [loadMore, status]);
-  return results ? results.reverse() : undefined;
+  return results
+    ? // build_indexes events are redundant
+      results.reverse().filter((event) => event.action !== "build_indexes")
+    : undefined;
 }
 
 export type DeploymentAuditLogFilters = {

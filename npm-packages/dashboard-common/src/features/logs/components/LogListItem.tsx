@@ -49,6 +49,11 @@ export function LogListItem({
   useHotkeys(
     ["meta+c", "ctrl+c"],
     (e) => {
+      const selection = window.getSelection();
+      if (selection !== null && !selection.isCollapsed) {
+        // The user has selected some text, so let them copy the text they selected.
+        return;
+      }
       e.preventDefault();
       const logText = formatLogToString(log);
       void navigator.clipboard.writeText(logText);
@@ -58,7 +63,7 @@ export function LogListItem({
       enabled: focused,
       preventDefault: true,
     },
-    [log, focused, setShownLog],
+    [log, focused],
   );
 
   const isFailure =
@@ -80,12 +85,7 @@ export function LogListItem({
         height: ITEM_SIZE,
       }}
     >
-      <Wrapper
-        setShownLog={setShownLog}
-        onFocus={setShownLog}
-        logKey={logKey}
-        ref={wrapperRef}
-      >
+      <Wrapper setShownLog={setShownLog} logKey={logKey} ref={wrapperRef}>
         <div className={classNames("flex gap-4 items-center", "p-0.5 ml-2")}>
           <div className="min-w-[9.25rem] text-left whitespace-nowrap">
             {log.localizedTimestamp}
@@ -186,10 +186,9 @@ const Wrapper = React.forwardRef<
   {
     children: React.ReactNode;
     setShownLog: () => void;
-    onFocus?: () => void;
     logKey?: string;
   }
->(function Wrapper({ children, setShownLog, onFocus, logKey }, ref) {
+>(function Wrapper({ children, setShownLog, logKey }, ref) {
   return (
     // We do not use Button here because it's expensive and this table needs to be fast
     // eslint-disable-next-line react/forbid-elements
@@ -201,13 +200,14 @@ const Wrapper = React.forwardRef<
         "flex gap-2 truncate p-0.5 animate-fadeInFromLoading",
         "group w-full font-mono text-xs",
         "hover:bg-background-tertiary/70",
-        "focus:outline-none focus:border focus:border-border-selected",
+        "focus:outline-none focus:border-y focus:border-border-selected",
         "items-center",
         // Make space for the focus outline
         "h-[calc(100%-1px)]",
+        "select-text",
       )}
-      onClick={() => setShownLog()}
-      onFocus={onFocus}
+      onClick={setShownLog}
+      onFocus={setShownLog}
       tabIndex={0}
     >
       {children}
