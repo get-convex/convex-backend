@@ -196,7 +196,7 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
   }, [environmentVariables, formState]);
 
   return (
-    <Form className="flex flex-col">
+    <Form className="flex flex-col [--env-var-contents-height:2.125rem]">
       {environmentVariables === undefined ? (
         <Spinner />
       ) : (
@@ -319,11 +319,9 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
   return (
     <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
       <div className={ENVIRONMENT_VARIABLE_NAME_COLUMN}>
-        <div className="flex items-start font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
-          {environmentVariable.name}
-        </div>
+        <EnvironmentVariableName environmentVariable={environmentVariable} />
       </div>
-      <div className="flex min-h-[2.125rem] min-w-0 items-center gap-1 font-mono">
+      <div className="flex min-h-(--env-var-contents-height) min-w-0 items-center gap-1 font-mono">
         <Button
           tip={showValue ? "Hide" : "Show"}
           type="button"
@@ -349,7 +347,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           )}
         </div>
       </div>
-      <div className="flex h-[2.125rem] justify-between gap-2">
+      <div className="flex h-(--env-var-contents-height) justify-between gap-2">
         <Button
           tip={
             !hasAdminPermissions
@@ -407,16 +405,14 @@ function DeletedEnvVar<T extends BaseEnvironmentVariable>({
       <div
         className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
       >
-        <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
-          {environmentVariable.name}
-        </div>
+        <EnvironmentVariableName environmentVariable={environmentVariable} />
       </div>
-      <div className="flex h-[2.375rem] items-center justify-center gap-1 rounded-md border bg-background-error text-content-error">
+      <div className="flex h-(--env-var-contents-height) items-center justify-center gap-1 rounded-md border bg-background-error text-content-error">
         <MinusCircledIcon /> Will be deleted
       </div>
       <Button
         variant="neutral"
-        className="min-h-[2.125rem] w-full justify-center"
+        className="min-h-(--env-var-contents-height) w-full justify-center"
         size="sm"
         onClick={() => onCancelDelete()}
         disabled={formState.isSubmitting}
@@ -424,6 +420,18 @@ function DeletedEnvVar<T extends BaseEnvironmentVariable>({
       >
         Restore
       </Button>
+    </div>
+  );
+}
+
+function EnvironmentVariableName<T extends BaseEnvironmentVariable>({
+  environmentVariable,
+}: {
+  environmentVariable: T;
+}) {
+  return (
+    <div className="flex items-start font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
+      {environmentVariable.name}
     </div>
   );
 }
@@ -476,7 +484,7 @@ function EditEnvVarForm<T extends BaseEnvironmentVariable>({
         <Button
           type="button"
           variant="neutral"
-          className="h-fit min-h-[2.125rem] w-full justify-center"
+          className="h-fit min-h-(--env-var-contents-height) w-full justify-center"
           size="sm"
           onClick={() => onCancelEdit()}
           disabled={formState.isSubmitting}
@@ -910,7 +918,7 @@ function EnvVarValueInput({
 
   const textareaClasses = `
     w-full
-    min-h-[2.125rem]
+    min-h-(--env-var-contents-height)
     font-mono
     block
     rounded-md
