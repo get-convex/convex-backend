@@ -49,10 +49,7 @@ import {
   deploymentSelectionWithinProjectFromOptions,
   loadSelectedDeploymentCredentials,
 } from "./api.js";
-import {
-  FinishPushDiff,
-  DeveloperIndexConfig,
-} from "./deployApi/finishPush.js";
+import { FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import {
   DEFINITION_FILENAME_JS,
@@ -60,6 +57,8 @@ import {
 } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
+import { formatIndex } from "./indexes.js";
+
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
   // Default to `.ts` but fallback to `.js` if not present.
   let componentRootPath = path.resolve(
@@ -504,7 +503,7 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
-    const addedStaged = rootDiff.added_indexes.filter((i) => i.staged);
+
     const addedEnabled = rootDiff.added_indexes.filter((i) => !i.staged);
     if (addedEnabled.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} table indexes:\n`;
@@ -514,6 +513,8 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
+
+    const addedStaged = rootDiff.added_indexes.filter((i) => i.staged);
     if (addedStaged.length > 0) {
       let msg = `${opts.dryRun ? "Would add" : "Added"} staged table indexes:\n`;
       for (const index of addedStaged) {
@@ -522,11 +523,13 @@ function printDiff(
           opts.deploymentName,
           `/data?table=${table}&showIndexes=true`,
         );
-        msg += `  [+] ${formatIndex(index)}, see progress: ${progressLink}\n`;
+        msg += `  [+] ${formatIndex(index)}\n`;
+        msg += `      See progress: ${progressLink}\n`;
       }
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
+
     if (rootDiff.enabled_indexes && rootDiff.enabled_indexes.length > 0) {
       let msg = opts.dryRun
         ? `These indexes would be enabled:\n`
@@ -537,6 +540,7 @@ function printDiff(
       msg = msg.slice(0, -1); // strip last new line
       logFinishedStep(msg);
     }
+
     if (rootDiff.disabled_indexes && rootDiff.disabled_indexes.length > 0) {
       let msg = opts.dryRun
         ? `These indexes would be staged:\n`
@@ -564,8 +568,4 @@ function printDiff(
       logFinishedStep(`Remounted component ${componentPath}.`);
     }
   }
-}
-
-function formatIndex(index: DeveloperIndexConfig) {
-  return `${index.name}`;
 }
