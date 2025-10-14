@@ -791,7 +791,7 @@ function NewEnvVar({
         onClick={() => {
           onDelete();
         }}
-        className="w-fit"
+        className="min-h-[2.125rem] w-fit self-start"
         variant="neutral"
         size="sm"
         icon={<MinusCircledIcon />}
