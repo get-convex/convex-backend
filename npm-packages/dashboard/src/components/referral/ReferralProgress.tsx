@@ -10,7 +10,7 @@ export function ReferralProgress({ referralState }: ReferralProgressProps) {
   const referralsComplete = referralsCount >= 5;
 
   return (
-    <>
+    <div className="hidden flex-col gap-1 md:flex">
       {!referralsComplete ? (
         <>
           <ProgressBar
@@ -28,6 +28,6 @@ export function ReferralProgress({ referralState }: ReferralProgressProps) {
           🎉 Congrats, your app limits have been boosted 5 times!
         </p>
       )}
-    </>
+    </div>
   );
 }
