@@ -99,11 +99,14 @@ use crate::{
 
 mod metrics;
 
-// Maximum age of results to tolerate if they're time-dependent.
-pub const MAX_CACHE_AGE: Duration = Duration::from_secs(5);
-
 static TOTAL_QUERY_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| *DATABASE_UDF_USER_TIMEOUT + *DATABASE_UDF_SYSTEM_TIMEOUT);
+
+/// Maximum age of results to tolerate if they're time-dependent.
+/// This should be at least `TOTAL_QUERY_TIMEOUT` or else long queries will
+/// loop.
+static MAX_CACHE_AGE: LazyLock<Duration> =
+    LazyLock::new(|| *TOTAL_QUERY_TIMEOUT + Duration::from_secs(1));
 
 #[derive(Clone)]
 pub struct CacheManager<RT: Runtime> {
@@ -671,7 +674,7 @@ impl<RT: Runtime> CacheManager<RT> {
             let sys_now = self.rt.unix_timestamp();
             let cached_time = result.outcome.unix_timestamp;
             match sys_now.checked_sub(cached_time) {
-                Some(entry_age) if entry_age > MAX_CACHE_AGE => {
+                Some(entry_age) if entry_age > *MAX_CACHE_AGE => {
                     tracing::debug!(
                         "Log entry for {:?} used system time and is too old ({:?}), retrying...",
                         key,
