@@ -1036,11 +1036,6 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_ISOLATE_ACTIVE_THREADS", 0));
 
-/// The maximum length of time to wait to start running a function (when the
-/// FUNRUN_ISOLATE_ACTIVE_THREADS limit is reached).
-pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("FUNRUN_INITIAL_PERMIT_TIMEOUT_MS", 100)));
-
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
 /// knob doesn't delay deploys that are required due to the user pushing new
 /// node actions. Only affects deploys on startup triggered by changes to
