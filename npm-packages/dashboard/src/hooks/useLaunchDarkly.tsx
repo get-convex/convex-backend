@@ -4,9 +4,11 @@ import kebabCase from "lodash/kebabCase";
 const flagDefaults: {
   commandPalette: boolean;
   commandPaletteDeleteProjects: boolean;
+  singleSignOn: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
+  singleSignOn: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

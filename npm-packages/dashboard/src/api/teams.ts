@@ -131,3 +131,55 @@ export function useUnpauseTeam(teamId: number) {
     successToast: "Your team has been restored.",
   });
 }
+
+export function useGetSSO(teamId: number | undefined) {
+  const { data: ssoOrganization } = useBBQuery({
+    path: "/teams/{team_id}/get_sso",
+    pathParams: {
+      team_id: teamId?.toString() || "",
+    },
+  });
+  return ssoOrganization;
+}
+
+export function useEnableSSO(teamId: number) {
+  return useBBMutation({
+    path: `/teams/{team_id}/enable_sso`,
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+    mutateKey: "/teams/{team_id}/get_sso",
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "SSO has been enabled for your team.",
+  });
+}
+
+export function useUpdateSSODomain(teamId: number) {
+  return useBBMutation({
+    path: `/teams/{team_id}/update_sso_domain`,
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+    mutateKey: "/teams/{team_id}/get_sso",
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "SSO domain has been updated.",
+  });
+}
+
+export function useDisableSSO(teamId: number) {
+  return useBBMutation({
+    path: `/teams/{team_id}/disable_sso`,
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+    mutateKey: "/teams/{team_id}/get_sso",
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "SSO has been disabled for your team.",
+  });
+}

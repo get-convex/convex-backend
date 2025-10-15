@@ -2229,8 +2229,13 @@ export interface components {
         };
         /** @enum {string} */
         Role: "admin" | "developer";
+        SSOOrganizationDomain: {
+            domain: string;
+            id: string;
+        };
         SSOOrganizationResponse: {
             createdAt: string;
+            domains: components["schemas"]["SSOOrganizationDomain"][];
             id: string;
             name: string;
             updatedAt: string;
@@ -2538,6 +2543,7 @@ export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
+export type SsoOrganizationDomain = components['schemas']['SSOOrganizationDomain'];
 export type SsoOrganizationResponse = components['schemas']['SSOOrganizationResponse'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];

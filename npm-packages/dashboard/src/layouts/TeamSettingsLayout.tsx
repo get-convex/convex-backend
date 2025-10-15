@@ -7,6 +7,7 @@ import Head from "next/head";
 import React from "react";
 import { Team } from "generatedApi";
 import { SidebarLink } from "@common/elements/Sidebar";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export function TeamSettingsLayout({
   page: selectedPage,
@@ -21,15 +22,17 @@ export function TeamSettingsLayout({
     | "audit-log"
     | "referrals"
     | "access-tokens"
-    | "applications";
+    | "applications"
+    | "sso";
   Component: React.FunctionComponent<{ team: Team }>;
   title: string;
 }) {
   const selectedTeam = useCurrentTeam();
 
-  const auditLogsEnabled = useTeamEntitlements(
-    selectedTeam?.id,
-  )?.auditLogsEnabled;
+  const entitlements = useTeamEntitlements(selectedTeam?.id);
+  const auditLogsEnabled = entitlements?.auditLogsEnabled;
+
+  const { singleSignOn } = useLaunchDarkly();
 
   const pages = [
     "general",
@@ -88,6 +91,14 @@ export function TeamSettingsLayout({
             >
               Audit Log
             </SidebarLink>
+            {singleSignOn && (
+              <SidebarLink
+                isActive={selectedPage === "sso"}
+                href={`/t/${selectedTeam?.slug}/settings/sso`}
+              >
+                Single Sign-On
+              </SidebarLink>
+            )}
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
             <div className="flex max-w-[65rem] flex-col gap-6 p-6">

@@ -19,7 +19,7 @@ type InputProps = {
   iconTooltip?: string;
   /** The action on `Icon`. */
   action?: () => void;
-  error?: string;
+  error?: React.ReactNode;
   description?: React.ReactNode;
   id: string;
   type?: "text" | "search" | "email" | "time" | "password" | "number";
