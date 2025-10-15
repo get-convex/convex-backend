@@ -726,7 +726,9 @@ impl<RT: Runtime> MySqlReader<RT> {
             let stream_result = match client.query_stream(query, params, page_size as usize).await {
                 Ok(stream) => Ok(stream),
                 Err(ref e)
-                    if let Some(db_err) = e.downcast_ref::<mysql_async::ServerError>()
+                    if let Some(db_err) = e
+                        .chain()
+                        .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
                         && db_err.state == "HY000"
                         && db_err.code == 1105
                         && db_err
@@ -891,7 +893,9 @@ impl<RT: Runtime> MySqlReader<RT> {
                 {
                     Ok(stream) => Ok(stream),
                     Err(ref e)
-                        if let Some(db_err) = e.downcast_ref::<mysql_async::ServerError>()
+                        if let Some(db_err) = e
+                            .chain()
+                            .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
                             && db_err.state == "HY000"
                             && db_err.code == 1105
                             && db_err
