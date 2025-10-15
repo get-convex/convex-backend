@@ -585,6 +585,15 @@ function EntryAction({
     case "retrieveWorkosEnvironmentCredentials": {
       return <span>retrieve WorkOS Environment credentials</span>;
     }
+    case "enableSSO": {
+      return <span>enabled SSO</span>;
+    }
+    case "disableSSO": {
+      return <span>disabled SSO</span>;
+    }
+    case "updateSSODomain": {
+      return <span>updated the SSO domain</span>;
+    }
     default:
       action satisfies never;
       captureMessage(`Unhandled audit log action: ${action}`, "error");

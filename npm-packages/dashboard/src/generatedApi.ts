@@ -1645,6 +1645,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/enable_sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enable_sso"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/get_sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_sso"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/update_sso_domain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["update_sso_domain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/disable_sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disable_sso"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1676,7 +1740,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "enableSSO" | "updateSSODomain" | "disableSSO";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1899,6 +1963,9 @@ export interface components {
             percentOff: number;
             planId: string;
             requiresPaymentMethod: boolean;
+        };
+        EnableSSORequest: {
+            domain: string;
         };
         EnvVariableConfigJson: {
             deploymentTypes: components["schemas"]["DeploymentType"][];
@@ -2162,6 +2229,12 @@ export interface components {
         };
         /** @enum {string} */
         Role: "admin" | "developer";
+        SSOOrganizationResponse: {
+            createdAt: string;
+            id: string;
+            name: string;
+            updatedAt: string;
+        };
         /** @description ConvexAccessToken is our own internal notion of authorization.
          *     It is versioned.
          *
@@ -2309,6 +2382,9 @@ export interface components {
         UpdateProjectRolesArgs: {
             updates: components["schemas"]["ProjectRoleUpdateArg"][];
         };
+        UpdateSSODomainRequest: {
+            domain: string;
+        };
         UpdateTeamArgs: {
             name?: null | components["schemas"]["ProposedTeamName"];
             slug?: null | components["schemas"]["TeamSlug"];
@@ -2408,6 +2484,7 @@ export type DiscordAccountsResponse = components['schemas']['DiscordAccountsResp
 export type DiscordId = components['schemas']['DiscordId'];
 export type DiscordLoginUrlResponse = components['schemas']['DiscordLoginUrlResponse'];
 export type DiscountedPlanResponse = components['schemas']['DiscountedPlanResponse'];
+export type EnableSsoRequest = components['schemas']['EnableSSORequest'];
 export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson'];
 export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
@@ -2461,6 +2538,7 @@ export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
+export type SsoOrganizationResponse = components['schemas']['SSOOrganizationResponse'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
@@ -2487,6 +2565,7 @@ export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethod
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
 export type UpdateProjectArgs = components['schemas']['UpdateProjectArgs'];
 export type UpdateProjectRolesArgs = components['schemas']['UpdateProjectRolesArgs'];
+export type UpdateSsoDomainRequest = components['schemas']['UpdateSSODomainRequest'];
 export type UpdateTeamArgs = components['schemas']['UpdateTeamArgs'];
 export type UsageState = components['schemas']['UsageState'];
 export type ValidateReferralCodeResult = components['schemas']['ValidateReferralCodeResult'];
@@ -4775,6 +4854,100 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProvisionWorkOSTeamResponse"];
                 };
+            };
+        };
+    };
+    enable_sso: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnableSSORequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOOrganizationResponse"];
+                };
+            };
+        };
+    };
+    get_sso: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": null | components["schemas"]["SSOOrganizationResponse"];
+                };
+            };
+        };
+    };
+    update_sso_domain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSSODomainRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOOrganizationResponse"];
+                };
+            };
+        };
+    };
+    disable_sso: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

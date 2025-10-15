@@ -120,12 +120,53 @@ pub struct WorkOSErrorResponse {
     pub message: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WorkOSOrganizationResponse {
+    /// always "organization"
+    pub object: String,
+    /// like "org_01K5DJZVGQ4JM58YS3VC5QD3"
+    pub id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub domains: Vec<WorkOSOrganizationDomain>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WorkOSOrganizationDomain {
+    pub object: String,
+    pub id: String,
+    pub domain: String,
+}
+
 #[async_trait]
 pub trait WorkOSClient: Send + Sync {
     async fn fetch_identities(&self, user_id: &str) -> anyhow::Result<Vec<WorkOSIdentity>>;
     async fn fetch_user(&self, user_id: &str) -> anyhow::Result<WorkOSUser>;
     async fn delete_user(&self, user_id: &str) -> anyhow::Result<()>;
     async fn update_user_metadata(&self, user_id: &str, member_id: MemberId) -> anyhow::Result<()>;
+
+    // Organization methods
+    async fn create_organization(
+        &self,
+        name: &str,
+        external_id: &str,
+        domain: &str,
+    ) -> anyhow::Result<WorkOSOrganizationResponse>;
+    async fn get_organization(
+        &self,
+        external_id: &str,
+    ) -> anyhow::Result<Option<WorkOSOrganizationResponse>>;
+    async fn update_organization(
+        &self,
+        organization_id: &str,
+        name: Option<&str>,
+        domain: Option<&str>,
+    ) -> anyhow::Result<WorkOSOrganizationResponse>;
+    async fn delete_organization(&self, organization_id: &str) -> anyhow::Result<()>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -196,6 +237,43 @@ where
     async fn update_user_metadata(&self, user_id: &str, member_id: MemberId) -> anyhow::Result<()> {
         update_workos_user_metadata(&self.api_key, user_id, member_id, &*self.http_client).await
     }
+
+    async fn create_organization(
+        &self,
+        name: &str,
+        external_id: &str,
+        domain: &str,
+    ) -> anyhow::Result<WorkOSOrganizationResponse> {
+        create_workos_organization(&self.api_key, name, external_id, domain, &*self.http_client)
+            .await
+    }
+
+    async fn get_organization(
+        &self,
+        external_id: &str,
+    ) -> anyhow::Result<Option<WorkOSOrganizationResponse>> {
+        get_workos_organization_by_external_id(&self.api_key, external_id, &*self.http_client).await
+    }
+
+    async fn update_organization(
+        &self,
+        organization_id: &str,
+        name: Option<&str>,
+        domain: Option<&str>,
+    ) -> anyhow::Result<WorkOSOrganizationResponse> {
+        update_workos_organization(
+            &self.api_key,
+            organization_id,
+            name,
+            domain,
+            &*self.http_client,
+        )
+        .await
+    }
+
+    async fn delete_organization(&self, organization_id: &str) -> anyhow::Result<()> {
+        delete_workos_organization(&self.api_key, organization_id, &*self.http_client).await
+    }
 }
 
 pub struct MockWorkOSClient;
@@ -250,6 +328,72 @@ impl WorkOSClient for MockWorkOSClient {
         _user_id: &str,
         _member_id: MemberId,
     ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn create_organization(
+        &self,
+        name: &str,
+        external_id: &str,
+        domain: &str,
+    ) -> anyhow::Result<WorkOSOrganizationResponse> {
+        Ok(WorkOSOrganizationResponse {
+            object: "organization".to_string(),
+            id: "org_mock123".to_string(),
+            name: name.to_string(),
+            external_id: Some(external_id.to_string()),
+            created_at: "2024-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2024-01-01T00:00:00.000Z".to_string(),
+            domains: vec![WorkOSOrganizationDomain {
+                object: "organization_domain".to_string(),
+                id: "org_domain_mock123".to_string(),
+                domain: domain.to_string(),
+            }],
+        })
+    }
+
+    async fn get_organization(
+        &self,
+        external_id: &str,
+    ) -> anyhow::Result<Option<WorkOSOrganizationResponse>> {
+        // Mock returns a simple organization for any external_id
+        Ok(Some(WorkOSOrganizationResponse {
+            object: "organization".to_string(),
+            id: "org_mock123".to_string(),
+            name: format!("Mock Organization for {external_id}"),
+            external_id: Some(external_id.to_string()),
+            created_at: "2024-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2024-01-01T00:00:00.000Z".to_string(),
+            domains: vec![],
+        }))
+    }
+
+    async fn update_organization(
+        &self,
+        organization_id: &str,
+        name: Option<&str>,
+        domain: Option<&str>,
+    ) -> anyhow::Result<WorkOSOrganizationResponse> {
+        Ok(WorkOSOrganizationResponse {
+            object: "organization".to_string(),
+            id: organization_id.to_string(),
+            name: name.unwrap_or("Mock Organization").to_string(),
+            external_id: Some("mock_external_id".to_string()),
+            created_at: "2024-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2024-01-01T00:01:00.000Z".to_string(),
+            domains: domain
+                .map(|d| {
+                    vec![WorkOSOrganizationDomain {
+                        object: "organization_domain".to_string(),
+                        id: "org_domain_mock123".to_string(),
+                        domain: d.to_string(),
+                    }]
+                })
+                .unwrap_or_default(),
+        })
+    }
+
+    async fn delete_organization(&self, _organization_id: &str) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -761,6 +905,252 @@ where
         })?;
 
     Ok(api_key_response)
+}
+
+pub async fn create_workos_organization<F, E>(
+    api_key: &str,
+    name: &str,
+    external_id: &str,
+    domain: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<WorkOSOrganizationResponse>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    #[derive(Serialize)]
+    struct DomainData {
+        domain: String,
+        state: String,
+    }
+
+    #[derive(Serialize)]
+    struct CreateOrganizationRequest {
+        name: String,
+        external_id: String,
+        domain_data: Vec<DomainData>,
+    }
+
+    let request_body = CreateOrganizationRequest {
+        name: name.to_string(),
+        external_id: external_id.to_string(),
+        domain_data: vec![DomainData {
+            domain: domain.to_string(),
+            state: "pending".to_string(),
+        }],
+    };
+
+    let url = "https://api.workos.com/organizations";
+
+    let request = http::Request::builder()
+        .uri(url)
+        .method(http::Method::POST)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(serde_json::to_vec(&request_body)?)?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not create WorkOS organization: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "create organization",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let organization: WorkOSOrganizationResponse = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS organization response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(organization)
+}
+
+pub async fn get_workos_organization_by_external_id<F, E>(
+    api_key: &str,
+    external_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Option<WorkOSOrganizationResponse>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    #[derive(Deserialize)]
+    struct ListOrganizationsResponse {
+        data: Vec<WorkOSOrganizationResponse>,
+    }
+
+    let url = format!("https://api.workos.com/organizations");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = http_client(request)
+        .await
+        .map_err(|e| anyhow::anyhow!("Could not fetch WorkOS organizations: {}", e))?;
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "list organizations",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let organizations: ListOrganizationsResponse = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS organizations response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    // Find organization with matching external_id
+    Ok(organizations.data.into_iter().find(|org| {
+        org.external_id
+            .as_ref()
+            .map(|id| id == external_id)
+            .unwrap_or(false)
+    }))
+}
+
+pub async fn update_workos_organization<F, E>(
+    api_key: &str,
+    organization_id: &str,
+    name: Option<&str>,
+    domain: Option<&str>,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<WorkOSOrganizationResponse>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    #[derive(Serialize)]
+    struct DomainData {
+        domain: String,
+        state: String,
+    }
+
+    #[derive(Serialize)]
+    struct UpdateOrganizationRequest {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        domain_data: Option<Vec<DomainData>>,
+    }
+
+    let request_body = UpdateOrganizationRequest {
+        name: name.map(|n| n.to_string()),
+        domain_data: domain.map(|d| {
+            vec![DomainData {
+                domain: d.to_string(),
+                state: "pending".to_string(),
+            }]
+        }),
+    };
+
+    let url = format!("https://api.workos.com/organizations/{organization_id}");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::PUT)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(serde_json::to_vec(&request_body)?)?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not update WorkOS organization: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "update organization",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let organization: WorkOSOrganizationResponse = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS organization response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(organization)
+}
+
+pub async fn delete_workos_organization<F, E>(
+    api_key: &str,
+    organization_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<()>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!("https://api.workos.com/organizations/{organization_id}");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::DELETE)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = http_client(request)
+        .await
+        .map_err(|e| anyhow::anyhow!("Could not delete WorkOS organization: {}", e))?;
+
+    if response.status() != http::StatusCode::OK && response.status() != http::StatusCode::ACCEPTED
+    {
+        if response.status() == http::StatusCode::NOT_FOUND {
+            return Ok(());
+        }
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "delete organization",
+            status,
+            &response_body
+        ));
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
