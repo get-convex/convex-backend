@@ -29,7 +29,7 @@ import { cn } from "@ui/cn";
 const MAX_NUMBER_OF_ENV_VARS = 100;
 
 export const ENVIRONMENT_VARIABLES_ROW_CLASSES =
-  "grid grid-cols-[minmax(0,1fr)_6.5rem] gap-4 py-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem]";
+  "grid grid-cols-[minmax(0,1fr)_6.5rem] gap-x-4 gap-y-2 py-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6.5rem]";
 export const ENVIRONMENT_VARIABLE_NAME_COLUMN = "col-span-2 md:col-span-1";
 
 const ERROR_ENV_VAR_NOT_UNIQUE = "Environment variable name is not unique";
@@ -431,7 +431,7 @@ function EnvironmentVariableName<T extends BaseEnvironmentVariable>({
   environmentVariable: T;
 }) {
   return (
-    <div className="flex items-start font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
+    <div className="flex min-h-(--env-var-contents-height) items-center font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
       {environmentVariable.name}
     </div>
   );
@@ -800,7 +800,7 @@ function NewEnvVar({
         onClick={() => {
           onDelete();
         }}
-        className="min-h-[2.125rem] w-fit self-start"
+        className="min-h-(--env-var-contents-height) w-fit self-start"
         variant="neutral"
         size="sm"
         icon={<MinusCircledIcon />}
