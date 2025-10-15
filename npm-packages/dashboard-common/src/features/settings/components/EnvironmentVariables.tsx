@@ -854,26 +854,26 @@ function EnvVarValueInput({
   const formState = useFormikContext();
   const error = (formState.errors as Record<string, string>)[formKey];
   const value = getIn(formState.values, formKey) as string;
-  const touched = getIn(formState.touched, formKey);
+  const touched = Boolean(getIn(formState.touched, formKey));
 
   const hasAnyWhitespace = /\s/.test(value);
   const hasLeadingOrTrailingWhitespace =
     value.length > 0 && value !== value.trim();
   const hasReturnCharacter = value.includes("\n");
 
-  // Build whitespace error message
-  let whitespaceError = "";
+  // Build whitespace warning message
+  let whitespaceWarning = "";
   if (hasLeadingOrTrailingWhitespace || hasReturnCharacter) {
     const hasLeading = value !== value.trimStart();
     const hasTrailing = value !== value.trimEnd();
     if (hasLeading && hasTrailing) {
-      whitespaceError = "This value has leading and trailing whitespace.";
+      whitespaceWarning = "This value has leading and trailing whitespace.";
     } else if (hasLeading) {
-      whitespaceError = "This value has leading whitespace.";
+      whitespaceWarning = "This value has leading whitespace.";
     } else if (hasTrailing) {
-      whitespaceError = "This value has trailing whitespace.";
+      whitespaceWarning = "This value has trailing whitespace.";
     } else {
-      whitespaceError = "This value contains return characters.";
+      whitespaceWarning = "This value contains return characters.";
     }
   }
 
@@ -892,7 +892,7 @@ function EnvVarValueInput({
       const isTrailing = i >= value.length - trailingCount;
       const colorClass =
         isSpace && (isLeading || isTrailing)
-          ? "text-content-errorSecondary bg-background-error/60"
+          ? "text-content-warning bg-background-warning/60"
           : isSpace
             ? "text-content-tertiary/50"
             : "text-transparent";
@@ -902,9 +902,18 @@ function EnvVarValueInput({
     }
   }
 
-  // Combine validation error with whitespace error
-  const displayError = error || whitespaceError;
-  const hasError = Boolean((touched || whitespaceError) && displayError);
+  const { hint, hintStyle } =
+    touched && error
+      ? {
+          hint: error,
+          hintStyle: "error" as const,
+        }
+      : whitespaceWarning
+        ? {
+            hint: whitespaceWarning,
+            hintStyle: "warning" as const,
+          }
+        : { hint: null, hintStyle: null };
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -931,9 +940,11 @@ function EnvVarValueInput({
             "font-mono text-sm break-all whitespace-break-spaces placeholder-content-tertiary",
             "focus:outline-hidden",
             "disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
-            hasError
+            hintStyle === "error"
               ? "focus:border-content-error"
-              : "text-content-primary focus:border-border-selected",
+              : hintStyle === "warning"
+                ? "focus:border-content-warning"
+                : "text-content-primary focus:border-border-selected",
           )}
           disabled={formState.isSubmitting}
           {...formState.getFieldProps(formKey)}
@@ -955,12 +966,17 @@ function EnvVarValueInput({
           </pre>
         )}
       </div>
-      {hasError && displayError && (
+      {hint && (
         <p
-          className="mt-1 flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words text-content-errorSecondary"
+          className={cn(
+            "mt-1 flex max-w-full animate-fadeInFromLoading gap-1 text-xs break-words",
+            hintStyle === "error"
+              ? "text-content-errorSecondary"
+              : "text-content-warning",
+          )}
           role="alert"
         >
-          {displayError}
+          {hint}
         </p>
       )}
     </>
