@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tshy",
-    "test": "vitest run",
+    "test": "vitest run && node src/scripts/check-version.mjs",
     "test:types": "tsc --noEmit",
     "test:watch": "vitest",
     "prepare": "tshy",
