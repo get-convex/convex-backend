@@ -24,6 +24,7 @@ import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
 import { copyTextToClipboard, toast } from "@common/lib/utils";
 import { TextInput } from "@ui/TextInput";
+import { cn } from "@ui/cn";
 
 const MAX_NUMBER_OF_ENV_VARS = 100;
 
@@ -916,38 +917,24 @@ function EnvVarValueInput({
     }
   }, [value]);
 
-  const textareaClasses = `
-    w-full
-    min-h-(--env-var-contents-height)
-    font-mono
-    block
-    rounded-md
-    bg-background-secondary
-    p-1.5
-    whitespace-break-spaces
-    px-2
-    text-sm
-    border
-    placeholder-content-tertiary
-    focus:outline-hidden
-    disabled:bg-background-tertiary
-    disabled:text-content-secondary
-    break-all
-    disabled:cursor-not-allowed
-    resize-none
-    overflow-hidden
-    ${hasError ? "focus:border-content-error" : "text-content-primary focus:border-border-selected"}
-  `
-    .trim()
-    .replace(/\s+/g, " ");
-
   return (
     <>
       <div className="relative overflow-hidden">
         <textarea
           ref={textareaRef}
           id={id}
-          className={textareaClasses}
+          className={cn(
+            "block min-h-(--env-var-contents-height) w-full",
+            "resize-none",
+            "overflow-hidden rounded-md border bg-background-secondary",
+            "px-2 py-1.5",
+            "font-mono text-sm break-all whitespace-break-spaces placeholder-content-tertiary",
+            "focus:outline-hidden",
+            "disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
+            hasError
+              ? "focus:border-content-error"
+              : "text-content-primary focus:border-border-selected",
+          )}
           disabled={formState.isSubmitting}
           {...formState.getFieldProps(formKey)}
           autoComplete="off"
