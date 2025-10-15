@@ -4,13 +4,7 @@ use std::{
         BTreeSet,
     },
     fmt::Display,
-    sync::{
-        atomic::{
-            AtomicU64,
-            Ordering,
-        },
-        Arc,
-    },
+    sync::Arc,
     time::Duration,
 };
 
@@ -33,6 +27,10 @@ use common::{
         RetentionValidator,
         TimestampRange,
     },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
+    },
     query::Order,
     runtime::{
         new_rate_limiter,
@@ -50,9 +48,13 @@ use common::{
     value::TabletId,
 };
 use futures::{
-    future,
+    future::{
+        self,
+    },
     pin_mut,
-    stream,
+    stream::{
+        self,
+    },
     Stream,
     StreamExt,
     TryStreamExt,
@@ -62,15 +64,15 @@ use indexing::index_registry::IndexRegistry;
 use maplit::btreeset;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
+use value::InternalDocumentId;
 
 use crate::{
-    bootstrap_model::index_backfills::IndexBackfillModel,
     retention::LeaderRetentionManager,
-    Database,
     TableIterator,
 };
 
 pub const PERFORM_BACKFILL_LABEL: &str = "perform_backfill";
+pub const UPDATE_BACKFILL_PROGRESS_LABEL: &str = "update_backfill_progress";
 
 #[derive(Clone)]
 pub enum IndexSelector {
@@ -123,7 +125,8 @@ impl IndexSelector {
     fn index_ids(&self) -> impl Iterator<Item = IndexId> {
         let indexes: BTreeSet<_> = match self {
             Self::All(index_registry) => index_registry
-                .all_indexes()
+                .all_database_indexes()
+                .into_iter()
                 .map(|doc| doc.id().internal_id())
                 .collect(),
             Self::ManyIndexes { indexes, .. } => indexes.keys().copied().collect(),
@@ -148,6 +151,14 @@ pub struct IndexWriter<RT: Runtime> {
     retention_validator: Arc<dyn RetentionValidator>,
     rate_limiter: Arc<RateLimiter<RT>>,
     runtime: RT,
+    progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
+}
+
+pub struct TabletBackfillProgress {
+    pub tablet_id: TabletId,
+    pub index_ids: Vec<IndexId>,
+    pub _cursor: InternalDocumentId,
+    pub num_docs_indexed: u64,
 }
 
 impl<RT: Runtime> IndexWriter<RT> {
@@ -156,6 +167,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         reader: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
         runtime: RT,
+        progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
     ) -> Self {
         let entries_per_second =
             INDEX_BACKFILL_CHUNK_RATE.saturating_mul(*INDEX_BACKFILL_CHUNK_SIZE);
@@ -173,6 +185,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 Quota::per_second(entries_per_second),
             )),
             runtime,
+            progress_tx,
         }
     }
 
@@ -206,7 +219,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_metadata: &IndexRegistry,
         index_selector: IndexSelector,
         concurrency: usize,
-        database: Option<Database<RT>>,
     ) -> anyhow::Result<()> {
         let pause_client = self.runtime.pause_client();
         pause_client.wait(PERFORM_BACKFILL_LABEL).await;
@@ -217,7 +229,6 @@ impl<RT: Runtime> IndexWriter<RT> {
             .try_for_each_concurrent(concurrency, |table_id| {
                 let index_metadata = index_metadata.clone();
                 let index_selector = index_selector.clone();
-                let database = database.clone();
                 let self_ = (*self).clone();
                 try_join("index_backfill_table_snapshot", async move {
                     self_
@@ -226,7 +237,6 @@ impl<RT: Runtime> IndexWriter<RT> {
                             &index_selector,
                             &index_metadata,
                             table_id,
-                            database,
                         )
                         .await
                 })
@@ -278,7 +288,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_metadata: &IndexRegistry,
         index_selector: IndexSelector,
         concurrency: usize,
-        database: Option<Database<RT>>,
     ) -> anyhow::Result<()> {
         let pause_client = self.runtime.pause_client();
         pause_client.wait(PERFORM_BACKFILL_LABEL).await;
@@ -286,7 +295,6 @@ impl<RT: Runtime> IndexWriter<RT> {
             .try_for_each_concurrent(concurrency, |table_id| {
                 let index_metadata = index_metadata.clone();
                 let index_selector = index_selector.clone();
-                let database = database.clone();
                 let self_ = (*self).clone();
                 try_join("index_backfill_table_snapshot", async move {
                     self_
@@ -295,7 +303,6 @@ impl<RT: Runtime> IndexWriter<RT> {
                             &index_selector,
                             &index_metadata,
                             table_id,
-                            database,
                         )
                         .await
                 })
@@ -319,7 +326,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &IndexSelector,
         index_registry: &IndexRegistry,
         tablet_id: TabletId,
-        database: Option<Database<RT>>,
     ) -> anyhow::Result<()> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
@@ -330,7 +336,8 @@ impl<RT: Runtime> IndexWriter<RT> {
         );
 
         let (index_update_tx, index_update_rx) = mpsc::channel(32);
-        let num_docs_indexed = AtomicU64::new(0);
+        // Convert document stream into revision pairs, ignoring previous revisions
+        // because we are backfilling at exactly snapshot_ts
         let producer = async {
             let by_id = index_registry.must_get_by_id(tablet_id)?.id();
             let mut stream =
@@ -341,17 +348,16 @@ impl<RT: Runtime> IndexWriter<RT> {
                     value: document,
                     ..
                 } = item;
-                num_docs_indexed.store(
-                    num_docs_indexed.load(Ordering::Relaxed) + 1,
-                    Ordering::Relaxed,
-                );
-                let index_updates = index_registry.index_updates(None, Some(&document));
-                for index_update in index_updates
-                    .into_iter()
-                    .filter(|update| index_selector.filter_index_update(update))
-                {
-                    _ = index_update_tx.send((ts, index_update)).await;
-                }
+                _ = index_update_tx
+                    .send(RevisionPair {
+                        id: document.id().into(),
+                        rev: DocumentRevision {
+                            ts,
+                            document: Some(document),
+                        },
+                        prev_rev: None,
+                    })
+                    .await;
             }
             drop(index_update_tx);
             Ok(())
@@ -359,44 +365,15 @@ impl<RT: Runtime> IndexWriter<RT> {
 
         let consumer = self.write_index_entries(
             format!("for table {tablet_id} at snapshot {snapshot_ts}"),
+            index_registry,
             ReceiverStream::new(index_update_rx),
             index_selector,
             false, /* deduplicate */
         );
-        let report_progress = async {
-            if let Some(db) = database {
-                let mut last_num_docs_indexed = 0;
-                loop {
-                    let num_docs_indexed = num_docs_indexed.load(Ordering::Relaxed);
-                    if num_docs_indexed > last_num_docs_indexed {
-                        let mut tx = db.begin_system().await?;
-                        let mut model = IndexBackfillModel::new(&mut tx);
-                        for index_id in index_selector.index_ids() {
-                            model
-                                .update_index_backfill_progress(
-                                    index_id,
-                                    tablet_id,
-                                    num_docs_indexed - last_num_docs_indexed,
-                                )
-                                .await?;
-                        }
-                        db.commit_with_write_source(tx, "index_worker_backfill_progress")
-                            .await?;
-                        last_num_docs_indexed = num_docs_indexed;
-                    }
-                    self.runtime.wait(*INDEX_BACKFILL_PROGRESS_INTERVAL).await;
-                }
-            } else {
-                future::pending::<anyhow::Result<!>>().await
-            }
-        };
         tokio::select! {
             r = future::try_join(producer, consumer) => {
                 let ((), ()) = r?;
             },
-            r = report_progress => {
-                r?
-            }
         }
         Ok(())
     }
@@ -440,17 +417,14 @@ impl<RT: Runtime> IndexWriter<RT> {
             );
             futures::pin_mut!(revision_stream);
             while let Some(revision_pair) = revision_stream.try_next().await? {
-                let index_updates = index_registry
-                    .index_updates(revision_pair.prev_document(), revision_pair.document());
-                for update in index_updates {
-                    tx.send((revision_pair.ts(), update)).await?;
-                }
+                tx.send(revision_pair).await?;
             }
             drop(tx);
             Ok(())
         };
         let consumer = self.write_index_entries(
             format!("going forward from {start_ts} to {end_ts}"),
+            index_registry,
             ReceiverStream::new(rx),
             index_selector,
             false, /* deduplicate */
@@ -513,11 +487,16 @@ impl<RT: Runtime> IndexWriter<RT> {
                     return ts.succ();
                 }
 
-                let rev_updates = index_registry
-                    .index_updates(revision_pair.prev_document(), revision_pair.document());
-                for update in rev_updates {
-                    tx.send((ts, update)).await?;
-                }
+                let prev_doc_and_ts = if let Some(ref prev_rev) = revision_pair.prev_rev {
+                    if let Some(prev_doc) = prev_rev.document.clone() {
+                        Some((prev_doc, prev_rev.ts))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                tx.send(revision_pair).await?;
 
                 // Let's say we're backfilling backwards and processing a revision for `id`
                 // at `ts`:
@@ -541,13 +520,16 @@ impl<RT: Runtime> IndexWriter<RT> {
                 // process `prev_rev`'s log entry, but setting `ConflictStrategy::Overwrite` and
                 // deduplicating using `BTreeSet` in `write_index_entries`
                 // in `Persistence::write` makes this a no-op.
-                if let Some(ref prev_rev) = revision_pair.prev_rev {
-                    if let Some(ref prev_doc) = prev_rev.document {
-                        let prev_rev_updates = index_registry.index_updates(None, Some(prev_doc));
-                        for update in prev_rev_updates {
-                            tx.send((prev_rev.ts, update)).await?;
-                        }
-                    }
+                if let Some((prev_doc, prev_ts)) = prev_doc_and_ts {
+                    tx.send(RevisionPair {
+                        id: prev_doc.id().into(),
+                        rev: DocumentRevision {
+                            ts: prev_ts,
+                            document: Some(prev_doc),
+                        },
+                        prev_rev: None,
+                    })
+                    .await?;
                 }
             }
             drop(tx);
@@ -556,6 +538,7 @@ impl<RT: Runtime> IndexWriter<RT> {
 
         let consumer = self.write_index_entries(
             format!("going backward from {start_ts} to {end_ts}"),
+            index_registry,
             ReceiverStream::new(rx),
             index_selector,
             true, /* deduplicate */
@@ -570,30 +553,48 @@ impl<RT: Runtime> IndexWriter<RT> {
     async fn write_index_entries(
         &self,
         phase: String,
-        updates: impl Stream<Item = (Timestamp, DatabaseIndexUpdate)>,
+        index_registry: &IndexRegistry,
+        revision_pairs: impl Stream<Item = RevisionPair>,
         index_selector: &IndexSelector,
         deduplicate: bool,
     ) -> anyhow::Result<()> {
         let mut last_logged = self.runtime.system_time();
+        let mut last_checkpointed = self.runtime.system_time();
         let mut last_logged_entries_written = 0;
         let mut num_entries_written = 0;
+        let should_send_progress = self.progress_tx.is_some();
+        let approx_num_indexes = match index_selector {
+            // We choose an arbitrary number of indexes because the revision stream can include
+            // pairs from different tables which may have different numbers of indexes.
+            IndexSelector::All(_) => 8,
+            IndexSelector::ManyIndexes { indexes, .. } => indexes.len(),
+        };
 
-        let updates = updates
-            .filter_map(|(ts, update)| {
-                let result = {
-                    if index_selector.filter_index_update(&update) {
-                        Some(PersistenceIndexEntry::from_index_update(ts, &update))
-                    } else {
-                        None
-                    }
-                };
-                futures::future::ready(result)
-            })
-            .chunks(INDEX_BACKFILL_CHUNK_SIZE.get() as usize)
-            .map(|mut chunk| async move {
+        let updates = revision_pairs
+            .chunks((INDEX_BACKFILL_CHUNK_SIZE.get() as usize).div_ceil(approx_num_indexes))
+            .map(|chunk| async move {
                 let persistence = self.persistence.clone();
                 let rate_limiter = self.rate_limiter.clone();
-                let size = chunk.len();
+                // ID of last document written in this chunk
+                let cursor = should_send_progress
+                    .then(|| chunk.last().map(|revision_pair| revision_pair.id))
+                    .flatten();
+                let mut index_updates: Vec<PersistenceIndexEntry> = chunk
+                    .iter()
+                    .flat_map(|revision_pair| {
+                        index_registry
+                            .index_updates(revision_pair.prev_document(), revision_pair.document())
+                            .into_iter()
+                            .filter(|update| index_selector.filter_index_update(update))
+                            .map(|update| {
+                                PersistenceIndexEntry::from_index_update(
+                                    revision_pair.ts(),
+                                    &update,
+                                )
+                            })
+                    })
+                    .collect();
+                let size = index_updates.len();
                 while let Err(not_until) = rate_limiter
                     .check_n(
                         (size as u32)
@@ -608,20 +609,40 @@ impl<RT: Runtime> IndexWriter<RT> {
                 if deduplicate {
                     // There might be duplicates in the index entries from the
                     // backfill backwards algorithm that need to be deduped.
-                    chunk.sort_unstable();
-                    chunk.dedup();
+                    index_updates.sort_unstable();
+                    index_updates.dedup();
                 }
                 persistence
-                    .write(&[], &chunk, ConflictStrategy::Overwrite)
+                    .write(&[], &index_updates, ConflictStrategy::Overwrite)
                     .await?;
-                anyhow::Ok(size)
+                anyhow::Ok((size, cursor))
             })
-            .buffer_unordered(*INDEX_BACKFILL_WORKERS);
+            .buffered(*INDEX_BACKFILL_WORKERS);
         pin_mut!(updates);
 
+        let mut num_docs_indexed = 0;
         while let Some(result) = updates.next().await {
-            let entries_written = result?;
+            let (entries_written, cursor) = result?;
+            num_docs_indexed += entries_written;
             num_entries_written += entries_written;
+            if let Some(tx) = self.progress_tx.as_ref()
+                && last_checkpointed.elapsed()? >= *INDEX_BACKFILL_PROGRESS_INTERVAL
+                && let Some(cursor) = cursor
+            {
+                tx.send(TabletBackfillProgress {
+                    tablet_id: cursor.table(),
+                    index_ids: index_selector.index_ids().collect(),
+                    _cursor: cursor,
+                    num_docs_indexed: num_docs_indexed as u64,
+                })
+                .await?;
+                num_docs_indexed = 0;
+                last_checkpointed = self.runtime.system_time();
+                self.runtime
+                    .pause_client()
+                    .wait(UPDATE_BACKFILL_PROGRESS_LABEL)
+                    .await;
+            }
             if last_logged.elapsed()? >= Duration::from_secs(60) {
                 let now = self.runtime.system_time();
                 tracing::info!(

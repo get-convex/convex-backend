@@ -32,6 +32,7 @@ use common::{
     },
     maybe_val,
     object_validator,
+    pause::PauseController,
     persistence::{
         NoopRetentionValidator,
         Persistence,
@@ -102,9 +103,11 @@ use value::{
 };
 
 use crate::{
+    bootstrap_model::index_backfills::IndexBackfillModel,
     database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
+        UPDATE_BACKFILL_PROGRESS_LABEL,
     },
     query::{
         PaginationOptions,
@@ -1787,12 +1790,9 @@ async fn test_implicit_removal(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// A variant of test_query_index_range that adds the index *after* the
-/// documents have been added, testing that index backfill works correctly.
-#[convex_macro::test_runtime]
-async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
-
+async fn add_documents_and_index(
+    db: Database<TestRuntime>,
+) -> anyhow::Result<(IndexName, ResolvedDocumentId, Vec<ResolvedDocument>)> {
     let table_name: TableName = str::parse("table")?;
     let namespace = TableNamespace::test_user();
     let mut tx = db.begin_system().await?;
@@ -1802,7 +1802,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     let index_name = IndexName::new(table_name, IndexDescriptor::new("a_and_b")?)?;
     let mut tx = db.begin_system().await?;
     let begin_ts = tx.begin_timestamp();
-    IndexModel::new(&mut tx)
+    let index_id = IndexModel::new(&mut tx)
         .add_application_index(
             namespace,
             IndexMetadata::new_backfilling(
@@ -1813,13 +1813,23 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     db.commit(tx).await?;
+    Ok((index_name, index_id, values))
+}
 
+/// A variant of test_query_index_range that adds the index *after* the
+/// documents have been added, testing that index backfill works correctly.
+#[convex_macro::test_runtime]
+async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+
+    let (index_name, _index_id, values) = add_documents_and_index(db.clone()).await?;
     let retention_validator = Arc::new(NoopRetentionValidator);
 
     let index_backfill_fut = IndexWorker::new_terminating(rt, tp, retention_validator, db.clone());
     index_backfill_fut.await?;
 
     let mut tx = db.begin_system().await?;
+    let namespace = TableNamespace::test_user();
     IndexModel::new(&mut tx)
         .enable_index_for_testing(namespace, &index_name)
         .await?;
@@ -1873,6 +1883,39 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[convex_macro::test_runtime]
+async fn test_db_index_backfill_progress(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10");
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+
+    let (_index_name, index_id, _values) = add_documents_and_index(db.clone()).await?;
+    let retention_validator = Arc::new(NoopRetentionValidator);
+
+    let hold_guard = pause.hold(UPDATE_BACKFILL_PROGRESS_LABEL);
+    let rt_clone = rt.clone();
+    let db_clone = db.clone();
+    let _index_backfill_handle = rt.spawn("index_worker", async move {
+        IndexWorker::new(rt_clone, tp, retention_validator, db_clone).await
+    });
+    // Wait for IndexWriter to send progress and pause
+    let _pause_guard = hold_guard.wait_for_blocked().await.unwrap();
+
+    // Check that progress was written to database
+    let mut tx = db.begin_system().await?;
+    let mut model = IndexBackfillModel::new(&mut tx);
+    let backfill_progress = model
+        .existing_backfill_metadata(index_id.developer_id)
+        .await?
+        .unwrap();
+    assert_eq!(backfill_progress.num_docs_indexed, 10);
+    assert_eq!(backfill_progress.total_docs, Some(200));
+
+    Ok(())
+}
+
 // Same as test_index_backfill but writing the index with IndexWriter directly.
 #[convex_macro::test_runtime]
 async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
@@ -1906,6 +1949,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
         tp.reader(),
         retention_validator.clone(),
         rt.clone(),
+        None,
     );
     let database_snapshot = DatabaseSnapshot::load(
         rt.clone(),
@@ -1921,7 +1965,6 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
             &index_metadata,
             IndexSelector::All(index_metadata.clone()),
             20,
-            None,
         )
         .await?;
 

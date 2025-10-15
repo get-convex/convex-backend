@@ -498,9 +498,16 @@ impl IndexRegistry {
             .collect()
     }
 
-    pub fn all_search_and_vector_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
+    pub fn all_text_and_vector_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
         self.all_indexes()
             .filter(|index| index.is_text_index() || index.is_vector_index())
+            .cloned()
+            .collect()
+    }
+
+    pub fn all_database_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
+        self.all_indexes()
+            .filter(|index| index.is_database_index())
             .cloned()
             .collect()
     }

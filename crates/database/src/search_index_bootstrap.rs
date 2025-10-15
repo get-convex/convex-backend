@@ -520,7 +520,7 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
         let table_mapping = self.table_mapping.clone();
         let get_index_futs = self
             .index_registry
-            .all_search_and_vector_indexes()
+            .all_text_and_vector_indexes()
             .into_iter()
             .map(move |index| {
                 let registry = registry.clone();

@@ -41,7 +41,10 @@ use common::{
 use futures::FutureExt;
 use hashlink::LinkedHashSet;
 use keybroker::Identity;
-use tokio::select;
+use tokio::{
+    select,
+    sync::mpsc,
+};
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
@@ -54,6 +57,7 @@ use crate::{
     database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
+        TabletBackfillProgress,
     },
     metrics::{
         log_index_backfilled,
@@ -78,6 +82,8 @@ pub struct IndexWorker<RT: Runtime> {
     /// backfills will be processed. This does not include indexes that are
     /// `in_progress`.
     pending: LinkedHashSet<(IndexId, TabletId), ahash::RandomState>,
+    /// Receiver for progress updates from `IndexWriter`'s tablet backfills.
+    progress_rx: mpsc::Receiver<TabletBackfillProgress>,
     /// Limit on the size of `in_progress`
     max_concurrency: usize,
     metadata_mutex: Arc<tokio::sync::Mutex<()>>,
@@ -98,16 +104,19 @@ impl<RT: Runtime> IndexWorker<RT> {
         database: Database<RT>,
     ) -> impl Future<Output = ()> + Send {
         let reader = persistence.reader();
+        let (progress_tx, progress_rx) = mpsc::channel(100);
         let index_writer = IndexWriter::new(
             persistence.clone(),
             reader.clone(),
             retention_validator,
             runtime.clone(),
+            Some(progress_tx),
         );
         let mut worker = IndexWorker {
             in_progress_index_ids: Default::default(),
             in_progress: JoinMap::new(),
             pending: Default::default(),
+            progress_rx,
             max_concurrency: *INDEX_BACKFILL_CONCURRENCY,
             metadata_mutex: Default::default(),
             database,
@@ -145,16 +154,19 @@ impl<RT: Runtime> IndexWorker<RT> {
         database: Database<RT>,
     ) -> impl Future<Output = anyhow::Result<()>> + Send {
         let reader = persistence.reader();
+        let (progress_tx, progress_rx) = mpsc::channel(10);
         let index_writer = IndexWriter::new(
             persistence.clone(),
             reader.clone(),
             retention_validator,
             runtime.clone(),
+            Some(progress_tx),
         );
         let mut worker = IndexWorker {
             in_progress_index_ids: Default::default(),
             in_progress: JoinMap::new(),
             pending: Default::default(),
+            progress_rx,
             max_concurrency: 10,
             metadata_mutex: Default::default(),
             database,
@@ -240,6 +252,30 @@ impl<RT: Runtime> IndexWorker<RT> {
                 tracing::info!("Finished backfilling {index_ids:?}");
                 // Return so that we possibly queue up more work
             }
+            maybe_progress = self.progress_rx.recv() => {
+                let Some(
+                    TabletBackfillProgress {
+                        tablet_id,
+                        index_ids,
+                        _cursor: _,
+                        num_docs_indexed,
+                    }) = maybe_progress else {
+                    anyhow::bail!("Database index backfill progress channel closed");
+                };
+                let mut tx = self.database.begin_system().await?;
+                let mut model = IndexBackfillModel::new(&mut tx);
+                for index_id in index_ids {
+                    model
+                        .update_index_backfill_progress(
+                            index_id,
+                            tablet_id,
+                            num_docs_indexed,
+                        )
+                        .await?;
+                }
+                self.database.commit_with_write_source(tx, "index_worker_backfill_progress")
+                    .await?;
+                }
             // Alternatively, wait for invalidation
             _ = subscription.wait_for_invalidation().fuse() => {
                 self.backoff.reset();
@@ -334,13 +370,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             };
             let index_registry = snapshot.index_registry;
             index_writer
-                .backfill_from_ts(
-                    ts,
-                    &index_registry,
-                    index_selector,
-                    1,
-                    Some(database.clone()),
-                )
+                .backfill_from_ts(ts, &index_registry, index_selector, 1)
                 .await?;
         }
 
