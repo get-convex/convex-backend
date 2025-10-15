@@ -12,7 +12,7 @@
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "convex-helpers": "^0.1.85",
+    "convex-helpers": "^0.1.104",
     "prettier": "3.6.2"
   },
   "devDependencies": {

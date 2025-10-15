@@ -121,6 +121,8 @@
      * Until an upgrade to ESLint 9 is done
      */
     "eslint": ["^8.29.0", "^9"],
-    "eslint-plugin-react-hooks": ["^4.6.2"]
+    "eslint-plugin-react-hooks": ["^4.6.2"],
+
+    "zod": ["^3.25.0"]
   }
 }

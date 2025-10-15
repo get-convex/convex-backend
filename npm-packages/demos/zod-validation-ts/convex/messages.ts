@@ -16,7 +16,7 @@ export const list = queryWithZod({
     return await ctx.db.query("messages").collect();
   },
   // Output validation is optional
-  output: z.array(
+  returns: z.array(
     z.object(
       withSystemFields("messages", { body: z.string(), author: z.string() }),
     ),

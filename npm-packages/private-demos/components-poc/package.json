@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "convex-helpers": "^0.1.85",
+    "convex-helpers": "^0.1.104",
     "@convex-dev/ratelimiter": "workspace:*",
     "@convex-dev/triggers": "workspace:*"
   },

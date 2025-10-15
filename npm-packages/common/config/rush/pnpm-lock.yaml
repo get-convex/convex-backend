@@ -346,8 +346,8 @@ importers:
         specifier: ^0.0.88
         version: 0.0.88(@auth/core@0.37.4)(convex@..+convex)(react@18.3.1)
       convex-helpers:
-        specifier: ^0.1.85
-        version: 0.1.85(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76)
+        specifier: ^0.1.104
+        version: 0.1.104(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76)
     devDependencies:
       '@eslint/compat':
         specifier: ~1.3.0
@@ -1176,7 +1176,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
+        version: 0.9.13(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1486,7 +1486,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
+        version: 0.9.13(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -2534,8 +2534,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-helpers:
-        specifier: ^0.1.85
-        version: 0.1.85(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76)
+        specifier: ^0.1.104
+        version: 0.1.104(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -3050,8 +3050,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-helpers:
-        specifier: ^0.1.85
-        version: 0.1.85(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.24.1)
+        specifier: ^0.1.104
+        version: 0.1.104(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76)
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -3062,8 +3062,8 @@ importers:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
       zod:
-        specifier: ^3.24.0
-        version: 3.24.1
+        specifier: ^3.25.0
+        version: 3.25.76
     devDependencies:
       '@types/babel__core':
         specifier: ^7.20.0
@@ -3498,7 +3498,7 @@ importers:
     dependencies:
       '@langchain/openai':
         specifier: ^0.4.0
-        version: 0.4.9(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)))(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+        version: 0.4.9(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)))(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       '@popperjs/core':
         specifier: ~2.11.6
         version: 2.11.8
@@ -3507,13 +3507,13 @@ importers:
         version: 5.3.3(@popperjs/core@2.11.8)
       chromadb:
         specifier: '=1.9.4'
-        version: 1.9.4(encoding@0.1.13)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+        version: 1.9.4(encoding@0.1.13)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       convex:
         specifier: workspace:*
         version: link:../../convex
       langchain:
         specifier: ^0.3.0
-        version: 0.3.15(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)))(axios@1.12.2)(cheerio@1.0.0)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+        version: 0.3.15(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)))(axios@1.12.2)(cheerio@1.0.0)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       postmark:
         specifier: ~4.0.0
         version: 4.0.5
@@ -3673,7 +3673,7 @@ importers:
     dependencies:
       '@convex-dev/resend':
         specifier: ^0.1.12
-        version: 0.1.12(convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)(react@19.0.0)
+        version: 0.1.12(convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)(react@19.0.0)
       convex:
         specifier: workspace:*
         version: link:../../convex
@@ -3697,8 +3697,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-helpers:
-        specifier: ^0.1.85
-        version: 0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.0.4)(zod@3.25.76)
+        specifier: ^0.1.104
+        version: 0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.0.4)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -13671,16 +13671,19 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  convex-helpers@0.1.85:
-    resolution: {integrity: sha512-1DDknxiHychnzhoXbtNpvf1AD2EoDr67gX1EEZsgHeGq+PtQ9rQeiFeI7grss1MN94wL7YfHcIjTOZWJLVOjfw==}
+  convex-helpers@0.1.104:
+    resolution: {integrity: sha512-7CYvx7T3K6n+McDTK4ZQaQNNGBzq5aWezpjzsKbOxPXx7oNcTP9wrpef3JxeXWFzkByJv5hRCjseh9B7eNJ7Ig==}
     hasBin: true
     peerDependencies:
-      convex: ^1.13.0
+      '@standard-schema/spec': ^1.0.0
+      convex: ^1.24.0
       hono: ^4.0.5
       react: ^17.0.2 || ^18.0.0 || ^19.0.0
       typescript: ^5.5
-      zod: ^3.22.4
+      zod: ^3.22.4 || ^4.0.15
     peerDependenciesMeta:
+      '@standard-schema/spec':
+        optional: true
       hono:
         optional: true
       react:
@@ -23780,9 +23783,6 @@ packages:
   zod@3.24.1:
     resolution: {integrity: sha512-muH7gBL9sI1nciMZV67X5fTKKBLtwpZ5VBp1vsOQzj1MhrBZ4wlVCm3gedKZWLp0Oyel8sIGfeiz54Su+OVT+A==}
 
-  zod@3.24.3:
-    resolution: {integrity: sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg==}
-
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -27839,12 +27839,12 @@ snapshots:
     optionalDependencies:
       react: 19.0.0
 
-  '@convex-dev/resend@0.1.12(convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)(react@19.0.0)':
+  '@convex-dev/resend@0.1.12(convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)(react@19.0.0)':
     dependencies:
       '@convex-dev/rate-limiter': 0.2.12(convex@..+convex)(react@19.0.0)
-      '@convex-dev/workpool': 0.2.18(convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)
+      '@convex-dev/workpool': 0.2.18(convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)
       convex: link:../../convex
-      convex-helpers: 0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76)
+      convex-helpers: 0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76)
       remeda: 2.31.1
       svix: 1.76.1
     transitivePeerDependencies:
@@ -27855,10 +27855,10 @@ snapshots:
       handlebars: 4.7.8
       typedoc: 0.24.8(typescript@5.0.4)
 
-  '@convex-dev/workpool@0.2.18(convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)':
+  '@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76))(convex@..+convex)':
     dependencies:
       convex: link:../../convex
-      convex-helpers: 0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76)
+      convex-helpers: 0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76)
 
   '@cspell/cspell-bundled-dicts@6.31.3':
     dependencies:
@@ -30289,8 +30289,8 @@ snapshots:
       p-queue: 6.6.2
       p-retry: 4.6.2
       uuid: 10.0.0
-      zod: 3.24.1
-      zod-to-json-schema: 3.24.1(zod@3.24.1)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.1(zod@3.25.76)
     transitivePeerDependencies:
       - openai
 
@@ -30305,24 +30305,24 @@ snapshots:
       p-queue: 6.6.2
       p-retry: 4.6.2
       uuid: 10.0.0
-      zod: 3.24.1
-      zod-to-json-schema: 3.24.1(zod@3.24.1)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.1(zod@3.25.76)
     transitivePeerDependencies:
       - openai
 
-  '@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))':
+  '@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))':
     dependencies:
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.16
-      langsmith: 0.1.68(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+      langsmith: 0.1.68(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
       uuid: 10.0.0
-      zod: 3.24.1
-      zod-to-json-schema: 3.24.1(zod@3.24.1)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.1(zod@3.25.76)
     transitivePeerDependencies:
       - openai
 
@@ -30330,9 +30330,9 @@ snapshots:
     dependencies:
       '@langchain/core': 0.2.36(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))
       js-tiktoken: 1.0.16
-      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)
-      zod: 3.24.1
-      zod-to-json-schema: 3.24.1(zod@3.24.1)
+      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.1(zod@3.25.76)
     transitivePeerDependencies:
       - encoding
       - ws
@@ -30341,20 +30341,20 @@ snapshots:
     dependencies:
       '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       js-tiktoken: 1.0.16
-      openai: 4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)
-      zod: 3.24.1
-      zod-to-json-schema: 3.24.1(zod@3.24.1)
+      openai: 4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.1(zod@3.25.76)
     transitivePeerDependencies:
       - encoding
       - ws
 
-  '@langchain/openai@0.4.9(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)))(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))':
+  '@langchain/openai@0.4.9(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)))(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))':
     dependencies:
-      '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+      '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       js-tiktoken: 1.0.16
-      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)
-      zod: 3.24.1
-      zod-to-json-schema: 3.24.1(zod@3.24.1)
+      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.1(zod@3.25.76)
     transitivePeerDependencies:
       - encoding
       - ws
@@ -30373,9 +30373,9 @@ snapshots:
     transitivePeerDependencies:
       - openai
 
-  '@langchain/textsplitters@0.0.3(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))':
+  '@langchain/textsplitters@0.0.3(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))':
     dependencies:
-      '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+      '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       js-tiktoken: 1.0.16
     transitivePeerDependencies:
       - openai
@@ -30544,7 +30544,7 @@ snapshots:
       unixify: 1.0.0
       urlpattern-polyfill: 8.0.2
       yargs: 17.7.2
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - encoding
       - rollup
@@ -33371,7 +33371,7 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       vinxi: 0.5.6(@azure/storage-blob@12.26.0)(@types/node@22.10.5)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.2)(ioredis@5.6.1)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -33424,7 +33424,7 @@ snapshots:
       '@tanstack/start-plugin-core': 1.131.50(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.132.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@vitejs/plugin-react': 4.3.4(vite@7.1.7(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
       pathe: 2.0.3
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -33689,7 +33689,7 @@ snapshots:
       recast: 0.23.11
       source-map: 0.7.4
       tsx: 4.19.4
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
 
@@ -33702,7 +33702,7 @@ snapshots:
       recast: 0.23.11
       source-map: 0.7.4
       tsx: 4.19.4
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
 
@@ -33715,7 +33715,7 @@ snapshots:
       recast: 0.23.11
       source-map: 0.7.4
       tsx: 4.19.4
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
 
@@ -33734,7 +33734,7 @@ snapshots:
       babel-dead-code-elimination: 1.0.10
       chokidar: 3.6.0
       unplugin: 2.3.5
-      zod: 3.24.3
+      zod: 3.25.76
     optionalDependencies:
       '@tanstack/react-router': 1.132.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
@@ -33756,7 +33756,7 @@ snapshots:
       babel-dead-code-elimination: 1.0.10
       chokidar: 3.6.0
       unplugin: 2.3.5
-      zod: 3.24.3
+      zod: 3.25.76
     optionalDependencies:
       '@tanstack/react-router': 1.132.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
@@ -33778,7 +33778,7 @@ snapshots:
       babel-dead-code-elimination: 1.0.10
       chokidar: 3.6.0
       unplugin: 2.3.5
-      zod: 3.24.3
+      zod: 3.25.76
     optionalDependencies:
       '@tanstack/react-router': 1.132.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       vite: 7.1.7(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
@@ -33935,7 +33935,7 @@ snapshots:
       ufo: 1.6.1
       vitefu: 1.1.1(vite@7.1.7(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
       xmlbuilder2: 3.1.1
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -33990,7 +33990,7 @@ snapshots:
       vite: 7.1.7(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
       vitefu: 1.1.1(vite@7.1.7(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
       xmlbuilder2: 3.1.1
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - '@rsbuild/core'
       - '@tanstack/react-router'
@@ -37769,12 +37769,12 @@ snapshots:
 
   chownr@3.0.0: {}
 
-  chromadb@1.9.4(encoding@0.1.13)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)):
+  chromadb@1.9.4(encoding@0.1.13)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)):
     dependencies:
       cliui: 8.0.1
       isomorphic-fetch: 3.0.0(encoding@0.1.13)
     optionalDependencies:
-      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)
+      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
     transitivePeerDependencies:
       - encoding
 
@@ -38119,16 +38119,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.24.1):
-    dependencies:
-      convex: link:../../convex
-    optionalDependencies:
-      hono: 4.7.2
-      react: 18.3.1
-      typescript: 5.0.4
-      zod: 3.24.1
-
-  convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76):
+  convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
@@ -38137,7 +38128,7 @@ snapshots:
       typescript: 5.0.4
       zod: 3.25.76
 
-  convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.0.4)(zod@3.25.76):
+  convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.0.4)(zod@3.25.76):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
@@ -38146,7 +38137,7 @@ snapshots:
       typescript: 5.0.4
       zod: 3.25.76
 
-  convex-helpers@0.1.85(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76):
+  convex-helpers@0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.9.2)(zod@3.25.76):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
@@ -44174,15 +44165,15 @@ snapshots:
       - openai
       - ws
 
-  langchain@0.3.15(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)))(axios@1.12.2)(cheerio@1.0.0)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
+  langchain@0.3.15(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)))(axios@1.12.2)(cheerio@1.0.0)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
     dependencies:
-      '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
-      '@langchain/openai': 0.4.9(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)))(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
-      '@langchain/textsplitters': 0.0.3(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+      '@langchain/core': 0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
+      '@langchain/openai': 0.4.9(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)))(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+      '@langchain/textsplitters': 0.0.3(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       js-tiktoken: 1.0.16
       js-yaml: 4.1.0
       jsonpointer: 5.0.1
-      langsmith: 0.3.4(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+      langsmith: 0.3.4(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76))
       openapi-types: 12.1.3
       p-retry: 4.6.2
       uuid: 10.0.0
@@ -44220,7 +44211,7 @@ snapshots:
     optionalDependencies:
       openai: 4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
 
-  langsmith@0.1.68(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)):
+  langsmith@0.1.68(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)):
     dependencies:
       '@types/uuid': 10.0.0
       commander: 10.0.1
@@ -44229,7 +44220,7 @@ snapshots:
       semver: 7.7.2
       uuid: 10.0.0
     optionalDependencies:
-      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)
+      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
 
   langsmith@0.3.4(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)):
     dependencies:
@@ -44255,7 +44246,7 @@ snapshots:
     optionalDependencies:
       openai: 4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
 
-  langsmith@0.3.4(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)):
+  langsmith@0.3.4(openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
@@ -44265,7 +44256,7 @@ snapshots:
       semver: 7.7.2
       uuid: 10.0.0
     optionalDependencies:
-      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)
+      openai: 4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76)
 
   language-subtag-registry@0.3.23: {}
 
@@ -45717,7 +45708,7 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next-router-mock@0.9.13(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1):
+  next-router-mock@0.9.13(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1):
     dependencies:
       next: 14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)
       react: 18.3.1
@@ -46368,21 +46359,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  openai@4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1):
-    dependencies:
-      '@types/node': 18.19.70
-      '@types/node-fetch': 2.6.12
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0(encoding@0.1.13)
-    optionalDependencies:
-      ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      zod: 3.24.1
-    transitivePeerDependencies:
-      - encoding
-
   openai@4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76):
     dependencies:
       '@types/node': 18.19.70
@@ -46397,9 +46373,8 @@ snapshots:
       zod: 3.25.76
     transitivePeerDependencies:
       - encoding
-    optional: true
 
-  openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1):
+  openai@4.91.1(encoding@0.1.13)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.25.76):
     dependencies:
       '@types/node': 18.19.70
       '@types/node-fetch': 2.6.12
@@ -46410,7 +46385,7 @@ snapshots:
       node-fetch: 2.7.0(encoding@0.1.13)
     optionalDependencies:
       ws: 8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      zod: 3.24.1
+      zod: 3.25.76
     transitivePeerDependencies:
       - encoding
 
@@ -51548,7 +51523,7 @@ snapshots:
       unenv: 1.10.0
       unstorage: 1.16.0(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.2)(ioredis@5.6.1)
       vite: 6.3.6(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
-      zod: 3.24.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -52710,6 +52685,10 @@ snapshots:
     dependencies:
       zod: 3.24.1
 
+  zod-to-json-schema@3.24.1(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
+
   zod-validation-error@3.4.0(zod@3.25.76):
     dependencies:
       zod: 3.25.76
@@ -52717,8 +52696,6 @@ snapshots:
   zod@3.22.4: {}
 
   zod@3.24.1: {}
-
-  zod@3.24.3: {}
 
   zod@3.25.76: {}
 

@@ -79,7 +79,7 @@
   "dependencies": {
     "@auth/core": "^0.37.0",
     "@convex-dev/auth": "^0.0.88",
-    "convex-helpers": "^0.1.85"
+    "convex-helpers": "^0.1.104"
   },
   "overrides": {
     "typescript": "~5.0.3"
