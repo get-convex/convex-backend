@@ -658,7 +658,7 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
                 .part_number(Into::<u16>::into(part.part_number()) as i32)
                 .e_tag(part.etag());
 
-            if !are_checksums_disabled() && part.checksum() != "disabled" {
+            if !are_checksums_disabled() {
                 builder = builder.checksum_crc32(part.checksum());
             }
 
