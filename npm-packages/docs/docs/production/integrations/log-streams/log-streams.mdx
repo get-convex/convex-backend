@@ -67,11 +67,24 @@ Configuring a Datadog log stream requires specifying:
 ### Webhook
 
 A webhook log stream is the simplest and most generic stream, allowing piping
-logs via POST requests to any URL you configure. The only parameter required to
-set up this stream is the desired webhook URL.
+logs via POST requests to any URL you configure.
+
+You can optionally configure Basic authentication so Convex will send an
+`Authorization: Basic <base64(username:password)>` header with each request.
+This is useful for services that protect ingestion endpoints with HTTP auth.
 
 A request to this webhook contains as its body a JSON array of events in the
-schema defined below.
+schema defined below. Alternatively, you can choose JSONL to send one JSON
+object per line.
+
+Example (ClickHouse Cloud):
+
+- URL:
+  `https://<host>:8443/?query=INSERT%20INTO%20<db>.<table>%20FORMAT%20JSONEachRow&input_format_skip_unknown_fields=1`
+- Format: JSONL
+- Authentication: Basic (username/password)
+
+ClickHouse HTTP interface and formats: https://clickhouse.com/docs/interfaces/http
 
 ## Log event schema
 

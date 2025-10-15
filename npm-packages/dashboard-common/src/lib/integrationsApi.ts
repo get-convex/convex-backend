@@ -46,15 +46,23 @@ export function useCreateDatadogIntegration(): (
 }
 
 export function useCreateWebhookIntegration(): (
-  url: string,
-  format: "json" | "jsonl",
+  body:
+    | {
+        url: string;
+        format: "json" | "jsonl";
+      }
+    | {
+        url: string;
+        format: "json" | "jsonl";
+        basicAuth: { username: string; password: string };
+      },
 ) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
   const { reportHttpError } = useContext(DeploymentInfoContext);
 
-  return async (url: string, format: "json" | "jsonl") => {
-    const body = JSON.stringify({ url, format });
+  return async (bodyArg) => {
+    const body = JSON.stringify(bodyArg);
     await createIntegration(
       "webhook",
       body,

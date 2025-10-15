@@ -92,6 +92,7 @@ pub async fn add_datadog_sink(
 pub struct WebhookSinkPostArgs {
     url: String,
     format: WebhookFormat,
+    basic_auth: Option<SerializedBasicAuth>,
 }
 
 impl TryFrom<WebhookSinkPostArgs> for WebhookConfig {
@@ -107,8 +108,19 @@ impl TryFrom<WebhookSinkPostArgs> for WebhookConfig {
         Ok(WebhookConfig {
             url,
             format: value.format,
+            basic_auth: value.basic_auth.map(|b| model::log_sinks::types::webhook::BasicAuth {
+                username: b.username,
+                password: common::pii::PII(b.password),
+            }),
         })
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedBasicAuth {
+    pub username: String,
+    pub password: String,
 }
 
 #[debug_handler]

@@ -4,6 +4,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use common::pii::PII;
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +15,13 @@ pub struct WebhookConfig {
     )]
     pub url: reqwest::Url,
     pub format: WebhookFormat,
+    pub basic_auth: Option<BasicAuth>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BasicAuth {
+    pub username: String,
+    pub password: PII<String>,
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -29,6 +37,7 @@ pub enum WebhookFormat {
 pub struct SerializedWebhookConfig {
     pub url: String,
     pub format: WebhookFormat,
+    pub basic_auth: Option<SerializedBasicAuth>,
 }
 
 impl From<WebhookConfig> for SerializedWebhookConfig {
@@ -36,6 +45,10 @@ impl From<WebhookConfig> for SerializedWebhookConfig {
         Self {
             url: value.url.to_string(),
             format: value.format,
+            basic_auth: value.basic_auth.map(|b| SerializedBasicAuth {
+                username: b.username,
+                password: b.password.0,
+            }),
         }
     }
 }
@@ -47,6 +60,10 @@ impl TryFrom<SerializedWebhookConfig> for WebhookConfig {
         Ok(WebhookConfig {
             url: value.url.parse()?,
             format: value.format,
+            basic_auth: value.basic_auth.map(|b| BasicAuth {
+                username: b.username,
+                password: PII(b.password),
+            }),
         })
     }
 }
@@ -55,6 +72,13 @@ impl fmt::Display for WebhookConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "WebhookConfig {{ url: ... }}")
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedBasicAuth {
+    pub username: String,
+    pub password: String,
 }
 
 #[cfg(any(test, feature = "testing"))]

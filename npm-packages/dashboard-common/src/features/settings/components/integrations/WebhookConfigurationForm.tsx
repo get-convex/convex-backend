@@ -10,6 +10,17 @@ import { Combobox } from "@ui/Combobox";
 const webhookValidationSchema = Yup.object().shape({
   url: Yup.string().url().required("URL required"),
   format: Yup.string().oneOf(["json", "jsonl"]).required("Format required"),
+  authType: Yup.string().oneOf(["none", "basic"]).required(),
+  username: Yup.string().when("authType", {
+    is: "basic",
+    then: (schema) => schema.required("Username required"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
+  password: Yup.string().when("authType", {
+    is: "basic",
+    then: (schema) => schema.required("Password required"),
+    otherwise: (schema) => schema.notRequired(),
+  }),
 });
 
 export function WebhookConfigurationForm({
@@ -25,9 +36,25 @@ export function WebhookConfigurationForm({
     initialValues: {
       url: existingIntegration?.url ?? "",
       format: existingIntegration?.format ?? "jsonl",
+      authType: existingIntegration?.auth?.type ?? "none",
+      username:
+        existingIntegration?.auth?.type === "basic"
+          ? existingIntegration.auth.username
+          : "",
+      password: "",
     },
     onSubmit: async (values) => {
-      await createWebhookIntegration(values.url, values.format);
+      const body: any = {
+        url: values.url,
+        format: values.format,
+      };
+      if (values.authType === "basic") {
+        body.basicAuth = {
+          username: values.username,
+          password: values.password,
+        };
+      }
+      await createWebhookIntegration(body);
       onClose();
     },
     validationSchema: webhookValidationSchema,
@@ -58,6 +85,42 @@ export function WebhookConfigurationForm({
         disableSearch
         buttonClasses="w-full bg-inherit"
       />
+      <Combobox
+        label="Authentication"
+        labelHidden={false}
+        options={[
+          { value: "none", label: "None" },
+          { value: "basic", label: "Basic" },
+        ]}
+        selectedOption={formState.values.authType}
+        setSelectedOption={async (v) => {
+          await formState.setFieldValue("authType", v);
+        }}
+        allowCustomValue={false}
+        disableSearch
+        buttonClasses="w-full bg-inherit"
+      />
+      {formState.values.authType === "basic" && (
+        <>
+          <TextInput
+            value={formState.values.username}
+            onChange={formState.handleChange}
+            id="username"
+            label="Username"
+            placeholder="Enter username"
+            error={formState.errors.username as string | undefined}
+          />
+          <TextInput
+            value={formState.values.password}
+            onChange={formState.handleChange}
+            id="password"
+            type="password"
+            label="Password"
+            placeholder="Enter password"
+            error={formState.errors.password as string | undefined}
+          />
+        </>
+      )}
       <div className="flex justify-end">
         <Button
           variant="primary"

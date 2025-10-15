@@ -164,7 +164,16 @@ impl<RT: Runtime> WebhookSink<RT> {
         let payload = Bytes::from(payload);
 
         // Make request in a loop that retries on transient errors
-        let headers = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
+        let mut headers = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
+        if let Some(basic_auth) = &self.config.basic_auth {
+            // Build Authorization: Basic base64(username:password)
+            let creds = format!("{}:{}", basic_auth.username, basic_auth.password.0);
+            let encoded = base64::encode(creds);
+            headers.append(
+                http::header::AUTHORIZATION,
+                format!("Basic {}", encoded).parse().unwrap(),
+            );
+        }
 
         for _ in 0..consts::WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS {
             let response = self

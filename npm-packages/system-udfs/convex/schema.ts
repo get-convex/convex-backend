@@ -206,6 +206,16 @@ export const webhookConfig = v.object({
   type: v.literal("webhook"),
   url: v.string(),
   format: v.union(v.literal("json"), v.literal("jsonl")),
+  auth: v.optional(
+    v.union(
+      v.object({ type: v.literal("none") }),
+      v.object({
+        type: v.literal("basic"),
+        username: v.string(),
+        password: v.string(),
+      }),
+    ),
+  ),
 });
 
 export const axiomConfig = v.object({
