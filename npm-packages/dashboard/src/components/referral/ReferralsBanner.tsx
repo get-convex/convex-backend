@@ -1,6 +1,5 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { Menu, MenuItem } from "@ui/Menu";
-import { cn } from "@ui/cn";
 import { ReferralState, Team } from "generatedApi";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { ReferralProgress } from "./ReferralProgress";
@@ -9,24 +8,17 @@ interface ReferralsBannerProps {
   team: Team;
   referralState: ReferralState;
   onHide: () => void;
-  className?: string;
 }
 
 export function ReferralsBanner({
   team,
   referralState,
   onHide,
-  className,
 }: ReferralsBannerProps) {
   const referralCode = team?.referralCode;
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-2 overflow-x-auto rounded-md border bg-background-secondary pr-2 pl-4",
-        className,
-      )}
-    >
+    <div className="mb-4 flex items-center gap-2 overflow-x-auto rounded-lg border bg-background-secondary px-4 py-2">
       <div className="flex grow items-center gap-2 py-2 md:justify-between">
         <div className="flex max-w-prose grow flex-col flex-wrap gap-2 xl:flex-row xl:items-center">
           <span className="text-sm font-medium text-balance">
@@ -39,9 +31,7 @@ export function ReferralsBanner({
             />
           </div>
         </div>
-        <div className="hidden flex-col gap-1 md:flex xl:grow xl:flex-row-reverse xl:items-center xl:gap-2">
-          <ReferralProgress referralState={referralState} />
-        </div>
+        <ReferralProgress referralState={referralState} />
       </div>
       <Menu
         placement="bottom-start"

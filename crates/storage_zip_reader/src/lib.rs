@@ -88,7 +88,6 @@ impl StorageZipArchive {
                     let read_bytes = reader.read(fsm.space()).await?;
                     fsm.fill(read_bytes);
                     read_position += read_bytes as u64;
-                    eprintln!("read {:?}", offset..read_position);
                     if read_bytes == 0 {
                         read_stream = None;
                         continue;

@@ -357,6 +357,25 @@ function urlSearchParamsNonString() {
   assert.strictEqual(params.toString(), "a=123");
 }
 
+function urlSearchParamsInspect() {
+  const params = new URLSearchParams();
+  assert.strictEqual(
+    Object.prototype.toString.call(params),
+    "[object URLSearchParams]",
+  );
+  assert.strictEqual((params as any).inspect(), "URLSearchParams {}");
+  params.append("foo", "bar");
+  assert.strictEqual(
+    (params as any).inspect(),
+    "URLSearchParams { 'foo' => 'bar' }",
+  );
+  params.append("foo2", "barbar");
+  assert.strictEqual(
+    (params as any).inspect(),
+    "URLSearchParams { 'foo' => 'bar', 'foo2' => 'barbar' }",
+  );
+}
+
 export default query(async () => {
   return await wrapInTests({
     urlSearchParamsWithMultipleSpaces,
@@ -393,5 +412,6 @@ export default query(async () => {
     urlSearchParamsOverridingEntriesNotChangeForEach,
     urlSearchParamsIterator,
     urlSearchParamsNonString,
+    urlSearchParamsInspect,
   });
 });

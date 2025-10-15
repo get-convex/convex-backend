@@ -2731,6 +2731,134 @@
           }
         }
       }
+    },
+    "/workos/available_workos_team_emails": {
+      "get": {
+        "description": "Get candidate email addresses to be WorkOS admins.",
+        "operationId": "get_available_workos_team_emails",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailableWorkOSTeamEmailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_name}/workos_environment": {
+      "get": {
+        "operationId": "get_deployment_workos_environment",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentWorkOSEnvironmentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_name}/has_associated_workos_team": {
+      "get": {
+        "description": "Check if a deployment has an associated WorkOS team",
+        "operationId": "get_has_associated_workos_team",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HasAssociatedWorkOSTeamResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/workos_integration": {
+      "get": {
+        "operationId": "get_team_workos_integration",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOSTeamIntegrationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workos/provision_associated_workos_team": {
+      "post": {
+        "description": "Provision a WorkOS team for a Convex team",
+        "operationId": "provision_associated_workos_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionWorkOSTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionWorkOSTeamResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3210,6 +3338,27 @@
           }
         }
       },
+      "AvailableWorkOSTeamEmailsResponse": {
+        "type": "object",
+        "required": [
+          "availableEmails",
+          "usedEmails"
+        ],
+        "properties": {
+          "availableEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usedEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "BillingContactResponse": {
         "type": "object",
         "required": [
@@ -3658,6 +3807,62 @@
           "preview"
         ]
       },
+      "DeploymentWorkOSEnvironmentInfo": {
+        "type": "object",
+        "required": [
+          "deploymentName",
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosClientId"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentWorkOSEnvironmentResponse": {
+        "type": "object",
+        "required": [
+          "teamId"
+        ],
+        "properties": {
+          "environment": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentWorkOSEnvironmentInfo",
+                "description": "WorkOS environment info if it exists for this deployment"
+              }
+            ]
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "workosTeam": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkOSAssociatedTeam",
+                "description": "Team info if the team has WorkOS configured"
+              }
+            ]
+          }
+        }
+      },
       "DeviceName": {
         "type": "string"
       },
@@ -3900,6 +4105,42 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "HasAssociatedWorkOSTeamResponse": {
+        "type": "object",
+        "required": [
+          "hasAssociatedWorkosTeam",
+          "teamId"
+        ],
+        "properties": {
+          "adminConvexEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email of Convex team member who created the WorkOS account.\nThis field should always be present when has_associated_workos_team is\ntrue."
+          },
+          "adminEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email address used to provision the WorkOS account. This field should\nalways be present if has_associated_workos_team is true."
+          },
+          "adminName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of Convex team member who created the WorkOS account.\nThis field is optional even when has_associated_workos_team is true."
+          },
+          "hasAssociatedWorkosTeam": {
+            "type": "boolean"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           }
         }
       },
@@ -4572,6 +4813,42 @@
         ],
         "properties": {
           "deploymentName": {
+            "type": "string"
+          }
+        }
+      },
+      "ProvisionWorkOSTeamRequest": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address to use for the WorkOS team admin,\nmust be a verified email address associated with the user's account"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId",
+            "description": "Convex team ID, no WorkOS team exists at this point"
+          }
+        }
+      },
+      "ProvisionWorkOSTeamResponse": {
+        "type": "object",
+        "required": [
+          "workosTeamId",
+          "workosTeamName",
+          "adminEmail"
+        ],
+        "properties": {
+          "adminEmail": {
+            "type": "string"
+          },
+          "workosTeamId": {
+            "type": "string"
+          },
+          "workosTeamName": {
             "type": "string"
           }
         }
@@ -5309,6 +5586,111 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "WorkOSAssociatedTeam": {
+        "type": "object",
+        "required": [
+          "convexTeamId",
+          "workosTeamId",
+          "workosTeamName",
+          "workosAdminEmail",
+          "creatorMemberId"
+        ],
+        "properties": {
+          "convexTeamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "creatorMemberId": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "workosAdminEmail": {
+            "type": "string"
+          },
+          "workosTeamId": {
+            "type": "string"
+          },
+          "workosTeamName": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkOSEnvironmentInfo": {
+        "type": "object",
+        "required": [
+          "deploymentName",
+          "workosEnvironmentId",
+          "workosEnvironmentName",
+          "workosClientId"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
+          "workosClientId": {
+            "type": "string"
+          },
+          "workosEnvironmentId": {
+            "type": "string"
+          },
+          "workosEnvironmentName": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkOSTeamAssociation": {
+        "type": "object",
+        "required": [
+          "workosTeamId",
+          "workosTeamName",
+          "adminEmail",
+          "creatorEmail"
+        ],
+        "properties": {
+          "adminEmail": {
+            "type": "string"
+          },
+          "creatorEmail": {
+            "type": "string"
+          },
+          "creatorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workosTeamId": {
+            "type": "string"
+          },
+          "workosTeamName": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkOSTeamIntegrationResponse": {
+        "type": "object",
+        "required": [
+          "environments"
+        ],
+        "properties": {
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkOSEnvironmentInfo"
+            },
+            "description": "List of WorkOS environments for deployments"
+          },
+          "teamAssociation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkOSTeamAssociation",
+                "description": "WorkOS team association info, if it exists"
+              }
+            ]
           }
         }
       }

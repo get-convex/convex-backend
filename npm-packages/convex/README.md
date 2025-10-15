@@ -1,6 +1,6 @@
 # Convex
 
-TypeScript/JavaScript client libraries and CLI for Convex.
+TypeScript backend SDK, client libraries, and CLI for Convex.
 
 Convex is the backend application platform with everything you need to build
 your product.
@@ -20,8 +20,8 @@ in the [Convex Discord Community](https://convex.dev/community).
 
 This package includes several entry points for building apps on Convex:
 
-- [`convex/server`](https://docs.convex.dev/api/modules/server): Helpers for
-  implementing Convex functions and defining a database schema.
+- [`convex/server`](https://docs.convex.dev/api/modules/server): SDK for
+  defining a Convex backend functions, defining a database schema, etc.
 - [`convex/react`](https://docs.convex.dev/api/modules/react): Hooks and a
   `ConvexReactClient` for integrating Convex into React applications.
 - [`convex/browser`](https://docs.convex.dev/api/modules/browser): A
@@ -32,10 +32,8 @@ This package includes several entry points for building apps on Convex:
   React component for authenticating users with Auth0.
 - [`convex/react-clerk`](https://docs.convex.dev/api/modules/react_clerk): A
   React component for authenticating users with Clerk.
+- [`convex/nextjs`](https://docs.convex.dev/api/modules/nextjs): Server-side
+  helpers for SSR, usable by Next.js and other React frameworks.
 
 This package also includes [`convex`](https://docs.convex.dev/using/cli), the
 command-line interface for managing Convex projects.
-
-# Building
-
-`npm pack` produces a public build with internal types removed.

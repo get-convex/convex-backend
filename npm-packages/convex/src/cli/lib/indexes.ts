@@ -15,8 +15,9 @@ import {
   deprecationCheckWarning,
 } from "./utils/utils.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
+import { DeveloperIndexConfig } from "./deployApi/finishPush.js";
 
-type IndexMetadata = {
+export type IndexMetadata = {
   table: string;
   name: string;
   fields:
@@ -259,7 +260,7 @@ function logIndexChanges(
   if (indexes.dropped.length > 0) {
     let indexDiff = "";
     for (const index of indexes.dropped) {
-      indexDiff += `  [-] ${stringifyIndex(index)}\n`;
+      indexDiff += `  [-] ${formatIndex(toDeveloperIndexConfig(index))}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
@@ -272,7 +273,7 @@ function logIndexChanges(
   if (addedEnabled.length > 0) {
     let indexDiff = "";
     for (const index of addedEnabled) {
-      indexDiff += `  [+] ${stringifyIndex(index)}\n`;
+      indexDiff += `  [+] ${formatIndex(toDeveloperIndexConfig(index))}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
@@ -287,7 +288,7 @@ function logIndexChanges(
         deploymentName,
         `/data?table=${index.table}&showIndexes=true`,
       );
-      indexDiff += `  [+] ${stringifyIndex(index)}, see progress: ${progressLink}\n`;
+      indexDiff += `  [+] ${formatIndex(toDeveloperIndexConfig(index))}, see progress: ${progressLink}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
@@ -298,7 +299,7 @@ function logIndexChanges(
   if (indexes.enabled && indexes.enabled.length > 0) {
     let indexDiff = "";
     for (const index of indexes.enabled) {
-      indexDiff += `  [*] ${stringifyIndex(index)}\n`;
+      indexDiff += `  [*] ${formatIndex(toDeveloperIndexConfig(index))}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
@@ -310,7 +311,7 @@ function logIndexChanges(
   if (indexes.disabled && indexes.disabled.length > 0) {
     let indexDiff = "";
     for (const index of indexes.disabled) {
-      indexDiff += `  [*] ${stringifyIndex(index)}\n`;
+      indexDiff += `  [*] ${formatIndex(toDeveloperIndexConfig(index))}\n`;
     }
     // strip last new line
     indexDiff = indexDiff.slice(0, -1);
@@ -321,6 +322,95 @@ function logIndexChanges(
   }
 }
 
-function stringifyIndex(index: IndexMetadata) {
-  return `${index.table}.${index.name} ${JSON.stringify(index.fields)}`;
+export function toIndexMetadata(index: DeveloperIndexConfig): IndexMetadata {
+  function extractFields(index: DeveloperIndexConfig): IndexMetadata["fields"] {
+    if (index.type === "database") {
+      return index.fields;
+    } else if (index.type === "search") {
+      return {
+        searchField: index.searchField,
+        filterFields: index.filterFields,
+      };
+    } else if (index.type === "vector") {
+      return {
+        dimensions: index.dimensions,
+        vectorField: index.vectorField,
+        filterFields: index.filterFields,
+      };
+    } else {
+      index satisfies never;
+      return [];
+    }
+  }
+
+  const [table, indexName] = index.name.split(".");
+  return {
+    table,
+    name: indexName,
+    fields: extractFields(index),
+    backfill: {
+      state: "done",
+    },
+    staged: index.staged ?? false,
+  };
+}
+
+export function toDeveloperIndexConfig(
+  index: IndexMetadata,
+): DeveloperIndexConfig {
+  const name = `${index.table}.${index.name}`;
+  const commonProps = { name, staged: index.staged };
+
+  const { fields } = index;
+  if (Array.isArray(fields)) {
+    return {
+      ...commonProps,
+      type: "database",
+      fields: fields,
+    };
+  } else if ("searchField" in fields) {
+    return {
+      ...commonProps,
+      type: "search",
+      searchField: fields.searchField,
+      filterFields: fields.filterFields,
+    };
+  } else if ("vectorField" in fields) {
+    return {
+      ...commonProps,
+      type: "vector",
+      vectorField: fields.vectorField,
+      dimensions: fields.dimensions,
+      filterFields: fields.filterFields,
+    };
+  } else {
+    fields satisfies never;
+    return { ...commonProps, type: "database", fields: [] };
+  }
+}
+
+export function formatIndex(index: DeveloperIndexConfig) {
+  const [tableName, indexName] = index.name.split(".");
+  return `${tableName}.${chalk.bold(indexName)} ${chalk.gray(formatIndexFields(index))}`;
+}
+
+function formatIndexFields(index: DeveloperIndexConfig) {
+  switch (index.type) {
+    case "database":
+      return "  " + index.fields.map((f) => chalk.underline(f)).join(", ");
+    case "search":
+      return `${chalk.cyan("(text)")}   ${chalk.underline(index.searchField)}${formatFilterFields(index.filterFields)}`;
+    case "vector":
+      return `${chalk.cyan("(vector)")}   ${chalk.underline(index.vectorField)} (${index.dimensions} dimensions)${formatFilterFields(index.filterFields)}`;
+    default:
+      index satisfies never;
+      return "";
+  }
+}
+
+function formatFilterFields(filterFields: string[]) {
+  if (filterFields.length === 0) {
+    return "";
+  }
+  return `, filter${filterFields.length === 1 ? "" : "s"} on ${filterFields.map((f) => chalk.underline(f)).join(", ")}`;
 }

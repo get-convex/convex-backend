@@ -56,7 +56,9 @@
         },
         "security": [
           {
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
           }
         ]
@@ -95,7 +97,9 @@
         },
         "security": [
           {
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Tokens": []
           }
         ]
@@ -134,9 +138,13 @@
         },
         "security": [
           {
-            "OAuth Project Token": [],
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
           }
         ]
       }
@@ -164,7 +172,9 @@
         },
         "security": [
           {
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
           }
         ]
@@ -207,9 +217,13 @@
         },
         "security": [
           {
-            "OAuth Project Token": [],
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
           }
         ]
       }
@@ -233,9 +247,13 @@
         },
         "security": [
           {
-            "OAuth Project Token": [],
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
           }
         ]
       }
@@ -269,9 +287,13 @@
         },
         "security": [
           {
-            "OAuth Project Token": [],
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
           }
         ]
       }
@@ -306,9 +328,13 @@
         },
         "security": [
           {
-            "OAuth Project Token": [],
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
           }
         ]
       }
@@ -340,9 +366,13 @@
         },
         "security": [
           {
-            "OAuth Project Token": [],
-            "OAuth Team Token": [],
+            "OAuth Team Token": []
+          },
+          {
             "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
           }
         ]
       }

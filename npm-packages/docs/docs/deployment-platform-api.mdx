@@ -1,0 +1,44 @@
+---
+title: Deployment Platform API
+hide_table_of_contents: true
+description: "Deployment API"
+---
+
+<Admonition type="info">
+  The Convex Deployment API is openly available in Beta. Please contact
+  platforms@convex.dev if your use case requires additional capabilities.
+</Admonition>
+
+Unlike HTTP endpoints which expose application-specific functionality to
+clients, management API endpoints configure deployments (e.g. modifying
+environment variables).
+
+## Authorization
+
+The Deployment Management API requires a Authorization header with a key that
+grants admin access to that deployment.
+
+[Deployment keys](https://docs.convex.dev/cli/deploy-key-types#development-deploy-keys)
+created in the
+[dashboard](https://docs.convex.dev/dashboard/deployments/deployment-settings#url-and-deploy-key)
+or by API calls can be used for these APIs.
+
+[Team Access Tokens](/platform-apis#managing-your-own-projects) and
+[OAuth Application Tokens](/platform-apis/oauth-applications) can also be used
+in depending on whether you are using the Management API on behalf of your own
+team or on behalf of the team of a user of a Convex integration you've built.
+
+Whatever type of key, add the string `"Convex "` to the front.
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://happy-otter-123.convex.cloud/api/v1/list_environment_variables
+  {
+    headers: {
+      Authorization: `Convex ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```

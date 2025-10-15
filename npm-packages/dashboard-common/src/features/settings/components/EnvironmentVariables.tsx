@@ -24,6 +24,7 @@ import { Callout } from "@ui/Callout";
 import { Button } from "@ui/Button";
 import { copyTextToClipboard, toast } from "@common/lib/utils";
 import { TextInput } from "@ui/TextInput";
+import { cn } from "@ui/cn";
 
 const MAX_NUMBER_OF_ENV_VARS = 100;
 
@@ -196,7 +197,7 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
   }, [environmentVariables, formState]);
 
   return (
-    <Form className="flex flex-col">
+    <Form className="flex flex-col [--env-var-contents-height:2.125rem]">
       {environmentVariables === undefined ? (
         <Spinner />
       ) : (
@@ -319,11 +320,9 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
   return (
     <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
       <div className={ENVIRONMENT_VARIABLE_NAME_COLUMN}>
-        <div className="flex items-start font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
-          {environmentVariable.name}
-        </div>
+        <EnvironmentVariableName environmentVariable={environmentVariable} />
       </div>
-      <div className="flex min-h-[2.125rem] min-w-0 items-center gap-1 font-mono">
+      <div className="flex min-h-(--env-var-contents-height) min-w-0 items-center gap-1 font-mono">
         <Button
           tip={showValue ? "Hide" : "Show"}
           type="button"
@@ -349,7 +348,7 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
           )}
         </div>
       </div>
-      <div className="flex h-[2.125rem] justify-between gap-2">
+      <div className="flex h-(--env-var-contents-height) justify-between gap-2">
         <Button
           tip={
             !hasAdminPermissions
@@ -407,16 +406,14 @@ function DeletedEnvVar<T extends BaseEnvironmentVariable>({
       <div
         className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
       >
-        <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
-          {environmentVariable.name}
-        </div>
+        <EnvironmentVariableName environmentVariable={environmentVariable} />
       </div>
-      <div className="flex h-[2.375rem] items-center justify-center gap-1 rounded-md border bg-background-error text-content-error">
+      <div className="flex h-(--env-var-contents-height) items-center justify-center gap-1 rounded-md border bg-background-error text-content-error">
         <MinusCircledIcon /> Will be deleted
       </div>
       <Button
         variant="neutral"
-        className="min-h-[2.125rem] w-full justify-center"
+        className="min-h-(--env-var-contents-height) w-full justify-center"
         size="sm"
         onClick={() => onCancelDelete()}
         disabled={formState.isSubmitting}
@@ -424,6 +421,18 @@ function DeletedEnvVar<T extends BaseEnvironmentVariable>({
       >
         Restore
       </Button>
+    </div>
+  );
+}
+
+function EnvironmentVariableName<T extends BaseEnvironmentVariable>({
+  environmentVariable,
+}: {
+  environmentVariable: T;
+}) {
+  return (
+    <div className="flex items-start font-mono font-semibold break-all whitespace-pre-wrap text-content-primary md:col-span-1">
+      {environmentVariable.name}
     </div>
   );
 }
@@ -476,7 +485,7 @@ function EditEnvVarForm<T extends BaseEnvironmentVariable>({
         <Button
           type="button"
           variant="neutral"
-          className="h-fit min-h-[2.125rem] w-full justify-center"
+          className="h-fit min-h-(--env-var-contents-height) w-full justify-center"
           size="sm"
           onClick={() => onCancelEdit()}
           disabled={formState.isSubmitting}
@@ -791,7 +800,7 @@ function NewEnvVar({
         onClick={() => {
           onDelete();
         }}
-        className="w-fit"
+        className="min-h-[2.125rem] w-fit self-start"
         variant="neutral"
         size="sm"
         icon={<MinusCircledIcon />}
@@ -847,7 +856,7 @@ function EnvVarValueInput({
   const value = getIn(formState.values, formKey) as string;
   const touched = getIn(formState.touched, formKey);
 
-  const hasAnyWhitespace = value.includes(" ");
+  const hasAnyWhitespace = /\s/.test(value);
   const hasLeadingOrTrailingWhitespace =
     value.length > 0 && value !== value.trim();
   const hasReturnCharacter = value.includes("\n");
@@ -908,38 +917,24 @@ function EnvVarValueInput({
     }
   }, [value]);
 
-  const textareaClasses = `
-    w-full
-    min-h-[2.125rem]
-    font-mono
-    block
-    rounded-md
-    bg-background-secondary
-    p-1.5
-    whitespace-break-spaces
-    px-2
-    text-sm
-    border
-    placeholder-content-tertiary
-    focus:outline-hidden
-    disabled:bg-background-tertiary
-    disabled:text-content-secondary
-    break-all
-    disabled:cursor-not-allowed
-    resize-none
-    overflow-hidden
-    ${hasError ? "focus:border-content-error" : "text-content-primary focus:border-border-selected"}
-  `
-    .trim()
-    .replace(/\s+/g, " ");
-
   return (
     <>
       <div className="relative overflow-hidden">
         <textarea
           ref={textareaRef}
           id={id}
-          className={textareaClasses}
+          className={cn(
+            "block min-h-(--env-var-contents-height) w-full",
+            "resize-none",
+            "overflow-hidden rounded-md border bg-background-secondary",
+            "px-2 py-1.5",
+            "font-mono text-sm break-all whitespace-break-spaces placeholder-content-tertiary",
+            "focus:outline-hidden",
+            "disabled:cursor-not-allowed disabled:bg-background-tertiary disabled:text-content-secondary",
+            hasError
+              ? "focus:border-content-error"
+              : "text-content-primary focus:border-border-selected",
+          )}
           disabled={formState.isSubmitting}
           {...formState.getFieldProps(formKey)}
           autoComplete="off"

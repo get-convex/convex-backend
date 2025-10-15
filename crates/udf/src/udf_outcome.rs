@@ -101,17 +101,17 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             Err(js_error) => FunctionResultTypeProto::JsError(js_error.try_into()?),
         };
         Ok(Self {
-            rng_seed: rng_seed.to_vec(),
-            observed_rng,
+            rng_seed: Some(rng_seed.to_vec()),
+            observed_rng: Some(observed_rng),
             unix_timestamp: Some(unix_timestamp.into()),
-            observed_time,
+            observed_time: Some(observed_time),
             log_lines: log_lines.into_iter().map(|l| l.into()).collect(),
             journal: Some(journal.into()),
             result: Some(FunctionResultProto {
                 result: Some(result),
             }),
             syscall_trace: Some(syscall_trace.try_into()?),
-            observed_identity,
+            observed_identity: Some(observed_identity),
             memory_in_mb,
         })
     }
@@ -162,6 +162,7 @@ impl UdfOutcome {
         path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
     ) -> anyhow::Result<Self> {
+        let rng_seed = rng_seed.ok_or_else(|| anyhow::anyhow!("Missing rng_seed"))?;
         let rng_seed = rng_seed
             .as_slice()
             .try_into()
@@ -181,11 +182,11 @@ impl UdfOutcome {
             arguments,
             identity,
             rng_seed,
-            observed_rng,
+            observed_rng: observed_rng.unwrap_or_default(),
             unix_timestamp: unix_timestamp
                 .ok_or_else(|| anyhow::anyhow!("Missing unix_timestamp"))?
                 .try_into()?,
-            observed_time,
+            observed_time: observed_time.unwrap_or_default(),
             log_lines,
             journal: journal
                 .ok_or_else(|| anyhow::anyhow!("Missing journal"))?
@@ -195,7 +196,8 @@ impl UdfOutcome {
                 .ok_or_else(|| anyhow::anyhow!("Missing syscall_trace"))?
                 .try_into()?,
             udf_server_version,
-            observed_identity,
+            // TODO(lee): Remove the default once we've pushed all services.
+            observed_identity: observed_identity.unwrap_or(true),
             memory_in_mb,
         })
     }

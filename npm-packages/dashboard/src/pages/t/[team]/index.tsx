@@ -86,7 +86,6 @@ export default withAuthenticatedPage(() => {
 
                 {isReferralsBannerVisible && (
                   <ReferralsBanner
-                    className="mb-4"
                     team={team}
                     referralState={referralState}
                     onHide={() => setPrefersReferralsBannerHidden(true)}

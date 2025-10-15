@@ -1340,7 +1340,7 @@ h2.zen-header {
 /* Fix pages should not be too wide, except for all the quick starts and management API docs */
 html:not([class*="docs-doc-id-quickstart/"]):not(
     [class*="docs-doc-id-management-api/"]
-  )
+  ):not([class*="docs-doc-id-deployment-api/"])
   main
   > .container
   > .row
@@ -1352,7 +1352,7 @@ html:not([class*="docs-doc-id-quickstart/"]):not(
 @media (min-width: 997px) {
   html:not([class*="docs-doc-id-quickstart/"]):not(
       [class*="docs-doc-id-management-api/"]
-    )
+    ):not([class*="docs-doc-id-deployment-api/"])
     main
     > .container
     > .row
@@ -1632,26 +1632,4 @@ a.video-card h2 {
   font-family: var(--ifm-font-family-base);
   letter-spacing: normal;
   max-height: 2.4em;
-}
-
-/* Hack to hide additional Bearer token headers in OpenAPI endpoints */
-.openapi-explorer__details-container:nth-child(2)
-  > div
-  > .openapi-explorer__form-item:nth-child(2) {
-  display: none;
-}
-.openapi-explorer__details-container:nth-child(2)
-  > div
-  > .openapi-explorer__form-item:nth-child(3) {
-  display: none;
-}
-.openapi-explorer__details-container:nth-child(2)
-  > div
-  > .openapi-explorer__form-item:nth-child(4) {
-  display: none;
-}
-.openapi-explorer__details-container:nth-child(2)
-  > div
-  > .openapi-explorer__form-item:nth-child(5) {
-  display: none;
 }

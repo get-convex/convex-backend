@@ -72,7 +72,7 @@ function withArgsValidated<T>(wrapper: T): T {
         const validateArgsResult = await performOp(
           "validateArgs",
           argsValidatorJson,
-          convexToJson(args),
+          JSON.stringify(convexToJson(args)),
         );
         if (!validateArgsResult.valid) {
           throw new Error(validateArgsResult.message);
@@ -81,7 +81,9 @@ function withArgsValidated<T>(wrapper: T): T {
         const validateReturnsResult = await performOp(
           "validateReturns",
           returnsValidatorJson,
-          convexToJson(functionResult === undefined ? null : functionResult),
+          JSON.stringify(
+            convexToJson(functionResult === undefined ? null : functionResult),
+          ),
         );
         if (!validateReturnsResult.valid) {
           throw new Error(validateReturnsResult.message);
