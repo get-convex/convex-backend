@@ -3,6 +3,7 @@ use aws_sdk_s3::{
     operation::upload_part::UploadPartOutput,
     types::ChecksumAlgorithm,
 };
+use aws_utils::are_checksums_disabled;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -59,10 +60,14 @@ impl ObjectPart {
         size: u64,
         upload_part_output: UploadPartOutput,
     ) -> anyhow::Result<Self> {
-        let checksum = upload_part_output
-            .checksum_crc32()
-            .ok_or_else(|| anyhow::anyhow!("Object part missing hash! Expected crc32"))?
-            .to_string();
+        let checksum = if are_checksums_disabled() {
+            "disabled".to_string()
+        } else {
+            upload_part_output
+                .checksum_crc32()
+                .ok_or_else(|| anyhow::anyhow!("Object part missing hash! Expected crc32"))?
+                .to_string()
+        };
         Ok(Self {
             part_number,
             etag: upload_part_output
