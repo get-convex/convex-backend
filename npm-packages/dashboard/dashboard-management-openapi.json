@@ -5323,9 +5323,15 @@
           "periodicBackupsEnabled",
           "maxCloudBackups",
           "maxChefTokens",
-          "ssoEnabled"
+          "ssoEnabled",
+          "auditLogRetentionDays"
         ],
         "properties": {
+          "auditLogRetentionDays": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "auditLogsEnabled": {
             "type": "boolean"
           },
