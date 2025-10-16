@@ -225,37 +225,29 @@ impl AppDefinitionEvaluator {
             let default_str = strings::default.create(&mut scope)?;
 
             if namespace.has(&mut scope, default_str.into()) != Some(true) {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidDefinition",
-                    "Definition file is missing a default export"
-                ));
+                anyhow::bail!(invalid_export_value(path, "missing default export"));
             }
             let default_export: v8::Local<v8::Object> = namespace
                 .get(&mut scope, default_str.into())
                 .context("Failed to get default export")?
                 .try_into()
-                .map_err(|_| {
-                    ErrorMetadata::bad_request(
-                        "InvalidDefinition",
-                        "Default export is not an object",
-                    )
-                })?;
+                .map_err(|_| invalid_export_value(path, "the default export is not an object"))?;
 
             let property_names = namespace
                 .get_property_names(&mut scope, GetPropertyNamesArgsBuilder::default().build())
                 .context("Failed to get property names")?;
             if property_names.length() != 1 {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidDefinition",
-                    "Definition module has more than one export"
+                anyhow::bail!(invalid_export_value(
+                    path,
+                    "`convex.config.ts` has more than one export"
                 ));
             }
 
             let export_str = strings::export.create(&mut scope)?;
             if default_export.has(&mut scope, export_str.into()) != Some(true) {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidDefinition",
-                    "Default export is missing its export function"
+                anyhow::bail!(invalid_export_value(
+                    path,
+                    "missing `export` property on the default export of `convex.config.ts`"
                 ));
             }
             let export: v8::Local<v8::Function> = default_export
@@ -263,9 +255,10 @@ impl AppDefinitionEvaluator {
                 .context("Failed to get export function")?
                 .try_into()
                 .map_err(|_| {
-                    ErrorMetadata::bad_request(
-                        "InvalidDefinition",
-                        "Export function is not a function",
+                    invalid_export_value(
+                        path,
+                        "`app.export` (where `app` is the default export of `convex.config.ts`) \
+                         is not a function",
                     )
                 })?;
 
@@ -275,7 +268,11 @@ impl AppDefinitionEvaluator {
 
             // Inject the component definition path into the exported result.
             let result_obj: v8::Local<v8::Object> = v8_result.try_into().map_err(|_| {
-                ErrorMetadata::bad_request("InvalidDefinition", "Export is not an object")
+                invalid_export_value(
+                    path,
+                    "`app.export()` (where `app` is the default export of `convex.config.ts`) \
+                     doesn’t return an object",
+                )
             })?;
             let key = strings::path.create(&mut scope)?;
             let path = String::from(path.clone());
@@ -303,6 +300,29 @@ impl AppDefinitionEvaluator {
 
         Ok(result)
     }
+}
+
+fn invalid_export_value(
+    component_path: &ComponentDefinitionPath,
+    msg: &'static str,
+) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "InvalidDefinition",
+        if component_path.is_root() {
+            format!(
+                "The default export of `convex.config.ts` in your app has an invalid value \
+                 ({msg}). Please make sure that you’re exporting the return value of \
+                 `defineApp()` (`import {{ defineApp }} from 'convex/server'`)."
+            )
+        } else {
+            format!(
+                "The default export of `convex.config.ts` in component `{component_path}` has an \
+                 invalid value ({msg}). Please make sure that the component is exporting the \
+                 return value of `defineComponent()` (`import {{ defineComponent }} from \
+                 'convex/server'`).",
+            )
+        },
+    )
 }
 
 pub struct ComponentInitializerEvaluator {
