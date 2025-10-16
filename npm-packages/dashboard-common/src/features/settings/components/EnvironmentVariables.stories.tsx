@@ -61,6 +61,7 @@ export const WithWhitespaceValues: Story = {
       { name: "LEADING_SPACE", value: "  value" },
       { name: "TRAILING_SPACE", value: "value  " },
       { name: "BOTH_SPACES", value: "  value  " },
+      { name: "LINE_RETURNS", value: "hello\nworld" },
       { name: "INTERNAL_SPACES", value: "value with spaces" },
     ],
   },
