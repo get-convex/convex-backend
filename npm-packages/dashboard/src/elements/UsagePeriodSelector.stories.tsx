@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
+import { fn } from "storybook/test";
 
 import { useState } from "react";
 import { Period, UsagePeriodSelector } from "./UsagePeriodSelector";
@@ -9,7 +10,7 @@ const meta = {
   component: UsagePeriodSelector,
   args: {
     currentBillingPeriod,
-    onChange: () => {},
+    onChange: fn(),
   },
 } satisfies Meta<typeof UsagePeriodSelector>;
 

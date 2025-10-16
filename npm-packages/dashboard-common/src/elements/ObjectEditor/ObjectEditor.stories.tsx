@@ -5,6 +5,7 @@ import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { fn } from "storybook/test";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -30,8 +31,8 @@ type Story = StoryObj<typeof meta>;
 export const Primary: Story = {
   args: {
     defaultValue: null,
-    onChange: () => {},
-    onError: () => {},
+    onChange: fn(),
+    onError: fn(),
     path: "document",
     mode: "editField",
   },

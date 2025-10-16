@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
+import { fn } from "storybook/test";
 import { SpendingLimitsForm } from "./SpendingLimits";
 
 const currentSpending = {
@@ -9,8 +10,8 @@ const currentSpending = {
 const meta = {
   component: SpendingLimitsForm,
   args: {
-    onSubmit: async () => {},
-    onCancel: () => {},
+    onSubmit: fn(),
+    onCancel: fn(),
     currentSpending,
   },
 } satisfies Meta<typeof SpendingLimitsForm>;

@@ -5,6 +5,7 @@ import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { ConvexProvider } from "convex/react";
 import udfs from "@common/udfs";
 import { SearchIndexFilter } from "system-udfs/convex/_system/frontend/lib/filters";
+import { fn } from "storybook/test";
 import { IndexFilters } from "./IndexFilters";
 
 const mockClient = mockConvexReactClient()
@@ -109,12 +110,12 @@ const meta: Meta<typeof IndexFilters> = {
       ],
     },
     getValidatorForField: () => ({ type: "string" }),
-    onFiltersChange: () => {},
-    applyFiltersWithHistory: async () => {},
-    setDraftFilters: () => {},
-    onChangeOrder: () => {},
-    onChangeIndexFilter: () => {},
-    onError: () => {},
+    onFiltersChange: fn(),
+    applyFiltersWithHistory: fn(),
+    setDraftFilters: fn(),
+    onChangeOrder: fn(),
+    onChangeIndexFilter: fn(),
+    onError: fn(),
     hasInvalidFilters: false,
     invalidFilters: {},
   },

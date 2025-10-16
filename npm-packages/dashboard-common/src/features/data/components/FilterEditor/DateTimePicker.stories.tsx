@@ -1,10 +1,11 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
+import { fn } from "storybook/test";
 
 export const Primary: Story = {
   args: {
     date: new Date(),
-    onChange: () => {},
+    onChange: fn(),
   },
 };
 

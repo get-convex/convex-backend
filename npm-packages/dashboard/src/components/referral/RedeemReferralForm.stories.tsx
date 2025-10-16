@@ -1,3 +1,4 @@
+import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { Team } from "generatedApi";
 import { RedeemReferralForm } from "./RedeemReferralForm";
@@ -43,10 +44,10 @@ const meta = {
     },
     teams: mockTeams,
     selectedTeam: mockTeams[0],
-    onTeamSelect: () => {},
-    onSubmit: async () => {},
+    onTeamSelect: fn(),
+    onSubmit: fn(),
     teamEligibility: { eligible: true },
-    onShowTeamSelector: () => {},
+    onShowTeamSelector: fn(),
     isTeamSelectorShown: false,
     isChef: false,
   },

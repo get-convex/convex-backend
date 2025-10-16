@@ -1,3 +1,4 @@
+import { fn } from "storybook/test";
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { Sheet } from "@ui/Sheet";
 import { SpendingLimitsSection } from "./SubscriptionOverview";
@@ -6,7 +7,7 @@ const meta = {
   component: SpendingLimitsSection,
   args: {
     hasAdminPermissions: true,
-    onSubmit: async () => {},
+    onSubmit: fn(),
   },
   render: (args) => (
     <Sheet>

@@ -7,6 +7,7 @@ import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { Panel, PanelGroup } from "react-resizable-panels";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { fn } from "storybook/test";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -17,8 +18,8 @@ const meta = {
   component: EditDocumentPanel,
   args: {
     tableName: "users",
-    onClose: () => {},
-    onSave: async () => {},
+    onClose: fn(),
+    onSave: fn(),
   },
   render: (args) => (
     <ConvexProvider client={mockClient}>

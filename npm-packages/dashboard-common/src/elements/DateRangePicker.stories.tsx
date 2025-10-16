@@ -1,5 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { DateRangePicker } from "@common/elements/DateRangePicker";
+import { fn } from "storybook/test";
 
 export const Primary: Story = {
   args: {
@@ -7,7 +8,7 @@ export const Primary: Story = {
       from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
       to: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
-    setDate: () => {},
+    setDate: fn(),
   },
 };
 

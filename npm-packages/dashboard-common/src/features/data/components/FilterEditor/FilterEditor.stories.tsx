@@ -5,6 +5,7 @@ import { FilterEditor } from "@common/features/data/components/FilterEditor/Filt
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { fn } from "storybook/test";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -30,9 +31,9 @@ export const Editor: Story = {
   args: {
     fields: ["_id", "_creationTime", "myColumn"],
     defaultDocument: { myColumn: 0 },
-    onChange: () => {},
-    onDelete: () => {},
-    onApplyFilters: () => {},
-    onError: () => {},
+    onChange: fn(),
+    onDelete: fn(),
+    onApplyFilters: fn(),
+    onError: fn(),
   },
 };

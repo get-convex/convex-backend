@@ -9,6 +9,7 @@ import {
   DeploymentInfoContext,
 } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { fn } from "storybook/test";
 
 // @ts-expect-error
 const deployment: ConnectedDeployment = {};
@@ -51,12 +52,9 @@ export const Default: Story = {
     tableName: "myTable",
     defaultDocument: { myColumn: 0 },
     filters: { clauses: [] },
-    onFiltersChange: () => {
-      // eslint-disable-next-line no-alert
-      alert("Filters applied");
-    },
-    setDraftFilters: () => {},
-    setShowFilters: () => {},
+    onFiltersChange: fn(),
+    setDraftFilters: fn(),
+    setShowFilters: fn(),
     tableFields: ["myColumn"],
     componentId: "myComponent",
     activeSchema: null,

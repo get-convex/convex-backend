@@ -3,12 +3,13 @@ import { useRef, useState } from "react";
 import { ExternalLinkIcon, StarIcon, TrashIcon } from "@radix-ui/react-icons";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
+import { fn } from "storybook/test";
 
 const meta = {
   component: ContextMenu,
   args: {
     target: null,
-    onClose: () => {},
+    onClose: fn(),
   },
   argTypes: {
     target: {

@@ -3,6 +3,7 @@ import { Meta, StoryObj } from "@storybook/nextjs";
 import { Callout } from "@ui/Callout";
 import { Formik } from "formik";
 import { Sheet } from "@ui/Sheet";
+import { fn } from "storybook/test";
 import {
   UpgradePlanContent,
   UpgradePlanContentProps,
@@ -37,7 +38,7 @@ const meta = {
         STRIPE PAYMENT DETAILS FORM WOULD BE HERE!
       </Callout>
     ),
-    setPaymentMethod: () => {},
+    setPaymentMethod: fn(),
     billingAddressInputs: (
       <Callout className="w-fit">Billing address inputs would be here</Callout>
     ),

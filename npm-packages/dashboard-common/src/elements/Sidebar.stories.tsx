@@ -8,6 +8,7 @@ import {
   Cross1Icon,
 } from "@radix-ui/react-icons";
 import { Sidebar } from "@common/elements/Sidebar";
+import { fn } from "storybook/test";
 
 const meta = {
   component: Sidebar,
@@ -17,7 +18,7 @@ const meta = {
     </div>
   ),
   args: {
-    setCollapsed: () => {},
+    setCollapsed: fn(),
   },
 } satisfies Meta<typeof Sidebar>;
 
