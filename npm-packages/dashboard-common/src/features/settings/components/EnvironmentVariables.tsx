@@ -887,16 +887,17 @@ function EnvVarValueInput({
 
     for (let i = 0; i < value.length; i++) {
       const char = value[i];
-      const isSpace = char === " " || char === "\n";
+      const isSpace = char === " ";
+      const isLineReturn = char === "\n";
       const isLeading = i < leadingCount;
       const isTrailing = i >= value.length - trailingCount;
       const colorClass =
-        isSpace && (isLeading || isTrailing)
+        (isSpace && (isLeading || isTrailing)) || isLineReturn
           ? "text-content-warning bg-background-warning/60"
           : isSpace
             ? "text-content-tertiary/50"
             : "text-transparent";
-      const displayChar = isSpace ? (char === "\n" ? "↵\n" : "␣") : char;
+      const displayChar = isSpace ? "␣" : isLineReturn ? "↵\n" : char;
 
       whitespaceOverlayParts.push({ text: displayChar, className: colorClass });
     }
