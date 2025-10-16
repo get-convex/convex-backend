@@ -550,7 +550,7 @@ impl UserIdentity {
                 email: get_string!(claims, email),
                 email_verified: claims.email_verified(),
                 gender: get_string!(claims, gender),
-                birthday: get_string!(claims, birthday),
+                birthday: get_string!(claims, birthdate),
                 timezone: get_string!(claims, zoneinfo),
                 language: get_string!(claims, locale),
                 phone_number: get_string!(claims, phone_number),
