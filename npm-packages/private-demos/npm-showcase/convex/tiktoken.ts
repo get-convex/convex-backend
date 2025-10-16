@@ -1,13 +1,13 @@
 "use node";
-// waiting for a better quickfix to enforce this
-/* eslint-disable @convex-dev/no-old-registered-function-syntax */
+import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { Tiktoken } from "tiktoken/lite";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const gpt2_base = require("tiktoken/encoders/gpt2.json");
 
-export const encode = action(
-  async (_, { str }: { str: string }): Promise<number[]> => {
+export const encode = action({
+  args: { str: v.string() },
+  handler: async (_, { str }): Promise<number[]> => {
     const enc = new Tiktoken(
       gpt2_base.bpe_ranks,
       gpt2_base.special_tokens,
@@ -17,10 +17,11 @@ export const encode = action(
     enc.free();
     return Array.from(tok);
   },
-);
+});
 
-export const decode = action(
-  async (_, { arr }: { arr: number[] }): Promise<string> => {
+export const decode = action({
+  args: { arr: v.array(v.number()) },
+  handler: async (_, { arr }: { arr: number[] }): Promise<string> => {
     const enc = new Tiktoken(
       gpt2_base.bpe_ranks,
       gpt2_base.special_tokens,
@@ -31,4 +32,4 @@ export const decode = action(
     enc.free();
     return result;
   },
-);
+});

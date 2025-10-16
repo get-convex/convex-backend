@@ -1,13 +1,12 @@
 import { noImportUseNode } from "./lib/noImportUseNode.js";
 import noOldRegisteredFunctionSyntax from "./lib/noOldRegisteredFunctionSyntax.js";
-import { noMissingArgs, noArgsWithoutValidator } from "./lib/noMissingArgs.js";
+import { requireArgsValidator } from "./lib/requireArgsValidator.js";
 import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
 
 const rules = {
   "no-old-registered-function-syntax": noOldRegisteredFunctionSyntax,
-  "no-args-without-validator": noArgsWithoutValidator,
-  "no-missing-args-validator": noMissingArgs,
+  "require-args-validator": requireArgsValidator,
   "import-wrong-runtime": noImportUseNode,
 } satisfies Record<string, RuleModule<string, unknown[]>>;
 
@@ -17,12 +16,7 @@ const recommendedRules = {
   // file if all Node.js-specific imports are side-effect free.
   "@convex-dev/import-wrong-runtime": "off",
   "@convex-dev/no-old-registered-function-syntax": "error",
-  // This is a reasonable idea in large projects: throw at runtime
-  // when API endpoints that don't expect arguments receive them.
-  // But it lacks the typical benefit of a validator providing
-  // types so it feels more pedantic.
-  "@convex-dev/no-missing-args-validator": "off",
-  "@convex-dev/no-args-without-validator": "error",
+  "@convex-dev/require-args-validator": "error",
 } satisfies {
   [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
 };

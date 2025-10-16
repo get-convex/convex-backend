@@ -1,21 +1,28 @@
 "use node";
-// waiting for a better quickfix to enforce this
-/* eslint-disable @convex-dev/no-old-registered-function-syntax */
+import { v } from "convex/values";
 import { action } from "./_generated/server";
 // import sharp from 'sharp';
 
-export const getUploadUrl = action(async (ctx) => {
-  return await ctx.storage.generateUploadUrl();
+export const getUploadUrl = action({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 
-export const l = action(async (ctx, { id }: { id: string }) => {
-  const img = await ctx.storage.get(id);
-  if (!img) {
-    throw new Error("could not fetch img");
-  }
-  /*
-    const buf = await sharp(img)
-        .greyscale()
-        .toBuffer();
-     */
+export const l = action({
+  args: {
+    id: v.id("_storage"),
+  },
+  handler: async (ctx, { id }) => {
+    const img = await ctx.storage.get(id);
+    if (!img) {
+      throw new Error("could not fetch img");
+    }
+    /*
+      const buf = await sharp(img)
+          .greyscale()
+          .toBuffer();
+       */
+  },
 });

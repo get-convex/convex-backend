@@ -1,11 +1,13 @@
 "use node";
-// waiting for a better quickfix to enforce this
-/* eslint-disable @convex-dev/no-old-registered-function-syntax */
+import { v } from "convex/values";
 import { action } from "./_generated/server";
 import snowflake from "snowflake-sdk";
 
-export const doSqlQuery = action(
-  async (_, { stmt }: { stmt: string }): Promise<string> => {
+export const doSqlQuery = action({
+  args: {
+    stmt: v.string(),
+  },
+  handler: async (_, { stmt }) => {
     const connection = snowflake.createConnection({
       account: process.env.SNOWFLAKE_ACCOUNT!,
       username: process.env.SNOWFLAKE_USERNAME,
@@ -39,4 +41,4 @@ export const doSqlQuery = action(
 
     return JSON.stringify(await connPromise);
   },
-);
+});

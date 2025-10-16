@@ -1,6 +1,3 @@
-// Delaying fixing this until we have a good auto-fix
-/* eslint-disable @convex-dev/no-args-without-validator */
-
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
@@ -43,14 +40,16 @@ export const getJob = query({
 
 // Get one file metadata
 export const getFile = query({
-  handler: async ({ db }, { id }: { id: Id<"_storage"> }) => {
+  args: { id: v.id("_storage") },
+  handler: async ({ db }, { id }) => {
     return await db.system.get(id);
   },
 });
 
 // Get one message
 export const getMessage = query({
-  handler: async ({ db }, { id }: { id: Id<"messages"> }) => {
+  args: { id: v.id("messages") },
+  handler: async ({ db }, { id }) => {
     return await db.get(id);
   },
 });
@@ -83,14 +82,16 @@ export const runtimeError2 = query({
 
 // Can't use db.system.get for a user-table id
 export const runtimeError3 = query({
-  handler: async ({ db }, { id }: { id: Id<"messages"> }) => {
+  args: { id: v.id("messages") },
+  handler: async ({ db }, { id }) => {
     return await db.system.get(id as unknown as Id<"_scheduled_functions">);
   },
 });
 
 // Can't use db.get for a system-table id
 export const runtimeError4 = query({
-  handler: async ({ db }, { id }: { id: Id<"_scheduled_functions"> }) => {
+  args: { id: v.id("_scheduled_functions") },
+  handler: async ({ db }, { id }) => {
     return await db.get(id as unknown as Id<"messages">);
   },
 });
@@ -108,7 +109,10 @@ export const runtimeError5 = mutation({
 
 // Can't perform db.patch on system tables
 export const runtimeError6 = mutation({
-  handler: async ({ db }, { id }: { id: Id<"_scheduled_functions"> }) => {
+  args: {
+    id: v.id("_scheduled_functions"),
+  },
+  handler: async ({ db }, { id }) => {
     const fakeDoc = { name: "anjan" };
     return await db.patch(id as unknown as Id<"messages">, fakeDoc as any);
   },
@@ -116,7 +120,10 @@ export const runtimeError6 = mutation({
 
 // Can't perform db.replace on system tables
 export const runtimeError7 = mutation({
-  handler: async ({ db }, { id }: { id: Id<"_scheduled_functions"> }) => {
+  args: {
+    id: v.id("_scheduled_functions"),
+  },
+  handler: async ({ db }, { id }) => {
     const fakeDoc = { name: "anjan" };
     return await db.replace(id as unknown as Id<"messages">, fakeDoc as any);
   },
@@ -124,7 +131,10 @@ export const runtimeError7 = mutation({
 
 // Can't perform db.delete on system tables
 export const runtimeError8 = mutation({
-  handler: async ({ db }, { id }: { id: Id<"_scheduled_functions"> }) => {
+  args: {
+    id: v.id("_scheduled_functions"),
+  },
+  handler: async ({ db }, { id }) => {
     return await db.delete(id as unknown as Id<"messages">);
   },
 });

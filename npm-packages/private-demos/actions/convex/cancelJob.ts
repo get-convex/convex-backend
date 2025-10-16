@@ -1,15 +1,13 @@
-// Delaying fixing this until we have a good auto-fix
-/* eslint-disable @convex-dev/no-args-without-validator */
-
+import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { mutation, action } from "./_generated/server";
 
 export const cancelJob = mutation({
-  handler: async (
-    { scheduler },
-    { id }: { id: Id<"_scheduled_functions"> },
-  ) => {
+  args: {
+    id: v.id("_scheduled_functions"),
+  },
+  handler: async ({ scheduler }, { id }) => {
     await scheduler.cancel(id);
   },
 });
