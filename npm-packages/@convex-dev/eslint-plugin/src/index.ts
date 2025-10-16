@@ -35,9 +35,6 @@ const plugin = {
   configs: {} as {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recommended: any;
-    /** Only available in ESlint 8 */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recommendedRulesCustomConvexDirectoryLocation: any;
   },
   meta: {
     name: "@convex-dev/eslint-plugin",
@@ -84,10 +81,6 @@ else {
           rules: recommendedRules,
         },
       ],
-    },
-    /** Useful for custom convex directory locations */
-    recommendedRulesCustomConvexDirectoryLocation: {
-      rules: recommendedRules,
     },
   };
 
