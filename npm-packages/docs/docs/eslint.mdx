@@ -53,6 +53,57 @@ module.exports =
 
 </Details>
 
+<Details summary={<>If your Convex functions are in a directory other than <code>convex</code></>}>
+
+By default, the Convex ESLint plugin will only apply rules in the `convex`
+directory.
+
+If you’re
+[customizing the Convex directory location](/production/project-configuration#changing-the-convex-folder-name-or-location),
+here’s how to adapt your ESLint configuration:
+
+```ts
+// eslint.config.js
+
+import convexPlugin from "@convex-dev/eslint-plugin";
+
+const recommendedConfig = convexPlugin.configs.recommended[0];
+const recommendedRules = recommendedConfig.rules;
+
+export default [
+  // Other configurations go here...
+
+  // Custom configuration with modified directory pattern
+  {
+    files: ["**/src/convex/**/*.ts"],
+    plugins: {
+      "@convex-dev": convexPlugin,
+    },
+    rules: recommendedRules,
+  },
+];
+```
+
+</Details>
+
+<Details summary={<>If you’re using the <code>next lint</code> command from Next.js</>}>
+
+For `next lint` to run ESLint on your `convex` directory you need to add that
+directory to the default set of directories. Add this section to your
+`next.config.ts`:
+
+```ts
+const nextConfig: NextConfig = {
+  /* other options here */
+
+  eslint: {
+    dirs: ["pages", "app", "components", "lib", "src", "convex"],
+  },
+};
+```
+
+</Details>
+
 ## Rules
 
 | Rule                                                                                                                                          | Recommended | Auto-fixable |
