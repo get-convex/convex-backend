@@ -14,7 +14,7 @@ This guide assumes you already have a working React app with Convex. If not
 follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
 <StepByStep>
-  <Step title="Create a Vercel account">    
+  <Step title="Create a Vercel account">
     If you haven't done so, create a [Vercel](https://vercel.com) account. This is
     free for small projects and should take less than a minute to set up.
 
@@ -40,8 +40,7 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
   </Step>
 
   <Step title="Set up the CONVEX_DEPLOY_KEY environment variable">
-    On your [Convex Dashboard](https://dashboard.convex.dev/)
-    go to your project's _Settings_ page. Click the _Generate Production Deploy Key_ button to generate a **Production** deploy key.
+    Go to the [Project Settings](https://dashboard.convex.dev/project/settings#deploy-keys) page in the Convex Dashboard. Click the _Generate Production Deploy Key_ button to generate a **Production** deploy key.
     Then click the copy button to copy the key.
 
     In Vercel, click _Environment Variables_.
