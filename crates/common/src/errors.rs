@@ -57,6 +57,9 @@ static PII_REPLACEMENTS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(||
     ]
 });
 
+/// Limit error messages originating from user code to 64KiB
+const MAX_ERROR_MESSAGE_LENGTH: usize = 1 << 16;
+
 /// Return Result<(), MainError> from main functions to report returned errors
 /// to Sentry.
 pub struct MainError(anyhow::Error);
@@ -602,7 +605,7 @@ impl JsError {
     }
 
     pub fn from_frames(
-        message: String,
+        mut message: String,
         frame_data: Vec<FrameData>,
         custom_data: Option<ConvexValue>,
         mut lookup_source_map: impl FnMut(&Url) -> anyhow::Result<Option<SourceMap>>,
@@ -671,6 +674,8 @@ impl JsError {
         {
             mapped_frames.pop();
         }
+
+        message.truncate(message.floor_char_boundary(MAX_ERROR_MESSAGE_LENGTH));
 
         JsError {
             message,
