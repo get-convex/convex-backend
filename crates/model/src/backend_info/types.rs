@@ -27,6 +27,7 @@ pub struct BackendInfoPersisted {
     pub streaming_export_enabled: bool,
     pub provision_concurrency: i32,
     pub log_streaming_enabled: bool,
+    pub audit_log_retention_days: u64,
 }
 
 impl From<BackendInfoPersisted> for BackendInfo {
@@ -41,6 +42,7 @@ impl From<BackendInfoPersisted> for BackendInfo {
             streaming_export_enabled: Some(bi.streaming_export_enabled),
             provision_concurrency: Some(bi.provision_concurrency),
             log_streaming_enabled: Some(bi.log_streaming_enabled),
+            audit_log_retention_days: Some(bi.audit_log_retention_days),
         }
     }
 }
@@ -59,6 +61,7 @@ impl From<BackendInfo> for BackendInfoPersisted {
                 .provision_concurrency
                 .unwrap_or(DEFAULT_PROVISION_CONCURRENCY),
             log_streaming_enabled: bi.log_streaming_enabled.unwrap_or_default(),
+            audit_log_retention_days: bi.audit_log_retention_days.unwrap_or_default(),
         }
     }
 }
@@ -85,6 +88,8 @@ pub struct SerializedBackendInfo {
     log_streaming_enabled: bool,
     project_name: Option<String>,
     project_slug: Option<String>,
+    #[serde(default)]
+    audit_log_retention_days: i64,
 }
 
 impl From<BackendInfoPersisted> for SerializedBackendInfo {
@@ -104,6 +109,7 @@ impl From<BackendInfoPersisted> for SerializedBackendInfo {
             log_streaming_enabled: b.log_streaming_enabled,
             project_name: b.project_name,
             project_slug: b.project_slug,
+            audit_log_retention_days: (b.audit_log_retention_days as i64),
         }
     }
 }
@@ -123,6 +129,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
         let log_streaming_enabled = o.log_streaming_enabled;
         let project_name = o.project_name;
         let project_slug = o.project_slug;
+        let audit_log_retention_days = o.audit_log_retention_days as u64;
 
         Ok(Self {
             team,
@@ -134,6 +141,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
             streaming_export_enabled,
             provision_concurrency,
             log_streaming_enabled,
+            audit_log_retention_days,
         })
     }
 }
@@ -177,6 +185,7 @@ mod tests {
                 streaming_export_enabled: false,
                 provision_concurrency: 1740011963,
                 log_streaming_enabled: true,
+                audit_log_retention_days: 0,
             }
         );
     }
