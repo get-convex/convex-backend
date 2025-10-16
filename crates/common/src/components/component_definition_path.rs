@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     ops::Deref,
     path::{
         Component as PathComponent,
@@ -102,6 +103,12 @@ impl Deref for ComponentDefinitionPath {
     }
 }
 
+impl fmt::Display for ComponentDefinitionPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &**self)
+    }
+}
+
 impl From<ComponentDefinitionPath> for String {
     fn from(value: ComponentDefinitionPath) -> Self {
         value
@@ -137,5 +144,28 @@ impl proptest::arbitrary::Arbitrary for ComponentDefinitionPath {
                 path.parse().unwrap()
             })
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_root_component() {
+        let path = ComponentDefinitionPath::root();
+        assert_eq!(path.to_string(), "");
+    }
+
+    #[test]
+    fn test_display_one_level() {
+        let path: ComponentDefinitionPath = "component1".parse().unwrap();
+        assert_eq!(path.to_string(), "component1");
+    }
+
+    #[test]
+    fn test_display_two_level() {
+        let path: ComponentDefinitionPath = "component1/component2".parse().unwrap();
+        assert_eq!(path.to_string(), "component1/component2");
     }
 }
