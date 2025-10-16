@@ -254,8 +254,10 @@ export function jsonToConvex(value: JSONValue): Value {
   return out;
 }
 
+const MAX_VALUE_FOR_ERROR_LEN = 16384;
+
 export function stringifyValueForError(value: any) {
-  return JSON.stringify(value, (_key, value) => {
+  const str = JSON.stringify(value, (_key, value) => {
     if (value === undefined) {
       // By default `JSON.stringify` converts undefined, functions, symbols,
       // Infinity, and NaN to null which produces a confusing error message.
@@ -270,6 +272,17 @@ export function stringifyValueForError(value: any) {
     }
     return value;
   });
+  if (str.length > MAX_VALUE_FOR_ERROR_LEN) {
+    const rest = "[...truncated]";
+    let truncateAt = MAX_VALUE_FOR_ERROR_LEN - rest.length;
+    const codePoint = str.codePointAt(truncateAt - 1);
+    if (codePoint !== undefined && codePoint > 0xffff) {
+      // don't split a surrogate pair in half
+      truncateAt -= 1;
+    }
+    return str.substring(0, truncateAt) + rest;
+  }
+  return str;
 }
 
 function convexToJsonInternal(
