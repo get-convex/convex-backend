@@ -142,6 +142,25 @@ pub struct WorkOSOrganizationDomain {
     pub domain: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WorkOSOrganizationMembershipResponse {
+    /// always "organization_membership"
+    pub object: String,
+    /// like "om_01E4ZCR3C5A4QZ2Z2JQXGKZJ9E"
+    pub id: String,
+    pub user_id: String,
+    pub organization_id: String,
+    pub role: WorkOSOrganizationRole,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WorkOSOrganizationRole {
+    pub slug: String,
+}
+
 #[async_trait]
 pub trait WorkOSClient: Send + Sync {
     async fn fetch_identities(&self, user_id: &str) -> anyhow::Result<Vec<WorkOSIdentity>>;
@@ -167,6 +186,14 @@ pub trait WorkOSClient: Send + Sync {
         domain: Option<&str>,
     ) -> anyhow::Result<WorkOSOrganizationResponse>;
     async fn delete_organization(&self, organization_id: &str) -> anyhow::Result<()>;
+
+    // Organization membership methods
+    async fn create_membership(
+        &self,
+        user_id: &str,
+        organization_id: &str,
+        role_slug: &str,
+    ) -> anyhow::Result<WorkOSOrganizationMembershipResponse>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -273,6 +300,22 @@ where
 
     async fn delete_organization(&self, organization_id: &str) -> anyhow::Result<()> {
         delete_workos_organization(&self.api_key, organization_id, &*self.http_client).await
+    }
+
+    async fn create_membership(
+        &self,
+        user_id: &str,
+        organization_id: &str,
+        role_slug: &str,
+    ) -> anyhow::Result<WorkOSOrganizationMembershipResponse> {
+        create_workos_membership(
+            &self.api_key,
+            user_id,
+            organization_id,
+            role_slug,
+            &*self.http_client,
+        )
+        .await
     }
 }
 
@@ -395,6 +438,26 @@ impl WorkOSClient for MockWorkOSClient {
 
     async fn delete_organization(&self, _organization_id: &str) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    async fn create_membership(
+        &self,
+        user_id: &str,
+        organization_id: &str,
+        role_slug: &str,
+    ) -> anyhow::Result<WorkOSOrganizationMembershipResponse> {
+        Ok(WorkOSOrganizationMembershipResponse {
+            object: "organization_membership".to_string(),
+            id: "om_mock123".to_string(),
+            user_id: user_id.to_string(),
+            organization_id: organization_id.to_string(),
+            role: WorkOSOrganizationRole {
+                slug: role_slug.to_string(),
+            },
+            status: "active".to_string(),
+            created_at: "2024-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2024-01-01T00:00:00.000Z".to_string(),
+        })
     }
 }
 
@@ -1151,6 +1214,72 @@ where
     }
 
     Ok(())
+}
+
+pub async fn create_workos_membership<F, E>(
+    api_key: &str,
+    user_id: &str,
+    organization_id: &str,
+    role_slug: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<WorkOSOrganizationMembershipResponse>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    #[derive(Serialize)]
+    struct CreateMembershipRequest {
+        user_id: String,
+        organization_id: String,
+        role_slug: String,
+    }
+
+    let request_body = CreateMembershipRequest {
+        user_id: user_id.to_string(),
+        organization_id: organization_id.to_string(),
+        role_slug: role_slug.to_string(),
+    };
+
+    let url = "https://api.workos.com/user_management/organization_memberships";
+
+    let request = http::Request::builder()
+        .uri(url)
+        .method(http::Method::POST)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(serde_json::to_vec(&request_body)?)?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not create WorkOS membership: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "create membership",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let membership: WorkOSOrganizationMembershipResponse = serde_json::from_slice(&response_body)
+        .with_context(|| {
+        format!(
+            "Invalid WorkOS membership response: {}",
+            String::from_utf8_lossy(&response_body)
+        )
+    })?;
+
+    Ok(membership)
 }
 
 #[cfg(test)]

@@ -2234,11 +2234,13 @@ export interface components {
             id: string;
         };
         SSOOrganizationResponse: {
-            createdAt: string;
+            /** Format: int64 */
+            createTime: number;
             domains: components["schemas"]["SSOOrganizationDomain"][];
             id: string;
             name: string;
-            updatedAt: string;
+            /** Format: int64 */
+            updateTime: number;
         };
         /** @description ConvexAccessToken is our own internal notion of authorization.
          *     It is versioned.

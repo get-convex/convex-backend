@@ -5120,13 +5120,14 @@
         "required": [
           "id",
           "name",
-          "createdAt",
-          "updatedAt",
+          "createTime",
+          "updateTime",
           "domains"
         ],
         "properties": {
-          "createdAt": {
-            "type": "string"
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
           },
           "domains": {
             "type": "array",
@@ -5140,8 +5141,9 @@
           "name": {
             "type": "string"
           },
-          "updatedAt": {
-            "type": "string"
+          "updateTime": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
