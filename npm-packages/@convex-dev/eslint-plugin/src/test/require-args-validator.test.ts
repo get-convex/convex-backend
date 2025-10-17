@@ -1,5 +1,5 @@
 import { RuleTester } from "@typescript-eslint/rule-tester";
-import { requireArgsValidator } from "../lib/requireArgsValidator.js";
+import { requireArgsValidator } from "../lib/require-args-validator.js";
 
 const ruleTester = new RuleTester({
   languageOptions: {

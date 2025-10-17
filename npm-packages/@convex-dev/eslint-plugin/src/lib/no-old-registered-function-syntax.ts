@@ -106,5 +106,3 @@ export const noOldRegisteredFunctionSyntax = createRule({
     };
   },
 });
-
-export default noOldRegisteredFunctionSyntax;

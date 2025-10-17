@@ -1,5 +1,5 @@
 import { RuleTester } from "@typescript-eslint/rule-tester";
-import { noOldRegisteredFunctionSyntax } from "../lib/noOldRegisteredFunctionSyntax.js";
+import { noOldRegisteredFunctionSyntax } from "../lib/no-old-registered-function-syntax.js";
 
 const ruleTester = new RuleTester({
   languageOptions: {

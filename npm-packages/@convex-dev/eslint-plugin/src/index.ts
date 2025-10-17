@@ -1,6 +1,6 @@
-import { noImportUseNode } from "./lib/noImportUseNode.js";
-import noOldRegisteredFunctionSyntax from "./lib/noOldRegisteredFunctionSyntax.js";
-import { requireArgsValidator } from "./lib/requireArgsValidator.js";
+import { noImportUseNode } from "./lib/no-import-use-node.js";
+import { noOldRegisteredFunctionSyntax } from "./lib/no-old-registered-function-syntax.js";
+import { requireArgsValidator } from "./lib/require-args-validator.js";
 import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
 
