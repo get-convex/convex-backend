@@ -18,12 +18,18 @@ export const Range: Story = {
   },
 };
 
+const rangeStart = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000); // 3 days ago
+const rangeEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
 export const RestrictedRange: Story = {
   args: {
     mode: "single",
     selected: new Date(Date.now() - 24 * 60 * 60 * 1000), // Yesterday
-    fromDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    toDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+    startMonth: rangeStart,
+    endMonth: rangeEnd,
+    disabled: {
+      before: rangeStart,
+      after: rangeEnd,
+    },
   },
 };
 

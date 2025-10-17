@@ -8,6 +8,7 @@ import { DateRange } from "react-day-picker";
 import { Popover } from "@ui/Popover";
 import { Button } from "@ui/Button";
 import { Calendar } from "@common/elements/Calendar";
+import { disabledFromRange } from "@common/features/data/components/FilterEditor/DateTimePicker";
 
 export type DateRangeShortcut = {
   value: string;
@@ -150,10 +151,11 @@ export function DateRangePicker({
             </div>
           )}
           <Calendar
-            initialFocus
+            autoFocus
             mode="range"
-            fromDate={minDate}
-            toDate={maxDate}
+            startMonth={minDate}
+            endMonth={maxDate}
+            disabled={disabledFromRange({ minDate, maxDate })}
             defaultMonth={from || new Date()}
             selected={selectedRange}
             onSelect={(d) => {

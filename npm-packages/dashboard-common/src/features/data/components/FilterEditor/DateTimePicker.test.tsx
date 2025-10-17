@@ -88,8 +88,9 @@ describe("DateTimePicker", () => {
     expect(screen.getByRole("dialog")).not.toHaveClass("hidden");
 
     // Find a different date button in the calendar (e.g., day 20)
-    // The calendar should have buttons for each day of the month
-    const dayButton = screen.getByRole("gridcell", { name: "20" });
+    const dayButton = screen.getByRole("button", {
+      name: "Saturday, January 20th, 2024",
+    });
 
     // Click on the date button
     await user.click(dayButton);

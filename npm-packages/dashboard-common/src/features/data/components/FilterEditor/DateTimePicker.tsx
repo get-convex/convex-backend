@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePopper } from "react-popper";
 import { Calendar } from "@common/elements/Calendar";
 import { TextInput } from "@ui/TextInput";
+import { Matcher } from "react-day-picker";
 
 const dateTimeFormat = "M/d/yyyy, h:mm:ss aa";
 
@@ -117,6 +118,13 @@ export function DateTimePicker({
 
   const handleTextInputBlur = () => {
     const parsedDate = parse(inputValue, dateTimeFormat, new Date());
+
+    // Don’t fire event if there was no change.
+    const timeAtSecondPrecision = (d: Date) => Math.floor(d.getTime() / 1000);
+    if (timeAtSecondPrecision(parsedDate) === timeAtSecondPrecision(dateTime)) {
+      return;
+    }
+
     if (!Number.isNaN(parsedDate.getTime())) {
       setDateTime(parsedDate);
       onChange(parsedDate);
@@ -256,8 +264,9 @@ export function DateTimePicker({
             // Necessary so the calendar updates when changing the date via the text input.
             month={visibleMonth}
             onMonthChange={(newDate) => setVisibleMonth(newDate)}
-            fromDate={minDate}
-            toDate={maxDate}
+            startMonth={minDate}
+            endMonth={maxDate}
+            disabled={disabledFromRange({ minDate, maxDate })}
           />
           <input
             type="time"
@@ -271,4 +280,24 @@ export function DateTimePicker({
       )}
     </div>
   );
+}
+
+// This is necessary to make the type checker happy
+export function disabledFromRange({
+  minDate,
+  maxDate,
+}: {
+  minDate: Date | undefined;
+  maxDate: Date | undefined;
+}): Matcher | undefined {
+  if (minDate && maxDate) {
+    return { before: minDate, after: maxDate };
+  }
+  if (minDate) {
+    return { before: minDate };
+  }
+  if (maxDate) {
+    return { after: maxDate };
+  }
+  return undefined;
 }
