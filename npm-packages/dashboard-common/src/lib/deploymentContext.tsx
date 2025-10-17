@@ -62,7 +62,7 @@ export type DeploymentInfo = (
   ): { id: number; name?: string | null; email?: string }[] | undefined;
   useTeamEntitlements(teamId?: number):
     | {
-        auditLogsEnabled?: boolean;
+        auditLogRetentionDays?: number;
         logStreamingEnabled?: boolean;
         streamingExportEnabled?: boolean;
       }

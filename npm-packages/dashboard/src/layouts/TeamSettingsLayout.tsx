@@ -30,7 +30,7 @@ export function TeamSettingsLayout({
   const selectedTeam = useCurrentTeam();
 
   const entitlements = useTeamEntitlements(selectedTeam?.id);
-  const auditLogsEnabled = entitlements?.auditLogsEnabled;
+  const auditLogsEnabled = entitlements?.auditLogRetentionDays !== 0;
 
   const { singleSignOn } = useLaunchDarkly();
 

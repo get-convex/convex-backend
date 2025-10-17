@@ -173,7 +173,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   }),
   useTeamMembers: () => [],
   useTeamEntitlements: () => ({
-    auditLogsEnabled: true,
+    auditLogRetentionDays: -1,
     logStreamingEnabled: true,
     streamingExportEnabled: true,
   }),

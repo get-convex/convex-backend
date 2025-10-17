@@ -42,7 +42,8 @@ function History() {
   const team = useCurrentTeam();
   const { startDate, endDate, setDate } = useDateFilters(router);
   const entitlements = useTeamEntitlements(team?.id);
-  const auditLogsEnabled = entitlements?.auditLogsEnabled;
+  const auditLogsEnabled =
+    entitlements && entitlements.auditLogRetentionDays !== 0;
 
   // Current day
   const maxEndDate = endOfToday();
@@ -91,7 +92,7 @@ function History() {
             <LocalDevCallout
               className="mt-6 flex-col"
               tipText="Tip: Run this to enable the deployment history locally:"
-              command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement audit_logs_enabled --team-id ${team?.id} --reason "local" true --for-real`}
+              command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement audit_log_retention_days --team-id ${team?.id} --reason "local" 90 --for-real`}
             />
           </Sheet>
         </div>

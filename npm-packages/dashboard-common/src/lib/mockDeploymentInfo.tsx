@@ -14,9 +14,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
     slug: "team",
   }),
   useTeamMembers: () => [],
-  useTeamEntitlements: () => ({
-    auditLogsEnabled: true,
-  }),
+  useTeamEntitlements: () => ({}),
   useCurrentUsageBanner: () => null,
   useCurrentProject: () => ({
     id: 0,

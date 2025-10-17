@@ -43,7 +43,8 @@ function CurrentDeploymentDashboardLayoutWhenLoggedIn({
   const isLoading = deployments === undefined;
 
   const entitlements = useTeamEntitlements(project?.teamId);
-  const auditLogsEnabled = entitlements?.auditLogsEnabled;
+  const auditLogsEnabled =
+    entitlements && entitlements.auditLogRetentionDays !== 0;
 
   useEffect(() => {
     if (
