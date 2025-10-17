@@ -61,7 +61,7 @@ export const FunctionBreakdownMetricDatabaseBandwidth: FunctionBreakdownMetric =
   {
     name: "database bandwidth",
     getTotal: (row) => row.databaseIngressSize + row.databaseEgressSize,
-    getValues: (row) => [row.databaseIngressSize, row.databaseEgressSize],
+    getValues: (row) => [row.databaseEgressSize, row.databaseIngressSize],
     quantityType: "storage",
     categories: Object.values(BANDWIDTH_CATEGORIES),
   };
@@ -76,7 +76,7 @@ export const FunctionBreakdownMetricActionCompute: FunctionBreakdownMetric = {
 export const FunctionBreakdownMetricVectorBandwidth: FunctionBreakdownMetric = {
   name: "vector bandwidth",
   getTotal: (row) => row.vectorIngressSize + row.vectorEgressSize,
-  getValues: (row) => [row.vectorIngressSize, row.vectorEgressSize],
+  getValues: (row) => [row.vectorEgressSize, row.vectorIngressSize],
   quantityType: "storage",
   categories: Object.values(BANDWIDTH_CATEGORIES),
 };
