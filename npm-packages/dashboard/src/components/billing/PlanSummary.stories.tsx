@@ -33,7 +33,6 @@ export const Primary: Story = {
       teamMaxVectorStorage: 256 * 1024 * 1024,
       maxTeamMembers: 50000,
       logStreamingEnabled: true,
-      auditLogsEnabled: true,
       customDomainsEnabled: true,
       streamingExportEnabled: true,
       periodicBackupsEnabled: true,

@@ -2300,7 +2300,6 @@ export interface components {
         TeamEntitlementsResponse: {
             /** Format: int64 */
             auditLogRetentionDays: number;
-            auditLogsEnabled: boolean;
             customDomainsEnabled: boolean;
             logStreamingEnabled: boolean;
             /** Format: int64 */

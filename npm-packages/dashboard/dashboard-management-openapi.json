@@ -5320,7 +5320,6 @@
           "projectMaxPreviewDeployments",
           "teamMaxVectorStorage",
           "teamMaxVectorBandwidth",
-          "auditLogsEnabled",
           "customDomainsEnabled",
           "periodicBackupsEnabled",
           "maxCloudBackups",
@@ -5333,9 +5332,6 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
-          },
-          "auditLogsEnabled": {
-            "type": "boolean"
           },
           "customDomainsEnabled": {
             "type": "boolean"
