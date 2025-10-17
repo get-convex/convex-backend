@@ -7,8 +7,6 @@ description: ESLint rules for Convex
 ESLint rules for Convex functions enforce best practices. Let us know if there's
 a rule you would find helpful!
 
-<BetaAdmonition feature="Convex ESLint rules" verb="are" />
-
 ## Setup
 
 For ESLint 9 (flat config, using `eslint.config.js`), install the rules with:
