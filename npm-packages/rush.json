@@ -265,12 +265,10 @@
     {
       "packageName": "@convex-dev/react-query",
       "projectFolder": "@convex-dev/react-query"
-      // move to `"versionPolicyName": "convex"` once this is stable
     },
     {
       "packageName": "@convex-dev/eslint-plugin",
       "projectFolder": "@convex-dev/eslint-plugin"
-      // move to `"versionPolicyName": "convex"` once this is stable
     },
     {
       "packageName": "@convex-dev/codemod",
