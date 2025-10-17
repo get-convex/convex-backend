@@ -186,7 +186,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         anyhow::ensure!(snapshot_import.state == ImportState::Uploaded);
         tracing::info!("Marking snapshot import as WaitingForConfirmation");
         let import_id = snapshot_import.id();
-        self.fail_if_too_old(&snapshot_import)?;
         match info_message_for_import(self, snapshot_import).await {
             Ok((info_message, require_manual_confirmation, new_checkpoints)) => {
                 self.database

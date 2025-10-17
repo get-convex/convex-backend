@@ -45,6 +45,7 @@ pub async fn info_message_for_import<RT: Runtime>(
     executor: &SnapshotImportExecutor<RT>,
     snapshot_import: ParsedDocument<SnapshotImport>,
 ) -> anyhow::Result<(String, bool, Vec<ImportTableCheckpoint>)> {
+    executor.fail_if_too_old(&snapshot_import)?;
     let mut message_lines = Vec::new();
     let (content_confirmation_messages, require_manual_confirmation, new_checkpoints) =
         messages_to_confirm_replace(executor, snapshot_import).await?;
