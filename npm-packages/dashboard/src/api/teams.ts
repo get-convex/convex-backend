@@ -133,13 +133,13 @@ export function useUnpauseTeam(teamId: number) {
 }
 
 export function useGetSSO(teamId: number | undefined) {
-  const { data: ssoOrganization } = useBBQuery({
+  const { data: ssoOrganization, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_sso",
     pathParams: {
       team_id: teamId?.toString() || "",
     },
   });
-  return ssoOrganization;
+  return { data: ssoOrganization, isLoading };
 }
 
 export function useEnableSSO(teamId: number) {
@@ -156,20 +156,6 @@ export function useEnableSSO(teamId: number) {
   });
 }
 
-export function useUpdateSSODomain(teamId: number) {
-  return useBBMutation({
-    path: `/teams/{team_id}/update_sso_domain`,
-    pathParams: {
-      team_id: teamId.toString(),
-    },
-    mutateKey: "/teams/{team_id}/get_sso",
-    mutatePathParams: {
-      team_id: teamId.toString(),
-    },
-    successToast: "SSO domain has been updated.",
-  });
-}
-
 export function useDisableSSO(teamId: number) {
   return useBBMutation({
     path: `/teams/{team_id}/disable_sso`,
@@ -181,5 +167,14 @@ export function useDisableSSO(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "SSO has been disabled for your team.",
+  });
+}
+
+export function useGenerateSSOConfigurationLink(teamId: number) {
+  return useBBMutation({
+    path: `/teams/{team_id}/generate_sso_configuration_link`,
+    pathParams: {
+      team_id: teamId.toString(),
+    },
   });
 }

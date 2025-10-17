@@ -140,6 +140,16 @@ pub struct WorkOSOrganizationDomain {
     pub object: String,
     pub id: String,
     pub domain: String,
+    pub state: WorkOSDomainState,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkOSDomainState {
+    Verified,
+    Pending,
+    Failed,
+    LegacyVerified,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -161,6 +171,19 @@ pub struct WorkOSOrganizationRole {
     pub slug: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct WorkOSPortalLinkResponse {
+    /// The portal link URL
+    pub link: String,
+}
+
+#[derive(Debug, Serialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkOSPortalIntent {
+    Sso,
+    DomainVerification,
+}
+
 #[async_trait]
 pub trait WorkOSClient: Send + Sync {
     async fn fetch_identities(&self, user_id: &str) -> anyhow::Result<Vec<WorkOSIdentity>>;
@@ -173,7 +196,6 @@ pub trait WorkOSClient: Send + Sync {
         &self,
         name: &str,
         external_id: &str,
-        domain: &str,
     ) -> anyhow::Result<WorkOSOrganizationResponse>;
     async fn get_organization(
         &self,
@@ -194,6 +216,13 @@ pub trait WorkOSClient: Send + Sync {
         organization_id: &str,
         role_slug: &str,
     ) -> anyhow::Result<WorkOSOrganizationMembershipResponse>;
+
+    // Portal link generation
+    async fn generate_portal_link(
+        &self,
+        organization_id: &str,
+        intent: WorkOSPortalIntent,
+    ) -> anyhow::Result<WorkOSPortalLinkResponse>;
 }
 
 // Separate trait for WorkOS Platform API operations (requires different API
@@ -269,10 +298,8 @@ where
         &self,
         name: &str,
         external_id: &str,
-        domain: &str,
     ) -> anyhow::Result<WorkOSOrganizationResponse> {
-        create_workos_organization(&self.api_key, name, external_id, domain, &*self.http_client)
-            .await
+        create_workos_organization(&self.api_key, name, external_id, &*self.http_client).await
     }
 
     async fn get_organization(
@@ -316,6 +343,15 @@ where
             &*self.http_client,
         )
         .await
+    }
+
+    async fn generate_portal_link(
+        &self,
+        organization_id: &str,
+        intent: WorkOSPortalIntent,
+    ) -> anyhow::Result<WorkOSPortalLinkResponse> {
+        generate_workos_portal_link(&self.api_key, organization_id, intent, &*self.http_client)
+            .await
     }
 }
 
@@ -378,7 +414,6 @@ impl WorkOSClient for MockWorkOSClient {
         &self,
         name: &str,
         external_id: &str,
-        domain: &str,
     ) -> anyhow::Result<WorkOSOrganizationResponse> {
         Ok(WorkOSOrganizationResponse {
             object: "organization".to_string(),
@@ -387,11 +422,7 @@ impl WorkOSClient for MockWorkOSClient {
             external_id: Some(external_id.to_string()),
             created_at: "2024-01-01T00:00:00.000Z".to_string(),
             updated_at: "2024-01-01T00:00:00.000Z".to_string(),
-            domains: vec![WorkOSOrganizationDomain {
-                object: "organization_domain".to_string(),
-                id: "org_domain_mock123".to_string(),
-                domain: domain.to_string(),
-            }],
+            domains: vec![],
         })
     }
 
@@ -430,6 +461,7 @@ impl WorkOSClient for MockWorkOSClient {
                         object: "organization_domain".to_string(),
                         id: "org_domain_mock123".to_string(),
                         domain: d.to_string(),
+                        state: WorkOSDomainState::Pending,
                     }]
                 })
                 .unwrap_or_default(),
@@ -457,6 +489,22 @@ impl WorkOSClient for MockWorkOSClient {
             status: "active".to_string(),
             created_at: "2024-01-01T00:00:00.000Z".to_string(),
             updated_at: "2024-01-01T00:00:00.000Z".to_string(),
+        })
+    }
+
+    async fn generate_portal_link(
+        &self,
+        organization_id: &str,
+        intent: WorkOSPortalIntent,
+    ) -> anyhow::Result<WorkOSPortalLinkResponse> {
+        let intent_str = match intent {
+            WorkOSPortalIntent::Sso => "sso",
+            WorkOSPortalIntent::DomainVerification => "domain_verification",
+        };
+        Ok(WorkOSPortalLinkResponse {
+            link: format!(
+                "https://portal.workos.com/mock-portal-link?organization={organization_id}&intent={intent_str}"
+            ),
         })
     }
 }
@@ -974,7 +1022,6 @@ pub async fn create_workos_organization<F, E>(
     api_key: &str,
     name: &str,
     external_id: &str,
-    domain: &str,
     http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
 ) -> anyhow::Result<WorkOSOrganizationResponse>
 where
@@ -994,13 +1041,12 @@ where
         domain_data: Vec<DomainData>,
     }
 
+    // Always create organization without domains - domains are added through WorkOS
+    // portal
     let request_body = CreateOrganizationRequest {
         name: name.to_string(),
         external_id: external_id.to_string(),
-        domain_data: vec![DomainData {
-            domain: domain.to_string(),
-            state: "pending".to_string(),
-        }],
+        domain_data: vec![],
     };
 
     let url = "https://api.workos.com/organizations";
@@ -1280,6 +1326,69 @@ where
     })?;
 
     Ok(membership)
+}
+
+pub async fn generate_workos_portal_link<F, E>(
+    api_key: &str,
+    organization_id: &str,
+    intent: WorkOSPortalIntent,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<WorkOSPortalLinkResponse>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    #[derive(Serialize)]
+    struct GeneratePortalLinkRequest {
+        intent: WorkOSPortalIntent,
+        organization: String,
+    }
+
+    let request_body = GeneratePortalLinkRequest {
+        intent,
+        organization: organization_id.to_string(),
+    };
+
+    let url = "https://api.workos.com/portal/generate_link";
+
+    let request = http::Request::builder()
+        .uri(url)
+        .method(http::Method::POST)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(serde_json::to_vec(&request_body)?)?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not generate WorkOS portal link: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "generate portal link",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let portal_link: WorkOSPortalLinkResponse = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS portal link response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(portal_link)
 }
 
 #[cfg(test)]

@@ -591,9 +591,6 @@ function EntryAction({
     case "disableSSO": {
       return <span>disabled SSO</span>;
     }
-    case "updateSSODomain": {
-      return <span>updated the SSO domain</span>;
-    }
     default:
       action satisfies never;
       captureMessage(`Unhandled audit log action: ${action}`, "error");

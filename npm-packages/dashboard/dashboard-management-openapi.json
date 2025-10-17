@@ -2927,41 +2927,6 @@
         }
       }
     },
-    "/teams/{team_id}/update_sso_domain": {
-      "post": {
-        "operationId": "update_sso_domain",
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "path",
-            "description": "Team ID",
-            "required": true
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSSODomainRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SSOOrganizationResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/teams/{team_id}/disable_sso": {
       "post": {
         "operationId": "disable_sso",
@@ -2976,6 +2941,41 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/generate_sso_configuration_link": {
+      "post": {
+        "operationId": "generate_sso_configuration_link",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSSOConfigurationLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateSSOConfigurationLinkResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3136,7 +3136,6 @@
           "createWorkosEnvironment",
           "retrieveWorkosEnvironmentCredentials",
           "enableSSO",
-          "updateSSODomain",
           "disableSSO"
         ]
       },
@@ -4094,15 +4093,7 @@
         }
       },
       "EnableSSORequest": {
-        "type": "object",
-        "required": [
-          "domain"
-        ],
-        "properties": {
-          "domain": {
-            "type": "string"
-          }
-        }
+        "type": "object"
       },
       "EnvVariableConfigJson": {
         "type": "object",
@@ -4137,6 +4128,28 @@
             "type": "string"
           },
           "value": {
+            "type": "string"
+          }
+        }
+      },
+      "GenerateSSOConfigurationLinkRequest": {
+        "type": "object",
+        "required": [
+          "intent"
+        ],
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/SSOPortalIntent"
+          }
+        }
+      },
+      "GenerateSSOConfigurationLinkResponse": {
+        "type": "object",
+        "required": [
+          "link"
+        ],
+        "properties": {
+          "link": {
             "type": "string"
           }
         }
@@ -5100,11 +5113,21 @@
           "developer"
         ]
       },
+      "SSODomainState": {
+        "type": "string",
+        "enum": [
+          "verified",
+          "pending",
+          "failed",
+          "legacyVerified"
+        ]
+      },
       "SSOOrganizationDomain": {
         "type": "object",
         "required": [
           "id",
-          "domain"
+          "domain",
+          "state"
         ],
         "properties": {
           "domain": {
@@ -5112,6 +5135,9 @@
           },
           "id": {
             "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SSODomainState"
           }
         }
       },
@@ -5146,6 +5172,13 @@
             "format": "int64"
           }
         }
+      },
+      "SSOPortalIntent": {
+        "type": "string",
+        "enum": [
+          "sso",
+          "domainVerification"
+        ]
       },
       "SerializedAccessToken": {
         "type": "string",
@@ -5671,17 +5704,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "UpdateSSODomainRequest": {
-        "type": "object",
-        "required": [
-          "domain"
-        ],
-        "properties": {
-          "domain": {
-            "type": "string"
-          }
-        }
       },
       "UpdateTeamArgs": {
         "type": "object",

@@ -1677,22 +1677,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{team_id}/update_sso_domain": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["update_sso_domain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/teams/{team_id}/disable_sso": {
         parameters: {
             query?: never;
@@ -1703,6 +1687,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["disable_sso"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/generate_sso_configuration_link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["generate_sso_configuration_link"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1740,7 +1740,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "enableSSO" | "updateSSODomain" | "disableSSO";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "enableSSO" | "disableSSO";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1964,9 +1964,7 @@ export interface components {
             planId: string;
             requiresPaymentMethod: boolean;
         };
-        EnableSSORequest: {
-            domain: string;
-        };
+        EnableSSORequest: Record<string, never>;
         EnvVariableConfigJson: {
             deploymentTypes: components["schemas"]["DeploymentType"][];
             name: string;
@@ -1975,6 +1973,12 @@ export interface components {
         EnvironmentVariableJson: {
             name: string;
             value: string;
+        };
+        GenerateSSOConfigurationLinkRequest: {
+            intent: components["schemas"]["SSOPortalIntent"];
+        };
+        GenerateSSOConfigurationLinkResponse: {
+            link: string;
         };
         GetCurrentSpendResponse: {
             /** Format: int64 */
@@ -2229,9 +2233,12 @@ export interface components {
         };
         /** @enum {string} */
         Role: "admin" | "developer";
+        /** @enum {string} */
+        SSODomainState: "verified" | "pending" | "failed" | "legacyVerified";
         SSOOrganizationDomain: {
             domain: string;
             id: string;
+            state: components["schemas"]["SSODomainState"];
         };
         SSOOrganizationResponse: {
             /** Format: int64 */
@@ -2242,6 +2249,8 @@ export interface components {
             /** Format: int64 */
             updateTime: number;
         };
+        /** @enum {string} */
+        SSOPortalIntent: "sso" | "domainVerification";
         /** @description ConvexAccessToken is our own internal notion of authorization.
          *     It is versioned.
          *
@@ -2390,9 +2399,6 @@ export interface components {
         UpdateProjectRolesArgs: {
             updates: components["schemas"]["ProjectRoleUpdateArg"][];
         };
-        UpdateSSODomainRequest: {
-            domain: string;
-        };
         UpdateTeamArgs: {
             name?: null | components["schemas"]["ProposedTeamName"];
             slug?: null | components["schemas"]["TeamSlug"];
@@ -2495,6 +2501,8 @@ export type DiscountedPlanResponse = components['schemas']['DiscountedPlanRespon
 export type EnableSsoRequest = components['schemas']['EnableSSORequest'];
 export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson'];
 export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
+export type GenerateSsoConfigurationLinkRequest = components['schemas']['GenerateSSOConfigurationLinkRequest'];
+export type GenerateSsoConfigurationLinkResponse = components['schemas']['GenerateSSOConfigurationLinkResponse'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
@@ -2546,8 +2554,10 @@ export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
+export type SsoDomainState = components['schemas']['SSODomainState'];
 export type SsoOrganizationDomain = components['schemas']['SSOOrganizationDomain'];
 export type SsoOrganizationResponse = components['schemas']['SSOOrganizationResponse'];
+export type SsoPortalIntent = components['schemas']['SSOPortalIntent'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
@@ -2574,7 +2584,6 @@ export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethod
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
 export type UpdateProjectArgs = components['schemas']['UpdateProjectArgs'];
 export type UpdateProjectRolesArgs = components['schemas']['UpdateProjectRolesArgs'];
-export type UpdateSsoDomainRequest = components['schemas']['UpdateSSODomainRequest'];
 export type UpdateTeamArgs = components['schemas']['UpdateTeamArgs'];
 export type UsageState = components['schemas']['UsageState'];
 export type ValidateReferralCodeResult = components['schemas']['ValidateReferralCodeResult'];
@@ -4914,32 +4923,6 @@ export interface operations {
             };
         };
     };
-    update_sso_domain: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Team ID */
-                team_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSSODomainRequest"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SSOOrganizationResponse"];
-                };
-            };
-        };
-    };
     disable_sso: {
         parameters: {
             query?: never;
@@ -4957,6 +4940,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    generate_sso_configuration_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateSSOConfigurationLinkRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateSSOConfigurationLinkResponse"];
+                };
             };
         };
     };
