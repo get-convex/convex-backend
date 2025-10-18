@@ -1,19 +1,29 @@
 "use client";
 
 import * as React from "react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-} from "@radix-ui/react-icons";
-import { ChevronProps, ClassNames, DayPicker } from "react-day-picker";
+  ClassNames,
+  DayButton,
+  DayButtonProps,
+  DayPicker,
+  DayProps,
+  NextMonthButtonProps,
+  PreviousMonthButtonProps,
+} from "react-day-picker";
 
 import { cn } from "@ui/cn";
+import { Tooltip } from "@ui/Tooltip";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type BaseProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = BaseProps & {
+  beforeStartTooltip?: React.ReactNode;
+};
 
-export function Calendar({ ...props }: CalendarProps) {
+export function Calendar({
+  beforeStartTooltip,
+  ...calendarProps
+}: CalendarProps) {
   return (
     <DayPicker
       classNames={
@@ -55,24 +65,81 @@ export function Calendar({ ...props }: CalendarProps) {
         } satisfies Partial<ClassNames>
       }
       components={{
-        Chevron: function CustomChevron({ orientation }: ChevronProps) {
-          if (orientation === "left") {
-            return <ChevronLeftIcon className="size-4" />;
-          }
-          if (orientation === "right") {
-            return <ChevronRightIcon className="size-4" />;
-          }
-          if (orientation === "up") {
-            return <ChevronUpIcon className="size-4" />;
-          }
-          if (orientation === "down") {
-            return <ChevronDownIcon className="size-4" />;
-          }
-          orientation satisfies undefined;
-          return <span />;
+        PreviousMonthButton: function CustomPreviousMonthButton({
+          children: _,
+          ...buttonProps
+        }: PreviousMonthButtonProps) {
+          return (
+            <Tooltip
+              tip={buttonProps["aria-disabled"] === true && beforeStartTooltip}
+              wrapsButton
+            >
+              {/* eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker */}
+              <button {...buttonProps}>
+                <ChevronLeftIcon className="size-4" />
+              </button>
+            </Tooltip>
+          );
+        },
+
+        NextMonthButton: function CustomPreviousMonthButton({
+          children: _,
+          ...buttonProps
+        }: NextMonthButtonProps) {
+          return (
+            // eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker
+            <button {...buttonProps}>
+              <ChevronRightIcon className="size-4" />
+            </button>
+          );
+        },
+
+        // Modify `DayButton` to forward ref so that we can wrap it in a tooltip
+        DayButton: React.forwardRef<HTMLButtonElement, DayButtonProps>(
+          function CalendarDayButton(
+            { day: _, modifiers, ...buttonProps },
+            ref,
+          ) {
+            const localRef = React.useRef<HTMLButtonElement>(null);
+            React.useImperativeHandle(ref, () => localRef.current!);
+
+            React.useEffect(() => {
+              if (modifiers.focused) localRef.current?.focus();
+            }, [modifiers.focused]);
+
+            // eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker
+            return <button ref={localRef} {...buttonProps} />;
+          },
+        ) as typeof DayButton, // need `as` here since `DayButton` isn’t
+
+        // Modify `Day` to wrap the children in a tooltip when necessary
+        Day: function CalendarDay({
+          day,
+          modifiers,
+          children,
+          ...tdProps
+        }: DayProps) {
+          return (
+            <td {...tdProps}>
+              <Tooltip
+                tip={
+                  beforeStartTooltip &&
+                  modifiers.disabled &&
+                  typeof calendarProps.disabled === "object" &&
+                  "before" in calendarProps.disabled &&
+                  day.date < calendarProps.disabled.before
+                    ? beforeStartTooltip
+                    : undefined
+                }
+                wrapsButton
+              >
+                {children}
+              </Tooltip>
+            </td>
+          );
         },
       }}
-      {...props}
+      {...calendarProps}
     />
   );
 }

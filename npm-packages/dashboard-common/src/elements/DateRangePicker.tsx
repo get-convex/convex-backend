@@ -21,6 +21,7 @@ export type DateRangeShortcut = {
 export function DateRangePicker({
   minDate,
   maxDate,
+  beforeMinDateTooltip,
   date,
   setDate,
   shortcuts,
@@ -31,6 +32,7 @@ export function DateRangePicker({
 }: {
   minDate?: Date;
   maxDate?: Date;
+  beforeMinDateTooltip?: React.ReactNode;
   date: {
     from?: Date;
     to?: Date;
@@ -156,6 +158,7 @@ export function DateRangePicker({
             startMonth={minDate}
             endMonth={maxDate}
             disabled={disabledFromRange({ minDate, maxDate })}
+            beforeStartTooltip={beforeMinDateTooltip}
             defaultMonth={from || new Date()}
             selected={selectedRange}
             onSelect={(d) => {

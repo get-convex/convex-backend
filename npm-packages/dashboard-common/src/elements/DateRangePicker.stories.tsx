@@ -22,5 +22,10 @@ export const RestrictedRange: Story = {
   args: {
     minDate: new Date(Date.now() - 4 * 7 * 24 * 60 * 60 * 1000),
     maxDate: new Date(Date.now() + 4 * 7 * 24 * 60 * 60 * 1000),
+    beforeMinDateTooltip: (
+      <>
+        This is <em>too early</em>!
+      </>
+    ),
   },
 };

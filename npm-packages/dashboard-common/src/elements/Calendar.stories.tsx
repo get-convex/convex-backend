@@ -30,6 +30,11 @@ export const RestrictedRange: Story = {
       before: rangeStart,
       after: rangeEnd,
     },
+    beforeStartTooltip: (
+      <>
+        This is <em>too early</em>!
+      </>
+    ),
   },
 };
 
