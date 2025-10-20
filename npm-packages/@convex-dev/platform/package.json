@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run generateApiSpec && node version-check.mjs && zshy",
-    "prepack": "node -e \"if (process.env.npm_config_user_agent && !process.env.npm_config_user_agent.startsWith('pnpm')) { console.error('❌ Use pnpm publish instead of npm publish'); process.exit(1); }\"",
+    "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs",
     "test": "echo 0",
     "typecheck": "tsc --noEmit",
     "generateApiSpec": "npm run generateManagementApiSpec && npm run generateDeploymentApiSpec && npm run generateLogStreamApiSpec",
