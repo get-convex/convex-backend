@@ -728,6 +728,7 @@ export function setupConsole(responseStream: Writable) {
     consoleState.totalSentLineLength += totalMessageLength;
     consoleState.sentLines += 1;
   }
+
   devConsole.debug = function (...args) {
     consoleMessage("DEBUG", ...args);
   };
