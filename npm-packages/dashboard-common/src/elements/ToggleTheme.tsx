@@ -60,7 +60,7 @@ function ThemeRadioInput({
         checked={!currentTheme || currentTheme === theme}
         hidden
       />
-      <Tooltip tip={startCase(theme)} wrapsButton>
+      <Tooltip tip={startCase(theme)} asChild>
         <label
           aria-label="System Theme"
           htmlFor={`${theme}-theme`}

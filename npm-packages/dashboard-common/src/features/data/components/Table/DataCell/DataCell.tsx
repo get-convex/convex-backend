@@ -235,7 +235,7 @@ function DataCellImpl({
               contentClassName="bg-background-secondary animate-fadeInFromLoading"
               maxWidthClassName="max-w-[22rem]"
               delayDuration={250}
-              wrapsButton
+              asChild
             >
               <Link2Icon className="mr-2 flex-none text-content-secondary" />
             </Tooltip>

@@ -43,7 +43,7 @@ export function TableTab({
           }
           className="flex w-full items-start gap-0.5"
           side="right"
-          wrapsButton
+          asChild
         >
           <Link
             href={{

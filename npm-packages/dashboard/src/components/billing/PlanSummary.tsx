@@ -359,7 +359,7 @@ function UsageSection({
         <Tooltip
           tip="This metric does not support filtering by project or component"
           side="bottom"
-          wrapsButton
+          asChild
         >
           {content}
         </Tooltip>

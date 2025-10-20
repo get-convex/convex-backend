@@ -233,7 +233,7 @@ function EmbeddedConvexLogo({ collapsed }: { collapsed: boolean }) {
     <>
       {/* Vertical layout on small screens */}
       <div className="mr-2 sm:hidden">
-        <Tooltip tip="Convex" side="bottom" wrapsButton>
+        <Tooltip tip="Convex" side="bottom" asChild>
           <a
             className="flex h-full items-center"
             href={href}
@@ -252,7 +252,7 @@ function EmbeddedConvexLogo({ collapsed }: { collapsed: boolean }) {
 
       {/* Horizontal layout on larger screens, with some text when not collapsed */}
       <div className="hidden sm:block">
-        <Tooltip tip={collapsed && "Convex"} side="bottom" wrapsButton>
+        <Tooltip tip={collapsed && "Convex"} side="bottom" asChild>
           <a
             href={href}
             target="_blank"

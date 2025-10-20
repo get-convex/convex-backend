@@ -218,7 +218,7 @@ export function GlobalFunctionTester({
           key={`close-${isVertical.toString()}`}
           side={isVertical ? "bottom" : "top"}
           tip="Close panel"
-          wrapsButton
+          asChild
         >
           <ClosePanelButton
             onClose={() => hideGlobalRunner("click")}

@@ -325,7 +325,7 @@ function DeploymentOption({
         ) : undefined
       }
       side="right"
-      wrapsButton
+      asChild
     >
       <p className="flex max-w-[20rem] flex-col truncate" ref={ref}>
         {identifier}{" "}

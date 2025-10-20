@@ -41,7 +41,7 @@ export const DataCellValue = forwardRef<HTMLSpanElement, DataCellValueProps>(
           // but keyboard users can still copy it via clipboard.
           // Only render tooltip when hovering because it's slow
           isHovered ? (
-            <Tooltip tip={value} side="bottom" align="start" wrapsButton>
+            <Tooltip tip={value} side="bottom" align="start" asChild>
               <span>{new Date(value).toLocaleString()}</span>
             </Tooltip>
           ) : (

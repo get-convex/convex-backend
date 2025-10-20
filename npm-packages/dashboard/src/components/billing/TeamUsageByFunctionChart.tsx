@@ -324,7 +324,7 @@ function ChartRow({
     ) : undefined;
 
   const rowContents = row.href ? (
-    <Tooltip tip={tip} side="top" wrapsButton>
+    <Tooltip tip={tip} side="top" asChild>
       <Link passHref href={row.href}>
         {linkContents}
       </Link>

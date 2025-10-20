@@ -11,7 +11,7 @@ export function Tooltip({
   align = "center",
   className,
   contentClassName,
-  wrapsButton = false,
+  asChild = false,
   delayDuration = 0,
   maxWidthClassName = "max-w-[16rem]",
   disableHoverableContent = false,
@@ -23,7 +23,7 @@ export function Tooltip({
   className?: string;
   contentClassName?: string;
   maxWidthClassName?: string;
-  wrapsButton?: boolean;
+  asChild?: boolean;
   delayDuration?: number;
   disableHoverableContent?: boolean;
 }) {
@@ -38,7 +38,7 @@ export function Tooltip({
     >
       <RadixTooltip.Root>
         <RadixTooltip.Trigger
-          asChild={wrapsButton}
+          asChild={asChild}
           className={classNames(
             "focus-visible:outline-0 cursor-default",
             className,

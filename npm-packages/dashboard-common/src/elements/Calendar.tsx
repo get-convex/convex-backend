@@ -72,7 +72,7 @@ export function Calendar({
           return (
             <Tooltip
               tip={buttonProps["aria-disabled"] === true && beforeStartTooltip}
-              wrapsButton
+              asChild
             >
               {/* eslint-disable-next-line react/forbid-elements, react/button-has-type -- Component managed by react-day-picker */}
               <button {...buttonProps}>
@@ -131,7 +131,7 @@ export function Calendar({
                     ? beforeStartTooltip
                     : undefined
                 }
-                wrapsButton
+                asChild
               >
                 {children}
               </Tooltip>

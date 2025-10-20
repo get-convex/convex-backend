@@ -136,7 +136,7 @@ function NpmConvexServerVersionBanner() {
       <Tooltip
         tip="Dismiss this notification until the next update is available."
         side="left"
-        wrapsButton
+        asChild
       >
         <ClosePanelButton
           onClose={() => setDismissedVersion(upgradeRequiredVersion)}

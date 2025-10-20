@@ -93,7 +93,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         tip={tip}
         side={tipSide}
         disableHoverableContent={tipDisableHoverableContent}
-        wrapsButton
+        asChild
       >
         <Link
           passHref
@@ -119,7 +119,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
       tip={tip}
       side={tipSide}
       disableHoverableContent={tipDisableHoverableContent}
-      wrapsButton
+      asChild
     >
       {/* we're allowed to use button here. It's the Button component */}
       {/* eslint-disable-next-line react/forbid-elements */}
