@@ -70,17 +70,6 @@ impl ConcurrencyLimiter {
         }
     }
 
-    pub fn try_acquire(&self, client_id: Arc<String>) -> anyhow::Result<ConcurrencyPermit> {
-        self.tx.try_send(())?;
-        let permit_id = self.tracker.lock().register(client_id.clone());
-        Ok(ConcurrencyPermit {
-            permit_id,
-            rx: self.rx.clone(),
-            limiter: self.clone(),
-            client_id,
-        })
-    }
-
     pub async fn acquire(&self, client_id: Arc<String>) -> ConcurrencyPermit {
         let timer = concurrency_permit_acquire_timer();
         self.tx

@@ -9,6 +9,7 @@ use std::{
 use anyhow::Context as _;
 use common::{
     knobs::{
+        FUNRUN_INITIAL_PERMIT_TIMEOUT,
         ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
     },
@@ -295,17 +296,18 @@ impl<RT: Runtime> Isolate<RT> {
                 "IsolateNotClean",
                 "Selected isolate was not clean",
             ))?;
-        // Wait for a permit for subfunctions that cannot be retried, otherwise try to
-        // acquire and fail immediately if there are no permits available.
-        let permit = if environment.is_nested_function() {
-            self.limiter.acquire(client_id).await
-        } else {
-            self.limiter.try_acquire(client_id).context(
-                ErrorMetadata::rejected_before_execution(
+        // Acquire a concurrency permit without counting it against the timeout.
+        let permit = tokio::select! {
+            biased;
+            permit = self.limiter.acquire(client_id) => permit,
+            // Do not apply a timeout for subfunctions that can't be retried
+            () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT),
+                    if !environment.is_nested_function() => {
+                anyhow::bail!(ErrorMetadata::rejected_before_execution(
                     "InitialPermitTimeoutError",
                     "Couldn't acquire a permit on this funrun",
-                ),
-            )?
+                ));
+            }
         };
         let context_handle = self.handle.new_context_created();
         let mut user_timeout = environment.user_timeout();
