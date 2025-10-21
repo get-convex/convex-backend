@@ -245,31 +245,31 @@ export function ImportSummary({
     >(),
   );
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {Array.from(checkpointsByComponent.entries()).map(
         ([componentPath, checkpoints]) => (
           <div key={componentPath}>
             {componentPath ? (
-              <div className="flex w-full items-center space-x-1">
-                <PuzzlePieceIcon />
+              <h5 className="mb-1 flex w-full items-center space-x-1">
+                <PuzzlePieceIcon className="text-content-secondary" />
                 <span>{componentPath}</span>
-              </div>
+              </h5>
             ) : null}
-            <table className="mr-auto border-collapse border text-left">
+            <table className="mr-auto border-collapse border text-left text-xs">
               <thead className="border">
                 <tr>
-                  <th className="border px-2 font-semibold">table</th>
-                  <th className="border px-2 font-semibold">create</th>
-                  <th className="border px-2 font-semibold">delete</th>
+                  <th className="border px-2 py-0.5 font-semibold">Table</th>
+                  <th className="border px-2 py-0.5 font-semibold">Created</th>
+                  <th className="border px-2 py-0.5 font-semibold">Deleted</th>
                 </tr>
               </thead>
               <tbody>
                 {checkpoints.map((checkpoint) => (
                   <tr key={checkpoint.display_table_name}>
-                    <td className="border px-2">
+                    <td className="border px-2 py-0.5 font-mono">
                       <span>{checkpoint.display_table_name}</span>
                     </td>
-                    <td className="border px-2">
+                    <td className="border px-2 py-0.5 tabular-nums">
                       {Number(
                         checkpoint.total_num_rows_to_write,
                       ).toLocaleString()}{" "}
@@ -277,7 +277,18 @@ export function ImportSummary({
                         ? `file${Number(checkpoint.total_num_rows_to_write) === 1 ? "" : "s"}`
                         : `document${Number(checkpoint.total_num_rows_to_write) === 1 ? "" : "s"}`}
                     </td>
-                    <td className="border px-2">{`${Number(checkpoint.existing_rows_to_delete).toLocaleString()} of ${Number(checkpoint.existing_rows_in_table).toLocaleString()} ${checkpoint.display_table_name === "_storage" ? "files" : "documents"}`}</td>
+                    <td className="border px-2 py-0.5 tabular-nums">
+                      {Number(
+                        checkpoint.existing_rows_to_delete,
+                      ).toLocaleString()}{" "}
+                      of{" "}
+                      {Number(
+                        checkpoint.existing_rows_in_table,
+                      ).toLocaleString()}{" "}
+                      {checkpoint.display_table_name === "_storage"
+                        ? "files"
+                        : "documents"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

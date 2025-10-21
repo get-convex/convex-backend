@@ -373,12 +373,12 @@ function RestoreConfirmation({
         team={team}
       />
 
-      <p className="my-2">
+      <p className="my-2 text-sm">
         The data (tables and files) in <code>{targetDeployment.name}</code> will
         be replaced by the contents of the backup.
       </p>
 
-      <p className="text-content-secondary">
+      <p className="text-sm text-content-secondary">
         The rest of your deployment configuration (code, environment variables,
         scheduled functions, etc.) will not be changed.
       </p>
@@ -506,7 +506,7 @@ function BackupSummary({
   );
 
   return (
-    <div className="my-8 flex flex-col items-center gap-2">
+    <div className="my-4 flex flex-col items-center gap-2">
       <p className="flex items-center gap-2 text-content-tertiary">
         <ArchiveIcon className="size-6" /> Backup
       </p>
@@ -560,7 +560,7 @@ function DeploymentSummary({
   team,
 }: DeploymentSummaryProps) {
   return (
-    <div className="my-8 flex flex-col items-center gap-2">
+    <div className="my-4 flex flex-col items-center gap-2">
       <p className="flex items-center gap-2 text-content-tertiary">
         <ServerIcon className="size-6" /> Deployment
       </p>
@@ -584,7 +584,7 @@ export function TransferSummary({
   team: Team;
 }) {
   return (
-    <div className="grid justify-center gap-2 md:flex md:gap-5">
+    <div className="mb-4 grid justify-center gap-2 rounded-lg border md:flex md:gap-5">
       <BackupSummary
         backup={backup}
         sourceDeploymentAppearance={
@@ -595,7 +595,7 @@ export function TransferSummary({
         team={team}
       />
 
-      <div className="md:my-8">
+      <div className="flex w-full justify-center md:my-4 md:w-fit">
         <ArrowDownIcon className="size-6 text-content-tertiary md:hidden" />
         <ArrowRightIcon className="hidden size-6 text-content-tertiary md:block" />
       </div>

@@ -107,7 +107,7 @@ export function BackupRestoreFail({
 
   return (
     <>
-      <div className="flex min-h-16 flex-wrap items-center gap-2 rounded-sm border bg-background-secondary px-4 py-2">
+      <div className="flex min-h-16 flex-wrap items-center gap-2 rounded-lg border bg-background-secondary px-4 py-2">
         <div className="flex grow gap-2">
           <CrossCircledIcon className="size-5 shrink-0 text-content-errorSecondary" />
           <p className="grow text-sm leading-tight text-balance text-content-secondary">
@@ -175,7 +175,7 @@ export function BackupRestoreSuccess({
 
   return (
     <>
-      <div className="flex min-h-16 flex-wrap items-center gap-2 rounded-sm border bg-background-secondary px-4 py-2">
+      <div className="flex min-h-16 flex-wrap items-center gap-2 rounded-lg border bg-background-secondary px-4 py-2">
         <div className="flex grow items-center gap-2">
           <CheckCircledIcon className="shrink-0 text-content-success" />
           <p className="grow text-sm leading-tight text-balance text-content-secondary">
@@ -231,7 +231,7 @@ export function BackupRestoreOngoing({
   progressMessage: string;
 }) {
   return (
-    <div className="flex min-h-16 flex-col flex-wrap justify-center gap-2 rounded-sm border bg-background-secondary px-4 py-2 text-sm">
+    <div className="flex min-h-16 flex-col flex-wrap justify-center gap-2 rounded-lg border bg-background-secondary px-4 py-2 text-sm">
       <div className="flex flex-wrap justify-end gap-4">
         <div className="grow font-semibold">Restoring from a backup</div>
         <div className="min-w-56 text-right text-content-secondary">

@@ -54,7 +54,7 @@ export function Backups({
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h3 className="min-w-fit">Backup & Restore</h3>
         <span className="text-sm">
           Use this page to automatically or manually backup and restore your
@@ -67,8 +67,8 @@ export function Backups({
           </Link>
         </span>
       </div>
-      <div className="scrollbar flex grow flex-col gap-8 overflow-auto pt-1 pl-1 lg:flex-row lg:overflow-hidden">
-        <div className="flex shrink-0 flex-col lg:w-60">
+      <div className="scrollbar flex grow flex-col gap-4 overflow-auto pt-1 pl-1 xl:flex-row xl:overflow-hidden">
+        <Sheet className="flex h-fit w-full shrink-0 flex-col items-start gap-6 xl:w-60 xl:items-center">
           {periodicBackupsEnabled ? (
             <AutomaticBackupSelector
               deployment={deployment}
@@ -92,8 +92,6 @@ export function Backups({
             </Tooltip>
           )}
 
-          <hr className="my-6 w-full" />
-
           <BackupNowButton
             deployment={deployment}
             team={team}
@@ -105,9 +103,9 @@ export function Backups({
             periodicBackupsEnabled={periodicBackupsEnabled}
             maxCloudBackups={maxCloudBackups}
           />
-        </div>
+        </Sheet>
 
-        <div className="flex flex-col gap-4 pb-8 lg:grow lg:pb-0">
+        <div className="flex flex-col gap-4 pb-8 xl:grow xl:pb-0">
           {existingExport &&
             existingExport._creationTime < new Date("2024-11-15").getTime() &&
             existingExport.state === "completed" &&
@@ -194,7 +192,7 @@ function AutomaticBackupSelector({
           : undefined
       }
     >
-      <div className="flex flex-col gap-2">
+      <div className="flex w-full flex-col gap-2">
         <label className="mb-1 flex items-center gap-2 text-sm">
           <Checkbox
             checked={!!periodicBackup}
