@@ -433,19 +433,6 @@ impl PostgresTransaction<'_> {
             .map_err(|e| handle_error(self.poisoned, e))
     }
 
-    pub async fn execute_str(
-        &self,
-        statement: &'static str,
-        params: &[&(dyn ToSql + Sync)],
-    ) -> anyhow::Result<u64> {
-        with_timeout(
-            self.inner
-                .execute(&self.substitute_db_name(statement), params),
-        )
-        .await
-        .map_err(|e| handle_error(self.poisoned, e))
-    }
-
     pub async fn execute_raw<P, I>(&self, statement: &Statement, params: I) -> anyhow::Result<u64>
     where
         P: BorrowToSql,

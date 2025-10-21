@@ -1,4 +1,5 @@
 use std::{
+    assert_matches::assert_matches,
     cmp,
     env,
     sync::Arc,
@@ -40,6 +41,7 @@ use runtime::prod::ProdRuntime;
 
 use crate::{
     sql::EXPECTED_TABLE_COUNT,
+    ConnectError,
     ConvexMySqlPool,
     MySqlOptions,
     MySqlPersistence,
@@ -63,22 +65,6 @@ run_persistence_test_suite!(
         },
         ShutdownSignal::panic(),
     )
-    .await?,
-    MySqlPersistence::new(
-        Arc::new(ConvexMySqlPool::new(
-            &opts.url.clone(),
-            true,
-            Option::<ProdRuntime>::None,
-        )?),
-        opts.db_name.clone(),
-        MySqlOptions {
-            allow_read_only: true,
-            version: PersistenceVersion::V5,
-            instance_name: "test".into(),
-            multitenant: false,
-        },
-        ShutdownSignal::panic(),
-    )
     .await?
 );
 
@@ -96,22 +82,6 @@ mod multitenant {
             opts.db_name.clone(),
             MySqlOptions {
                 allow_read_only: false,
-                version: PersistenceVersion::V5,
-                instance_name: "test".into(),
-                multitenant: true,
-            },
-            ShutdownSignal::panic(),
-        )
-        .await?,
-        MySqlPersistence::new(
-            Arc::new(ConvexMySqlPool::new(
-                &opts.url.clone(),
-                true,
-                Option::<ProdRuntime>::None,
-            )?),
-            opts.db_name.clone(),
-            MySqlOptions {
-                allow_read_only: true,
                 version: PersistenceVersion::V5,
                 instance_name: "test".into(),
                 multitenant: true,
@@ -143,22 +113,6 @@ mod raw_statements {
                 multitenant: false
             },
             ShutdownSignal::panic()
-        )
-        .await?,
-        MySqlPersistence::new(
-            Arc::new(ConvexMySqlPool::new(
-                &opts.url.clone(),
-                false,
-                Option::<ProdRuntime>::None,
-            )?),
-            opts.db_name.clone(),
-            MySqlOptions {
-                allow_read_only: true,
-                version: PersistenceVersion::V5,
-                instance_name: "test".into(),
-                multitenant: false
-            },
-            ShutdownSignal::panic(),
         )
         .await?
     );
@@ -443,5 +397,46 @@ async fn test_max_system_size_value() -> anyhow::Result<()> {
     // TODO(ENG-8900): this is arguably a bug - MySQL persistence can't accept a
     // max-size system document
     assert_contains(&format!("{err:#}"), "packet too large");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_read_only() -> anyhow::Result<()> {
+    let options = MySqlOptions {
+        allow_read_only: false,
+        version: PersistenceVersion::V5,
+        instance_name: "test".into(),
+        multitenant: false,
+    };
+    let opts = crate::itest::new_db_opts().await?;
+    let pool = Arc::new(ConvexMySqlPool::new(
+        &opts.url.clone(),
+        false, /* use_prepared_statements */
+        Option::<ProdRuntime>::None,
+    )?);
+    let load = |allow_read_only| {
+        MySqlPersistence::new(
+            pool.clone(),
+            opts.db_name.clone(),
+            MySqlOptions {
+                allow_read_only,
+                ..options.clone()
+            },
+            ShutdownSignal::panic(),
+        )
+    };
+    load(false).await?;
+    // Loading persistence should also succeed with allow_read_only=true
+    load(true).await?;
+    MySqlPersistence::set_read_only(pool.clone(), opts.db_name.clone(), options.clone(), true)
+        .await?;
+    // Now loading should fail...
+    assert_matches!(load(false).await.err(), Some(ConnectError::ReadOnly));
+    // ... unless allow_read_only=true
+    load(true).await?;
+    // ... until read-only is set to false again
+    MySqlPersistence::set_read_only(pool.clone(), opts.db_name.clone(), options.clone(), false)
+        .await?;
+    load(false).await?;
     Ok(())
 }

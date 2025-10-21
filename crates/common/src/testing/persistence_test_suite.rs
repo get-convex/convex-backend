@@ -77,7 +77,7 @@ use crate::{
 
 #[macro_export]
 macro_rules! run_persistence_test_suite {
-    ($db:ident, $create_db:expr, $create_persistence:expr, $create_persistence_read_only:expr) => {
+    ($db:ident, $create_db:expr, $create_persistence:expr) => {
         #[tokio::test]
         async fn test_persistence_write_and_load() -> anyhow::Result<()> {
             let $db = $create_db;
@@ -189,16 +189,6 @@ macro_rules! run_persistence_test_suite {
             persistence_test_suite::write_then_read(|| async {
                 Ok(::std::sync::Arc::new($create_persistence))
             })
-            .await
-        }
-
-        #[tokio::test]
-        async fn test_persistence_set_read_only() -> anyhow::Result<()> {
-            let $db = $create_db;
-            persistence_test_suite::set_read_only(
-                || async { Ok($create_persistence) },
-                || async { Ok($create_persistence_read_only) },
-            )
             .await
         }
 
@@ -1481,73 +1471,6 @@ where
             prev_ts: None,
         }],
     );
-
-    Ok(())
-}
-
-pub async fn set_read_only<F, Fut, F1, Fut1, P: Persistence>(
-    mut make_p: F,
-    mut make_p_read_only: F1,
-) -> anyhow::Result<()>
-where
-    F: FnMut() -> Fut,
-    Fut: Future<Output = anyhow::Result<P>>,
-    F1: FnMut() -> Fut1,
-    Fut1: Future<Output = anyhow::Result<P>>,
-{
-    // Initially not read-only.
-    let p_backend1 = make_p().await?;
-    let table: TableName = str::parse("table")?;
-    let mut id_generator = TestIdGenerator::new();
-    let doc_id = id_generator.user_generate(&table);
-
-    let doc = ResolvedDocument::new(doc_id, CreationTime::ONE, ConvexObject::empty())?;
-
-    p_backend1
-        .write(
-            &[DocumentLogEntry {
-                ts: Timestamp::must(0),
-                id: doc.id_with_table_id(),
-                value: Some(doc.clone()),
-                prev_ts: None,
-            }],
-            &[],
-            ConflictStrategy::Error,
-        )
-        .await?;
-    // Release the lease.
-    drop(p_backend1);
-
-    let p_migration = make_p().await?;
-    p_migration.set_read_only(true).await?;
-
-    let result = make_p().await;
-    assert!(result.is_err());
-
-    drop(p_migration);
-
-    // Try to acquire lease should fail because it's read-only.
-    let result = make_p().await;
-    assert!(result.is_err());
-
-    let p_cleanup = make_p_read_only().await?;
-    p_cleanup.set_read_only(false).await?;
-    drop(p_cleanup);
-
-    // Now it's no longer read-only.
-    let p_backend2 = make_p().await?;
-    p_backend2
-        .write(
-            &[(DocumentLogEntry {
-                ts: Timestamp::must(1),
-                id: doc.id_with_table_id(),
-                value: Some(doc.clone()),
-                prev_ts: None,
-            })],
-            &[],
-            ConflictStrategy::Error,
-        )
-        .await?;
 
     Ok(())
 }

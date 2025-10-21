@@ -83,18 +83,13 @@ struct Inner {
 }
 
 impl SqlitePersistence {
-    pub fn new(path: &str, allow_read_only: bool) -> anyhow::Result<Self> {
+    pub fn new(path: &str) -> anyhow::Result<Self> {
         let newly_created = !Path::new(path).exists();
         let connection = Connection::open(path)?;
         // Execute create tables unconditionally since they are idempotent.
         connection.execute_batch(DOCUMENTS_INIT)?;
         connection.execute_batch(INDEXES_INIT)?;
-        connection.execute_batch(READ_ONLY_INIT)?;
         connection.execute_batch(PERSISTENCE_GLOBALS_INIT)?;
-        if !allow_read_only {
-            let mut stmt = connection.prepare(CHECK_IS_READ_ONLY)?;
-            anyhow::ensure!(stmt.raw_query().next()?.is_none());
-        }
         Ok(Self {
             inner: Arc::new(Mutex::new(Inner {
                 newly_created,
@@ -327,16 +322,6 @@ impl Persistence for SqlitePersistence {
         drop(insert_index_query);
 
         tx.commit()?;
-        Ok(())
-    }
-
-    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
-        let stmt = if read_only {
-            SET_READ_ONLY
-        } else {
-            UNSET_READ_ONLY
-        };
-        self.inner.lock().connection.execute_batch(stmt)?;
         Ok(())
     }
 
@@ -616,14 +601,6 @@ CREATE TABLE IF NOT EXISTS indexes (
 );
 "#;
 
-const READ_ONLY_INIT: &str = r#"
-CREATE TABLE IF NOT EXISTS read_only (
-    id INTEGER NOT NULL,
-
-    PRIMARY KEY (id)
-);
-"#;
-
 const PERSISTENCE_GLOBALS_INIT: &str = r#"
 CREATE TABLE IF NOT EXISTS persistence_globals (
     key TEXT NOT NULL,
@@ -705,10 +682,6 @@ const WALK_INDEXES: &str =
 const DELETE_INDEX: &str = "DELETE FROM indexes WHERE index_id = ? AND ts <= ? AND key = ?";
 
 const DELETE_DOCUMENT: &str = "DELETE FROM documents WHERE table_id = ? AND id = ? AND ts <= ?";
-
-const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM read_only LIMIT 1";
-const SET_READ_ONLY: &str = "INSERT INTO read_only (id) VALUES (1)";
-const UNSET_READ_ONLY: &str = "DELETE FROM read_only WHERE id = 1";
 
 const PREV_REV_QUERY: &str = r#"
 SELECT id, ts, table_id, json_value, deleted, prev_ts

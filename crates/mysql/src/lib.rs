@@ -6,6 +6,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
 #![feature(if_let_guard)]
+#![feature(assert_matches)]
 mod chunks;
 mod connection;
 mod metrics;
@@ -266,6 +267,29 @@ impl<RT: Runtime> MySqlPersistence<RT> {
         })
     }
 
+    pub async fn set_read_only(
+        pool: Arc<ConvexMySqlPool<RT>>,
+        db_name: String,
+        options: MySqlOptions,
+        read_only: bool,
+    ) -> anyhow::Result<()> {
+        let multitenant = options.multitenant;
+        let instance_name = mysql_async::Value::from(&options.instance_name.raw);
+        let params = if multitenant {
+            vec![instance_name]
+        } else {
+            vec![]
+        };
+        let mut conn = pool.acquire("set_read_only", &db_name).await?;
+        let statement = if read_only {
+            sql::set_read_only(multitenant)
+        } else {
+            sql::unset_read_only(multitenant)
+        };
+        conn.exec_iter(statement, params).await?;
+        Ok(())
+    }
+
     pub fn new_reader(
         pool: Arc<ConvexMySqlPool<RT>>,
         db_name: String,
@@ -468,27 +492,6 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                         )))
                         .await?;
                 }
-                Ok(())
-            })
-            .await
-    }
-
-    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
-        let multitenant = self.multitenant;
-        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
-        let params = if multitenant {
-            vec![instance_name]
-        } else {
-            vec![]
-        };
-        self.lease
-            .transact(async move |tx| {
-                let statement = if read_only {
-                    sql::set_read_only(multitenant)
-                } else {
-                    sql::unset_read_only(multitenant)
-                };
-                tx.exec_drop(statement, params).await?;
                 Ok(())
             })
             .await

@@ -1,4 +1,5 @@
 use std::{
+    assert_matches::assert_matches,
     cmp,
     env,
     sync::Arc,
@@ -35,8 +36,10 @@ use common::{
     },
 };
 use futures::TryStreamExt;
+use tokio_postgres::config::TargetSessionAttrs;
 
 use crate::{
+    ConnectError,
     PostgresOptions,
     PostgresPersistence,
 };
@@ -48,19 +51,6 @@ run_persistence_test_suite!(
         &db,
         PostgresOptions {
             allow_read_only: false,
-            version: PersistenceVersion::V5,
-            schema: None,
-            skip_index_creation: false,
-            instance_name: "test".into(),
-            multitenant: false,
-        },
-        ShutdownSignal::panic()
-    )
-    .await?,
-    PostgresPersistence::new(
-        &db,
-        PostgresOptions {
-            allow_read_only: true,
             version: PersistenceVersion::V5,
             schema: None,
             skip_index_creation: false,
@@ -89,19 +79,6 @@ mod multitenant {
             },
             ShutdownSignal::panic()
         )
-        .await?,
-        PostgresPersistence::new(
-            &db,
-            PostgresOptions {
-                allow_read_only: true,
-                version: PersistenceVersion::V5,
-                schema: None,
-                instance_name: "test".into(),
-                multitenant: true,
-                skip_index_creation: false,
-            },
-            ShutdownSignal::panic()
-        )
         .await?
     );
 }
@@ -115,19 +92,6 @@ mod with_non_default_schema {
             &db,
             PostgresOptions {
                 allow_read_only: false,
-                version: PersistenceVersion::V5,
-                schema: Some("foobar".to_owned()),
-                instance_name: "test".into(),
-                multitenant: false,
-                skip_index_creation: false,
-            },
-            ShutdownSignal::panic()
-        )
-        .await?,
-        PostgresPersistence::new(
-            &db,
-            PostgresOptions {
-                allow_read_only: true,
                 version: PersistenceVersion::V5,
                 schema: Some("foobar".to_owned()),
                 instance_name: "test".into(),
@@ -321,5 +285,43 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
         )
         .await;
     assert!(result.is_err());
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_read_only() -> anyhow::Result<()> {
+    let options = PostgresOptions {
+        allow_read_only: false,
+        version: PersistenceVersion::default(),
+        schema: None,
+        skip_index_creation: false,
+        instance_name: "test".into(),
+        multitenant: false,
+    };
+    let url = crate::itest::new_db_opts().await?;
+    let mut config: tokio_postgres::Config = url.parse()?;
+    config.target_session_attrs(TargetSessionAttrs::ReadWrite);
+    let pool = PostgresPersistence::create_pool(config)?;
+    let load = |allow_read_only| {
+        PostgresPersistence::with_pool(
+            pool.clone(),
+            PostgresOptions {
+                allow_read_only,
+                ..options.clone()
+            },
+            ShutdownSignal::panic(),
+        )
+    };
+    load(false).await?;
+    // Loading persistence should also succeed with allow_read_only=true
+    load(true).await?;
+    PostgresPersistence::set_read_only(pool.clone(), options.clone(), true).await?;
+    // Now loading should fail...
+    assert_matches!(load(false).await.err(), Some(ConnectError::ReadOnly));
+    // ... unless allow_read_only=true
+    load(true).await?;
+    // ... until read-only is set to false again
+    PostgresPersistence::set_read_only(pool.clone(), options.clone(), false).await?;
+    load(false).await?;
     Ok(())
 }

@@ -3,6 +3,7 @@
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
+#![feature(assert_matches)]
 mod connection;
 mod metrics;
 mod sql;
@@ -353,6 +354,40 @@ impl PostgresPersistence {
         })
     }
 
+    pub async fn set_read_only(
+        pool: Arc<ConvexPgPool>,
+        options: PostgresOptions,
+        read_only: bool,
+    ) -> anyhow::Result<()> {
+        let schema = if let Some(s) = &options.schema {
+            SchemaName::new(s)?
+        } else {
+            SchemaName::new(&get_current_schema(&pool).await?)?
+        };
+        let multitenant = options.multitenant;
+        let mut conn = pool
+            .get_connection("set_read_only", &schema, &options.instance_name)
+            .await?;
+        let instance_name = options.instance_name.clone();
+        conn.with_retry(async move |conn| {
+            let statement = if read_only {
+                sql::set_read_only(multitenant)
+            } else {
+                sql::unset_read_only(multitenant)
+            };
+            let statement = conn.prepare_cached(statement).await?;
+            let mut params = vec![];
+            if multitenant {
+                params.push(&instance_name.raw as &(dyn ToSql + Sync));
+            }
+            conn.execute(&statement, &params).await?;
+            Ok(())
+        })
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn new_reader(
         pool: Arc<ConvexPgPool>,
         options: PostgresReaderOptions,
@@ -554,26 +589,6 @@ impl Persistence for PostgresPersistence {
                 try_join!(insert_docs, insert_idxs)?;
                 timer.finish();
 
-                Ok(())
-            })
-            .await
-    }
-
-    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
-        let multitenant = self.multitenant;
-        let instance_name = self.instance_name.clone();
-        self.lease
-            .transact(async move |tx| {
-                let statement = if read_only {
-                    sql::set_read_only(multitenant)
-                } else {
-                    sql::unset_read_only(multitenant)
-                };
-                let mut params = vec![];
-                if multitenant {
-                    params.push(&instance_name.raw as &(dyn ToSql + Sync));
-                }
-                tx.execute_str(statement, &params).await?;
                 Ok(())
             })
             .await

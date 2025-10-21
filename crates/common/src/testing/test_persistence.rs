@@ -68,17 +68,15 @@ impl TestPersistence {
         config_test();
         let inner = Inner {
             is_fresh: true,
-            is_read_only: false,
             log: BTreeMap::new(),
             index: BTreeMap::new(),
             persistence_globals: BTreeMap::new(),
         };
-        Self::new_inner(Arc::new(Mutex::new(inner)), false).unwrap()
+        Self::new_inner(Arc::new(Mutex::new(inner))).unwrap()
     }
 
     /// Pass in an Inner to store state across TestPersistence instances.
-    fn new_inner(inner: Arc<Mutex<Inner>>, allow_read_only: bool) -> anyhow::Result<Self> {
-        anyhow::ensure!(allow_read_only || !inner.lock().is_read_only);
+    fn new_inner(inner: Arc<Mutex<Inner>>) -> anyhow::Result<Self> {
         Ok(Self { inner })
     }
 }
@@ -136,11 +134,6 @@ impl Persistence for TestPersistence {
                 .or_default()
                 .insert((index_key_bytes, update.ts), update.value);
         }
-        Ok(())
-    }
-
-    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
-        self.inner.lock().is_read_only = read_only;
         Ok(())
     }
 
@@ -421,7 +414,6 @@ impl PersistenceReader for TestPersistence {
 
 struct Inner {
     is_fresh: bool,
-    is_read_only: bool,
     log: BTreeMap<(Timestamp, InternalDocumentId), (Option<ResolvedDocument>, Option<Timestamp>)>,
     index: BTreeMap<IndexId, BTreeMap<(IndexKeyBytes, Timestamp), Option<InternalDocumentId>>>,
     persistence_globals: BTreeMap<PersistenceGlobalKey, JsonValue>,
@@ -450,11 +442,9 @@ run_persistence_test_suite!(
     db,
     Arc::new(Mutex::new(Inner {
         is_fresh: true,
-        is_read_only: false,
         log: BTreeMap::new(),
         index: BTreeMap::new(),
         persistence_globals: BTreeMap::new(),
     })),
-    TestPersistence::new_inner(db.clone(), false)?,
-    TestPersistence::new_inner(db.clone(), true)?
+    TestPersistence::new_inner(db.clone())?
 );

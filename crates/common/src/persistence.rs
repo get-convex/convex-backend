@@ -214,8 +214,6 @@ pub trait Persistence: Sync + Send + 'static {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
-    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()>;
-
     /// Writes global key-value data for the whole persistence.
     /// This is expected to be small data that does not make sense in a
     /// versioned or transaction context. See `PersistenceGlobalKey`.
