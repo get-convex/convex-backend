@@ -347,6 +347,10 @@
       "projectFolder": "private-demos/snippets"
     },
     {
+      "packageName": "static-codegen",
+      "projectFolder": "private-demos/static-codegen"
+    },
+    {
       "packageName": "components-poc",
       "projectFolder": "private-demos/components-poc"
     },

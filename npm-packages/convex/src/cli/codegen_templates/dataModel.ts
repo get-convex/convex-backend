@@ -261,7 +261,7 @@ async function* codegenTable(ctx: Context, table: TableDefinition) {
   for (const index of table.vectorIndexes ?? []) {
     yield `    "${index.indexDescriptor}": {`;
     yield `      vectorField: "${index.vectorField}",`;
-    yield `      dimensions: ${index.dimensions},`;
+    yield `      dimensions: number,`;
     yield `      filterFields: ${stringLiteralUnionType(index.filterFields)},`;
     yield `    },`;
   }
@@ -340,14 +340,19 @@ async function addSystemFieldsToObject(
 function* extractFieldPaths(validator: ConvexValidator): Generator<string[]> {
   if (validator.type === "object") {
     for (const [fieldName, fieldValidator] of Object.entries(validator.value)) {
+      yield [fieldName];
       for (const subFieldPath of extractFieldPaths(fieldValidator.fieldType)) {
-        yield [fieldName, ...subFieldPath];
+        if (subFieldPath.length > 0) {
+          yield [fieldName, ...subFieldPath];
+        }
       }
     }
   } else if (validator.type === "union") {
     for (const subValidator of validator.value) {
       yield* extractFieldPaths(subValidator);
     }
+  } else if (validator.type === "record") {
+    yield ["${string}"];
   } else {
     yield [];
   }
@@ -356,9 +361,9 @@ function* extractFieldPaths(validator: ConvexValidator): Generator<string[]> {
 function stringLiteralUnionType(fields: string[]) {
   if (fields.length === 0) {
     return "never";
-  } else if (fields.length === 1) {
-    return `"${fields[0]}"`;
   } else {
-    return fields.map((field) => `"${field}"`).join(" | ");
+    return fields
+      .map((field) => (field.includes("${") ? `\`${field}\`` : `"${field}"`))
+      .join(" | ");
   }
 }

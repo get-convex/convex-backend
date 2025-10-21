@@ -135,6 +135,7 @@ async function* codegenStaticApiObjects(
   analysis: EvaluatedComponentDefinition,
 ) {
   yield `import type { FunctionReference } from "convex/server";`;
+  yield `import type { GenericId as Id } from "convex/values";`;
 
   const apiTree = await buildApiTree(ctx, analysis.functions, {
     kind: "public",
