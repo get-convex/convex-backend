@@ -1047,10 +1047,11 @@ pub static FUNRUN_INITIAL_PERMIT_TIMEOUT: LazyLock<Duration> =
 /// backend/node-executor code.
 ///
 /// AWS has a rate limit of 15/s on their APIs, so we need this to be roughly
-/// large enough to be on the same scale as N/s where N is the number of
-/// instances with lambdas.
+/// larger than (N / 15) where N is the number of instances with lambdas.
+///
+/// You can check go/num-instances-with-lambdas
 pub static AWS_LAMBDA_DEPLOY_SPLAY_SECONDS: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 1800)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 5000)));
 
 /// The maximum number of requests to send using a single AWS Lambda client.
 /// Empirical tests have shown that AWS servers allows up to 128 concurrent
