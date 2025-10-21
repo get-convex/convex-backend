@@ -2945,6 +2945,34 @@
         }
       }
     },
+    "/teams/{team_id}/update_sso": {
+      "post": {
+        "operationId": "update_sso",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSSORequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/teams/{team_id}/generate_sso_configuration_link": {
       "post": {
         "operationId": "generate_sso_configuration_link",
@@ -3136,7 +3164,8 @@
           "createWorkosEnvironment",
           "retrieveWorkosEnvironmentCredentials",
           "enableSSO",
-          "disableSSO"
+          "disableSSO",
+          "updateSSO"
         ]
       },
       "AuditLogActor": {
@@ -5144,13 +5173,16 @@
       "SSOOrganizationResponse": {
         "type": "object",
         "required": [
-          "id",
-          "name",
           "createTime",
-          "updateTime",
-          "domains"
+          "domains",
+          "requireSsoLogin",
+          "jitProvisioning",
+          "automaticMembership"
         ],
         "properties": {
+          "automaticMembership": {
+            "type": "boolean"
+          },
           "createTime": {
             "type": "integer",
             "format": "int64"
@@ -5161,15 +5193,11 @@
               "$ref": "#/components/schemas/SSOOrganizationDomain"
             }
           },
-          "id": {
-            "type": "string"
+          "jitProvisioning": {
+            "type": "boolean"
           },
-          "name": {
-            "type": "string"
-          },
-          "updateTime": {
-            "type": "integer",
-            "format": "int64"
+          "requireSsoLogin": {
+            "type": "boolean"
           }
         }
       },
@@ -5704,6 +5732,29 @@
           }
         },
         "additionalProperties": false
+      },
+      "UpdateSSORequest": {
+        "type": "object",
+        "properties": {
+          "automaticMembership": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "jitProvisioning": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "requireSsoLogin": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
       },
       "UpdateTeamArgs": {
         "type": "object",

@@ -178,3 +178,17 @@ export function useGenerateSSOConfigurationLink(teamId: number) {
     },
   });
 }
+
+export function useUpdateSSO(teamId: number) {
+  return useBBMutation({
+    path: `/teams/{team_id}/update_sso`,
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+    mutateKey: "/teams/{team_id}/get_sso",
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "SSO settings updated.",
+  });
+}

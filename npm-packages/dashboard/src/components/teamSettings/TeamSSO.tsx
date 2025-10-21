@@ -1,4 +1,4 @@
-import { Team } from "generatedApi";
+import { Team, UpdateSsoRequest } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
 import { Checkbox } from "@ui/Checkbox";
@@ -12,8 +12,9 @@ import {
   useEnableSSO,
   useDisableSSO,
   useGenerateSSOConfigurationLink,
+  useUpdateSSO,
 } from "api/teams";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tooltip } from "@ui/Tooltip";
 import {
   QuestionMarkCircledIcon,
@@ -24,64 +25,6 @@ import { useProfileEmails } from "api/profile";
 import Link from "next/link";
 import { LoadingTransition } from "@ui/Loading";
 
-function ManageDomainsButton({
-  onClick,
-  disabled,
-  loading,
-  variant,
-}: {
-  onClick: () => Promise<void>;
-  disabled: boolean;
-  loading: boolean;
-  variant: "primary" | "neutral";
-}) {
-  return (
-    <Button
-      variant={variant}
-      className="w-fit"
-      size="sm"
-      loading={loading}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      Manage domains
-    </Button>
-  );
-}
-
-function ManageSSOConfigurationButton({
-  onClick,
-  disabled,
-  loading,
-  variant,
-  tooltip,
-}: {
-  onClick: () => Promise<void>;
-  disabled: boolean;
-  loading: boolean;
-  variant: "primary" | "neutral";
-  tooltip?: string;
-}) {
-  const button = (
-    <Button
-      variant={variant}
-      className="w-fit"
-      size="sm"
-      loading={loading}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      Manage SSO configuration
-    </Button>
-  );
-
-  if (tooltip) {
-    return <Tooltip tip={tooltip}>{button}</Tooltip>;
-  }
-
-  return button;
-}
-
 export function TeamSSO({ team }: { team: Team }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
   const entitlements = useTeamEntitlements(team.id);
@@ -89,6 +32,7 @@ export function TeamSSO({ team }: { team: Team }) {
   const enableSSO = useEnableSSO(team.id);
   const disableSSO = useDisableSSO(team.id);
   const generateSSOConfigurationLink = useGenerateSSOConfigurationLink(team.id);
+  const updateSSO = useUpdateSSO(team.id);
   const profileEmails = useProfileEmails();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,18 +40,123 @@ export function TeamSSO({ team }: { team: Team }) {
   const [isGeneratingSSOLink, setIsGeneratingSSOLink] = useState(false);
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [disableError, setDisableError] = useState<string>();
+  const [automaticMembershipValue, setAutomaticMembershipValue] =
+    useState(false);
+  const [jitProvisioningValue, setJitProvisioningValue] = useState(false);
+  const [requireSsoLoginValue, setRequireSsoLoginValue] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [saveError, setSaveError] = useState<string>();
 
   const isGeneratingAnyLink = isGeneratingDomainsLink || isGeneratingSSOLink;
 
   const ssoEnabled = entitlements?.ssoEnabled ?? false;
   const isSSOConfigured = !!ssoOrganization;
   const domains = ssoOrganization?.domains ?? [];
+  const automaticMembership = ssoOrganization?.automaticMembership ?? false;
+  const jitProvisioning = ssoOrganization?.jitProvisioning ?? false;
+  const requireSsoLogin = ssoOrganization?.requireSsoLogin ?? false;
+
+  useEffect(() => {
+    if (isSSOConfigured && ssoOrganization) {
+      setAutomaticMembershipValue(ssoOrganization.automaticMembership);
+      setJitProvisioningValue(ssoOrganization.jitProvisioning);
+      setRequireSsoLoginValue(ssoOrganization.requireSsoLogin);
+    } else if (!isSSOConfigured) {
+      setAutomaticMembershipValue(false);
+      setJitProvisioningValue(false);
+      setRequireSsoLoginValue(false);
+    }
+  }, [isSSOConfigured, ssoOrganization]);
+
+  const pendingChanges = useMemo(() => {
+    if (!isSSOConfigured) {
+      return [] as { title: string; body: string }[];
+    }
+    const changes: { title: string; body: string }[] = [];
+
+    if (automaticMembershipValue !== automaticMembership) {
+      changes.push(
+        automaticMembershipValue
+          ? {
+              title: "Enable Automatic Membership:",
+              body: "If a Convex account logs in with one of your verified domains, they will automatically be added to the Convex team as a team member.",
+            }
+          : {
+              title: "Disable Automatic Membership:",
+              body: "Convex accounts logging in with one of your verified domains will no longer be added to the Convex team automatically.",
+            },
+      );
+    }
+
+    if (jitProvisioningValue !== jitProvisioning) {
+      changes.push(
+        jitProvisioningValue
+          ? {
+              title: "Enable Just-in-Time Provisioning:",
+              body: "If a Convex account logs in with the configured SSO method, they will automatically be added to the Convex team as a team member.",
+            }
+          : {
+              title: "Disable Just-in-Time Provisioning:",
+              body: "Convex accounts logging in with the configured SSO method will no longer be added to the Convex team automatically.",
+            },
+      );
+    }
+
+    if (requireSsoLoginValue !== requireSsoLogin) {
+      if (requireSsoLoginValue) {
+        changes.push({
+          title: "Enable Require SSO:",
+          body: "Requires that team members log in with SSO to access the team.",
+        });
+      } else {
+        changes.push({
+          title: "Disable Require SSO:",
+          body: "Team members will not be required to log in with SSO to access the team.",
+        });
+      }
+    }
+
+    return changes;
+  }, [
+    automaticMembership,
+    automaticMembershipValue,
+    isSSOConfigured,
+    jitProvisioning,
+    jitProvisioningValue,
+    requireSsoLogin,
+    requireSsoLoginValue,
+  ]);
+  const hasChanges = pendingChanges.length > 0;
 
   // Determine if any domain needs verification
   const hasFailedDomain = domains.some((d) => d.state === "failed");
   const hasVerifiedDomain = domains.some(
     (d) => d.state === "verified" || d.state === "legacyVerified",
   );
+
+  const baseSettingDisabled =
+    isSubmitting || !hasAdminPermissions || !ssoEnabled;
+  const automaticMembershipDisabled = baseSettingDisabled;
+  const jitProvisioningDisabled = baseSettingDisabled;
+  const requireSsoLoginDisabled = baseSettingDisabled;
+
+  const handleSaveSettings = async () => {
+    const payload: UpdateSsoRequest = {
+      automaticMembership: automaticMembershipValue,
+      jitProvisioning: jitProvisioningValue,
+      requireSsoLogin: requireSsoLoginValue,
+    };
+    await updateSSO(payload);
+  };
+
+  const handleSaveClick = () => {
+    if (!hasChanges || baseSettingDisabled) {
+      return;
+    }
+    setSaveError(undefined);
+    setShowSaveConfirmation(true);
+  };
 
   return (
     <>
@@ -138,7 +187,7 @@ export function TeamSSO({ team }: { team: Team }) {
         </p>
 
         <LoadingTransition>
-          {!isSSOLoading && (
+          {(ssoOrganization || !isSSOLoading) && (
             <div className="flex flex-col">
               <Tooltip
                 tip={
@@ -149,7 +198,7 @@ export function TeamSSO({ team }: { team: Team }) {
                       : undefined
                 }
               >
-                <label className="ml-px flex items-center gap-2 text-sm">
+                <label className="ml-1 flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={isSSOConfigured}
                     disabled={
@@ -179,7 +228,7 @@ export function TeamSSO({ team }: { team: Team }) {
               </Tooltip>
 
               {isSSOConfigured && (
-                <div className="mt-5 space-y-4">
+                <div className="mt-5 space-y-6">
                   <div className="flex flex-col gap-4">
                     {domains.length > 0 && (
                       <div className="flex flex-col gap-2">
@@ -323,10 +372,93 @@ export function TeamSSO({ team }: { team: Team }) {
                         }
                         tooltip={
                           !hasVerifiedDomain
-                            ? "You must verify at least ene domain before managing the SSO configuration."
+                            ? "You must verify at least one domain before managing the SSO configuration."
                             : undefined
                         }
                       />
+                    </div>
+                  </div>
+                  <hr />
+                  <h4 className="mt-4 text-sm font-semibold text-content-primary">
+                    Additional Options
+                  </h4>
+                  <div className="space-y-2">
+                    <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
+                      <Checkbox
+                        checked={automaticMembershipValue}
+                        disabled={automaticMembershipDisabled}
+                        onChange={() => {
+                          if (automaticMembershipDisabled) {
+                            return;
+                          }
+                          setAutomaticMembershipValue(
+                            !automaticMembershipValue,
+                          );
+                        }}
+                      />
+                      <span className="flex items-center gap-2">
+                        Automatic membership
+                        <Tooltip
+                          tip="If a Convex account logs in with one of your verified domains, they will automatically be added to the Convex team as a team member."
+                          side="right"
+                        >
+                          <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
+                        </Tooltip>
+                      </span>
+                    </label>
+
+                    <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
+                      <Checkbox
+                        checked={jitProvisioningValue}
+                        disabled={jitProvisioningDisabled}
+                        onChange={() => {
+                          setJitProvisioningValue(!jitProvisioningValue);
+                        }}
+                      />
+                      <span className="flex items-center gap-2">
+                        Just-in-time provisioning
+                        <Tooltip
+                          tip="If a Convex account logs in with SSO, they will automatically be added to the Convex team as a team member."
+                          side="right"
+                        >
+                          <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
+                        </Tooltip>
+                      </span>
+                    </label>
+
+                    <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
+                      <Checkbox
+                        checked={requireSsoLoginValue}
+                        disabled={requireSsoLoginDisabled}
+                        onChange={() => {
+                          if (requireSsoLoginDisabled) {
+                            return;
+                          }
+                          setRequireSsoLoginValue(!requireSsoLoginValue);
+                        }}
+                      />
+                      <span className="flex items-center gap-2">
+                        Require SSO to access team
+                        <Tooltip
+                          tip="Require that team members log in with SSO to access the team."
+                          side="right"
+                        >
+                          <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
+                        </Tooltip>
+                      </span>
+                    </label>
+
+                    <div className="mt-4 flex">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        loading={isSavingSettings}
+                        disabled={!hasChanges || baseSettingDisabled}
+                        onClick={handleSaveClick}
+                      >
+                        Save
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -335,6 +467,64 @@ export function TeamSSO({ team }: { team: Team }) {
           )}
         </LoadingTransition>
       </Sheet>
+
+      {showSaveConfirmation && pendingChanges.length > 0 && (
+        <ConfirmationDialog
+          onClose={() => {
+            if (isSavingSettings) {
+              return;
+            }
+            setShowSaveConfirmation(false);
+            setSaveError(undefined);
+          }}
+          onConfirm={async () => {
+            setSaveError(undefined);
+            setIsSavingSettings(true);
+            try {
+              await handleSaveSettings();
+              setShowSaveConfirmation(false);
+            } catch (e: any) {
+              const message =
+                typeof e?.message === "string"
+                  ? e.message
+                  : "Failed to update SSO settings.";
+              setSaveError(message);
+              throw e;
+            } finally {
+              setIsSavingSettings(false);
+            }
+          }}
+          confirmText="Save changes"
+          variant="primary"
+          dialogTitle="Confirm SSO changes"
+          dialogBody={
+            <div className="flex flex-col gap-2">
+              <p>Review the changes that will be applied:</p>
+              <ul className="list-disc pl-5 text-sm text-content-primary">
+                {pendingChanges.map((change) => (
+                  <li key={change.title}>
+                    <span className="font-semibold">{change.title}</span>
+                    <span className="ml-1">{change.body}</span>
+                    {change.title === "Enable Require SSO:" && (
+                      <Callout
+                        variant="instructions"
+                        className="mt-2 flex items-center"
+                      >
+                        <ExclamationTriangleIcon className="mr-1 text-content-warning" />
+                        Test your SSO configuration thoroughly before enabling
+                        this setting.
+                      </Callout>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          }
+          disableConfirm={pendingChanges.length === 0 || isSavingSettings}
+          validationText="CONFIRM SSO SETTINGS"
+          error={saveError}
+        />
+      )}
 
       {showDisableConfirmation && (
         <ConfirmationDialog
@@ -364,4 +554,62 @@ export function TeamSSO({ team }: { team: Team }) {
       )}
     </>
   );
+}
+
+function ManageDomainsButton({
+  onClick,
+  disabled,
+  loading,
+  variant,
+}: {
+  onClick: () => Promise<void>;
+  disabled: boolean;
+  loading: boolean;
+  variant: "primary" | "neutral";
+}) {
+  return (
+    <Button
+      variant={variant}
+      className="w-fit"
+      size="sm"
+      loading={loading}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      Manage domains
+    </Button>
+  );
+}
+
+function ManageSSOConfigurationButton({
+  onClick,
+  disabled,
+  loading,
+  variant,
+  tooltip,
+}: {
+  onClick: () => Promise<void>;
+  disabled: boolean;
+  loading: boolean;
+  variant: "primary" | "neutral";
+  tooltip?: string;
+}) {
+  const button = (
+    <Button
+      variant={variant}
+      className="w-fit"
+      size="sm"
+      loading={loading}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      Manage SSO configuration
+    </Button>
+  );
+
+  if (tooltip) {
+    return <Tooltip tip={tooltip}>{button}</Tooltip>;
+  }
+
+  return button;
 }
