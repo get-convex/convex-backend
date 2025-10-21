@@ -228,7 +228,7 @@ export function TeamSSO({ team }: { team: Team }) {
               </Tooltip>
 
               {isSSOConfigured && (
-                <div className="mt-5 space-y-6">
+                <div className="mt-4 flex flex-col gap-4">
                   <div className="flex flex-col gap-4">
                     {domains.length > 0 && (
                       <div className="flex flex-col gap-2">
@@ -379,7 +379,7 @@ export function TeamSSO({ team }: { team: Team }) {
                     </div>
                   </div>
                   <hr />
-                  <h4 className="mt-4 text-sm font-semibold text-content-primary">
+                  <h4 className="text-sm font-semibold text-content-primary">
                     Additional Options
                   </h4>
                   <div className="space-y-2">
@@ -418,7 +418,7 @@ export function TeamSSO({ team }: { team: Team }) {
                       <span className="flex items-center gap-2">
                         Just-in-time provisioning
                         <Tooltip
-                          tip="If a Convex account logs in with SSO, they will automatically be added to the Convex team as a team member."
+                          tip="If a Convex account logs in with the configured SSO method, they will automatically be added to the Convex team as a team member."
                           side="right"
                         >
                           <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
