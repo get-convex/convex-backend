@@ -12,6 +12,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use url::Url;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum AuthInfo {
@@ -217,26 +218,27 @@ fn deserialize_issuer_url(original_url: String) -> anyhow::Result<IssuerUrl> {
     } else {
         (false, format!("https://{original_url}"))
     };
-    if url.starts_with("http://") {
-        let parsed_url = IssuerUrl::new(url)?;
-        return Ok(parsed_url);
-    };
-    if !url.starts_with("https://") {
+    let parsed_url = Url::parse(&url).map_err(|e| {
+        invalid_provider_domain_url(format!(
+            "Invalid provider domain URL \"{original_url}\": {e}"
+        ))
+    })?;
+    if !["http", "https"].contains(&parsed_url.scheme()) {
         anyhow::bail!(invalid_provider_domain_url(format!(
-            "Invalid provider domain URL \"{original_url}\": must use HTTPS"
+            "Invalid provider domain URL \"{original_url}\": scheme should be http or https"
         )));
     }
-    let parsed_url = IssuerUrl::new(url)?;
     // Check if the input really looks like a URL,
     // to catch mistakes (e.g. putting random tokens in the domain field)
-    if !had_scheme && !parsed_url.url().host_str().is_some_and(ends_with_tld) {
+    if !had_scheme && !parsed_url.host_str().is_some_and(ends_with_tld) {
         anyhow::bail!(invalid_provider_domain_url(format!(
             "Invalid provider domain URL \"{original_url}\": Does not look like a URL (must have \
              a scheme or end with a top-level domain)"
         )));
     }
 
-    Ok(parsed_url)
+    // This re-parses the URL but we assume it will not fail at this point
+    Ok(IssuerUrl::new(url)?)
 }
 
 fn ends_with_tld(host: &str) -> bool {
