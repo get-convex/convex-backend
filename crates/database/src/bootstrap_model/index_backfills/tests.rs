@@ -42,7 +42,7 @@ async fn test_initialize_backfill_creates_new_entry(rt: TestRuntime) -> anyhow::
     let total_docs = Some(1000u64);
 
     let backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, total_docs)
+        .initialize_backfill(index_id, total_docs, None)
         .await?;
 
     // Verify the backfill was created
@@ -65,7 +65,7 @@ async fn test_initialize_backfill_with_none_total_docs(rt: TestRuntime) -> anyho
     let total_docs = None;
 
     let backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, total_docs)
+        .initialize_backfill(index_id, total_docs, None)
         .await?;
 
     // Verify the backfill was created with None total_docs
@@ -88,12 +88,12 @@ async fn test_initialize_backfill_resets_existing_entry(rt: TestRuntime) -> anyh
 
     // Create initial backfill
     let first_backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, Some(500))
+        .initialize_backfill(index_id, Some(500), None)
         .await?;
 
     // Update progress
     IndexBackfillModel::new(&mut tx)
-        .update_index_backfill_progress(index_id, create_test_tablet_id(), 100)
+        .update_index_backfill_progress(index_id, create_test_tablet_id(), 100, None)
         .await?;
 
     // Verify progress was updated
@@ -104,7 +104,7 @@ async fn test_initialize_backfill_resets_existing_entry(rt: TestRuntime) -> anyh
 
     // Initialize again with different total_docs - should reset progress
     let second_backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, Some(1000))
+        .initialize_backfill(index_id, Some(1000), None)
         .await?;
 
     // Should return the same ID
@@ -132,12 +132,12 @@ async fn test_update_index_backfill_progress_with_total_docs(
 
     // Initialize backfill
     let backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, total_docs)
+        .initialize_backfill(index_id, total_docs, None)
         .await?;
 
     // Update progress
     IndexBackfillModel::new(&mut tx)
-        .update_index_backfill_progress(index_id, tablet_id, 250)
+        .update_index_backfill_progress(index_id, tablet_id, 250, None)
         .await?;
 
     // Verify progress was updated
@@ -149,7 +149,7 @@ async fn test_update_index_backfill_progress_with_total_docs(
 
     // Update progress again
     IndexBackfillModel::new(&mut tx)
-        .update_index_backfill_progress(index_id, tablet_id, 150)
+        .update_index_backfill_progress(index_id, tablet_id, 150, None)
         .await?;
 
     // Verify progress was accumulated
@@ -173,7 +173,7 @@ async fn test_update_index_backfill_progress_nonexistent_backfill(
 
     // Try to update progress for non-existent backfill
     let result = IndexBackfillModel::new(&mut tx)
-        .update_index_backfill_progress(index_id, tablet_id, 100)
+        .update_index_backfill_progress(index_id, tablet_id, 100, None)
         .await;
 
     // Should return an error
@@ -200,13 +200,13 @@ async fn test_update_index_backfill_progress_with_none_total_docs(
         .tablet_id;
     // Initialize backfill without total_docs
     let backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, None)
+        .initialize_backfill(index_id, None, None)
         .await?;
 
     // In a test environment, table mapping for a non-existent tablet will fail,
     // so this tests that the method handles the error gracefully
     IndexBackfillModel::new(&mut tx)
-        .update_index_backfill_progress(index_id, tablet_id, 100)
+        .update_index_backfill_progress(index_id, tablet_id, 100, None)
         .await?;
 
     let backfill_doc = tx.get(backfill_id).await?;
@@ -226,7 +226,7 @@ async fn test_delete_index_backfill_existing(rt: TestRuntime) -> anyhow::Result<
 
     // Initialize backfill
     let backfill_id = IndexBackfillModel::new(&mut tx)
-        .initialize_backfill(index_id, total_docs)
+        .initialize_backfill(index_id, total_docs, None)
         .await?;
 
     // Verify it exists
@@ -279,15 +279,19 @@ async fn test_multiple_backfills_different_indexes(rt: TestRuntime) -> anyhow::R
 
     // Initialize backfills for different indexes
     let mut model = IndexBackfillModel::new(&mut tx);
-    let backfill_id1 = model.initialize_backfill(index_id1, Some(1000)).await?;
-    let backfill_id2 = model.initialize_backfill(index_id2, Some(2000)).await?;
+    let backfill_id1 = model
+        .initialize_backfill(index_id1, Some(1000), None)
+        .await?;
+    let backfill_id2 = model
+        .initialize_backfill(index_id2, Some(2000), None)
+        .await?;
 
     // Update progress for both
     model
-        .update_index_backfill_progress(index_id1, tablet_id, 100)
+        .update_index_backfill_progress(index_id1, tablet_id, 100, None)
         .await?;
     model
-        .update_index_backfill_progress(index_id2, tablet_id, 200)
+        .update_index_backfill_progress(index_id2, tablet_id, 200, None)
         .await?;
 
     // Verify both backfills exist with correct progress

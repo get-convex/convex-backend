@@ -53,7 +53,10 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::index_backfills::IndexBackfillModel,
+    bootstrap_model::index_backfills::{
+        types::BackfillCursor,
+        IndexBackfillModel,
+    },
     database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
@@ -77,11 +80,11 @@ pub struct IndexWorker<RT: Runtime> {
     /// Index IDs that are currently being backfilled.
     in_progress_index_ids: HashSet<IndexId, ahash::RandomState>,
     /// The index backfill tasks
-    in_progress: JoinMap<Vec<IndexId>, anyhow::Result<()>>,
+    in_progress: JoinMap<Vec<IndexId>, anyhow::Result<u64>>,
     /// Order-preserving HashSet that represents the order that pending index
     /// backfills will be processed. This does not include indexes that are
     /// `in_progress`.
-    pending: LinkedHashSet<(IndexId, TabletId), ahash::RandomState>,
+    pending: LinkedHashSet<(IndexId, TabletId, Option<BackfillCursor>), ahash::RandomState>,
     /// Receiver for progress updates from `IndexWriter`'s tablet backfills.
     progress_rx: mpsc::Receiver<TabletBackfillProgress>,
     /// Limit on the size of `in_progress`
@@ -152,7 +155,8 @@ impl<RT: Runtime> IndexWorker<RT> {
         persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
-    ) -> impl Future<Output = anyhow::Result<()>> + Send {
+    ) -> impl Future<Output = anyhow::Result<u64>> + Send {
+        let mut total_docs_indexed = 0;
         let reader = persistence.reader();
         let (progress_tx, progress_rx) = mpsc::channel(10);
         let index_writer = IndexWriter::new(
@@ -188,14 +192,25 @@ impl<RT: Runtime> IndexWorker<RT> {
                     tracing::error!("IndexWorker loop failed: {e:?}");
                     continue;
                 }
-                if worker.in_progress.is_empty() && worker.pending.is_empty() {
-                    return r;
+                if let Ok(docs_indexed) = r {
+                    total_docs_indexed += docs_indexed;
+                }
+                if worker.in_progress.is_empty()
+                    && worker.pending.is_empty()
+                    && worker.progress_rx.is_empty()
+                {
+                    return r.map(|_| total_docs_indexed);
                 }
             }
         }
     }
 
-    async fn run(&mut self) -> anyhow::Result<()> {
+    /// Runs the index worker one loop, either backfilling an index or writing
+    /// index backfill progress and returning how many rows were indexed if
+    /// backfilling.
+    async fn run(&mut self) -> anyhow::Result<u64> {
+        // This is a counter for tests
+        let mut docs_indexed = 0;
         // Get all the documents from the `_index` table.
         let mut tx = self.database.begin(Identity::system()).await?;
         // _index doesn't have `by_creation_time` index, and thus must use `by_id`.
@@ -204,15 +219,24 @@ impl<RT: Runtime> IndexWorker<RT> {
             .all()
             .await?;
         let mut num_to_backfill = 0;
+        let mut model = IndexBackfillModel::new(&mut tx);
         for index_metadata in &index_documents {
             if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
                 if matches!(on_disk_state, DatabaseIndexState::Backfilling(_)) {
+                    let backfill_metadata = model
+                        .existing_backfill_metadata(index_metadata.id().developer_id)
+                        .await?;
+                    let backfill_cursor =
+                        backfill_metadata.and_then(|metadata| metadata.cursor.clone());
                     let index_id = index_metadata.id().internal_id();
                     let tablet_id = *index_metadata.name.table();
                     if !self.in_progress_index_ids.contains(&index_id)
-                        && !self.pending.contains(&(index_id, tablet_id))
+                        && !self
+                            .pending
+                            .contains(&(index_id, tablet_id, backfill_cursor.clone()))
                     {
-                        self.pending.insert((index_id, tablet_id));
+                        self.pending
+                            .insert((index_id, tablet_id, backfill_cursor.clone()));
                     }
                     num_to_backfill += 1;
                 }
@@ -228,15 +252,19 @@ impl<RT: Runtime> IndexWorker<RT> {
         let subscription = self.database.subscribe(token).await?;
 
         #[cfg(any(test, feature = "testing"))]
-        if self.should_terminate && self.in_progress.is_empty() && self.pending.is_empty() {
-            return Ok(());
+        if self.should_terminate
+            && self.in_progress.is_empty()
+            && self.pending.is_empty()
+            && self.progress_rx.is_empty()
+        {
+            return Ok(docs_indexed);
         }
 
         // Start new work if allowed by the concurrency limit
         while self.in_progress.len() < self.max_concurrency
-            && let Some((index_id, tablet_id)) = self.pending.pop_front()
+            && let Some((index_id, tablet_id, backfill_cursor)) = self.pending.pop_front()
         {
-            self.queue_index_backfill(index_id, tablet_id);
+            self.queue_index_backfill(index_id, tablet_id, backfill_cursor);
         }
         select! {
             biased;
@@ -248,7 +276,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     self.in_progress_index_ids.remove(&index_id);
                 }
                 // If backfill tasks are failing, return an error here so that we back off
-                let () = res??;
+                docs_indexed += res??;
                 tracing::info!("Finished backfilling {index_ids:?}");
                 // Return so that we possibly queue up more work
             }
@@ -257,19 +285,25 @@ impl<RT: Runtime> IndexWorker<RT> {
                     TabletBackfillProgress {
                         tablet_id,
                         index_ids,
-                        _cursor: _,
+                        cursor,
                         num_docs_indexed,
                     }) = maybe_progress else {
                     anyhow::bail!("Database index backfill progress channel closed");
                 };
                 let mut tx = self.database.begin_system().await?;
+                let table_number = tx.table_mapping().tablet_number(tablet_id)?;
                 let mut model = IndexBackfillModel::new(&mut tx);
+                let cursor = ResolvedDocumentId::new(
+                    tablet_id,
+                    DeveloperDocumentId::new(table_number, cursor.internal_id())
+                );
                 for index_id in index_ids {
                     model
-                        .update_index_backfill_progress(
+                        .update_database_index_backfill_progress(
                             index_id,
                             tablet_id,
                             num_docs_indexed,
+                            cursor
                         )
                         .await?;
                 }
@@ -282,26 +316,29 @@ impl<RT: Runtime> IndexWorker<RT> {
             }
         }
 
-        Ok(())
+        Ok(docs_indexed)
     }
 
     /// Spawns a task to process the next index backfill.
-    fn queue_index_backfill(&mut self, index_id: IndexId, tablet_id: TabletId) {
+    fn queue_index_backfill(
+        &mut self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        backfill_cursor: Option<BackfillCursor>,
+    ) {
         let mut index_ids = vec![index_id];
         // Since we're mainly limited by the speed of reading the table, let's
         // grab all the other pending indexes for this table at once
-        self.pending.retain(|&(other_index_id, other_tablet_id)| {
-            if other_tablet_id == tablet_id {
-                index_ids.push(other_index_id);
-                false
-            } else {
-                true
-            }
-        });
-
-        // TODO: this allows more than one `backfill_tablet` task to run
-        // simultaneously on the same table; it could be better to cancel old
-        // tasks and restart them.
+        self.pending.retain(
+            |&(other_index_id, other_tablet_id, ref other_backfill_cursor)| {
+                if other_tablet_id == tablet_id && other_backfill_cursor == &backfill_cursor {
+                    index_ids.push(other_index_id);
+                    false
+                } else {
+                    true
+                }
+            },
+        );
 
         for &index_id in &index_ids {
             self.in_progress_index_ids.insert(index_id);
@@ -315,6 +352,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 self.database.clone(),
                 self.index_writer.clone(),
                 self.metadata_mutex.clone(),
+                backfill_cursor,
             ),
         );
     }
@@ -325,7 +363,9 @@ impl<RT: Runtime> IndexWorker<RT> {
         database: Database<RT>,
         index_writer: IndexWriter<RT>,
         metadata_mutex: Arc<tokio::sync::Mutex<()>>,
-    ) -> anyhow::Result<()> {
+        backfill_cursor: Option<BackfillCursor>,
+    ) -> anyhow::Result<u64> {
+        let mut docs_indexed = 0;
         let _timer = tablet_index_backfill_timer();
         let mut backfills = BTreeMap::new();
         for index_id in &index_ids {
@@ -343,34 +383,52 @@ impl<RT: Runtime> IndexWorker<RT> {
             .collect::<BTreeMap<_, _>>();
 
         if !needs_backfill.is_empty() {
-            let ts = database.now_ts_for_reads();
-            let snapshot = database.snapshot(ts)?;
-            let table_mapping = snapshot.table_mapping();
-            let table_name = &table_mapping.tablet_to_name()(tablet_id)?;
-            tracing::info!(
-                "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
-                needs_backfill.len()
-            );
-            let table_summary =
-                snapshot.table_summary(table_mapping.tablet_namespace(tablet_id)?, table_name);
-            let total_docs = table_summary.map(|summary| summary.num_values());
-            let mut tx = database.begin_system().await?;
-            let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
-            for index_id in needs_backfill.keys() {
-                index_backfill_model
-                    .initialize_backfill(*index_id, total_docs)
+            let (ts, index_registry, cursor) = if let Some(backfill_cursor) = backfill_cursor
+                && let Some(cursor) = backfill_cursor.cursor
+            {
+                let (latest_ts, snapshot) = database.latest_ts_and_snapshot()?;
+                let snapshot_ts = latest_ts.prior_ts(backfill_cursor.snapshot_ts)?;
+                let table_mapping = snapshot.table_mapping();
+                let table_name = &table_mapping.tablet_to_name()(tablet_id)?;
+                let index_registry = snapshot.index_registry;
+                let cursor = ResolvedDocumentId::new(tablet_id, cursor);
+                tracing::info!(
+                    "Resuming backfill of {} indexes for {table_name} at ts {snapshot_ts}: \
+                     {needs_backfill:?}",
+                    needs_backfill.len(),
+                );
+                (snapshot_ts, index_registry, Some(cursor))
+            } else {
+                let mut tx = database.begin_system().await?;
+                let ts = tx.begin_timestamp();
+                let snapshot = database.snapshot(ts)?;
+                let table_mapping = tx.table_mapping();
+                let table_name = &table_mapping.tablet_to_name()(tablet_id)?;
+                tracing::info!(
+                    "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
+                    needs_backfill.len(),
+                );
+                let table_summary =
+                    snapshot.table_summary(table_mapping.tablet_namespace(tablet_id)?, table_name);
+                let total_docs = table_summary.map(|summary| summary.num_values());
+                let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+                for index_id in needs_backfill.keys() {
+                    index_backfill_model
+                        .initialize_database_index_backfill(*index_id, total_docs, *ts)
+                        .await?;
+                }
+                database
+                    .commit_with_write_source(tx, "index_worker_backfill_initialization")
                     .await?;
-            }
-            database
-                .commit_with_write_source(tx, "index_worker_backfill_initialization")
-                .await?;
+                let index_registry = snapshot.index_registry;
+                (ts, index_registry, None)
+            };
             let index_selector = IndexSelector::ManyIndexes {
                 tablet_id,
                 indexes: needs_backfill,
             };
-            let index_registry = snapshot.index_registry;
-            index_writer
-                .backfill_from_ts(ts, &index_registry, index_selector, 1)
+            docs_indexed = index_writer
+                .backfill_from_ts(ts, &index_registry, index_selector, 1, cursor)
                 .await?;
         }
 
@@ -415,7 +473,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             .await?;
         drop(indexes_lock);
 
-        Ok(())
+        Ok(docs_indexed)
     }
 
     async fn begin_backfill(

@@ -1707,6 +1707,10 @@ impl<RT: Runtime> Database<RT> {
         Ok(snapshot)
     }
 
+    pub fn latest_ts_and_snapshot(&self) -> anyhow::Result<(RepeatableTimestamp, Snapshot)> {
+        Ok(self.snapshot_manager.lock().latest())
+    }
+
     pub fn latest_database_snapshot(&self) -> anyhow::Result<DatabaseSnapshot<RT>> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let repeatable_persistence =

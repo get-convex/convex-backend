@@ -1,4 +1,5 @@
 use std::{
+    assert_matches::assert_matches,
     collections::{
         BTreeMap,
         BTreeSet,
@@ -103,7 +104,10 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::index_backfills::IndexBackfillModel,
+    bootstrap_model::index_backfills::{
+        types::BackfillCursor,
+        IndexBackfillModel,
+    },
     database_index_workers::index_writer::{
         IndexSelector,
         IndexWriter,
@@ -1816,25 +1820,11 @@ async fn add_documents_and_index(
     Ok((index_name, index_id, values))
 }
 
-/// A variant of test_query_index_range that adds the index *after* the
-/// documents have been added, testing that index backfill works correctly.
-#[convex_macro::test_runtime]
-async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
-
-    let (index_name, _index_id, values) = add_documents_and_index(db.clone()).await?;
-    let retention_validator = Arc::new(NoopRetentionValidator);
-
-    let index_backfill_fut = IndexWorker::new_terminating(rt, tp, retention_validator, db.clone());
-    index_backfill_fut.await?;
-
-    let mut tx = db.begin_system().await?;
-    let namespace = TableNamespace::test_user();
-    IndexModel::new(&mut tx)
-        .enable_index_for_testing(namespace, &index_name)
-        .await?;
-    db.commit(tx).await?;
-
+async fn check_index_is_correct(
+    db: Database<TestRuntime>,
+    values: Vec<ResolvedDocument>,
+    index_name: IndexName,
+) -> anyhow::Result<()> {
     let tests: Vec<(_, _, Box<dyn Fn(i64, i64) -> bool>)> = vec![
         // single_page_asc
         (
@@ -1877,9 +1867,34 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
             }),
             operators: vec![],
         };
-        let actual = run_query(db.clone(), namespace, query).await?;
+        let actual = run_query(db.clone(), TableNamespace::test_user(), query).await?;
         assert_eq!(actual, expected);
     }
+    Ok(())
+}
+
+async fn enable_index(db: &Database<TestRuntime>, index_name: &IndexName) -> anyhow::Result<()> {
+    let mut tx = db.begin_system().await?;
+    let namespace = TableNamespace::test_user();
+    IndexModel::new(&mut tx)
+        .enable_index_for_testing(namespace, index_name)
+        .await?;
+    db.commit(tx).await?;
+    Ok(())
+}
+
+/// A variant of test_query_index_range that adds the index *after* the
+/// documents have been added, testing that index backfill works correctly.
+#[convex_macro::test_runtime]
+async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+
+    let (index_name, _index_id, values) = add_documents_and_index(db.clone()).await?;
+    let retention_validator = Arc::new(NoopRetentionValidator);
+
+    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone()).await?;
+    enable_index(&db, &index_name).await?;
+    check_index_is_correct(db, values, index_name).await?;
     Ok(())
 }
 
@@ -1913,6 +1928,80 @@ async fn test_db_index_backfill_progress(
     assert_eq!(backfill_progress.num_docs_indexed, 10);
     assert_eq!(backfill_progress.total_docs, Some(200));
 
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_db_index_backfill_resumable(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    // Backfill for one batch
+    std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10");
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+
+    let (index_name, index_id, values) = add_documents_and_index(db.clone()).await?;
+    let retention_validator = Arc::new(NoopRetentionValidator);
+
+    let hold_guard = pause.hold(UPDATE_BACKFILL_PROGRESS_LABEL);
+    let rt_clone = rt.clone();
+    let db_clone = db.clone();
+    let tp_clone = tp.clone();
+    let retention_validator_clone = retention_validator.clone();
+    let index_backfill_handle = rt.spawn("index_worker", async move {
+        IndexWorker::new_terminating(rt_clone, tp_clone, retention_validator_clone, db_clone)
+            .await
+            .unwrap();
+    });
+    // Wait for IndexWriter to send progress and pause
+    let pause_guard = hold_guard.wait_for_blocked().await.unwrap();
+    drop(index_backfill_handle);
+    // Check that progress was written to database
+    let mut tx = db.begin_system().await?;
+    let mut model = IndexBackfillModel::new(&mut tx);
+    let backfill_progress = model
+        .existing_backfill_metadata(index_id.developer_id)
+        .await?
+        .unwrap();
+    assert_eq!(backfill_progress.num_docs_indexed, 10);
+    assert_eq!(backfill_progress.total_docs, Some(200));
+    assert_matches!(
+        backfill_progress.cursor,
+        Some(BackfillCursor {
+            snapshot_ts: _,
+            cursor: Some(_cursor),
+        })
+    );
+    pause_guard.unpause();
+
+    // Create a new IndexWorker to show that it resumes and writes the remaining 190
+    // documents
+    let rt_clone = rt.clone();
+    let db_clone = db.clone();
+    let docs_indexed = IndexWorker::new_terminating(rt_clone, tp, retention_validator, db_clone)
+        .await
+        .unwrap();
+    assert_eq!(docs_indexed, 190);
+
+    let mut tx = db.begin_system().await?;
+    let mut model = IndexBackfillModel::new(&mut tx);
+    let backfill_progress = model
+        .existing_backfill_metadata(index_id.developer_id)
+        .await?
+        .unwrap();
+    // Check that backfill is complete
+    assert_eq!(backfill_progress.num_docs_indexed, 200);
+    assert_eq!(backfill_progress.total_docs, Some(200));
+    assert_matches!(
+        backfill_progress.cursor,
+        Some(BackfillCursor {
+            snapshot_ts: _,
+            cursor: Some(_cursor),
+        })
+    );
+
+    enable_index(&db, &index_name).await?;
+    check_index_is_correct(db, values, index_name).await?;
     Ok(())
 }
 
@@ -1965,54 +2054,11 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
             &index_metadata,
             IndexSelector::All(index_metadata.clone()),
             20,
+            None,
         )
         .await?;
 
-    let tests: Vec<(_, _, Box<dyn Fn(i64, i64) -> bool>)> = vec![
-        // single_page_asc
-        (
-            vec![
-                IndexRangeExpression::Eq("a".parse()?, maybe_val!(3)),
-                IndexRangeExpression::Gte("b".parse()?, maybe_val!(113)),
-                IndexRangeExpression::Lte("b".parse()?, maybe_val!(117)),
-            ],
-            Order::Asc,
-            Box::new(|a, b| a == 3 && (113..=117).contains(&b)),
-        ),
-        // prefix
-        (
-            vec![IndexRangeExpression::Eq("a".parse()?, maybe_val!(3))],
-            Order::Asc,
-            Box::new(|a, _| a == 3),
-        ),
-        // all_multi_page_desc
-        (vec![], Order::Desc, Box::new(|_, _| true)),
-    ];
-    for (range, order, predicate) in tests {
-        let mut expected = values
-            .iter()
-            .filter(|x| {
-                must_let!(let ConvexValue::Int64(a) = x.value().get("a").unwrap());
-                must_let!(let ConvexValue::Int64(b) = x.value().get("b").unwrap());
-                predicate(*a, *b)
-            })
-            .cloned()
-            .collect::<Vec<ResolvedDocument>>();
-        if order == Order::Desc {
-            expected.reverse();
-        }
-
-        let query = Query {
-            source: QuerySource::IndexRange(IndexRange {
-                index_name: index_name.clone(),
-                range,
-                order,
-            }),
-            operators: vec![],
-        };
-        let actual = run_query(database.clone(), namespace, query).await?;
-        assert_eq!(actual, expected);
-    }
+    check_index_is_correct(database, values, index_name).await?;
     Ok(())
 }
 

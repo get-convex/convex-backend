@@ -2,10 +2,19 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use sync_types::Timestamp;
 use value::{
     codegen_convex_serialization,
     DeveloperDocumentId,
 };
+
+/// Cursor for a database index that has an in-progress backfill
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct BackfillCursor {
+    pub snapshot_ts: Timestamp,
+    pub cursor: Option<DeveloperDocumentId>,
+}
 
 /// Metadata for tracking index backfill progress.
 ///
@@ -29,6 +38,36 @@ pub struct IndexBackfillMetadata {
     /// (does not include documents written since the backfill began)
     /// This field is None if there is no table summary available.
     pub total_docs: Option<u64>,
+    /// We only track the backfill cursor for database indexes because search
+    /// index backfill state is stored in the _index table.
+    pub cursor: Option<BackfillCursor>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedBackfillCursor {
+    snapshot_ts: i64,
+    cursor: Option<String>,
+}
+
+impl From<BackfillCursor> for SerializedBackfillCursor {
+    fn from(cursor: BackfillCursor) -> Self {
+        SerializedBackfillCursor {
+            snapshot_ts: cursor.snapshot_ts.into(),
+            cursor: cursor.cursor.map(|id| id.to_string()),
+        }
+    }
+}
+
+impl TryFrom<SerializedBackfillCursor> for BackfillCursor {
+    type Error = anyhow::Error;
+
+    fn try_from(cursor: SerializedBackfillCursor) -> Result<Self, Self::Error> {
+        Ok(BackfillCursor {
+            snapshot_ts: cursor.snapshot_ts.try_into()?,
+            cursor: cursor.cursor.map(|id| id.parse()).transpose()?,
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,6 +76,7 @@ pub struct SerializedIndexBackfillMetadata {
     index_id: String,
     num_docs_indexed: i64,
     total_docs: Option<i64>,
+    cursor: Option<SerializedBackfillCursor>,
 }
 
 impl From<IndexBackfillMetadata> for SerializedIndexBackfillMetadata {
@@ -45,6 +85,7 @@ impl From<IndexBackfillMetadata> for SerializedIndexBackfillMetadata {
             index_id: metadata.index_id.to_string(),
             num_docs_indexed: metadata.num_docs_indexed as i64,
             total_docs: metadata.total_docs.map(|v| v as i64),
+            cursor: metadata.cursor.map(|cursor| cursor.into()),
         }
     }
 }
@@ -57,6 +98,7 @@ impl TryFrom<SerializedIndexBackfillMetadata> for IndexBackfillMetadata {
             index_id: serialized.index_id.parse()?,
             num_docs_indexed: serialized.num_docs_indexed as u64,
             total_docs: serialized.total_docs.map(|v| v as u64),
+            cursor: serialized.cursor.map(|c| c.try_into()).transpose()?,
         })
     }
 }

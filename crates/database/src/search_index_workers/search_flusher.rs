@@ -383,7 +383,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     let total_docs = tx.count(table_namespace, &table_name).await?;
                     let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
                     index_backfill_model
-                        .initialize_backfill(job.index_id, total_docs)
+                        .initialize_search_index_backfill(job.index_id, total_docs)
                         .await?;
                     let no_segments = vec![];
                     let cursor = None;
@@ -429,7 +429,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         let total_docs = tx.count(table_namespace, &table_name).await?;
                         let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
                         index_backfill_model
-                            .initialize_backfill(job.index_id, total_docs)
+                            .initialize_search_index_backfill(job.index_id, total_docs)
                             .await?;
                         new_ts
                     };

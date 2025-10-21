@@ -444,7 +444,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .transpose()?;
         let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
         index_backfill_model
-            .update_index_backfill_progress(
+            .update_search_index_backfill_progress(
                 job.index_id,
                 *job.index_name.table(),
                 new_segment

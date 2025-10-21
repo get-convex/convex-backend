@@ -64,7 +64,10 @@ use indexing::index_registry::IndexRegistry;
 use maplit::btreeset;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use value::InternalDocumentId;
+use value::{
+    InternalDocumentId,
+    ResolvedDocumentId,
+};
 
 use crate::{
     retention::LeaderRetentionManager,
@@ -157,7 +160,7 @@ pub struct IndexWriter<RT: Runtime> {
 pub struct TabletBackfillProgress {
     pub tablet_id: TabletId,
     pub index_ids: Vec<IndexId>,
-    pub _cursor: InternalDocumentId,
+    pub cursor: InternalDocumentId,
     pub num_docs_indexed: u64,
 }
 
@@ -237,8 +240,10 @@ impl<RT: Runtime> IndexWriter<RT> {
                             &index_selector,
                             &index_metadata,
                             table_id,
+                            None,
                         )
                         .await
+                        .map(|_docs_indexed| ())
                 })
             })
             .await?;
@@ -288,27 +293,35 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_metadata: &IndexRegistry,
         index_selector: IndexSelector,
         concurrency: usize,
-    ) -> anyhow::Result<()> {
+        cursor: Option<ResolvedDocumentId>,
+    ) -> anyhow::Result<u64> {
         let pause_client = self.runtime.pause_client();
         pause_client.wait(PERFORM_BACKFILL_LABEL).await;
-        stream::iter(index_selector.iterate_tables().map(Ok))
-            .try_for_each_concurrent(concurrency, |table_id| {
+        let results: Vec<u64> = stream::iter(index_selector.iterate_tables())
+            .map(|tablet_id| {
                 let index_metadata = index_metadata.clone();
                 let index_selector = index_selector.clone();
                 let self_ = (*self).clone();
-                try_join("index_backfill_table_snapshot", async move {
-                    self_
-                        .backfill_exact_snapshot_of_table(
-                            snapshot_ts,
-                            &index_selector,
-                            &index_metadata,
-                            table_id,
-                        )
-                        .await
-                })
+                async move {
+                    try_join("index_backfill_table_snapshot", async move {
+                        self_
+                            .backfill_exact_snapshot_of_table(
+                                snapshot_ts,
+                                &index_selector,
+                                &index_metadata,
+                                tablet_id,
+                                cursor,
+                            )
+                            .await
+                    })
+                    .await
+                }
             })
+            .buffer_unordered(concurrency)
+            .try_collect()
             .await?;
-        Ok(())
+        let docs_indexed: u64 = results.iter().sum();
+        Ok(docs_indexed)
     }
 
     /// Backfills exactly the index entries necessary to represent documents
@@ -326,7 +339,8 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &IndexSelector,
         index_registry: &IndexRegistry,
         tablet_id: TabletId,
-    ) -> anyhow::Result<()> {
+        cursor: Option<ResolvedDocumentId>,
+    ) -> anyhow::Result<u64> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
             snapshot_ts,
@@ -341,13 +355,15 @@ impl<RT: Runtime> IndexWriter<RT> {
         let producer = async {
             let by_id = index_registry.must_get_by_id(tablet_id)?.id();
             let mut stream =
-                std::pin::pin!(table_iterator.stream_documents_in_table(tablet_id, by_id, None));
+                std::pin::pin!(table_iterator.stream_documents_in_table(tablet_id, by_id, cursor));
+            let mut docs_sent = 0;
             while let Some(item) = stream.try_next().await? {
                 let LatestDocument {
                     ts,
                     value: document,
                     ..
                 } = item;
+                docs_sent += 1;
                 _ = index_update_tx
                     .send(RevisionPair {
                         id: document.id().into(),
@@ -360,7 +376,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                     .await;
             }
             drop(index_update_tx);
-            Ok(())
+            Ok(docs_sent)
         };
 
         let consumer = self.write_index_entries(
@@ -370,12 +386,8 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_selector,
             false, /* deduplicate */
         );
-        tokio::select! {
-            r = future::try_join(producer, consumer) => {
-                let ((), ()) = r?;
-            },
-        }
-        Ok(())
+        let (docs_indexed, _) = future::try_join(producer, consumer).await?;
+        Ok(docs_indexed)
     }
 
     /// Backfill indexes forward for a range of the documents log.
@@ -632,7 +644,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 tx.send(TabletBackfillProgress {
                     tablet_id: cursor.table(),
                     index_ids: index_selector.index_ids().collect(),
-                    _cursor: cursor,
+                    cursor,
                     num_docs_indexed: num_docs_indexed as u64,
                 })
                 .await?;

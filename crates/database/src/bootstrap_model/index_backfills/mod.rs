@@ -11,6 +11,7 @@ use common::{
     runtime::Runtime,
     types::IndexId,
 };
+use sync_types::Timestamp;
 use value::{
     DeveloperDocumentId,
     FieldPath,
@@ -21,7 +22,10 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::index_backfills::types::IndexBackfillMetadata,
+    bootstrap_model::index_backfills::types::{
+        BackfillCursor,
+        IndexBackfillMetadata,
+    },
     system_tables::{
         SystemIndex,
         SystemTable,
@@ -88,14 +92,33 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
             .await
     }
 
+    pub async fn initialize_search_index_backfill(
+        &mut self,
+        index_id: IndexId,
+        total_docs: Option<u64>,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        self.initialize_backfill(index_id, total_docs, None).await
+    }
+
+    pub async fn initialize_database_index_backfill(
+        &mut self,
+        index_id: IndexId,
+        total_docs: Option<u64>,
+        snapshot_ts: Timestamp,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        self.initialize_backfill(index_id, total_docs, Some(snapshot_ts))
+            .await
+    }
+
     /// Creates a new index backfill entry or reset existing index backfill
     /// entry with 0 progress and the total number of documents, if available.
     /// total_docs may not be available if table summaries have not yet
     /// bootstrapped. We're ok to update it later (which will be approximate).
-    pub async fn initialize_backfill(
+    async fn initialize_backfill(
         &mut self,
         index_id: IndexId,
         total_docs: Option<u64>,
+        snapshot_ts: Option<Timestamp>,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let index_id = self.index_id_as_developer_id(index_id);
         tracing::info!(
@@ -108,6 +131,10 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
             index_id,
             num_docs_indexed: 0,
             total_docs,
+            cursor: snapshot_ts.map(|ts| BackfillCursor {
+                snapshot_ts: ts,
+                cursor: None,
+            }),
         };
         if let Some(existing_backfill_metadata) = maybe_existing_backfill_metadata {
             system_model
@@ -124,28 +151,63 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         }
     }
 
+    pub async fn update_search_index_backfill_progress(
+        &mut self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        num_docs_indexed: u64,
+    ) -> anyhow::Result<()> {
+        self.update_index_backfill_progress(index_id, tablet_id, num_docs_indexed, None)
+            .await
+    }
+
+    pub async fn update_database_index_backfill_progress(
+        &mut self,
+        index_id: IndexId,
+        tablet_id: TabletId,
+        num_docs_indexed: u64,
+        cursor: ResolvedDocumentId,
+    ) -> anyhow::Result<()> {
+        self.update_index_backfill_progress(
+            index_id,
+            tablet_id,
+            num_docs_indexed,
+            Some(cursor.developer_id),
+        )
+        .await
+    }
+
     /// Upserts progress on index backfills. Only call this during the phase of
     /// the backfill where we walk a snapshot of a table, not the catching up
     /// phase where we walk the revision stream. These metrics don't make sense
     /// in the context of the revision stream.
     /// num_docs_indexed is the number of additional documents indexed since the
     /// last call.
-    pub async fn update_index_backfill_progress(
+    async fn update_index_backfill_progress(
         &mut self,
         index_id: IndexId,
         tablet_id: TabletId,
         num_docs_indexed: u64,
+        cursor: Option<DeveloperDocumentId>,
     ) -> anyhow::Result<()> {
         let index_id = self.index_id_as_developer_id(index_id);
         let maybe_existing_backfill_metadata = self.existing_backfill_metadata(index_id).await?;
         let Some(existing_backfill_metadata) = maybe_existing_backfill_metadata else {
             anyhow::bail!("Index backfill not found for index {}", index_id);
         };
+        let cursor = existing_backfill_metadata
+            .cursor
+            .as_ref()
+            .map(|c| BackfillCursor {
+                snapshot_ts: c.snapshot_ts,
+                cursor,
+            });
         if let Some(total_docs) = existing_backfill_metadata.total_docs {
             let new_backfill_metadata = IndexBackfillMetadata {
                 index_id,
                 num_docs_indexed: existing_backfill_metadata.num_docs_indexed + num_docs_indexed,
                 total_docs: Some(total_docs),
+                cursor,
             };
             SystemMetadataModel::new_global(self.tx)
                 .replace(
@@ -162,8 +224,10 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
                 // still bootstrapping when the backfill began.
                 let new_backfill_metadata = IndexBackfillMetadata {
                     index_id,
-                    num_docs_indexed,
+                    num_docs_indexed: existing_backfill_metadata.num_docs_indexed
+                        + num_docs_indexed,
                     total_docs: Some(count),
+                    cursor,
                 };
                 SystemMetadataModel::new_global(self.tx)
                     .replace(

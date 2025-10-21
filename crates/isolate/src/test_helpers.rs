@@ -463,7 +463,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             Arc::new(retention_manager),
             self.database.clone(),
         )
-        .await
+        .await?;
+        Ok(())
     }
 
     pub async fn mutation(
