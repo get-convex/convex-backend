@@ -63,6 +63,7 @@ use common::{
     },
     persistence::{
         new_static_repeatable_recent,
+        DocumentLogEntry,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -769,8 +770,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             "expired_documents: reading expired documents from {cursor:?} to {:?}",
             min_document_snapshot_ts,
         );
-        let mut revs = persistence.load_revision_pairs(
-            None, /* tablet_id */
+        let mut revs = persistence.load_documents(
             TimestampRange::new(*cursor..*min_document_snapshot_ts),
             Order::Asc,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
@@ -786,26 +786,17 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             // the document was deleted.
             // A NoopRetentionValidator is used here because we are fetching revisions
             // outside of the document retention window.
-            let RevisionPair {
+            let DocumentLogEntry {
                 id,
-                rev:
-                    DocumentRevision {
-                        ts,
-                        document: maybe_doc,
-                    },
-                prev_rev,
+                ts,
+                value: maybe_doc,
+                prev_ts,
             } = rev;
             {
                 // If there is no prev rev, there's nothing to delete.
                 // If this happens for a tombstone, it means the document was created and
                 // deleted in the same transaction.
-                let Some(DocumentRevision {
-                    ts: prev_rev_ts,
-                    // If `prev_rev.document` is None, that means we already
-                    // garbage collected that revision.
-                    document: Some(_),
-                }) = prev_rev
-                else {
+                let Some(prev_rev_ts) = prev_ts else {
                     log_document_retention_scanned_document(maybe_doc.is_none(), false);
                     if maybe_doc.is_none() {
                         anyhow::ensure!(
