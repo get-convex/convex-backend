@@ -58,7 +58,7 @@ function sign(
 /**
  *  Safely base64url encode a JS Object in a way that is UTF-8 safe
  *
- *  @param {Object} data - Javascript object payload to be encoded
+ *  @param {Object} data - JavaScript object payload to be encoded
  *  @return {string} utf-8 safe base64url encoded payload
  */
 function encode(data: Record<string, any>): string {

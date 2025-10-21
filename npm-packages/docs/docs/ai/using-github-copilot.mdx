@@ -15,7 +15,7 @@ through how to setup GitHub Copilot for the best possible results with Convex.
 Add the following
 [instructions](https://code.visualstudio.com/docs/copilot/copilot-customization#_instruction-files)
 file to your `.github/instructions` directory in your project and it will
-automatically be included when working with Typescript or Javascript files:
+automatically be included when working with TypeScript or JavaScript files:
 
 - [convex.instructions.md](https://convex.link/convex_github_copilot_instructions)
 

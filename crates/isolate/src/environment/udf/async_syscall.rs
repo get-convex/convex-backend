@@ -769,7 +769,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         // Trim to u32 and check for overflow.
         let result = u32::try_from(result)?;
-        // Return as f64, which converts to number type in Javascript.
+        // Return as f64, which converts to number type in JavaScript.
         let result = f64::from(result);
         Ok(ConvexValue::from(result).to_internal_json())
     }

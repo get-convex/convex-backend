@@ -168,7 +168,7 @@ Queries and mutations error out when:
 - More than 16384 documents are scanned
 - More than 8MiB worth of data is scanned
 - More than 4096 queries calls to `db.get` or `db.query` are made
-- The function spends more than 1 second executing Javascript
+- The function spends more than 1 second executing JavaScript
 
 In addition, mutations error out when:
 

@@ -169,7 +169,7 @@ pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Use as #[convex_macro::v8_op] to annotate "ops" (Rust code callable from
-/// Javascript that is shipped with backend).
+/// JavaScript that is shipped with backend).
 /// Must be used within the `isolate` crate.
 ///
 /// Types:

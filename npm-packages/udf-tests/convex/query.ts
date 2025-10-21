@@ -165,7 +165,7 @@ export const filterOrder = query(async ({ db }, { min }: { min: any }) => {
 });
 
 export const orderOrder = query(async ({ db }) => {
-  // Typescript does not let you do .order().order(), but if you do it
+  // TypeScript does not let you do .order().order(), but if you do it
   // in JS, it should fail at runtime.
   const q: any = db.query("test").order("desc");
   return q.order("desc").collect();

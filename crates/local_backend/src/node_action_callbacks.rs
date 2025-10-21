@@ -421,7 +421,7 @@ pub async fn vector_search(
     // This is a workaround. The correct way to track usage is to return in the
     // response, and then Node.js should aggregate it and then send it back to
     // the backend alongside the action result, which is how Funrun actions
-    // work. Since we don't have that pipeline working in Node.js/Typescript, we
+    // work. Since we don't have that pipeline working in Node.js/TypeScript, we
     // report vector usage directly here.
     if let Some(action_name) = action_name {
         let usage = FunctionUsageTracker::new();

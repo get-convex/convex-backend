@@ -134,7 +134,7 @@ const messages = await ctx.db.query("messages").order("desc").collect();
 
 If you need to sort on a field other than `_creationTime` and your document
 query returns a small number of documents (on the order of hundreds rather than
-thousands of documents), consider sorting in Javascript:
+thousands of documents), consider sorting in JavaScript:
 
 ```ts
 // Get top 10 most liked messages, assuming messages is a fairly small table:
@@ -228,7 +228,7 @@ Convex prefers to have a few, simple ways to walk through and select documents
 from tables. In Convex, there is no specific query language for complex logic
 like a join, an aggregation, or a group by.
 
-Instead, you can write the complex logic in Javascript! Convex guarantees that
+Instead, you can write the complex logic in JavaScript! Convex guarantees that
 the results will be consistent.
 
 ### Join

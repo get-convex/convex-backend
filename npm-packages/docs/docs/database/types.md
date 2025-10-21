@@ -6,7 +6,7 @@ description: "Supported data types in Convex documents"
 
 import ConvexValues from "@site/docs/\_convexValues.mdx";
 
-All Convex documents are defined as Javascript objects. These objects can have
+All Convex documents are defined as JavaScript objects. These objects can have
 field values of any of the types below.
 
 You can codify the shape of documents within your tables by

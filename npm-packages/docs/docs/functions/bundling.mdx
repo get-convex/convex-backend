@@ -25,7 +25,7 @@ Thanks to bundling you can write your code using both modern ECMAScript Modules
 
 <Details summary="ESM vs. CJS">
     ESM
-    - Is the standard for browser Javascript
+    - Is the standard for browser JavaScript
     - Uses static imports via the `import` and `export` **keywords** (not functions)
     at the global scope
     - Also supports dynamic imports via the asynchronous `import` function
