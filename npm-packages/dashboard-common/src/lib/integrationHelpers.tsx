@@ -21,11 +21,13 @@ import { AxiomLogo } from "@common/lib/logos/AxiomLogo";
 import { SentryLogo } from "@common/lib/logos/SentryLogo";
 import { AirbyteLogo } from "@common/lib/logos/AirbyteLogo";
 import { FivetranLogo } from "@common/lib/logos/FivetranLogo";
+import { WorkosLogo } from "./logos/WorkosLogo";
 
 export type SinkStatus = Doc<"_log_sinks">["status"];
 
 export const LOG_INTEGRATIONS = ["axiom", "datadog", "webhook"] as const;
 export const EXC_INTEGRATIONS = ["sentry"] as const;
+export const AUTH_INTEGRATIONS = ["workos"] as const;
 export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = [
   "fivetran",
   "airbyte",
@@ -76,6 +78,15 @@ export type ExceptionReportingIntegration = {
 };
 
 export type ExceptionReportingIntegrationConfig = Infer<typeof sentryConfig>;
+
+export type AuthIntegration = {
+  kind: "workos";
+  existing: {
+    workosEnvironmentId: string;
+    workosEnvironmentName: string;
+    workosClientId: string;
+  } | null;
+};
 
 export function integrationToLogo(
   kind: IntegrationType,
@@ -148,6 +159,19 @@ export function integrationToLogo(
           />
         ),
       };
+    case "workos": {
+      return {
+        logo: (
+          <WorkosLogo
+            className={classNames(
+              "rounded-sm border bg-white dark:bg-black",
+              sizeClass,
+            )}
+            size={size}
+          />
+        ),
+      };
+    }
     default: {
       kind satisfies never;
       throw new Error(`Unrecognized integration type ${kind}`);
@@ -225,6 +249,15 @@ export const STREAMING_EXPORT_DESCRIPTION = (
   </div>
 );
 
+export const AUTHENTICATION_DESCRIPTION = (
+  <div>
+    <p>
+      An automatically provisioned WorkOS AuthKit environments for this
+      deployment.
+    </p>
+  </div>
+);
+
 export type IntegrationUnavailableReason =
   | "MissingEntitlement"
   | "CannotManageProd"
@@ -277,4 +310,4 @@ function datadogSiteLocationToUrl(siteLocation: DatadogSiteLocation): string {
 }
 
 export const integrationName = (kind: IntegrationType) =>
-  kind.charAt(0).toUpperCase() + kind.slice(1);
+  kind === "workos" ? "WorkOS" : kind.charAt(0).toUpperCase() + kind.slice(1);

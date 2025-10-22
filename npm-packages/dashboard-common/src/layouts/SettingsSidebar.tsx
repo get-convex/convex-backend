@@ -36,7 +36,6 @@ export function SettingsSidebar({
     useCurrentTeam,
     useCurrentProject,
     useTeamUsageState,
-    useTeamEntitlements,
     teamsURI,
     projectsURI,
     deploymentsURI,
@@ -50,12 +49,6 @@ export function SettingsSidebar({
   const isSelfHostedDeployment =
     isSelfHosted && !isCloudDeploymentInSelfHostedDashboard;
 
-  const entitlements = useTeamEntitlements(team?.id);
-  // Hide the badge until entitlements are loaded
-  const logStreamingEntitlementGranted =
-    entitlements?.logStreamingEnabled ?? true;
-  const streamingExportEntitlementGranted =
-    entitlements?.streamingExportEnabled ?? true;
   const teamUsageState = useTeamUsageState(team?.id ?? null);
 
   const shouldLock = (page: string) =>
@@ -96,13 +89,6 @@ export function SettingsSidebar({
                   : undefined
               }
               Icon={shouldLock(page) ? LockClosedIcon : undefined}
-              proBadge={
-                page === "integrations" &&
-                !(
-                  logStreamingEntitlementGranted &&
-                  streamingExportEntitlementGranted
-                )
-              }
               target={showInCloudDashboard ? "_blank" : undefined}
             >
               <div className="flex items-center justify-between gap-2">

@@ -128,18 +128,21 @@ export function MenuLink({
   disabled = false,
   selected = false,
   shortcut,
+  target,
 }: {
   children: React.ReactChild | React.ReactChild[];
   href: string;
   disabled?: boolean;
   selected?: boolean;
   shortcut?: Key[];
+  target?: "_blank";
 }) {
   return (
     <HeadlessMenu.Item disabled={disabled}>
       {({ active, close }) => (
         <a
           href={href}
+          target={target}
           aria-disabled={disabled}
           onClick={disabled ? (e) => e.preventDefault() : () => close()}
           className={classNames(

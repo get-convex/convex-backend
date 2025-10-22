@@ -16,7 +16,9 @@ export function IntegrationTitle({
       {logo}
 
       <p className="text-sm font-semibold">
-        {integrationKind.charAt(0).toUpperCase() + integrationKind.slice(1)}
+        {integrationKind === "workos"
+          ? "WorkOS"
+          : integrationKind.charAt(0).toUpperCase() + integrationKind.slice(1)}
       </p>
       <Tooltip tip={description}>
         <p className="max-w-fit rounded-sm border p-1 text-xs">
@@ -24,7 +26,9 @@ export function IntegrationTitle({
             ? "Exception Reporting"
             : integrationKind === "airbyte" || integrationKind === "fivetran"
               ? "Streaming Export"
-              : "Log Stream"}
+              : integrationKind === "workos"
+                ? "Authentication"
+                : "Log Stream"}
         </p>
       </Tooltip>
     </div>

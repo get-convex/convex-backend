@@ -25,6 +25,8 @@ import { Fallback } from "pages/500";
 import { useTeamUsageState } from "api/usage";
 import { useProjectEnvironmentVariables } from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useDeploymentWorkOSEnvironment } from "api/workos";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
@@ -56,6 +58,7 @@ export function DeploymentInfoProvider({
   >(undefined);
 
   const [accessToken] = useAccessToken();
+  const { workOsEnvironmentProvisioningDashboardUi } = useLaunchDarkly();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
   const teamsURI = `/t/${selectedTeamSlug}`;
@@ -85,6 +88,7 @@ export function DeploymentInfoProvider({
         useProjectEnvironmentVariables,
         useIsDeploymentPaused,
         useLogDeploymentEvent,
+        useDeploymentWorkOSEnvironment,
         TeamMemberLink,
         CloudImport,
         ErrorBoundary: DeploymentErrorBoundary,
@@ -92,6 +96,7 @@ export function DeploymentInfoProvider({
         projectsURI,
         deploymentsURI,
         isSelfHosted: false,
+        workosIntegrationEnabled: workOsEnvironmentProvisioningDashboardUi,
       });
     };
     if (accessToken && (deploymentOverride || deploymentName)) {
@@ -104,6 +109,7 @@ export function DeploymentInfoProvider({
     deploymentsURI,
     projectsURI,
     teamsURI,
+    workOsEnvironmentProvisioningDashboardUi,
   ]);
 
   return deploymentInfo ? (

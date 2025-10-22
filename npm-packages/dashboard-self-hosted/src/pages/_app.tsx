@@ -206,6 +206,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   useProjectEnvironmentVariables: () => ({ configs: [] }),
   // no-op. don't send analytics in the self-hosted dashboard.
   useLogDeploymentEvent: () => () => {},
+  useDeploymentWorkOSEnvironment: () => undefined,
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
     <div>{sourceCloudBackupId}</div>
   ),
@@ -224,6 +225,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   projectsURI: "",
   deploymentsURI: "",
   isSelfHosted: true,
+  workosIntegrationEnabled: false,
 };
 
 function DeploymentInfoProvider({

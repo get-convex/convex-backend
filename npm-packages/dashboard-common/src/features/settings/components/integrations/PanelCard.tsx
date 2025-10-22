@@ -3,13 +3,17 @@ import { ExportIntegrationType } from "system-udfs/convex/_system/frontend/commo
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Modal } from "@ui/Modal";
+import { Tooltip } from "@ui/Tooltip";
+import Link from "next/link";
 import {
   IntegrationUnavailableReason,
   LogIntegration,
   ExceptionReportingIntegration,
+  AuthIntegration,
   integrationToLogo,
   STREAMING_EXPORT_DESCRIPTION,
   LOG_STREAMS_DESCRIPTION,
+  AUTHENTICATION_DESCRIPTION,
 } from "@common/lib/integrationHelpers";
 import { useState, ReactNode, useCallback } from "react";
 import { IntegrationTitle } from "./IntegrationTitle";
@@ -19,20 +23,44 @@ import { AxiomConfigurationForm } from "./AxiomConfigurationForm";
 import { DatadogConfigurationForm } from "./DatadogConfigurationForm";
 import { SentryConfigurationForm } from "./SentryConfigurationForm";
 import { WebhookConfigurationForm } from "./WebhookConfigurationForm";
+import { WorkOSConfigurationForm } from "./WorkOSConfigurationForm";
+import { WorkOSIntegrationStatus } from "./WorkOSIntegrationStatus";
+import { WorkOSIntegrationOverflowMenu } from "./WorkOSIntegrationOverflowMenu";
 
 export type PanelCardProps = {
   className?: string;
   integration:
     | LogIntegration
     | ExceptionReportingIntegration
+    | AuthIntegration
     | { kind: ExportIntegrationType };
   unavailableReason: IntegrationUnavailableReason | null;
+  teamSlug?: string;
 };
+
+function ProBadge({ teamSlug }: { teamSlug?: string }) {
+  const badge = (
+    <span className="cursor-pointer rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase">
+      Pro
+    </span>
+  );
+
+  if (!teamSlug) {
+    return <Tooltip tip="Only available on the Pro plan">{badge}</Tooltip>;
+  }
+
+  return (
+    <Tooltip tip="Only available on the Pro plan">
+      <Link href={`/${teamSlug}/settings/billing`}>{badge}</Link>
+    </Tooltip>
+  );
+}
 
 export function PanelCard({
   className,
   integration,
   unavailableReason,
+  teamSlug,
 }: PanelCardProps) {
   const classes = classNames(
     "py-3 px-4",
@@ -60,6 +88,28 @@ export function PanelCard({
 
   return (
     <div className={classes}>
+      {integration.kind === "workos" && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {modalState.content}
+          <IntegrationTitle
+            logo={logo}
+            integrationKind={integration.kind}
+            description={AUTHENTICATION_DESCRIPTION}
+          />
+          <div className="flex items-center gap-4">
+            <WorkOSIntegrationStatus integration={integration} />
+            <WorkOSIntegrationOverflowMenu
+              integration={integration}
+              onConfigure={() =>
+                setModalState({
+                  showing: true,
+                  content: renderModal(integration, closeModal),
+                })
+              }
+            />
+          </div>
+        </div>
+      )}
       {(integration.kind === "airbyte" || integration.kind === "fivetran") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <IntegrationTitle
@@ -68,7 +118,9 @@ export function PanelCard({
             description={STREAMING_EXPORT_DESCRIPTION}
           />
           <div className="ml-auto">
-            {unavailableReason === null && (
+            {unavailableReason === "MissingEntitlement" ? (
+              <ProBadge teamSlug={teamSlug} />
+            ) : (
               <Button
                 href={exportSetupLink(integration.kind)}
                 target="_blank"
@@ -96,14 +148,15 @@ export function PanelCard({
           />
           <div className="flex items-center gap-4">
             <IntegrationStatus integration={integration} />
-            {unavailableReason === null && (
+            {unavailableReason === "MissingEntitlement" ? (
+              <ProBadge teamSlug={teamSlug} />
+            ) : (
               <IntegrationOverflowMenu
                 integration={integration}
                 onConfigure={() =>
                   setModalState({
                     showing: true,
-                    content:
-                      renderModal && renderModal(integration, closeModal),
+                    content: renderModal(integration, closeModal),
                   })
                 }
               />
@@ -129,7 +182,7 @@ function exportSetupLink(kind: ExportIntegrationType): string {
 }
 
 function renderModal(
-  integration: LogIntegration | ExceptionReportingIntegration,
+  integration: LogIntegration | ExceptionReportingIntegration | AuthIntegration,
   closeModal: () => void,
 ) {
   switch (integration.kind) {
@@ -187,6 +240,12 @@ function renderModal(
               onClose={closeModal}
             />
           </div>
+        </Modal>
+      );
+    case "workos":
+      return (
+        <Modal onClose={closeModal} title="WorkOS AuthKit Environment">
+          <WorkOSConfigurationForm />
         </Modal>
       );
     default: {

@@ -93,6 +93,26 @@ export type DeploymentInfo = (
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
   useIsDeploymentPaused(): boolean | undefined;
   useLogDeploymentEvent(): (msg: string, props?: object | null) => void;
+  useDeploymentWorkOSEnvironment(deploymentName?: string):
+    | {
+        environment?:
+          | {
+              workosEnvironmentId: string;
+              workosEnvironmentName: string;
+              workosClientId: string;
+            }
+          | undefined
+          | null;
+        workosTeam?:
+          | {
+              workosTeamId: string;
+              workosTeamName: string;
+              workosAdminEmail: string;
+            }
+          | undefined
+          | null;
+      }
+    | undefined;
   CloudImport(props: { sourceCloudBackupId: number }): JSX.Element;
   TeamMemberLink(props: {
     memberId?: number | null;
@@ -106,6 +126,7 @@ export type DeploymentInfo = (
   projectsURI: string;
   deploymentsURI: string;
   isSelfHosted: boolean;
+  workosIntegrationEnabled: boolean;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(

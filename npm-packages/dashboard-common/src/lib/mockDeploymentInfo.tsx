@@ -23,6 +23,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
     teamId: 0,
   }),
   useLogDeploymentEvent: () => () => {},
+  useDeploymentWorkOSEnvironment: () => undefined,
   useCurrentDeployment: () => ({
     id: 0,
     name: "local",
@@ -48,4 +49,5 @@ export const mockDeploymentInfo: DeploymentInfo = {
   projectsURI: "",
   deploymentsURI: "",
   isSelfHosted: true,
+  workosIntegrationEnabled: false,
 };

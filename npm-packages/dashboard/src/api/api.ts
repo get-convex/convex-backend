@@ -67,6 +67,7 @@ export function useBBQuery<QueryPath extends Path<"get">>({
     },
     headers,
   };
+  // If any path params are falsey, pause! Paused queries return undefined.
   const paused =
     !accessToken || (pathParams && Object.values(pathParams).some((p) => !p));
   const previousPaused = usePrevious(paused);

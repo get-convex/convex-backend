@@ -1,9 +1,8 @@
 import React, { useContext } from "react";
 import { LocalDevCallout } from "@common/elements/LocalDevCallout";
-import { Callout } from "@ui/Callout";
-import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
 import {
+  AuthIntegration,
   EXC_INTEGRATIONS,
   EXPORT_INTEGRATIONS,
   ExceptionReportingIntegration,
@@ -23,14 +22,18 @@ export function Integrations({
   team,
   entitlements,
   integrations,
+  workosData,
 }: {
   team: ReturnType<DeploymentInfo["useCurrentTeam"]>;
   entitlements: ReturnType<DeploymentInfo["useTeamEntitlements"]>;
   integrations: Doc<"_log_sinks">[];
+  workosData: ReturnType<DeploymentInfo["useDeploymentWorkOSEnvironment"]>;
 }) {
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    workosIntegrationEnabled,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
@@ -63,6 +66,16 @@ export function Integrations({
     return 0;
   });
 
+  const authIntegrations: AuthIntegration[] = workosIntegrationEnabled
+    ? [
+        {
+          kind: "workos",
+          // Consider this integration to exist if a WorkOS enviroment has been provisioned
+          existing: workosData?.environment ?? null,
+        },
+      ]
+    : [];
+
   const exceptionReportingIntegrations: ExceptionReportingIntegration[] =
     EXC_INTEGRATIONS.map((kind) => {
       const existing = configuredIntegrationsMap[kind];
@@ -77,28 +90,6 @@ export function Integrations({
       }
       return 0;
     });
-
-  // Show the proCallout if either of the entitlements aren't granted. Both are granted
-  // with a pro account.
-  const proCallout =
-    logStreamingEntitlementGranted &&
-    streamingExportEntitlementGranted ? null : (
-      <Callout variant="upsell">
-        <div className="flex w-fit flex-col gap-2">
-          <p className="max-w-prose">
-            Log Stream, Exception Reporting, and Streaming Export integrations
-            are available on the Pro plan.
-          </p>
-          <Button
-            href={`/${team?.slug}/settings/billing`}
-            size="xs"
-            className="w-fit"
-          >
-            Upgrade Now
-          </Button>
-        </div>
-      </Callout>
-    );
 
   const devCallouts = [];
   if (!logStreamingEntitlementGranted) {
@@ -129,7 +120,6 @@ export function Integrations({
 
   return (
     <div className="flex flex-col gap-4">
-      {proCallout}
       <Sheet className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <h3>Integrations</h3>
@@ -147,7 +137,11 @@ export function Integrations({
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          {[...exceptionReportingIntegrations, ...logIntegrations]
+          {[
+            ...authIntegrations,
+            ...exceptionReportingIntegrations,
+            ...logIntegrations,
+          ]
             .sort((a, b) =>
               a.existing !== null && b.existing === null ? -1 : 0,
             )
@@ -155,12 +149,14 @@ export function Integrations({
               <PanelCard
                 integration={i}
                 unavailableReason={logIntegrationUnvaliableReason}
+                teamSlug={team?.slug}
               />
             ))}
           {EXPORT_INTEGRATIONS.map((i) => (
             <PanelCard
               integration={{ kind: i }}
               unavailableReason={streamingExportIntegrationUnavailableReason}
+              teamSlug={team?.slug}
             />
           ))}
         </div>

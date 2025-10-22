@@ -133,12 +133,17 @@ export type UdfConfig = Doc<"_udf_config">;
 
 export type Integration = Doc<"_log_sinks">;
 
+// Note: doesn't include exports or auth
 export type IntegrationConfig = Integration["config"];
 
 // Export integrations aren't configured on convex's side, so they don't use _log_sinks table
 export type ExportIntegrationType = "airbyte" | "fivetran";
-
-export type IntegrationType = IntegrationConfig["type"] | ExportIntegrationType;
+// WorkOS environment mappings live in api.convex.dev for now
+export type AuthIntegrationType = "workos";
+export type IntegrationType =
+  | IntegrationConfig["type"]
+  | ExportIntegrationType
+  | AuthIntegrationType;
 
 export type DatadogConfig = Infer<typeof datadogConfig>;
 

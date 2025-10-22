@@ -7,21 +7,27 @@ import { useContext } from "react";
 import { LoadingTransition } from "@ui/Loading";
 
 export function IntegrationsView() {
-  const { useCurrentTeam, useTeamEntitlements } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentTeam,
+    useTeamEntitlements,
+    useCurrentDeployment,
+    useDeploymentWorkOSEnvironment,
+  } = useContext(DeploymentInfoContext);
   const team = useCurrentTeam();
+  const deployment = useCurrentDeployment();
   const entitlements = useTeamEntitlements(team?.id);
   const integrations = useQuery(udfs.listConfiguredSinks.default);
+  const workosData = useDeploymentWorkOSEnvironment(deployment?.name);
 
   return (
     <DeploymentSettingsLayout page="integrations">
       <LoadingTransition>
-        {team && entitlements && integrations !== undefined && (
+        {team && entitlements && integrations !== undefined && workosData && (
           <Integrations
             team={team}
             entitlements={entitlements}
             integrations={integrations}
+            workosData={workosData}
           />
         )}
       </LoadingTransition>
