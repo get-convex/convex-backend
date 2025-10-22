@@ -51,7 +51,7 @@ pub static MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS: LazyLock<Version> = LazyLock::
     env_config(
         // Until clients can handle these better use a large number we'll never hit.
         "MIN_NPM_VERSION_FOR_TRANSITION_CHUNKS",
-        Version::parse("1.999.0").expect("Invalid version"),
+        Version::parse("1.28.0").expect("Invalid version"),
     )
 });
 

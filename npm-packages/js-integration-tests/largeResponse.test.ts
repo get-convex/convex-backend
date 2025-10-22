@@ -16,7 +16,8 @@ describe("Large query responses", () => {
 
   test("query with small response works", async () => {
     const result = await client.query(api.largeResponse.largeArray, {
-      bytes: 1000,
+      count: 1000,
+      character: "€", // 3 bytes in utf-8, 2 bytes in utf-16, one character in JS
     });
     expect(result).toBeDefined();
     expect(Array.isArray(result)).toBe(true);
@@ -24,7 +25,8 @@ describe("Large query responses", () => {
 
   test("query with >5MB response", async () => {
     const result = await client.query(api.largeResponse.largeArray, {
-      bytes: 6_000_000,
+      count: 6_000_000,
+      character: "€", // 3 bytes in utf-8, 2 bytes in utf-16, one character in JS
     });
     expect(result).toBeDefined();
     // The result should be close to 6MB
