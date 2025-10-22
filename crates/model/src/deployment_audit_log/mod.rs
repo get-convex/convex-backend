@@ -1,31 +1,20 @@
 use std::sync::LazyLock;
 
 use common::{
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
     obj,
-    query::{
-        Order,
-        Query,
-    },
     runtime::Runtime,
     types::MemberId,
 };
 use database::{
     unauthorized_error,
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
-use futures_async_stream::try_stream;
 use value::{
     ConvexObject,
     FieldPath,
     ResolvedDocumentId,
     TableName,
-    TableNamespace,
 };
 
 mod developer_index_config;
@@ -107,24 +96,5 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
             deployment_audit_log_ids.push(id);
         }
         Ok(deployment_audit_log_ids)
-    }
-
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn insert_single(
-        &mut self,
-        event: DeploymentAuditLogEvent,
-    ) -> anyhow::Result<ResolvedDocumentId> {
-        let ids = self.insert(vec![event]).await?;
-        Ok(ids[0])
-    }
-
-    #[try_stream(boxed, ok = ParsedDocument<DeploymentAuditLogEvent>, error = anyhow::Error)]
-    pub async fn list(&mut self) {
-        let value_query = Query::full_table_scan(DEPLOYMENT_AUDIT_LOG_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
-        while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<DeploymentAuditLogEvent> = doc.parse()?;
-            yield row;
-        }
     }
 }
