@@ -96,7 +96,6 @@ use common::{
         IndexId,
         PersistenceVersion,
         RepeatableTimestamp,
-        TabletIndexName,
         Timestamp,
     },
     value::{
@@ -152,6 +151,7 @@ use crate::{
         retention_delete_timer,
     },
     snapshot_manager::SnapshotManager,
+    BootstrapMetadata,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -201,7 +201,6 @@ impl Checkpoint {
 pub struct LeaderRetentionManager<RT: Runtime> {
     rt: RT,
     bounds_reader: Reader<SnapshotBounds>,
-    index_table_id: TabletId,
     checkpoint_reader: Reader<Checkpoint>,
     document_checkpoint_reader: Reader<Checkpoint>,
     handles: Arc<Mutex<Vec<Box<dyn SpawnHandle>>>>,
@@ -212,7 +211,6 @@ impl<RT: Runtime> Clone for LeaderRetentionManager<RT> {
         Self {
             rt: self.rt.clone(),
             bounds_reader: self.bounds_reader.clone(),
-            index_table_id: self.index_table_id,
             checkpoint_reader: self.checkpoint_reader.clone(),
             document_checkpoint_reader: self.document_checkpoint_reader.clone(),
             handles: self.handles.clone(),
@@ -251,21 +249,22 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     pub async fn new(
         rt: RT,
         persistence: Arc<dyn Persistence>,
+        bootstrap_metadata: BootstrapMetadata,
         snapshot_reader: Reader<SnapshotManager>,
         follower_retention_manager: FollowerRetentionManager<RT>,
         lease_lost_shutdown: ShutdownSignal,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
         let reader = persistence.reader();
-        let snapshot_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
-        let min_snapshot_ts = snapshot_ts.prior_ts(
+        let latest_ts = snapshot_reader.lock().latest_ts();
+        let min_index_snapshot_ts = latest_ts.prior_ts(
             latest_retention_min_snapshot_ts(reader.as_ref(), RetentionType::Index).await?,
         )?;
-        let min_document_snapshot_ts = snapshot_ts.prior_ts(
+        let min_document_snapshot_ts = latest_ts.prior_ts(
             latest_retention_min_snapshot_ts(reader.as_ref(), RetentionType::Document).await?,
         )?;
         let bounds = SnapshotBounds {
-            min_index_snapshot_ts: min_snapshot_ts,
+            min_index_snapshot_ts,
             min_document_snapshot_ts,
         };
         let (bounds_reader, bounds_writer) = new_split_rw_lock(bounds);
@@ -275,43 +274,29 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let (document_checkpoint_reader, document_checkpoint_writer) =
             new_split_rw_lock(document_checkpoint);
 
-        let snapshot = snapshot_reader.lock().latest_snapshot();
-        let index_registry = snapshot.index_registry;
-        let meta_index_id = index_registry
-            .enabled_index_metadata(&TabletIndexName::by_id(index_registry.index_table()))
-            .expect("meta index id must exist")
-            .id()
-            .internal_id();
+        let index_table_id = bootstrap_metadata.index_tablet_id;
         let follower_retention_manager = Arc::new(follower_retention_manager);
-        let mut index_table_id = None;
         // We need to delete from all indexes that might be queried.
-        // Therefore we scan _index.by_id at min_snapshot_ts before min_snapshot_ts
-        // starts moving, and update the map before confirming any deletes.
+        // Therefore we scan _index.by_id at min_index_snapshot_ts before
+        // min_index_snapshot_ts starts moving, and update the map before
+        // confirming any deletes.
         let mut all_indexes = {
-            let reader = persistence.reader();
-            let snapshot_ts = min_snapshot_ts;
-            let reader =
-                RepeatablePersistence::new(reader, snapshot_ts, follower_retention_manager.clone());
-            let reader = reader.read_snapshot(snapshot_ts)?;
             let mut meta_index_scan = reader.index_scan(
-                meta_index_id,
-                index_registry.index_table(),
+                bootstrap_metadata.index_by_id,
+                bootstrap_metadata.index_tablet_id,
+                *min_index_snapshot_ts,
                 &Interval::all(),
                 Order::Asc,
                 usize::MAX,
+                follower_retention_manager.clone(),
             );
             let mut indexes = BTreeMap::new();
             while let Some((_, rev)) = meta_index_scan.try_next().await? {
-                let table_id = rev.value.id().tablet_id;
-                index_table_id = Some(table_id);
-                Self::accumulate_index_document(Some(rev.value), &mut indexes, table_id)?;
+                Self::accumulate_index_document(rev.value, &mut indexes)?;
             }
             indexes
         };
-        let index_table_id =
-            index_table_id.ok_or_else(|| anyhow::anyhow!("there must be at least one index"))?;
-        let mut index_cursor = min_snapshot_ts;
-        let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
+        let mut index_cursor = min_index_snapshot_ts;
         // Also update the set of indexes up to the current timestamp before document
         // retention starts moving.
         Self::accumulate_indexes(
@@ -324,7 +309,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         )
         .await?;
 
-        let (send_min_snapshot, receive_min_snapshot) = watch::channel(min_snapshot_ts);
+        let (send_min_snapshot, receive_min_snapshot) = watch::channel(min_index_snapshot_ts);
         let (send_min_document_snapshot, receive_min_document_snapshot) =
             watch::channel(min_document_snapshot_ts);
         let advance_min_snapshot_handle = rt.spawn(
@@ -370,7 +355,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Ok(Self {
             rt,
             bounds_reader,
-            index_table_id,
             checkpoint_reader,
             document_checkpoint_reader,
             handles: Arc::new(Mutex::new(vec![
@@ -1375,14 +1359,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     fn accumulate_index_document(
-        maybe_doc: Option<ResolvedDocument>,
+        doc: ResolvedDocument,
         all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
-        index_tablet_id: TabletId,
     ) -> anyhow::Result<()> {
-        let Some(doc) = maybe_doc else {
-            return Ok(());
-        };
-        anyhow::ensure!(doc.id().tablet_id == index_tablet_id);
         let index_id = doc.id().internal_id();
         let index: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
         let index = index.into_value();
@@ -1427,7 +1406,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             retention_validator,
         );
         while let Some(entry) = document_stream.try_next().await? {
-            Self::accumulate_index_document(entry.value, all_indexes, index_table_id)?;
+            if let Some(doc) = entry.value {
+                anyhow::ensure!(doc.id().tablet_id == index_table_id);
+                Self::accumulate_index_document(doc, all_indexes)?;
+            }
         }
         *cursor = latest_ts;
         Ok(())

@@ -995,6 +995,7 @@ impl<RT: Runtime> Database<RT> {
         let retention_manager = LeaderRetentionManager::new(
             runtime.clone(),
             persistence.clone(),
+            bootstrap_metadata.clone(),
             snapshot_reader.clone(),
             follower_retention_manager,
             shutdown.clone(),
