@@ -2,7 +2,6 @@ import { EyeOpenIcon, EyeNoneIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { AccessTokenListKind, useDeleteAccessToken } from "api/accessTokens";
 import { Button } from "@ui/Button";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
-import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { TeamAccessTokenResponse } from "generatedApi";
@@ -17,7 +16,6 @@ export function AccessTokenListItem({
   kind,
   shouldShow,
   showMemberName = true,
-  showCallout = true,
 }: {
   token: TeamAccessTokenResponse;
   identifier: string;
@@ -25,7 +23,6 @@ export function AccessTokenListItem({
   kind: AccessTokenListKind;
   shouldShow: boolean;
   showMemberName?: boolean;
-  showCallout?: boolean;
 }) {
   const team = useCurrentTeam();
   const members = useTeamMembers(team?.id);
@@ -98,14 +95,7 @@ export function AccessTokenListItem({
       </div>
       <div className="mb-2 flex items-center gap-1">
         {showToken && (
-          <div className="flex flex-col gap-1">
-            {showCallout && (
-              <Callout variant="instructions" className="mb-2 max-w-[30rem]">
-                This key enables reading and writing data to your deployment
-                without needing to log in, so it should not be shared or
-                committed to git.
-              </Callout>
-            )}
+          <div className="mt-1 flex flex-col gap-1">
             <CopyTextButton
               text={
                 tokenPrefix

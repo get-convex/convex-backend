@@ -59,7 +59,8 @@ const SECTION_IDS = {
   projectRoles: "project-roles",
   projectUsage: "project-usage",
   customDomains: "custom-domains",
-  deployKeys: "deploy-keys",
+  productionDeployKeys: "production-deploy-keys",
+  previewDeployKeys: "preview-deploy-keys",
   authorizedApps: "applications",
   envVars: "env-vars",
   lostAccess: "lost-access",
@@ -72,7 +73,8 @@ const sections = [
   { id: SECTION_IDS.projectRoles, label: "Project Admins" },
   { id: SECTION_IDS.projectUsage, label: "Project Usage" },
   { id: SECTION_IDS.customDomains, label: "Custom Domains" },
-  { id: SECTION_IDS.deployKeys, label: "Deploy Keys" },
+  { id: SECTION_IDS.productionDeployKeys, label: "Production Deploy Keys" },
+  { id: SECTION_IDS.previewDeployKeys, label: "Preview Deploy Keys" },
   {
     id: SECTION_IDS.authorizedApps,
     label: "Authorized Applications",
@@ -377,11 +379,16 @@ function ProjectSettings() {
                   </div>
                 )}
                 {project && (
-                  <div id={SECTION_IDS.deployKeys}>
-                    <GenerateDeployKey
+                  <div id={SECTION_IDS.productionDeployKeys}>
+                    <ProductionDeployKeys
                       project={project}
                       hasAdminPermissions={hasAdminPermissions}
                     />
+                  </div>
+                )}
+                {project && (
+                  <div id={SECTION_IDS.previewDeployKeys}>
+                    <PreviewDeployKeys project={project} />
                   </div>
                 )}
                 {project && (
@@ -482,27 +489,6 @@ function DeleteProject() {
   );
 }
 
-function GenerateDeployKey({
-  project,
-  hasAdminPermissions,
-}: {
-  project: ProjectDetails;
-  hasAdminPermissions: boolean;
-}) {
-  return (
-    <Sheet className="flex flex-col gap-4">
-      <h3>Deploy Keys</h3>
-      <div className="flex flex-col gap-4 divide-y">
-        <ProductionDeployKeys
-          project={project}
-          hasAdminPermissions={hasAdminPermissions}
-        />
-        <PreviewDeployKeys project={project} />
-      </div>
-    </Sheet>
-  );
-}
-
 function ProductionDeployKeys({
   project,
   hasAdminPermissions,
@@ -529,7 +515,7 @@ function ProductionDeployKeys({
 
   const deployKeyDescription = (
     <p className="mb-2 text-sm text-content-primary">
-      This is the key for your{" "}
+      These keys are for your{" "}
       <Link passHref href={prodHref} className="text-content-link">
         <DeploymentType deploymentType="prod" /> deployment
       </Link>
@@ -557,40 +543,43 @@ function ProductionDeployKeys({
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      {team && prodDeployment ? (
-        <DeploymentAccessTokenList
-          header="Production"
-          description={deployKeyDescription}
-          disabledReason={disabledReason}
-          buttonProps={{
-            deploymentType: "prod",
-            getAdminKey: async (name: string) =>
-              getAccessTokenBasedDeployKey(
-                prodDeployment,
-                project,
-                team,
-                `prod:${prodDeployment.name}`,
-                accessToken,
-                createAccessTokenMutation,
-                name,
-              ),
-            disabledReason,
-          }}
-          identifier={prodDeployment.name}
-          tokenPrefix={`prod:${prodDeployment.name}`}
-          accessTokens={accessTokens}
-          kind="deployment"
-        />
-      ) : (
-        <div className="mb-4">
-          <h4 className="mb-2">Production</h4>
-          <p className="text-sm text-content-primary">
-            This project does not have a Production deployment yet.
-          </p>
-        </div>
-      )}
-    </div>
+    <Sheet className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        {team && prodDeployment ? (
+          <DeploymentAccessTokenList
+            header="Production Deploy Keys"
+            headingLevel="h3"
+            description={deployKeyDescription}
+            disabledReason={disabledReason}
+            buttonProps={{
+              deploymentType: "prod",
+              getAdminKey: async (name: string) =>
+                getAccessTokenBasedDeployKey(
+                  prodDeployment,
+                  project,
+                  team,
+                  `prod:${prodDeployment.name}`,
+                  accessToken,
+                  createAccessTokenMutation,
+                  name,
+                ),
+              disabledReason,
+            }}
+            identifier={prodDeployment.name}
+            tokenPrefix={`prod:${prodDeployment.name}`}
+            accessTokens={accessTokens}
+            kind="deployment"
+          />
+        ) : (
+          <>
+            <h3>Production Deploy Keys</h3>
+            <p className="text-sm text-content-primary">
+              This project does not have a Production deployment yet.
+            </p>
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
 
@@ -632,62 +621,64 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
     </p>
   );
 
-  if (!arePreviewDeploymentsAvailable) {
-    return (
-      <div className="pt-4">
-        <Callout>
-          <p>
-            <Link
-              passHref
-              href="https://docs.convex.dev/production/hosting/preview-deployments"
-              className="underline"
-              target="_blank"
-            >
-              Preview deployments
-            </Link>
-            {" are only available on the Pro plan. "}
-            <Link
-              href={`/${selectedTeamSlug}/settings/billing`}
-              className="underline"
-            >
-              Upgrade to get access.
-            </Link>
-          </p>
-        </Callout>
-        <LocalDevCallout
-          tipText="Tip: Run this to enable preview deployments locally:"
-          command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement project_max_preview_deployments --team-id ${team?.id} --reason "local" 200 --for-real`}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2 pt-4">
-      {team && accessToken && createProjectAccessTokenMutation && (
-        <DeploymentAccessTokenList
-          identifier={project.id.toString()}
-          tokenPrefix={`preview:${selectedTeamSlug}:${project.slug}`}
-          accessTokens={projectAccessTokens}
-          kind="project"
-          disabledReason={null}
-          buttonProps={{
-            deploymentType: "preview",
-            disabledReason: null,
-            getAdminKey: async (name: string) =>
-              getAccessTokenBasedDeployKeyForPreview(
-                project,
-                team,
-                `preview:${selectedTeamSlug}:${project.slug}`,
-                accessToken,
-                createProjectAccessTokenMutation,
-                name,
-              ),
-          }}
-          header="Preview"
-          description={deployKeyDescription}
-        />
+    <Sheet className="flex flex-col gap-4">
+      {!arePreviewDeploymentsAvailable ? (
+        <>
+          <h3>Preview Deploy Keys</h3>
+          <Callout>
+            <p>
+              <Link
+                passHref
+                href="https://docs.convex.dev/production/hosting/preview-deployments"
+                className="underline"
+                target="_blank"
+              >
+                Preview deployments
+              </Link>
+              {" are only available on the Pro plan. "}
+              <Link
+                href={`/${selectedTeamSlug}/settings/billing`}
+                className="underline"
+              >
+                Upgrade to get access.
+              </Link>
+            </p>
+          </Callout>
+          <LocalDevCallout
+            tipText="Tip: Run this to enable preview deployments locally:"
+            command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement project_max_preview_deployments --team-id ${team?.id} --reason "local" 200 --for-real`}
+          />
+        </>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {team && accessToken && createProjectAccessTokenMutation && (
+            <DeploymentAccessTokenList
+              identifier={project.id.toString()}
+              tokenPrefix={`preview:${selectedTeamSlug}:${project.slug}`}
+              accessTokens={projectAccessTokens}
+              kind="project"
+              disabledReason={null}
+              buttonProps={{
+                deploymentType: "preview",
+                disabledReason: null,
+                getAdminKey: async (name: string) =>
+                  getAccessTokenBasedDeployKeyForPreview(
+                    project,
+                    team,
+                    `preview:${selectedTeamSlug}:${project.slug}`,
+                    accessToken,
+                    createProjectAccessTokenMutation,
+                    name,
+                  ),
+              }}
+              header="Preview Deploy Keys"
+              headingLevel="h3"
+              description={deployKeyDescription}
+            />
+          )}
+        </div>
       )}
-    </div>
+    </Sheet>
   );
 }

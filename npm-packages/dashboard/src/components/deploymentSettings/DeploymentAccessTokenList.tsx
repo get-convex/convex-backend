@@ -19,6 +19,7 @@ export function DeploymentAccessTokenList({
   buttonProps,
   header,
   description,
+  headingLevel = "h4",
 }: {
   identifier: string;
   tokenPrefix: string;
@@ -31,12 +32,14 @@ export function DeploymentAccessTokenList({
   >;
   header: string;
   description: React.ReactNode;
+  headingLevel?: "h3" | "h4";
 }) {
   const [latestToken, setLatestToken] = useState<string | null>(null);
+  const HeadingTag = (headingLevel ?? "h4") as keyof JSX.IntrinsicElements;
   return (
     <>
       <div className="mb-2 flex w-full items-center justify-between">
-        <h4>{header}</h4>
+        <HeadingTag>{header}</HeadingTag>
         <GenerateDeployKeyWithNameButton
           {...buttonProps}
           onCreateAccessToken={setLatestToken}
@@ -64,7 +67,6 @@ export function DeploymentAccessTokenList({
                         latestToken.endsWith(token.serializedAccessToken)
                       }
                       showMemberName
-                      showCallout
                     />
                   ))
               ) : (

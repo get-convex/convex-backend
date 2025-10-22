@@ -94,7 +94,6 @@ export function TeamAccessTokens({
                     identifier={team.id.toString()}
                     shouldShow={false}
                     showMemberName={false}
-                    showCallout={false}
                   />
                 ))
             ) : (
