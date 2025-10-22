@@ -34,6 +34,7 @@ pub enum PlanId {
     ConvexBase,
     ConvexStarterPlus,
     ConvexProfessional,
+    ConvexBusiness,
 }
 
 impl Display for PlanId {
@@ -56,7 +57,7 @@ impl PlanId {
     pub fn is_in_orb(&self) -> bool {
         match self {
             PlanId::ConvexBase => false,
-            PlanId::ConvexStarterPlus | PlanId::ConvexProfessional => true,
+            PlanId::ConvexStarterPlus | PlanId::ConvexProfessional | PlanId::ConvexBusiness => true,
         }
     }
 
@@ -72,7 +73,7 @@ impl PlanId {
     pub fn gets_pro_resources(&self) -> bool {
         match self {
             PlanId::ConvexBase | PlanId::ConvexStarterPlus => false,
-            PlanId::ConvexProfessional => true,
+            PlanId::ConvexProfessional | PlanId::ConvexBusiness => true,
         }
     }
 }
@@ -87,6 +88,7 @@ mod tests {
             (PlanId::ConvexBase, "CONVEX_BASE"),
             (PlanId::ConvexStarterPlus, "CONVEX_STARTER_PLUS"),
             (PlanId::ConvexProfessional, "CONVEX_PROFESSIONAL"),
+            (PlanId::ConvexBusiness, "CONVEX_BUSINESS"),
         ];
         for (plan, expected) in plans {
             assert_eq!(plan.to_string(), expected);
