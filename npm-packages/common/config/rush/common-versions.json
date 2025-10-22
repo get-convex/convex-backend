@@ -85,7 +85,7 @@
      * but some of our projects have dependencies that are not compatible
      * with Vite 7 so far.
      */
-    "vite": ["^7.1.7"],
+    "vite": ["^7.1.11"],
     /**
      * These are for private-demos/tanstack-start to closely match
      * https://github.com/TanStack/router

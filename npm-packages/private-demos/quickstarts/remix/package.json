@@ -36,7 +36,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "globals": "~16.3.0",
     "typescript": "^5.1.6",
-    "vite": "^6.3.6",
+    "vite": "^6.4.1",
     "vite-tsconfig-paths": "^5.1.4"
   },
   "engines": {

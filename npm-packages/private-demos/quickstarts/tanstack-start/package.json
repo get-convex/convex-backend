@@ -33,6 +33,6 @@
     "concurrently": "~9.2.1",
     "typescript": "^5.6.3",
     "vite-tsconfig-paths": "^5.1.4",
-    "vite": "^7.1.5"
+    "vite": "^7.1.11"
   }
 }
