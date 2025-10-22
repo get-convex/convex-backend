@@ -42,13 +42,21 @@ function History() {
   const team = useCurrentTeam();
   const { startDate, endDate, setDate } = useDateFilters(router);
   const entitlements = useTeamEntitlements(team?.id);
-  const auditLogsEnabled =
-    entitlements && entitlements.auditLogRetentionDays !== 0;
+  const auditLogRetentionDays = entitlements?.auditLogRetentionDays ?? 0;
+  const auditLogsEnabled = auditLogRetentionDays !== 0;
 
   // Current day
   const maxEndDate = endOfToday();
 
-  const minStartDate = startOfDay(new Date(2023, 0, 1));
+  const minStartDate = startOfDay(
+    auditLogRetentionDays === -1
+      ? new Date(2023, 0, 1)
+      : Date.now() - auditLogRetentionDays * 24 * 60 * 60 * 1000,
+  );
+  const beforeMinDateTooltip =
+    auditLogRetentionDays === -1
+      ? null
+      : `Deployment history is preserved for ${auditLogRetentionDays} days.`;
 
   const filters: DeploymentAuditLogFilters = {
     minDate: startDate.getTime(),
@@ -69,6 +77,7 @@ function History() {
             maxDate={maxEndDate}
             date={{ from: startDate, to: endDate }}
             setDate={setDate}
+            beforeMinDateTooltip={beforeMinDateTooltip}
           />
           <HistoryList filters={filters} />
         </>

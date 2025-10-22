@@ -29,6 +29,9 @@ jest.mock("api/auditLog", () => ({
 
 jest.mock("api/teams", () => ({
   useTeamMembers: () => [],
+  useTeamEntitlements: () => ({
+    auditLogRetentionDays: 90,
+  }),
 }));
 
 describe("AuditLog", () => {
