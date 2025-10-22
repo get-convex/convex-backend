@@ -2331,6 +2331,8 @@ export interface components {
             /** Format: int64 */
             maxCloudBackups: number;
             /** Format: int64 */
+            maxDeployments: number;
+            /** Format: int64 */
             maxProjects: number;
             /** Format: int64 */
             maxTeamMembers: number;

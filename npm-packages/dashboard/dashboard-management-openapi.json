@@ -5386,7 +5386,8 @@
           "maxCloudBackups",
           "maxChefTokens",
           "ssoEnabled",
-          "auditLogRetentionDays"
+          "auditLogRetentionDays",
+          "maxDeployments"
         ],
         "properties": {
           "auditLogRetentionDays": {
@@ -5406,6 +5407,11 @@
             "minimum": 0
           },
           "maxCloudBackups": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxDeployments": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

@@ -42,6 +42,7 @@ export const Primary: Story = {
       maxChefTokens: 8500000,
       ssoEnabled: false,
       auditLogRetentionDays: 90,
+      maxDeployments: 40,
     },
     hasFilter: false,
   },
