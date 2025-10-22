@@ -21,7 +21,11 @@ const recommendedRules = {
   [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
 };
 
-const isESM = typeof require === "undefined";
+// Bun is hard to feature detect for ESM vs CJS, so only support ESLint 9 with Bun (contributions welcome)
+// @ts-expect-error Bun types are not installed
+const isBun = typeof Bun !== "undefined";
+// Detect ESM to guess at which ESLint version we're using.
+const isESM = typeof require === "undefined" || isBun;
 
 // Base plugin structure, common across ESLint 8 and 9
 const plugin = {
