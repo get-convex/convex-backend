@@ -2310,7 +2310,7 @@ export interface components {
             accessToken: string;
             /** Format: int64 */
             creationTime: number;
-            creator: components["schemas"]["MemberId"];
+            creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
