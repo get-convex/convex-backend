@@ -445,4 +445,7 @@ export default defineSchema({
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,
   _aws_lambda_versions: awsLambdaVersionsTable,
+  _backend_info: defineTable({
+    auditLogRetentionDays: v.union(v.int64(), v.null()),
+  }),
 });
