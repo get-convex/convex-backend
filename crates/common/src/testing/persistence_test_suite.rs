@@ -21,11 +21,13 @@ use proptest::collection::size_range;
 use serde_json::json;
 use value::{
     assert_val,
+    sha256::Sha256,
     val,
     ConvexObject,
     ConvexValue,
     DeveloperDocumentId,
     InternalDocumentId,
+    InternalId,
     ResolvedDocumentId,
     TableMapping,
     TabletId,
@@ -41,7 +43,10 @@ use crate::{
         CreationTime,
         ResolvedDocument,
     },
-    index::IndexKey,
+    index::{
+        IndexEntry,
+        IndexKey,
+    },
     interval::{
         BinaryKey,
         End,
@@ -1670,6 +1675,19 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
     );
     let results: Vec<_> = stream.try_collect::<Vec<_>>().await?;
     assert_eq!(results, vec![]);
+
+    // delete_index_entries no-ops when trying to delete nonexistent indexes.
+    let deleted = p
+        .delete_index_entries(vec![IndexEntry {
+            key_prefix: vec![],
+            key_suffix: None,
+            key_sha256: Sha256::new().finalize().to_vec(),
+            deleted: false,
+            index_id: InternalId([1; 16]),
+            ts: Timestamp::must(123),
+        }])
+        .await?;
+    assert_eq!(deleted, 0);
 
     Ok(())
 }

@@ -181,8 +181,7 @@ impl Persistence for TestPersistence {
         for expired_row in expired_rows {
             if index
                 .get_mut(&expired_row.index_id)
-                .unwrap()
-                .remove(&(IndexKeyBytes(expired_row.key_prefix), expired_row.ts))
+                .and_then(|ix| ix.remove(&(IndexKeyBytes(expired_row.key_prefix), expired_row.ts)))
                 .is_some()
             {
                 total_deleted += 1;

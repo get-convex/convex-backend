@@ -192,87 +192,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         }
     }
 
-    /// Backfill in two steps: first a snapshot at the current time, and then
-    /// walking the log. After the current snapshot is backfilled, index
-    /// snapshot reads at >=ts are valid. The subsequent walking of the log
-    /// extends the earliest allowed snapshot into the past.
-    ///
-    /// The goal of this backfill is to make snapshot reads of `index_name`
-    /// valid between the range of [retention_cutoff, snapshot_ts].
-    /// To support:
-    /// 1. Latest documents written before retention_cutoff. They are still
-    ///    latest at `ts = snapshot_ts`, so we compute and write index entries
-    ///    when we walk the `snapshot_ts` snapshot.
-    /// 2. Document changes between retention_cutoff and `snapshot_ts`. These
-    ///    are handled by walking the documents log for this range in reverse
-    ///    and creating index entries. When walking the documents log we start
-    ///    at `snapshot_ts`.
-    /// 3. Documents that were latest as of retention_cutoff but were
-    ///    overwritten before `snapshot_ts`. These are handled when walking the
-    ///    documents log and finding an overwrite.
-    /// 4. Document changes after `snapshot_ts`. These are handled by active
-    ///    writes, assuming `snapshot_ts` is after the index was created. If
-    ///    there are no active writes, then `backfill_forwards` must be called
-    ///    with a timestamp <= `snapshot_ts`.
-    ///
-    /// Takes a an optional database to update progress on the index backfill
-    pub async fn backfill_from_retention_cutoff(
-        &self,
-        snapshot_ts: RepeatableTimestamp,
-        index_metadata: &IndexRegistry,
-        index_selector: IndexSelector,
-        concurrency: usize,
-    ) -> anyhow::Result<()> {
-        let pause_client = self.runtime.pause_client();
-        pause_client.wait(PERFORM_BACKFILL_LABEL).await;
-        // Backfill in two steps: first create index entries for all latest documents,
-        // then create index entries for all documents in the retention range.
-
-        stream::iter(index_selector.iterate_tables().map(Ok))
-            .try_for_each_concurrent(concurrency, |table_id| {
-                let index_metadata = index_metadata.clone();
-                let index_selector = index_selector.clone();
-                let self_ = (*self).clone();
-                try_join("index_backfill_table_snapshot", async move {
-                    self_
-                        .backfill_exact_snapshot_of_table(
-                            snapshot_ts,
-                            &index_selector,
-                            &index_metadata,
-                            table_id,
-                            None,
-                        )
-                        .await
-                        .map(|_docs_indexed| ())
-                })
-            })
-            .await?;
-
-        let mut min_backfilled_ts = snapshot_ts;
-
-        // Retry until min_snapshot_ts passes min_backfilled_ts, at which point we
-        // have backfilled the full range of snapshots within retention.
-        loop {
-            let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
-            if min_snapshot_ts >= min_backfilled_ts {
-                break;
-            }
-            // NOTE: ordering Desc is important, to keep the range of valid snapshots
-            // contiguous. If we backfilled in order Asc, then we might see a
-            // document creation before its tombstone, and that document would be
-            // visible at snapshots where it should be deleted.
-            min_backfilled_ts = self
-                .backfill_backwards(
-                    min_backfilled_ts,
-                    *min_snapshot_ts,
-                    index_metadata,
-                    &index_selector,
-                )
-                .await?;
-        }
-        Ok(())
-    }
-
     /// Backfill indexes based on a snapshot at the current time.  After the
     /// current snapshot is backfilled, index snapshot reads at >=ts are
     /// valid.
@@ -384,7 +303,6 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_registry,
             ReceiverStream::new(index_update_rx),
             index_selector,
-            false, /* deduplicate */
         );
         let (docs_indexed, _) = future::try_join(producer, consumer).await?;
         Ok(docs_indexed)
@@ -402,7 +320,7 @@ impl<RT: Runtime> IndexWriter<RT> {
     /// - `index_selector`: Subset of `index_registry` to backfill.
     ///
     /// Preconditions:
-    /// - The selected indexes are fully backfilled for all revisions less than
+    /// - The selected indexes are fully backfilled for all revisions at
     ///   `start_ts`.
     ///
     /// Postconditions:
@@ -439,7 +357,6 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_registry,
             ReceiverStream::new(rx),
             index_selector,
-            false, /* deduplicate */
         );
 
         // Consider ourselves successful if both the producer and consumer exit
@@ -553,7 +470,6 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_registry,
             ReceiverStream::new(rx),
             index_selector,
-            true, /* deduplicate */
         );
 
         // Consider ourselves successful if both the reader and writer exit
@@ -568,7 +484,6 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_registry: &IndexRegistry,
         revision_pairs: impl Stream<Item = RevisionPair>,
         index_selector: &IndexSelector,
-        deduplicate: bool,
     ) -> anyhow::Result<()> {
         let mut last_logged = self.runtime.system_time();
         let mut last_checkpointed = self.runtime.system_time();
@@ -591,7 +506,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 let cursor = should_send_progress
                     .then(|| chunk.last().map(|revision_pair| revision_pair.id))
                     .flatten();
-                let mut index_updates: Vec<PersistenceIndexEntry> = chunk
+                let index_updates: Vec<PersistenceIndexEntry> = chunk
                     .iter()
                     .flat_map(|revision_pair| {
                         index_registry
@@ -617,12 +532,6 @@ impl<RT: Runtime> IndexWriter<RT> {
                 {
                     let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
                     self.runtime.wait(delay).await;
-                }
-                if deduplicate {
-                    // There might be duplicates in the index entries from the
-                    // backfill backwards algorithm that need to be deduped.
-                    index_updates.sort_unstable();
-                    index_updates.dedup();
                 }
                 persistence
                     .write(&[], &index_updates, ConflictStrategy::Overwrite)
