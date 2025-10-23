@@ -4,6 +4,7 @@ use std::{
         BTreeSet,
     },
     fmt::Display,
+    num::NonZeroU32,
     sync::Arc,
     time::Duration,
 };
@@ -521,22 +522,23 @@ impl<RT: Runtime> IndexWriter<RT> {
                             })
                     })
                     .collect();
-                let size = index_updates.len();
-                while let Err(not_until) = rate_limiter
-                    .check_n(
-                        (size as u32)
-                            .try_into()
-                            .expect("Chunk size must be nonzero"),
-                    )
-                    .expect("RateLimiter capacity impossibly small")
-                {
-                    let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
-                    self.runtime.wait(delay).await;
+                let size = u32::try_from(index_updates.len())?;
+                // N.B: it's possible to end up with no entries if we're
+                // backfilling forward through historical documents that have no
+                // present indexes in `index_registry`.
+                if let Some(size) = NonZeroU32::new(size) {
+                    while let Err(not_until) = rate_limiter
+                        .check_n(size)
+                        .expect("RateLimiter capacity impossibly small")
+                    {
+                        let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
+                        self.runtime.wait(delay).await;
+                    }
+                    persistence
+                        .write(&[], &index_updates, ConflictStrategy::Overwrite)
+                        .await?;
                 }
-                persistence
-                    .write(&[], &index_updates, ConflictStrategy::Overwrite)
-                    .await?;
-                anyhow::Ok((size, cursor))
+                anyhow::Ok((u64::from(size), cursor))
             })
             .buffered(*INDEX_BACKFILL_WORKERS);
         pin_mut!(updates);
@@ -554,7 +556,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                     tablet_id: cursor.table(),
                     index_ids: index_selector.index_ids().collect(),
                     cursor,
-                    num_docs_indexed: num_docs_indexed as u64,
+                    num_docs_indexed,
                 })
                 .await?;
                 num_docs_indexed = 0;
