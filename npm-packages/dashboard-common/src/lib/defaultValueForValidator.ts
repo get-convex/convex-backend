@@ -35,6 +35,13 @@ export const defaultValueForValidator = (
           .filter((d) => d !== undefined && d[1] !== undefined),
       );
     case "union":
+      // Empty unions are the bottom type in Convex, meaning that there is no
+      // legal value. Let’s use `null` and let the user realize that
+      // there is no possible value that way
+      if (validator.value.length === 0) {
+        return null;
+      }
+
       return defaultValueForValidator(validator.value[0]);
     case "record":
       return {};
