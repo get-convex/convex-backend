@@ -5393,7 +5393,8 @@
           "maxChefTokens",
           "ssoEnabled",
           "auditLogRetentionDays",
-          "maxDeployments"
+          "maxDeployments",
+          "managementApiEnabled"
         ],
         "properties": {
           "auditLogRetentionDays": {
@@ -5405,6 +5406,9 @@
             "type": "boolean"
           },
           "logStreamingEnabled": {
+            "type": "boolean"
+          },
+          "managementApiEnabled": {
             "type": "boolean"
           },
           "maxChefTokens": {

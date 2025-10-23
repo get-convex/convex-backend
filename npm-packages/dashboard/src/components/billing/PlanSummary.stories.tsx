@@ -43,6 +43,7 @@ export const Primary: Story = {
       ssoEnabled: false,
       auditLogRetentionDays: 90,
       maxDeployments: 40,
+      managementApiEnabled: true,
     },
     hasFilter: false,
   },

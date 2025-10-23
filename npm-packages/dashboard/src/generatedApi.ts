@@ -2326,6 +2326,7 @@ export interface components {
             auditLogRetentionDays: number;
             customDomainsEnabled: boolean;
             logStreamingEnabled: boolean;
+            managementApiEnabled: boolean;
             /** Format: int64 */
             maxChefTokens: number;
             /** Format: int64 */
