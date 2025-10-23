@@ -472,18 +472,15 @@ impl CheckedHttpRoutes {
     pub fn mount(&mut self, mount_path: HttpMountPath) -> anyhow::Result<()> {
         // Check that the mount path does not overlap with any prefix route from our
         // `http.js` or previously mounted route.
-        if let Some(http_module_routes) = &self.http_module_routes {
-            if http_module_routes
+        if let Some(http_module_routes) = &self.http_module_routes
+            && http_module_routes
                 .iter()
                 .any(|route| route.overlaps_with_mount(&mount_path))
-            {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "TypecheckError",
-                    format!(
-                        "HTTP mount {mount_path:?} is invalid: Overlap with existing prefix route"
-                    ),
-                ));
-            }
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!("HTTP mount {mount_path:?} is invalid: Overlap with existing prefix route"),
+            ));
         }
         if self.mounts.contains(&mount_path) {
             anyhow::bail!(ErrorMetadata::bad_request(

@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 #![feature(iterator_try_collect)]
 #![feature(int_roundings)]
 #![feature(type_alias_impl_trait)]

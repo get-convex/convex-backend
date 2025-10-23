@@ -3,7 +3,6 @@
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(type_alias_impl_trait)]
-#![feature(let_chains)]
 #![feature(never_type)]
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]

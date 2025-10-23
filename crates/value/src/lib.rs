@@ -4,7 +4,6 @@
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
-#![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]
 
 mod array;

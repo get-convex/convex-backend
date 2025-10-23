@@ -1,5 +1,4 @@
 #![feature(coroutines)]
-#![feature(let_chains)]
 use std::sync::Arc;
 
 use common::{

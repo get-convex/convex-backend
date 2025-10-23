@@ -1,5 +1,4 @@
 #![feature(iterator_try_collect)]
-#![feature(let_chains)]
 
 use std::{
     collections::BTreeMap,

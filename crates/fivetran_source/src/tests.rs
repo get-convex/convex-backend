@@ -231,13 +231,13 @@ impl Source for FakeSource {
         cursor: Option<ListSnapshotCursor>,
         selection: Selection,
     ) -> anyhow::Result<ListSnapshotResponse> {
-        if let Some(snapshot) = snapshot {
-            if snapshot != self.timestamp - 1 {
-                panic!(
-                    "The destination has unexpectedly changed between multiple list_snapshot \
-                     calls (this is not supported by the fake source)"
-                );
-            }
+        if let Some(snapshot) = snapshot
+            && snapshot != self.timestamp - 1
+        {
+            panic!(
+                "The destination has unexpectedly changed between multiple list_snapshot calls \
+                 (this is not supported by the fake source)"
+            );
         }
 
         let values_per_call = 10;

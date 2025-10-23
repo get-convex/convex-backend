@@ -50,10 +50,8 @@ pub fn supertype_candidates<C: ShapeConfig>(
             let any_record = types
                 .iter()
                 .any(|t| matches!(&*t.variant, ShapeEnum::Record(..)));
-            if any_record {
-                if let Some(candidate) = record_candidate(types) {
-                    yield candidate;
-                }
+            if any_record && let Some(candidate) = record_candidate(types) {
+                yield candidate;
             }
             // Phase 2: String supertypes. Propose `id` types, `field_name`, and eventually
             // `string`.
@@ -78,10 +76,8 @@ pub fn supertype_candidates<C: ShapeConfig>(
             if let Some(candidate) = object_candidate(types) {
                 yield candidate;
             }
-            if !any_record {
-                if let Some(candidate) = record_candidate(types) {
-                    yield candidate;
-                }
+            if !any_record && let Some(candidate) = record_candidate(types) {
+                yield candidate;
             }
             // Phase 5: Finally, just emit the `unknown` type.
             let unknown_type =
@@ -124,13 +120,13 @@ fn id_candidates<C: ShapeConfig>(
         move || {
             let mut candidates = BTreeMap::new();
             for (i, t) in types.iter().enumerate() {
-                if let ShapeEnum::StringLiteral(s) = &*t.variant {
-                    if let Ok(id) = DeveloperDocumentId::decode(s) {
-                        candidates
-                            .entry(id.table())
-                            .or_insert_with(Vec::new)
-                            .push(i);
-                    }
+                if let ShapeEnum::StringLiteral(s) = &*t.variant
+                    && let Ok(id) = DeveloperDocumentId::decode(s)
+                {
+                    candidates
+                        .entry(id.table())
+                        .or_insert_with(Vec::new)
+                        .push(i);
                 }
                 if let ShapeEnum::Id(table) = &*t.variant {
                     candidates.entry(*table).or_insert_with(Vec::new).push(i);

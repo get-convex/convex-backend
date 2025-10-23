@@ -227,13 +227,13 @@ impl MetricStore {
             });
         };
         let bucket_index = (since_base.as_nanos() / self.config.bucket_width.as_nanos()) as u32;
-        if let Some(((max_bucket_index, _), _)) = self.bucket_by_start.get_max() {
-            if bucket_index < *max_bucket_index {
-                return Err(UdfMetricsError::SamplePrecedesCutoff {
-                    ts,
-                    cutoff: self.bucket_start(*max_bucket_index),
-                });
-            }
+        if let Some(((max_bucket_index, _), _)) = self.bucket_by_start.get_max()
+            && bucket_index < *max_bucket_index
+        {
+            return Err(UdfMetricsError::SamplePrecedesCutoff {
+                ts,
+                cutoff: self.bucket_start(*max_bucket_index),
+            });
         }
 
         let metric_key = match self.metrics_by_name.entry(metric_name.to_string()) {

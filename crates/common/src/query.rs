@@ -341,14 +341,14 @@ impl IndexRange {
                 anyhow::bail!(error);
             }
             // Check that all of the inequalities are for the same field path.
-            if let Some(ref first_path) = inequality_field_path {
-                if first_path != &field_path {
-                    anyhow::bail!(bounds_on_multiple_fields_error(
-                        &self.index_name,
-                        first_path,
-                        &field_path,
-                    ));
-                }
+            if let Some(ref first_path) = inequality_field_path
+                && first_path != &field_path
+            {
+                anyhow::bail!(bounds_on_multiple_fields_error(
+                    &self.index_name,
+                    first_path,
+                    &field_path,
+                ));
             };
             inequality_field_path = Some(field_path);
 
@@ -358,16 +358,16 @@ impl IndexRange {
                 Bound::Excluded(value)
             };
         }
-        if let Some(ref inequality_field_path) = inequality_field_path {
-            if let Some(equality_value) = equalities.get(inequality_field_path) {
-                let error = already_defined_bound_error(
-                    "inequality",
-                    inequality_field_path,
-                    "==",
-                    equality_value,
-                );
-                anyhow::bail!(error);
-            }
+        if let Some(ref inequality_field_path) = inequality_field_path
+            && let Some(equality_value) = equalities.get(inequality_field_path)
+        {
+            let error = already_defined_bound_error(
+                "inequality",
+                inequality_field_path,
+                "==",
+                equality_value,
+            );
+            anyhow::bail!(error);
         }
 
         let inequality = inequality_field_path.map(|field_path| IndexInequality {

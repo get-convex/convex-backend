@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(let_chains)]
 #![feature(coroutines)]
 
 use std::{

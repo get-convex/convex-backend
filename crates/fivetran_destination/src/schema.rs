@@ -900,33 +900,32 @@ fn to_fivetran_columns(
         if let Some(columns_validator) = metadata_validator
             .0
             .get(&UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone())
+            && let Validator::Object(columns_validator) = columns_validator.validator()
         {
-            if let Validator::Object(columns_validator) = columns_validator.validator() {
-                let primary_key_index = table_def
-                    .indexes
-                    .get(&FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR);
+            let primary_key_index = table_def
+                .indexes
+                .get(&FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR);
 
-                for (column_name, column_validator) in columns_validator.0.iter() {
-                    let field_path = FieldPath::new(vec![
-                        METADATA_CONVEX_FIELD_NAME.clone(),
-                        UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone(),
-                        column_name.clone(),
-                    ])
-                    .expect("A three-column field path is always valid");
+            for (column_name, column_validator) in columns_validator.0.iter() {
+                let field_path = FieldPath::new(vec![
+                    METADATA_CONVEX_FIELD_NAME.clone(),
+                    UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone(),
+                    column_name.clone(),
+                ])
+                .expect("A three-column field path is always valid");
 
-                    columns.push(fivetran_sdk::Column {
-                        name: format!("_{column_name}"),
-                        r#type: recognize_fivetran_type(column_validator.validator())
-                            .unwrap_or(FivetranDataType::Unspecified)
-                            as i32,
-                        primary_key: primary_key_index.is_some_and(|primary_key_index| {
-                            primary_key_index.fields.contains(&field_path)
-                        }),
-                        params: None,
-                    });
-                }
-            };
-        }
+                columns.push(fivetran_sdk::Column {
+                    name: format!("_{column_name}"),
+                    r#type: recognize_fivetran_type(column_validator.validator())
+                        .unwrap_or(FivetranDataType::Unspecified)
+                        as i32,
+                    primary_key: primary_key_index.is_some_and(|primary_key_index| {
+                        primary_key_index.fields.contains(&field_path)
+                    }),
+                    params: None,
+                });
+            }
+        };
     }
 
     // User columns

@@ -1421,16 +1421,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
                 timer.finish();
 
-                if let Ok(ref mut node_outcome) = node_outcome_result {
-                    if let Ok(ref output) = node_outcome.result {
-                        if let Some(js_err) = returns_validator.check_output(
-                            output,
-                            &table_mapping,
-                            &virtual_system_mapping,
-                        ) {
-                            node_outcome.result = Err(js_err);
-                        }
-                    }
+                if let Ok(ref mut node_outcome) = node_outcome_result
+                    && let Ok(ref output) = node_outcome.result
+                    && let Some(js_err) = returns_validator.check_output(
+                        output,
+                        &table_mapping,
+                        &virtual_system_mapping,
+                    )
+                {
+                    node_outcome.result = Err(js_err);
                 }
 
                 node_outcome_result.map(|node_outcome| {

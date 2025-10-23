@@ -151,10 +151,10 @@ impl<RT: Runtime> Timeout<RT> {
 
     /// Runs the future until completely or until the timeout has expired.
     /// Returns an error in the latter case.
-    pub fn with_timeout<'a, T>(
+    pub fn with_timeout<T, F: Future<Output = T>>(
         &self,
-        f: impl Future<Output = T> + 'a,
-    ) -> impl Future<Output = anyhow::Result<T>> + 'a {
+        f: F,
+    ) -> impl Future<Output = anyhow::Result<T>> + use<T, F, RT> {
         let completed = self.wait_until_completed();
         async move {
             select_biased! {

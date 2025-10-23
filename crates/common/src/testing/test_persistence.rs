@@ -243,8 +243,8 @@ impl PersistenceReader for TestPersistence {
         let min_ts = ids.iter().map(|(_, ts)| *ts).min();
         let result = {
             let inner = self.inner.lock();
-            let result = ids
-                .into_iter()
+
+            ids.into_iter()
                 .filter_map(|(id, ts)| {
                     inner
                         .log
@@ -263,8 +263,7 @@ impl PersistenceReader for TestPersistence {
                             )
                         })
                 })
-                .collect();
-            result
+                .collect()
         };
         if let Some(min_ts) = min_ts {
             retention_validator
@@ -282,8 +281,8 @@ impl PersistenceReader for TestPersistence {
         let min_ts = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min();
         let result = {
             let inner = self.inner.lock();
-            let result = ids
-                .into_iter()
+
+            ids.into_iter()
                 .filter_map(|DocumentPrevTsQuery { id, ts, prev_ts }| {
                     inner.log.get(&(prev_ts, id)).map(|(doc, prev_prev_ts)| {
                         (
@@ -297,8 +296,7 @@ impl PersistenceReader for TestPersistence {
                         )
                     })
                 })
-                .collect();
-            result
+                .collect()
         };
         if let Some(min_ts) = min_ts {
             retention_validator

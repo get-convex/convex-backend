@@ -354,10 +354,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
             // First, try matching an exact path from `http.js`, which will always
             // be the most specific match.
-            if let Some(ref http_routes) = http_routes {
-                if http_routes.route_exact(&routed_path[..], method) {
-                    return Ok(Some((current_component_path, routed_path)));
-                }
+            if let Some(ref http_routes) = http_routes
+                && http_routes.route_exact(&routed_path[..], method)
+            {
+                return Ok(Some((current_component_path, routed_path)));
             }
 
             // Next, try finding the most specific prefix match from both `http.js`
@@ -368,10 +368,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             }
             let mut longest_match = None;
 
-            if let Some(ref http_routes) = http_routes {
-                if let Some(match_suffix) = http_routes.route_prefix(&routed_path, method) {
-                    longest_match = Some((match_suffix, CurrentMatch::CurrentHttpJs));
-                }
+            if let Some(ref http_routes) = http_routes
+                && let Some(match_suffix) = http_routes.route_prefix(&routed_path, method)
+            {
+                longest_match = Some((match_suffix, CurrentMatch::CurrentHttpJs));
             }
             for (mount_path, reference) in &definition.http_mounts {
                 let Some(match_suffix) = routed_path.strip_prefix(&mount_path[..]) else {

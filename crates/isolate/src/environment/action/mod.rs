@@ -1207,8 +1207,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
         self.add_warnings_to_log_lines(execution_time)?;
 
-        if let Some(result) = result {
-            if let Some(warning) = approaching_limit_warning(
+        if let Some(result) = result
+            && let Some(warning) = approaching_limit_warning(
                 result.size(),
                 *FUNCTION_MAX_RESULT_SIZE,
                 "TooLargeFunctionResult",
@@ -1216,9 +1216,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 None,
-            )? {
-                self.trace_system(warning)?;
-            }
+            )?
+        {
+            self.trace_system(warning)?;
         };
         Ok(())
     }

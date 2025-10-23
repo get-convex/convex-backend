@@ -1,5 +1,4 @@
 #![feature(exit_status_error)]
-#![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(error_iter)]
 use std::{
@@ -291,10 +290,9 @@ async fn run(config: &Config) -> anyhow::Result<()> {
         );
         tracing::info!("Deleting the convex/actions folder");
         if let Err(e) = tokio::fs::remove_dir_all(SCENARIO_RUNNER_PATH.join("convex/actions")).await
+            && e.kind() != ErrorKind::NotFound
         {
-            if e.kind() != ErrorKind::NotFound {
-                return Err(e.into());
-            }
+            return Err(e.into());
         };
     };
     loop {

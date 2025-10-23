@@ -13,10 +13,10 @@ impl Interceptor for TraceparentPopulatingInterceptor {
         &mut self,
         mut request: tonic::Request<()>,
     ) -> Result<tonic::Request<()>, tonic::Status> {
-        if let Some(ctx) = SpanContext::current_local_parent() {
-            if let Ok(value) = ctx.encode_w3c_traceparent().try_into() {
-                request.metadata_mut().insert(TRACEPARENT_HEADER_STR, value);
-            }
+        if let Some(ctx) = SpanContext::current_local_parent()
+            && let Ok(value) = ctx.encode_w3c_traceparent().try_into()
+        {
+            request.metadata_mut().insert(TRACEPARENT_HEADER_STR, value);
         }
         Ok(request)
     }

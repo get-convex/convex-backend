@@ -363,10 +363,10 @@ impl DatabaseSchema {
 
     fn contains_table_as_reference(&self, table_name: &TableName) -> Option<TableName> {
         for table_schema in self.tables.values() {
-            if let Some(document_schema) = &table_schema.document_type {
-                if document_schema.foreign_keys().contains(table_name) {
-                    return Some(table_schema.table_name.clone());
-                }
+            if let Some(document_schema) = &table_schema.document_type
+                && document_schema.foreign_keys().contains(table_name)
+            {
+                return Some(table_schema.table_name.clone());
             }
         }
         None

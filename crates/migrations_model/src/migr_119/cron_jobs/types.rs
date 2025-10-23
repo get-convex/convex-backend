@@ -318,20 +318,20 @@ impl TryFrom<JsonValue> for CronSpec {
                 if num_time_fields != 1 {
                     anyhow::bail!(CronValidationError::SecondsMinutesHours);
                 }
-                if let Some(seconds) = seconds {
-                    if seconds <= 0 {
-                        anyhow::bail!(CronValidationError::InvalidIntervalValue)
-                    }
+                if let Some(seconds) = seconds
+                    && seconds <= 0
+                {
+                    anyhow::bail!(CronValidationError::InvalidIntervalValue)
                 }
-                if let Some(minutes) = minutes {
-                    if minutes <= 0 {
-                        anyhow::bail!(CronValidationError::InvalidIntervalValue)
-                    }
+                if let Some(minutes) = minutes
+                    && minutes <= 0
+                {
+                    anyhow::bail!(CronValidationError::InvalidIntervalValue)
                 }
-                if let Some(hours) = hours {
-                    if hours <= 0 {
-                        anyhow::bail!(CronValidationError::InvalidIntervalValue)
-                    }
+                if let Some(hours) = hours
+                    && hours <= 0
+                {
+                    anyhow::bail!(CronValidationError::InvalidIntervalValue)
                 }
                 let seconds =
                     seconds.unwrap_or(0) + minutes.unwrap_or(0) * 60 + hours.unwrap_or(0) * 3600;

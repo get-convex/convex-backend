@@ -336,14 +336,14 @@ async fn run_sync_socket(
         },
     };
     // Similarly, only do a best effort send of the close message.
-    if let Some(close_msg) = close_msg {
-        if let Err(e) = socket.send(close_msg).await {
-            if is_connection_closed_error(&e) {
-                log_websocket_closed_error_not_reported()
-            } else {
-                let msg = format!("Failed to gracefully close WebSocket: {e:?}");
-                report_error(&mut anyhow::anyhow!(e).context(msg)).await;
-            }
+    if let Some(close_msg) = close_msg
+        && let Err(e) = socket.send(close_msg).await
+    {
+        if is_connection_closed_error(&e) {
+            log_websocket_closed_error_not_reported()
+        } else {
+            let msg = format!("Failed to gracefully close WebSocket: {e:?}");
+            report_error(&mut anyhow::anyhow!(e).context(msg)).await;
         }
     }
 
@@ -351,11 +351,11 @@ async fn run_sync_socket(
     // automatically sent by Tungstenite (the underlying WebSocket library)
     // isn't actually sent until flush.
     // This is visible in Wireshark.
-    if let Err(e) = socket.flush().await {
-        if !is_connection_closed_error(&e) {
-            let msg = format!("Failed to flush WebSocket: {e:?}");
-            report_error(&mut anyhow::anyhow!(e).context(msg)).await;
-        }
+    if let Err(e) = socket.flush().await
+        && !is_connection_closed_error(&e)
+    {
+        let msg = format!("Failed to flush WebSocket: {e:?}");
+        report_error(&mut anyhow::anyhow!(e).context(msg)).await;
     }
     log_websocket_closed();
 }

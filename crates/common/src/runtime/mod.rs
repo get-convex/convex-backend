@@ -206,10 +206,10 @@ impl Drop for TokioSpawnHandle {
 /// join on its result.
 pub async fn shutdown_and_join(mut handle: Box<dyn SpawnHandle>) -> anyhow::Result<()> {
     handle.shutdown();
-    if let Err(e) = handle.join().await {
-        if !matches!(e, JoinError::Canceled) {
-            return Err(e.into());
-        }
+    if let Err(e) = handle.join().await
+        && !matches!(e, JoinError::Canceled)
+    {
+        return Err(e.into());
     }
     Ok(())
 }

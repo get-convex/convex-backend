@@ -1,7 +1,7 @@
 [package]
 name = "big_brain_private_api_types"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
 [package.metadata.cargo-machete]

@@ -119,12 +119,11 @@ async fn health_check_with_retries(
         }
         match health_check_once(service_url, expected_version, health_check_endpoint).await {
             Ok(version) => {
-                if let Some(expected_instance_name) = expected_instance_name {
-                    if let Err(e) = verify_instance_name(service_url, expected_instance_name).await
-                    {
-                        last_error = Some(e);
-                        continue;
-                    }
+                if let Some(expected_instance_name) = expected_instance_name
+                    && let Err(e) = verify_instance_name(service_url, expected_instance_name).await
+                {
+                    last_error = Some(e);
+                    continue;
                 }
                 return Ok(Some(version));
             },

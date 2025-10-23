@@ -1,5 +1,4 @@
 #![feature(type_alias_impl_trait)]
-#![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]
 use std::borrow::Cow;
 

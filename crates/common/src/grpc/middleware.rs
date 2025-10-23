@@ -192,13 +192,12 @@ where
                     this.logger.size += buf.len();
                 }
                 // Trailers frame (EOS)
-                else if let Some(trailers) = frame.trailers_ref() {
-                    if let Some(status) = trailers
+                else if let Some(trailers) = frame.trailers_ref()
+                    && let Some(status) = trailers
                         .get("grpc-status")
                         .map(|v| format!("{:?}", tonic::Code::from_bytes(v.as_bytes())))
-                    {
-                        this.logger.grpc_status = Some(status);
-                    }
+                {
+                    this.logger.grpc_status = Some(status);
                 }
                 // return the frame unchanged
                 Poll::Ready(Some(Ok(frame)))

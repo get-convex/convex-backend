@@ -141,12 +141,11 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         &mut self,
         active_table_to_delete: TableName,
     ) -> anyhow::Result<()> {
-        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
-            if let Err(schema_error) =
+        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await?
+            && let Err(schema_error) =
                 active_schema.check_delete_table(active_table_to_delete.clone())
-            {
-                anyhow::bail!(schema_error.to_error_metadata());
-            }
+        {
+            anyhow::bail!(schema_error.to_error_metadata());
         }
         let pending_schema = self.get_by_state(SchemaState::Pending).await?;
         let validated_schema = self.get_by_state(SchemaState::Validated).await?;
@@ -178,15 +177,15 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         table_mapping_for_schema: &NamespacedTableMapping,
     ) -> anyhow::Result<()> {
         let table_name = table_mapping_for_schema.tablet_name(document.id().tablet_id)?;
-        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
-            if let Err(schema_error) = active_schema.check_new_document(
+        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await?
+            && let Err(schema_error) = active_schema.check_new_document(
                 document,
                 table_name.clone(),
                 table_mapping_for_schema,
                 self.tx.virtual_system_mapping(),
-            ) {
-                anyhow::bail!(schema_error.to_error_metadata());
-            }
+            )
+        {
+            anyhow::bail!(schema_error.to_error_metadata());
         }
         let pending_schema = self.get_by_state(SchemaState::Pending).await?;
         let validated_schema = self.get_by_state(SchemaState::Validated).await?;
@@ -235,19 +234,17 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                     .await?;
             }
         }
-        if let Some((id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
-            if *active_schema == schema {
-                if let Some((id, _pending_schema)) = self.get_by_state(SchemaState::Pending).await?
-                {
-                    self.mark_overwritten(id).await?;
-                }
-                if let Some((id, _validated_schema)) =
-                    self.get_by_state(SchemaState::Validated).await?
-                {
-                    self.mark_overwritten(id).await?;
-                }
-                return Ok((id, SchemaState::Active));
+        if let Some((id, active_schema)) = self.get_by_state(SchemaState::Active).await?
+            && *active_schema == schema
+        {
+            if let Some((id, _pending_schema)) = self.get_by_state(SchemaState::Pending).await? {
+                self.mark_overwritten(id).await?;
             }
+            if let Some((id, _validated_schema)) = self.get_by_state(SchemaState::Validated).await?
+            {
+                self.mark_overwritten(id).await?;
+            }
+            return Ok((id, SchemaState::Active));
         }
         match (
             self.get_by_state(SchemaState::Pending).await?,

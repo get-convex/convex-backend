@@ -1,5 +1,3 @@
-#![feature(let_chains)]
-
 #[cfg(test)]
 mod tests;
 

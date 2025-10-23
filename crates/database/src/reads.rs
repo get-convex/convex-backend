@@ -285,27 +285,25 @@ impl ReadSet {
         let mut buffer = IndexKeyBuffer::new();
         for (update_ts, updates, write_source) in updates {
             for (_, update) in updates {
-                if let Some(ref document) = update.new_document {
-                    if let Some(conflicting_read) =
+                if let Some(ref document) = update.new_document
+                    && let Some(conflicting_read) =
                         self.overlaps_document(document, persistence_version, &mut buffer)
-                    {
-                        return Some(ConflictingReadWithWriteSource {
-                            read: conflicting_read,
-                            write_source: write_source.clone(),
-                            write_ts: *update_ts,
-                        });
-                    }
+                {
+                    return Some(ConflictingReadWithWriteSource {
+                        read: conflicting_read,
+                        write_source: write_source.clone(),
+                        write_ts: *update_ts,
+                    });
                 }
-                if let Some(ref prev_value) = update.old_document {
-                    if let Some(conflicting_read) =
+                if let Some(ref prev_value) = update.old_document
+                    && let Some(conflicting_read) =
                         self.overlaps_document(prev_value, persistence_version, &mut buffer)
-                    {
-                        return Some(ConflictingReadWithWriteSource {
-                            read: conflicting_read,
-                            write_source: write_source.clone(),
-                            write_ts: *update_ts,
-                        });
-                    }
+                {
+                    return Some(ConflictingReadWithWriteSource {
+                        read: conflicting_read,
+                        write_source: write_source.clone(),
+                        write_ts: *update_ts,
+                    });
                 }
             }
         }
@@ -327,23 +325,23 @@ impl ReadSet {
     ) -> Option<ConflictingReadWithWriteSource> {
         for (update_ts, updates, write_source) in updates {
             for (id, update) in updates {
-                if let Some(ref document) = update.new_document_keys {
-                    if let Some(conflicting_read) = self.overlaps_index_keys(*id, document) {
-                        return Some(ConflictingReadWithWriteSource {
-                            read: conflicting_read,
-                            write_source: write_source.clone(),
-                            write_ts: *update_ts,
-                        });
-                    }
+                if let Some(ref document) = update.new_document_keys
+                    && let Some(conflicting_read) = self.overlaps_index_keys(*id, document)
+                {
+                    return Some(ConflictingReadWithWriteSource {
+                        read: conflicting_read,
+                        write_source: write_source.clone(),
+                        write_ts: *update_ts,
+                    });
                 }
-                if let Some(ref document) = update.old_document_keys {
-                    if let Some(conflicting_read) = self.overlaps_index_keys(*id, document) {
-                        return Some(ConflictingReadWithWriteSource {
-                            read: conflicting_read,
-                            write_source: write_source.clone(),
-                            write_ts: *update_ts,
-                        });
-                    }
+                if let Some(ref document) = update.old_document_keys
+                    && let Some(conflicting_read) = self.overlaps_index_keys(*id, document)
+                {
+                    return Some(ConflictingReadWithWriteSource {
+                        read: conflicting_read,
+                        write_source: write_source.clone(),
+                        write_ts: *update_ts,
+                    });
                 }
             }
         }

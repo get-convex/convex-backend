@@ -2,7 +2,6 @@
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
 #![feature(type_alias_impl_trait)]
-#![feature(let_chains)]
 #![feature(assert_matches)]
 mod connection;
 mod metrics;
@@ -1203,18 +1202,18 @@ impl PostgresReader {
                 let internal_row = parse_row(&row)?;
 
                 // Yield buffered results if applicable.
-                if let Some((buffer_key, ..)) = result_buffer.first() {
-                    if buffer_key[..MAX_INDEX_KEY_PREFIX_LEN] != internal_row.key_prefix {
-                        // We have exhausted all results that share the same key prefix
-                        // we can sort and yield the buffered results.
-                        result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-                        for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
-                            if interval.contains(&key) {
-                                stats.rows_returned += 1;
-                                batch.push((key, ts, doc, prev_ts));
-                            } else {
-                                stats.rows_skipped_out_of_range += 1;
-                            }
+                if let Some((buffer_key, ..)) = result_buffer.first()
+                    && buffer_key[..MAX_INDEX_KEY_PREFIX_LEN] != internal_row.key_prefix
+                {
+                    // We have exhausted all results that share the same key prefix
+                    // we can sort and yield the buffered results.
+                    result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+                    for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
+                        if interval.contains(&key) {
+                            stats.rows_returned += 1;
+                            batch.push((key, ts, doc, prev_ts));
+                        } else {
+                            stats.rows_skipped_out_of_range += 1;
                         }
                     }
                 }

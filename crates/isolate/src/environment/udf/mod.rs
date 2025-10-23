@@ -978,8 +978,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             }
         }
 
-        if let Some(result) = result {
-            if let Some(warning) = approaching_limit_warning(
+        if let Some(result) = result
+            && let Some(warning) = approaching_limit_warning(
                 result.size(),
                 *FUNCTION_MAX_RESULT_SIZE,
                 "TooLargeFunctionResult",
@@ -987,9 +987,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 system_udf_path.as_ref(),
-            )? {
-                trace_system_warning(warning);
-            }
+            )?
+        {
+            trace_system_warning(warning);
         };
         if let Some(warning) = approaching_duration_limit_warning(
             execution_time.elapsed,

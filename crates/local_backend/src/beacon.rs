@@ -68,14 +68,14 @@ pub async fn start_beacon(
             let mut uuid = globals.id().to_string();
             let mut extra_fields = JsonValue::Null;
 
-            if let Some(fields) = beacon_fields.clone() {
-                if let Ok(parsed_fields) = serde_json::from_value::<BeaconFields>(fields) {
-                    if let Some(override_uuid) = parsed_fields.override_uuid {
-                        uuid = override_uuid;
-                    }
-                    if let Some(f) = parsed_fields.fields {
-                        extra_fields = f;
-                    }
+            if let Some(fields) = beacon_fields.clone()
+                && let Ok(parsed_fields) = serde_json::from_value::<BeaconFields>(fields)
+            {
+                if let Some(override_uuid) = parsed_fields.override_uuid {
+                    uuid = override_uuid;
+                }
+                if let Some(f) = parsed_fields.fields {
+                    extra_fields = f;
                 }
             }
 

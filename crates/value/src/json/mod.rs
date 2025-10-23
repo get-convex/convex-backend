@@ -205,10 +205,10 @@ impl TryFrom<JsonValue> for ConvexValue {
                             let n = JsonFloat::decode(i)?;
                             // Float64s encoded as a $float object must not fit into a regular
                             // `number`.
-                            if !is_negative_zero(n) {
-                                if let FpCategory::Normal | FpCategory::Subnormal = n.classify() {
-                                    bail!("Float64 {} should be encoded as a number", n);
-                                }
+                            if !is_negative_zero(n)
+                                && let FpCategory::Normal | FpCategory::Subnormal = n.classify()
+                            {
+                                bail!("Float64 {} should be encoded as a number", n);
                             }
                             Self::from(n)
                         },

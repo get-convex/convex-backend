@@ -1378,10 +1378,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // correctness since index backfill and retention interact poorly.
         // NOTE: accumulate only adds indexes. Thus we won't stop running
         // retention if index is deleted or changes from Enabled to Backfilling.
-        if let DatabaseIndexState::Backfilling(state) = on_disk_state {
-            if !state.retention_started {
-                return Ok(());
-            }
+        if let DatabaseIndexState::Backfilling(state) = on_disk_state
+            && !state.retention_started
+        {
+            return Ok(());
         }
 
         all_indexes.insert(index_id, (index.name, spec.fields));

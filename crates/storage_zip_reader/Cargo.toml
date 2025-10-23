@@ -2,7 +2,7 @@
 name = "storage_zip_reader"
 version = "0.1.0"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
-edition = "2021"
+edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
 [lib]

@@ -454,12 +454,12 @@ impl IndexRegistry {
         insertion: Option<&ResolvedDocument>,
     ) -> bool {
         let mut modified = false;
-        if let Some(old_document) = deletion {
-            if old_document.id().tablet_id == self.index_table() {
-                let index = TabletIndexMetadata::from_document(old_document.clone()).unwrap();
-                self.remove(&index);
-                modified = true;
-            }
+        if let Some(old_document) = deletion
+            && old_document.id().tablet_id == self.index_table()
+        {
+            let index = TabletIndexMetadata::from_document(old_document.clone()).unwrap();
+            self.remove(&index);
+            modified = true;
         }
         if let Some(new_document) = insertion {
             // The default index should exist for a table before adding

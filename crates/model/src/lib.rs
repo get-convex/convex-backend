@@ -20,7 +20,6 @@
 #![feature(coroutines)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
-#![feature(let_chains)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]

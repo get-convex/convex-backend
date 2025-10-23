@@ -1,6 +1,5 @@
 #![feature(assert_matches)]
 #![feature(never_type)]
-#![feature(let_chains)]
 #![feature(unwrap_infallible)]
 #![feature(iterator_try_collect)]
 #![feature(stmt_expr_attributes)]

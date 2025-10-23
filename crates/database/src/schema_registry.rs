@@ -102,10 +102,10 @@ impl NamespacedSchemaRegistry {
                 self.remove(&old_schema_state);
             }
         }
-        if let Some(new_schema) = update.new_schema {
-            if new_schema.state.is_unique() {
-                self.insert(new_schema.state.clone(), new_schema);
-            }
+        if let Some(new_schema) = update.new_schema
+            && new_schema.state.is_unique()
+        {
+            self.insert(new_schema.state.clone(), new_schema);
         }
     }
 

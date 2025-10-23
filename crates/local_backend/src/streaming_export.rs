@@ -483,15 +483,14 @@ pub async fn json_schemas(
             )?;
             if query_args.delta_schema {
                 // Inject change metadata fields.
-                if let Some(m) = json_schema.as_object_mut() {
-                    if let Some(properties) = m.get_mut("properties") {
-                        if let Some(properties) = properties.as_object_mut() {
-                            properties.insert("_table".to_string(), json!({"type": "string"}));
-                            properties.insert("_component".to_string(), json!({"type": "string"}));
-                            properties.insert("_ts".to_string(), json!({"type": "integer"}));
-                            properties.insert("_deleted".to_string(), json!({"type": "boolean"}));
-                        }
-                    }
+                if let Some(m) = json_schema.as_object_mut()
+                    && let Some(properties) = m.get_mut("properties")
+                    && let Some(properties) = properties.as_object_mut()
+                {
+                    properties.insert("_table".to_string(), json!({"type": "string"}));
+                    properties.insert("_component".to_string(), json!({"type": "string"}));
+                    properties.insert("_ts".to_string(), json!({"type": "integer"}));
+                    properties.insert("_deleted".to_string(), json!({"type": "boolean"}));
                 }
             }
             component_out.insert(String::from(table_name.clone()), json_schema);
@@ -738,15 +737,14 @@ mod test {
     };
 
     fn insert_test_table_ids(shape: &ReducedShape, mapping: &mut TestIdGenerator) {
-        if let ReducedShape::Id(table_number) = shape {
-            if !mapping
+        if let ReducedShape::Id(table_number) = shape
+            && !mapping
                 .namespace(TableNamespace::test_user())
                 .table_number_exists()(*table_number)
-            {
-                let name = mapping.generate_table_name();
-                let table_id = TabletId(mapping.generate_internal());
-                mapping.insert(table_id, TableNamespace::test_user(), *table_number, name);
-            }
+        {
+            let name = mapping.generate_table_name();
+            let table_id = TabletId(mapping.generate_internal());
+            mapping.insert(table_id, TableNamespace::test_user(), *table_number, name);
         }
         match shape {
             ReducedShape::Object(obj) => obj

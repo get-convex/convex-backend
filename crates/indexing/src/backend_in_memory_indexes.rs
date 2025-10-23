@@ -330,12 +330,12 @@ impl BackendInMemoryIndexes {
         deletion: Option<ResolvedDocument>,
         insertion: Option<ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
-        if let (Some(old_document), None) = (&deletion, &insertion) {
-            if old_document.id().tablet_id == index_registry.index_table() {
-                // Drop the index from memory.
-                self.in_memory_indexes
-                    .remove(&old_document.id().internal_id());
-            }
+        if let (Some(old_document), None) = (&deletion, &insertion)
+            && old_document.id().tablet_id == index_registry.index_table()
+        {
+            // Drop the index from memory.
+            self.in_memory_indexes
+                .remove(&old_document.id().internal_id());
         }
 
         // Build up the list of updates to apply to all database indexes.

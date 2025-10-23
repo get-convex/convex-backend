@@ -261,13 +261,13 @@ impl MemoryTextIndex {
                     .collect::<BTreeSet<_>>();
                 for term in term_set {
                     let mut inserted = false;
-                    if let Some(term_id) = self.term_table.get(term) {
-                        if let Some(count) = stats.term_freq_diffs.get_mut(&term_id) {
-                            *count = count.checked_sub(1).ok_or_else(|| {
-                                anyhow::anyhow!("Underflow on term frequency diff")
-                            })?;
-                            inserted = true;
-                        }
+                    if let Some(term_id) = self.term_table.get(term)
+                        && let Some(count) = stats.term_freq_diffs.get_mut(&term_id)
+                    {
+                        *count = count
+                            .checked_sub(1)
+                            .ok_or_else(|| anyhow::anyhow!("Underflow on term frequency diff"))?;
+                        inserted = true;
                     }
                     if !inserted {
                         let term_id = self.term_table.incref(term);
@@ -295,13 +295,13 @@ impl MemoryTextIndex {
                     .collect::<BTreeSet<_>>();
                 for term in term_set {
                     let mut inserted = false;
-                    if let Some(term_id) = self.term_table.get(term) {
-                        if let Some(count) = stats.term_freq_diffs.get_mut(&term_id) {
-                            *count = count.checked_add(1).ok_or_else(|| {
-                                anyhow::anyhow!("Overflow on term frequency diff")
-                            })?;
-                            inserted = true;
-                        }
+                    if let Some(term_id) = self.term_table.get(term)
+                        && let Some(count) = stats.term_freq_diffs.get_mut(&term_id)
+                    {
+                        *count = count
+                            .checked_add(1)
+                            .ok_or_else(|| anyhow::anyhow!("Overflow on term frequency diff"))?;
+                        inserted = true;
                     }
                     if !inserted {
                         let term_id = self.term_table.incref(term);
@@ -341,13 +341,13 @@ impl MemoryTextIndex {
         // NB: It's friendlier to `OrdMap` to do a readonly check for existence before
         // removing, since removing nonexistent IDs still has to do an
         // `Arc::make_mut` for the root, which then has to do a clone.
-        if self.documents.contains_key(&id) {
-            if let Some(prev_document) = self.documents.remove(&id) {
-                for (term_id, term_freq) in prev_document.term_list.iter_term_freqs() {
-                    self.term_table.decref(term_id, term_freq);
-                }
-                self.documents_terms_size -= prev_document.term_list.heap_allocations();
+        if self.documents.contains_key(&id)
+            && let Some(prev_document) = self.documents.remove(&id)
+        {
+            for (term_id, term_freq) in prev_document.term_list.iter_term_freqs() {
+                self.term_table.decref(term_id, term_freq);
             }
+            self.documents_terms_size -= prev_document.term_list.heap_allocations();
         }
 
         if let Some((terms, creation_time)) = new_value {

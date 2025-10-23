@@ -189,10 +189,10 @@ fn naive_snake_case(name: &str) -> String {
 
     while let Some(x) = it.next() {
         s.push(x.to_ascii_lowercase());
-        if let Some(y) = it.peek() {
-            if y.is_uppercase() {
-                s.push('_');
-            }
+        if let Some(y) = it.peek()
+            && y.is_uppercase()
+        {
+            s.push('_');
         }
     }
 

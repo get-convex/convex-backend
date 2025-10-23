@@ -148,14 +148,12 @@ impl TestIdGenerator {
         if let Ok(physical_table_name) = self
             .virtual_system_mapping
             .virtual_to_system_table(table_name)
-        {
-            if let Ok(id) = self
+            && let Ok(id) = self
                 .table_mapping
                 .namespace(TableNamespace::test_user())
                 .name_to_id()(physical_table_name.clone())
-            {
-                return id.table_number;
-            }
+        {
+            return id.table_number;
         }
         let physical_table_name = format!("_physical_{table_name}").parse().unwrap();
         let table_number = self.system_table_id(&physical_table_name).table_number;

@@ -1,5 +1,4 @@
 #![feature(future_join)]
-#![feature(let_chains)]
 #![feature(coroutines)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]

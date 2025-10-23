@@ -221,25 +221,25 @@ impl<RT: Runtime> IndexWorker<RT> {
         let mut num_to_backfill = 0;
         let mut model = IndexBackfillModel::new(&mut tx);
         for index_metadata in &index_documents {
-            if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
-                if matches!(on_disk_state, DatabaseIndexState::Backfilling(_)) {
-                    let backfill_metadata = model
-                        .existing_backfill_metadata(index_metadata.id().developer_id)
-                        .await?;
-                    let backfill_cursor =
-                        backfill_metadata.and_then(|metadata| metadata.cursor.clone());
-                    let index_id = index_metadata.id().internal_id();
-                    let tablet_id = *index_metadata.name.table();
-                    if !self.in_progress_index_ids.contains(&index_id)
-                        && !self
-                            .pending
-                            .contains(&(index_id, tablet_id, backfill_cursor.clone()))
-                    {
-                        self.pending
-                            .insert((index_id, tablet_id, backfill_cursor.clone()));
-                    }
-                    num_to_backfill += 1;
+            if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config
+                && matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
+            {
+                let backfill_metadata = model
+                    .existing_backfill_metadata(index_metadata.id().developer_id)
+                    .await?;
+                let backfill_cursor =
+                    backfill_metadata.and_then(|metadata| metadata.cursor.clone());
+                let index_id = index_metadata.id().internal_id();
+                let tablet_id = *index_metadata.name.table();
+                if !self.in_progress_index_ids.contains(&index_id)
+                    && !self
+                        .pending
+                        .contains(&(index_id, tablet_id, backfill_cursor.clone()))
+                {
+                    self.pending
+                        .insert((index_id, tablet_id, backfill_cursor.clone()));
                 }
+                num_to_backfill += 1;
             }
         }
         log_num_indexes_to_backfill(num_to_backfill);

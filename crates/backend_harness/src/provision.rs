@@ -755,15 +755,12 @@ async fn deploy(
                         access_token,
                     },
                 ..
-            } => {
-                let cmd = command
-                    .arg("convex")
-                    .arg("deploy")
-                    .arg("--yes")
-                    .env("CONVEX_PROVISION_HOST", provision_host)
-                    .env("CONVEX_OVERRIDE_ACCESS_TOKEN", access_token);
-                cmd
-            },
+            } => command
+                .arg("convex")
+                .arg("deploy")
+                .arg("--yes")
+                .env("CONVEX_PROVISION_HOST", provision_host)
+                .env("CONVEX_OVERRIDE_ACCESS_TOKEN", access_token),
             // Only pass the ADMIN_KEY in directly with local backend to bypass dependency on
             // big-brain
             ProvisionHandle::LocalBackend { .. } | ProvisionHandle::LocalConductor { .. } => {

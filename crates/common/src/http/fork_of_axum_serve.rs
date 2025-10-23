@@ -262,10 +262,10 @@ where
                     None => continue,
                 };
 
-                if let Some(nodelay) = tcp_nodelay {
-                    if let Err(err) = tcp_stream.set_nodelay(nodelay) {
-                        trace!("failed to set TCP_NODELAY on incoming connection: {err:#}");
-                    }
+                if let Some(nodelay) = tcp_nodelay
+                    && let Err(err) = tcp_stream.set_nodelay(nodelay)
+                {
+                    trace!("failed to set TCP_NODELAY on incoming connection: {err:#}");
                 }
 
                 let tcp_stream = TokioIo::new(tcp_stream);
@@ -423,10 +423,10 @@ where
                     }
                 };
 
-                if let Some(nodelay) = tcp_nodelay {
-                    if let Err(err) = tcp_stream.set_nodelay(nodelay) {
-                        trace!("failed to set TCP_NODELAY on incoming connection: {err:#}");
-                    }
+                if let Some(nodelay) = tcp_nodelay
+                    && let Err(err) = tcp_stream.set_nodelay(nodelay)
+                {
+                    trace!("failed to set TCP_NODELAY on incoming connection: {err:#}");
                 }
 
                 let tcp_stream = TokioIo::new(tcp_stream);

@@ -5,7 +5,6 @@
 #![feature(const_type_name)]
 #![feature(coroutines)]
 #![feature(iter_intersperse)]
-#![feature(let_chains)]
 #![feature(nonzero_ops)]
 #![feature(try_blocks)]
 #![feature(type_alias_impl_trait)]

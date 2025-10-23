@@ -856,14 +856,14 @@ where
     if response.status() == http::StatusCode::CONFLICT {
         let response_body = response.into_body();
 
-        if let Ok(error_response) = serde_json::from_slice::<WorkOSErrorResponse>(&response_body) {
-            if error_response.code == "user_already_exists" {
-                // This will be special-cased in scripts.
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "WorkosAccountAlreadyExistsWithThisEmail",
-                    format!("A WorkOS account already exists with the email: {admin_email}")
-                ));
-            }
+        if let Ok(error_response) = serde_json::from_slice::<WorkOSErrorResponse>(&response_body)
+            && error_response.code == "user_already_exists"
+        {
+            // This will be special-cased in scripts.
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "WorkosAccountAlreadyExistsWithThisEmail",
+                format!("A WorkOS account already exists with the email: {admin_email}")
+            ));
         }
 
         let status = http::StatusCode::CONFLICT;

@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    time::Duration,
+};
 
 use common::{
     components::{
@@ -8,7 +11,6 @@ use common::{
         PublicFunctionPath,
     },
     execution_context::ExecutionContext,
-    knobs::SCHEDULED_JOB_RETENTION,
     pause::{
         HoldGuard,
         PauseController,
@@ -185,6 +187,8 @@ async fn test_scheduled_jobs_garbage_collection(
     rt: TestRuntime,
     pause_controller: PauseController,
 ) -> anyhow::Result<()> {
+    // TODO: this is sketchy and could interfere with other tests in this process
+    unsafe { std::env::set_var("SCHEDULED_JOB_RETENTION", "30") };
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -213,7 +217,7 @@ async fn test_scheduled_jobs_garbage_collection(
     );
 
     // Wait for garbage collector to clean up the job
-    rt.wait(*SCHEDULED_JOB_RETENTION * 2).await;
+    rt.wait(Duration::from_secs(60)).await;
     tx = application.begin(Identity::system()).await?;
     let state = SchedulerModel::new(&mut tx, TableNamespace::test_user())
         .check_status(job_id)

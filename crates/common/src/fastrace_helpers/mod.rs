@@ -131,10 +131,10 @@ impl SamplingConfig {
         self.by_regex
             .iter()
             .find_map(|(rule_instance_name, name_regex, sample_ratio)| {
-                if let Some(rule_instance_name) = rule_instance_name {
-                    if rule_instance_name != instance_name {
-                        return None;
-                    }
+                if let Some(rule_instance_name) = rule_instance_name
+                    && rule_instance_name != instance_name
+                {
+                    return None;
                 }
                 if name_regex.is_match(name) {
                     Some(*sample_ratio)
@@ -254,10 +254,10 @@ impl FromStr for SamplingConfig {
 
 /// Creates a root span from an encoded parent trace
 pub fn initialize_root_from_parent(span_name: &str, encoded_parent: EncodedSpan) -> Span {
-    if let Some(p) = encoded_parent.0 {
-        if let Some(ctx) = SpanContext::decode_w3c_traceparent(p.as_str()) {
-            return Span::root(span_name.to_string(), ctx);
-        }
+    if let Some(p) = encoded_parent.0
+        && let Some(ctx) = SpanContext::decode_w3c_traceparent(p.as_str())
+    {
+        return Span::root(span_name.to_string(), ctx);
     }
     Span::noop()
 }

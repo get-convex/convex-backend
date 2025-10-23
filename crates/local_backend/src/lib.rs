@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]

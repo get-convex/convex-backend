@@ -155,11 +155,11 @@ impl TermList {
         for (term_id, position) in terms_and_positions {
             position_u32s.push(u32::from(position));
 
-            if let Some((prev_term, ref mut prev_freq)) = prev_term {
-                if prev_term == term_id {
-                    *prev_freq += 1;
-                    continue;
-                }
+            if let Some((prev_term, ref mut prev_freq)) = prev_term
+                && prev_term == term_id
+            {
+                *prev_freq += 1;
+                continue;
             }
             if let Some((prev_term, prev_freq)) = prev_term.take() {
                 terms_builder.push(prev_term as usize)?;

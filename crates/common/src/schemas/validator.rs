@@ -587,7 +587,7 @@ impl Validator {
     }
 
     pub fn to_json_schema(&self, value_format: ValueFormat) -> JsonValue {
-        let json_schema = match self {
+        match self {
             Validator::Id(table_name) => json_schemas::id(table_name),
             Validator::Null => json_schemas::null(),
             Validator::Float64 => json_schemas::float64(true, value_format),
@@ -619,8 +619,7 @@ impl Validator {
                 json_schemas::union(options)
             },
             Validator::Any => json_schemas::any(),
-        };
-        json_schema
+        }
     }
 
     pub fn foreign_keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a TableName> + 'a> {

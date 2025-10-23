@@ -102,10 +102,10 @@ mod test_pause {
         pub fn unpause(mut self) {
             tracing::info!("PauseController unpausing {}", self.label);
             let fault = mem::take(&mut self.fault);
-            if let Some(sender) = self.sender.take() {
-                if sender.send(fault).is_err() {
-                    tracing::info!("Failed to unpause waiter");
-                }
+            if let Some(sender) = self.sender.take()
+                && sender.send(fault).is_err()
+            {
+                tracing::info!("Failed to unpause waiter");
             }
         }
     }

@@ -570,10 +570,10 @@ impl PendingWrites {
     ) -> Option<(Timestamp, OrderedDocumentWrites, WriteSource, Snapshot)> {
         let first = self.by_ts.pop_first();
         if let Some((ts, (writes, write_source, snapshot))) = first {
-            if let Some(expected_ts) = handle.0 {
-                if ts == expected_ts {
-                    handle.0.take();
-                }
+            if let Some(expected_ts) = handle.0
+                && ts == expected_ts
+            {
+                handle.0.take();
             }
             Some((ts, writes, write_source, snapshot))
         } else {

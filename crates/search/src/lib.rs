@@ -1,5 +1,4 @@
 #![feature(iter_from_coroutine, coroutines)]
-#![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(ptr_metadata)]
 #![feature(iterator_try_collect)]

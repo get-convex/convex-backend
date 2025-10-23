@@ -214,11 +214,11 @@ impl VectorIndexManager {
             return Ok(DocInVectorIndex::Absent);
         }
 
-        if let IndexState::Ready(..) = self.indexes {
-            if self.update_vector_index_contents(id, index_registry, deletion, insertion, ts)? {
-                finish_index_manager_update_timer(timer, metrics::IndexUpdateType::Document);
-                return Ok(DocInVectorIndex::Present);
-            }
+        if let IndexState::Ready(..) = self.indexes
+            && self.update_vector_index_contents(id, index_registry, deletion, insertion, ts)?
+        {
+            finish_index_manager_update_timer(timer, metrics::IndexUpdateType::Document);
+            return Ok(DocInVectorIndex::Present);
         }
         finish_index_manager_update_timer(timer, metrics::IndexUpdateType::None);
         Ok(DocInVectorIndex::Absent)

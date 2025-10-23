@@ -86,18 +86,18 @@ pub fn check_table_name(
     requested_table_name: &Option<String>,
     actual_table_name: &TableName,
 ) -> anyhow::Result<()> {
-    if let Some(requested_table_name) = requested_table_name {
-        if requested_table_name != actual_table_name.deref() {
-            return Err(ErrorMetadata::bad_request(
-                "InvalidTable",
-                format!(
-                    "expected to be an Id<\"{}\">, got Id<\"{}\"> instead.",
-                    requested_table_name,
-                    actual_table_name.deref()
-                ),
-            ))
-            .context(ArgName("id"));
-        }
+    if let Some(requested_table_name) = requested_table_name
+        && requested_table_name != actual_table_name.deref()
+    {
+        return Err(ErrorMetadata::bad_request(
+            "InvalidTable",
+            format!(
+                "expected to be an Id<\"{}\">, got Id<\"{}\"> instead.",
+                requested_table_name,
+                actual_table_name.deref()
+            ),
+        ))
+        .context(ArgName("id"));
     }
     Ok(())
 }

@@ -267,62 +267,60 @@ fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
     let raw_config: JsonValue = serde_json::from_str(config_str)
         .map_err(|error| config_not_matching_schema_error(strip_position(&error.to_string())))?;
 
-    if let JsonValue::Object(ref config_obj) = raw_config {
-        if let Some(JsonValue::Array(providers)) = config_obj.get("providers") {
-            for (index, config_obj) in providers.iter().enumerate() {
-                if let JsonValue::Object(obj) = config_obj {
-                    let has_domain = obj.contains_key("domain");
-                    let has_issuer = obj.contains_key("issuer");
-                    let issuer = obj.get("issuer").and_then(|v| v.as_str());
-                    let has_bad_application_id =
-                        obj.contains_key("applicationId") || obj.contains_key("applicationid");
-                    let has_application_id = obj.contains_key("applicationID");
-                    let type_value = obj
-                        .get("type")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown");
-                    if has_bad_application_id {
-                        anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {index} must have applicationID property spelled \
-                             lowercase 'application', capital I, capital D."
-                        )));
-                    }
-                    if type_value != "customJwt" && type_value != "oidc" && type_value != "unknown"
-                    {
-                        anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {index} has unexpected 'type' value '{type_value}'"
-                        )));
-                    }
+    if let JsonValue::Object(ref config_obj) = raw_config
+        && let Some(JsonValue::Array(providers)) = config_obj.get("providers")
+    {
+        for (index, config_obj) in providers.iter().enumerate() {
+            if let JsonValue::Object(obj) = config_obj {
+                let has_domain = obj.contains_key("domain");
+                let has_issuer = obj.contains_key("issuer");
+                let issuer = obj.get("issuer").and_then(|v| v.as_str());
+                let has_bad_application_id =
+                    obj.contains_key("applicationId") || obj.contains_key("applicationid");
+                let has_application_id = obj.contains_key("applicationID");
+                let type_value = obj
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                if has_bad_application_id {
+                    anyhow::bail!(config_not_matching_schema_error(format!(
+                        "Provider at index {index} must have applicationID property spelled \
+                         lowercase 'application', capital I, capital D."
+                    )));
+                }
+                if type_value != "customJwt" && type_value != "oidc" && type_value != "unknown" {
+                    anyhow::bail!(config_not_matching_schema_error(format!(
+                        "Provider at index {index} has unexpected 'type' value '{type_value}'"
+                    )));
+                }
 
-                    if type_value == "customJwt" && has_domain {
-                        anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {index} is a customJwt so cannot have a 'domain' \
-                             specified",
-                        )));
-                    }
+                if type_value == "customJwt" && has_domain {
+                    anyhow::bail!(config_not_matching_schema_error(format!(
+                        "Provider at index {index} is a customJwt so cannot have a 'domain' \
+                         specified",
+                    )));
+                }
 
-                    let is_oidc = type_value == "oidc" || type_value == "unknown";
-                    if is_oidc && has_issuer {
-                        anyhow::bail!(config_not_matching_schema_error(format!(
-                            "Provider at index {index} is oidc so cannot have an 'issuer' \
-                             specified.",
-                        )));
-                    }
+                let is_oidc = type_value == "oidc" || type_value == "unknown";
+                if is_oidc && has_issuer {
+                    anyhow::bail!(config_not_matching_schema_error(format!(
+                        "Provider at index {index} is oidc so cannot have an 'issuer' specified.",
+                    )));
+                }
 
-                    if !has_application_id
-                        && (issuer == Some("https://api.workos.com/")
-                            || issuer == Some("https://api.workos.com"))
-                    {
-                        anyhow::bail!(ErrorMetadata::bad_request(
-                            "InsecureConfiguration",
-                            format!(
-                                "This auth configuration appears potentially insecure: Provider \
-                                 at index {index} has an issuer that is shared among many \
-                                 applications, so must to specify an ApplicationID to check \
-                                 against an `aud` field of a JWT.",
-                            ),
-                        ));
-                    }
+                if !has_application_id
+                    && (issuer == Some("https://api.workos.com/")
+                        || issuer == Some("https://api.workos.com"))
+                {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InsecureConfiguration",
+                        format!(
+                            "This auth configuration appears potentially insecure: Provider at \
+                             index {index} has an issuer that is shared among many applications, \
+                             so must to specify an ApplicationID to check against an `aud` field \
+                             of a JWT.",
+                        ),
+                    ));
                 }
             }
         }

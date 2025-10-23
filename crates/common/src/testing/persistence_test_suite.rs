@@ -1002,15 +1002,15 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             key: key.to_bytes(),
             value: Some(doc.id_with_table_id()),
         }];
-        if let Some(old_key) = old_key {
-            if old_key != key {
-                index_updates.push(PersistenceIndexEntry {
-                    ts: *ts,
-                    index_id,
-                    key: old_key.to_bytes(),
-                    value: None,
-                })
-            }
+        if let Some(old_key) = old_key
+            && old_key != key
+        {
+            index_updates.push(PersistenceIndexEntry {
+                ts: *ts,
+                index_id,
+                key: old_key.to_bytes(),
+                value: None,
+            })
         }
         p.write(
             &[DocumentLogEntry {

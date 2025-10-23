@@ -1,6 +1,5 @@
 #![feature(coroutines)]
 #![feature(future_join)]
-#![feature(let_chains)]
 #![feature(never_type)]
 #![feature(assert_matches)]
 pub mod consts;

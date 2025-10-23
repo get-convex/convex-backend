@@ -424,24 +424,24 @@ impl fmt::Display for FrameData {
         if self.is_async {
             write!(f, "async ")?;
         }
-        if self.is_promise_all {
-            if let Some(promise_index) = self.promise_index {
-                write!(f, "Promise.all (index {promise_index})")?;
-            }
+        if self.is_promise_all
+            && let Some(promise_index) = self.promise_index
+        {
+            write!(f, "Promise.all (index {promise_index})")?;
         }
         let is_method_call = !(self.is_top_level == Some(true) || self.is_constructor);
         if is_method_call {
             if let Some(ref function_name) = self.function_name {
-                if let Some(ref type_name) = self.type_name {
-                    if function_name.starts_with(type_name) {
-                        write!(f, "{type_name}.")?;
-                    }
+                if let Some(ref type_name) = self.type_name
+                    && function_name.starts_with(type_name)
+                {
+                    write!(f, "{type_name}.")?;
                 }
                 write!(f, "{function_name}")?;
-                if let Some(ref method_name) = self.method_name {
-                    if function_name.ends_with(method_name) {
-                        write!(f, " [as {method_name}]")?;
-                    }
+                if let Some(ref method_name) = self.method_name
+                    && function_name.ends_with(method_name)
+                {
+                    write!(f, " [as {method_name}]")?;
                 }
             } else {
                 if let Some(ref type_name) = self.type_name {
@@ -705,10 +705,10 @@ fn format_location(f: &mut fmt::Formatter<'_>, frame: &MappedFrame) -> fmt::Resu
     if let Some(ref file_name) = frame.file_name {
         write!(f, "{file_name}")?;
     } else {
-        if frame.is_eval {
-            if let Some(ref eval_origin) = frame.eval_origin {
-                write!(f, "{eval_origin}, ")?;
-            }
+        if frame.is_eval
+            && let Some(ref eval_origin) = frame.eval_origin
+        {
+            write!(f, "{eval_origin}, ")?;
         }
         write!(f, "<anonymous>")?;
     }

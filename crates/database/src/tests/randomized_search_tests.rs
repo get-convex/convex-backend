@@ -1385,21 +1385,21 @@ fn do_search_for_fraction(test_case: FuzzyDeterminismTestCase, num_splits: usize
                 .into_iter()
                 .map(|(i, score)| (i, TotalOrdF64::from(score)))
                 .collect::<BTreeSet<_>>();
-            if let Some(last_result) = last_result {
-                if result != last_result {
-                    let mut msg = format!(
-                        "Results differ when doing {} vs. {} splits:",
-                        num_splits - 1,
-                        num_splits
-                    );
-                    for added in result.difference(&last_result) {
-                        msg.push_str(&format!("\n  added: {added:?}"));
-                    }
-                    for removed in last_result.difference(&result) {
-                        msg.push_str(&format!("\n  removed: {removed:?}"));
-                    }
-                    panic!("{msg}");
+            if let Some(last_result) = last_result
+                && result != last_result
+            {
+                let mut msg = format!(
+                    "Results differ when doing {} vs. {} splits:",
+                    num_splits - 1,
+                    num_splits
+                );
+                for added in result.difference(&last_result) {
+                    msg.push_str(&format!("\n  added: {added:?}"));
                 }
+                for removed in last_result.difference(&result) {
+                    msg.push_str(&format!("\n  removed: {removed:?}"));
+                }
+                panic!("{msg}");
             }
             last_result = Some(result);
         }
