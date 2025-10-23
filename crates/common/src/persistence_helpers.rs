@@ -15,7 +15,6 @@ use crate::{
         DocumentLogEntry,
         DocumentPrevTsQuery,
         PersistenceReader,
-        RepeatablePersistence,
         RetentionValidator,
     },
     try_chunks::TryChunksExt,
@@ -113,53 +112,6 @@ pub(crate) async fn persistence_reader_stream_revision_pairs<'a, P: PersistenceR
                     anyhow::Ok(DocumentRevision {
                         ts: prev_ts,
                         document,
-                    })
-                })
-                .transpose()?;
-            yield RevisionPair { id, rev, prev_rev };
-        }
-    }
-}
-
-// TODO: remove this and make users go through PersistenceReader
-#[allow(clippy::needless_lifetimes)]
-#[try_stream(ok = RevisionPair, error = anyhow::Error)]
-pub async fn stream_revision_pairs<'a>(
-    documents: impl Stream<Item = RevisionStreamEntry> + 'a,
-    reader: &'a RepeatablePersistence,
-) {
-    let documents = documents.try_chunks2(*DOCUMENTS_IN_MEMORY);
-    futures::pin_mut!(documents);
-
-    while let Some(read_chunk) = documents.try_next().await? {
-        let queries = read_chunk
-            .iter()
-            .filter_map(|entry| {
-                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
-                    id: entry.id,
-                    ts: entry.ts,
-                    prev_ts,
-                })
-            })
-            .collect();
-        let mut prev_revs = reader.previous_revisions_of_documents(queries).await?;
-        for DocumentLogEntry {
-            ts,
-            prev_ts,
-            id,
-            value: document,
-            ..
-        } in read_chunk
-        {
-            let rev = DocumentRevision { ts, document };
-            let prev_rev = prev_ts
-                .map(|prev_ts| {
-                    let entry = prev_revs
-                        .remove(&DocumentPrevTsQuery { id, ts, prev_ts })
-                        .with_context(|| format!("prev_ts is missing for {id}@{ts}: {prev_ts}"))?;
-                    anyhow::Ok(DocumentRevision {
-                        ts: entry.ts,
-                        document: entry.value,
                     })
                 })
                 .transpose()?;

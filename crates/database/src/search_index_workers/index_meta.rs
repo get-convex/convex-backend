@@ -16,13 +16,18 @@ use common::{
         ResolvedDocument,
     },
     persistence::{
+        DocumentRevisionStream,
         DocumentStream,
-        RepeatablePersistence,
+    },
+    persistence_helpers::{
+        DocumentRevision,
+        RevisionPair,
     },
     query::Order,
     runtime::Runtime,
     types::IndexId,
 };
+use futures::StreamExt as _;
 use search::{
     metrics::SearchType,
     Searcher,
@@ -34,7 +39,6 @@ use value::{
     InternalId,
 };
 
-use super::search_flusher::MultipartBuildType;
 use crate::Snapshot;
 
 pub trait SegmentType<T: SearchIndex> {
@@ -97,12 +101,10 @@ pub trait SearchIndex: Clone + Debug {
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
-        documents: DocumentStream<'_>,
-        reader: RepeatablePersistence,
+        documents: MakeDocumentStream<'_>,
         previous_segments: &mut Self::PreviousSegments,
         document_log_lower_bound: Option<Timestamp>,
         build_index_args: Self::BuildIndexArgs,
-        multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>>;
 
     fn new_schema(config: &Self::Spec) -> Self::Schema;
@@ -132,12 +134,48 @@ pub trait SearchIndex: Clone + Debug {
 
     async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
-        document_stream: DocumentStream<'_>,
-        repeatable_persistence: &RepeatablePersistence,
+        document_stream: MakeDocumentStream<'_>,
         build_index_args: Self::BuildIndexArgs,
         schema: Self::Schema,
         document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()>;
+}
+
+pub enum MakeDocumentStream<'a> {
+    Partial(DocumentStream<'a>, DocumentRevisionStream<'a>),
+    /// A stream that visits each document in a table once
+    Complete(DocumentStream<'a>),
+}
+impl<'a> MakeDocumentStream<'a> {
+    pub fn into_document_stream(self) -> DocumentStream<'a> {
+        match self {
+            MakeDocumentStream::Partial(documents, _) => documents,
+            MakeDocumentStream::Complete(documents) => documents,
+        }
+    }
+
+    pub fn into_revision_stream(self) -> DocumentRevisionStream<'a> {
+        match self {
+            MakeDocumentStream::Partial(_, revisions) => revisions,
+            // Create a fake revision stream for complete builds because we are
+            // building from scratch so we don't need to look up previous
+            // revisions. We know there are no deletes.
+            MakeDocumentStream::Complete(documents) => documents
+                .map(|result| {
+                    let entry = result?;
+                    anyhow::ensure!(entry.value.is_some(), "Document must exist");
+                    Ok(RevisionPair {
+                        id: entry.id,
+                        rev: DocumentRevision {
+                            ts: entry.ts,
+                            document: entry.value,
+                        },
+                        prev_rev: None,
+                    })
+                })
+                .boxed(),
+        }
+    }
 }
 
 pub trait SegmentStatistics: Default + Debug {

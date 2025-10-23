@@ -231,7 +231,6 @@ impl Scenario {
         let writer = SearchIndexMetadataWriter::new(
             self.rt.clone(),
             self.database.clone(),
-            self.tp.reader(),
             self.search_storage.clone(),
             self.build_index_args.clone(),
         );
@@ -251,14 +250,12 @@ impl Scenario {
         let writer = SearchIndexMetadataWriter::new(
             self.rt.clone(),
             self.database.clone(),
-            self.tp.reader(),
             self.search_storage.clone(),
             self.build_index_args.clone(),
         );
         let flusher = new_text_flusher(
             self.rt.clone(),
             self.database.clone(),
-            self.tp.reader(),
             self.search_storage.clone(),
             self.build_index_args.segment_term_metadata_fetcher.clone(),
             writer,

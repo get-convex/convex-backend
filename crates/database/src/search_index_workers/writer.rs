@@ -15,11 +15,7 @@ use common::{
     bounded_thread_pool::BoundedThreadPool,
     document::ParsedDocument,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
-    persistence::{
-        PersistenceReader,
-        RepeatablePersistence,
-        TimestampRange,
-    },
+    persistence::TimestampRange,
     query::Order,
     runtime::{
         new_rate_limiter,
@@ -42,6 +38,7 @@ use storage::Storage;
 use sync_types::Timestamp;
 use value::ResolvedDocumentId;
 
+use super::index_meta::MakeDocumentStream;
 use crate::{
     bootstrap_model::index_backfills::IndexBackfillModel,
     metrics::{
@@ -97,7 +94,6 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         build_index_args: T::BuildIndexArgs,
     ) -> Self {
@@ -105,7 +101,6 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
             inner: Arc::new(Mutex::new(Inner {
                 runtime: runtime.clone(),
                 database,
-                reader,
                 storage,
                 // Use small limits because we should only ever run one job at a time.
                 thread_pool: BoundedThreadPool::new(
@@ -231,7 +226,6 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
 struct Inner<RT: Runtime, T: SearchIndex> {
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     thread_pool: BoundedThreadPool<RT>,
     build_index_args: T::BuildIndexArgs,
@@ -588,14 +582,12 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let storage = self.storage.clone();
         let runtime = self.runtime.clone();
         let database = self.database.clone();
-        let reader = self.reader.clone();
         let build_index_args = self.build_index_args.clone();
         self.thread_pool
             .execute_async(move || async move {
                 Self::merge_deletes_on_thread(
                     runtime,
                     database,
-                    reader,
                     segments_to_update,
                     start_ts,
                     current_ts,
@@ -613,7 +605,6 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
     async fn merge_deletes_on_thread(
         runtime: RT,
         database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
         segments_to_update: Vec<T::Segment>,
         start_ts: Timestamp,
         current_ts: RepeatableTimestamp,
@@ -633,19 +624,25 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         );
         let mut previous_segments =
             T::download_previous_segments(storage.clone(), segments_to_update).await?;
-        let documents = database.load_documents_in_table(
-            *index_name.table(),
-            TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts))),
-            Order::Asc,
-            &row_rate_limiter,
+        let range = TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts)));
+        let documents = MakeDocumentStream::Partial(
+            database.load_documents_in_table(
+                *index_name.table(),
+                range,
+                Order::Asc,
+                &row_rate_limiter,
+            ),
+            database.load_revision_pairs_in_table(
+                *index_name.table(),
+                range,
+                Order::Asc,
+                &row_rate_limiter,
+            ),
         );
 
-        let repeatable_persistence =
-            RepeatablePersistence::new(reader, current_ts, database.retention_validator());
         T::merge_deletes(
             &mut previous_segments,
             documents,
-            &repeatable_persistence,
             build_index_args,
             schema,
             start_ts,

@@ -28,15 +28,6 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    persistence::{
-        DocumentStream,
-        RepeatablePersistence,
-    },
-    persistence_helpers::{
-        stream_revision_pairs,
-        DocumentRevision,
-        RevisionPair,
-    },
     query::Order,
     runtime::{
         try_join_buffer_unordered,
@@ -44,10 +35,7 @@ use common::{
     },
     types::IndexId,
 };
-use futures::{
-    StreamExt,
-    TryStreamExt,
-};
+use futures::TryStreamExt;
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
@@ -68,18 +56,16 @@ use storage::Storage;
 use sync_types::Timestamp;
 
 use crate::{
-    search_index_workers::{
-        index_meta::{
-            BackfillState,
-            SearchIndex,
-            SearchIndexConfig,
-            SearchOnDiskState,
-            SearchSnapshot,
-            SegmentStatistics,
-            SegmentType,
-            SnapshotData,
-        },
-        search_flusher::MultipartBuildType,
+    search_index_workers::index_meta::{
+        BackfillState,
+        MakeDocumentStream,
+        SearchIndex,
+        SearchIndexConfig,
+        SearchOnDiskState,
+        SearchSnapshot,
+        SegmentStatistics,
+        SegmentType,
+        SnapshotData,
     },
     Snapshot,
 };
@@ -211,38 +197,16 @@ impl SearchIndex for TextSearchIndex {
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
-        documents: DocumentStream<'_>,
-        reader: RepeatablePersistence,
+        documents: MakeDocumentStream<'_>,
         previous_segments: &mut Self::PreviousSegments,
         lower_bound_ts: Option<Timestamp>,
         BuildTextIndexArgs {
             search_storage,
             segment_term_metadata_fetcher,
         }: BuildTextIndexArgs,
-        multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
-        let revision_stream = match multipart_build_type {
-            MultipartBuildType::Partial(_) => Box::pin(stream_revision_pairs(documents, &reader)),
-            // Create a fake revision stream for complete builds because we are building from
-            // scratch so we don't need to look up previous revisions. We know there are no deletes.
-            MultipartBuildType::IncrementalComplete { .. } => documents
-                .map(|result| {
-                    let entry = result?;
-                    anyhow::ensure!(entry.value.is_some(), "Document must exist");
-                    Ok(RevisionPair {
-                        id: entry.id,
-                        rev: DocumentRevision {
-                            ts: entry.ts,
-                            document: entry.value,
-                        },
-                        prev_rev: None,
-                    })
-                })
-                .boxed(),
-        };
-
         build_new_segment(
-            revision_stream,
+            documents.into_revision_stream(),
             schema.clone(),
             index_path,
             previous_segments,
@@ -310,13 +274,12 @@ impl SearchIndex for TextSearchIndex {
 
     async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
-        documents: DocumentStream<'_>,
-        repeatable_persistence: &RepeatablePersistence,
+        documents: MakeDocumentStream<'_>,
         build_index_args: Self::BuildIndexArgs,
         schema: Self::Schema,
         document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()> {
-        let revision_stream = stream_revision_pairs(documents, repeatable_persistence);
+        let revision_stream = documents.into_revision_stream();
         // Keep track of the document IDs we've either added to our new segment or
         // deleted from a previous segment. Because we process in reverse order, we
         // may encounter each document id multiple times, but we only want to add or

@@ -24,7 +24,6 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
-    persistence::PersistenceReader,
     runtime::Runtime,
     types::{
         unchecked_repeatable_ts,
@@ -109,7 +108,6 @@ const TABLE_NAMESPACE: TableNamespace = TableNamespace::test_user();
 struct Scenario<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
 }
@@ -117,7 +115,6 @@ struct Scenario<RT: Runtime> {
 impl<RT: Runtime> Scenario<RT> {
     async fn new(rt: RT) -> anyhow::Result<Self> {
         let DbFixtures {
-            tp,
             db,
             searcher,
             search_storage,
@@ -136,7 +133,6 @@ impl<RT: Runtime> Scenario<RT> {
         let self_ = Self {
             rt,
             database: db,
-            reader: tp.reader(),
             search_storage,
             searcher,
         };
@@ -154,7 +150,6 @@ impl<RT: Runtime> Scenario<RT> {
         new_vector_flusher_for_tests(
             self.rt.clone(),
             self.database.clone(),
-            self.reader.clone(),
             self.search_storage.clone(),
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -222,7 +217,6 @@ impl<RT: Runtime> Scenario<RT> {
         compact_vector_indexes_in_test(
             self.rt.clone(),
             self.database.clone(),
-            self.reader.clone(),
             self.search_storage.clone(),
             self.searcher.clone(),
         )
@@ -233,7 +227,6 @@ impl<RT: Runtime> Scenario<RT> {
         backfill_vector_indexes(
             self.rt.clone(),
             self.database.clone(),
-            self.reader.clone(),
             self.search_storage.clone(),
         )
         .await?;

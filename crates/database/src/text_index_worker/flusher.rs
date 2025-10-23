@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use common::{
     knobs::SEARCH_INDEX_SIZE_SOFT_LIMIT,
-    persistence::PersistenceReader,
     runtime::Runtime,
 };
 use search::searcher::SegmentTermMetadataFetcher;
@@ -28,14 +27,12 @@ use crate::{
 pub async fn backfill_text_indexes<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
 ) -> anyhow::Result<()> {
     let writer = SearchIndexMetadataWriter::new(
         runtime.clone(),
         database.clone(),
-        reader.clone(),
         storage.clone(),
         BuildTextIndexArgs {
             search_storage: storage.clone(),
@@ -45,7 +42,6 @@ pub async fn backfill_text_indexes<RT: Runtime>(
     let flusher = FlusherBuilder::new(
         runtime.clone(),
         database.clone(),
-        reader.clone(),
         storage.clone(),
         segment_term_metadata_fetcher.clone(),
         writer.clone(),
@@ -57,7 +53,6 @@ pub async fn backfill_text_indexes<RT: Runtime>(
     let flusher = FlusherBuilder::new(
         runtime,
         database,
-        reader,
         storage,
         segment_term_metadata_fetcher,
         writer,
@@ -72,7 +67,6 @@ pub async fn backfill_text_indexes<RT: Runtime>(
 pub(crate) struct FlusherBuilder<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     limits: SearchIndexLimits,
@@ -84,7 +78,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
@@ -93,7 +86,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         Self {
             runtime,
             database,
-            reader,
             storage,
             segment_term_metadata_fetcher,
             writer,
@@ -141,7 +133,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         SearchFlusher::new(
             self.runtime,
             self.database,
-            self.reader,
             self.storage.clone(),
             self.limits,
             self.writer,
@@ -156,19 +147,16 @@ impl<RT: Runtime> FlusherBuilder<RT> {
 
 pub type TextIndexFlusher<RT> = SearchFlusher<RT, TextSearchIndex>;
 
-#[allow(unused)]
 #[cfg(any(test, feature = "testing"))]
 pub fn new_text_flusher_for_tests<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
 ) -> TextIndexFlusher<RT> {
     let writer = SearchIndexMetadataWriter::new(
         runtime.clone(),
         database.clone(),
-        reader.clone(),
         storage.clone(),
         BuildTextIndexArgs {
             search_storage: storage.clone(),
@@ -178,7 +166,6 @@ pub fn new_text_flusher_for_tests<RT: Runtime>(
     FlusherBuilder::new(
         runtime,
         database,
-        reader,
         storage,
         segment_metadata_fetcher,
         writer,
@@ -190,7 +177,6 @@ pub fn new_text_flusher_for_tests<RT: Runtime>(
 pub(crate) fn new_text_flusher<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
@@ -199,7 +185,6 @@ pub(crate) fn new_text_flusher<RT: Runtime>(
     FlusherBuilder::new(
         runtime,
         database,
-        reader,
         storage,
         segment_metadata_fetcher,
         writer,

@@ -127,7 +127,6 @@ impl TextFixtures {
         let writer = TextIndexMetadataWriter::new(
             rt.clone(),
             db.clone(),
-            tp.reader(),
             search_storage.clone(),
             BuildTextIndexArgs {
                 search_storage: search_storage.clone(),
@@ -152,7 +151,6 @@ impl TextFixtures {
         FlusherBuilder::new(
             self.rt.clone(),
             self.db.clone(),
-            self.reader.clone(),
             self.storage.clone(),
             self.segment_term_metadata_fetcher.clone(),
             self.writer.clone(),
@@ -188,7 +186,6 @@ impl TextFixtures {
         new_text_compactor_for_tests(
             self.rt.clone(),
             self.db.clone(),
-            self.reader.clone(),
             self.storage.clone(),
             self.searcher.clone(),
             self.segment_term_metadata_fetcher.clone(),
@@ -227,7 +224,6 @@ impl TextFixtures {
         backfill_text_indexes(
             self.rt.clone(),
             self.db.clone(),
-            self.reader.clone(),
             self.storage.clone(),
             self.segment_term_metadata_fetcher.clone(),
         )

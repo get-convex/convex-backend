@@ -22,10 +22,6 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    persistence::{
-        DocumentStream,
-        RepeatablePersistence,
-    },
     runtime::{
         try_join_buffer_unordered,
         Runtime,
@@ -50,18 +46,16 @@ use vector::{
 };
 
 use crate::{
-    search_index_workers::{
-        index_meta::{
-            BackfillState,
-            SearchIndex,
-            SearchIndexConfig,
-            SearchOnDiskState,
-            SearchSnapshot,
-            SegmentStatistics,
-            SegmentType,
-            SnapshotData,
-        },
-        search_flusher::MultipartBuildType,
+    search_index_workers::index_meta::{
+        BackfillState,
+        MakeDocumentStream,
+        SearchIndex,
+        SearchIndexConfig,
+        SearchOnDiskState,
+        SearchSnapshot,
+        SegmentStatistics,
+        SegmentType,
+        SnapshotData,
     },
     Snapshot,
 };
@@ -209,19 +203,17 @@ impl SearchIndex for VectorSearchIndex {
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
-        documents: DocumentStream<'_>,
-        _reader: RepeatablePersistence,
+        documents: MakeDocumentStream<'_>,
         previous_segments: &mut Self::PreviousSegments,
         _document_log_lower_bound: Option<Timestamp>,
         BuildVectorIndexArgs {
             full_scan_threshold_bytes,
         }: Self::BuildIndexArgs,
-        _multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         schema
             .build_disk_index(
                 index_path,
-                documents,
+                documents.into_document_stream(),
                 full_scan_threshold_bytes,
                 previous_segments,
             )
@@ -284,12 +276,12 @@ impl SearchIndex for VectorSearchIndex {
 
     async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
-        mut documents: DocumentStream<'_>,
-        _repeatable_persistence: &RepeatablePersistence,
+        documents: MakeDocumentStream<'_>,
         _build_index_args: Self::BuildIndexArgs,
         _schema: Self::Schema,
         _document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()> {
+        let mut documents = documents.into_document_stream();
         while let Some(entry) = documents.try_next().await? {
             if entry.value.is_none() {
                 previous_segments.maybe_delete_convex(entry.id.internal_id())?;

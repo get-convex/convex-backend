@@ -5,7 +5,6 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
-    persistence::PersistenceReader,
     runtime::Runtime,
 };
 use storage::Storage;
@@ -31,13 +30,11 @@ pub type VectorIndexFlusher<RT> = SearchFlusher<RT, VectorSearchIndex>;
 pub async fn backfill_vector_indexes<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<()> {
     let flusher = new_vector_flusher_for_tests(
         runtime.clone(),
         database.clone(),
-        reader.clone(),
         storage.clone(),
         /* index_size_soft_limit= */ 0,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -48,7 +45,6 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
     let flusher = new_vector_flusher_for_tests(
         runtime,
         database,
-        reader,
         storage,
         /* index_size_soft_limit= */ 0,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -59,23 +55,19 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
     Ok(())
 }
 
-#[allow(unused)]
 #[cfg(any(test, feature = "testing"))]
 pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     index_size_soft_limit: usize,
     full_scan_segment_max_kb: usize,
     incremental_multipart_threshold_bytes: usize,
     flusher_type: FlusherType,
 ) -> VectorIndexFlusher<RT> {
-    use search::metrics::SearchType;
     let writer = SearchIndexMetadataWriter::new(
         runtime.clone(),
         database.clone(),
-        reader.clone(),
         storage.clone(),
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -84,7 +76,6 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     SearchFlusher::new(
         runtime,
         database,
-        reader,
         storage,
         SearchIndexLimits {
             index_size_soft_limit,
@@ -101,7 +92,6 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
 pub(crate) fn new_vector_flusher<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
     flusher_type: FlusherType,
@@ -109,7 +99,6 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
     SearchFlusher::new(
         runtime,
         database,
-        reader,
         storage,
         SearchIndexLimits {
             index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
@@ -143,7 +132,6 @@ mod tests {
             VECTOR_INDEX_SIZE_SOFT_LIMIT,
         },
         pause::PauseController,
-        persistence::PersistenceReader,
         runtime::Runtime,
         types::{
             IndexId,
@@ -204,14 +192,12 @@ mod tests {
     fn new_vector_flusher_with_soft_limit(
         rt: &TestRuntime,
         database: &Database<TestRuntime>,
-        reader: Arc<dyn PersistenceReader>,
         soft_limit: usize,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
         let storage = LocalDirStorage::new(rt.clone())?;
         Ok(new_vector_flusher_for_tests(
             rt.clone(),
             database.clone(),
-            reader,
             Arc::new(storage),
             soft_limit,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -223,16 +209,15 @@ mod tests {
     fn new_vector_flusher(
         rt: &TestRuntime,
         database: &Database<TestRuntime>,
-        reader: Arc<dyn PersistenceReader>,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
-        new_vector_flusher_with_soft_limit(rt, database, reader, 1000)
+        new_vector_flusher_with_soft_limit(rt, database, 1000)
     }
 
     #[convex_macro::test_runtime]
     async fn worker_does_not_crash_on_documents_with_invalid_vector_dimensions(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?;
+        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
 
         let IndexData { index_name, .. } = backfilling_vector_index_with_doc(&db).await?;
 
@@ -241,7 +226,7 @@ mod tests {
         add_document_vec(&mut tx, index_name.table(), vec).await?;
         db.commit(tx).await?;
 
-        let worker = new_vector_flusher(&rt, &db, tp.reader())?;
+        let worker = new_vector_flusher(&rt, &db)?;
         worker.step().await?;
 
         Ok(())
@@ -251,7 +236,7 @@ mod tests {
     async fn worker_does_not_crash_on_documents_with_non_vector(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?;
+        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
 
         let IndexData {
             index_name,
@@ -269,7 +254,7 @@ mod tests {
         db.commit(tx).await?;
 
         // Use 0 soft limit so that we always reindex documents
-        let worker = new_vector_flusher_with_soft_limit(&rt, &db, tp.reader(), 0)?;
+        let worker = new_vector_flusher_with_soft_limit(&rt, &db, 0)?;
         let (metrics, _) = worker.step().await?;
         // Make sure we advance past the invalid document.
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
@@ -567,7 +552,6 @@ mod tests {
             let flusher = new_vector_flusher_for_tests(
                 fixtures.rt.clone(),
                 fixtures.db.clone(),
-                fixtures.reader.clone(),
                 fixtures.storage.clone(),
                 // Force indexes to always be built.
                 0,
@@ -600,7 +584,6 @@ mod tests {
             let flusher = new_vector_flusher_for_tests(
                 fixtures.rt.clone(),
                 fixtures.db.clone(),
-                fixtures.reader.clone(),
                 fixtures.storage.clone(),
                 // Force indexes to always be built.
                 0,

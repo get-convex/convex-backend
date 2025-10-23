@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-#[cfg(any(test, feature = "testing"))]
-use common::persistence::PersistenceReader;
 use common::runtime::Runtime;
 use search::searcher::Searcher;
 use storage::Storage;
@@ -34,7 +32,6 @@ pub(crate) fn new_vector_compactor<RT: Runtime>(
 pub(crate) fn new_vector_compactor_for_tests<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
     config: CompactionConfig,
@@ -46,7 +43,6 @@ pub(crate) fn new_vector_compactor_for_tests<RT: Runtime>(
     let writer = SearchIndexMetadataWriter::new(
         runtime,
         database.clone(),
-        reader,
         search_storage.clone(),
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -59,14 +55,12 @@ pub(crate) fn new_vector_compactor_for_tests<RT: Runtime>(
 pub async fn compact_vector_indexes_in_test<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
 ) -> anyhow::Result<()> {
     let compactor = new_vector_compactor_for_tests(
         runtime,
         database,
-        reader,
         search_storage,
         searcher,
         CompactionConfig::default(),

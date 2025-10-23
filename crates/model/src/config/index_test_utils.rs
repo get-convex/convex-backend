@@ -163,12 +163,11 @@ pub async fn backfill_indexes(
     backfill_text_indexes(
         rt.clone(),
         db.clone(),
-        tp.reader(),
         storage.clone(),
         segment_term_metadata_fetcher,
     )
     .await?;
-    backfill_vector_indexes(rt.clone(), db.clone(), tp.reader(), storage).await?;
+    backfill_vector_indexes(rt.clone(), db.clone(), storage).await?;
     // As long as these tests don't actually have data in the tables, we could
     // probably just mutate the index state. But running the whole IndexWorker
     // is easy and is a bit more robust to changes, so why not...

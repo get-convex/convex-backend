@@ -22,8 +22,6 @@ use common::{
     },
     persistence::{
         DocumentLogEntry,
-        PersistenceReader,
-        RepeatablePersistence,
         TimestampRange,
     },
     runtime::{
@@ -71,6 +69,7 @@ use crate::{
     search_index_workers::{
         index_meta::{
             BackfillState,
+            MakeDocumentStream,
             SearchIndex,
             SearchIndexConfig,
             SearchOnDiskState,
@@ -114,7 +113,6 @@ impl<RT: Runtime, T: SearchIndex> Deref for SearchFlusher<RT, T> {
 pub struct Params<RT: Runtime, T: SearchIndex> {
     runtime: RT,
     database: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     limits: SearchIndexLimits,
     build_args: T::BuildIndexArgs,
@@ -144,7 +142,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         limits: SearchIndexLimits,
         writer: SearchIndexMetadataWriter<RT, T>,
@@ -155,7 +152,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             params: Params {
                 runtime,
                 database,
-                reader,
                 storage,
                 limits,
                 build_args,
@@ -598,15 +594,22 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let (documents, previous_segments) = match build_type {
             MultipartBuildType::Partial(last_ts) => {
                 lower_bound_ts = Some(*last_ts);
+                let range =
+                    TimestampRange::new((Bound::Excluded(*last_ts), Bound::Included(*snapshot_ts)));
                 (
-                    params.database.load_documents_in_table(
-                        *index_name.table(),
-                        TimestampRange::new((
-                            Bound::Excluded(*last_ts),
-                            Bound::Included(*snapshot_ts),
-                        )),
-                        T::partial_document_order(),
-                        &row_rate_limiter,
+                    MakeDocumentStream::Partial(
+                        params.database.load_documents_in_table(
+                            *index_name.table(),
+                            range,
+                            T::partial_document_order(),
+                            &row_rate_limiter,
+                        ),
+                        params.database.load_revision_pairs_in_table(
+                            *index_name.table(),
+                            range,
+                            T::partial_document_order(),
+                            &row_rate_limiter,
+                        ),
                     ),
                     previous_segments,
                 )
@@ -619,7 +622,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     .database
                     .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE)
                     .stream_documents_in_table(*index_name.table(), by_id, cursor)
-                    .boxed()
                     .scan(0_u64, |total_size, res| {
                         if is_size_exceeded {
                             is_backfill_complete = false;
@@ -657,27 +659,20 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         prev_ts: rev.prev_ts,
                     })
                     .boxed();
-                (documents, previous_segments)
+                (MakeDocumentStream::Complete(documents), previous_segments)
             },
         };
 
         let mut mutable_previous_segments =
             T::download_previous_segments(params.storage.clone(), previous_segments).await?;
 
-        let persistence = RepeatablePersistence::new(
-            params.reader,
-            snapshot_ts,
-            params.database.retention_validator(),
-        );
         let new_segment = T::build_disk_index(
             &qdrant_schema,
             &index_path,
             documents,
-            persistence,
             &mut mutable_previous_segments,
             lower_bound_ts,
             build_index_args,
-            build_type,
         )
         .await?;
 

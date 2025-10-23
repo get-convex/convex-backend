@@ -14,7 +14,6 @@ use common::{
         SEARCH_COMPACTOR_MAX_BACKOFF,
         SEARCH_INDEX_FLUSHER_MAX_BACKOFF,
     },
-    persistence::PersistenceReader,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -99,7 +98,6 @@ impl SearchIndexWorkers {
     pub fn create_and_start<RT: Runtime>(
         runtime: RT,
         database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
@@ -107,7 +105,6 @@ impl SearchIndexWorkers {
         let vector_index_metadata_writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
-            reader.clone(),
             search_storage.clone(),
             BuildVectorIndexArgs {
                 full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -116,7 +113,6 @@ impl SearchIndexWorkers {
         let text_index_metadata_writer = TextIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
-            reader.clone(),
             search_storage.clone(),
             BuildTextIndexArgs {
                 search_storage: search_storage.clone(),
@@ -134,7 +130,6 @@ impl SearchIndexWorkers {
             SearchIndexWorker::VectorFlusher(new_vector_flusher(
                 runtime.clone(),
                 database.clone(),
-                reader.clone(),
                 search_storage.clone(),
                 vector_index_metadata_writer.clone(),
                 FlusherType::LiveFlush,
@@ -151,7 +146,6 @@ impl SearchIndexWorkers {
             SearchIndexWorker::VectorFlusher(new_vector_flusher(
                 runtime.clone(),
                 database.clone(),
-                reader.clone(),
                 search_storage.clone(),
                 vector_index_metadata_writer.clone(),
                 FlusherType::Backfill,
@@ -175,7 +169,6 @@ impl SearchIndexWorkers {
         let text_live_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
             runtime.clone(),
             database.clone(),
-            reader.clone(),
             search_storage.clone(),
             segment_term_metadata_fetcher.clone(),
             text_index_metadata_writer.clone(),
@@ -193,7 +186,6 @@ impl SearchIndexWorkers {
         let text_backfill_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
             runtime.clone(),
             database.clone(),
-            reader,
             search_storage.clone(),
             segment_term_metadata_fetcher,
             text_index_metadata_writer.clone(),

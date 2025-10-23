@@ -720,7 +720,6 @@ impl<RT: Runtime> Application<RT> {
         let search_worker = SearchIndexWorkers::create_and_start(
             runtime.clone(),
             database.clone(),
-            persistence.reader(),
             application_storage.search_storage.clone(),
             searcher,
             segment_term_metadata_fetcher,

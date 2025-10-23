@@ -63,6 +63,7 @@ use common::{
         new_idle_repeatable_ts,
         ConflictStrategy,
         DocumentLogEntry,
+        DocumentRevisionStream,
         DocumentStream,
         LatestDocument,
         LatestDocumentStream,
@@ -1113,6 +1114,32 @@ impl<RT: Runtime> Database<RT> {
         self.reader
             .load_documents_from_table(
                 tablet_id,
+                timestamp_range,
+                order,
+                *DEFAULT_DOCUMENTS_PAGE_SIZE,
+                self.retention_validator(),
+            )
+            .then(|val| async {
+                while let Err(not_until) = rate_limiter.check() {
+                    let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
+                    self.runtime.wait(delay).await;
+                }
+                val
+            })
+            .boxed()
+    }
+
+    /// Like `load_documents_in_table`, but also includes previous revisions.
+    pub fn load_revision_pairs_in_table<'a>(
+        &'a self,
+        tablet_id: TabletId,
+        timestamp_range: TimestampRange,
+        order: Order,
+        rate_limiter: &'a RateLimiter<RT>,
+    ) -> DocumentRevisionStream<'a> {
+        self.reader
+            .load_revision_pairs(
+                Some(tablet_id),
                 timestamp_range,
                 order,
                 *DEFAULT_DOCUMENTS_PAGE_SIZE,

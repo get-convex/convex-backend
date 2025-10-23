@@ -565,7 +565,6 @@ mod tests {
         document::ParsedDocument,
         persistence::{
             NoopRetentionValidator,
-            PersistenceReader,
             RepeatablePersistence,
         },
         runtime::Runtime,
@@ -620,23 +619,12 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn persisted_vectors_are_not_included(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = DbFixtures::new(&rt).await?;
-        let (_, index_metadata) = add_and_enable_vector_index(
-            &rt,
-            &fixtures.db,
-            fixtures.tp.reader(),
-            fixtures.search_storage.clone(),
-        )
-        .await?;
+        let (_, index_metadata) =
+            add_and_enable_vector_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         let db = reopen_db(&rt, &fixtures).await?;
         add_vector(&db, &index_metadata, [1f32, 2f32]).await?;
-        backfill_vector_indexes(
-            rt.clone(),
-            db.clone(),
-            fixtures.tp.reader(),
-            fixtures.search_storage,
-        )
-        .await?;
+        backfill_vector_indexes(rt.clone(), db.clone(), fixtures.search_storage).await?;
 
         // This is a bit of a hack, backfilling with zero size forces all indexes to be
         // written to disk, which causes our boostrapping process to skip our
@@ -665,13 +653,8 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn vector_added_after_bootstrap_is_included(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = DbFixtures::new(&rt).await?;
-        let (_, index_metadata) = add_and_enable_vector_index(
-            &rt,
-            &fixtures.db,
-            fixtures.tp.reader(),
-            fixtures.search_storage.clone(),
-        )
-        .await?;
+        let (_, index_metadata) =
+            add_and_enable_vector_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         let db = reopen_db(&rt, &fixtures).await?;
         let vector_id = add_vector(&db, &index_metadata, [1f32, 2f32]).await?;
@@ -685,13 +668,8 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn vector_added_before_bootstrap_is_included(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = DbFixtures::new(&rt).await?;
-        let (_, index_metadata) = add_and_enable_vector_index(
-            &rt,
-            &fixtures.db,
-            fixtures.tp.reader(),
-            fixtures.search_storage.clone(),
-        )
-        .await?;
+        let (_, index_metadata) =
+            add_and_enable_vector_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         let vector_id = add_vector(&fixtures.db, &index_metadata, [1f32, 2f32]).await?;
 
@@ -708,13 +686,8 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = DbFixtures::new(&rt).await?;
-        let (index_id, index_metadata) = add_and_enable_vector_index(
-            &rt,
-            &fixtures.db,
-            fixtures.tp.reader(),
-            fixtures.search_storage.clone(),
-        )
-        .await?;
+        let (index_id, index_metadata) =
+            add_and_enable_vector_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         add_vector(&fixtures.db, &index_metadata, [1f32, 2f32]).await?;
         let mut tx = fixtures.db.begin_system().await?;
@@ -742,13 +715,8 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = DbFixtures::new(&rt).await?;
-        let (index_id, index_metadata) = add_and_backfill_index(
-            &rt,
-            &fixtures.db,
-            fixtures.tp.reader(),
-            fixtures.search_storage.clone(),
-        )
-        .await?;
+        let (index_id, index_metadata) =
+            add_and_backfill_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         add_vector(&fixtures.db, &index_metadata, [1f32, 2f32]).await?;
         let mut tx = fixtures.db.begin_system().await?;
@@ -782,13 +750,8 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn vector_added_during_bootstrap_is_included(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = DbFixtures::new(&rt).await?;
-        let (_, index_metadata) = add_and_enable_vector_index(
-            &rt,
-            &fixtures.db,
-            fixtures.tp.reader(),
-            fixtures.search_storage.clone(),
-        )
-        .await?;
+        let (_, index_metadata) =
+            add_and_enable_vector_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         let db = reopen_db(&rt, &fixtures).await?;
         let worker = db.new_search_and_vector_bootstrap_worker_for_testing();
@@ -827,7 +790,6 @@ mod tests {
     async fn add_and_backfill_index(
         rt: &TestRuntime,
         db: &Database<TestRuntime>,
-        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
     ) -> anyhow::Result<(InternalId, IndexMetadata<TableName>)> {
         let index_metadata = backfilling_vector_index()?;
@@ -836,7 +798,7 @@ mod tests {
             .add_application_index(TableNamespace::test_user(), index_metadata.clone())
             .await?;
         db.commit(tx).await?;
-        backfill_vector_indexes(rt.clone(), db.clone(), reader, storage.clone()).await?;
+        backfill_vector_indexes(rt.clone(), db.clone(), storage.clone()).await?;
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
             .pending_index_metadata(TableNamespace::test_user(), &index_metadata.name)?
@@ -848,10 +810,9 @@ mod tests {
     async fn add_and_enable_vector_index(
         rt: &TestRuntime,
         db: &Database<TestRuntime>,
-        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
     ) -> anyhow::Result<(InternalId, IndexMetadata<TableName>)> {
-        let (_, index_metadata) = add_and_backfill_index(rt, db, reader, storage.clone()).await?;
+        let (_, index_metadata) = add_and_backfill_index(rt, db, storage.clone()).await?;
 
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
@@ -1117,7 +1078,7 @@ mod tests {
         create_new_text_index(&rt, &db_fixtures).await?;
         // Add a vector index to a table with a vector already in it
         add_vector_by_table(db, table(), [1f32, 2f32]).await?;
-        add_and_enable_vector_index(&rt, db, db_fixtures.tp.reader(), search_storage).await?;
+        add_and_enable_vector_index(&rt, db, search_storage).await?;
         // Bootstrap
         reopen_db(&rt, &db_fixtures).await?;
         Ok(())
@@ -1129,8 +1090,7 @@ mod tests {
         let db = &db_fixtures.db;
         let search_storage = db_fixtures.search_storage.clone();
         // Add vector index enabled at t0 to make bootstrapping start at t0
-        add_and_enable_vector_index(&rt, db, db_fixtures.tp.reader(), search_storage.clone())
-            .await?;
+        add_and_enable_vector_index(&rt, db, search_storage.clone()).await?;
         // Add a new search index to a table with pre-existing documents
         let mut tx = db.begin_system().await?;
         add_document(
@@ -1162,7 +1122,6 @@ mod tests {
         db_fixtures: &DbFixtures<RT>,
     ) -> anyhow::Result<(IndexId, ParsedDocument<TabletIndexMetadata>)> {
         let DbFixtures {
-            tp,
             db,
             search_storage,
             build_index_args,
@@ -1186,7 +1145,6 @@ mod tests {
         let flusher = new_text_flusher_for_tests(
             rt.clone(),
             db.clone(),
-            tp.reader(),
             search_storage.clone(),
             build_index_args.segment_term_metadata_fetcher.clone(),
         );
