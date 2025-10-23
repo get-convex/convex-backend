@@ -69,7 +69,7 @@ pub fn ensure_utc() -> anyhow::Result<()> {
     {
         anyhow::bail!("TZ is set, but Convex requires UTC. Unset TZ to continue.")
     }
-    std::env::set_var("TZ", "UTC");
+    unsafe { std::env::set_var("TZ", "UTC") };
 
     Ok(())
 }

@@ -350,7 +350,7 @@ impl BackendInMemoryIndexes {
                     DatabaseIndexValue::Deleted => {
                         key_set.remove(&update.key.to_bytes(), ts);
                     },
-                    DatabaseIndexValue::NonClustered(ref doc_id) => {
+                    DatabaseIndexValue::NonClustered(doc_id) => {
                         // All in-memory indexes are clustered. Get the document
                         // from the update itself.
                         match insertion {
@@ -483,7 +483,7 @@ impl DatabaseIndexMap {
     fn range(
         &self,
         interval: &Interval,
-    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, MemoryDocument)> + '_ {
+    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Timestamp, MemoryDocument)> + use<'_> {
         let _s = static_span!();
         self.inner
             .range(interval)

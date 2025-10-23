@@ -1551,7 +1551,7 @@ fn remove_empty_string_optional_entries(
         if !optional_fields.contains(&identifier_field_name) {
             return true;
         }
-        let JsonValue::String(ref s) = value else {
+        let &mut JsonValue::String(ref s) = value else {
             return true;
         };
         !s.is_empty()

@@ -108,7 +108,7 @@ impl<D: ConfigDecoder + Send + 'static> ConfigLoader<D> {
     /// blocked; to get the current value, use [`ConfigLoader::get_config`]
     /// This stream only emits a new value when the result of decoding the file
     /// is different.
-    pub fn subscribe(&self) -> impl Stream<Item = D::Output> + Unpin {
+    pub fn subscribe(&self) -> impl Stream<Item = D::Output> + Unpin + use<D> {
         let mut rx = self.config_rx.clone();
         rx.mark_unchanged();
         WatchStream::from_changes(rx)

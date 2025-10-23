@@ -91,7 +91,7 @@ impl Display for IndexSelector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::All(_) => write!(f, "ALL"),
-            Self::ManyIndexes { ref indexes, .. } => {
+            Self::ManyIndexes { indexes, .. } => {
                 write!(f, "ManyIndexes(")?;
                 let mut first = true;
                 for name in indexes.values() {
@@ -115,7 +115,7 @@ impl IndexSelector {
         }
     }
 
-    fn iterate_tables(&self) -> impl Iterator<Item = TabletId> {
+    fn iterate_tables(&self) -> impl Iterator<Item = TabletId> + use<> {
         let tables = match self {
             Self::All(index_registry) => index_registry
                 .all_tables_with_indexes()
@@ -126,7 +126,7 @@ impl IndexSelector {
         tables.into_iter()
     }
 
-    fn index_ids(&self) -> impl Iterator<Item = IndexId> {
+    fn index_ids(&self) -> impl Iterator<Item = IndexId> + use<> {
         let indexes: BTreeSet<_> = match self {
             Self::All(index_registry) => index_registry
                 .all_database_indexes()

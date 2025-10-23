@@ -240,8 +240,8 @@ impl NormalizedQdrantDocument {
                 return false;
             };
             let condition_result = match filter_condition {
-                CompiledVectorFilter::Eq(ref term) => term == value,
-                CompiledVectorFilter::In(ref terms) => terms.iter().any(|t| t == value),
+                CompiledVectorFilter::Eq(term) => term == value,
+                CompiledVectorFilter::In(terms) => terms.iter().any(|t| t == value),
             };
             if condition_result {
                 return true;

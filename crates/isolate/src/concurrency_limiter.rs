@@ -52,7 +52,11 @@ impl ConcurrencyLimiter {
 
     // TODO(presley): Replace this when we have isolate_v2.
     // If a client uses a thread for too long. We still want to log periodically.
-    pub fn go_log<RT: Runtime>(&self, rt: RT, frequency: Duration) -> impl Future<Output = ()> {
+    pub fn go_log<RT: Runtime>(
+        &self,
+        rt: RT,
+        frequency: Duration,
+    ) -> impl Future<Output = ()> + use<RT> {
         let tracker = self.tracker.clone();
         async move {
             loop {

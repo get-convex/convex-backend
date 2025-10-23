@@ -77,7 +77,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                     .collect();
                 ShapeEnum::Object(ObjectShape::<C, u64>::new(fields))
             },
-            ShapeEnum::Union(ref union) => {
+            ShapeEnum::Union(union) => {
                 let mut new_counts: Vec<_> = union
                     .iter()
                     .map(|t| {

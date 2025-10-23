@@ -692,10 +692,12 @@ fn make_source_string<'s>(
         let len = owned_source.len();
         mem::forget(owned_source);
         unsafe extern "C" fn destroy(ptr: *mut c_char, len: usize) {
-            drop(Arc::from_raw(ptr::from_raw_parts::<str>(
-                ptr.cast::<u8>().cast_const(),
-                len,
-            )));
+            unsafe {
+                drop(Arc::from_raw(ptr::from_raw_parts::<str>(
+                    ptr.cast::<u8>().cast_const(),
+                    len,
+                )));
+            }
         }
         // N.B.: new_external_onebyte_raw takes a mut pointer but it does not mutate it
         unsafe {

@@ -49,14 +49,14 @@ impl End {
     pub fn is_disjoint(&self, start: &StartIncluded) -> bool {
         match (self, start) {
             (End::Unbounded, _) => false,
-            (End::Excluded(ref s), StartIncluded(ref t)) => s <= t,
+            (End::Excluded(s), StartIncluded(t)) => s <= t,
         }
     }
 
     pub fn is_adjacent(&self, start: &StartIncluded) -> bool {
         match (self, start) {
             (End::Unbounded, _) => false,
-            (End::Excluded(ref s), StartIncluded(ref t)) => s[..].eq(&t[..]),
+            (End::Excluded(s), StartIncluded(t)) => s[..].eq(&t[..]),
         }
     }
 

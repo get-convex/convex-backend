@@ -183,19 +183,19 @@ pub enum SearchOnDiskState<T: SearchIndex> {
 impl<T: SearchIndex> SearchOnDiskState<T> {
     pub fn segments(&self) -> Vec<T::Segment> {
         match self {
-            SearchOnDiskState::Backfilling(ref backfill_state) => backfill_state.segments.clone(),
-            SearchOnDiskState::Backfilled { ref snapshot, .. }
-            | SearchOnDiskState::SnapshottedAt(ref snapshot) => snapshot.data.clone().segments(),
+            SearchOnDiskState::Backfilling(backfill_state) => backfill_state.segments.clone(),
+            SearchOnDiskState::Backfilled { snapshot, .. }
+            | SearchOnDiskState::SnapshottedAt(snapshot) => snapshot.data.clone().segments(),
         }
     }
 
     pub fn ts(&self) -> Option<&Timestamp> {
         match self {
-            SearchOnDiskState::Backfilling(ref backfill_state) => {
+            SearchOnDiskState::Backfilling(backfill_state) => {
                 backfill_state.backfill_snapshot_ts.as_ref()
             },
-            SearchOnDiskState::Backfilled { ref snapshot, .. }
-            | SearchOnDiskState::SnapshottedAt(ref snapshot) => Some(&snapshot.ts),
+            SearchOnDiskState::Backfilled { snapshot, .. }
+            | SearchOnDiskState::SnapshottedAt(snapshot) => Some(&snapshot.ts),
         }
     }
 

@@ -124,7 +124,7 @@ impl TermTable {
         term: &Term,
         max_distance: u8,
         prefix: bool,
-    ) -> impl Iterator<Item = (TermId, EditDistance, Term)> + '_ {
+    ) -> impl Iterator<Item = (TermId, EditDistance, Term)> + use<'_> {
         assert!(max_distance <= 2);
         let term = term.as_str().expect("Term must be string for get_fuzzy");
         let dfa = build_fuzzy_dfa(term, max_distance, prefix);

@@ -299,7 +299,7 @@ impl<T: Future> Future for TraceIfPending<T> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let _guard;
-        if let TraceIfPendingState::Tracing(ref span) = this.state {
+        if let &mut TraceIfPendingState::Tracing(ref span) = this.state {
             _guard = span.set_local_parent();
         }
         let result = this.future.poll(cx);

@@ -142,7 +142,7 @@ impl QdrantSchema {
 
     pub fn index(&self, document: &ResolvedDocument) -> Option<QdrantDocument> {
         let object = document.value();
-        let Some(ConvexValue::Array(ref array)) = object.get_path(&self.vector_field) else {
+        let Some(ConvexValue::Array(array)) = object.get_path(&self.vector_field) else {
             return None;
         };
         let mut vector = Vec::with_capacity(self.dimension);

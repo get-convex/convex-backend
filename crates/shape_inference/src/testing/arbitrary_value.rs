@@ -35,9 +35,7 @@ pub fn shape_member_strategy<C: ShapeConfig>(t: &CountedShape<C>) -> BoxedStrate
         ShapeEnum::NegativeZero => Just(ConvexValue::Float64(-0.0)).boxed(),
         ShapeEnum::NaN => Just(ConvexValue::Float64(f64::NAN)).boxed(),
         ShapeEnum::Boolean => any::<bool>().prop_map(ConvexValue::Boolean).boxed(),
-        ShapeEnum::StringLiteral(ref s) => {
-            Just(ConvexValue::String(s[..].try_into().unwrap())).boxed()
-        },
+        ShapeEnum::StringLiteral(s) => Just(ConvexValue::String(s[..].try_into().unwrap())).boxed(),
         ShapeEnum::Id(table) => {
             let table = *table;
             any::<InternalId>()
@@ -56,12 +54,12 @@ pub fn shape_member_strategy<C: ShapeConfig>(t: &CountedShape<C>) -> BoxedStrate
         ShapeEnum::Bytes => any::<value::ConvexBytes>()
             .prop_map(ConvexValue::Bytes)
             .boxed(),
-        ShapeEnum::Array(ref array) => {
+        ShapeEnum::Array(array) => {
             prop::collection::vec(shape_member_strategy(array.element()), 0..BRANCHING)
                 .prop_map(|values| ConvexValue::Array(ConvexArray::try_from(values).unwrap()))
                 .boxed()
         },
-        ShapeEnum::Object(ref object) => {
+        ShapeEnum::Object(object) => {
             let mut strategy = Just(BTreeMap::new()).boxed();
             for (field_name, field) in object.iter() {
                 let k = field_name.clone();
@@ -84,7 +82,7 @@ pub fn shape_member_strategy<C: ShapeConfig>(t: &CountedShape<C>) -> BoxedStrate
                 .prop_map(|fields| ConvexValue::Object(fields.try_into().unwrap()))
                 .boxed()
         },
-        ShapeEnum::Record(ref record) => {
+        ShapeEnum::Record(record) => {
             let field_strategy = shape_member_strategy(record.field()).prop_map(|v| {
                 let ConvexValue::String(ref s) = v else {
                     panic!("Generated non-string for record field?");
@@ -100,7 +98,7 @@ pub fn shape_member_strategy<C: ShapeConfig>(t: &CountedShape<C>) -> BoxedStrate
             .prop_map(|value| ConvexValue::Object(ConvexObject::try_from(value).unwrap()))
             .boxed()
         },
-        ShapeEnum::Union(ref union) => {
+        ShapeEnum::Union(union) => {
             prop::strategy::Union::new(union.iter().map(|t| shape_member_strategy(t))).boxed()
         },
         ShapeEnum::Unknown => any::<ConvexValue>().boxed(),

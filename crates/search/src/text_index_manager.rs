@@ -87,29 +87,17 @@ pub enum TextIndex {
 impl TextIndex {
     fn memory_index(&self) -> &MemoryTextIndex {
         match self {
-            TextIndex::Backfilling { ref memory_index } => memory_index,
-            TextIndex::Backfilled(SnapshotInfo {
-                ref memory_index, ..
-            }) => memory_index,
-            TextIndex::Ready(SnapshotInfo {
-                ref memory_index, ..
-            }) => memory_index,
+            TextIndex::Backfilling { memory_index } => memory_index,
+            TextIndex::Backfilled(SnapshotInfo { memory_index, .. }) => memory_index,
+            TextIndex::Ready(SnapshotInfo { memory_index, .. }) => memory_index,
         }
     }
 
     pub fn memory_index_mut(&mut self) -> &mut MemoryTextIndex {
         match self {
-            TextIndex::Backfilling {
-                ref mut memory_index,
-            } => memory_index,
-            TextIndex::Backfilled(SnapshotInfo {
-                ref mut memory_index,
-                ..
-            }) => memory_index,
-            TextIndex::Ready(SnapshotInfo {
-                ref mut memory_index,
-                ..
-            }) => memory_index,
+            TextIndex::Backfilling { memory_index } => memory_index,
+            TextIndex::Backfilled(SnapshotInfo { memory_index, .. }) => memory_index,
+            TextIndex::Ready(SnapshotInfo { memory_index, .. }) => memory_index,
         }
     }
 }

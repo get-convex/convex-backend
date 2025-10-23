@@ -331,7 +331,7 @@ impl TantivySearchIndexSchema {
     /// when a super rough estimate is sufficient (e.g. capping the maximum
     /// size of a new segment).
     pub fn estimate_size(&self, document: &ResolvedDocument) -> u64 {
-        let document_size = if let Some(ConvexValue::String(ref s)) =
+        let document_size = if let Some(ConvexValue::String(s)) =
             document.value().get_path(&self.search_field_path)
         {
             s.len()
@@ -353,8 +353,7 @@ impl TantivySearchIndexSchema {
         let _timer = metrics::index_into_terms_timer();
 
         let mut doc_terms = vec![];
-        if let Some(ConvexValue::String(ref s)) = document.value().get_path(&self.search_field_path)
-        {
+        if let Some(ConvexValue::String(s)) = document.value().get_path(&self.search_field_path) {
             let mut token_stream = self.analyzer.token_stream(&s[..]);
 
             while let Some(token) = token_stream.next() {
@@ -392,8 +391,7 @@ impl TantivySearchIndexSchema {
         let creation_time = document.creation_time();
         tantivy_document.add_f64(self.creation_time_field, creation_time.into());
 
-        if let Some(ConvexValue::String(ref s)) = document.value().get_path(&self.search_field_path)
-        {
+        if let Some(ConvexValue::String(s)) = document.value().get_path(&self.search_field_path) {
             tantivy_document.add_text(self.search_field, s);
         }
         for (field_path, tantivy_field) in &self.filter_fields {
@@ -406,12 +404,12 @@ impl TantivySearchIndexSchema {
 
     pub fn document_lengths(&self, document: &TantivyDocument) -> DocumentLengths {
         let mut search_field = 0;
-        if let Some(tantivy::schema::Value::Str(ref s)) = document.get_first(self.search_field) {
+        if let Some(tantivy::schema::Value::Str(s)) = document.get_first(self.search_field) {
             search_field += s.len();
         }
         let mut filter_fields = BTreeMap::new();
         for (field_path, tantivy_field) in &self.filter_fields {
-            if let Some(tantivy::schema::Value::Bytes(ref b)) = document.get_first(*tantivy_field) {
+            if let Some(tantivy::schema::Value::Bytes(b)) = document.get_first(*tantivy_field) {
                 filter_fields.insert(field_path.clone(), b.len());
             }
         }

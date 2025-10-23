@@ -194,7 +194,7 @@ impl VirtualSystemMapping {
 pub fn all_tables_number_to_name(
     table_mapping: &NamespacedTableMapping,
     virtual_system_mapping: &VirtualSystemMapping,
-) -> impl Fn(TableNumber) -> anyhow::Result<TableName> {
+) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + use<> {
     let table_mapping = table_mapping.clone();
     let virtual_system_mapping = virtual_system_mapping.clone();
     move |number| {
@@ -212,7 +212,7 @@ pub fn all_tables_name_to_number(
     namespace: TableNamespace,
     table_mapping: &TableMapping,
     virtual_system_mapping: &VirtualSystemMapping,
-) -> impl Fn(TableName) -> anyhow::Result<TableNumber> {
+) -> impl Fn(TableName) -> anyhow::Result<TableNumber> + use<> {
     let table_mapping = table_mapping.clone();
     let virtual_system_mapping = virtual_system_mapping.clone();
     move |name| {

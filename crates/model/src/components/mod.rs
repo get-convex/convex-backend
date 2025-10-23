@@ -351,12 +351,12 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         while let Some((path, internal_node)) = stack.pop() {
             for (name, export) in internal_node {
                 match export {
-                    ComponentExport::Branch(ref children) => {
+                    ComponentExport::Branch(children) => {
                         let mut new_path = path.clone();
                         new_path.push(name.clone());
                         stack.push((new_path, children));
                     },
-                    ComponentExport::Leaf(ref reference) => {
+                    ComponentExport::Leaf(reference) => {
                         let mut new_path = path.clone();
                         new_path.push(name.clone());
                         let resource = self.resolve(component_id, None, reference).await?;

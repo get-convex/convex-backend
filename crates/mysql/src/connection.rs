@@ -272,7 +272,7 @@ impl MySqlConnection<'_> {
         statement: &'static str,
         params: Vec<MySqlValue>,
         size_hint: usize,
-    ) -> anyhow::Result<impl Stream<Item = anyhow::Result<Row>> + '_> {
+    ) -> anyhow::Result<impl Stream<Item = anyhow::Result<Row>> + use<'_>> {
         let labels = self.labels.clone();
         // Any error or dropped stream after this point leaves the connection
         // open with MySQL sending data into it. In the worst case, the data

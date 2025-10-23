@@ -921,7 +921,7 @@ impl ValidatedActionOutcome {
             mutation_queue_length: None,
         };
 
-        if let Ok(ref json_packed_value) = &validated.result {
+        if let Ok(json_packed_value) = &validated.result {
             let output = json_packed_value.unpack();
             if let Some(js_err) =
                 returns_validator.check_output(&output, table_mapping, virtual_system_mapping())

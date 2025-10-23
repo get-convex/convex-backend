@@ -196,13 +196,13 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
         "id" => id_v6.encode(),
         "table" => table_name_a.to_string()
     )).await?);
-    must_let!(let Some(ConvexValue::String(ref normalized_id)) = obj.get("normalized"));
+    must_let!(let Some(ConvexValue::String(normalized_id)) = obj.get("normalized"));
 
     assert_eq!(normalized_id.to_string(), id_v6.encode());
 
     // Test internal ID and correct table name
     must_let!(let ConvexValue::Object(obj) = t.query("idStrings:normalizeId", assert_obj!("id" => internal_id.to_string(), "table" => table_name_a.to_string() )).await?);
-    must_let!(let Some(ConvexValue::String(ref normalized_id)) = obj.get("normalized"));
+    must_let!(let Some(ConvexValue::String(normalized_id)) = obj.get("normalized"));
 
     assert_eq!(normalized_id.to_string(), id_v6.encode());
 

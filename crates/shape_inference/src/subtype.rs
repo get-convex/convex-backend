@@ -37,11 +37,11 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             (ShapeEnum::Bytes, ShapeEnum::Bytes) => true,
 
             // Two string literal types are subtypes if they're equal.
-            (ShapeEnum::StringLiteral(ref s), ShapeEnum::StringLiteral(ref other_s)) => {
+            (ShapeEnum::StringLiteral(s), ShapeEnum::StringLiteral(other_s)) => {
                 s[..] == other_s[..]
             },
             // A string literal type is a subtype of an `id<t>` type if it's a valid ID in `t`.
-            (ShapeEnum::StringLiteral(ref s), ShapeEnum::Id(table_number)) => {
+            (ShapeEnum::StringLiteral(s), ShapeEnum::Id(table_number)) => {
                 match DeveloperDocumentId::decode(s) {
                     Ok(id) => id.table() == *table_number,
                     Err(_) => false,
@@ -49,9 +49,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             },
             // A string literal type is a subtype of `field_name` if its string is a valid field
             // name.
-            (ShapeEnum::StringLiteral(ref s), ShapeEnum::FieldName) => {
-                s.parse::<FieldName>().is_ok()
-            },
+            (ShapeEnum::StringLiteral(s), ShapeEnum::FieldName) => s.parse::<FieldName>().is_ok(),
             // All string literal types are subtypes of `string`.
             (ShapeEnum::StringLiteral(_), ShapeEnum::String) => true,
             // `id` types are subtypes if they're equal.
@@ -93,7 +91,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             // Covariance: `array<t> <= array<u>` if `t <= u`. Intuitively, the set of all arrays
             // with elements in `u` contains the set of all arrays with elements in `t` when `t` is
             // a subset of `u`.
-            (ShapeEnum::Array(ref array), ShapeEnum::Array(ref other_array)) => array
+            (ShapeEnum::Array(array), ShapeEnum::Array(other_array)) => array
                 .element()
                 .variant
                 .is_subtype(&other_array.element().variant),
@@ -134,7 +132,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             // 1. `t`'s fields are a subset of `u`'s,
             // 2. all of the fields only in `u` are optional,
             // 3. every field optional in `t` is optional in `u`.
-            (ShapeEnum::Object(ref object), ShapeEnum::Object(ref other_object)) => {
+            (ShapeEnum::Object(object), ShapeEnum::Object(other_object)) => {
                 for (field_name, field) in object.iter() {
                     let other_field = match other_object.get(field_name) {
                         Some(other_field) => other_field,
@@ -160,7 +158,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             },
             // Object types are subtypes of a record type if their fields (interpreted as
             // `Value::String`s) and value types are subtypes of the record's field and value types.
-            (ShapeEnum::Object(ref object), ShapeEnum::Record(ref record)) => {
+            (ShapeEnum::Object(object), ShapeEnum::Record(record)) => {
                 for (field_name, field) in object.iter() {
                     let field_name_type = StringLiteralShape::shape_of(&field_name[..]);
                     if !field_name_type.is_subtype(&record.field().variant) {
@@ -177,7 +175,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
                 true
             },
             // Like array types, record types are covariant in their field and value types.
-            (ShapeEnum::Record(ref record), ShapeEnum::Record(ref other_record)) => {
+            (ShapeEnum::Record(record), ShapeEnum::Record(other_record)) => {
                 record
                     .field()
                     .variant
@@ -189,10 +187,10 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             },
 
             // A union type `u_1 | ... | u_n` is a subtype of `t` if all `u_i <= t`.
-            (ShapeEnum::Union(ref union), _) => union.iter().all(|v| v.variant.is_subtype(other)),
+            (ShapeEnum::Union(union), _) => union.iter().all(|v| v.variant.is_subtype(other)),
 
             // A type `t` is a subtype of a union type `u_1 | ... | u_n` if `t <= u_i` for some `i`.
-            (_, ShapeEnum::Union(ref union)) => union.iter().any(|v| self.is_subtype(&v.variant)),
+            (_, ShapeEnum::Union(union)) => union.iter().any(|v| self.is_subtype(&v.variant)),
 
             // Every type is a subtype of the `unknown` type.
             (_, ShapeEnum::Unknown) => true,
@@ -219,13 +217,13 @@ impl<C: ShapeConfig> CountedShape<C> {
             (ShapeEnum::Boolean, ShapeEnum::Boolean) => ShapeEnum::Boolean,
             (ShapeEnum::Bytes, ShapeEnum::Bytes) => ShapeEnum::Bytes,
 
-            (ShapeEnum::StringLiteral(ref s), ShapeEnum::StringLiteral(ref other_s)) => {
+            (ShapeEnum::StringLiteral(s), ShapeEnum::StringLiteral(other_s)) => {
                 if s[..] != other_s[..] {
                     return None;
                 }
                 ShapeEnum::StringLiteral(s.clone())
             },
-            (ShapeEnum::StringLiteral(ref s), ShapeEnum::Id(table_number)) => {
+            (ShapeEnum::StringLiteral(s), ShapeEnum::Id(table_number)) => {
                 let Ok(id) = DeveloperDocumentId::decode(s) else {
                     return None;
                 };
@@ -234,7 +232,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
                 ShapeEnum::Id(*table_number)
             },
-            (ShapeEnum::StringLiteral(ref s), ShapeEnum::FieldName) => {
+            (ShapeEnum::StringLiteral(s), ShapeEnum::FieldName) => {
                 if s.parse::<FieldName>().is_err() {
                     return None;
                 }
@@ -265,12 +263,12 @@ impl<C: ShapeConfig> CountedShape<C> {
             (ShapeEnum::NormalFloat64, ShapeEnum::Float64) => ShapeEnum::Float64,
             (ShapeEnum::Float64, ShapeEnum::Float64) => ShapeEnum::Float64,
 
-            (ShapeEnum::Array(ref array), ShapeEnum::Array(ref other_array)) => {
+            (ShapeEnum::Array(array), ShapeEnum::Array(other_array)) => {
                 let element = array.element().merge_if_subtype(other_array.element())?;
                 ShapeEnum::Array(ArrayShape::new(element))
             },
 
-            (ShapeEnum::Object(ref object), ShapeEnum::Object(ref other_object)) => {
+            (ShapeEnum::Object(object), ShapeEnum::Object(other_object)) => {
                 let mut fields = BTreeMap::new();
                 for (field_name, field) in object.iter() {
                     let other_field = other_object.get(field_name)?;
@@ -295,7 +293,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
                 ShapeEnum::Object(ObjectShape::<C, u64>::new(fields))
             },
-            (ShapeEnum::Object(ref object), ShapeEnum::Record(ref record)) => {
+            (ShapeEnum::Object(object), ShapeEnum::Record(record)) => {
                 let mut field = record.field().clone();
                 let mut value = record.value().clone();
                 for (field_name, object_field) in object.iter() {
@@ -308,19 +306,19 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
                 ShapeEnum::Record(RecordShape::new(field, value))
             },
-            (ShapeEnum::Record(ref record), ShapeEnum::Record(ref other_record)) => {
+            (ShapeEnum::Record(record), ShapeEnum::Record(other_record)) => {
                 let field = record.field().merge_if_subtype(other_record.field())?;
                 let value = record.value().merge_if_subtype(other_record.value())?;
                 ShapeEnum::Record(RecordShape::new(field, value))
             },
-            (ShapeEnum::Union(ref union), _) => {
+            (ShapeEnum::Union(union), _) => {
                 let mut accumulated = other.clone();
                 for union_type in union.iter() {
                     accumulated = union_type.merge_if_subtype(&accumulated)?;
                 }
                 return Some(accumulated);
             },
-            (_, ShapeEnum::Union(ref union)) => {
+            (_, ShapeEnum::Union(union)) => {
                 for union_type in union.iter() {
                     if let Some(merged_type) = self.merge_if_subtype(union_type) {
                         let mut builder = union.clone().into_builder();

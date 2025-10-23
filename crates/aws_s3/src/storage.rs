@@ -684,7 +684,7 @@ impl<RT: Runtime> Upload for S3Upload<RT> {
 }
 
 impl<RT: Runtime> S3Upload<RT> {
-    fn _abort(&mut self) -> impl Future<Output = anyhow::Result<()>> {
+    fn _abort(&mut self) -> impl Future<Output = anyhow::Result<()>> + use<RT> {
         let client = self.client.clone();
         let bucket = self.bucket.clone();
         let upload_id = self.upload_id.to_string();

@@ -689,7 +689,7 @@ impl MetricsWindow {
         if is_rate {
             let width = self.bucket_width()?.as_secs_f64();
             for (_, value) in &mut result {
-                if let Some(ref mut value) = value {
+                if let Some(value) = value {
                     *value /= width;
                 }
             }

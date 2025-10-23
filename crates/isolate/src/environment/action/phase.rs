@@ -337,7 +337,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         let ActionPreloaded::Ready { ref mut rng, .. } = self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };
-        let Some(ref mut rng) = rng else {
+        let Some(rng) = rng else {
             // Fail for old module without import time rng populated.
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoRandomDuringImport",

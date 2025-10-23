@@ -31,10 +31,10 @@ pub fn set_protoc_path() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("protoc");
     let include_path = std::fs::canonicalize(root.join("include"))
         .expect("Failed to canonicalize protoc include path");
-    std::env::set_var("PROTOC_INCLUDE", include_path);
+    unsafe { std::env::set_var("PROTOC_INCLUDE", include_path) };
     let binary_path = std::fs::canonicalize(root.join(PROTOC_BINARY_NAME))
         .expect("Failed to canonicalize protoc path");
-    std::env::set_var("PROTOC", binary_path);
+    unsafe { std::env::set_var("PROTOC", binary_path) };
 }
 
 fn find_packages(proto_dir: &Path) -> Result<Vec<String>> {

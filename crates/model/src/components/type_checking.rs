@@ -173,7 +173,7 @@ pub fn validate_component_args(
             )
         })?;
         match (arg_value, validator) {
-            (Resource::Value(ref value), ComponentArgumentValidator::Value(ref validator)) => {
+            (Resource::Value(value), ComponentArgumentValidator::Value(validator)) => {
                 // TODO(CX-6540): Remove hack where we pass in empty mappings.
                 let table_mapping =
                     TableMapping::new().namespace(TableNamespace::by_component_TODO());
@@ -346,10 +346,10 @@ impl<'a> CheckedComponentBuilder<'a> {
         let mut result = BTreeMap::new();
         for (name, export) in exports {
             let node = match export {
-                ComponentExport::Branch(ref exports) => {
+                ComponentExport::Branch(exports) => {
                     ResourceTree::Branch(self.resolve_exports(exports)?)
                 },
-                ComponentExport::Leaf(ref reference) => self.resolve(reference)?,
+                ComponentExport::Leaf(reference) => self.resolve(reference)?,
             };
             result.insert(name.clone(), node);
         }
@@ -434,11 +434,11 @@ impl CheckedComponent {
                 return Ok(None);
             };
             match export {
-                ResourceTree::Branch(ref next) => {
+                ResourceTree::Branch(next) => {
                     current = next;
                     continue;
                 },
-                ResourceTree::Leaf(ref resource) => {
+                ResourceTree::Leaf(resource) => {
                     if !attribute_iter.as_slice().is_empty() {
                         anyhow::bail!("Unexpected component reference");
                     }

@@ -1,3 +1,5 @@
+#![feature(never_type)]
+
 use std::{
     str::FromStr,
     time::SystemTime,
@@ -771,7 +773,6 @@ where
 #[cfg(test)]
 mod tests {
     use std::{
-        convert::Infallible,
         pin::Pin,
         time::SystemTime,
     };
@@ -834,8 +835,7 @@ mod tests {
     fn fake_http_client(
         metadata: String,
         jwks: String,
-    ) -> impl Fn(HttpRequest) -> Pin<Box<dyn Future<Output = Result<HttpResponse, Infallible>>>>
-    {
+    ) -> impl Fn(HttpRequest) -> Pin<Box<dyn Future<Output = Result<HttpResponse, !>>>> {
         move |request: HttpRequest| {
             let metadata_ = metadata.clone();
             let jwks_ = jwks.clone();
@@ -861,7 +861,7 @@ mod tests {
     fn fake_workos_http_client(
         client_id: &str,
         jwks: String,
-    ) -> impl Fn(HttpRequest) -> Pin<Box<dyn Future<Output = Result<HttpResponse, Infallible>>>>
+    ) -> impl Fn(HttpRequest) -> Pin<Box<dyn Future<Output = Result<HttpResponse, !>>>> + use<>
     {
         let client_id = client_id.to_string();
         move |request: HttpRequest| {

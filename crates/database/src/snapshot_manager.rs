@@ -521,7 +521,7 @@ impl SnapshotManager {
         vector_indexes: VectorIndexManager,
         pending_writes: &mut PendingWrites,
     ) {
-        let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
+        let (_ts, snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         snapshot.text_indexes = text_indexes;
         snapshot.vector_indexes = vector_indexes;
         pending_writes.recompute_pending_snapshots(snapshot.clone());
@@ -532,7 +532,7 @@ impl SnapshotManager {
         table_summary: TableSummarySnapshot,
         pending_writes: &mut PendingWrites,
     ) {
-        let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
+        let (_ts, snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         let table_mapping = snapshot.table_mapping();
         let table_summaries = TableSummaries::new(table_summary, table_mapping);
         snapshot.table_summaries = Some(table_summaries);
@@ -554,7 +554,7 @@ impl SnapshotManager {
         in_memory_indexes: BackendInMemoryIndexes,
         pending_writes: &mut PendingWrites,
     ) {
-        let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
+        let (_ts, snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         snapshot.in_memory_indexes = in_memory_indexes;
         pending_writes.recompute_pending_snapshots(snapshot.clone());
     }

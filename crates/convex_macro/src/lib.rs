@@ -38,7 +38,7 @@ pub fn prod_rt_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
         panic!("#[prod_rt_test] requires `{name}` to have `rt: ProdRuntime` as the first arg");
     };
     let attrs = ast.attrs.iter();
-    let gen = quote! {
+    let r#gen = quote! {
         #[test]
         #( #attrs )*
         fn #name() #output {
@@ -58,7 +58,7 @@ pub fn prod_rt_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
             handler.join().unwrap()
         }
     };
-    gen.into()
+    r#gen.into()
 }
 
 /// Macro to use for tests that need TestRuntime.
@@ -111,7 +111,7 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let attrs = ast.attrs.iter();
-    let gen = quote! {
+    let r#gen = quote! {
         #[test]
         #( #attrs )*
         fn #name() #output {
@@ -127,7 +127,7 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
             handler.join().unwrap()
         }
     };
-    gen.into()
+    r#gen.into()
 }
 
 #[proc_macro_attribute]
@@ -149,14 +149,14 @@ pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let Signature {
-        ref ident,
-        ref generics,
-        ref inputs,
-        ref output,
+        ident,
+        generics,
+        inputs,
+        output,
         ..
     } = sig;
 
-    let gen = quote! {
+    let r#gen = quote! {
         #(#attrs)*
         #vis async fn #ident #generics (#inputs) #output {
             ::common::run_instrumented!(
@@ -165,7 +165,7 @@ pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
             )
         }
     };
-    gen.into()
+    r#gen.into()
 }
 
 /// Use as #[convex_macro::v8_op] to annotate "ops" (Rust code callable from
@@ -200,10 +200,10 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let Signature {
-        ref ident,
-        ref generics,
-        ref inputs,
-        ref output,
+        ident,
+        generics,
+        inputs,
+        output,
         ..
     } = sig;
 
@@ -266,7 +266,7 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
         panic!("op must return anyhow::Result<...>");
     };
 
-    let gen = quote! {
+    let r#gen = quote! {
         #(#attrs)*
         #vis fn #ident #generics (
             #first_pat_type,
@@ -287,5 +287,5 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             Ok(())
         }
     };
-    gen.into()
+    r#gen.into()
 }

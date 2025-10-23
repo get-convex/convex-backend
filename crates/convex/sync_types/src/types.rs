@@ -374,9 +374,7 @@ pub enum ServerMessage<V: 'static> {
 impl<V: 'static> ServerMessage<V> {
     pub fn inject_server_ts(&mut self, ts: Timestamp) {
         match self {
-            Self::Transition {
-                ref mut server_ts, ..
-            } => *server_ts = Some(ts),
+            Self::Transition { server_ts, .. } => *server_ts = Some(ts),
             _ => {},
         }
     }

@@ -1903,7 +1903,7 @@ async fn test_db_index_backfill_progress(
     rt: TestRuntime,
     pause: PauseController,
 ) -> anyhow::Result<()> {
-    std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10");
+    unsafe { std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10") };
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
 
     let (_index_name, index_id, _values) = add_documents_and_index(db.clone()).await?;
@@ -1937,7 +1937,7 @@ async fn test_db_index_backfill_resumable(
     pause: PauseController,
 ) -> anyhow::Result<()> {
     // Backfill for one batch
-    std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10");
+    unsafe { std::env::set_var("INDEX_BACKFILL_CHUNK_SIZE", "10") };
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
 
     let (index_name, index_id, values) = add_documents_and_index(db.clone()).await?;

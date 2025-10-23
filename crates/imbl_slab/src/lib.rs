@@ -64,7 +64,7 @@ impl<T: Clone> Slab<T> {
         if key as usize >= self.entries.len() {
             return None;
         }
-        let SlabEntry::Occupied(ref value) = &self.entries[key as usize] else {
+        let SlabEntry::Occupied(value) = &self.entries[key as usize] else {
             return None;
         };
         Some(value)
@@ -74,7 +74,7 @@ impl<T: Clone> Slab<T> {
         if key as usize >= self.entries.len() {
             return None;
         }
-        let SlabEntry::Occupied(ref mut value) = &mut self.entries[key as usize] else {
+        let SlabEntry::Occupied(value) = &mut self.entries[key as usize] else {
             return None;
         };
         Some(value)
@@ -93,7 +93,7 @@ impl<T: Clone> Slab<T> {
             .iter()
             .enumerate()
             .filter_map(|(i, entry)| match entry {
-                SlabEntry::Occupied(ref value) => Some((i as SlabKey, value)),
+                SlabEntry::Occupied(value) => Some((i as SlabKey, value)),
                 SlabEntry::Vacant { .. } => None,
             })
     }

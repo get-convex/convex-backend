@@ -83,7 +83,7 @@ impl ReducedShape {
                 has_special_values: false,
             }),
             ShapeEnum::Boolean => ReducedShape::Boolean,
-            ShapeEnum::StringLiteral(ref s) => {
+            ShapeEnum::StringLiteral(s) => {
                 if let Ok(id) = DeveloperDocumentId::decode(s)
                     && table_exists(id.table())
                 {

@@ -1838,7 +1838,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         tx: &mut Transaction<RT>,
         mutation_identifier: &Option<SessionRequestIdentifier>,
     ) -> anyhow::Result<Option<Result<MutationReturn, MutationError>>> {
-        let Some(ref identifier) = mutation_identifier else {
+        let Some(identifier) = mutation_identifier else {
             return Ok(None);
         };
         let mutation_status = SessionRequestModel::new(tx)
@@ -1870,7 +1870,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mutation_identifier: &Option<SessionRequestIdentifier>,
         outcome: &ValidatedUdfOutcome,
     ) -> anyhow::Result<()> {
-        let Some(ref identifier) = mutation_identifier else {
+        let Some(identifier) = mutation_identifier else {
             return Ok(());
         };
         if let Ok(ref value) = outcome.result {

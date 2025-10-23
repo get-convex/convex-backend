@@ -32,10 +32,7 @@ impl<RT: Runtime> IndexFastForward<RT, ()> for VectorFastForward {
     fn current_version(_: &mut Transaction<RT>) {}
 
     fn snapshot_info(config: &IndexConfig) -> Option<(Timestamp, ())> {
-        let IndexConfig::Vector {
-            ref on_disk_state, ..
-        } = config
-        else {
+        let IndexConfig::Vector { on_disk_state, .. } = config else {
             return None;
         };
         let VectorIndexSnapshot { ts, .. } = match on_disk_state {

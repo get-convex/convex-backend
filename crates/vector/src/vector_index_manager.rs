@@ -83,10 +83,10 @@ impl IndexState {
         memory_index: MemoryVectorIndex,
     ) {
         match self {
-            IndexState::Bootstrapping(ref mut indexes) => {
+            IndexState::Bootstrapping(indexes) => {
                 indexes.insert(id, state);
             },
-            IndexState::Ready(ref mut indexes) => {
+            IndexState::Ready(indexes) => {
                 indexes.insert(id, (state, memory_index));
             },
         };
@@ -122,10 +122,10 @@ impl IndexState {
 
     pub fn delete(&mut self, id: &InternalId) {
         match self {
-            IndexState::Bootstrapping(ref mut indexes) => {
+            IndexState::Bootstrapping(indexes) => {
                 indexes.remove(id);
             },
-            IndexState::Ready(ref mut indexes) => {
+            IndexState::Ready(indexes) => {
                 indexes.remove(id);
             },
         }
@@ -452,7 +452,7 @@ impl VectorIndexManager {
                 anyhow::bail!("Vector index {:?} not available", index.id());
             };
             let qdrant_schema = QdrantSchema::new(spec);
-            let VectorIndexState::SnapshottedAt(ref snapshot) = vector_index else {
+            let VectorIndexState::SnapshottedAt(snapshot) = vector_index else {
                 anyhow::bail!(index_backfilling_error(&query.printable_index_name()?));
             };
             let (disk_revisions, vector_index_type) = match snapshot.data {

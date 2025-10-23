@@ -257,10 +257,10 @@ impl<C: ShapeConfig> CountedShape<C> {
             ConvexValue::Int64(..) => ShapeEnum::Int64,
             ConvexValue::Float64(f) => Float64Shape::shape_of(*f),
             ConvexValue::Boolean(..) => ShapeEnum::Boolean,
-            ConvexValue::String(ref s) => StringLiteralShape::shape_of(s),
+            ConvexValue::String(s) => StringLiteralShape::shape_of(s),
             ConvexValue::Bytes(..) => ShapeEnum::Bytes,
-            ConvexValue::Array(ref array) => ArrayShape::shape_of(array),
-            ConvexValue::Object(ref object) => return Self::shape_of_object(object),
+            ConvexValue::Array(array) => ArrayShape::shape_of(array),
+            ConvexValue::Object(object) => return Self::shape_of_object(object),
         };
         Self::new(variant, 1)
     }
@@ -272,7 +272,7 @@ impl<C: ShapeConfig> CountedShape<C> {
     /// Insert a value into a shape, returning the updated shape.
     pub fn insert_value(&self, value: &ConvexValue) -> Self {
         let union_builder = match &*self.variant {
-            ShapeEnum::Union(ref union) => union.clone().into_builder(),
+            ShapeEnum::Union(union) => union.clone().into_builder(),
             _ => UnionBuilder::new().push(self.clone()),
         };
         union_builder.push(Self::shape_of(value)).build()
@@ -281,7 +281,7 @@ impl<C: ShapeConfig> CountedShape<C> {
     /// Insert an object into a shape, returning the updated shape.
     pub fn insert(&self, object: &ConvexObject) -> Self {
         let union_builder = match &*self.variant {
-            ShapeEnum::Union(ref union) => union.clone().into_builder(),
+            ShapeEnum::Union(union) => union.clone().into_builder(),
             _ => UnionBuilder::new().push(self.clone()),
         };
         union_builder.push(Self::shape_of_object(object)).build()
@@ -315,7 +315,7 @@ impl<C: ShapeConfig> CountedShape<C> {
             return None;
         }
         let mut new_variant = match (value, &*self.variant) {
-            (ConvexValue::Object(ref object), _) => return self._remove_object(object),
+            (ConvexValue::Object(object), _) => return self._remove_object(object),
             (ConvexValue::Null, ShapeEnum::Null) => ShapeEnum::Null,
             (ConvexValue::Int64(..), ShapeEnum::Int64) => ShapeEnum::Int64,
             (ConvexValue::Float64(..), ShapeEnum::Float64) => ShapeEnum::Float64,
@@ -355,10 +355,10 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
             },
             (ConvexValue::Boolean(..), ShapeEnum::Boolean) => ShapeEnum::Boolean,
-            (ConvexValue::String(ref s1), ShapeEnum::StringLiteral(ref s2)) if s1[..] == s2[..] => {
+            (ConvexValue::String(s1), ShapeEnum::StringLiteral(s2)) if s1[..] == s2[..] => {
                 ShapeEnum::StringLiteral(s2.clone())
             },
-            (ConvexValue::String(ref s), ShapeEnum::Id(table_number)) => {
+            (ConvexValue::String(s), ShapeEnum::Id(table_number)) => {
                 if let Ok(id) = DeveloperDocumentId::decode(s)
                     && id.table() == *table_number
                 {
@@ -367,7 +367,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                     return None;
                 }
             },
-            (ConvexValue::String(ref s), ShapeEnum::FieldName) => {
+            (ConvexValue::String(s), ShapeEnum::FieldName) => {
                 if s.parse::<FieldName>().is_err() {
                     return None;
                 }
@@ -375,14 +375,14 @@ impl<C: ShapeConfig> CountedShape<C> {
             },
             (ConvexValue::String(..), ShapeEnum::String) => ShapeEnum::String,
             (ConvexValue::Bytes(..), ShapeEnum::Bytes) => ShapeEnum::Bytes,
-            (ConvexValue::Array(ref array), ShapeEnum::Array(ref array_shape)) => {
+            (ConvexValue::Array(array), ShapeEnum::Array(array_shape)) => {
                 let mut element_shape = array_shape.element().clone();
                 for value in array {
                     element_shape = element_shape._remove(value)?;
                 }
                 ShapeEnum::Array(ArrayShape::new(element_shape))
             },
-            (value, ShapeEnum::Union(ref union_shape)) => {
+            (value, ShapeEnum::Union(union_shape)) => {
                 let (existing_shape, removed) = union_shape
                     .iter()
                     .filter_map(|shape| shape._remove(value).map(|removed| (shape, removed)))
@@ -407,7 +407,7 @@ impl<C: ShapeConfig> CountedShape<C> {
         }
         let new_num_values = self.num_values - 1;
         let mut new_variant = match &*self.variant {
-            ShapeEnum::Object(ref object_shape) => {
+            ShapeEnum::Object(object_shape) => {
                 let mut fields = BTreeMap::new();
                 // Go through all the fields that are in `object` (which must also be in
                 // `object_shape`) and compute the new value shape after removing
@@ -450,7 +450,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
                 ShapeEnum::Object(ObjectShape::<C, u64>::new(fields))
             },
-            ShapeEnum::Record(ref record_shape) => {
+            ShapeEnum::Record(record_shape) => {
                 let mut field_shape = record_shape.field().clone();
                 let mut value_shape = record_shape.value().clone();
                 for (field, value) in object.iter() {
@@ -460,7 +460,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
                 ShapeEnum::Record(RecordShape::new(field_shape, value_shape))
             },
-            ShapeEnum::Union(ref union_shape) => {
+            ShapeEnum::Union(union_shape) => {
                 let (existing_shape, removed) = union_shape
                     .iter()
                     .filter_map(|shape| {

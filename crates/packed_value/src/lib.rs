@@ -156,7 +156,7 @@ impl PackedValue<ByteBuffer> {
             ConvexValue::Bytes(b) => {
                 builder.push(Blob(&b[..]));
             },
-            ConvexValue::Array(ref values) => {
+            ConvexValue::Array(values) => {
                 let mut vector = builder.start_vector();
                 for value in values {
                     Self::_pack(value, &mut vector);
@@ -164,7 +164,7 @@ impl PackedValue<ByteBuffer> {
                 vector.end_vector();
             },
 
-            ConvexValue::Object(ref fields) => {
+            ConvexValue::Object(fields) => {
                 Self::_pack_object(fields, builder);
             },
         }
@@ -204,10 +204,10 @@ where
             OpenedValue::Int64(i) => OpenedValue::Int64(*i),
             OpenedValue::Float64(f) => OpenedValue::Float64(*f),
             OpenedValue::Boolean(b) => OpenedValue::Boolean(*b),
-            OpenedValue::String(ref s) => OpenedValue::String(s.clone()),
-            OpenedValue::Bytes(ref b) => OpenedValue::Bytes(b.clone()),
-            OpenedValue::Array(ref a) => OpenedValue::Array(a.clone()),
-            OpenedValue::Object(ref o) => OpenedValue::Object(o.clone()),
+            OpenedValue::String(s) => OpenedValue::String(s.clone()),
+            OpenedValue::Bytes(b) => OpenedValue::Bytes(b.clone()),
+            OpenedValue::Array(a) => OpenedValue::Array(a.clone()),
+            OpenedValue::Object(o) => OpenedValue::Object(o.clone()),
         }
     }
 }
@@ -381,7 +381,9 @@ where
         Ok(Some(OpenedValue::new(reader)?))
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = anyhow::Result<(B::BufferString, OpenedValue<B>)>> {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = anyhow::Result<(B::BufferString, OpenedValue<B>)>> + use<B> {
         self.reader
             .iter_keys()
             .zip(self.reader.iter_values())

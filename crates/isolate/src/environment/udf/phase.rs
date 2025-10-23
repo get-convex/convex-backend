@@ -393,7 +393,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         if self.phase == Phase::Executing {
             *observed_rng_during_execution = true;
         }
-        let Some(ref mut rng) = rng else {
+        let Some(rng) = rng else {
             // Fail for old module without import time rng populated.
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoRandomDuringImport",

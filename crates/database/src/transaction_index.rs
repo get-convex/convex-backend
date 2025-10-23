@@ -608,7 +608,7 @@ impl TransactionIndexMap {
     pub fn range(
         &self,
         interval: &Interval,
-    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<ResolvedDocument>)> + '_ {
+    ) -> impl DoubleEndedIterator<Item = (IndexKeyBytes, Option<ResolvedDocument>)> + use<'_> {
         self.inner
             .range(interval)
             .map(|(k, v)| (IndexKeyBytes(k.clone()), v.as_ref().map(|v| v.unpack())))

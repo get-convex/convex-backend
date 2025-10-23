@@ -29,23 +29,21 @@ impl<C: ShapeConfig> CountedShape<C> {
                 | ShapeEnum::NormalFloat64,
             ) => Float64Shape::<C>::shape_of(*f) == *self.variant,
             (ConvexValue::Boolean(..), ShapeEnum::Boolean) => true,
-            (ConvexValue::String(ref s), ShapeEnum::StringLiteral(ref literal)) => {
-                s[..] == literal[..]
-            },
-            (ConvexValue::String(ref s), ShapeEnum::Id(ref table)) => {
+            (ConvexValue::String(s), ShapeEnum::StringLiteral(literal)) => s[..] == literal[..],
+            (ConvexValue::String(s), ShapeEnum::Id(table)) => {
                 if let Ok(ref id) = DeveloperDocumentId::decode(s) {
                     id.table() == *table
                 } else {
                     false
                 }
             },
-            (ConvexValue::String(ref s), ShapeEnum::FieldName) => s.parse::<FieldName>().is_ok(),
+            (ConvexValue::String(s), ShapeEnum::FieldName) => s.parse::<FieldName>().is_ok(),
             (ConvexValue::String(..), ShapeEnum::String) => true,
             (ConvexValue::Bytes(..), ShapeEnum::Bytes) => true,
-            (ConvexValue::Array(ref array), ShapeEnum::Array(ref array_shape)) => array
+            (ConvexValue::Array(array), ShapeEnum::Array(array_shape)) => array
                 .iter()
                 .all(|value| array_shape.element().contains(value)),
-            (ConvexValue::Object(ref object), ShapeEnum::Object(ref object_shape)) => {
+            (ConvexValue::Object(object), ShapeEnum::Object(object_shape)) => {
                 for (field_name, value) in object.iter() {
                     let Some(field) = object_shape.get(&field_name[..]) else {
                         return false;
@@ -61,13 +59,13 @@ impl<C: ShapeConfig> CountedShape<C> {
                 }
                 true
             },
-            (ConvexValue::Object(ref object), ShapeEnum::Record(ref record_shape)) => {
+            (ConvexValue::Object(object), ShapeEnum::Record(record_shape)) => {
                 object.iter().all(|(key, value)| {
                     let key = ConvexValue::String(key.to_string().try_into().unwrap());
                     record_shape.field().contains(&key) && record_shape.value().contains(value)
                 })
             },
-            (value, ShapeEnum::Union(ref union)) => union.iter().any(|ty| ty.contains(value)),
+            (value, ShapeEnum::Union(union)) => union.iter().any(|ty| ty.contains(value)),
 
             (_, ShapeEnum::Unknown) => true,
 

@@ -211,7 +211,7 @@ impl<C: ShapeConfig> CountedShapeEnum<C> {
             ShapeEnum::NaN => json!({"kind": "NaN"}),
             ShapeEnum::NormalFloat64 => json!({"kind": "NormalFloat64"}),
             ShapeEnum::Boolean => json!({"kind": "Boolean"}),
-            ShapeEnum::StringLiteral(ref s) => {
+            ShapeEnum::StringLiteral(s) => {
                 if include_pii {
                     json!({"kind": "StringLiteral", "literal": s.to_string() })
                 } else {

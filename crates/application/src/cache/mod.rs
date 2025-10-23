@@ -273,7 +273,7 @@ impl CacheEntry {
     fn size(&self) -> usize {
         mem::size_of::<Self>()
             + match self {
-                CacheEntry::Ready(ref result) => result.heap_size(),
+                CacheEntry::Ready(result) => result.heap_size(),
                 // This is an under count since there might be something in the receiver.
                 // However, this is kind of hard to measure, and we expect this to
                 // be the exception, not the rule.
@@ -603,7 +603,7 @@ impl<RT: Runtime> CacheManager<RT> {
                         let FunctionOutcome::Query(mut query_outcome) = outcome else {
                             anyhow::bail!("Received non-query outcome when executing a query")
                         };
-                        if let Ok(ref json_packed_value) = &query_outcome.result {
+                        if let Ok(json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
@@ -892,7 +892,7 @@ impl Inner {
     // `original_ts` matching.
     fn remove_ready(&mut self, key: &StoredCacheKey, original_ts: Timestamp) {
         match self.cache.get(key) {
-            Some(CacheEntry::Ready(ref result)) if result.original_ts == original_ts => {
+            Some(CacheEntry::Ready(result)) if result.original_ts == original_ts => {
                 let (actual_key, entry) = self.cache.pop_entry(key).unwrap();
                 self.size -= actual_key.size() + entry.size();
             },
@@ -943,7 +943,7 @@ impl Inner {
                 self.size += new_entry.size();
                 *entry = new_entry;
             },
-            Some(CacheEntry::Ready(ref mut existing_result)) => {
+            Some(CacheEntry::Ready(existing_result)) => {
                 if existing_result.original_ts < result.original_ts
                     || (existing_result.original_ts == result.original_ts
                         && existing_result.token.ts() < result.token.ts())

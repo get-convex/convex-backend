@@ -419,8 +419,8 @@ impl HeapSize for UdfParams {
 impl UdfParams {
     pub fn is_err(&self) -> bool {
         match self {
-            UdfParams::Function { ref error, .. } => error.is_some(),
-            UdfParams::Http { ref result, .. } => result.is_err(),
+            UdfParams::Function { error, .. } => error.is_some(),
+            UdfParams::Http { result, .. } => result.is_err(),
         }
     }
 

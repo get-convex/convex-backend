@@ -51,7 +51,7 @@ pub fn file_based_exports(
                     .entry(identifier.clone())
                     .or_insert_with(|| ComponentExport::Branch(BTreeMap::new()));
                 current = match current_node {
-                    ComponentExport::Branch(ref mut branch) => branch,
+                    ComponentExport::Branch(branch) => branch,
                     ComponentExport::Leaf(..) => anyhow::bail!(ErrorMetadata::bad_request(
                         "InvalidExport",
                         format!(

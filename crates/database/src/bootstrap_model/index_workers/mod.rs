@@ -224,8 +224,8 @@ pub enum IndexWorkerMetadata {
 impl IndexWorkerMetadata {
     pub fn mut_fast_forward_ts(&mut self) -> &mut Timestamp {
         &mut match self {
-            IndexWorkerMetadata::TextSearch(ref mut meta) => meta,
-            IndexWorkerMetadata::VectorSearch(ref mut meta) => meta,
+            IndexWorkerMetadata::TextSearch(meta) => meta,
+            IndexWorkerMetadata::VectorSearch(meta) => meta,
         }
         .fast_forward_ts
     }

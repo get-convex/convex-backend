@@ -185,7 +185,7 @@ impl IntervalSet {
         }
         match self {
             IntervalSet::All => {},
-            IntervalSet::Intervals(ref mut intervals) => {
+            IntervalSet::Intervals(intervals) => {
                 let mut merged_start = interval.start.clone();
                 let mut merged_end = interval.end.clone();
                 // In order to merge adjacent and overlapping intervals, we need to find all of

@@ -560,7 +560,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         result_str: String,
     ) -> anyhow::Result<
-        impl Stream<Item = anyhow::Result<Result<HttpActionResponsePart, JsError>>> + 'static,
+        impl Stream<Item = anyhow::Result<Result<HttpActionResponsePart, JsError>>> + use<RT>,
     > {
         let json_value: JsonValue = serde_json::from_str(&result_str)?;
         let v8_response: HttpResponseV8 = serde_json::from_value(json_value)?;

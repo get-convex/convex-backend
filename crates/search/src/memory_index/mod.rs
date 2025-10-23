@@ -632,7 +632,7 @@ impl MemoryTextIndex {
         let mut intersection_term_ids = BTreeSet::new();
         let mut union_id_boosts = BTreeMap::new();
 
-        for CompiledFilterCondition::Must(ref filter_term) in &query.filter_conditions {
+        for CompiledFilterCondition::Must(filter_term) in &query.filter_conditions {
             let Some(term_id) = self.term_table.get(filter_term) else {
                 // If a filter condition's term is entirely missing, no documents match the
                 // query.

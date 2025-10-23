@@ -60,7 +60,7 @@ impl<T: Copy + Eq + Hash + Unpin> StateChannelReceiver<T> {
 
     /// Wait for the state channel to have the given value, failing with a
     /// `ClosedError` if it's subsequently closed.
-    pub fn wait_for(&self, value: T) -> impl Future<Output = Result<(), ClosedError>> {
+    pub fn wait_for(&self, value: T) -> impl Future<Output = Result<(), ClosedError>> + use<T> {
         StateChannelFuture {
             waiting_for: value,
             initial_version: None,

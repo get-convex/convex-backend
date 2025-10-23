@@ -47,14 +47,14 @@ impl<C: ShapeConfig, S: ShapeCounter> fmt::Display for ShapeEnum<C, S> {
             ShapeEnum::NaN => write!(f, "NaN"),
             ShapeEnum::NormalFloat64 => write!(f, "normalfloat64"),
             ShapeEnum::Boolean => write!(f, "boolean"),
-            ShapeEnum::StringLiteral(ref s) => write!(f, "{:?}", &s[..]),
-            ShapeEnum::Id(ref table) => write!(f, "id<{table}>"),
+            ShapeEnum::StringLiteral(s) => write!(f, "{:?}", &s[..]),
+            ShapeEnum::Id(table) => write!(f, "id<{table}>"),
             ShapeEnum::FieldName => write!(f, "field_name"),
             ShapeEnum::String => write!(f, "string"),
             ShapeEnum::Bytes => write!(f, "bytes"),
-            ShapeEnum::Array(ref array) => write!(f, "array<{}>", array.element()),
+            ShapeEnum::Array(array) => write!(f, "array<{}>", array.element()),
 
-            ShapeEnum::Object(ref object) => {
+            ShapeEnum::Object(object) => {
                 let mut first = true;
                 write!(f, "{{")?;
                 for (field_name, field) in object.iter() {
@@ -74,10 +74,10 @@ impl<C: ShapeConfig, S: ShapeCounter> fmt::Display for ShapeEnum<C, S> {
                 }
                 write!(f, "}}")
             },
-            ShapeEnum::Record(ref record) => {
+            ShapeEnum::Record(record) => {
                 write!(f, "record<{}, {}>", record.field(), record.value())
             },
-            ShapeEnum::Union(ref union) => {
+            ShapeEnum::Union(union) => {
                 let mut first = true;
                 for variant in union.iter() {
                     if first {

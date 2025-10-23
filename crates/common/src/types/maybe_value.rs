@@ -53,7 +53,7 @@ impl MaybeValue {
 
     pub fn into_boolean(self) -> anyhow::Result<bool> {
         match &self.0 {
-            Some(ConvexValue::Boolean(ref b)) => Ok(*b),
+            Some(ConvexValue::Boolean(b)) => Ok(*b),
             _ => anyhow::bail!(ErrorMetadata::bad_request(
                 "EvalError",
                 format!(

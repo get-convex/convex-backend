@@ -65,14 +65,14 @@ impl TaskRequestEnum {
     pub fn name_for_error(&self) -> &'static str {
         match self {
             TaskRequestEnum::AsyncSyscall { name, .. } => syscall_name_for_error(name),
-            TaskRequestEnum::AsyncOp(ref op) => op.name_for_error(),
+            TaskRequestEnum::AsyncOp(op) => op.name_for_error(),
         }
     }
 
     pub fn description_for_error(&self) -> String {
         match self {
             TaskRequestEnum::AsyncSyscall { name, .. } => syscall_description_for_error(name),
-            TaskRequestEnum::AsyncOp(ref op) => op.description_for_error(),
+            TaskRequestEnum::AsyncOp(op) => op.description_for_error(),
         }
     }
 }

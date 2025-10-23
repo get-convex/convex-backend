@@ -749,11 +749,11 @@ mod test {
             }
         }
         match shape {
-            ReducedShape::Object(ref obj) => obj
+            ReducedShape::Object(obj) => obj
                 .values()
                 .for_each(|f| insert_test_table_ids(&f.shape, mapping)),
-            ReducedShape::Array(ref arr) => insert_test_table_ids(arr, mapping),
-            ReducedShape::Union(ref shapes) => shapes
+            ReducedShape::Array(arr) => insert_test_table_ids(arr, mapping),
+            ReducedShape::Union(shapes) => shapes
                 .iter()
                 .for_each(|s| insert_test_table_ids(s, mapping)),
             _ => (),

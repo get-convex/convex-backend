@@ -773,7 +773,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         &mut self,
         new_ts: Timestamp,
         subscriptions_client: Arc<dyn SubscriptionClient>,
-    ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>>> {
+    ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>> + use<RT>> {
         let root = get_sampled_span(
             &self.host.instance_name,
             "sync-worker/update-queries",

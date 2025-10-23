@@ -124,7 +124,7 @@ fn id_candidates<C: ShapeConfig>(
         move || {
             let mut candidates = BTreeMap::new();
             for (i, t) in types.iter().enumerate() {
-                if let ShapeEnum::StringLiteral(ref s) = &*t.variant {
+                if let ShapeEnum::StringLiteral(s) = &*t.variant {
                     if let Ok(id) = DeveloperDocumentId::decode(s) {
                         candidates
                             .entry(id.table())
@@ -132,7 +132,7 @@ fn id_candidates<C: ShapeConfig>(
                             .push(i);
                     }
                 }
-                if let ShapeEnum::Id(ref table) = &*t.variant {
+                if let ShapeEnum::Id(table) = &*t.variant {
                     candidates.entry(*table).or_insert_with(Vec::new).push(i);
                 }
             }
@@ -155,7 +155,7 @@ fn field_name_candidate<C: ShapeConfig>(
     let mut indexes = Vec::new();
     for (i, t) in types.iter().enumerate() {
         let subtype = match &*t.variant {
-            ShapeEnum::StringLiteral(ref s) => s.parse::<FieldName>().is_ok(),
+            ShapeEnum::StringLiteral(s) => s.parse::<FieldName>().is_ok(),
             ShapeEnum::Id(..) | ShapeEnum::FieldName => true,
             _ => false,
         };
@@ -204,7 +204,7 @@ fn array_candidate<C: ShapeConfig>(
     let mut element = UnionBuilder::new();
     let mut indexes = vec![];
     for (i, t) in types.iter().enumerate() {
-        if let ShapeEnum::Array(ref array) = &*t.variant {
+        if let ShapeEnum::Array(array) = &*t.variant {
             element = element.push(array.element().clone());
             indexes.push(i);
         }
@@ -238,7 +238,7 @@ fn object_candidate<C: ShapeConfig>(
     let mut num_values = 0;
     let mut optional_fields: BTreeSet<IdentifierFieldName> = BTreeSet::new();
     for &j in &indexes {
-        let ShapeEnum::Object(ref object_type) = &*types[j].variant else {
+        let ShapeEnum::Object(object_type) = &*types[j].variant else {
             panic!("Tried to merge two non-objects");
         };
         for (field_name, field_type) in object_type.fields() {
@@ -296,12 +296,12 @@ fn record_candidate<C: ShapeConfig>(
     let mut value_union = UnionBuilder::new();
     let mut indexes = vec![];
     for (i, t) in types.iter().enumerate() {
-        if let ShapeEnum::Record(ref record) = &*t.variant {
+        if let ShapeEnum::Record(record) = &*t.variant {
             field_union = field_union.push(record.field().clone());
             value_union = value_union.push(record.value().clone());
             indexes.push(i);
         }
-        if let ShapeEnum::Object(ref object) = &*t.variant {
+        if let ShapeEnum::Object(object) = &*t.variant {
             for (field_name, field) in object.iter() {
                 let field_name_type = CountedShape::new(
                     StringLiteralShape::shape_of(&field_name[..]),

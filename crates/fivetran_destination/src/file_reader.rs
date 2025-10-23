@@ -77,7 +77,7 @@ pub async fn create_csv_deserializer(
     file_path: &str,
     compression: FivetranFileCompression,
     encryption: FivetranFileEncryption,
-) -> anyhow::Result<csv_async::AsyncDeserializer<impl futures::AsyncRead + Unpin + Send>> {
+) -> anyhow::Result<csv_async::AsyncDeserializer<impl futures::AsyncRead + Unpin + Send + use<>>> {
     let reader = BufReader::new(File::open(file_path).await.context("Couldn't open file")?);
 
     // Decryption

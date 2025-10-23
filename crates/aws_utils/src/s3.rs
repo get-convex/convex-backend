@@ -57,7 +57,7 @@ impl S3Client {
         &self,
         bucket: String,
         delimiter: String,
-    ) -> impl Stream<Item = anyhow::Result<String>> + Send + Unpin {
+    ) -> impl Stream<Item = anyhow::Result<String>> + Send + Unpin + use<> {
         let stream = self
             .0
             .list_objects_v2()
@@ -82,7 +82,7 @@ impl S3Client {
         &self,
         bucket: String,
         prefix: Option<String>,
-    ) -> impl Stream<Item = anyhow::Result<Object>> + Send + Unpin {
+    ) -> impl Stream<Item = anyhow::Result<Object>> + Send + Unpin + use<> {
         let stream = self
             .0
             .list_objects_v2()

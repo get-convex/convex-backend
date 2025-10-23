@@ -68,7 +68,7 @@ where
                 map.serialize_entry("$bytes", &out[..])?;
                 map.end()?
             },
-            OpenedValue::Array(ref values) => {
+            OpenedValue::Array(values) => {
                 let mut seq = serializer.serialize_seq(Some(values.len()))?;
                 for value_r in values.iter() {
                     let value = value_r.map_err(SerdeError::custom)?;
@@ -76,7 +76,7 @@ where
                 }
                 seq.end()?
             },
-            OpenedValue::Object(ref fields) => {
+            OpenedValue::Object(fields) => {
                 let mut map = serializer.serialize_map(Some(fields.len()))?;
                 for r in fields.iter() {
                     let (field, value) = r.map_err(SerdeError::custom)?;

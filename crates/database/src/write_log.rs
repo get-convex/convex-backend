@@ -217,7 +217,7 @@ impl WriteLogManager {
 
     /// Returns a future that blocks until the log has advanced past the given
     /// timestamp.
-    fn wait_for_higher_ts(&mut self, target_ts: Timestamp) -> impl Future<Output = ()> {
+    fn wait_for_higher_ts(&mut self, target_ts: Timestamp) -> impl Future<Output = ()> + use<> {
         // Clean up waiters that are canceled.
         self.notify_waiters();
 

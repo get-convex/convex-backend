@@ -355,7 +355,7 @@ impl TermShortlist {
     pub fn get_shortlisted_terms_for_query_term(
         &self,
         query_term: &QueryTerm,
-    ) -> impl Iterator<Item = &(EditDistance, ShortlistId)> {
+    ) -> impl Iterator<Item = &(EditDistance, ShortlistId)> + use<'_> {
         if let Some(vec) = self.query_term_shortlist_items.get(query_term) {
             Either::Left(vec.iter())
         } else {

@@ -308,7 +308,7 @@ pub mod tests {
         }
         let json = serde_json::from_slice(&body_bytes).unwrap();
         must_let!(let JsonValue::Object(map) = json);
-        must_let!(let JsonValue::String(ref code) = map.get("code").unwrap());
+        must_let!(let JsonValue::String(code) = map.get("code").unwrap());
         code.clone()
     }
 }

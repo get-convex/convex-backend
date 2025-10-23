@@ -1922,7 +1922,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_delete_document_chunk(rt: TestRuntime) -> anyhow::Result<()> {
-        env::set_var("DOCUMENT_RETENTION_DELETE_PARALLEL", "4");
+        unsafe { env::set_var("DOCUMENT_RETENTION_DELETE_PARALLEL", "4") };
         let p = Arc::new(TestPersistence::new());
         let mut id_generator = TestIdGenerator::new();
         let table: TableName = str::parse("table")?;

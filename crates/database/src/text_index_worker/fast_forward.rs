@@ -33,10 +33,7 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
     }
 
     fn snapshot_info(config: &IndexConfig) -> Option<(Timestamp, TextSnapshotVersion)> {
-        let IndexConfig::Text {
-            ref on_disk_state, ..
-        } = config
-        else {
+        let IndexConfig::Text { on_disk_state, .. } = config else {
             return None;
         };
         let TextIndexSnapshot { ts, version, .. } = match on_disk_state {

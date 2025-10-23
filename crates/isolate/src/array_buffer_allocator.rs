@@ -64,31 +64,39 @@ const ALIGNMENT: usize = 16;
 const ALIGNMENT: usize = std::mem::align_of::<libc::max_align_t>();
 
 unsafe extern "C" fn allocate(handle: &ArrayBufferMemoryLimit, len: usize) -> *mut c_void {
-    if handle.consume(len) {
-        alloc_zeroed(Layout::from_size_align_unchecked(len, ALIGNMENT)).cast()
-    } else {
-        ptr::null_mut()
+    unsafe {
+        if handle.consume(len) {
+            alloc_zeroed(Layout::from_size_align_unchecked(len, ALIGNMENT)).cast()
+        } else {
+            ptr::null_mut()
+        }
     }
 }
 unsafe extern "C" fn allocate_uninitialized(
     handle: &ArrayBufferMemoryLimit,
     len: usize,
 ) -> *mut c_void {
-    if handle.consume(len) {
-        alloc(Layout::from_size_align_unchecked(len, ALIGNMENT)).cast()
-    } else {
-        ptr::null_mut()
+    unsafe {
+        if handle.consume(len) {
+            alloc(Layout::from_size_align_unchecked(len, ALIGNMENT)).cast()
+        } else {
+            ptr::null_mut()
+        }
     }
 }
 unsafe extern "C" fn free(handle: &ArrayBufferMemoryLimit, data: *mut c_void, len: usize) {
-    handle.available.fetch_add(len, Ordering::Relaxed);
-    dealloc(
-        data.cast(),
-        Layout::from_size_align_unchecked(len, ALIGNMENT),
-    );
+    unsafe {
+        handle.available.fetch_add(len, Ordering::Relaxed);
+        dealloc(
+            data.cast(),
+            Layout::from_size_align_unchecked(len, ALIGNMENT),
+        );
+    }
 }
 unsafe extern "C" fn drop(handle: *const ArrayBufferMemoryLimit) {
-    Arc::from_raw(handle);
+    unsafe {
+        Arc::from_raw(handle);
+    }
 }
 
 pub fn limited_array_buffer_allocator(

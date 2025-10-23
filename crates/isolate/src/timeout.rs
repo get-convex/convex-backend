@@ -55,7 +55,7 @@ impl<RT: Runtime> TimeoutInner<RT> {
     fn termination_reason_or_wait(
         &mut self,
         timeout: Duration,
-    ) -> Result<Option<TerminationReason>, impl Future<Output = ()> + 'static> {
+    ) -> Result<Option<TerminationReason>, impl Future<Output = ()> + 'static + use<RT>> {
         let initial_deadline = self.start + timeout;
         match self.state {
             TimeoutState::Running => {
@@ -142,7 +142,7 @@ impl<RT: Runtime> Timeout<RT> {
     // Returns a future that resolves when the background timeout thread has
     // completed. This can either happen if the isolate has been terminated
     // due to timeout or the Timeout has been dropped due to an error.
-    pub fn wait_until_completed(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_until_completed(&self) -> impl Future<Output = ()> + 'static + use<RT> {
         let mut done_rx = self.done_rx.clone();
         async move {
             let _ = done_rx.recv().await;

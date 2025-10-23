@@ -33,7 +33,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             // Two object shapes overlap if there is some value that satisfies both shapes.
             // Two object shapes definitely do not overlap if there is a required field in one that
             // is not present in the other.
-            (ShapeEnum::Object(ref object), ShapeEnum::Object(ref other_object)) => {
+            (ShapeEnum::Object(object), ShapeEnum::Object(other_object)) => {
                 // Does `object` have a required field that's not present in `other_object`.
                 let left_disjoint = object.iter().any(|(field_name, field)| {
                     !field.optional && !other_object.contains_key(field_name)
