@@ -3376,7 +3376,7 @@ dependencies = [
 [[package]]
 name = "fastrace"
 version = "0.7.11"
-source = "git+https://github.com/fast/fastrace?rev=eacc377a8b3435e04f1d7a68085ce6eedb0d1d4a#eacc377a8b3435e04f1d7a68085ce6eedb0d1d4a"
+source = "git+https://github.com/get-convex/fastrace?rev=c9e5e5d8c3abf317f605eb845fe769915304d39a#c9e5e5d8c3abf317f605eb845fe769915304d39a"
 dependencies = [
  "fastant",
  "fastrace-macro",
@@ -3390,7 +3390,7 @@ dependencies = [
 [[package]]
 name = "fastrace-macro"
 version = "0.7.11"
-source = "git+https://github.com/fast/fastrace?rev=eacc377a8b3435e04f1d7a68085ce6eedb0d1d4a#eacc377a8b3435e04f1d7a68085ce6eedb0d1d4a"
+source = "git+https://github.com/get-convex/fastrace?rev=c9e5e5d8c3abf317f605eb845fe769915304d39a#c9e5e5d8c3abf317f605eb845fe769915304d39a"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",

@@ -121,7 +121,7 @@ elliptic-curve = { version = "0.13", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
 enum-iterator = "2.1.0"
 event-listener = "5.3.1"
-fastrace = { git = "https://github.com/fast/fastrace", rev = "eacc377a8b3435e04f1d7a68085ce6eedb0d1d4a", version = "0.7", features = [ "enable" ] }
+fastrace = { git = "https://github.com/get-convex/fastrace", rev = "c9e5e5d8c3abf317f605eb845fe769915304d39a", version = "0.7", features = [ "enable" ] }
 fastrand = "2.3.0"
 flate2 = { version = "1", features = [ "zlib-ng" ] }
 flexbuffers = "25"
