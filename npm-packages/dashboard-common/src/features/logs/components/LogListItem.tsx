@@ -61,7 +61,6 @@ export function LogListItem({
     },
     {
       enabled: focused,
-      preventDefault: true,
     },
     [log, focused],
   );
