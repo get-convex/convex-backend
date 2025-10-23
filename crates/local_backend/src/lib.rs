@@ -203,7 +203,7 @@ pub async fn make_app(
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> =
         Arc::new(InProcessFunctionRunner::new(
             config.name().clone(),
-            config.secret()?,
+            key_broker.function_runner_keybroker(),
             config.convex_origin_url()?,
             runtime.clone(),
             persistence.reader(),

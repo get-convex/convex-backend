@@ -58,9 +58,8 @@ use isolate::{
     IsolateClient,
 };
 use keybroker::{
+    FunctionRunnerKeyBroker,
     Identity,
-    InstanceSecret,
-    KeyBroker,
 };
 use model::{
     config::types::ModuleConfig,
@@ -118,7 +117,7 @@ const MAX_ISOLATE_WORKERS: usize = 128;
 
 pub struct RunRequestArgs {
     pub instance_name: String,
-    pub instance_secret: InstanceSecret,
+    pub key_broker: FunctionRunnerKeyBroker,
     pub reader: Arc<dyn PersistenceReader>,
     pub convex_origin: ConvexOrigin,
     pub bootstrap_metadata: BootstrapMetadata,
@@ -289,7 +288,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         &self,
         RunRequestArgs {
             instance_name,
-            instance_secret,
+            key_broker,
             reader,
             convex_origin,
             bootstrap_metadata,
@@ -355,7 +354,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .storage_for_instance(&mut transaction, StorageUseCase::Modules)
             .await?;
 
-        let key_broker = KeyBroker::new(&instance_name, instance_secret)?;
         let environment_data = EnvironmentData {
             key_broker,
             default_system_env_vars,

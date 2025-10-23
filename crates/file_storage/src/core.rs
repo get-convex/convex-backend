@@ -43,8 +43,8 @@ use headers::{
     ContentType,
 };
 use keybroker::{
+    FunctionRunnerKeyBroker,
     Identity,
-    KeyBroker,
 };
 use maplit::btreemap;
 use model::{
@@ -97,7 +97,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub fn generate_upload_url_with_origin(
         &self,
         origin_override: Option<ConvexOrigin>,
-        key_broker: &KeyBroker,
+        key_broker: &FunctionRunnerKeyBroker,
         issued_ts: UnixTimestamp,
         component: ComponentId,
     ) -> anyhow::Result<String> {
@@ -110,7 +110,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn generate_upload_url(
         &self,
         tx: &mut Transaction<RT>,
-        key_broker: &KeyBroker,
+        key_broker: &FunctionRunnerKeyBroker,
         issued_ts: UnixTimestamp,
         component: ComponentId,
     ) -> anyhow::Result<String> {

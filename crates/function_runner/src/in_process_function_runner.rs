@@ -49,8 +49,8 @@ use futures::{
 };
 use isolate::ActionCallbacks;
 use keybroker::{
+    FunctionRunnerKeyBroker,
     Identity,
-    InstanceSecret,
 };
 use model::{
     config::types::ModuleConfig,
@@ -100,7 +100,7 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
 
     // Static information about the backend.
     instance_name: String,
-    instance_secret: InstanceSecret,
+    key_broker: FunctionRunnerKeyBroker,
     convex_origin: ConvexOrigin,
     database: Database<RT>,
     // Use Weak reference to avoid reference cycle between InProcessFunctionRunner
@@ -112,7 +112,7 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
 impl<RT: Runtime> InProcessFunctionRunner<RT> {
     pub fn new(
         instance_name: String,
-        instance_secret: InstanceSecret,
+        keybroker: FunctionRunnerKeyBroker,
         convex_origin: ConvexOrigin,
         rt: RT,
         persistence_reader: Arc<dyn PersistenceReader>,
@@ -127,7 +127,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
             server,
             persistence_reader,
             instance_name,
-            instance_secret,
+            key_broker: keybroker,
             convex_origin,
             database,
             action_callbacks: Arc::new(RwLock::new(None)),
@@ -239,7 +239,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
 
         let request_metadata = RunRequestArgs {
             instance_name: self.instance_name.clone(),
-            instance_secret: self.instance_secret,
+            key_broker: self.key_broker.clone(),
             reader: self.persistence_reader.clone(),
             convex_origin: self.convex_origin.clone(),
             bootstrap_metadata: self.database.bootstrap_metadata.clone(),

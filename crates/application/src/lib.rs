@@ -1018,7 +1018,12 @@ impl<RT: Runtime> Application<RT> {
         let url = self
             .file_storage
             .transactional_file_storage
-            .generate_upload_url(&mut tx, self.key_broker(), issued_ts, component)
+            .generate_upload_url(
+                &mut tx,
+                &self.key_broker().function_runner_keybroker(),
+                issued_ts,
+                component,
+            )
             .await?;
 
         Ok(url)

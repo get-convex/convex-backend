@@ -74,6 +74,7 @@ use futures::{
     FutureExt,
 };
 use keybroker::{
+    FunctionRunnerKeyBroker,
     Identity,
     InstanceSecret,
     KeyBroker,
@@ -229,7 +230,8 @@ pub static TEST_SOURCE_ISOLATE_ONLY: LazyLock<Vec<ModuleConfig>> = LazyLock::new
 });
 
 pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentData<RT>> {
-    let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
+    let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?
+        .function_runner_keybroker();
     let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
     let module_loader = Arc::new(UncachedModuleLoader { modules_storage });
     let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
@@ -276,7 +278,7 @@ pub struct UdfTest<RT: Runtime, P: Persistence> {
     pub isolate: IsolateClient<RT>,
     pub persistence: Arc<P>,
     pub rt: RT,
-    pub key_broker: KeyBroker,
+    pub key_broker: FunctionRunnerKeyBroker,
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
     search_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
@@ -326,7 +328,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         .await?;
         let handle = database.start_search_and_vector_bootstrap();
         handle.join().await?;
-        let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
+        let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?
+            .function_runner_keybroker();
         let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let module_loader = Arc::new(UncachedModuleLoader {
             modules_storage: modules_storage.clone(),

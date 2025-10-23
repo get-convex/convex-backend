@@ -228,7 +228,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let fetch_client = Arc::new(StaticFetchClient::new());
         let function_runner = Arc::new(InProcessFunctionRunner::new(
             DEV_INSTANCE_NAME.into(),
-            DEV_SECRET.try_into()?,
+            KeyBroker::new(DEV_INSTANCE_NAME, DEV_SECRET.try_into()?)?.function_runner_keybroker(),
             convex_origin.clone(),
             rt.clone(),
             persistence.reader(),

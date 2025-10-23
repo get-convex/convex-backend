@@ -43,7 +43,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use keybroker::KeyBroker;
+use keybroker::FunctionRunnerKeyBroker;
 use model::{
     config::module_loader::ModuleLoader,
     environment_variables::{
@@ -483,7 +483,7 @@ async fn run_request<RT: Runtime>(
     path_and_args: ValidatedPathAndArgs,
     shared: UdfShared<RT>,
     mut log_line_receiver: spsc::Receiver<LogLine>,
-    key_broker: KeyBroker,
+    key_broker: FunctionRunnerKeyBroker,
     execution_context: ExecutionContext,
     query_journal: QueryJournal,
 ) -> anyhow::Result<UdfOutcome> {
@@ -808,7 +808,7 @@ struct Isolate2SyscallProvider<'a, RT: Runtime> {
 
     syscall_trace: SyscallTrace,
 
-    key_broker: KeyBroker,
+    key_broker: FunctionRunnerKeyBroker,
     context: ExecutionContext,
 }
 
@@ -820,7 +820,7 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
         prev_journal: QueryJournal,
         is_system: bool,
         shared: UdfShared<RT>,
-        key_broker: KeyBroker,
+        key_broker: FunctionRunnerKeyBroker,
         context: ExecutionContext,
     ) -> Self {
         Self {
@@ -853,7 +853,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
         Ok(ComponentId::Root)
     }
 
-    fn key_broker(&self) -> &KeyBroker {
+    fn key_broker(&self) -> &FunctionRunnerKeyBroker {
         &self.key_broker
     }
 
@@ -989,7 +989,7 @@ async fn tokio_thread<RT: Runtime>(
     path_and_args: ValidatedPathAndArgs,
     shared: UdfShared<RT>,
     log_line_receiver: spsc::Receiver<LogLine>,
-    key_broker: KeyBroker,
+    key_broker: FunctionRunnerKeyBroker,
     execution_context: ExecutionContext,
     query_journal: QueryJournal,
 ) {
@@ -1026,7 +1026,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     execution_time_seed: SeedData,
     udf_type: UdfType,
     path_and_args: ValidatedPathAndArgs,
-    key_broker: KeyBroker,
+    key_broker: FunctionRunnerKeyBroker,
     context: ExecutionContext,
     query_journal: QueryJournal,
 ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {

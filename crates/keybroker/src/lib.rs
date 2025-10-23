@@ -21,6 +21,7 @@ pub use self::{
         AdminIdentityPrincipal,
         CoreIdTokenWithCustomClaims,
         CustomClaims,
+        FunctionRunnerKeyBroker,
         GetFileAuthorization,
         Identity,
         KeyBroker,
@@ -28,6 +29,7 @@ pub use self::{
         SystemKey,
         UserIdentity,
     },
+    encryptor::Encryptor,
     legacy_encryptor::LegacyEncryptor,
     secret::{
         InstanceSecret,

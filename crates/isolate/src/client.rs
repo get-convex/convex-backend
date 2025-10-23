@@ -101,8 +101,8 @@ use futures::{
     },
 };
 use keybroker::{
+    FunctionRunnerKeyBroker,
     Identity,
-    KeyBroker,
 };
 use model::{
     config::types::ModuleConfig,
@@ -352,7 +352,7 @@ pub struct ActionRequestParams {
 
 #[derive(Clone)]
 pub struct EnvironmentData<RT: Runtime> {
-    pub key_broker: KeyBroker,
+    pub key_broker: FunctionRunnerKeyBroker,
     pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub file_storage: TransactionalFileStorage<RT>,
     pub module_loader: Arc<dyn ModuleCache<RT>>,

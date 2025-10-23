@@ -85,7 +85,7 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use file_storage::TransactionalFileStorage;
-use keybroker::KeyBroker;
+use keybroker::FunctionRunnerKeyBroker;
 use rand::Rng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -177,7 +177,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     query_manager: QueryManager<RT>,
 
     persistence_version: PersistenceVersion,
-    key_broker: KeyBroker,
+    key_broker: FunctionRunnerKeyBroker,
     log_lines: LogLines,
 
     /// Journal from a previous computation of this UDF used as an input to this

@@ -32,8 +32,8 @@ use futures::{
     StreamExt,
 };
 use keybroker::{
+    FunctionRunnerKeyBroker,
     Identity,
-    KeyBroker,
 };
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
@@ -72,7 +72,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub action_callbacks: Arc<dyn ActionCallbacks>,
     pub fetch_client: Arc<dyn FetchClient>,
     pub _module_loader: Arc<dyn ModuleCache<RT>>,
-    pub key_broker: KeyBroker,
+    pub key_broker: FunctionRunnerKeyBroker,
     pub task_order: TaskOrder,
     pub task_retval_sender: mpsc::UnboundedSender<TaskResponse>,
     pub usage_tracker: FunctionUsageTracker,

@@ -821,6 +821,14 @@ impl KeyBroker {
         .unwrap()
     }
 
+    pub fn function_runner_keybroker(&self) -> FunctionRunnerKeyBroker {
+        FunctionRunnerKeyBroker {
+            instance_name: self.instance_name.clone(),
+            cursor_encryptor: self.cursor_encryptor.clone(),
+            store_file_encryptor: self.store_file_encryptor.clone(),
+        }
+    }
+
     pub fn issue_admin_key(&self, member_id: MemberId) -> AdminKey {
         AdminKey::new(self.issue_key(Some(member_id), false))
     }
@@ -839,22 +847,8 @@ impl KeyBroker {
         issued: UnixTimestamp,
         component: ComponentId,
     ) -> anyhow::Result<StoreFileAuthorization> {
-        let now = rt.unix_timestamp();
-        if (now - issued) > MAX_TS_DELAY {
-            anyhow::bail!("Could not issue authorization. Issued TS too far in past.");
-        }
-        let component_str = component.serialize_to_string();
-        Ok(StoreFileAuthorization(
-            self.store_file_encryptor.encrypt_proto(
-                STORE_FILE_AUTHZ_VERSION,
-                &StorageTokenProto {
-                    instance_name: self.instance_name.clone(),
-                    issued_s: issued.as_secs(),
-                    authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
-                    component_id: component_str,
-                },
-            ),
-        ))
+        self.function_runner_keybroker()
+            .issue_store_file_authorization(rt, issued, component)
     }
 
     /// Private helper method to generate an admin key.
@@ -988,68 +982,23 @@ impl KeyBroker {
         Ok(component)
     }
 
-    fn cursor_to_proto(&self, cursor: &Cursor) -> InstanceCursorProto {
-        let position = match cursor.position {
-            CursorPosition::End => PositionProto::End(()),
-            CursorPosition::After(ref key) => PositionProto::After(IndexKeyProto {
-                values: key.clone().0,
-            }),
-        };
-        InstanceCursorProto {
-            instance_name: self.instance_name.clone(),
-            position: Some(position),
-            query_fingerprint: cursor.query_fingerprint.clone(),
-        }
-    }
-
-    fn proto_to_cursor(&self, proto: InstanceCursorProto) -> anyhow::Result<Cursor> {
-        if proto.instance_name != self.instance_name {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "InvalidCursor",
-                format!("Key is invalid for instance {:?}", proto.instance_name)
-            ));
-        }
-
-        let cursor_position = match proto.position {
-            Some(PositionProto::End(())) => CursorPosition::End,
-            Some(PositionProto::After(IndexKeyProto {
-                values: proto_values,
-            })) => CursorPosition::After(IndexKeyBytes(proto_values)),
-            None => anyhow::bail!(ErrorMetadata::bad_request(
-                "InvalidCursor",
-                "Missing position field"
-            )),
-        };
-        Ok(Cursor {
-            position: cursor_position,
-            query_fingerprint: proto.query_fingerprint,
-        })
-    }
-
     /// Serializes and encrypts the provided Cursor for sending to clients.
     pub fn encrypt_cursor(
         &self,
         cursor: &Cursor,
         persistence_version: PersistenceVersion,
     ) -> SerializedCursor {
-        let proto = self.cursor_to_proto(cursor);
-        let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
-        self.cursor_encryptor.encrypt_proto(cursor_version, &proto)
+        self.function_runner_keybroker()
+            .encrypt_cursor(cursor, persistence_version)
     }
 
-    /// Attempts to decrypt and deserialize the EncryptedCursor. May fail if the
-    /// client is sending up an old version.
     pub fn decrypt_cursor(
         &self,
         cursor: SerializedCursor,
         persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Cursor> {
-        let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
-        let proto: InstanceCursorProto = self
-            .cursor_encryptor
-            .decrypt_proto(cursor_version, &cursor)
-            .with_context(cursor_parse_error)?;
-        self.proto_to_cursor(proto)
+        self.function_runner_keybroker()
+            .decrypt_cursor(cursor, persistence_version)
     }
 
     pub fn encrypt_query_journal(
@@ -1059,7 +1008,7 @@ impl KeyBroker {
     ) -> SerializedQueryJournal {
         let query_journal_version = persistence_version.index_key_version(QUERY_JOURNAL_VERSION);
         let cursor = match &journal.end_cursor {
-            Some(cursor) => Some(self.cursor_to_proto(cursor)),
+            Some(cursor) => Some(cursor_to_proto(&self.instance_name, cursor)),
             None => return None,
         };
         let proto = InstanceQueryJournalProto { end_cursor: cursor };
@@ -1083,7 +1032,7 @@ impl KeyBroker {
                     .decrypt_proto(query_journal_version, &journal)
                     .with_context(cursor_parse_error)?;
                 let end_cursor = match proto.end_cursor {
-                    Some(cursor) => Some(self.proto_to_cursor(cursor)?),
+                    Some(cursor) => Some(proto_to_cursor(&self.instance_name, cursor)?),
                     None => None,
                 };
                 Ok(QueryJournal { end_cursor })
@@ -1137,6 +1086,104 @@ impl KeyBroker {
         let system_time = SystemTime::UNIX_EPOCH + Duration::from_secs(issued_s);
         let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
         Ok((system_time, component_id))
+    }
+}
+
+fn proto_to_cursor(instance_name: &str, proto: InstanceCursorProto) -> anyhow::Result<Cursor> {
+    if proto.instance_name != instance_name {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "InvalidCursor",
+            format!("Key is invalid for instance {:?}", proto.instance_name)
+        ));
+    }
+
+    let cursor_position = match proto.position {
+        Some(PositionProto::End(())) => CursorPosition::End,
+        Some(PositionProto::After(IndexKeyProto {
+            values: proto_values,
+        })) => CursorPosition::After(IndexKeyBytes(proto_values)),
+        None => anyhow::bail!(ErrorMetadata::bad_request(
+            "InvalidCursor",
+            "Missing position field"
+        )),
+    };
+    Ok(Cursor {
+        position: cursor_position,
+        query_fingerprint: proto.query_fingerprint,
+    })
+}
+
+fn cursor_to_proto(instance_name: &str, cursor: &Cursor) -> InstanceCursorProto {
+    let position = match cursor.position {
+        CursorPosition::End => PositionProto::End(()),
+        CursorPosition::After(ref key) => PositionProto::After(IndexKeyProto {
+            values: key.clone().0,
+        }),
+    };
+    InstanceCursorProto {
+        instance_name: instance_name.to_owned(),
+        position: Some(position),
+        query_fingerprint: cursor.query_fingerprint.clone(),
+    }
+}
+
+/// More restricted KeyBroker that only has access to some secrets
+#[derive(Clone)]
+pub struct FunctionRunnerKeyBroker {
+    pub instance_name: String,
+    pub cursor_encryptor: DeterministicEncryptor,
+    pub store_file_encryptor: RandomEncryptor,
+}
+
+impl FunctionRunnerKeyBroker {
+    pub fn issue_store_file_authorization<RT: Runtime>(
+        &self,
+        rt: &RT,
+        issued: UnixTimestamp,
+        component: ComponentId,
+    ) -> anyhow::Result<StoreFileAuthorization> {
+        let now = rt.unix_timestamp();
+        if (now - issued) > MAX_TS_DELAY {
+            anyhow::bail!("Could not issue authorization. Issued TS too far in past.");
+        }
+        let component_str = component.serialize_to_string();
+        Ok(StoreFileAuthorization(
+            self.store_file_encryptor.encrypt_proto(
+                STORE_FILE_AUTHZ_VERSION,
+                &StorageTokenProto {
+                    instance_name: self.instance_name.clone(),
+                    issued_s: issued.as_secs(),
+                    authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
+                    component_id: component_str,
+                },
+            ),
+        ))
+    }
+
+    /// Serializes and encrypts the provided Cursor for sending to clients.
+    pub fn encrypt_cursor(
+        &self,
+        cursor: &Cursor,
+        persistence_version: PersistenceVersion,
+    ) -> SerializedCursor {
+        let proto = cursor_to_proto(&self.instance_name, cursor);
+        let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
+        self.cursor_encryptor.encrypt_proto(cursor_version, &proto)
+    }
+
+    /// Attempts to decrypt and deserialize the EncryptedCursor. May fail if the
+    /// client is sending up an old version.
+    pub fn decrypt_cursor(
+        &self,
+        cursor: SerializedCursor,
+        persistence_version: PersistenceVersion,
+    ) -> anyhow::Result<Cursor> {
+        let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
+        let proto: InstanceCursorProto = self
+            .cursor_encryptor
+            .decrypt_proto(cursor_version, &cursor)
+            .with_context(cursor_parse_error)?;
+        proto_to_cursor(&self.instance_name, proto)
     }
 }
 

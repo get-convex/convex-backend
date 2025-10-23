@@ -61,7 +61,7 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use itertools::Itertools;
-use keybroker::KeyBroker;
+use keybroker::FunctionRunnerKeyBroker;
 use model::{
     components::{
         handles::FunctionHandlesModel,
@@ -279,7 +279,7 @@ pub enum ManagedQuery<RT: Runtime> {
 pub trait AsyncSyscallProvider<RT: Runtime> {
     fn rt(&self) -> &RT;
     fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>>;
-    fn key_broker(&self) -> &KeyBroker;
+    fn key_broker(&self) -> &FunctionRunnerKeyBroker;
     fn context(&self) -> &ExecutionContext;
 
     fn observe_identity(&mut self) -> anyhow::Result<()>;
@@ -348,7 +348,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         self.phase.component()
     }
 
-    fn key_broker(&self) -> &KeyBroker {
+    fn key_broker(&self) -> &FunctionRunnerKeyBroker {
         &self.key_broker
     }
 
