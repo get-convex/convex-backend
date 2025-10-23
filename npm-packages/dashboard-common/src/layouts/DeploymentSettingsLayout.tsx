@@ -103,7 +103,7 @@ function DeploymentSettingsText() {
               ) : undefined
             }
           >
-            <div className="flex gap-2">
+            <div className="flex items-baseline gap-2">
               <code className="max-w-md truncate" ref={ref}>
                 {deployment.previewIdentifier}
               </code>{" "}
