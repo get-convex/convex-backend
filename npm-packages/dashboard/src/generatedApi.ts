@@ -1877,8 +1877,6 @@ export interface components {
         CreateProjectResponse: {
             adminKey?: null | components["schemas"]["AdminKey"];
             deploymentName: string;
-            /** Format: int64 */
-            deploymentsRemaining: number;
             prodUrl: string;
             projectId: components["schemas"]["ProjectId"];
             projectSlug: components["schemas"]["ProjectSlug"];
