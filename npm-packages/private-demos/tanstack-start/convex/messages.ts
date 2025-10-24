@@ -1,33 +1,44 @@
-import { action, mutation } from './_generated/server'
-import { query } from './_generated/server'
-import { api } from './_generated/api.js'
 import { v } from 'convex/values'
+import { action, mutation, query } from './_generated/server'
+import { api } from './_generated/api.js'
 
-export const list = query(async (ctx, { cacheBust }) => {
-  const _unused = cacheBust
-  return await ctx.db.query('messages').collect()
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query('messages').collect()
+  },
 })
 
-export const count = query(async (ctx, { cacheBust }) => {
-  const _unused = cacheBust
-  return (await ctx.db.query('messages').collect()).length
+export const count = query({
+  args: {
+    cacheBust: v.optional(v.any()),
+  },
+  handler: async (ctx) => {
+    return (await ctx.db.query('messages').collect()).length
+  },
 })
 
-export const listUsers = query(async (ctx, { cacheBust }) => {
-  const _unused = cacheBust
-  return await ctx.db.query('users').collect()
+export const listUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query('users').collect()
+  },
 })
 
-export const countUsers = query(async (ctx, { cacheBust }) => {
-  const _unused = cacheBust
-  return (await ctx.db.query('users').collect()).length
+export const countUsers = query({
+  args: {
+    cacheBust: v.optional(v.any()),
+  },
+  handler: async (ctx) => {
+    return (await ctx.db.query('users').collect()).length
+  },
 })
 
-function choose(choices: string[]): string {
+function choose(choices: Array<string>): string {
   return choices[Math.floor(Math.random() * choices.length)]
 }
 
-function madlib(strings: TemplateStringsArray, ...choices: any[]): string {
+function madlib(strings: TemplateStringsArray, ...choices: Array<any>): string {
   return strings.reduce((result, str, i) => {
     return result + str + (choices[i] ? choose(choices[i]) : '')
   }, '')
@@ -44,12 +55,15 @@ const text = [
   "Could you let the customer know we've fixed their issue?",
 ]
 
-export const sendGeneratedMessage = mutation(async (ctx) => {
-  const body = madlib`${greetings} ${names}${punc} ${text}`
-  const user = await ctx.db.insert('users', {
-    name: 'user' + Math.floor(Math.random() * 1000),
-  })
-  await ctx.db.insert('messages', { body, user: user })
+export const sendGeneratedMessage = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const body = madlib`${greetings} ${names}${punc} ${text}`
+    const user = await ctx.db.insert('users', {
+      name: 'user' + Math.floor(Math.random() * 1000),
+    })
+    await ctx.db.insert('messages', { body, user: user })
+  },
 })
 
 // TODO concurrency here
@@ -63,16 +77,19 @@ export const sendGeneratedMessages = action({
   },
 })
 
-export const clear = mutation(async (ctx) => {
-  await Promise.all([
-    ...(await ctx.db.query('messages').collect()).map((message) => {
-      ctx.db.delete(message._id)
-    }),
-    ...(await ctx.db.query('users').collect()).map((user) => {
-      ctx.db.delete(user._id)
-    }),
-  ])
-  for (const user of await ctx.db.query('users').collect()) {
-    await ctx.db.delete(user._id)
-  }
+export const clear = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await Promise.all([
+      ...(await ctx.db.query('messages').collect()).map((message) => {
+        ctx.db.delete(message._id)
+      }),
+      ...(await ctx.db.query('users').collect()).map((user) => {
+        ctx.db.delete(user._id)
+      }),
+    ])
+    for (const user of await ctx.db.query('users').collect()) {
+      await ctx.db.delete(user._id)
+    }
+  },
 })

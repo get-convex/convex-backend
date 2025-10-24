@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
-import { api } from '../../convex/_generated/api'
 import { convexQuery, useConvexAction } from '@convex-dev/react-query'
+import { api } from '../../convex/_generated/api'
 
 export const Route = createFileRoute('/simple-sibling-queries')({
   component: SimpleSiblingQueries,

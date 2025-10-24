@@ -10,7 +10,7 @@
     "dev:convex": "npx convex dev",
     "build": "vite build && tsc --noEmit",
     "start": "node .output/server/index.mjs",
-    "lint": "prettier --check '**/*' --ignore-unknown && eslint --ext .ts,.tsx ./app",
+    "lint": "prettier --check '**/*' --ignore-unknown && eslint .",
     "format": "prettier --write '**/*' --ignore-unknown"
   },
   "keywords": [],
@@ -27,13 +27,14 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "workspace:*",
+    "@tanstack/eslint-config": "^0.3.0",
     "@types/react": "^18.2.65",
     "@types/react-dom": "^18.2.21",
     "@typescript-eslint/parser": "^6.7.4",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "~8.2.2",
-    "eslint": "^8.29.0",
-    "eslint-config-react-app": "~7.0.1",
+    "eslint": "^9.37.0",
     "prettier": "3.6.2",
     "typescript": "^5.9.2",
     "vite-tsconfig-paths": "^5.1.3",
