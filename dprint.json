@@ -72,8 +72,6 @@
     // Should match Tanstack demos for now
     "npm-packages/private-demos/tanstack-start",
     "npm-packages/private-demos/tanstack-start-clerk",
-    // Next.js 15 demo, should use its own formatting
-    "npm-packages/private-demos/nextjs-15-app",
     // Docs that we sync over to fivetran
     "crates/fivetran_source/docs/",
     "crates/fivetran_destination/docs/",
