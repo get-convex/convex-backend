@@ -31,7 +31,7 @@ module.exports = {
               "internalAction",
             ],
             message:
-              "Use the query wrappers from convex/server.ts instead for system UDF argument validation.",
+              "Use the query wrappers from convex/_system/server.ts instead for system UDF argument validation.",
           },
           {
             group: ["convex/server"],
@@ -44,7 +44,7 @@ module.exports = {
               "internalActionGeneric",
             ],
             message:
-              "Use the query wrappers from convex/server.ts instead for system UDF argument validation.",
+              "Use the query wrappers from convex/_system/server.ts instead for system UDF argument validation.",
           },
         ],
       },
