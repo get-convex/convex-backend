@@ -22,6 +22,7 @@ use std::{
 };
 
 use cmd_util::env::env_config;
+use value::MAX_USER_SIZE;
 
 use crate::fastrace_helpers::SamplingConfig;
 
@@ -246,7 +247,14 @@ pub static TRANSACTION_MAX_NUM_SCHEDULED: LazyLock<usize> =
 pub static MAX_JOBS_CANCEL_BATCH: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_JOBS_CANCEL_BATCH", 1000));
 
-/// Maximum size of the arguments to a scheduled function.
+/// Maximum size of a single scheduled function's arguments.
+/// This is not currently enforced.
+pub static MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES", MAX_USER_SIZE) // 1 MiB
+});
+
+/// Maximum total size of the arguments to all functions scheduled in a single
+/// transaction.
 pub static TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES: LazyLock<usize> =
     LazyLock::new(|| {
         env_config(

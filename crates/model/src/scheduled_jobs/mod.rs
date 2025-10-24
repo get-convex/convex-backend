@@ -14,6 +14,7 @@ use common::{
     },
     execution_context::ExecutionContext,
     knobs::{
+        MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES,
         TRANSACTION_MAX_NUM_SCHEDULED,
         TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
     },
@@ -175,7 +176,6 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 )
             )
         );
-        self.tx.scheduled_size.num_writes += 1;
         anyhow::ensure!(
             self.tx.scheduled_size.size + args.size()
                 <= *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
@@ -188,6 +188,10 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 )
             ),
         );
+        if args.size() > *MAX_SCHEDULED_JOB_ARGUMENT_SIZE_BYTES {
+            tracing::warn!("Scheduling a job with argument size {}", args.size());
+        }
+        self.tx.scheduled_size.num_writes += 1;
         self.tx.scheduled_size.size += args.size();
         Ok(())
     }
