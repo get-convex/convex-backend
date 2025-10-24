@@ -15,7 +15,14 @@ import { Favicon } from "@common/elements/Favicon";
 import { ToggleTheme } from "@common/elements/ToggleTheme";
 import { Menu, MenuItem } from "@ui/Menu";
 import { ThemeProvider } from "next-themes";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  createContext,
+} from "react";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { DeploymentDashboardLayout } from "@common/layouts/DeploymentDashboardLayout";
 import {
@@ -32,6 +39,31 @@ import { ConvexCloudReminderToast } from "components/ConvexCloudReminderToast";
 import { z } from "zod";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
+
+// Context for self-hosted dashboard sidebar settings
+const SelfHostedSettingsContext = createContext<{
+  visiblePages?: string[];
+}>({
+  visiblePages: undefined,
+});
+
+/**
+ * Wrapper component that consumes SelfHostedSettingsContext and passes
+ * the settings to DeploymentDashboardLayout
+ */
+function DeploymentDashboardLayoutWrapper({
+  children,
+}: {
+  children: JSX.Element;
+}) {
+  const { visiblePages } = useContext(SelfHostedSettingsContext);
+
+  return (
+    <DeploymentDashboardLayout visiblePages={visiblePages}>
+      {children}
+    </DeploymentDashboardLayout>
+  );
+}
 
 function App({
   Component,
@@ -67,12 +99,12 @@ function App({
             >
               <DeploymentApiProvider deploymentOverride="local">
                 <WaitForDeploymentApi>
-                  <DeploymentDashboardLayout>
+                  <DeploymentDashboardLayoutWrapper>
                     <>
                       <Component {...pageProps} />
                       <ConvexCloudReminderToast />
                     </>
-                  </DeploymentDashboardLayout>
+                  </DeploymentDashboardLayoutWrapper>
                 </WaitForDeploymentApi>
               </DeploymentApiProvider>
             </DeploymentInfoProvider>
@@ -257,15 +289,27 @@ function DeploymentInfoProvider({
     SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
     "",
   );
+  const [visiblePages, setVisiblePages] = useState<string[] | undefined>(
+    undefined,
+  );
+
+  // Memoize this so it can safely be passed into the context
+  const settingsContextValue = useMemo(
+    () => ({ visiblePages }),
+    [visiblePages],
+  );
+
   const onSubmit = useCallback(
     async ({
       submittedAdminKey,
       submittedDeploymentUrl,
       submittedDeploymentName,
+      submittedVisiblePages,
     }: {
       submittedAdminKey: string;
       submittedDeploymentUrl: string;
       submittedDeploymentName: string;
+      submittedVisiblePages?: string[];
     }) => {
       const isValid = await checkDeploymentInfo(
         submittedAdminKey,
@@ -282,6 +326,7 @@ function DeploymentInfoProvider({
       setStoredAdminKey(submittedAdminKey);
       setStoredDeploymentUrl(submittedDeploymentUrl);
       setStoredDeploymentName(submittedDeploymentName);
+      setVisiblePages(submittedVisiblePages);
     },
     [setStoredAdminKey, setStoredDeploymentUrl, setStoredDeploymentName],
   );
@@ -367,7 +412,9 @@ function DeploymentInfoProvider({
         }}
       />
       <DeploymentInfoContext.Provider value={finalValue}>
-        <ErrorBoundary>{children}</ErrorBoundary>
+        <SelfHostedSettingsContext.Provider value={settingsContextValue}>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </SelfHostedSettingsContext.Provider>
       </DeploymentInfoContext.Provider>
     </>
   );
@@ -412,10 +459,12 @@ function useEmbeddedDashboardCredentials(
     submittedAdminKey,
     submittedDeploymentUrl,
     submittedDeploymentName,
+    submittedVisiblePages,
   }: {
     submittedAdminKey: string;
     submittedDeploymentUrl: string;
     submittedDeploymentName: string;
+    submittedVisiblePages?: string[];
   }) => void,
 ) {
   // Send a message to the parent iframe to request the credentials.
@@ -437,6 +486,7 @@ function useEmbeddedDashboardCredentials(
         adminKey: z.string(),
         deploymentUrl: z.string().url(),
         deploymentName: z.string(),
+        visiblePages: z.array(z.string()).optional(),
       });
 
       try {
@@ -450,6 +500,7 @@ function useEmbeddedDashboardCredentials(
           submittedAdminKey: event.data.adminKey,
           submittedDeploymentUrl: event.data.deploymentUrl,
           submittedDeploymentName: event.data.deploymentName,
+          submittedVisiblePages: event.data.visiblePages,
         });
       }
     };

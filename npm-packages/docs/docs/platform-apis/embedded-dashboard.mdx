@@ -36,6 +36,13 @@ Required information for `postMessage`:
 - `adminKey`: A deploy key scoped to the specified `deploymentName`. Can be
   retrieved with the [Create deploy key API](/management-api/create-deploy-key).
 
+Optional configuration:
+
+- `visiblePages`: An array of page keys to show in the sidebar. If not provided,
+  all pages are shown. If an empty array is provided, the sidebar will be
+  hidden. Available page keys: `"health"`, `"data"`, `"functions"`, `"files"`,
+  `"schedules"`, `"logs"`, `"history"`, `"settings"`.
+
 Here's an example of the Convex dashboard embedded in a React application:
 
 ```tsx
@@ -45,17 +52,19 @@ export function Dashboard({
   deploymentUrl,
   deploymentName,
   deployKey,
+  visiblePages,
 }: {
   deploymentUrl: string;
   deploymentName: string;
   deployKey: string;
+  visiblePages?: string[];
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // We first wait for the iframe to send a dashboard-credentials-request message.
-      // This makes sure that we don’t send the credentials until the iframe is ready.
+      // This makes sure that we don't send the credentials until the iframe is ready.
       if (event.data?.type !== "dashboard-credentials-request") {
         return;
       }
@@ -65,6 +74,8 @@ export function Dashboard({
           adminKey: deployKey,
           deploymentUrl,
           deploymentName,
+          // Optional: specify which pages to show
+          visiblePages,
         },
         "*",
       );
@@ -72,7 +83,7 @@ export function Dashboard({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [deploymentUrl, adminKey, deploymentName]);
+  }, [deploymentUrl, adminKey, deploymentName, visiblePages]);
 
   return (
     <iframe

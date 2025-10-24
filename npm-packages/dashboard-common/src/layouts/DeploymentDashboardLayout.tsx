@@ -31,11 +31,13 @@ import Image from "next/image";
 type LayoutProps = {
   children: JSX.Element;
   auditLogsEnabled?: boolean;
+  visiblePages?: string[];
 };
 
 export function DeploymentDashboardLayout({
   children,
   auditLogsEnabled = true,
+  visiblePages,
 }: LayoutProps) {
   const [collapsed, setCollapsed] = useCollapseSidebarState();
   const [isGlobalRunnerVertical, setIsGlobalRunnerVertical] =
@@ -46,9 +48,9 @@ export function DeploymentDashboardLayout({
   const { isCloudDeploymentInSelfHostedDashboard, deploymentName } =
     useIsCloudDeploymentInSelfHostedDashboard();
 
-  const exploreDeploymentPages = [
+  const allExploreDeploymentPages = [
     {
-      key: null,
+      key: "health",
       label: "Health",
       Icon: PulseIcon,
       href: `${uriPrefix}/`,
@@ -90,6 +92,40 @@ export function DeploymentDashboardLayout({
     },
   ];
 
+  // Filter tabs based on visiblePages if provided
+  const exploreDeploymentPages = visiblePages
+    ? allExploreDeploymentPages.filter((page) =>
+        visiblePages.includes(page.key),
+      )
+    : allExploreDeploymentPages;
+
+  const allConfigureItems = [
+    {
+      key: "history",
+      label: "History",
+      Icon: CounterClockwiseClockIcon,
+      href: isCloudDeploymentInSelfHostedDashboard
+        ? `https://dashboard.convex.dev/d/${deploymentName}/history`
+        : `${uriPrefix}/history`,
+      target: isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined,
+      muted: !auditLogsEnabled,
+      tooltip: auditLogsEnabled
+        ? undefined
+        : "Deployment history is only available on the Pro plan.",
+    },
+    {
+      key: "settings",
+      label: "Settings",
+      Icon: GearIcon,
+      href: `${uriPrefix}/settings`,
+    },
+  ];
+
+  // Filter configure items based on visiblePages if provided
+  const configureItems = visiblePages
+    ? allConfigureItems.filter((item) => visiblePages.includes(item.key))
+    : allConfigureItems;
+
   const sidebarItems: SidebarGroup[] = [
     {
       key: "explore",
@@ -97,29 +133,9 @@ export function DeploymentDashboardLayout({
     },
     {
       key: "configure",
-      items: [
-        {
-          key: "history",
-          label: "History",
-          Icon: CounterClockwiseClockIcon,
-          href: isCloudDeploymentInSelfHostedDashboard
-            ? `https://dashboard.convex.dev/d/${deploymentName}/history`
-            : `${uriPrefix}/history`,
-          target: isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined,
-          muted: !auditLogsEnabled,
-          tooltip: auditLogsEnabled
-            ? undefined
-            : "Deployment history is only available on the Pro plan.",
-        },
-        {
-          key: "settings",
-          label: "Settings",
-          Icon: GearIcon,
-          href: `${uriPrefix}/settings`,
-        },
-      ],
+      items: configureItems,
     },
-  ];
+  ].filter((group) => group.items.length > 0);
 
   return (
     <FunctionsProvider>
@@ -127,16 +143,18 @@ export function DeploymentDashboardLayout({
         <PauseBanner />
         <NodeVersionBanner />
         <div className="flex h-full flex-col overflow-y-auto sm:flex-row">
-          <Sidebar
-            collapsed={!!collapsed}
-            setCollapsed={setCollapsed}
-            items={sidebarItems}
-            header={
-              process.env.NEXT_PUBLIC_HIDE_HEADER ? (
-                <EmbeddedConvexLogo collapsed={!!collapsed} />
-              ) : undefined
-            }
-          />
+          {sidebarItems.length > 0 && (
+            <Sidebar
+              collapsed={!!collapsed}
+              setCollapsed={setCollapsed}
+              items={sidebarItems}
+              header={
+                process.env.NEXT_PUBLIC_HIDE_HEADER ? (
+                  <EmbeddedConvexLogo collapsed={!!collapsed} />
+                ) : undefined
+              }
+            />
+          )}
           <div
             className={classNames(
               "flex w-full grow overflow-x-hidden",

@@ -287,7 +287,7 @@ export function DataContent({
 
           <LoadingTransition
             loadingState={
-              <div className="flex h-full flex-col items-center justify-center gap-8 rounded-lg border bg-background-secondary">
+              <div className="flex h-full flex-col items-center justify-center gap-8 rounded-b-lg border bg-background-secondary">
                 <LoadingLogo />
               </div>
             }
