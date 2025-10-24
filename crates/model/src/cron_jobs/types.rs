@@ -38,6 +38,8 @@ use value::{
     ConvexObject,
     ConvexValue,
     ResolvedDocumentId,
+    Size,
+    MAX_USER_SIZE,
 };
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -484,9 +486,17 @@ impl TryFrom<JsonValue> for CronSpec {
 
         let udf_path: UdfPath = j.name.parse()?;
         let udf_path_canonicalized = udf_path.canonicalize();
+        let udf_args = ConvexArray::try_from(j.args)?;
+        // CronSpec is stored in the database, so enforce document size limits
+        anyhow::ensure!(
+            udf_args.size() < MAX_USER_SIZE,
+            "Cron job args too large ({} > maximum size {})",
+            udf_args.size(),
+            MAX_USER_SIZE
+        );
         Ok(Self {
             udf_path: udf_path_canonicalized,
-            udf_args: ConvexArray::try_from(j.args)?,
+            udf_args,
             cron_schedule: schedule,
         })
     }
