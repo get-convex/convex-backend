@@ -21,7 +21,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Team"
+                    "$ref": "#/components/schemas/TeamResponse"
                   }
                 }
               }
@@ -397,7 +397,15 @@
       "ReferralCode": {
         "type": "string"
       },
-      "Team": {
+      "TeamId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "TeamName": {
+        "type": "string"
+      },
+      "TeamResponse": {
         "type": "object",
         "required": [
           "id",
@@ -445,18 +453,16 @@
           "slug": {
             "$ref": "#/components/schemas/TeamSlug"
           },
+          "ssoLoginId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "suspended": {
             "type": "boolean"
           }
         }
-      },
-      "TeamId": {
-        "type": "integer",
-        "format": "int64",
-        "minimum": 0
-      },
-      "TeamName": {
-        "type": "string"
       },
       "TeamSlug": {
         "type": "string"

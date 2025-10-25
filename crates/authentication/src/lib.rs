@@ -15,7 +15,10 @@ use biscuit::{
     JWT,
 };
 use chrono::TimeZone;
-use common::auth::AuthInfo;
+use common::{
+    auth::AuthInfo,
+    types::TeamId,
+};
 use data_url::DataUrl;
 use errors::ErrorMetadata;
 use futures::Future;
@@ -492,6 +495,8 @@ pub struct WorkOSClaims {
 
     #[serde(flatten)]
     vercel: Option<VercelClaims>,
+
+    sso_team_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -536,6 +541,7 @@ pub struct ConsoleAccessToken {
     sub: String,
     name: Option<String>,
     vercel: Option<VercelClaims>,
+    sso_team_id: Option<TeamId>,
 }
 
 impl ConsoleAccessToken {
@@ -546,6 +552,7 @@ impl ConsoleAccessToken {
             sub,
             name: None,
             vercel: None,
+            sso_team_id: None,
         }
     }
 
@@ -596,6 +603,7 @@ pub struct AuthenticatedLogin {
     email: Option<String>,
     sub: String,
     user_info: Option<UserInfo>,
+    sso_team_id: Option<TeamId>,
 }
 
 impl AuthenticatedLogin {
@@ -604,6 +612,7 @@ impl AuthenticatedLogin {
             email: token.email,
             sub: token.sub,
             user_info,
+            sso_team_id: token.sso_team_id,
         }
     }
 
@@ -621,6 +630,10 @@ impl AuthenticatedLogin {
 
     pub fn vercel_info(&self) -> Option<&VercelClaims> {
         self.user_info.as_ref().and_then(|ui| ui.vercel_info())
+    }
+
+    pub fn sso_team_id(&self) -> Option<TeamId> {
+        self.sso_team_id
     }
 }
 
@@ -766,6 +779,12 @@ where
         email: claims.private.email.clone(),
         sub,
         vercel: claims.private.vercel.clone(),
+        sso_team_id: claims
+            .private
+            .sso_team_id
+            .as_ref()
+            .map(|id| id.parse().map(TeamId))
+            .transpose()?,
         name: full_name,
     })
 }
@@ -1019,6 +1038,7 @@ mod tests {
                     first_name: Some("Test".to_string()),
                     last_name: Some("User".to_string()),
                     vercel: None,
+                    sso_team_id: None,
                 },
             ),
             &*TEST_SIGNING_KEY,
@@ -1071,6 +1091,7 @@ mod tests {
                     first_name: Some("Test".to_string()),
                     last_name: Some("User2".to_string()),
                     vercel: None,
+                    sso_team_id: None,
                 },
             ),
             &*TEST_SIGNING_KEY,

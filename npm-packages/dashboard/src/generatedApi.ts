@@ -2370,6 +2370,17 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         TeamName: string;
+        TeamResponse: {
+            creator?: null | components["schemas"]["MemberId"];
+            id: components["schemas"]["TeamId"];
+            managedBy?: string | null;
+            name: components["schemas"]["TeamName"];
+            referralCode: components["schemas"]["ReferralCode"];
+            referredBy?: null | components["schemas"]["TeamId"];
+            slug: components["schemas"]["TeamSlug"];
+            ssoLoginId?: string | null;
+            suspended: boolean;
+        };
         TeamSlug: string;
         TeamUsageStateResponse: {
             teamId: components["schemas"]["TeamId"];
@@ -2594,6 +2605,7 @@ export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsRe
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMemberResponse = components['schemas']['TeamMemberResponse'];
 export type TeamName = components['schemas']['TeamName'];
+export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
 export type TeamUsageStateResponse = components['schemas']['TeamUsageStateResponse'];
 export type TransferProjectArgs = components['schemas']['TransferProjectArgs'];
@@ -2873,7 +2885,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Team"][];
+                    "application/json": components["schemas"]["TeamResponse"][];
                 };
             };
         };
