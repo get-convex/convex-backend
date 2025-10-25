@@ -1089,6 +1089,16 @@ export function diffConfig(
   return { diffString: diff, stats };
 }
 
+/** Handle an error from
+ * legacy push path:
+ * - /api/push_config
+ * modern push paths:
+ * - /api/deploy2/start_push
+ * - /api/deploy2/finish_push
+ *
+ * finish_push errors are different from start_push errors and in theory could
+ * be handled differently, but starting over works for all of them.
+ */
 export async function handlePushConfigError(
   ctx: Context,
   error: unknown,
@@ -1173,6 +1183,19 @@ export async function handlePushConfigError(
       errorType: "invalid filesystem or env vars",
       errForSentry: error,
       printedMessage: envVarMessage + "\n" + setEnvVarInstructions,
+    });
+  }
+
+  if (data?.code === "RaceDetected") {
+    // Environment variables or schema changed during push. This is a transient
+    // error that should be retried immediately with exponential backoff.
+    const message =
+      data.message || "Schema or environment variables changed during push";
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: error,
+      printedMessage: chalk.yellow(message),
     });
   }
 

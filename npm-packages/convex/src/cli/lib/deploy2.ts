@@ -238,6 +238,7 @@ export async function finishPush(
     url: string;
     dryRun: boolean;
     verbose?: boolean;
+    deploymentName: string | null;
   },
 ): Promise<FinishPushDiff> {
   changeSpinner("Finalizing push...");
@@ -262,8 +263,17 @@ export async function finishPush(
     });
     return finishPushDiff.parse(await response.json());
   } catch (error: unknown) {
-    logFailure("Error: Unable to finish push to " + options.url);
-    return await logAndHandleFetchError(ctx, error);
+    return await handlePushConfigError(
+      ctx,
+      error,
+      "Error: Unable to finish push to " + options.url,
+      options.deploymentName,
+      {
+        adminKey: options.adminKey,
+        deploymentUrl: options.url,
+        deploymentNotice: "",
+      },
+    );
   }
 }
 
