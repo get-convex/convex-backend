@@ -64,7 +64,9 @@ export default queryGeneric({
     // This will throw an error if parsedFilters does not match the filter expression schema,
     // which should only happens if a dashboard user manually edits the `filters` query parameter
     // the dashboard should not allow this to happen by deleting the query parameter if it is invalid.
-    parsedFilters && FilterExpressionSchema.parse(parsedFilters);
+    if (parsedFilters) {
+      FilterExpressionSchema.parse(parsedFilters);
+    }
 
     if (parsedFilters && parsedFilters.clauses?.length) {
       const errors = await findErrorsInFilters(parsedFilters);

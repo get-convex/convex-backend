@@ -263,7 +263,7 @@ export async function findErrorsInFilters(
     if (filter.value) {
       try {
         jsonToConvex(filter.value);
-      } catch (e) {
+      } catch {
         errors.push({
           filter: i,
           error: `Invalid value: ${JSON.stringify(filter.value)}.`,
@@ -619,7 +619,7 @@ function jsonToConvexOrValue(
   }
   try {
     return jsonToConvex(value);
-  } catch (e) {
+  } catch {
     return value;
   }
 }

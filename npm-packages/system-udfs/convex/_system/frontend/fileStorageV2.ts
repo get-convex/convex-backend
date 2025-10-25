@@ -56,7 +56,6 @@ export const fileMetadata = queryGeneric({
 
     const newPage = await Promise.all(
       files.page.map(async (file) => {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const url = (await storage.getUrl(file._id))!;
         return {
           url,

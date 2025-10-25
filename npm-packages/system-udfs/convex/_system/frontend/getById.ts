@@ -11,7 +11,7 @@ export default queryGeneric({
     const id = args.id as GenericId<string>;
     try {
       return await db.get(id);
-    } catch (e) {
+    } catch {
       return await db.system.get(id as GenericId<SystemTableNames>);
     }
   },

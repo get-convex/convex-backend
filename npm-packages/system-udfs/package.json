@@ -7,7 +7,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc",
     "clean": "rm -rf dist",
-    "lint": "tsc && cd convex && eslint .",
+    "lint": "tsc && eslint .",
     "prepare": "npm run build",
     "test": "vitest run --pass-with-no-tests"
   },
@@ -25,18 +25,20 @@
     "udf-syscall-ffi": "workspace:*"
   },
   "devDependencies": {
+    "@eslint/compat": "~1.3.0",
+    "@eslint/eslintrc": "~3.3.0",
+    "@eslint/js": "~9.34.0",
     "@types/object-inspect": "^1.8.1",
     "@types/lodash": "~4.17.0",
     "@types/node": "^18.17.0",
     "convex-test": "^0.0.38",
-    "eslint": "^8.29.0",
-    "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
-    "eslint-plugin-react": "^7.37.2",
-    "vitest": "^3.2.4",
-    "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "@typescript-eslint/parser": "^6.7.4",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.0.0",
-    "typescript": "~5.0.3"
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "typescript": "~5.0.3",
+    "typescript-eslint": "^8.45.0",
+    "vitest": "^3.2.4"
   }
 }
