@@ -19,6 +19,7 @@
     "@next/eslint-plugin-next": "~15.1.0"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "workspace:*",
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^18.3.17",

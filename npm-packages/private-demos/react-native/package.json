@@ -21,6 +21,7 @@
     "@babel/core": "^7.27.1",
     "@babel/preset-env": "^7.27.1",
     "@babel/runtime": "^7.27.1",
+    "@convex-dev/eslint-plugin": "^1.0.0",
     "@eslint/js": "~9.34.0",
     "@eslint/eslintrc": "^3",
     "@react-native/babel-preset": "0.80.2",

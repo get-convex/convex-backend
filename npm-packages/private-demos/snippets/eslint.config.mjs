@@ -5,6 +5,7 @@ import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import reactHooks from "eslint-plugin-react-hooks";
 import react from "eslint-plugin-react";
 import jest from "eslint-plugin-jest";
+import convexPlugin from "@convex-dev/eslint-plugin";
 
 import { fixupPluginRules } from "@eslint/compat";
 
@@ -63,6 +64,7 @@ export default defineConfig([
       "@typescript-eslint/no-empty-function": "off",
     },
   },
+  ...convexPlugin.configs.recommended,
   {
     ignores: ["convex/_generated/**"],
   },

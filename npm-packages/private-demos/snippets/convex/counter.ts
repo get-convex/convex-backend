@@ -9,6 +9,7 @@ export const increment = mutation({
 });
 
 export const get = query({
+  args: {},
   handler: () => {
     return 1;
   },

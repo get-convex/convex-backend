@@ -3,6 +3,7 @@ import path from "node:path";
 import js from "@eslint/js";
 import { fileURLToPath } from "node:url";
 import { FlatCompat } from "@eslint/eslintrc";
+import convexPlugin from "@convex-dev/eslint-plugin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,10 +15,7 @@ const compat = new FlatCompat({
 
 export default defineConfig([
   {
-    extends: compat.extends(
-      "plugin:@typescript-eslint/recommended",
-      "plugin:@convex-dev/recommended",
-    ),
+    extends: compat.extends("plugin:@typescript-eslint/recommended"),
   },
   globalIgnores([
     "**/node_modules/",
@@ -25,4 +23,5 @@ export default defineConfig([
     "**/build/",
     "convex/_generated/**",
   ]),
+  ...convexPlugin.configs.recommended,
 ]);

@@ -8,6 +8,8 @@ import _import from "eslint-plugin-import";
 import tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 
+import convexPlugin from "@convex-dev/eslint-plugin";
+
 import { FlatCompat } from "@eslint/eslintrc";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -40,6 +42,7 @@ export default defineConfig([
 
     extends: compat.extends("eslint:recommended"),
   },
+  ...convexPlugin.configs.recommended,
   globalIgnores(["!**/.server", "!**/.client", "convex/_generated/**"]),
   {
     files: ["**/*.{js,jsx,ts,tsx}"],

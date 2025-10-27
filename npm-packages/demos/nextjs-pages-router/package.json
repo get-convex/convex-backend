@@ -20,6 +20,7 @@
     "prettier": "3.6.2"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "workspace:*",
     "@eslint/js": "~9.34.0",
     "@eslint/eslintrc": "^3",
     "@types/babel__core": "^7.20.0",

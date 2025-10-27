@@ -12,6 +12,7 @@ export const getMetadata = query({
 });
 
 export const listAllFiles = query({
+  args: {},
   handler: async (ctx) => {
     // You can use .paginate() as well
     return await ctx.db.system.query("_storage").collect();

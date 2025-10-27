@@ -7,6 +7,7 @@ import js from '@eslint/js';
 import { FlatCompat } from '@eslint/eslintrc';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import convexPlugin from '@convex-dev/eslint-plugin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -67,5 +68,12 @@ export default defineConfig([
 		'**/pnpm-lock.yaml',
 		'**/package-lock.json',
 		'**/yarn.lock'
-	])
+	]),
+	{
+		files: ['src/convex/**/*.ts'],
+		plugins: {
+			'@convex-dev': convexPlugin
+		},
+		rules: convexPlugin.configs.recommended[0].rules
+	}
 ]);

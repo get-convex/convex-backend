@@ -1,13 +1,19 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
-import convex from "@convex-dev/eslint-plugin";
+import convexPlugin from "@convex-dev/eslint-plugin";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "convex/_generated/**"],
+    ignores: ["dist", "src/ratelimiter/_generated/**"],
   },
   eslint.configs.recommended,
-  ...convex.configs.recommended,
+  {
+    files: ["src/ratelimiter/**/*.ts"],
+    plugins: {
+      "@convex-dev": convexPlugin,
+    },
+    rules: convexPlugin.configs.recommended[0].rules,
+  },
   ...tseslint.configs.recommended,
 
   {

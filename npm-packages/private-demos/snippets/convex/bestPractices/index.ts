@@ -245,6 +245,8 @@ declare const teamId: GenericId<"teams">;
 
 // @snippet start validation
 // ❌ -- could be used to update any document (not just `messages`)
+// @skipNextLine
+// eslint-disable-next-line @convex-dev/require-args-validator
 export const updateMessage_OMIT_1 = mutation({
   handler: async (ctx, { id, update }) => {
     // @skipNextLine

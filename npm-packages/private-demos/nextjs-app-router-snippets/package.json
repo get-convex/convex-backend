@@ -19,6 +19,7 @@
     "prettier": "3.6.2"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "workspace:*",
     "@eslint/js": "~9.34.0",
     "@eslint/eslintrc": "^3",
     "@radix-ui/react-slot": "^1.0.2",

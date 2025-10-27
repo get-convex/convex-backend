@@ -1,6 +1,7 @@
 import { action } from "./_generated/server";
 
 export const doSomething = action({
+  args: {},
   handler: () => {
     // implementation goes here
 
