@@ -1,0 +1,37 @@
+img[data-action="zoom"],
+p > img,
+.image-center img {
+  cursor: zoom-in;
+}
+
+.zoom-img,
+.zoom-img-wrap {
+  position: relative;
+  z-index: 666;
+  transition: all 300ms;
+}
+
+img.zoom-img {
+  cursor: zoom-out;
+}
+
+.zoom-overlay {
+  cursor: zoom-out;
+  z-index: 420;
+  background: rgba(255, 255, 255, 0.9);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+html[data-theme="dark"] .zoom-overlay {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.zoom-overlay-open .zoom-overlay {
+  opacity: 1;
+}

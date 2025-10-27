@@ -427,6 +427,7 @@ const config: Config = {
     ],
     "./src/plugins/metrics",
     "./src/plugins/prefixIds",
+    "./src/plugins/imageZoomPlugin",
     async function tailwindPlugin() {
       return {
         name: "docusaurus-tailwindcss",
