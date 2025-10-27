@@ -1,10 +1,10 @@
 import { mutation } from "./_generated/server.js";
 import { query } from "./_generated/server.js";
-import { Doc, Id } from "./_generated/dataModel.js";
 import { v } from "convex/values";
-import schema, { vv } from "./schema.js";
+import { vv } from "./schema.js";
 
 export const list = query({
+  args: {},
   returns: v.array(
     v.object({
       ...vv.doc("messages").fields,
@@ -27,6 +27,7 @@ export const list = query({
 });
 
 export const count = query({
+  args: {},
   returns: v.string(),
   handler: async (ctx) => {
     const messages = await ctx.db.query("messages").take(1001);

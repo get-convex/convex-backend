@@ -3,6 +3,7 @@ import { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 
 export const getCurrent = query({
+  args: {},
   handler: async (ctx): Promise<Doc<"users"> | null> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {

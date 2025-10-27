@@ -1,16 +1,13 @@
-/* eslint-disable jsx-a11y/anchor-is-valid */
 import {
   QueryClient,
   QueryClientProvider,
   useMutation,
   useQuery,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   Authenticated,
   AuthLoading,
-  ConvexProvider,
   ConvexReactClient,
   Unauthenticated,
 } from "convex/react";
@@ -156,8 +153,8 @@ function App() {
   });
   const {
     data: user,
-    error: userError,
-    isPending: userIsPending,
+    error: _userError,
+    isPending: _userIsPending,
   } = useQuery({
     ...convexQuery(api.user.getCurrent, {}),
     initialData: null,
