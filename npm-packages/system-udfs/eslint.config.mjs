@@ -4,6 +4,7 @@ import eslint from "@eslint/js";
 import reactHooks from "eslint-plugin-react-hooks";
 import react from "eslint-plugin-react";
 import tseslint, { parser as tsParser } from "typescript-eslint";
+import convexPlugin from "@convex-dev/eslint-plugin";
 
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -26,6 +27,7 @@ const compat = new FlatCompat({
 export default defineConfig([
   eslint.configs.recommended,
   tseslint.configs.recommended,
+  ...convexPlugin.configs.recommended,
   {
     languageOptions: {
       parser: tsParser,
