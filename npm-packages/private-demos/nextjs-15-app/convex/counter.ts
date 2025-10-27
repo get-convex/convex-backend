@@ -5,7 +5,7 @@ export const get = query({
   args: {
     counterName: v.string(),
   },
-  handler: async ({ db }, { counterName }: { counterName: string }) => {
+  handler: async ({ db }, { counterName }) => {
     const counterDoc = await db
       .query("counter_table")
       .filter((q) => q.eq(q.field("name"), counterName))
