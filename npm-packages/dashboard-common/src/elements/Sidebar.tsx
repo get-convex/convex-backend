@@ -226,5 +226,5 @@ export function useCurrentPage() {
     .replace("/t/[team]/[project]/[deploymentName]", "")
     .split("/")
     .filter((i) => !!i);
-  return path[0] ?? null;
+  return path[0] ?? "health";
 }
