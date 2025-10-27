@@ -67,7 +67,7 @@ npm-packages/private-demos/quickstarts/remix
 npm-packages/private-demos/quickstarts/vue
 # Formatting quickstarts generally just isn't a good idea
 npm-packages/private-demos/quickstarts/nextjs-app-dir-14
-# Should match Tanstack demos for now
+# Should match TanStack demos for now
 npm-packages/private-demos/tanstack-start
 npm-packages/private-demos/tanstack-start-clerk
 # Docs that we sync over to fivetran

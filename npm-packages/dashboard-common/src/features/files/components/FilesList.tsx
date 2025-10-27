@@ -133,7 +133,7 @@ export function FilesList({
     }
   }, [allSelected, someSelected, files, setSelectedFiles]);
 
-  // Setup Tanstack table
+  // Setup TanStack table
   const columns = useFileColumns();
 
   const tableInstance = useReactTable({
