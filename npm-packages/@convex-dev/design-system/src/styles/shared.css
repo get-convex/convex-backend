@@ -432,6 +432,7 @@ html.dark {
   html,
   body {
     @apply bg-background-primary;
+    @apply overscroll-contain;
   }
 
   strong {
