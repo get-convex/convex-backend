@@ -1127,9 +1127,12 @@ export async function handlePushConfigError(
       const autoProvisionIfWorkOSTeamAssociated = !!(
         homepage &&
         [
+          // FIXME: We don’t want to rely on `homepage` from `package.json` for this
+          // because it’s brittle, and because AuthKit templates are now in get-convex/templates
           "https://github.com/workos/template-convex-nextjs-authkit/#readme",
           "https://github.com/workos/template-convex-react-vite-authkit/#readme",
           "https://github.com:workos/template-convex-react-vite-authkit/#readme",
+          "https://github.com/workos/template-convex-tanstack-start-authkit/#readme",
         ].includes(homepage)
       );
       // Initially only specific templates offer team creation.

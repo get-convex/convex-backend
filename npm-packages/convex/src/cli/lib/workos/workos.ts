@@ -292,7 +292,10 @@ async function updateEnvLocal(
     await suggestedEnvVarName(ctx);
 
   // For now don't attempt for anything other than Vite or Next.js.
-  if (!detectedFramework || !["Vite", "Next.js"].includes(detectedFramework)) {
+  if (
+    !detectedFramework ||
+    !["Vite", "Next.js", "TanStackStart"].includes(detectedFramework)
+  ) {
     logWarning(
       "Can't configure .env.local, fill it out according to directions for the corresponding AuthKit SDK. Use `npx convex list` to see relevant environment variables.",
     );
@@ -317,8 +320,11 @@ async function updateEnvLocal(
         value: clientId,
         commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
       };
-    } else if (detectedFramework === "Next.js") {
-      // Next doesn't need the clint id to be public
+    } else if (
+      detectedFramework === "Next.js" ||
+      detectedFramework === "TanStackStart"
+    ) {
+      // Next/TanStack Start don’t need the client id to be public
       suggestedChanges[`WORKOS_CLIENT_ID`] = {
         value: clientId,
         commentOnPreviousLine: `# See this environment at ${workosUrl(environmentId, "/authentication")}`,
@@ -326,13 +332,20 @@ async function updateEnvLocal(
     }
 
     if (frontendDevUrl) {
-      suggestedChanges[`${publicPrefix}WORKOS_REDIRECT_URI`] = {
+      suggestedChanges[
+        detectedFramework === "TanStackStart"
+          ? "WORKOS_REDIRECT_URI"
+          : `${publicPrefix}WORKOS_REDIRECT_URI`
+      ] = {
         value: `${frontendDevUrl}/callback`,
       };
     }
   }
 
-  if (detectedFramework === "Next.js") {
+  if (
+    detectedFramework === "Next.js" ||
+    detectedFramework === "TanStackStart"
+  ) {
     if (
       !existingFileContent ||
       !existingFileContent.includes("WORKOS_COOKIE_PASSWORD")
