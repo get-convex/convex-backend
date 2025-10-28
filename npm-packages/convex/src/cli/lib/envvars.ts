@@ -158,18 +158,6 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
     };
   }
 
-  // Vite is a dependency of a lot of things; vite appearing in dependencies is not a strong indicator.
-  const isVite = "vite" in packages;
-
-  if (isVite) {
-    return {
-      detectedFramework: "Vite",
-      envVar: "VITE_CONVEX_URL",
-      frontendDevUrl: "http://localhost:5173",
-      publicPrefix: "VITE_",
-    };
-  }
-
   // TanStackStart currently supports VITE_FOO for browser-side envvars.
   const isTanStackStart =
     "@tanstack/start" in packages || "@tanstack/react-start" in packages;
@@ -179,6 +167,19 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
       detectedFramework: "TanStackStart",
       envVar: "VITE_CONVEX_URL",
       frontendDevUrl: "http://localhost:3000",
+      publicPrefix: "VITE_",
+    };
+  }
+
+  // Vite is a dependency of a lot of things; vite appearing in dependencies is not a strong indicator.
+  const isVite = "vite" in packages;
+
+  if (isVite) {
+    return {
+      detectedFramework: "Vite",
+      envVar: "VITE_CONVEX_URL",
+      frontendDevUrl: "http://localhost:5173",
+      publicPrefix: "VITE_",
     };
   }
 
