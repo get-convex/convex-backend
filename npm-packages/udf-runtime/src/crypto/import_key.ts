@@ -1445,7 +1445,7 @@ export function ed25519(
         let privateKeyData;
         try {
           privateKeyData = performOp("crypto/base64UrlDecode", jwk.d);
-        } catch (_) {
+        } catch {
           throw new DOMException("invalid private key data", "DataError");
         }
 
@@ -1468,7 +1468,7 @@ export function ed25519(
         let publicKeyData;
         try {
           publicKeyData = performOp("crypto/base64UrlDecode", jwk.x);
-        } catch (_) {
+        } catch {
           throw new DOMException("invalid public key data", "DataError");
         }
 

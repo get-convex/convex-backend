@@ -6,7 +6,7 @@ export async function hasUncommittedChanges(folder: string) {
       cwd: folder,
     });
     return result.stdout.length > 0;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

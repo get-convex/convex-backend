@@ -58,7 +58,7 @@ async function main() {
   try {
     execSync(`npm run spellcheck`, { stdio: ["inherit", "inherit"] });
     console.log(`✅ Spellcheck passed!`);
-  } catch (error) {
+  } catch {
     console.log(`❌ Spellcheck failed!`);
     process.exit(1);
   }

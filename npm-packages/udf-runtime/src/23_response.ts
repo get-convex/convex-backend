@@ -53,7 +53,7 @@ export class Response {
     }
     try {
       body = JSON.stringify(data);
-    } catch (e) {
+    } catch {
       throw new TypeError(
         "Failed to execute 'json' on 'Response': The data is not JSON serializable",
       );

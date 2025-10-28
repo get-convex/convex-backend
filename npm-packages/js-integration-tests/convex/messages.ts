@@ -113,7 +113,7 @@ export const partialRollback = mutation(async (ctx) => {
       await ctx.runMutation(components.component.transact.sendButFail, {
         message,
       });
-    } catch (e) {
+    } catch {
       return;
     }
     throw new Error("expected error");

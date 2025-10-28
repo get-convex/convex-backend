@@ -144,7 +144,7 @@ export class SyscallsImpl {
       const body = await response.json();
       const parsedBody = args.responseValidator.parse(body);
       return parsedBody;
-    } catch (e: any) {
+    } catch {
       // This probably represents an error on our side where we're returning the wrong
       // response type, and should ideally never happen. Throw a generic error when
       // it does happen though.
@@ -198,7 +198,7 @@ export class SyscallsImpl {
     try {
       const parsedArgs = argValidator.parse(args);
       return parsedArgs;
-    } catch (e) {
+    } catch {
       throw new Error(
         `Invalid ${operationName} request with args ${JSON.stringify(args)}`,
       );

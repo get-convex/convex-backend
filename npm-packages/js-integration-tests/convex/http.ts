@@ -77,7 +77,7 @@ http.route({
     let identity: UserIdentity | null | "error" = null;
     try {
       identity = await auth.getUserIdentity();
-    } catch (e) {
+    } catch {
       identity = "error";
     }
 
