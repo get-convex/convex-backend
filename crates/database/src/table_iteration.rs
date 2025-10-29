@@ -17,7 +17,10 @@ use common::{
         IndexKeyBytes,
     },
     interval::Interval,
-    knobs::DOCUMENTS_IN_MEMORY,
+    knobs::{
+        DOCUMENTS_IN_MEMORY,
+        TABLE_ITERATOR_MAX_RETRIES,
+    },
     persistence::{
         new_static_repeatable_recent,
         DocumentLogEntry,
@@ -41,6 +44,7 @@ use common::{
     },
     value::ResolvedDocumentId,
 };
+use errors::ErrorMetadataAnyhowExt;
 use futures::{
     pin_mut,
     stream,
@@ -563,27 +567,37 @@ impl<RT: Runtime> TableIteratorInner<RT> {
         tablet_id: TabletId,
         cursor: &mut TableScanCursor,
     ) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {
-        let ts = self.new_ts().await?;
-        let repeatable_persistence = RepeatablePersistence::new(
-            self.persistence.clone(),
-            ts,
-            self.retention_validator.clone(),
-        );
-        let reader = repeatable_persistence.read_snapshot(ts)?;
-        let stream = reader.index_scan(
-            index_id,
-            tablet_id,
-            &cursor.interval(),
-            Order::Asc,
-            self.page_size,
-        );
-        let documents_in_page: Vec<_> = stream.take(self.page_size).try_collect().await?;
-        if documents_in_page.len() < self.page_size {
-            cursor.advance(CursorPosition::End)?;
-        } else if let Some((index_key, ..)) = documents_in_page.last() {
-            cursor.advance(CursorPosition::After(index_key.clone()))?;
+        for attempt in 0.. {
+            let ts = self.new_ts().await?;
+            let repeatable_persistence = RepeatablePersistence::new(
+                self.persistence.clone(),
+                ts,
+                self.retention_validator.clone(),
+            );
+            let reader = repeatable_persistence.read_snapshot(ts)?;
+            let stream = reader.index_scan(
+                index_id,
+                tablet_id,
+                &cursor.interval(),
+                Order::Asc,
+                self.page_size,
+            );
+            let documents_in_page: Vec<_> = match stream.take(self.page_size).try_collect().await {
+                Ok(docs) => docs,
+                Err(e) if attempt < *TABLE_ITERATOR_MAX_RETRIES && e.is_out_of_retention() => {
+                    tracing::warn!("TableIterator hit out-of-retention error {e}, retrying...");
+                    continue;
+                },
+                Err(e) => return Err(e),
+            };
+            if documents_in_page.len() < self.page_size {
+                cursor.advance(CursorPosition::End)?;
+            } else if let Some((index_key, ..)) = documents_in_page.last() {
+                cursor.advance(CursorPosition::After(index_key.clone()))?;
+            }
+            return Ok((documents_in_page, ts));
         }
-        Ok((documents_in_page, ts))
+        unreachable!()
     }
 
     /// Load the revisions of documents visible at `self.snapshot_ts`.

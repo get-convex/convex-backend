@@ -183,6 +183,10 @@ pub static DEFAULT_DOCUMENTS_PAGE_SIZE: LazyLock<u32> =
 pub static DOCUMENTS_IN_MEMORY: LazyLock<usize> =
     LazyLock::new(|| env_config("DOCUMENTS_IN_MEMORY", 512));
 
+/// Number of times to retry on out-of-retention errors in TableIterator
+pub static TABLE_ITERATOR_MAX_RETRIES: LazyLock<u32> =
+    LazyLock::new(|| env_config("TABLE_ITERATOR_MAX_RETRIES", 1));
+
 /// Length of the HTTP server TCP backlog.
 pub static HTTP_SERVER_TCP_BACKLOG: LazyLock<u32> =
     LazyLock::new(|| env_config("HTTP_SERVER_TCP_BACKLOG", 256));
