@@ -112,6 +112,7 @@ function unhandledRejectionHandler(
     memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
   };
   if (e instanceof Error) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     e.stack; // calls overridden prepareStackTrace
     if ((e as any).__frameData) {
       response.frames = JSON.parse((e as any).__frameData);
@@ -361,12 +362,15 @@ export async function executeInner(
         // Always clear the timeout after the promise is settled.
         // There shouldn't be a race because the timeout promise is created first.
         // But it's also fine because with Promise.race the timeout promise should be swallowed
-        timer && clearTimeout(timer);
+        if (timer) {
+          clearTimeout(timer);
+        }
       });
     });
   } catch (e: any) {
     // Accessing `e.stack` is important! Without it e.__frameData
     // is not generated!
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     e?.stack;
 
     const udfTimeMs = logDurationMs("executeUdf", startExecute);
@@ -456,6 +460,7 @@ export async function analyze(
       const filePath = path.join(modulesDir, modulePath);
       modules[modulePath] = await analyzeModule(filePath);
     } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       e.stack;
       return {
         type: "error",

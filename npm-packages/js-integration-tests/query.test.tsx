@@ -99,7 +99,6 @@ describe.skip("ConvexHttpClient", () => {
       const pages = [];
       let cursor = null;
 
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const {
           page,

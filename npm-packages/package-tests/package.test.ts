@@ -44,10 +44,10 @@ test("all old installations work", async () => {
 });
 
 type RemoveCallSignature<T> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   [K in keyof T as T[K] extends Function ? K : never]: T[K];
 } & {
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   [K in keyof T as T[K] extends Function ? never : K]: T[K];
 };
 
@@ -73,9 +73,7 @@ describe("Assignability", () => {
     // A looser type for mutation because Convex function wrappers
     // are not assignable across convex packages.
     type PublicMutationWrapperGeneric = (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...args: any[]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ) => RemoveCallSignature<
       server1dot16.RegisteredMutation<"public", any, any>
     >;

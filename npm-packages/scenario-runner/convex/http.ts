@@ -6,7 +6,6 @@ const http = httpRouter();
 http.route({
   path: "/basic",
   method: "POST",
-  /* eslint-disable-next-line require-await */
   handler: httpAction(async (_ctx, _request) => {
     return new Response(JSON.stringify({ hello: "world" }), {
       headers: new Headers({ "content-type": "application/json" }),
@@ -18,7 +17,6 @@ http.route({
 http.route({
   path: "/streaming",
   method: "POST",
-  /* eslint-disable-next-line require-await */
   handler: httpAction(async (_ctx, _request) => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({

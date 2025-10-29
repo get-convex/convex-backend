@@ -82,7 +82,6 @@ const runAfterTimeout = (
 };
 
 const unusedTimerId = () => {
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const id =
       1 + Math.floor(Math.random() * Math.max(1000, ACTIVE_TIMERS.size * 2));

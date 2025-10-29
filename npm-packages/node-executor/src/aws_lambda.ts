@@ -15,7 +15,6 @@ const MAX_INVOKE_COUNT = process.env.MAX_INVOKE_COUNT
   ? parseInt(process.env.MAX_INVOKE_COUNT)
   : 16;
 
-// eslint-disable-next-line  @typescript-eslint/no-unused-vars
 export const handler = awslambda.streamifyResponse(
   async (event: any, responseStream: Writable, context: Context) => {
     // Using `streamifyResponse()` changes the behavior of the Lambda VM

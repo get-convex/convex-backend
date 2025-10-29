@@ -153,8 +153,6 @@ export function logMessage(ctx: Context, ...logged: any) {
 // (logMesage, logWarning, etc.) should be written to stderr.
 export function logOutput(ctx: Context, ...logged: any) {
   ctx.spinner?.clear();
-  // the one spot where we can console.log
-  // eslint-disable-next-line no-console
   console.log(...logged);
 }
 

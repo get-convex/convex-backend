@@ -19,7 +19,6 @@ export const logNull = query(() => {
 });
 
 export const logFunction = query(() => {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   function myFunction() {}
   console.log(myFunction);
 });

@@ -77,7 +77,6 @@ export function Snippet({
       if (pieces.length < 4) {
         throw new Error(`Invalid snippet line: ${trimmed}`);
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_comment, _snippet, command, name] = pieces;
       if (command === "start") {
         if (allSpans.has(name) || openSpans.has(name)) {

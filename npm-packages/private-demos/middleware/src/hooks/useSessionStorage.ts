@@ -4,11 +4,11 @@ import { useCallback, useState } from "react";
 function useSessionStorage<T extends Value>(
   key: string,
 ): [T | undefined, (value: T) => void];
-function useSessionStorage<T extends Value>( // eslint-disable-line no-redeclare
+function useSessionStorage<T extends Value>(
   key: string,
   defaultValue: T | (() => T),
 ): [T, (value: T) => void];
-function useSessionStorage<T extends Value>( // eslint-disable-line no-redeclare
+function useSessionStorage<T extends Value>(
   key: string,
   defaultValue?: T | (() => T),
 ) {

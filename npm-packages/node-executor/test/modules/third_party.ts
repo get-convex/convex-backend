@@ -1,15 +1,16 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 import { actionGeneric as action } from "convex/server";
 
 import "undici";
 
 // Check that `require` still works with our bundler.
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const Stripe = require("stripe");
 const { google } = require("googleapis");
 const twilio = require("twilio");
 // https://github.com/auth0/node-auth0/blob/master/README.md#getting-error-cant-resolve-superagent-proxy-when-bundling-with-webpack
 const { AuthenticationClient } = require("auth0");
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 import * as sgMail from "@sendgrid/mail";
 

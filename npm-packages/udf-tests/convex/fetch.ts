@@ -253,7 +253,6 @@ async function fetchBodyReader() {
   assert(response.body !== null);
   const reader = response.body!.getReader();
   let total = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -274,7 +273,6 @@ async function fetchBodyReaderBigBody() {
   assert(response.body !== null);
   const reader = await response.body.getReader();
   let total = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -963,7 +961,6 @@ async function fetchBodyReaderAfterRead() {
   const response = await fetch("http://localhost:4545/assets/fixture.json");
   assert(response.body !== null);
   const reader = await response.body.getReader();
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -991,7 +988,6 @@ async function fetchBodyReaderWithCancelAndNewReader() {
   const reader = await response.body.getReader();
 
   let total = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1020,7 +1016,6 @@ async function fetchBodyReaderWithReadCancelAndNewReader() {
   // Continue read with second reader
   const reader = await response.body.getReader();
   let total = firstValue.length || 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1805,7 +1800,6 @@ async function fetchBodyTextDecoderStream() {
   const decodedStream = response.body!.pipeThrough(new TextDecoderStream());
   const reader = decodedStream.getReader();
   let decodedBody = "";
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;

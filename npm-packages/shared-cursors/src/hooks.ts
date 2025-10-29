@@ -79,7 +79,6 @@ export function usePositions(latencyBuffer: LatencyBuffer, sessionId: string) {
     const now = Date.now();
     for (const pos of positions) {
       const latency = now - pos.clientSentTs;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _latency2 = now - pos.serverSentTs;
       latencyBuffer.record(latency, pos.session, localNow);
     }

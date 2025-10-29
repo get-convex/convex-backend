@@ -303,7 +303,6 @@ async function test_execute_syscall() {
     asyncJsSyscall(op: string, args: Record<string, any>): Promise<any> {
       throw new Error("asyncJsSyscall not allowed");
     },
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     assertNoPendingSyscalls() {},
   };
   const { response, logLines } = await executeWrapper(
@@ -391,7 +390,7 @@ async function test_dirname() {
 }
 
 async function test_modules() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const module = require("module");
   assert(module.builtinModules.includes("assert"));
   assert(module.builtinModules.includes("async_hooks"));

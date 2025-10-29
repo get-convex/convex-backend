@@ -72,7 +72,6 @@ class BlobStreamReference {
     const sliced = new ReadableStream({
       type: "bytes",
       async pull(controller) {
-        // eslint-disable-next-line no-constant-condition
         while (true) {
           const { value, done } = await reader.read();
           if (done || bytesRead >= end) return controller.close();
@@ -105,7 +104,6 @@ function iteratorToReadableStream(
   return new ReadableStream({
     type: "bytes",
     async pull(controller) {
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { value, done } = await iterator.next();
         if (done) return controller.close();
@@ -236,7 +234,6 @@ export class Blob {
     const bytes = new Uint8Array(this._size);
     const partIterator = toIterator(this._parts);
     let offset = 0;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const { value, done } = await partIterator.next();
       if (done) break;

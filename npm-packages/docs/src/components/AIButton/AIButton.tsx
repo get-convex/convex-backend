@@ -1,7 +1,7 @@
 import { cn } from "@site/src/lib/cn";
 import React from "react";
 
-interface AIButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+type AIButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function AIButton({ children, className, ...props }: AIButtonProps) {
   return (

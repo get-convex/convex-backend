@@ -21,7 +21,6 @@ describe("Scheduler in component", () => {
   });
 
   async function waitForJob(getStatus: () => Promise<ScheduledJobStatus>) {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const status = await getStatus();
       expect(status).not.toEqual(null);
@@ -126,7 +125,6 @@ describe("Scheduler basic tests", () => {
     targetStatus: ScheduledJobStatus,
     getStatus: () => Promise<ScheduledJobStatus>,
   ) {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const status = await getStatus();
       expect(status).not.toEqual(null);

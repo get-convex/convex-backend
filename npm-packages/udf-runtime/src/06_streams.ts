@@ -34,7 +34,6 @@ export const extractStream = (streamId: string): ReadableStream => {
   return new ReadableStream({
     type: "bytes",
     async pull(controller) {
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { value, done } = await performAsyncOp(
           "stream/readPart",

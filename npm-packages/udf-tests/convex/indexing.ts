@@ -11,13 +11,13 @@ import {
 } from "convex/server";
 import { v } from "convex/values";
 
-const schema = defineSchema({
+const _schema = defineSchema({
   myTable: defineTable({
     a: v.number(),
     b: v.optional(v.number()),
   }).index("by_a_b", ["a", "b"]),
 });
-type DataModel = DataModelFromSchemaDefinition<typeof schema>;
+type DataModel = DataModelFromSchemaDefinition<typeof _schema>;
 const query: QueryBuilder<DataModel, "public"> = queryGeneric;
 const mutation: MutationBuilder<DataModel, "public"> = mutationGeneric;
 

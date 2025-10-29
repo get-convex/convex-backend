@@ -26,7 +26,7 @@ module.exports = {
  * The `context` parameter provides a log() function.
  * The return value is the updated object.
  */
-function readPackage(packageJson, context) {
+function readPackage(packageJson, _context) {
   // // The karma types have a missing dependency on typings from the log4js package.
   // if (packageJson.name === '@types/karma') {
   //  context.log('Fixed up dependencies for @types/karma');

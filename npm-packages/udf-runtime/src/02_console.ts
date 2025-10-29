@@ -47,6 +47,7 @@ const consoleImpl = {
     const message = getMessage(args);
     const error = new Error();
     // This calls `prepareStackTrace` that populates `__frameData`
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     error.stack;
     const frameData = JSON.parse((error as any).__frameData ?? []);
     performOp("console/trace", message, frameData);

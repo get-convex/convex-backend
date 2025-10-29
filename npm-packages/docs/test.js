@@ -1,6 +1,6 @@
 // This file contains tests for specific docs regressions.
 
-const fs = require("fs"); // eslint-disable-line
+const fs = require("fs");
 
 // Docs contain docstrings, which requires typedoc-plugin-markdown and typedoc to play nice.
 // https://linear.app/convex/issue/CX-1825/docstrings-broken-in-docs

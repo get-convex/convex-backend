@@ -48,6 +48,7 @@ export const throwUncatchableDeveloperError = (message: string): never => {
   // the syscall
   const error = new Error();
   // This calls `prepareStackTrace` that populates `__frameData`
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   error.stack;
   const frameData = JSON.parse((error as any).__frameData ?? []);
   performOp("throwUncatchableDeveloperError", message, frameData);

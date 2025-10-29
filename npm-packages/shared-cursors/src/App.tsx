@@ -104,7 +104,7 @@ function WrappedClient(props: ClientProps) {
   if (!client.current) client.current = new ConvexReactClient(address);
   useEffect(() => {
     return () => {
-      client.current && client.current.close();
+      client.current?.close();
       client.current = undefined;
     };
   }, []);

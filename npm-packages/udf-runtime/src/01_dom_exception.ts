@@ -75,6 +75,7 @@ class DOMException {
     });
 
     // This calls `prepareStackTrace` that populates `__frameData`.
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     error.stack;
     (this as any).__frameData = (error as any).__frameData ?? [];
   }

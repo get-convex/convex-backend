@@ -42,6 +42,7 @@ export async function buildDeps(
   try {
     return await buildDepsInner(url, request.deps);
   } catch (e: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     e.stack;
     return {
       type: "error",

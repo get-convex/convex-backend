@@ -2,10 +2,11 @@
 import { load } from "langchain/load";
 import { Tiktoken } from "tiktoken/lite";
 import { action } from "../_generated/server";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const gpt2_base = require("tiktoken/encoders/gpt2.json");
 
 // This use makes sure that the package gets marked as external
+// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 load;
 
 export const encode = action({

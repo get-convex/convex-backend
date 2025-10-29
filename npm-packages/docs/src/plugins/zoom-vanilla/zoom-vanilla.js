@@ -1,4 +1,4 @@
-+(function () {
+(function () {
   "use strict";
   var OFFSET = 80;
 
@@ -168,6 +168,7 @@
     }
 
     function calculateZoom() {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       targetImage.offsetWidth; // repaint before animating
 
       var originalFullImageWidth = fullWidth;
@@ -196,6 +197,7 @@
     }
 
     function triggerAnimation() {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       targetImage.offsetWidth; // repaint before animating
 
       var imageOffset = offset(targetImage);
