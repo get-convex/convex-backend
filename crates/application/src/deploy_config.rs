@@ -432,7 +432,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     #[fastrace::trace]
-    pub async fn evaluate_app_definitions(
+    async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
