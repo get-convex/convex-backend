@@ -425,6 +425,10 @@ pub static ENABLE_INDEX_BACKFILL: LazyLock<bool> =
 pub static INDEX_BACKFILL_CHUNK_RATE: LazyLock<NonZeroU32> =
     LazyLock::new(|| env_config("INDEX_BACKFILL_CHUNK_RATE", NonZeroU32::new(16).unwrap()));
 
+/// The page size to use when reading the table for an index backfill.
+pub static INDEX_BACKFILL_READ_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEX_BACKFILL_READ_SIZE", 500));
+
 /// How many index entries to write within a single database transaction.
 /// Value is a tradeoff between grouping work, vs tying up resources on the
 /// database, vs holding all entries in memory.

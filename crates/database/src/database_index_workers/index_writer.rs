@@ -16,6 +16,7 @@ use common::{
         INDEX_BACKFILL_CHUNK_RATE,
         INDEX_BACKFILL_CHUNK_SIZE,
         INDEX_BACKFILL_PROGRESS_INTERVAL,
+        INDEX_BACKFILL_READ_SIZE,
         INDEX_BACKFILL_WORKERS,
     },
     persistence::{
@@ -266,7 +267,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             snapshot_ts,
             self.reader.clone(),
             self.retention_validator.clone(),
-            INDEX_BACKFILL_CHUNK_SIZE.get() as usize,
+            *INDEX_BACKFILL_READ_SIZE,
         );
 
         let (index_update_tx, index_update_rx) = mpsc::channel(32);
