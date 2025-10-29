@@ -1104,6 +1104,14 @@ pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new
     }
 });
 
+/// If usage tracking worker takes longer than this, trace details to logs.
+pub static USAGE_TRACKING_WORKER_SLOW_TRACE_THRESHOLD: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config(
+        "USAGE_TRACKING_WORKER_SLOW_TRACE_THRESHOLD_SECONDS",
+        120,
+    ))
+});
+
 /// The number of events we can accumulate in the buffer that's used to send
 /// events from our business logic to our firehose client.
 ///
