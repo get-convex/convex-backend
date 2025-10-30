@@ -12,7 +12,10 @@ use std::{
         Hasher,
     },
     sync::Arc,
-    time::Duration,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context;
@@ -723,6 +726,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<()> {
+        let mut last_logged = Instant::now();
         while cursor_ts.succ()? < *min_snapshot_ts {
             let (new_cursor_ts, _) = Self::delete(
                 min_snapshot_ts,
@@ -732,10 +736,16 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 retention_validator.clone(),
             )
             .await?;
+            let now = Instant::now();
+            let duration = now.saturating_duration_since(last_logged).as_secs_f64();
+            let catchup_rate = new_cursor_ts.secs_since_f64(*cursor_ts) / duration;
+            let lag = min_snapshot_ts.secs_since_f64(*new_cursor_ts);
             tracing::info!(
-                "custom index retention completed between ts {cursor_ts} and {new_cursor_ts}"
+                "custom index retention completed between ts {cursor_ts} and {new_cursor_ts}; \
+                 catchup rate: {catchup_rate:.1}s/s, {lag:.1}s behind snapshot"
             );
             cursor_ts = new_cursor_ts;
+            last_logged = now;
         }
         Ok(())
     }
