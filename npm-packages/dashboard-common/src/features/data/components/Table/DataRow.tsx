@@ -13,7 +13,6 @@ import { Row } from "react-table";
 import classNames from "classnames";
 import { useFirstMountState, usePrevious } from "react-use";
 import { areEqual } from "react-window";
-import { cn } from "@ui/cn";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { Target } from "@common/features/data/components/ContextMenu";
@@ -120,7 +119,7 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
     onCloseContextMenu,
     canManageTable,
     activeSchema,
-    resizingColumn,
+    resizingColumn: _resizingColumn,
     onEditDocument,
     contextMenuColumn,
     contextMenuRow,
@@ -183,13 +182,7 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
           <div
             {...cell.getCellProps({ style: { width } })}
             key={cell.getCellProps().key}
-            className={cn(
-              columnIndex < row.cells.length - 1
-                ? "border-r transition-colors duration-300"
-                : "transition-colors duration-300",
-              resizingColumn === (cell.column.Header as string) &&
-                "border-r-util-accent",
-            )}
+            className="border-r transition-colors duration-300"
           >
             {columnIndex === 0 ? (
               <TableCheckbox

@@ -6,8 +6,8 @@ import {
 import classNames from "classnames";
 import { GenericDocument } from "convex/server";
 import { HeaderGroup } from "react-table";
-import { useDrop, useDrag } from "react-dnd";
-import { useRef, useState } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { useRef, useState, RefObject } from "react";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
@@ -29,17 +29,16 @@ type ColumnHeaderProps = {
   hasFilters: boolean;
   isSelectionExhaustive: boolean;
   toggleAll: () => void;
-  reorder(item: { index: number }, newIndex: number): void;
   isResizingColumn?: string;
   isLastColumn: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
   sort?: "asc" | "desc";
   activeSchema: any | null;
   tableName: string;
+  tableContainerRef: RefObject<HTMLDivElement>;
 };
 
 export function ColumnHeader({
-  reorder,
   column,
   columnIndex,
   allRowsSelected = false,
@@ -52,14 +51,27 @@ export function ColumnHeader({
   sort,
   activeSchema,
   tableName,
+  tableContainerRef,
 }: ColumnHeaderProps) {
   const canDragOrDrop = columnIndex !== 0 && !isResizingColumn;
 
   const headerNode = useRef<HTMLDivElement | null>(null);
 
-  const { isDragging, isHovering, direction, drop, drag, dragPreview } =
-    useColumnDragAndDrop(column, columnIndex, reorder, canDragOrDrop);
   const columnName = column.Header as string;
+  const columnId = column.id;
+
+  const { attributes, listeners, setNodeRef, isDragging, isOver, active } =
+    useSortable({
+      id: columnId,
+      disabled: !canDragOrDrop,
+    });
+
+  // Always drop to the right of the hovered column
+  const direction =
+    isOver && !isDragging && active && active.id !== columnId
+      ? "right"
+      : undefined;
+  const isHovering = isOver && !isDragging && active?.id !== columnId;
   useContextMenuTrigger(
     headerNode,
     (pos) =>
@@ -87,43 +99,43 @@ export function ColumnHeader({
     <div
       key={column.getHeaderProps().key}
       {...omit(column.getHeaderProps({ style: { width } }), "key")}
+      ref={setNodeRef}
       className={classNames(
-        isDragging && "cursor-grabbing",
+        isDragging && "opacity-50",
         "font-semibold text-left text-xs bg-background-secondary text-content-secondary tracking-wider",
         "select-none duration-300 transition-colors",
-        !isLastColumn && "border-r",
-        isResizingColumn === columnName && "border-r-util-accent",
+        "border-r",
         "relative",
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Show a border on the side the column will be dropped */}
-      {!isDragging && isHovering && direction && (
+      {/* Show a vertical line on the right side where the column will be dropped */}
+      {isHovering && direction && (
         <div
-          className={classNames(
-            "absolute top-px h-full w-px bg-util-accent",
-            direction === "left" ? "left-0" : "right-0",
-          )}
+          className="absolute top-0 right-0 z-10 w-0.5 bg-util-accent"
+          style={{
+            height: tableContainerRef.current?.offsetHeight || "100%",
+          }}
+        />
+      )}
+      {/* Show a vertical line when resizing this column */}
+      {isResizingColumn === columnName && (
+        <div
+          className="absolute top-0 right-0 z-10 w-0.5 bg-util-accent"
+          style={{
+            height: tableContainerRef.current?.offsetHeight || "100%",
+          }}
         />
       )}
       <ValidatorTooltip
         fieldSchema={fieldSchema}
         columnName={columnName}
-        disableTooltip={!!isResizingColumn}
+        disableTooltip={!!isResizingColumn || isDragging}
       >
         <div
-          ref={(node) => {
-            headerNode.current = node;
-            if (node) {
-              drop(node);
-              dragPreview(node);
-            }
-          }}
-          className={cn(
-            "flex w-full items-center justify-between space-x-2",
-            isDragging && "cursor-grabbing",
-          )}
+          ref={headerNode}
+          className="flex w-full items-center space-x-2"
           style={{
             padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
             width,
@@ -173,9 +185,8 @@ export function ColumnHeader({
           </div>
           {canDragOrDrop && isHovered && (
             <Button
-              ref={(node) => {
-                node && drag(node);
-              }}
+              {...attributes}
+              {...listeners}
               className={cn(
                 "absolute right-1.5 animate-fadeInFromLoading cursor-grab items-center bg-background-secondary/50 text-content-secondary backdrop-blur-[2px]",
                 isDragging && "cursor-grabbing",
@@ -184,12 +195,6 @@ export function ColumnHeader({
               variant="neutral"
               inline
               size="xs"
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
-                  e.preventDefault();
-                  // Optionally, trigger drag start here if needed for keyboard users
-                }
-              }}
               icon={<DragHandleDots2Icon />}
             />
           )}
@@ -209,40 +214,4 @@ export function ColumnHeader({
       )}
     </div>
   );
-}
-
-export function useColumnDragAndDrop(
-  column: HeaderGroup<GenericDocument>,
-  columnIndex: number,
-  reorder: (item: { index: number }, newIndex: number) => void,
-  canDragOrDrop: boolean,
-) {
-  const { id } = column;
-  const [{ isHovering, offset }, drop] = useDrop({
-    accept: "column",
-    canDrop: () => canDragOrDrop,
-    drop: (item: { index: number }) => {
-      reorder(item, columnIndex);
-    },
-    collect: (monitor) => ({
-      isHovering: canDragOrDrop && monitor.isOver({ shallow: true }),
-      offset: monitor.getDifferenceFromInitialOffset(),
-    }),
-  });
-
-  const direction = offset?.x ? (offset.x > 0 ? "right" : "left") : undefined;
-
-  const [{ isDragging }, drag, dragPreview] = useDrag({
-    type: "column",
-    canDrag: canDragOrDrop,
-    item: () => ({
-      id,
-      index: columnIndex,
-    }),
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  return { isDragging, isHovering, direction, drop, drag, dragPreview };
 }

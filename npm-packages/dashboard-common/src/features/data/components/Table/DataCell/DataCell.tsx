@@ -2,7 +2,7 @@ import { GenericId, Value } from "convex/values";
 import { GenericDocument } from "convex/server";
 import classNames from "classnames";
 import React, { memo, useRef, useState } from "react";
-import { useClickAway, useHoverDirty } from "react-use";
+import { useClickAway } from "react-use";
 import { areEqual } from "react-window";
 import { usePopper } from "react-popper";
 import { ColumnInstance } from "react-table";
@@ -87,7 +87,7 @@ function DataCellImpl({
   // Derive all the information needed to render the cell
   const columnName = column.Header as string;
   const stringValue = typeof value === "string" ? value : stringifyValue(value);
-  const isHoveringCell = useHoverDirty(cellRef);
+  const [isHoveringCell, setIsHoveringCell] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const isSystemField = columnName?.startsWith("_");
   const isEditable = !isSystemField && canManageTable;
@@ -202,6 +202,8 @@ function DataCellImpl({
         }}
         className="relative flex h-full w-full items-center hover:bg-background-tertiary/75"
         style={{ width }}
+        onMouseEnter={() => setIsHoveringCell(true)}
+        onMouseLeave={() => setIsHoveringCell(false)}
       >
         {/* We do not use Button here because it's expensive and this table needs to be fast */}
         {/* eslint-disable-next-line react/forbid-elements */}

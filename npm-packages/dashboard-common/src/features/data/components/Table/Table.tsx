@@ -20,9 +20,11 @@ import {
   Filter,
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import withScrolling from "react-dnd-scrolling";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   ImperativePanelHandle,
   Panel,
@@ -50,8 +52,7 @@ import { useDataPageSize } from "@common/features/data/components/Table/utils/us
 import { LoadingLogo } from "@ui/Loading";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
-
-const ScrollingComponent = withScrolling("div");
+import { useColumnDragAndDrop } from "@common/features/data/components/Table/utils/useColumnDragAndDrop";
 
 const getRowId = (d: GenericDocument) => d._id as string;
 
@@ -189,6 +190,7 @@ export function Table({
   ] = selectedRows;
 
   const outerRef = useRef<HTMLElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const [, forceRerender] = useReducer((x) => x + 1, 0);
 
@@ -214,6 +216,22 @@ export function Table({
 
   const panelRef = useRef<ImperativePanelHandle>(null);
 
+  // Column drag and drop setup
+  const {
+    sensors,
+    dragOffset,
+    activeColumn,
+    activeColumnPosition,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    handleDragCancel,
+  } = useColumnDragAndDrop({
+    headerGroups,
+    reorderColumns,
+    columnOrder: state.columnOrder,
+  });
+
   const onEditDocument = useCallback(
     (document: GenericDocument) => {
       setPopup({
@@ -233,104 +251,150 @@ export function Table({
     >
       <Panel
         defaultSize={100}
-        className="relative w-full overflow-x-hidden rounded-lg"
+        className="relative w-full overflow-x-hidden rounded-b-lg"
       >
-        <DndProvider backend={HTML5Backend}>
-          <ScrollingComponent
-            {...getTableProps()}
-            className={classNames(
-              "flex w-full h-full overflow-y-hidden",
-              "scrollbar",
-            )}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext
+            items={state.columnOrder}
+            strategy={horizontalListSortingStrategy}
           >
-            <div className="flex flex-auto flex-col">
-              <TableHeader
-                key={state.columnOrder.join(",")}
-                reorder={reorderColumns}
-                headerGroups={headerGroups}
-                isResizingColumn={isResizingColumn}
-                allRowsSelected={allRowsSelected}
-                hasFilters={hasFilters}
-                isSelectionExhaustive={isSelectionExhaustive}
-                toggleAll={toggleAll}
-                topBorderAnimation={topBorderAnimation}
-                openContextMenu={openContextMenu}
-                sort={sort}
-                activeSchema={activeSchema}
-                tableName={tableName}
-              />
-              {/* Body */}
-              <div
-                {...getTableBodyProps()}
-                className="mt-[-1px] w-full flex-auto"
-                id="dataTable"
-              >
-                <InfiniteScrollList
-                  className="scrollbar-none"
-                  items={rows}
-                  totalNumItems={totalRowCount}
-                  overscanCount={25}
-                  pageSize={pageSize}
-                  loadMoreThreshold={pageThreshold}
-                  itemSize={densityValues.height}
-                  itemData={{
-                    areEditsAuthorized,
-                    isRowSelected,
-                    isSelectionAllNonExhaustive:
-                      !isSelectionExhaustive && allRowsSelected === true,
-                    onAuthorizeEdits,
-                    patchDocument,
-                    prepareRow,
-                    rows,
-                    tableName,
-                    toggleIsRowSelected,
-                    onOpenContextMenu: openContextMenu,
-                    onCloseContextMenu: closeContextMenu,
-                    contextMenuRow:
-                      contextMenuState?.selectedCell?.rowId ?? null,
-                    contextMenuColumn:
-                      contextMenuState?.selectedCell?.column ?? null,
-                    canManageTable: canManageTable && !isInUnmountedComponent,
-                    activeSchema,
-                    resizingColumn: isResizingColumn,
-                    onEditDocument,
-                  }}
-                  RowOrLoading={DataRow}
-                  loadMore={loadMore}
-                  listRef={listRef}
+            <div
+              {...getTableProps()}
+              ref={tableContainerRef}
+              className={classNames(
+                "flex w-full h-full overflow-y-hidden",
+                "scrollbar",
+              )}
+            >
+              <div className="flex flex-auto flex-col">
+                <TableHeader
+                  key={state.columnOrder.join(",")}
+                  headerGroups={headerGroups}
+                  isResizingColumn={isResizingColumn}
+                  allRowsSelected={allRowsSelected}
+                  hasFilters={hasFilters}
+                  isSelectionExhaustive={isSelectionExhaustive}
+                  toggleAll={toggleAll}
+                  topBorderAnimation={topBorderAnimation}
+                  openContextMenu={openContextMenu}
+                  sort={sort}
+                  activeSchema={activeSchema}
+                  tableName={tableName}
+                  tableContainerRef={tableContainerRef}
+                />
+                {/* Body */}
+                <div
+                  {...getTableBodyProps()}
+                  className="mt-[-1px] w-full flex-auto"
+                  id="dataTable"
+                >
+                  <InfiniteScrollList
+                    className="scrollbar-none"
+                    items={rows}
+                    totalNumItems={totalRowCount}
+                    overscanCount={25}
+                    pageSize={pageSize}
+                    loadMoreThreshold={pageThreshold}
+                    itemSize={densityValues.height}
+                    itemData={{
+                      areEditsAuthorized,
+                      isRowSelected,
+                      isSelectionAllNonExhaustive:
+                        !isSelectionExhaustive && allRowsSelected === true,
+                      onAuthorizeEdits,
+                      patchDocument,
+                      prepareRow,
+                      rows,
+                      tableName,
+                      toggleIsRowSelected,
+                      onOpenContextMenu: openContextMenu,
+                      onCloseContextMenu: closeContextMenu,
+                      contextMenuRow:
+                        contextMenuState?.selectedCell?.rowId ?? null,
+                      contextMenuColumn:
+                        contextMenuState?.selectedCell?.column ?? null,
+                      canManageTable: canManageTable && !isInUnmountedComponent,
+                      activeSchema,
+                      resizingColumn: isResizingColumn,
+                      onEditDocument,
+                    }}
+                    RowOrLoading={DataRow}
+                    loadMore={loadMore}
+                    listRef={listRef}
+                    outerRef={outerRef}
+                    onScroll={() => {
+                      // Force a re-render so the TableScrollbar gets updated.
+                      forceRerender();
+                    }}
+                    itemKey={(idx) => (data[idx] as any)?._id || idx}
+                  />
+                </div>
+                <TableScrollbar
+                  totalRowCount={totalRowCount}
                   outerRef={outerRef}
-                  onScroll={() => {
-                    // Force a re-render so the TableScrollbar gets updated.
-                    forceRerender();
-                  }}
-                  itemKey={(idx) => (data[idx] as any)?._id || idx}
+                  listRef={listRef}
                 />
               </div>
-              <TableScrollbar
-                totalRowCount={totalRowCount}
-                outerRef={outerRef}
-                listRef={listRef}
+
+              <TableContextMenu
+                data={data}
+                state={contextMenuState}
+                close={closeContextMenu}
+                isProd={isProd}
+                setPopup={setPopup}
+                deleteRows={deleteRows}
+                onAddDraftFilter={onAddDraftFilter}
+                defaultDocument={defaultDocument}
+                canManageTable={canManageTable}
+                resetColumns={() => {
+                  setColumnOrder(dataColumnNames);
+                  setStoredColumnOrder(dataColumnNames);
+                  resetColumnWidths();
+                }}
               />
             </div>
+          </SortableContext>
+          {/* Static drag overlay positioned over the column being dragged */}
+          {activeColumn &&
+            activeColumnPosition !== null &&
+            (() => {
+              const columnWidth = activeColumn.getHeaderProps().style?.width;
+              const parsedWidth =
+                typeof columnWidth === "string"
+                  ? parseFloat(columnWidth)
+                  : typeof columnWidth === "number"
+                    ? columnWidth
+                    : 0;
 
-            <TableContextMenu
-              data={data}
-              state={contextMenuState}
-              close={closeContextMenu}
-              isProd={isProd}
-              setPopup={setPopup}
-              deleteRows={deleteRows}
-              onAddDraftFilter={onAddDraftFilter}
-              defaultDocument={defaultDocument}
-              canManageTable={canManageTable}
-              resetColumns={() => {
-                setColumnOrder(dataColumnNames);
-                setStoredColumnOrder(dataColumnNames);
-                resetColumnWidths();
-              }}
-            />
-          </ScrollingComponent>
-        </DndProvider>
+              const containerWidth =
+                tableContainerRef.current?.offsetWidth || 0;
+              const unclamped = activeColumnPosition + dragOffset;
+
+              // Clamp the position so the column stays within bounds
+              const left = Math.max(
+                0,
+                Math.min(unclamped, containerWidth - parsedWidth),
+              );
+
+              return (
+                <div
+                  className="pointer-events-none absolute top-0 rounded border border-border-selected bg-background-primary/50 shadow-lg"
+                  style={{
+                    left,
+                    width: columnWidth,
+                    height: tableContainerRef.current?.offsetHeight || "100%",
+                  }}
+                />
+              );
+            })()}
+        </DndContext>
       </Panel>
       {!hasPopup && selectedRows[0].size > 0 && (
         <>

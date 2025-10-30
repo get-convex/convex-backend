@@ -28,7 +28,7 @@ export function ValidatorTooltip({
       <p className="mb-1 text-xs font-semibold whitespace-nowrap">
         Schema for {columnName}:
       </p>
-      <div style={{ width: maxLineWidth * 8 }}>
+      <div style={{ width: maxLineWidth * 9 }}>
         <ReadonlyCode
           disableLineNumbers
           code={validatorText}

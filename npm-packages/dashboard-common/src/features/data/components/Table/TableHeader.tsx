@@ -2,6 +2,7 @@ import { HeaderGroup } from "react-table";
 import { GenericDocument } from "convex/server";
 import classNames from "classnames";
 import omit from "lodash/omit";
+import { RefObject } from "react";
 import { ColumnHeader } from "@common/features/data/components/Table/ColumnHeader";
 import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
 import { SchemaJson } from "@common/lib/format";
@@ -14,13 +15,12 @@ export function TableHeader({
   isSelectionExhaustive,
   toggleAll,
   topBorderAnimation,
-  reorder,
   openContextMenu,
   sort,
   activeSchema,
   tableName,
+  tableContainerRef,
 }: {
-  reorder(item: { index: number }, newIndex: number): void;
   headerGroups: HeaderGroup<GenericDocument>[];
   isResizingColumn?: string;
   allRowsSelected: boolean | "indeterminate";
@@ -35,6 +35,7 @@ export function TableHeader({
   };
   activeSchema: SchemaJson | null;
   tableName: string;
+  tableContainerRef: RefObject<HTMLDivElement>;
 }) {
   return (
     <div className="group">
@@ -51,7 +52,6 @@ export function TableHeader({
             <ColumnHeader
               key={columnIndex}
               isLastColumn={columnIndex === headerGroup.headers.length - 1}
-              reorder={reorder}
               isResizingColumn={isResizingColumn}
               column={column}
               columnIndex={columnIndex}
@@ -63,6 +63,7 @@ export function TableHeader({
               sort={sort.field === column.Header ? sort.order : undefined}
               activeSchema={activeSchema}
               tableName={tableName}
+              tableContainerRef={tableContainerRef}
             />
           ))}
         </div>
