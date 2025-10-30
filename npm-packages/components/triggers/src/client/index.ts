@@ -1,5 +1,4 @@
 import {
-  Expand,
   FunctionHandle,
   FunctionReference,
   GenericDataModel,
@@ -9,27 +8,14 @@ import {
   TableNamesInDataModel,
   createFunctionHandle,
 } from "convex/server";
-import { api } from "../triggers/_generated/api.js";
 import { GenericId } from "convex/values";
 import { TriggerArgs } from "../types.js";
+import type { ComponentApi } from "../triggers/_generated/component.js";
 import { AtomicMutators, atomicMutators } from "./atomicMutators.js";
 
 export type { AtomicMutators };
 export { atomicMutators };
 export { triggerArgsValidator } from "../types.js";
-
-type InternalizeApi<API> = Expand<{
-  [mod in keyof API]: API[mod] extends FunctionReference<any, any, any, any>
-    ? FunctionReference<
-        API[mod]["_type"],
-        "internal",
-        API[mod]["_args"],
-        API[mod]["_returnType"],
-        API[mod]["_componentPath"]
-      >
-    : InternalizeApi<API[mod]>;
-}>;
-type InstalledAPI = InternalizeApi<typeof api>;
 
 export type Triggers<DataModel extends GenericDataModel> = {
   [TableName in TableNamesInDataModel<DataModel>]?: {
@@ -68,7 +54,7 @@ export type WithTriggers<DataModel extends GenericDataModel> = {
 };
 
 export function withTriggers<DataModel extends GenericDataModel>(
-  api: InstalledAPI,
+  api: ComponentApi,
   triggers: Triggers<DataModel>,
 ): WithTriggers<DataModel> {
   return {
@@ -110,12 +96,12 @@ export function withTriggers<DataModel extends GenericDataModel>(
 class WrapWriter<DataModel extends GenericDataModel> {
   ctx: GenericMutationCtx<DataModel>;
   system: GenericDatabaseWriter<DataModel>["system"];
-  api: InstalledAPI;
+  api: ComponentApi;
   triggers: TriggerHandles<DataModel>;
 
   constructor(
     ctx: GenericMutationCtx<DataModel>,
-    api: InstalledAPI,
+    api: ComponentApi,
     triggers: TriggerHandles<DataModel>,
   ) {
     this.ctx = ctx;
@@ -135,11 +121,11 @@ class WrapWriter<DataModel extends GenericDataModel> {
   ): Promise<GenericId<TableName>> {
     if (table in this.triggers) {
       const tableTrigger = this.triggers[table]!;
-      return await this.ctx.runMutation(this.api.documents.insert, {
+      return (await this.ctx.runMutation(this.api.documents.insert, {
         value,
         atomicInsert: tableTrigger.atomicMutators.atomicInsert,
         triggers: tableTrigger.triggers,
-      });
+      })) as GenericId<TableName>;
     } else {
       return await this.ctx.db.insert(table, value);
     }

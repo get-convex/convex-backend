@@ -33,6 +33,8 @@ import {
   componentApiDTS,
   componentApiJs,
   componentApiStubDTS,
+  componentStubTS,
+  componentTS,
   rootComponentApiCJS,
 } from "../codegen_templates/component_api.js";
 import { functionsDir } from "./utils/utils.js";
@@ -317,6 +319,25 @@ export async function doFinalComponentCodegen(
     opts,
   );
 
+  // Only write the component.ts file for non-root components.
+  if (!componentDirectory.isRoot) {
+    const componentTSPath = path.join(codegenDir, "component.ts");
+    const componentTSContents = await componentTS(
+      ctx,
+      startPushResponse,
+      rootComponent,
+      componentDirectory,
+    );
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      componentTSContents,
+      "typescript",
+      componentTSPath,
+      opts,
+    );
+  }
+
   if (opts?.generateCommonJSApi || projectConfig.generateCommonJSApi) {
     const apiCjsDTSPath = path.join(codegenDir, "api_cjs.d.cts");
     await writeFormattedFile(
@@ -529,6 +550,20 @@ async function doInitialComponentApiCodegen(
   }
 
   const writtenFiles = ["api.js", "api.d.ts"];
+
+  // Don't write the `.ts` stub if it already exists.
+  const componentTSPath = path.join(codegenDir, "component.ts");
+  if (!isRoot && !ctx.fs.exists(componentTSPath)) {
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      componentStubTS(),
+      "typescript",
+      componentTSPath,
+      opts,
+    );
+  }
+  writtenFiles.push("component.ts");
 
   if (generateCommonJSApi && isRoot) {
     const apiCjsJS = rootComponentApiCJS();

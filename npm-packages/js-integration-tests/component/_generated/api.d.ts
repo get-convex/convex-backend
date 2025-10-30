@@ -21,14 +21,6 @@ import type {
   FunctionReference,
 } from "convex/server";
 
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
 declare const fullApi: ApiFromModules<{
   cleanUp: typeof cleanUp;
   errors: typeof errors;
@@ -37,81 +29,30 @@ declare const fullApi: ApiFromModules<{
   scheduler: typeof scheduler;
   transact: typeof transact;
 }>;
-export type Mounts = {
-  cleanUp: {
-    default: FunctionReference<"mutation", "public", any, any>;
-  };
-  errors: {
-    throwConvexError: FunctionReference<"query", "public", any, any>;
-    throwError: FunctionReference<"query", "public", any, any>;
-  };
-  fileStorage: {
-    deleteById: FunctionReference<
-      "mutation",
-      "public",
-      { storageId: string },
-      any
-    >;
-    generateUploadUrl: FunctionReference<"mutation", "public", any, any>;
-    get: FunctionReference<"query", "public", { id: string }, any>;
-    getFile: FunctionReference<"action", "public", { storageId: string }, any>;
-    getUrl: FunctionReference<"query", "public", { storageId: string }, any>;
-    list: FunctionReference<"query", "public", any, any>;
-    storeFile: FunctionReference<"action", "public", { data: string }, any>;
-  };
-  functionHandles: {
-    fromAction: FunctionReference<"action", "public", any, any>;
-    fromQuery: FunctionReference<"query", "public", any, any>;
-    getInternalHandle: FunctionReference<
-      "query",
-      "public",
-      { functionType: "query" | "mutation" | "action" },
-      string
-    >;
-  };
-  scheduler: {
-    listAllMessages: FunctionReference<"query", "public", any, any>;
-    scheduleWithinComponent: FunctionReference<
-      "mutation",
-      "public",
-      { message: string },
-      string
-    >;
-    sendMessage: FunctionReference<
-      "mutation",
-      "public",
-      { message: string },
-      any
-    >;
-    status: FunctionReference<"query", "public", { id: string }, any>;
-  };
-  transact: {
-    allMessages: FunctionReference<"query", "public", {}, Array<string>>;
-    sendButFail: FunctionReference<
-      "mutation",
-      "public",
-      { message: string },
-      any
-    >;
-    sendMessage: FunctionReference<
-      "mutation",
-      "public",
-      { message: string },
-      any
-    >;
-  };
-};
-// For now fullApiWithMounts is only fullApi which provides
-// jump-to-definition in component client code.
-// Use Mounts for the same type without the inference.
-declare const fullApiWithMounts: typeof fullApi;
 
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 

@@ -17,76 +17,34 @@ import type {
   FunctionReference,
 } from "convex/server";
 
+declare const fullApi: ApiFromModules<{
+  actionDemo: typeof actionDemo;
+  index: typeof index;
+}>;
+
 /**
- * A utility for referencing Convex functions in your app's API.
+ * A utility for referencing Convex functions in your app's public API.
  *
  * Usage:
  * ```js
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-declare const fullApi: ApiFromModules<{
-  actionDemo: typeof actionDemo;
-  index: typeof index;
-}>;
-export type Mounts = {
-  actionDemo: {
-    demo: FunctionReference<"action", "public", any, any>;
-  };
-  index: {
-    fileDownloadUrl: FunctionReference<
-      "query",
-      "public",
-      { id: string },
-      string
-    >;
-    fileUploadUrl: FunctionReference<"mutation", "public", {}, string>;
-    getMessageCount: FunctionReference<"query", "public", {}, number>;
-    latestWrite: FunctionReference<"query", "public", {}, string>;
-    listFiles: FunctionReference<"query", "public", any, any>;
-    readFromFile: FunctionReference<"action", "public", { id: string }, string>;
-    repeatMessage: FunctionReference<
-      "action",
-      "public",
-      { message: string; n: number },
-      string
-    >;
-    sayGoodbyeFromQuery: FunctionReference<"query", "public", {}, string>;
-    sayHelloFromMutation: FunctionReference<"mutation", "public", {}, string>;
-    scheduleMessage: FunctionReference<"mutation", "public", {}, any>;
-    scheduleSend: FunctionReference<"mutation", "public", {}, any>;
-    sendMessage: FunctionReference<"mutation", "public", {}, any>;
-    storeInFile: FunctionReference<
-      "action",
-      "public",
-      { message: string },
-      string
-    >;
-    writeSuccessfully: FunctionReference<
-      "mutation",
-      "public",
-      { text: string },
-      any
-    >;
-    writeThenFail: FunctionReference<
-      "mutation",
-      "public",
-      { text: string },
-      any
-    >;
-  };
-};
-// For now fullApiWithMounts is only fullApi which provides
-// jump-to-definition in component client code.
-// Use Mounts for the same type without the inference.
-declare const fullApiWithMounts: typeof fullApi;
-
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 

@@ -7,12 +7,11 @@ import {
 } from "../lib/components/definition/directoryStructure.js";
 import { StartPushResponse } from "../lib/deployApi/startPush.js";
 import { importPath, moduleIdentifier } from "./api.js";
-import { header } from "./common.js";
+import { apiComment, header } from "./common.js";
 import {
   ComponentExports,
   EvaluatedComponentDefinition,
 } from "../lib/deployApi/componentDefinition.js";
-import { ComponentDefinitionPath } from "../lib/deployApi/paths.js";
 import { Identifier, Reference } from "../lib/deployApi/types.js";
 import { CanonicalizedModulePath } from "../lib/deployApi/paths.js";
 import {
@@ -28,14 +27,7 @@ export function componentApiJs() {
   lines.push(`
     import { anyApi, componentsGeneric } from "convex/server";
 
-    /**
-     * A utility for referencing Convex functions in your app's API.
-     *
-     * Usage:
-     * \`\`\`js
-     * const myFunctionReference = api.myModule.myFunction;
-     * \`\`\`
-     */
+    ${apiComment("api", undefined)}
     export const api = anyApi;
     export const internal = anyApi;
     export const components = componentsGeneric();
@@ -94,12 +86,7 @@ export async function componentApiDTS(
   if (opts.staticApi) {
     apiLines = codegenStaticApiObjects(ctx, analysis);
   } else {
-    apiLines = codegenDynamicApiObjects(
-      ctx,
-      componentDirectory,
-      startPush,
-      definitionPath,
-    );
+    apiLines = codegenDynamicApiObjects(ctx, componentDirectory);
   }
   for await (const line of apiLines) {
     lines.push(line);
@@ -130,6 +117,66 @@ export async function componentApiDTS(
   return lines.join("\n");
 }
 
+export function componentStubTS() {
+  const lines = [];
+  lines.push(header("Generated `ComponentApi` utility."));
+  lines.push(
+    `export type ComponentApi<Name extends string | undefined = string | undefined> = {}`,
+  );
+
+  return lines.join("\n");
+}
+
+export async function componentTS(
+  ctx: Context,
+  startPush: StartPushResponse,
+  rootComponent: ComponentDirectory,
+  componentDirectory: ComponentDirectory,
+) {
+  const definitionPath = toComponentDefinitionPath(
+    rootComponent,
+    componentDirectory,
+  );
+  const analysis = startPush.analysis[definitionPath];
+  if (!analysis) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No analysis found for component ${definitionPath} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
+    });
+  }
+
+  const lines = [];
+  lines.push(header("Generated `ComponentApi` utility."));
+  lines.push(`
+    import type { FunctionReference } from "convex/server";
+    
+    /**
+    * A utility for referencing a Convex component's exposed API.
+    *
+    * Useful when expecting a parameter like \`components.myComponent\`.
+    * Usage:
+    * \`\`\`ts
+    * async function myFunction(ctx: QueryCtx, component: ComponentApi) {
+    *   return ctx.runQuery(component.someFile.someQuery, { ...args });
+    * }
+    * \`\`\`
+    */`);
+  lines.push(
+    `export type ComponentApi<Name extends string | undefined = string | undefined> = `,
+  );
+  for await (const line of codegenExport(
+    ctx,
+    analysis,
+    analysis.definition.exports,
+    "Name",
+  )) {
+    lines.push(line);
+  }
+  lines.push(`;`);
+  return lines.join("\n");
+}
+
 async function* codegenStaticApiObjects(
   ctx: Context,
   analysis: EvaluatedComponentDefinition,
@@ -140,28 +187,12 @@ async function* codegenStaticApiObjects(
   const apiTree = await buildApiTree(ctx, analysis.functions, {
     kind: "public",
   });
-  yield `
-  /**
-   * A utility for referencing Convex functions in your app's public API.
-   *
-   * Usage:
-   * \`\`\`js
-   * const myFunctionReference = api.myModule.myFunction;
-   * \`\`\`
-   */`;
+  yield apiComment("api", "public");
   yield `export declare const api:`;
   yield* codegenApiTree(ctx, apiTree);
   yield ";";
 
-  yield `
-  /**
-   * A utility for referencing Convex functions in your app's internal API.
-   *
-   * Usage:
-   * \`\`\`js
-   * const myFunctionReference = internal.myModule.myFunction;
-   * \`\`\`
-   */`;
+  yield apiComment("internal", "internal");
   const internalTree = await buildApiTree(ctx, analysis.functions, {
     kind: "internal",
   });
@@ -173,8 +204,6 @@ async function* codegenStaticApiObjects(
 async function* codegenDynamicApiObjects(
   ctx: Context,
   componentDirectory: ComponentDirectory,
-  startPush: StartPushResponse,
-  definitionPath: ComponentDefinitionPath,
 ) {
   const absModulePaths = await entryPoints(ctx, componentDirectory.path);
   const modulePaths = absModulePaths.map((p) =>
@@ -192,14 +221,6 @@ async function* codegenDynamicApiObjects(
       FunctionReference,
     } from "convex/server";
 
-    /**
-     * A utility for referencing Convex functions in your app's API.
-     *
-     * Usage:
-     * \`\`\`js
-     * const myFunctionReference = api.myModule.myFunction;
-     * \`\`\`
-     */
     declare const fullApi: ApiFromModules<{
   `;
   for (const modulePath of modulePaths) {
@@ -208,10 +229,11 @@ async function* codegenDynamicApiObjects(
     yield `  "${path}": typeof ${ident},`;
   }
   yield `}>;`;
-  yield* codegenApiWithMounts(ctx, startPush, definitionPath);
   yield `
-    export declare const api: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "public">>;
-    export declare const internal: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "internal">>;
+    ${apiComment("api", "public")}
+    export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
+    ${apiComment("internal", "internal")}
+    export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
   `;
 }
 
@@ -289,153 +311,12 @@ async function* codegenApiTree(
         subtree.leaf,
         visibility,
         true,
+        undefined,
       );
       yield `"${identifier}": ${ref},`;
     }
   }
   yield "}";
-}
-
-async function* codegenApiWithMounts(
-  ctx: Context,
-  startPush: StartPushResponse,
-  definitionPath: ComponentDefinitionPath,
-): AsyncGenerator<string> {
-  const mountTree = await buildMountTree(ctx, startPush, definitionPath, []);
-  if (mountTree) {
-    yield "export type Mounts = ";
-    yield* codegenMountTree(mountTree);
-    yield `;`;
-    yield `// For now fullApiWithMounts is only fullApi which provides`;
-    yield `// jump-to-definition in component client code.`;
-    yield `// Use Mounts for the same type without the inference.`;
-    yield "declare const fullApiWithMounts: typeof fullApi;";
-  } else {
-    yield "declare const fullApiWithMounts: typeof fullApi;";
-  }
-}
-
-function* codegenMountTree(tree: MountTree): Generator<string> {
-  yield `{`;
-  for (const [identifier, subtree] of Object.entries(tree)) {
-    if (typeof subtree === "string") {
-      yield `"${identifier}": ${subtree},`;
-    } else {
-      yield `"${identifier}":`;
-      yield* codegenMountTree(subtree);
-      yield `,`;
-    }
-  }
-  yield `}`;
-}
-
-interface MountTree {
-  [identifier: string]: MountTree | string;
-}
-
-async function buildMountTree(
-  ctx: Context,
-  startPush: StartPushResponse,
-  definitionPath: ComponentDefinitionPath,
-  attributes: string[],
-): Promise<MountTree | null> {
-  // TODO make these types more precise when receiving analysis from server
-  const analysis = startPush.analysis[definitionPath];
-  if (!analysis) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: `No analysis found for component ${definitionPath} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
-    });
-  }
-  let current = analysis.definition.exports.branch;
-  for (const attribute of attributes) {
-    const componentExport = current.find(
-      ([identifier]) => identifier === attribute,
-    );
-    if (!componentExport) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `No export found for ${attribute}`,
-      });
-    }
-    const [_, node] = componentExport;
-    if (node.type !== "branch") {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `Expected branch at ${attribute}`,
-      });
-    }
-    current = node.branch;
-  }
-  return buildComponentMountTree(ctx, startPush, analysis, current);
-}
-
-async function buildComponentMountTree(
-  ctx: Context,
-  startPush: StartPushResponse,
-  analysis: EvaluatedComponentDefinition,
-  exports: Array<[Identifier, ComponentExports]>,
-): Promise<MountTree | null> {
-  const result: MountTree = {};
-  let nonEmpty = false;
-  for (const [identifier, componentExport] of exports) {
-    if (componentExport.type === "leaf") {
-      // If we're at a child component reference, follow it and build its export tree.
-      if (componentExport.leaf.startsWith("_reference/childComponent/")) {
-        const suffix = componentExport.leaf.slice(
-          "_reference/childComponent/".length,
-        );
-        const [componentName, ...attributes] = suffix.split("/");
-        const childComponent = analysis.definition.childComponents.find(
-          (c) => c.name === componentName,
-        );
-        if (!childComponent) {
-          return await ctx.crash({
-            exitCode: 1,
-            errorType: "fatal",
-            printedMessage: `No child component found for ${componentName}`,
-          });
-        }
-        const childTree = await buildMountTree(
-          ctx,
-          startPush,
-          childComponent.path,
-          attributes,
-        );
-        if (childTree) {
-          result[identifier] = childTree;
-          nonEmpty = true;
-        }
-      }
-      // If we're at a function reference outside the root, codegen it as a leaf.
-      const isRoot = analysis.definition.definitionType.type === "app";
-      if (!isRoot && componentExport.leaf.startsWith("_reference/function/")) {
-        const leaf = await resolveFunctionReference(
-          ctx,
-          analysis,
-          componentExport.leaf,
-          "public",
-        );
-        result[identifier] = leaf;
-        nonEmpty = true;
-      }
-    } else {
-      const subTree = await buildComponentMountTree(
-        ctx,
-        startPush,
-        analysis,
-        componentExport.branch,
-      );
-      if (subTree) {
-        result[identifier] = subTree;
-        nonEmpty = true;
-      }
-    }
-  }
-  return nonEmpty ? result : null;
 }
 
 async function* codegenExports(
@@ -446,7 +327,7 @@ async function* codegenExports(
   yield `${name}: {`;
   for (const [name, componentExport] of analysis.definition.exports.branch) {
     yield `${name}:`;
-    yield* codegenExport(ctx, analysis, componentExport);
+    yield* codegenExport(ctx, analysis, componentExport, undefined);
     yield ",";
   }
   yield "},";
@@ -456,6 +337,7 @@ async function* codegenExport(
   ctx: Context,
   analysis: EvaluatedComponentDefinition,
   componentExport: ComponentExports,
+  componentPath: string | undefined,
 ): AsyncGenerator<string> {
   if (componentExport.type === "leaf") {
     yield await resolveFunctionReference(
@@ -463,12 +345,13 @@ async function* codegenExport(
       analysis,
       componentExport.leaf,
       "internal",
+      componentPath,
     );
   } else if (componentExport.type === "branch") {
     yield "{";
     for (const [name, childExport] of componentExport.branch) {
       yield `${name}:`;
-      yield* codegenExport(ctx, analysis, childExport);
+      yield* codegenExport(ctx, analysis, childExport, componentPath);
       yield ",";
     }
     yield "}";
@@ -480,6 +363,7 @@ export async function resolveFunctionReference(
   analysis: EvaluatedComponentDefinition,
   reference: Reference,
   visibility: "public" | "internal",
+  componentPath: string | undefined,
 ) {
   if (!reference.startsWith("_reference/function/")) {
     return await ctx.crash({
@@ -516,6 +400,7 @@ export async function resolveFunctionReference(
     analyzedFunction,
     visibility,
     false,
+    componentPath,
   );
 }
 
@@ -524,6 +409,7 @@ async function codegenFunctionReference(
   analyzedFunction: AnalyzedFunction,
   visibility: "public" | "internal",
   useIdType: boolean,
+  componentPath: string | undefined,
 ): Promise<string> {
   // The server sends down `udfType` capitalized.
   const udfType = analyzedFunction.udfType.toLowerCase();
@@ -565,7 +451,7 @@ async function codegenFunctionReference(
     });
   }
 
-  return `FunctionReference<"${udfType}", "${visibility}", ${argsType}, ${returnsType}>`;
+  return `FunctionReference<"${udfType}", "${visibility}", ${argsType}, ${returnsType}${componentPath ? `, ${componentPath}` : ""}>`;
 }
 
 function canonicalizeModulePath(modulePath: string): CanonicalizedModulePath {
