@@ -77,7 +77,7 @@ export function AuditLogToolbar({
 }) {
   const minStartDate = startOfDay(
     auditLogRetentionDays === -1
-      ? new Date(2024, 6, 5)
+      ? new Date(2024, 5, 5)
       : Date.now() - auditLogRetentionDays * 24 * 60 * 60 * 1000,
   );
   const beforeMinDateTooltip =
