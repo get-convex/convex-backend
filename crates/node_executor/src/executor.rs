@@ -246,10 +246,8 @@ impl<RT: Runtime> Actions<RT> {
             response,
             aws_request_id,
         } = self.executor.invoke(request, log_line_sender).await?;
-        let execute_result = ExecuteResponse::try_from(response.clone()).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to deserialize execute (aws_request_id: {aws_request_id:?}) response: {e}. Response: {response}",
-            )
+        let execute_result = ExecuteResponse::try_from(response.clone()).with_context(|| {
+            format!("Failed to deserialize execute (aws_request_id: {aws_request_id:?}) Response: {response}")
         })?;
 
         tracing::info!(
