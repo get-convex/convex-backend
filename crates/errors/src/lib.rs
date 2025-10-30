@@ -551,8 +551,8 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect
             | ErrorCode::MisdirectedRequest
-            | ErrorCode::RateLimited => None,
-            ErrorCode::NotFound => Some("not_found"),
+            | ErrorCode::RateLimited
+            | ErrorCode::NotFound => None,
             ErrorCode::OCC { .. } => Some("occ"),
             ErrorCode::OutOfRetention => Some("out_of_retention"),
             ErrorCode::Overloaded => Some("overloaded"),
