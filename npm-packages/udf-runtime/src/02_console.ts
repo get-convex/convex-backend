@@ -27,7 +27,10 @@ function toString(value: unknown, defaultValue: string) {
 function consoleMessage(level, args) {
   performOp("console/message", level, getMessage(args));
 }
-const consoleImpl = {
+// For historical web-compatibility reasons, the namespace object for console
+// must have as its [[Prototype]] an empty object, created as if by
+// ObjectCreate(%ObjectPrototype%), instead of %ObjectPrototype%.
+const consoleImpl = Object.assign(Object.create({}), {
   debug: function (...args) {
     consoleMessage("DEBUG", args);
   },
@@ -65,14 +68,18 @@ const consoleImpl = {
     performOp("console/timeEnd", labelStr);
   },
   // TODO: Implement the rest of the Console API.
-
-  get [Symbol.toStringTag]() {
-    return "console";
-  },
-};
+});
+Object.defineProperty(consoleImpl, Symbol.toStringTag, {
+  value: "console",
+  enumerable: false,
+  writable: false,
+});
 export function setupConsole(global) {
   // Delete v8's console since it doesn't go anywhere. We'll eventually want to mirror our console
   // output to v8's console since apparently its output shows up in v8's debugger.
   delete global.console;
-  global.console = consoleImpl;
+  Object.defineProperty(global, "console", {
+    value: consoleImpl,
+    enumerable: false,
+  });
 }
