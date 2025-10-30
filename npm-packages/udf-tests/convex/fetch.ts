@@ -1781,7 +1781,8 @@ export const fetchUnendingRequest = action(async () => {
 async function fetchOlaf() {
   const response = await fetch("http://localhost:4545/echo_server", {
     method: "POST",
-    headers: { "X-Olaf": "⛄" },
+    // hacky way to create a UTF-8 encoded byte string
+    headers: { "X-Olaf": unescape(encodeURIComponent("⛄")) },
   });
   assert.strictEqual(response.headers.get("X-Olaf"), "â\x9B\x84");
 }

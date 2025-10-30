@@ -18,6 +18,7 @@ use headers::{
     HeaderName,
 };
 use http::{
+    HeaderValue,
     Method,
     StatusCode,
 };
@@ -50,7 +51,7 @@ impl HttpRequestV8 {
     ) -> anyhow::Result<HttpRequestStream> {
         let mut header_map = HeaderMap::new();
         for (name, value) in &self.header_pairs {
-            header_map.append(HeaderName::from_str(name.as_str())?, value.parse()?);
+            header_map.append(HeaderName::from_str(name)?, byte_string_to_header(value)?);
         }
         let (body_sender, body_receiver) = spsc::unbounded_channel();
         match self.stream_id {
@@ -86,9 +87,9 @@ impl HttpRequestV8 {
         // None as the HeaderName for headers with multiple values
         // (https://docs.rs/http/latest/http/header/struct.HeaderMap.html#method.into_iter)
         for (name, value) in &request.headers {
-            let value_str = value.to_str()?;
+            let value_str = header_to_byte_string(value);
             let header_name_str = name.as_str();
-            header_pairs.push((header_name_str.to_string(), value_str.to_string()));
+            header_pairs.push((header_name_str.to_string(), value_str));
         }
 
         Ok(Self {
@@ -117,7 +118,10 @@ impl HttpResponseV8 {
 
         let mut header_map = HeaderMap::new();
         for (name, value) in &self.header_pairs {
-            header_map.append(HeaderName::from_str(name.as_str())?, value.parse()?);
+            header_map.append(
+                HeaderName::from_str(name.as_str())?,
+                byte_string_to_header(value)?,
+            );
         }
 
         Ok((
@@ -144,9 +148,7 @@ impl HttpResponseV8 {
         // None as the HeaderName for headers with multiple values
         // (https://docs.rs/http/latest/http/header/struct.HeaderMap.html#method.into_iter)
         for (name, value) in &response.headers {
-            // Don't use `value.to_str()` since that does not support non-ASCII headers
-            let value_bytes = value.as_bytes();
-            let value_str: String = value_bytes.iter().map(|&c| c as char).collect();
+            let value_str = header_to_byte_string(value);
             let header_name_str = name.as_str();
             header_pairs.push((header_name_str.to_string(), value_str));
         }
@@ -167,4 +169,19 @@ impl HttpResponseV8 {
             },
         ))
     }
+}
+
+// WebIDL ByteStrings use "isomorphic encoding" to convert to/from JS strings,
+// i.e. latin-1
+fn header_to_byte_string(header: &HeaderValue) -> String {
+    header.as_bytes().iter().map(|&b| char::from(b)).collect()
+}
+
+fn byte_string_to_header(header: &str) -> anyhow::Result<HeaderValue> {
+    // TODO: turn these into TypeErrors
+    let bytes = header
+        .chars()
+        .map(|c| u8::try_from(c).map_err(|_| anyhow::anyhow!("invalid char for header: `{c}`")))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(HeaderValue::from_bytes(&bytes)?)
 }
