@@ -37,7 +37,11 @@ import {
   DataToolbarSkeleton,
 } from "@common/features/data/components/DataToolbar/DataToolbar";
 import { EmptyDataContent } from "@common/features/data/components/EmptyData";
-import { useDataColumns } from "@common/features/data/components/Table/utils/useDataColumns";
+import {
+  useDataColumns,
+  useStoredHiddenColumns,
+  useStoredColumnOrder,
+} from "@common/features/data/components/Table/utils/useDataColumns";
 import { useQueryFilteredTable } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
 import { useSingleTableSchemaStatus } from "@common/features/data/components/TableSchema";
 import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
@@ -129,6 +133,77 @@ export function DataContent({
     // and one more on the right side of the last column.
     width: (ref.current?.getSize() || 1000) - 3,
   });
+
+  const [hiddenColumnsRaw, setHiddenColumnsRaw] =
+    useStoredHiddenColumns(localStorageKey);
+
+  // Default to showing only 25 fields (including _id and _creationTime)
+  const hiddenColumns = useMemo(() => {
+    if (hiddenColumnsRaw !== undefined) {
+      return hiddenColumnsRaw;
+    }
+
+    // First time - hide fields beyond the first 25
+    // Ensure _id and _creationTime are always visible
+    const visibleFields: string[] = [];
+    const allTableFields = [...tableFields];
+
+    // Add _id and _creationTime first if they exist
+    if (allTableFields.includes("_id")) {
+      visibleFields.push("_id");
+    }
+    if (allTableFields.includes("_creationTime")) {
+      visibleFields.push("_creationTime");
+    }
+
+    // Add remaining fields up to 25 total
+    for (const field of allTableFields) {
+      if (
+        field !== "_id" &&
+        field !== "_creationTime" &&
+        visibleFields.length < 25
+      ) {
+        visibleFields.push(field);
+      }
+    }
+
+    // Hide everything else
+    return allTableFields.filter((field) => !visibleFields.includes(field));
+  }, [hiddenColumnsRaw, tableFields]);
+
+  // Wrap the setter to handle undefined -> [] conversion for functional updates
+  const setHiddenColumns = useCallback(
+    (newHiddenColumns: string[] | ((prev: string[]) => string[])) => {
+      if (typeof newHiddenColumns === "function") {
+        setHiddenColumnsRaw((prev) => newHiddenColumns(prev || []));
+      } else {
+        setHiddenColumnsRaw(newHiddenColumns);
+      }
+    },
+    [setHiddenColumnsRaw],
+  );
+
+  // Column order management
+  const [columnOrderRaw, setColumnOrderRaw] =
+    useStoredColumnOrder(localStorageKey);
+
+  const columnOrder = useMemo(() => columnOrderRaw || [], [columnOrderRaw]);
+
+  // Wrap the setter to handle undefined -> [] conversion for functional updates
+  const setColumnOrder = useCallback(
+    (newColumnOrder: string[] | ((prev: string[]) => string[])) => {
+      if (typeof newColumnOrder === "function") {
+        setColumnOrderRaw((prev) => newColumnOrder(prev || []));
+      } else {
+        setColumnOrderRaw(newColumnOrder);
+      }
+    },
+    [setColumnOrderRaw],
+  );
+
+  // Use tableFields directly for the combobox instead of deriving from columns
+  // to avoid circular dependencies
+  const allFields = useMemo(() => ["*select", ...tableFields], [tableFields]);
 
   const listRef = useRef<FixedSizeList>(null);
 
@@ -282,6 +357,11 @@ export function DataContent({
               hasFilters={hasFiltersAndAtLeastOneDocument}
               showFilters={showFilters}
               setShowFilters={setShowFilters}
+              allFields={allFields}
+              hiddenColumns={hiddenColumns}
+              setHiddenColumns={setHiddenColumns}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
             />
           )}
 
@@ -307,6 +387,7 @@ export function DataContent({
                     />
                   )}
                   <Table
+                    key={columnOrder.join(",")}
                     activeSchema={activeSchema}
                     listRef={listRef}
                     loadMore={loadNextPage}
@@ -338,6 +419,8 @@ export function DataContent({
                     setPopup={popupState.setPopup}
                     deleteRows={deleteRows}
                     defaultDocument={defaultDocument}
+                    hiddenColumns={hiddenColumns}
+                    onColumnOrderChange={setColumnOrder}
                     onAddDraftFilter={(filter: Filter) => {
                       setDraftFilters((prev) =>
                         prev

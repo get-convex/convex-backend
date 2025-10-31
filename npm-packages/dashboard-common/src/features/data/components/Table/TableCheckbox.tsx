@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { forwardRef, useId } from "react";
 import { Checkbox } from "@ui/Checkbox";
+import { useTableDensity } from "../../lib/useTableDensity";
 
 type TableCheckboxProps = {
   checked: boolean;
@@ -27,6 +28,8 @@ export const TableCheckbox = forwardRef<HTMLLabelElement, TableCheckboxProps>(
   ) {
     const id = useId();
 
+    const { densityValues } = useTableDensity();
+
     return (
       <label
         ref={ref}
@@ -38,6 +41,7 @@ export const TableCheckbox = forwardRef<HTMLLabelElement, TableCheckboxProps>(
         )}
         style={{
           width,
+          height: densityValues.height,
         }}
       >
         <Checkbox

@@ -62,5 +62,10 @@ export const Default: Story = {
     numRowsLoaded: 0,
     hasFilters: true,
     showFilters: true,
+    allFields: ["*select", "myColumn"],
+    hiddenColumns: [],
+    setHiddenColumns: fn(),
+    columnOrder: [],
+    setColumnOrder: fn(),
   },
 };

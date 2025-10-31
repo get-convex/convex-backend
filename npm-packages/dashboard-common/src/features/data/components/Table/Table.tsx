@@ -4,6 +4,7 @@ import {
   MutableRefObject,
   useCallback,
   useContext,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -80,6 +81,8 @@ export function Table({
   onAddDraftFilter,
   defaultDocument,
   sort,
+  hiddenColumns,
+  onColumnOrderChange,
 }: {
   activeSchema: SchemaJson | null;
   areEditsAuthorized: boolean;
@@ -105,6 +108,8 @@ export function Table({
     order: "asc" | "desc";
     field: string;
   };
+  hiddenColumns: string[];
+  onColumnOrderChange?: (newOrder: string[]) => void;
 }) {
   const [pageSize] = useDataPageSize(componentId, tableName);
   const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
@@ -127,6 +132,21 @@ export function Table({
     useStoredColumnOrder(localStorageKey);
 
   const dataColumnNames = columns.map((c) => c.Header as string);
+  // Filter out special columns like *select from ordering operations
+  const orderableColumnNames = dataColumnNames.filter(
+    (name) => name !== "*select",
+  );
+
+  // Filter out hidden columns (but never hide the checkbox column)
+  // Use useMemo to avoid recreating the array on every render
+  const visibleColumns = useMemo(
+    () =>
+      columns.filter(
+        (c) =>
+          c.Header === "*select" || !hiddenColumns.includes(c.Header as string),
+      ),
+    [columns, hiddenColumns],
+  );
 
   const {
     state,
@@ -138,16 +158,25 @@ export function Table({
     setColumnOrder,
   } = useTable(
     {
-      columns,
+      columns: visibleColumns,
       data,
       getRowId,
       autoResetSortBy: false,
       initialState: {
-        columnOrder: storedColumnOrder || dataColumnNames,
+        columnOrder: [
+          "*select",
+          ...(storedColumnOrder || orderableColumnNames),
+        ],
       },
       stateReducer: (newState, action) => {
         if (action.type === "setColumnOrder") {
-          setStoredColumnOrder(newState.columnOrder);
+          // Filter out *select when storing the column order
+          const newOrder = newState.columnOrder.filter(
+            (col) => col !== "*select",
+          );
+          setStoredColumnOrder(newOrder);
+          // Notify parent component of the change
+          onColumnOrderChange?.(newOrder);
         }
 
         return newState;
@@ -158,7 +187,11 @@ export function Table({
     useResizeColumns,
   );
 
-  trackDataColumnChanges(dataColumnNames, storedColumnOrder, setColumnOrder);
+  trackDataColumnChanges(
+    orderableColumnNames,
+    storedColumnOrder,
+    setColumnOrder,
+  );
 
   const reorderColumns = useCallback(
     (item: { index: number }, newIndex: number) => {
@@ -169,7 +202,10 @@ export function Table({
       const newColumnOrder = [...state.columnOrder];
       newColumnOrder.splice(currentIndex, 1);
       newColumnOrder.splice(newIndex, 0, currentItem);
-      setColumnOrder(newColumnOrder);
+
+      // Ensure *select always stays at the beginning
+      const filtered = newColumnOrder.filter((col) => col !== "*select");
+      setColumnOrder(["*select", ...filtered]);
     },
     [setColumnOrder, state.columnOrder],
   );
@@ -354,8 +390,8 @@ export function Table({
                 defaultDocument={defaultDocument}
                 canManageTable={canManageTable}
                 resetColumns={() => {
-                  setColumnOrder(dataColumnNames);
-                  setStoredColumnOrder(dataColumnNames);
+                  setColumnOrder(["*select", ...orderableColumnNames]);
+                  setStoredColumnOrder(orderableColumnNames);
                   resetColumnWidths();
                 }}
               />
@@ -375,7 +411,10 @@ export function Table({
 
               const containerWidth =
                 tableContainerRef.current?.offsetWidth || 0;
-              const unclamped = activeColumnPosition + dragOffset;
+              const scrollLeft = tableContainerRef.current?.scrollLeft || 0;
+
+              // Adjust for horizontal scroll
+              const unclamped = activeColumnPosition + dragOffset - scrollLeft;
 
               // Clamp the position so the column stays within bounds
               const left = Math.max(
@@ -422,7 +461,7 @@ export function Table({
               rows={data.filter((d) =>
                 Array.from(selectedRows[0]).includes(d._id as string),
               )}
-              columns={dataColumnNames}
+              columns={orderableColumnNames}
               tableName={tableName}
               componentId={componentId}
               canManageTable={canManageTable}
@@ -485,5 +524,6 @@ function trackDataColumnChanges(
         ]
       : [...existingColumns, ...newColumns];
 
-  updateColumnOrder(newOrder);
+  // Prepend *select to ensure it's always first
+  updateColumnOrder(["*select", ...newOrder]);
 }

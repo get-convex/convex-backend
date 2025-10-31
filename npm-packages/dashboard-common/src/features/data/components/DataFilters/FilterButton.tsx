@@ -57,7 +57,9 @@ export function FilterButton({
         "w-fit rounded-l-none border-0 border-l text-xs",
         hasAnyEnabledFilters &&
           "bg-blue-100/50 hover:bg-blue-100/70 dark:bg-blue-700/50 dark:hover:bg-blue-700/70",
-        open && "rounded-b-none",
+        // This extra padding allows other buttons aligned with the filter button to have some spacing between the
+        // panel that shows when the Filter & Sort panel is open
+        open && "rounded-b-none py-2.5",
       )}
       inline
     >

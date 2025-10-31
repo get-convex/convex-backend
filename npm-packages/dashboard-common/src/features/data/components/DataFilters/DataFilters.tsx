@@ -47,6 +47,7 @@ import { api } from "system-udfs/convex/_generated/api";
 import { Index } from "@common/features/data/lib/api";
 import { IndexFilters, getDefaultIndex } from "./IndexFilters";
 import { clearFilters } from "./clearFilters";
+import { FieldSelector } from "./FieldSelector";
 
 export function DataFilters({
   defaultDocument,
@@ -64,6 +65,11 @@ export function DataFilters({
   hasFilters,
   showFilters,
   setShowFilters,
+  allFields,
+  hiddenColumns,
+  setHiddenColumns,
+  columnOrder,
+  setColumnOrder,
 }: {
   defaultDocument: GenericDocument;
   tableName: string;
@@ -80,6 +86,11 @@ export function DataFilters({
   hasFilters: boolean;
   showFilters: boolean;
   setShowFilters: React.Dispatch<React.SetStateAction<boolean>>;
+  allFields: string[];
+  hiddenColumns: string[];
+  setHiddenColumns: (hiddenColumns: string[]) => void;
+  columnOrder: string[];
+  setColumnOrder: (columnOrder: string[]) => void;
 }) {
   const { selectedNent } = useNents();
   const indexes =
@@ -152,11 +163,11 @@ export function DataFilters({
       key={currentIdx}
     >
       <div className="flex flex-col">
-        <div className="flex justify-between gap-2">
-          <div className="flex items-center">
+        <div className="scrollbar flex justify-between gap-4 overflow-x-auto">
+          <div className="flex items-center gap-2">
             <div
               className={cn(
-                "flex w-full rounded-lg border bg-background-secondary",
+                "flex w-full min-w-fit overflow-hidden rounded-lg border bg-background-secondary",
                 showFilters && "rounded-b-none border-b-0",
               )}
             >
@@ -202,6 +213,13 @@ export function DataFilters({
                 open={showFilters}
               />
             </div>
+            <FieldSelector
+              allFields={allFields}
+              hiddenColumns={hiddenColumns}
+              setHiddenColumns={setHiddenColumns}
+              columnOrder={columnOrder}
+              setColumnOrder={setColumnOrder}
+            />
           </div>
           <div className="flex gap-2">
             {numRowsWeKnowOf !== undefined && (

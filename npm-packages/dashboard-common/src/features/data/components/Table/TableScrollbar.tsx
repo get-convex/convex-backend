@@ -208,7 +208,7 @@ export function TableScrollbar({
   const { densityValues } = useTableDensity();
   return scrollbarHeight > 0 ? (
     <div
-      className="absolute -right-px -mt-0.5 w-3 border-t border-l bg-macosScrollbar-track/75 py-0.5"
+      className="absolute -right-px w-3 border-t border-l bg-macosScrollbar-track/75 py-0.5"
       role="scrollbar"
       aria-controls="dataTable"
       aria-valuenow={scrollbarTop}
@@ -218,7 +218,7 @@ export function TableScrollbar({
       }}
     >
       {/* eslint-disable  */}
-      {/* I have no clue how to properly do a11y for this scrollbar, 
+      {/* I have no clue how to properly do a11y for this scrollbar,
             but it seems to work well for scrollbars */}
       <div onClick={handleTrackClick} className="fixed h-full w-2.5" />
       <div

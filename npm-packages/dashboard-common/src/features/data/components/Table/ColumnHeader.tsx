@@ -98,7 +98,12 @@ export function ColumnHeader({
   return (
     <div
       key={column.getHeaderProps().key}
-      {...omit(column.getHeaderProps({ style: { width } }), "key")}
+      {...omit(
+        column.getHeaderProps({
+          style: { width, height: densityValues.height },
+        }),
+        "key",
+      )}
       ref={setNodeRef}
       className={classNames(
         isDragging && "opacity-50",
@@ -200,7 +205,7 @@ export function ColumnHeader({
           )}
         </div>
       </ValidatorTooltip>
-      {!isHovering && !column.disableResizing && (
+      {!isHovering && !column.disableResizing && columnName !== "*select" && (
         <div
           {...column.getResizerProps()}
           className="absolute top-0 z-20 inline-block h-full"

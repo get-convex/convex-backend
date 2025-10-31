@@ -20,6 +20,9 @@ export const checkboxColumnName = "*select";
 export const useStoredColumnOrder = (localStorageKey = "_disabled_") =>
   useLocalStorage<string[]>(`${localStorageKey}_columnOrder`);
 
+export const useStoredHiddenColumns = (localStorageKey = "_disabled_") =>
+  useLocalStorage<string[]>(`${localStorageKey}_hiddenColumns`);
+
 export const useDataColumns = ({
   fields,
   localStorageKey = "_disabled_",
@@ -81,7 +84,7 @@ export const useDataColumns = ({
                   (width - DEFAULT_COLUMN_WIDTH) / (fields.length - 1),
                   DEFAULT_COLUMN_WIDTH,
                 ),
-          disableResizing: field === "_creationTime",
+          disableResizing: false,
           maxWidth: MAX_COLUMN_WIDTH,
         })),
       ),
