@@ -369,10 +369,10 @@ SELECT
     index_id, key_prefix, key_sha256, key_suffix, ts, deleted
     FROM @db_name.indexes
     FORCE INDEX FOR ORDER BY (PRIMARY)
-    WHERE index_id > ? OR (index_id = ? AND
+    WHERE (index_id > ? OR (index_id = ? AND
         (key_prefix > ? OR (key_prefix = ? AND
         (key_sha256 > ? OR (key_sha256 = ? AND
-        ts > ?)))))
+        ts > ?))))))
     {where_clause}
     ORDER BY index_id ASC, key_prefix ASC, key_sha256 ASC, ts ASC
     LIMIT ?
