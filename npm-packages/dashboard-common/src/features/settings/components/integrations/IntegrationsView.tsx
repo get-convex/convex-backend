@@ -22,7 +22,7 @@ export function IntegrationsView() {
   return (
     <DeploymentSettingsLayout page="integrations">
       <LoadingTransition>
-        {team && entitlements && integrations !== undefined && workosData && (
+        {team && entitlements && integrations !== undefined && (
           <Integrations
             team={team}
             entitlements={entitlements}
