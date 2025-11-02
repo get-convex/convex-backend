@@ -80,20 +80,15 @@ Same format as .env.local or .env files, and overrides them.`,
     const ctx = await oneoffContext(cmdOptions);
 
     const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
+    
+    const nonProdReason = isNonProdBuildEnvironment();
     if (
-      cmdOptions.checkBuildEnvironment === "enable" &&
-      isNonProdBuildEnvironment() &&
-      deploymentSelection.kind === "existingDeployment" &&
-      deploymentSelection.deploymentToActOn.source === "deployKey" &&
-      deploymentSelection.deploymentToActOn.deploymentFields?.deploymentType ===
-        "prod"
-    ) {
+      cmdOptions.checkBuildEnvironment === "enable" && nonProdReason &&deploymentSelection.kind === "existingDeployment" && deploymentSelection.deploymentToActOn.source === "deployKey" && deploymentSelection.deploymentToActOn.deploymentFields?.deploymentType === "prod"
+    ){
       await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem data",
-        printedMessage: `Detected a non-production build environment and "${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}" for a production Convex deployment.\n
-          This is probably unintentional.
-          `,
+        printedMessage: `${nonProdReason}\n\nDetected a non-production build environment and "${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}" for a production Convex deployment.\nThis is probably unintentional.`
       });
     }
 

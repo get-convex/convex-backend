@@ -340,14 +340,21 @@ export function gitBranchFromEnvironment(): string | null {
   return null;
 }
 
-export function isNonProdBuildEnvironment(): boolean {
+// ------------------------------------------
+// Improved: Return detailed reason for non-production builds
+// ------------------------------------------
+export function isNonProdBuildEnvironment(): string | null {
   if (process.env.VERCEL) {
     // https://vercel.com/docs/projects/environment-variables/system-environment-variables
-    return process.env.VERCEL_ENV !== "production";
+    if (process.env.VERCEL_ENV !== "production") {
+      return `Detected VERCEL because the VERCEL env var is set, but VERCEL_ENV is "${process.env.VERCEL_ENV}" instead of "production".`;
+    }
   }
   if (process.env.NETLIFY) {
     // https://docs.netlify.com/configure-builds/environment-variables/
-    return process.env.CONTEXT !== "production";
+    if (process.env.CONTEXT !== "production") {
+      return `Detected NETLIFY because the NETLIFY env var is set, but CONTEXT is "${process.env.CONTEXT}" instead of "production".`;
+    }
   }
-  return false;
+  return null; // everything looks production-safe
 }
