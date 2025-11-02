@@ -243,12 +243,22 @@ interface ApiTree {
     | { type: "leaf"; leaf: AnalyzedFunction };
 }
 
-async function buildApiTree(
+export async function buildApiTree(
   ctx: Context,
   functions: Record<CanonicalizedModulePath, AnalyzedModule>,
   visibility: Visibility,
 ): Promise<ApiTree> {
   const root: ApiTree = {};
+
+  const shouldDeduplicateFilename = (
+    functionName: string,
+    pathComponents: string[],
+    functionCountInFile: number,
+  ): boolean => {
+    const lastPathComponent = pathComponents[pathComponents.length - 1];
+    return functionName === lastPathComponent && functionCountInFile === 1;
+  };
+
   for (const [modulePath, module] of Object.entries(functions)) {
     const p = importPath(modulePath);
     if (p.startsWith("_deps/")) {
@@ -259,7 +269,17 @@ async function buildApiTree(
         continue;
       }
       let current = root;
-      for (const pathComponent of p.split("/")) {
+      const pathComponents = p.split("/");
+      const shouldSkipLastComponent = shouldDeduplicateFilename(
+        f.name,
+        pathComponents,
+        module.functions.length,
+      );
+      const componentsToUse = shouldSkipLastComponent
+        ? pathComponents.slice(0, -1) // use the penultimate component
+        : pathComponents;
+
+      for (const pathComponent of componentsToUse) {
         let next = current[pathComponent];
         if (!next) {
           next = { type: "branch", branch: {} };
