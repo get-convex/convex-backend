@@ -3,7 +3,9 @@ import { Context } from "../../bundler/context.js";
 import { entryPoints } from "../../bundler/index.js";
 import {
   ComponentDirectory,
+  toAbsolutePath,
   toComponentDefinitionPath,
+  ComponentDefinitionPath,
 } from "../lib/components/definition/directoryStructure.js";
 import { StartPushResponse } from "../lib/deployApi/startPush.js";
 import { importPath, moduleIdentifier } from "./api.js";
@@ -64,7 +66,8 @@ export async function componentApiDTS(
   startPush: StartPushResponse,
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
-  opts: { staticApi: boolean },
+  componentsMap: Map<string, ComponentDirectory>,
+  opts: { staticApi: boolean; useComponentApiImports: boolean },
 ) {
   const definitionPath = toComponentDefinitionPath(
     rootComponent,
@@ -103,12 +106,43 @@ export async function componentApiDTS(
         printedMessage: `No analysis found for child component ${childComponent.path}`,
       });
     }
-    for await (const line of codegenExports(
-      ctx,
-      childComponent.name,
-      childComponentAnalysis,
-    )) {
-      lines.push(line);
+    if (opts.useComponentApiImports) {
+      const absolutePath = toAbsolutePath(
+        rootComponent,
+        childComponent.path as ComponentDefinitionPath,
+      );
+
+      let childComponentWithRelativePath = componentsMap?.get(absolutePath);
+      if (!childComponentWithRelativePath) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Invalid child component directory: ${childComponent.path}`,
+        });
+      }
+
+      let importPath;
+
+      // If the user uses a different import specifier than the absolute path of the child component, use the import specifier.
+      if (
+        childComponentWithRelativePath.importSpecifier &&
+        childComponentWithRelativePath.importSpecifier !== childComponent.path
+      ) {
+        importPath = childComponentWithRelativePath.importSpecifier;
+      } else {
+        importPath = `../${childComponent.path}`;
+      }
+      lines.push(
+        `  "${childComponent.name}": import("${importPath}/_generated/component.js").ComponentApi<"${childComponent.name}">,`,
+      );
+    } else {
+      for await (const line of codegenExports(
+        ctx,
+        childComponent.name,
+        childComponentAnalysis,
+      )) {
+        lines.push(line);
+      }
     }
   }
 

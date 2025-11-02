@@ -37,6 +37,14 @@ export type ComponentDirectory = {
    * Is this component a root without a config file?
    */
   isRootWithoutConfig: boolean;
+
+  /**
+   * The import specifier used to import this component, with `/convex.config.*` stripped.
+   * For example, if imported as `@convex-dev/workpool/convex.config`, this would be `@convex-dev/workpool`.
+   * For relative imports like `../examples/foo/convex.config.js`, this would be `../examples/foo`.
+   * This is undefined for components discovered through the filesystem (not through imports).
+   */
+  importSpecifier?: string;
 };
 
 /**

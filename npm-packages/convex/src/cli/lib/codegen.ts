@@ -167,17 +167,7 @@ export async function doInitialComponentCodegen(
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
 
-  // This component defined in a dist directory; it is probably in a node_module
-  // directory, installed from a package. It is stuck with the files it has.
-  // Heuristics for this:
-  // - component definition has a dist/ directory as an ancestor
-  // - component definition is a .js file
-  // - presence of .js.map files
-  // We may improve this heuristic.
-  const isPublishedPackage =
-    componentDirectory.definitionPath.endsWith(".js") &&
-    !componentDirectory.isRoot;
-  if (isPublishedPackage) {
+  if (isPublishedPackage(componentDirectory)) {
     if (opts?.verbose) {
       logMessage(
         `skipping initial codegen for installed package ${componentDirectory.path}`,
@@ -239,12 +229,28 @@ export async function doInitialComponentCodegen(
   }
 }
 
+/* This component defined in a dist directory; it is probably in a node_module
+ * directory, installed from a package. It is stuck with the files it has.
+ * Heuristics for this:
+ * - component definition has a dist/ directory as an ancestor
+ * - component definition is a .js file
+ * - presence of .js.map files
+ * We may improve this heuristic.
+ */
+export function isPublishedPackage(componentDirectory: ComponentDirectory) {
+  return (
+    componentDirectory.definitionPath.endsWith(".js") &&
+    !componentDirectory.isRoot
+  );
+}
+
 export async function doFinalComponentCodegen(
   ctx: Context,
   tmpDir: TempDir,
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
   startPushResponse: StartPushResponse,
+  componentsMap: Map<string, ComponentDirectory>,
   opts?: {
     dryRun?: boolean;
     debug?: boolean;
@@ -308,7 +314,11 @@ export async function doFinalComponentCodegen(
     startPushResponse,
     rootComponent,
     componentDirectory,
-    { staticApi: projectConfig.codegen.staticApi },
+    componentsMap,
+    {
+      staticApi: projectConfig.codegen.staticApi,
+      useComponentApiImports: projectConfig.codegen.useComponentApiImports,
+    },
   );
   await writeFormattedFile(
     ctx,

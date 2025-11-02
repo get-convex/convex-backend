@@ -1,0 +1,5 @@
+{
+  "codegen": {
+    "useComponentApiImports": true
+  }
+}

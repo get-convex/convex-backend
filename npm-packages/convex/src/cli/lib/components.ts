@@ -352,6 +352,7 @@ async function startComponentsPushAndCodegen(
           rootComponent,
           rootComponent,
           startPushResponse,
+          components,
           options,
         );
         for (const directory of components.values()) {
@@ -361,6 +362,7 @@ async function startComponentsPushAndCodegen(
             rootComponent,
             directory,
             startPushResponse,
+            components,
             options,
           );
         }

@@ -351,6 +351,10 @@
       "projectFolder": "private-demos/static-codegen"
     },
     {
+      "packageName": "components-api-import",
+      "projectFolder": "private-demos/components-api-import"
+    },
+    {
       "packageName": "components-poc",
       "projectFolder": "private-demos/components-poc"
     },

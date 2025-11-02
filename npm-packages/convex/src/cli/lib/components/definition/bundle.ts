@@ -356,15 +356,28 @@ async function findComponentDependencies(
     const componentImports = imports.filter((imp) =>
       imp.path.includes(".config."),
     );
-    for (const importPath of componentImports.map((dep) => dep.path)) {
-      const imported = componentsByAbsPath.get(path.resolve(importPath));
+    for (const imp of componentImports) {
+      const imported = componentsByAbsPath.get(path.resolve(imp.path));
       if (!imported) {
         return await ctx.crash({
           exitCode: 1,
           errorType: "invalid filesystem data",
-          printedMessage: `Didn't find ${path.resolve(importPath)} in ${[...componentsByAbsPath.keys()].toString()}`,
+          printedMessage: `Didn't find ${path.resolve(imp.path)} in ${[...componentsByAbsPath.keys()].toString()}`,
         });
       }
+
+      // Grab the import specifier from the metafile (e.g. `@convex-dev/workpool/convex.config`) so
+      // we can use it to import component APIs
+      if (imp.original) {
+        const importSpecifier = imp.original;
+        const relativeSpecifier = importSpecifier.replace(
+          /\/convex\.config.*$/,
+          "",
+        );
+
+        imported.importSpecifier = relativeSpecifier;
+      }
+
       dependencyGraph.push([importer, imported]);
     }
   }

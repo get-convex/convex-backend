@@ -76,6 +76,7 @@ export interface ProjectConfig {
   codegen: {
     staticApi: boolean;
     staticDataModel: boolean;
+    useComponentApiImports: boolean;
   };
 }
 
@@ -207,9 +208,13 @@ export async function parseProjectConfig(
   if (typeof obj.codegen.staticDataModel === "undefined") {
     obj.codegen.staticDataModel = false;
   }
+  if (typeof obj.codegen.useComponentApiImports === "undefined") {
+    obj.codegen.useComponentApiImports = false;
+  }
   if (
     typeof obj.codegen.staticApi !== "boolean" ||
-    typeof obj.codegen.staticDataModel !== "boolean"
+    typeof obj.codegen.staticDataModel !== "boolean" ||
+    typeof obj.codegen.useComponentApiImports !== "boolean"
   ) {
     return await ctx.crash({
       exitCode: 1,
@@ -319,6 +324,7 @@ export async function readProjectConfig(ctx: Context): Promise<{
         codegen: {
           staticApi: false,
           staticDataModel: false,
+          useComponentApiImports: false,
         },
       },
       configPath: configName(),
@@ -634,6 +640,9 @@ function stripDefaults(projectConfig: ProjectConfig): any {
   if (stripped.codegen.staticDataModel === false) {
     delete stripped.codegen.staticDataModel;
   }
+  if (stripped.codegen.useComponentApiImports === false) {
+    delete stripped.codegen.useComponentApiImports;
+  }
   if (Object.keys(stripped.codegen).length === 0) {
     delete stripped.codegen;
   }
@@ -697,6 +706,7 @@ export async function pullConfig(
       codegen: {
         staticApi: false,
         staticDataModel: false,
+        useComponentApiImports: false,
       },
       project,
       team,
