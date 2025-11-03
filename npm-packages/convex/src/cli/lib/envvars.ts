@@ -340,9 +340,9 @@ export function gitBranchFromEnvironment(): string | null {
   return null;
 }
 
-// ------------------------------------------
+// -------------------------------------------------------------
 // Improved: Return detailed reason for non-production builds
-// ------------------------------------------
+// -------------------------------------------------------------
 export function isNonProdBuildEnvironment(): string | null {
   if (process.env.VERCEL) {
     // https://vercel.com/docs/projects/environment-variables/system-environment-variables
