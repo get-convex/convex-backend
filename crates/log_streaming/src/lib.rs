@@ -523,6 +523,7 @@ impl<RT: Runtime> LogManager<RT> {
             let sink_type = row.config.sink_type();
             let sink_id = row.id();
             let sink_config = row.config.clone();
+            let sink_status = row.status.clone();
             let timed_startup_result = runtime
                 .with_timeout(
                     "sink startup timeout",
@@ -532,6 +533,7 @@ impl<RT: Runtime> LogManager<RT> {
                         fetch_client.clone(),
                         sink_config,
                         metadata.clone(),
+                        sink_status,
                     ),
                 )
                 .await;
@@ -583,20 +585,52 @@ impl<RT: Runtime> LogManager<RT> {
         fetch_client: Arc<dyn FetchClient>,
         config: SinkConfig,
         metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        status: SinkState,
     ) -> anyhow::Result<LogSinkClient> {
+        // Only verify credentials for sinks in Pending state
+        let should_verify = matches!(status, SinkState::Pending);
+
         match config {
             SinkConfig::Local(path) => LocalSink::start(runtime.clone(), path.parse()?).await,
             SinkConfig::Datadog(config) => {
-                DatadogSink::start(runtime.clone(), fetch_client, config, metadata).await
+                DatadogSink::start(
+                    runtime.clone(),
+                    fetch_client,
+                    config,
+                    metadata,
+                    should_verify,
+                )
+                .await
             },
             SinkConfig::Webhook(config) => {
-                WebhookSink::start(runtime.clone(), config, fetch_client, metadata).await
+                WebhookSink::start(
+                    runtime.clone(),
+                    config,
+                    fetch_client,
+                    metadata,
+                    should_verify,
+                )
+                .await
             },
             SinkConfig::Axiom(config) => {
-                AxiomSink::start(runtime.clone(), config, fetch_client, metadata).await
+                AxiomSink::start(
+                    runtime.clone(),
+                    config,
+                    fetch_client,
+                    metadata,
+                    should_verify,
+                )
+                .await
             },
             SinkConfig::Sentry(config) => {
-                SentrySink::start(runtime.clone(), config, None, metadata.clone()).await
+                SentrySink::start(
+                    runtime.clone(),
+                    config,
+                    None,
+                    metadata.clone(),
+                    should_verify,
+                )
+                .await
             },
             #[cfg(any(test, feature = "testing"))]
             SinkConfig::Mock | SinkConfig::Mock2 => MockSink::start(runtime.clone()).await,

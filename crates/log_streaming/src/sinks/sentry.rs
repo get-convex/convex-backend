@@ -62,6 +62,7 @@ impl<RT: Runtime> SentrySink<RT> {
         config: SentryConfig,
         transport_override: Option<Arc<dyn TransportFactory>>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting SentrySink");
         let (tx, rx) = mpsc::channel(consts::SENTRY_SINK_EVENTS_BUFFER_SIZE);
@@ -84,8 +85,10 @@ impl<RT: Runtime> SentrySink<RT> {
             config,
         };
 
-        sink.verify_creds().await?;
-        tracing::info!("SentrySink verified!");
+        if should_verify {
+            sink.verify_creds().await?;
+            tracing::info!("SentrySink verified!");
+        }
 
         let handle = Arc::new(Mutex::new(runtime.spawn("sentry_sink", sink.go())));
         let client = LogSinkClient {
@@ -339,6 +342,7 @@ mod tests {
                 project_name: Some("test".to_string()),
                 project_slug: Some("test".to_string()),
             })),
+            true,
         )
         .await?;
 

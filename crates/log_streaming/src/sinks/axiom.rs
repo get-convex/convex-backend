@@ -99,6 +99,7 @@ impl<RT: Runtime> AxiomSink<RT> {
         config: AxiomConfig,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting AxiomSink");
         let (tx, rx) = mpsc::channel(consts::AXIOM_SINK_EVENTS_BUFFER_SIZE);
@@ -126,8 +127,10 @@ impl<RT: Runtime> AxiomSink<RT> {
             ),
         };
 
-        sink.verify_creds().await?;
-        tracing::info!("AxiomSink verified!");
+        if should_verify {
+            sink.verify_creds().await?;
+            tracing::info!("AxiomSink verified!");
+        }
 
         let handle = Arc::new(Mutex::new(runtime.spawn("axiom_sink", sink.go())));
         let client = LogSinkClient {
@@ -380,6 +383,7 @@ mod tests {
             axiom_config,
             Arc::new(fetch_client),
             meta.clone(),
+            true,
         )
         .await?;
         assert_eq!(&*topic_buffer.lock(), &vec!["verification".to_string()]);
@@ -449,7 +453,7 @@ mod tests {
         }));
         // Assert that verification response failed
         assert!(
-            AxiomSink::start(rt.clone(), axiom_config, Arc::new(fetch_client), meta,)
+            AxiomSink::start(rt.clone(), axiom_config, Arc::new(fetch_client), meta, true,)
                 .await
                 .is_err()
         );

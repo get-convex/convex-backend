@@ -113,6 +113,7 @@ impl<RT: Runtime> DatadogSink<RT> {
         fetch_client: Arc<dyn FetchClient>,
         config: DatadogConfig,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting DatadogSink");
         let (tx, rx) = mpsc::channel(consts::DD_SINK_EVENTS_BUFFER_SIZE);
@@ -135,8 +136,10 @@ impl<RT: Runtime> DatadogSink<RT> {
             deployment_metadata: deployment_metadata.clone(),
         };
 
-        sink.verify_creds().await?;
-        tracing::info!("DatadogSink verified!");
+        if should_verify {
+            sink.verify_creds().await?;
+            tracing::info!("DatadogSink verified!");
+        }
 
         let handle = Arc::new(Mutex::new(runtime.spawn("datadog_sink", sink.go())));
         let client = LogSinkClient {
@@ -389,8 +392,14 @@ mod tests {
             project_slug: Some("test".to_string()),
         }));
         // Assert that verification response succeeded
-        let dd_sink =
-            DatadogSink::start(rt.clone(), Arc::new(fetch_client), dd_config, meta.clone()).await?;
+        let dd_sink = DatadogSink::start(
+            rt.clone(),
+            Arc::new(fetch_client),
+            dd_config,
+            meta.clone(),
+            true,
+        )
+        .await?;
         assert_eq!(&*topic_buffer.lock(), &vec!["verification".to_string()]);
 
         dd_sink
@@ -456,7 +465,7 @@ mod tests {
         }));
         // Assert that verification response failed
         assert!(
-            DatadogSink::start(rt.clone(), Arc::new(fetch_client), dd_config, meta,)
+            DatadogSink::start(rt.clone(), Arc::new(fetch_client), dd_config, meta, true,)
                 .await
                 .is_err()
         );

@@ -80,6 +80,7 @@ impl<RT: Runtime> WebhookSink<RT> {
         config: WebhookConfig,
         fetch_client: Arc<dyn FetchClient>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
+        should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
         tracing::info!("Starting WebhookSink");
         let (tx, rx) = mpsc::channel(consts::WEBHOOK_SINK_EVENTS_BUFFER_SIZE);
@@ -96,8 +97,10 @@ impl<RT: Runtime> WebhookSink<RT> {
             deployment_metadata,
         };
 
-        sink.verify_initial_request().await?;
-        tracing::info!("WebhookSink verified!");
+        if should_verify {
+            sink.verify_initial_request().await?;
+            tracing::info!("WebhookSink verified!");
+        }
 
         let handle = Arc::new(Mutex::new(runtime.spawn("webhook_sink", sink.go())));
 
