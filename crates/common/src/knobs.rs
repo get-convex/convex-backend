@@ -847,8 +847,9 @@ pub static MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE: LazyLock<usize> =
 pub static MYSQL_MAX_CHUNK_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_CHUNK_BYTES", 10 << 20));
 
-/// Timeout for all operations on MySQL connections
-pub static MYSQL_TIMEOUT: LazyLock<u64> = LazyLock::new(|| env_config("MYSQL_TIMEOUT_SECONDS", 30));
+/// Timeout for all operations on MySQL connections, Vitess timeout is 20s so
+/// set lower than that
+pub static MYSQL_TIMEOUT: LazyLock<u64> = LazyLock::new(|| env_config("MYSQL_TIMEOUT_SECONDS", 19));
 
 /// Maximum number of connections to MySQL
 pub static MYSQL_MAX_CONNECTIONS: LazyLock<usize> =
