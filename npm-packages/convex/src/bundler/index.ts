@@ -26,14 +26,18 @@ export const actionsDir = "actions";
 export function* walkDir(
   fs: Filesystem,
   dirPath: string,
+  shouldSkipDir?: (dirPath: string) => boolean,
   depth?: number,
 ): Generator<{ isDir: boolean; path: string; depth: number }, void, void> {
   depth = depth ?? 0;
   for (const dirEntry of fs.listDir(dirPath).sort(consistentPathSort)) {
     const childPath = path.join(dirPath, dirEntry.name);
     if (dirEntry.isDirectory()) {
+      if (shouldSkipDir && shouldSkipDir(childPath)) {
+        continue;
+      }
       yield { isDir: true, path: childPath, depth };
-      yield* walkDir(fs, childPath, depth + 1);
+      yield* walkDir(fs, childPath, shouldSkipDir, depth + 1);
     } else if (dirEntry.isFile()) {
       yield { isDir: false, path: childPath, depth };
     }
@@ -357,7 +361,22 @@ export async function entryPoints(
 ): Promise<string[]> {
   const entryPoints = [];
 
-  for (const { isDir, path: fpath, depth } of walkDir(ctx.fs, dir)) {
+  // Don't deploy directories in convex/ that define components
+  // as this leads to double-deploying.
+  const looksLikeNestedComponent = (dirPath: string): boolean => {
+    const config = path.join(dirPath, "convex.config.ts");
+    const isComponentDefinition = ctx.fs.exists(config);
+    if (isComponentDefinition) {
+      logVerbose(chalk.yellow(`Skipping component directory ${dirPath}`));
+    }
+    return isComponentDefinition;
+  };
+
+  for (const { isDir, path: fpath, depth } of walkDir(
+    ctx.fs,
+    dir,
+    looksLikeNestedComponent,
+  )) {
     if (isDir) {
       continue;
     }
