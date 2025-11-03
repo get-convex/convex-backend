@@ -15,6 +15,7 @@ import type * as actions_simple from "../actions/simple.js";
 import type * as addUser from "../addUser.js";
 import type * as auth from "../auth.js";
 import type * as basic from "../basic.js";
+import type * as betterAuth_testFunction from "../betterAuth/testFunction.js";
 import type * as cachebust from "../cachebust.js";
 import type * as cleanUp from "../cleanUp.js";
 import type * as component from "../component.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   addUser: typeof addUser;
   auth: typeof auth;
   basic: typeof basic;
+  "betterAuth/testFunction": typeof betterAuth_testFunction;
   cachebust: typeof cachebust;
   cleanUp: typeof cleanUp;
   component: typeof component;

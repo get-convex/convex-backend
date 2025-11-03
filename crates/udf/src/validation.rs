@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use anyhow::Context;
 use common::{
     components::{
@@ -85,6 +87,10 @@ pub const PAUSED_ERROR_MESSAGE: &str = "Cannot run functions while this deployme
 pub const SUSPENDED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is \
                                            suspended. Please contact Convex if you believe this \
                                            is a mistake.";
+
+/// Convex CLI versions before 1.28.2 double-deployed betterAuth/ paths.
+static MIN_NPM_VERSION_FOR_BETTER_AUTH: LazyLock<Version> =
+    LazyLock::new(|| Version::new(1, 28, 2));
 
 /// Fails with an error if the backend is not running. We have to return a
 /// result of a result of () and a JSError because we use them to
@@ -209,6 +215,15 @@ fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String>
         String::from(path.udf_path.clone().strip()),
         path.component.in_component_str()
     ))
+}
+
+fn should_block_path(path: &ResolvedComponentFunctionPath) -> bool {
+    if path.component != ComponentId::Root {
+        return false;
+    }
+
+    let path_str = path.udf_path.to_string();
+    path_str.starts_with("betterAuth/")
 }
 
 #[fastrace::trace]
@@ -414,6 +429,17 @@ impl ValidatedPathAndArgs {
                 public_path,
             )?)));
         };
+
+        if udf_version < *MIN_NPM_VERSION_FOR_BETTER_AUTH && should_block_path(&path) {
+            tracing::warn!(
+                "Blocking betterAuth/ path '{}' for SDK version {} (< 1.28.2)",
+                path.udf_path,
+                udf_version
+            );
+            return Ok(Err(JsError::from_message(missing_or_internal_error(
+                public_path,
+            )?)));
+        }
 
         let returns_validator = if path.udf_path.is_system() {
             ReturnsValidator::Unvalidated

@@ -10007,6 +10007,7 @@ dependencies = [
  "semver",
  "serde_json",
  "tokio",
+ "tracing",
  "url",
  "value",
 ]
