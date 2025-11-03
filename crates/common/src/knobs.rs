@@ -1363,14 +1363,14 @@ pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
 /// There may be stricter limits imposed by the storage provider, but this is
 /// the target max size for the buffer to protect against memory exhaustion.
 /// The maximum number of parts is 10000, so this imposes a max file size, which
-/// defaults to 10000 * 100MiB = 1TB. When reducing this knob, make sure the
+/// defaults to 10000 * 200MiB = 2TB. When reducing this knob, make sure the
 /// maximum file size can fit a snapshot export of the instance.
 /// Storage uploads can run in parallel, and the buffers get cloned during
 /// upload, so make sure this knob times ~8 can fit in memory.
 ///
-/// Defaults to 100MiB.
+/// Defaults to 200MiB.
 pub static STORAGE_MAX_INTERMEDIATE_PART_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("STORAGE_MAX_INTERMEDIATE_PART_SIZE", 100 * (1 << 20)));
+    LazyLock::new(|| env_config("STORAGE_MAX_INTERMEDIATE_PART_SIZE", 200 * (1 << 20)));
 
 /// Minimum number of milliseconds a commit needs to take to send traces to
 /// honeycomb.
