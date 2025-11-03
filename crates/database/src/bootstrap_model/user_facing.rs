@@ -26,11 +26,9 @@ use indexing::backend_in_memory_indexes::{
 };
 use itertools::Itertools;
 use value::{
-    check_user_size,
     ConvexObject,
     DeveloperDocumentId,
     ResolvedDocumentId,
-    Size,
     TableName,
     TableNamespace,
 };
@@ -191,7 +189,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             ));
         }
 
-        check_user_size(value.size())?;
         self.tx.retention_validator.fail_if_falling_behind()?;
         let internal_id = self.tx.id_generator.generate_internal();
 
@@ -232,6 +229,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             creation_time,
             value,
         )?;
+        document.check_user_size()?;
         let document_id = self.tx.insert_document(document).await?;
 
         Ok(document_id.into())
@@ -260,7 +258,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
         // Check the size of the patched document.
         if !self.tx.is_system(self.namespace, id.table()) {
-            check_user_size(new_document.size())?;
+            new_document.check_user_size()?;
         }
 
         let developer_document = new_document.to_developer();
@@ -281,13 +279,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             anyhow::bail!(unauthorized_error("replace"))
         }
         self.require_active_component().await?;
-        if !self.tx.is_system(self.namespace, id.table()) {
-            check_user_size(value.size())?;
-        }
         self.tx.retention_validator.fail_if_falling_behind()?;
         let id_ = self.tx.resolve_developer_id(&id, self.namespace)?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
+        if !self.tx.is_system(self.namespace, id.table()) {
+            new_document.check_user_size()?;
+        }
         let developer_document = new_document.to_developer();
         Ok(developer_document)
     }

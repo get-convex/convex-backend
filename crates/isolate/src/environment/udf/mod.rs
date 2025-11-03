@@ -3,6 +3,10 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ResolvedComponentFunctionPath,
     },
+    document::{
+        MAX_DOCUMENT_NESTING,
+        MAX_USER_SIZE,
+    },
     execution_context::ExecutionContext,
     knobs::ISOLATE_MAX_USER_HEAP_SIZE,
 };
@@ -98,8 +102,6 @@ use value::{
     JsonPackedValue,
     NamespacedTableMapping,
     Size,
-    MAX_DOCUMENT_NESTING,
-    MAX_USER_SIZE,
     VALUE_TOO_LARGE_SHORT_MSG,
 };
 

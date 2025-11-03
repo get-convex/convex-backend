@@ -21,6 +21,10 @@ use std::{
 use anyhow::Context;
 use errors::ErrorMetadata;
 use float_next_after::NextAfter;
+use humansize::{
+    FormatSize as _,
+    BINARY,
+};
 use itertools::Itertools;
 use packed_value::{
     ByteBuffer,
@@ -40,7 +44,6 @@ use serde_json::{
 };
 pub use value::InternalId;
 use value::{
-    check_nesting_for_documents,
     export::ValueFormat,
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
@@ -60,7 +63,7 @@ use value::{
     ResolvedDocumentId,
     TableNumber,
     TabletId,
-    MAX_DOCUMENT_NESTING,
+    VALUE_TOO_LARGE_SHORT_MSG,
 };
 
 #[cfg(any(test, feature = "testing"))]
@@ -94,6 +97,12 @@ pub static CREATION_TIME_FIELD: LazyLock<IdentifierFieldName> =
 
 pub static CREATION_TIME_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| FieldPath::new(vec![CREATION_TIME_FIELD.clone()]).unwrap());
+
+/// The maximum allowed size for a document stored in a user table. This is the
+/// `ConvexValue::size` of the document, including system _id/_creationTime
+/// fields.
+pub const MAX_USER_SIZE: usize = 1 << 20; // 1MB
+pub const MAX_DOCUMENT_NESTING: usize = 16;
 
 // The current Unix timestamp (as of 2022-08-02) in milliseconds is
 //
@@ -448,7 +457,7 @@ impl ResolvedDocument {
         let mut violations = vec![];
 
         let nesting = self.value().nesting();
-        if check_nesting_for_documents(nesting) {
+        if nesting > MAX_DOCUMENT_NESTING {
             violations.push(DocumentValidationError::TooNested(nesting));
         }
 
@@ -592,6 +601,23 @@ impl ResolvedDocument {
 
     pub fn export(self, format: ValueFormat) -> JsonValue {
         self.document.into_value().0.export(format)
+    }
+
+    /// Enforce that the size of the underlying ConvexObject doesn't exceed
+    /// `MAX_USER_SIZE`.
+    pub fn check_user_size(&self) -> anyhow::Result<()> {
+        let size = self.value.size();
+        if size > MAX_USER_SIZE {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                VALUE_TOO_LARGE_SHORT_MSG,
+                format!(
+                    "Value is too large ({} > maximum size {})",
+                    size.format_size(BINARY),
+                    MAX_USER_SIZE.format_size(BINARY),
+                )
+            ));
+        }
+        Ok(())
     }
 }
 

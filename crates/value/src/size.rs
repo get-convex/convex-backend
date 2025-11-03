@@ -5,9 +5,7 @@ use humansize::{
 };
 
 pub const MAX_SIZE: usize = 1 << 25; // 32 MB
-pub const MAX_USER_SIZE: usize = 1 << 20; // 1MB
 pub const MAX_NESTING: usize = 64;
-pub const MAX_DOCUMENT_NESTING: usize = 16;
 pub const VALUE_TOO_LARGE_SHORT_MSG: &str = "ValueTooLargeError";
 
 /// Trait for enforcing different notions of "size" for values.
@@ -38,20 +36,6 @@ pub fn check_system_size(size: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn check_user_size(size: usize) -> anyhow::Result<()> {
-    if size > MAX_USER_SIZE {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            VALUE_TOO_LARGE_SHORT_MSG,
-            format!(
-                "Value is too large ({} > maximum size {})",
-                size.format_size(BINARY),
-                MAX_USER_SIZE.format_size(BINARY),
-            )
-        ));
-    }
-    Ok(())
-}
-
 pub fn check_nesting(nesting: usize) -> anyhow::Result<()> {
     if nesting > MAX_NESTING {
         anyhow::bail!(ErrorMetadata::bad_request(
@@ -63,8 +47,4 @@ pub fn check_nesting(nesting: usize) -> anyhow::Result<()> {
         ))
     }
     Ok(())
-}
-
-pub fn check_nesting_for_documents(nesting: usize) -> bool {
-    nesting > MAX_DOCUMENT_NESTING
 }

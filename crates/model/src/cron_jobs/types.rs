@@ -12,7 +12,10 @@ use anyhow::{
 };
 use common::{
     components::ComponentId,
-    document::ParsedDocument,
+    document::{
+        ParsedDocument,
+        MAX_USER_SIZE,
+    },
     execution_context::ExecutionId,
     log_lines::RawLogLines,
     types::Timestamp,
@@ -39,7 +42,6 @@ use value::{
     ConvexValue,
     ResolvedDocumentId,
     Size,
-    MAX_USER_SIZE,
 };
 
 #[derive(thiserror::Error, Debug, Clone)]

@@ -97,13 +97,9 @@ pub use crate::{
         MAX_OBJECT_FIELDS,
     },
     size::{
-        check_nesting_for_documents,
-        check_user_size,
         Size,
-        MAX_DOCUMENT_NESTING,
         MAX_NESTING,
         MAX_SIZE,
-        MAX_USER_SIZE,
         VALUE_TOO_LARGE_SHORT_MSG,
     },
     sorting::values_to_bytes,

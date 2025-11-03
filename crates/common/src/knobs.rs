@@ -22,9 +22,11 @@ use std::{
 };
 
 use cmd_util::env::env_config;
-use value::MAX_USER_SIZE;
 
-use crate::fastrace_helpers::SamplingConfig;
+use crate::{
+    document::MAX_USER_SIZE,
+    fastrace_helpers::SamplingConfig,
+};
 
 /// This exists solely to allow knobs to have separate defaults for local
 /// execution and prod (running in Nomad). Don't export this outside of
@@ -122,7 +124,7 @@ pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("DOCUMENT_DELTAS_LIMIT", 128));
 
 /// Max number of rows we will read when calculating snapshot pages.
-/// Each document can be up to `::value::MAX_USER_SIZE`
+/// Each document can be up to `crate::document::MAX_USER_SIZE`
 /// Note that this is a pro feature, so we can afford more memory.
 pub static SNAPSHOT_LIST_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SNAPSHOT_LIST_LIMIT", 1024));

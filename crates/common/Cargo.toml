@@ -58,6 +58,7 @@ headers = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+humansize = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 imbl = { workspace = true }

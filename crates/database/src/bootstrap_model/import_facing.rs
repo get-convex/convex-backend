@@ -10,13 +10,11 @@ use common::{
 };
 use errors::ErrorMetadata;
 use value::{
-    check_user_size,
     ConvexObject,
     ConvexValue,
     DeveloperDocumentId,
     FieldName,
     ResolvedDocumentId,
-    Size,
     TableMapping,
     TableName,
     TabletIdAndTableNumber,
@@ -76,9 +74,6 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             ));
         }
 
-        if !table_name.is_system() {
-            check_user_size(value.size())?;
-        }
         self.tx.retention_validator.fail_if_falling_behind()?;
         let id_field = FieldName::from(ID_FIELD.clone());
         let internal_id = if let Some(ConvexValue::String(s)) = value.get(&id_field) {
@@ -119,6 +114,9 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         };
 
         let document = ResolvedDocument::new(id, creation_time, value)?;
+        if !table_name.is_system() {
+            document.check_user_size()?;
+        }
         SchemaModel::new(self.tx, namespace)
             .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
             .await?;
@@ -158,9 +156,6 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             ));
         }
 
-        if !table_name.is_system() {
-            check_user_size(value.size())?;
-        }
         let id_field = FieldName::from(ID_FIELD.clone());
         let developer_id = if let Some(ConvexValue::String(s)) = value.get(&id_field) {
             let id_v6 = DeveloperDocumentId::decode(s).context(ErrorMetadata::bad_request(
@@ -197,6 +192,9 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         };
 
         let document = ResolvedDocument::new(id, creation_time, value)?;
+        if !table_name.is_system() {
+            document.check_user_size()?;
+        }
         SchemaModel::new(self.tx, namespace)
             .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
             .await?;
