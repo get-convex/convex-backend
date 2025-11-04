@@ -32,6 +32,10 @@ import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
 import { RefreshSession } from "components/login/RefreshSession";
 import { AuthProvider } from "providers/AuthProvider";
+import { useSSOLoginRequired } from "api/api";
+import { Sheet } from "@ui/Sheet";
+import { Button } from "@ui/Button";
+import { ExitIcon, LockClosedIcon } from "@radix-ui/react-icons";
 
 declare global {
   interface Window {
@@ -52,6 +56,7 @@ const UNAUTHED_ROUTES = [
 ];
 
 export default function App({ Component, pageProps }: AppProps) {
+  const [ssoLoginRequired] = useSSOLoginRequired();
   const router = useRouter();
   const pathWithoutQueryString = router.asPath.split("?")[0].split("#")[0];
 
@@ -102,7 +107,36 @@ export default function App({ Component, pageProps }: AppProps) {
                             <div className="flex h-screen flex-col">
                               <CommandPalette />
                               <DashboardHeader />
-                              {inDeployment ? (
+                              {!!ssoLoginRequired &&
+                              ssoLoginRequired === router.query.team ? (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Sheet className="flex max-w-prose flex-col gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <LockClosedIcon className="size-8" />
+                                      <h3>Single Sign-On Login Required</h3>
+                                    </div>
+                                    <span className="flex flex-col gap-2">
+                                      <p>
+                                        This team requires you to log in with
+                                        Single Sign-On to access it.
+                                      </p>
+                                      <p>
+                                        You may log out and log back in through
+                                        your Single Sign-On provider, or switch
+                                        teams by using the selector on the top
+                                        of this page.
+                                      </p>
+                                    </span>
+                                    <Button
+                                      className="ml-auto w-fit"
+                                      href="/api/auth/logout"
+                                      icon={<ExitIcon />}
+                                    >
+                                      Log Out
+                                    </Button>
+                                  </Sheet>
+                                </div>
+                              ) : inDeployment ? (
                                 <DeploymentInfoProvider>
                                   <MaybeDeploymentApiProvider>
                                     <CurrentDeploymentDashboardLayout>

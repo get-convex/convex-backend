@@ -14,7 +14,7 @@ import { SWRConfiguration } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCallback, useEffect } from "react";
-import { usePrevious } from "react-use";
+import { createGlobalState, usePrevious } from "react-use";
 import { captureException } from "@sentry/nextjs";
 import { getGoogleAnalyticsClientId, reportHttpError } from "../hooks/fetching";
 import { forceCheckIsOnline } from "./onlineStatus";
@@ -36,6 +36,8 @@ export const useMutate = createMutateHook(client, "big-brain", isMatch);
 
 type Path<M extends "post" | "put" | "get"> = PathsWithMethod<BigBrainPaths, M>;
 
+export const useSSOLoginRequired = createGlobalState<string>();
+
 export function useBBQuery<QueryPath extends Path<"get">>({
   path,
   pathParams,
@@ -45,8 +47,11 @@ export function useBBQuery<QueryPath extends Path<"get">>({
   path: QueryPath;
   pathParams: BigBrainPaths[QueryPath]["get"]["parameters"]["path"];
   queryParams?: BigBrainPaths[QueryPath]["get"]["parameters"]["query"];
-  swrOptions?: SWRConfiguration;
+  swrOptions?: Omit<SWRConfiguration, "onError">;
 }) {
+  const router = useRouter();
+  const [ssoLoginRequired, setSSOLoginRequired] = useSSOLoginRequired();
+
   const googleAnalyticsId =
     typeof document !== "undefined" &&
     getGoogleAnalyticsClientId(document.cookie);
@@ -86,6 +91,11 @@ export function useBBQuery<QueryPath extends Path<"get">>({
   const res = useQuery(path, requestOptions, {
     keepPreviousData: true,
     isPaused: () => paused,
+    onError: (e) => {
+      if ((e as any).code === "SSORequired" && !ssoLoginRequired) {
+        setSSOLoginRequired(router.query.team as string);
+      }
+    },
     ...swrOptions,
   });
   if ("error" in res && !!res.error && typeof res.error === "object") {
