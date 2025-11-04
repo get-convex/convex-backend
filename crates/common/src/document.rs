@@ -268,7 +268,7 @@ impl DeveloperDocument {
     }
 
     pub fn size(&self) -> usize {
-        self.id.size() + self.value.size()
+        self.value.size()
     }
 
     pub fn to_internal_json(&self) -> JsonValue {

@@ -1021,13 +1021,12 @@ impl<RT: Runtime> Committer<RT> {
         }
         for validated_write in document_writes {
             let ValidatedDocumentWrite {
-                id: document_id,
                 write: DocumentWrite { document },
                 doc_in_vector_index,
                 ..
             } = validated_write;
             if let Some(document) = document {
-                let document_write_size = document_id.size() + document.size();
+                let document_write_size = document.size();
                 let tablet_id = document.id().tablet_id;
                 let Ok(table_namespace) = table_mapping.tablet_namespace(tablet_id) else {
                     continue;
