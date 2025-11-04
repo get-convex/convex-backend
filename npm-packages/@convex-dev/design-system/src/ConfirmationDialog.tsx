@@ -43,8 +43,8 @@ export function ConfirmationDialog({
 
   const disabled =
     disableConfirm || isConfirming || validationText
-      ? validation.trimStart().trimEnd() !==
-        validationText?.trimStart().trimEnd()
+      ? validation.trimStart().trimEnd().toLowerCase() !==
+        validationText?.trimStart().trimEnd().toLowerCase()
       : false;
 
   return (
