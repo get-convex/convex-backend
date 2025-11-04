@@ -58,10 +58,7 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
 
 #[cfg(test)]
 pub mod tests {
-    use std::{
-        collections::BTreeSet,
-        time::Duration,
-    };
+    use std::time::Duration;
 
     use common::{
         bootstrap_model::index::text_index::TextSnapshotVersion,
@@ -75,10 +72,7 @@ pub mod tests {
             TabletIndexName,
         },
     };
-    use maplit::{
-        btreemap,
-        btreeset,
-    };
+    use maplit::btreemap;
     use sync_types::Timestamp;
     use value::assert_obj;
 
@@ -149,7 +143,10 @@ pub mod tests {
         }
 
         let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;
-        assert_eq!(metrics, btreeset! {resolved_index_name.clone() });
+        assert_eq!(
+            metrics,
+            vec![(resolved_index_name.clone(), initial_snapshot_ts)]
+        );
         // Don't touch the snapshot timestamp
         let snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
         assert_eq!(
@@ -178,7 +175,10 @@ pub mod tests {
         rt.advance_time(Duration::from_secs(7200)).await;
         database.bump_max_repeatable_ts().await?;
         let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;
-        assert_eq!(metrics, btreeset! {resolved_index_name.clone()});
+        assert_eq!(
+            metrics,
+            vec![(resolved_index_name.clone(), fast_forward_ts)]
+        );
         assert_eq!(snapshot_ts, fixtures.assert_backfilled(&index_name).await?);
         let new_fast_forward_ts = get_fast_forward_ts(database, index_id).await?;
         assert!(fast_forward_ts < new_fast_forward_ts);
@@ -209,7 +209,7 @@ pub mod tests {
         rt: &RT,
         db: &Database<RT>,
         last_fast_forward_info: &mut Option<LastFastForwardInfo>,
-    ) -> anyhow::Result<BTreeSet<TabletIndexName>> {
+    ) -> anyhow::Result<Vec<(TabletIndexName, Timestamp)>> {
         FastForwardIndexWorker::fast_forward::<RT, TextSnapshotVersion, TextFastForward>(
             "test",
             rt,

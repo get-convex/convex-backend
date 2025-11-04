@@ -1,6 +1,5 @@
 use std::{
     cmp::max,
-    collections::BTreeSet,
     future::Future,
     time::Duration,
 };
@@ -156,7 +155,7 @@ impl FastForwardIndexWorker {
     ///
     /// This method internally debounces, so it's safe to call it frequently.
     ///
-    /// Returns the set of indexes fast-forwarded.
+    /// Returns the set of indexes fast-forwarded and their old timestamps.
     pub(crate) async fn fast_forward<
         RT: Runtime,
         V: PartialEq + Send,
@@ -166,8 +165,8 @@ impl FastForwardIndexWorker {
         rt: &RT,
         database: &Database<RT>,
         last_fast_forward_info: &mut Option<LastFastForwardInfo>,
-    ) -> anyhow::Result<BTreeSet<TabletIndexName>> {
-        let mut indexes_fast_forwarded = BTreeSet::new();
+    ) -> anyhow::Result<Vec<(TabletIndexName, Timestamp)>> {
+        let mut indexes_fast_forwarded = Vec::new();
 
         let commits_since_load = database.write_commits_since_load();
         let now = rt.unix_timestamp();
@@ -231,14 +230,16 @@ impl FastForwardIndexWorker {
             let ts = max(ts, *previous_fast_forward_ts);
 
             // Okay, we're good! Just update the timestamp and update the system record.
-            tracing::info!("Fast-forwarding {name} from {ts} to {fast_forward_ts}");
             *previous_fast_forward_ts = fast_forward_ts;
 
             SystemMetadataModel::new_global(&mut tx)
                 .replace(worker_meta_doc_id, worker_meta.try_into()?)
                 .await?;
 
-            indexes_fast_forwarded.insert(name);
+            indexes_fast_forwarded.push((name, ts));
+        }
+        if !indexes_fast_forwarded.is_empty() {
+            tracing::info!("Fast-forwarding {indexes_fast_forwarded:?} to {fast_forward_ts}");
         }
         database
             .commit_with_write_source(tx, "index_worker_commit_ff")

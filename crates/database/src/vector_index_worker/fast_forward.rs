@@ -57,10 +57,7 @@ impl<RT: Runtime> IndexFastForward<RT, ()> for VectorFastForward {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::BTreeSet,
-        time::Duration,
-    };
+    use std::time::Duration;
 
     use common::{
         knobs::DATABASE_WORKERS_MIN_COMMITS,
@@ -73,10 +70,7 @@ mod tests {
             TabletIndexName,
         },
     };
-    use maplit::{
-        btreemap,
-        btreeset,
-    };
+    use maplit::btreemap;
     use sync_types::Timestamp;
     use value::assert_obj;
 
@@ -143,7 +137,10 @@ mod tests {
         }
 
         let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
-        assert_eq!(metrics, btreeset! {resolved_index_name.clone()});
+        assert_eq!(
+            metrics,
+            vec![(resolved_index_name.clone(), initial_snapshot_ts)]
+        );
         let snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
         // Don't touch the snapshot timestamp.
         assert_eq!(initial_snapshot_ts, snapshot_ts);
@@ -183,7 +180,10 @@ mod tests {
         rt.advance_time(Duration::from_secs(7200)).await;
         database.bump_max_repeatable_ts().await?;
         let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
-        assert_eq!(metrics, btreeset! { resolved_index_name.clone() });
+        assert_eq!(
+            metrics,
+            vec![(resolved_index_name.clone(), fast_forward_ts)]
+        );
         assert_eq!(
             snapshot_ts,
             assert_backfilled(&database, namespace, &index_name).await?
@@ -220,7 +220,7 @@ mod tests {
         rt: &RT,
         db: &Database<RT>,
         last_fast_forward_info: &mut Option<LastFastForwardInfo>,
-    ) -> anyhow::Result<BTreeSet<TabletIndexName>> {
+    ) -> anyhow::Result<Vec<(TabletIndexName, Timestamp)>> {
         FastForwardIndexWorker::fast_forward::<RT, (), VectorFastForward>(
             "test",
             rt,
