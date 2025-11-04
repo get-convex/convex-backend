@@ -2259,11 +2259,9 @@ export interface components {
             state: components["schemas"]["SSODomainState"];
         };
         SSOOrganizationResponse: {
-            automaticMembership: boolean;
             /** Format: int64 */
             createTime: number;
             domains: components["schemas"]["SSOOrganizationDomain"][];
-            jitProvisioning: boolean;
             requireSsoLogin: boolean;
         };
         /** @enum {string} */
@@ -2431,8 +2429,6 @@ export interface components {
             updates: components["schemas"]["ProjectRoleUpdateArg"][];
         };
         UpdateSSORequest: {
-            automaticMembership?: boolean | null;
-            jitProvisioning?: boolean | null;
             requireSsoLogin?: boolean | null;
         };
         UpdateTeamArgs: {

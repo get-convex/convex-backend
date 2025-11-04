@@ -5181,14 +5181,9 @@
         "required": [
           "createTime",
           "domains",
-          "requireSsoLogin",
-          "jitProvisioning",
-          "automaticMembership"
+          "requireSsoLogin"
         ],
         "properties": {
-          "automaticMembership": {
-            "type": "boolean"
-          },
           "createTime": {
             "type": "integer",
             "format": "int64"
@@ -5198,9 +5193,6 @@
             "items": {
               "$ref": "#/components/schemas/SSOOrganizationDomain"
             }
-          },
-          "jitProvisioning": {
-            "type": "boolean"
           },
           "requireSsoLogin": {
             "type": "boolean"
@@ -5817,18 +5809,6 @@
       "UpdateSSORequest": {
         "type": "object",
         "properties": {
-          "automaticMembership": {
-            "type": [
-              "boolean",
-              "null"
-            ]
-          },
-          "jitProvisioning": {
-            "type": [
-              "boolean",
-              "null"
-            ]
-          },
           "requireSsoLogin": {
             "type": [
               "boolean",
