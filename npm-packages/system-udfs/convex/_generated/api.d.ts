@@ -21,6 +21,7 @@ import type * as _system_cli_queryEnvironmentVariables from "../_system/cli/quer
 import type * as _system_cli_queryImport from "../_system/cli/queryImport.js";
 import type * as _system_cli_queryTable from "../_system/cli/queryTable.js";
 import type * as _system_cli_tableData from "../_system/cli/tableData.js";
+import type * as _system_cli_tableSize from "../_system/cli/tableSize.js";
 import type * as _system_cli_tables from "../_system/cli/tables.js";
 import type * as _system_frontend_addDocument from "../_system/frontend/addDocument.js";
 import type * as _system_frontend_clearTablePage from "../_system/frontend/clearTablePage.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "_system/cli/queryImport": typeof _system_cli_queryImport;
   "_system/cli/queryTable": typeof _system_cli_queryTable;
   "_system/cli/tableData": typeof _system_cli_tableData;
+  "_system/cli/tableSize": typeof _system_cli_tableSize;
   "_system/cli/tables": typeof _system_cli_tables;
   "_system/frontend/addDocument": typeof _system_frontend_addDocument;
   "_system/frontend/clearTablePage": typeof _system_frontend_clearTablePage;
