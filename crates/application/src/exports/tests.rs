@@ -93,7 +93,7 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
         .load_component_tests_modules("with-schema")
         .await?;
     let db = application.database().clone();
-    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let exports_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
     let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
 
     let mut expected_export_entries = BTreeMap::new();
@@ -120,7 +120,7 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
         &ExportComponents {
             runtime: rt.clone(),
             database: db.latest_database_snapshot()?,
-            storage: storage.clone(),
+            exports_storage: exports_storage.clone(),
             file_storage,
             instance_name: "carnitas".to_string(),
         },
@@ -133,7 +133,7 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
 
     // Check we can get the stored zip.
-    let zip_reader = StorageZipArchive::open(storage.clone(), &zip_object_key).await?;
+    let zip_reader = StorageZipArchive::open(exports_storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeMap::new();
     for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
@@ -156,7 +156,7 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
     unmount_component(&application).await?;
 
     let db = application.database().clone();
-    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let exports_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
     let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
 
     let expected_export_entries = btreeset! {
@@ -175,7 +175,7 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
         &ExportComponents {
             runtime: rt.clone(),
             database: db.latest_database_snapshot()?,
-            storage: storage.clone(),
+            exports_storage: exports_storage.clone(),
             file_storage,
             instance_name: "carnitas".to_string(),
         },
@@ -188,7 +188,7 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
     .await?;
 
     // Check we can get the stored zip.
-    let zip_reader = StorageZipArchive::open(storage.clone(), &zip_object_key).await?;
+    let zip_reader = StorageZipArchive::open(exports_storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeSet::new();
     for entry in zip_reader.entries() {
         let mut entry_contents = String::new();

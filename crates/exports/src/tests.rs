@@ -71,13 +71,13 @@ struct ExportFixtures {
 
 async fn setup_export_test(rt: &TestRuntime) -> anyhow::Result<ExportFixtures> {
     let DbFixtures { db, .. } = DbFixtures::new_with_model(rt).await?;
-    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let exports_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
     let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
     Ok(ExportFixtures {
         export_components: ExportComponents {
             runtime: rt.clone(),
             database: db.latest_database_snapshot()?,
-            storage,
+            exports_storage,
             file_storage,
             instance_name: "carnitas".to_string(),
         },
@@ -187,7 +187,7 @@ async fn test_export_zip(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Check we can get the stored zip.
     let zip_reader =
-        StorageZipArchive::open(export_components.storage.clone(), &zip_object_key).await?;
+        StorageZipArchive::open(export_components.exports_storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeMap::new();
     for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
@@ -282,7 +282,7 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Check we can get the stored zip.
     let zip_reader =
-        StorageZipArchive::open(export_components.storage.clone(), &zip_object_key).await?;
+        StorageZipArchive::open(export_components.exports_storage.clone(), &zip_object_key).await?;
     let mut zip_entries = BTreeMap::new();
     for entry in zip_reader.entries() {
         let mut entry_contents = String::new();
@@ -345,7 +345,7 @@ async fn test_export_many_storage_files(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Check that all the files made it into the zip.
     let zip_reader =
-        StorageZipArchive::open(export_components.storage.clone(), &zip_object_key).await?;
+        StorageZipArchive::open(export_components.exports_storage.clone(), &zip_object_key).await?;
     for (i, id) in ids.into_iter().enumerate() {
         let entry = zip_reader
             .by_name(format!("_storage/{id}"))

@@ -62,7 +62,7 @@ struct ExportCanceled;
 pub struct ExportWorker<RT: Runtime> {
     pub(super) runtime: RT,
     pub(super) database: Database<RT>,
-    pub(super) storage: Arc<dyn Storage>,
+    pub(super) exports_storage: Arc<dyn Storage>,
     pub(super) file_storage: Arc<dyn Storage>,
     pub(super) export_provider: Arc<dyn ExportProvider<RT>>,
     pub(super) backoff: Backoff,
@@ -75,7 +75,7 @@ impl<RT: Runtime> ExportWorker<RT> {
     pub fn new(
         runtime: RT,
         database: Database<RT>,
-        storage: Arc<dyn Storage>,
+        exports_storage: Arc<dyn Storage>,
         file_storage: Arc<dyn Storage>,
         export_provider: Arc<dyn ExportProvider<RT>>,
         usage_tracking: UsageCounter,
@@ -84,7 +84,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         let mut worker = Self {
             runtime,
             database,
-            storage,
+            exports_storage,
             file_storage,
             export_provider,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
@@ -194,7 +194,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         let components = ExportComponents {
             runtime: self.runtime.clone(),
             database: database_snapshot,
-            storage: self.storage.clone(),
+            exports_storage: self.exports_storage.clone(),
             file_storage: self.file_storage.clone(),
             instance_name: self.instance_name.clone(),
         };
@@ -357,7 +357,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             .await?;
 
         let object_attributes = self
-            .storage
+            .exports_storage
             .get_object_attributes(&object_key)
             .await?
             .context("error getting export object attributes from S3")?;

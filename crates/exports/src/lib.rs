@@ -93,12 +93,12 @@ pub use crate::{
 pub struct ExportComponents<RT: Runtime> {
     pub runtime: RT,
     pub database: DatabaseSnapshot<RT>,
-    pub storage: Arc<dyn Storage>,
+    pub exports_storage: Arc<dyn Storage>,
     pub file_storage: Arc<dyn Storage>,
     pub instance_name: String,
 }
 
-/// Uploads an export to storage at the returned `ObjectKey`.
+/// Uploads an export to exports_storage at the returned `ObjectKey`.
 /// The export is current as of the `DatabaseSnapshot`'s timestamp.
 pub async fn export_inner<F, Fut, RT: Runtime>(
     components: &ExportComponents<RT>,
@@ -111,7 +111,7 @@ where
     Fut: Future<Output = anyhow::Result<()>> + Send,
 {
     let timer = export_timer(&components.instance_name);
-    let storage = &components.storage;
+    let exports_storage = &components.exports_storage;
     update_progress("Beginning backup".to_string()).await?;
     let (tables, component_ids_to_paths, by_id_indexes, system_tables) = {
         let mut tx = components.database.begin_tx(
@@ -155,7 +155,7 @@ where
     let export = match format {
         ExportFormat::Zip { include_storage } => {
             // Start upload.
-            let mut upload = storage.start_upload().await?;
+            let mut upload = exports_storage.start_upload().await?;
             let (sender, receiver) = mpsc::channel::<Bytes>(1);
             let uploader =
                 upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
