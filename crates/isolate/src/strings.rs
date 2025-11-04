@@ -31,12 +31,12 @@ impl StaticString {
 macro_rules! declare_strings {
     ($s:ident $(,)?) => {
         #[allow(non_upper_case_globals)]
-        pub const $s: StaticString = StaticString::new(stringify!($s));
+        pub(crate) const $s: StaticString = StaticString::new(stringify!($s));
     };
 
     ($name:ident => $s:expr $(,)?) => {
         #[allow(non_upper_case_globals)]
-        pub const $name: StaticString = StaticString::new($s);
+        pub(crate) const $name: StaticString = StaticString::new($s);
     };
 
     ($s:ident , $($rest:tt)*) => {
@@ -78,7 +78,6 @@ declare_strings!(
     isPublic,
     isQuery,
     isRouter,
-    json_stringify => "JSON.stringify",
     lookup,
     op,
     path,

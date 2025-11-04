@@ -4,6 +4,7 @@ mod analyze;
 mod args_validation;
 mod r#async;
 mod auth;
+mod auth_config;
 mod backend_state;
 mod basic;
 mod creation_time;

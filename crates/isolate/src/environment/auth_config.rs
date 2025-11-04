@@ -249,7 +249,13 @@ impl AuthConfigEnvironment {
             anyhow::bail!(missing_export_error());
         }
 
-        let config_str = json_stringify(&mut scope, config_val)?;
+        let config_v8_str = v8::json::stringify(&mut scope, config_val).ok_or_else(|| {
+            ErrorMetadata::bad_request(
+                "AuthConfigUnserializableError",
+                format!("auth config file can only contain strings {SEE_AUTH_DOCS}"),
+            )
+        })?;
+        let config_str = helpers::to_rust_string(&mut scope, &config_v8_str)?;
 
         // Custom errors for misconfigured `convex/auth.config.ts` files that
         // are helpful because we allow extra properties in the
@@ -334,28 +340,6 @@ fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
 fn strip_position(error_message: &str) -> String {
     let re = Regex::new(r"at line \d+ column \d+$").unwrap();
     re.replace(error_message, "").to_string()
-}
-
-fn json_stringify(
-    scope: &mut v8::HandleScope,
-    value: v8::Local<v8::Value>,
-) -> anyhow::Result<String> {
-    let json_stringify_code = strings::json_stringify.create(scope)?;
-    let json_stringify_fn = v8::Script::compile(scope, json_stringify_code, None)
-        .ok_or_else(|| anyhow!("Unexpected: Could not compile JSON.stringify"))?
-        .run(scope)
-        .ok_or_else(|| anyhow!("Unexpected: Could run compiled JSON.stringify"))?;
-    let json_stringify_fn = v8::Local::<v8::Function>::try_from(json_stringify_fn).unwrap();
-    let result = json_stringify_fn
-        .call(scope, value, &[value])
-        .ok_or_else(|| {
-            ErrorMetadata::bad_request(
-                "AuthConfigUnserializableError",
-                format!("auth config file can only contain strings {SEE_AUTH_DOCS}"),
-            )
-        })?;
-    let result: v8::Local<v8::String> = result.try_into()?;
-    helpers::to_rust_string(scope, &result)
 }
 
 const SEE_AUTH_DOCS: &str =

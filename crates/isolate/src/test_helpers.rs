@@ -14,6 +14,7 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
+    auth::AuthConfig,
     bootstrap_model::{
         components::handles::FunctionHandle,
         index::{
@@ -1166,6 +1167,18 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             log_lines.push(log_line);
         }
         Ok((outcome, log_lines.into()))
+    }
+
+    pub async fn evaluate_auth_config(&self, source: &str) -> anyhow::Result<AuthConfig> {
+        self.isolate
+            .evaluate_auth_config(
+                ModuleSource::new(source),
+                None,
+                self.environment_data.default_system_env_vars.clone(),
+                "auth config is invalid",
+                DEV_INSTANCE_NAME.to_string(),
+            )
+            .await
     }
 }
 
