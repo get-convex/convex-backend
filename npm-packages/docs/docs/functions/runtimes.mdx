@@ -170,17 +170,12 @@ Note that argument size limits are lower (5MiB instead of 16MiB).
 ### Node.js version configuration
 
 By default, all actions ran in the Node.js environment are executed in
-Node.js 18. This version is configurable in the
+Node.js 20. This version is configurable in the
 [convex.json](/production/project-configuration.mdx#configuring-the-nodejs-version)
-file. We currently support Node.js 18, 20, and 22.
+file. We currently support Node.js 20 and 22.
 
 When pushing a new Node.js version to the server, the new code for your
 functions may be executed in the old Node.js version for up a few minutes.
-
-Node.js 18 reached its end-of-life on April 30, 2025 and we will no longer
-support new deployments on it Convex after September 10, 2025. All projects
-created after this date will be on Node.js 20. All projects that are still on
-Node.js 18 after October 22, 2025 will automatically be migrated to Node.js 20.
 
 Note: This configuration is not supported when running the self-hosted Convex
 backend. The node version that is specified in the
