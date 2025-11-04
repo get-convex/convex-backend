@@ -40,9 +40,6 @@ export function TeamSSO({ team }: { team: Team }) {
   const [isGeneratingSSOLink, setIsGeneratingSSOLink] = useState(false);
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [disableError, setDisableError] = useState<string>();
-  const [automaticMembershipValue, setAutomaticMembershipValue] =
-    useState(false);
-  const [jitProvisioningValue, setJitProvisioningValue] = useState(false);
   const [requireSsoLoginValue, setRequireSsoLoginValue] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
@@ -53,18 +50,12 @@ export function TeamSSO({ team }: { team: Team }) {
   const ssoEnabled = entitlements?.ssoEnabled ?? false;
   const isSSOConfigured = !!ssoOrganization;
   const domains = ssoOrganization?.domains ?? [];
-  const automaticMembership = ssoOrganization?.automaticMembership ?? false;
-  const jitProvisioning = ssoOrganization?.jitProvisioning ?? false;
   const requireSsoLogin = ssoOrganization?.requireSsoLogin ?? false;
 
   useEffect(() => {
     if (isSSOConfigured && ssoOrganization) {
-      setAutomaticMembershipValue(ssoOrganization.automaticMembership);
-      setJitProvisioningValue(ssoOrganization.jitProvisioning);
       setRequireSsoLoginValue(ssoOrganization.requireSsoLogin);
     } else if (!isSSOConfigured) {
-      setAutomaticMembershipValue(false);
-      setJitProvisioningValue(false);
       setRequireSsoLoginValue(false);
     }
   }, [isSSOConfigured, ssoOrganization]);
@@ -74,34 +65,6 @@ export function TeamSSO({ team }: { team: Team }) {
       return [] as { title: string; body: string }[];
     }
     const changes: { title: string; body: string }[] = [];
-
-    if (automaticMembershipValue !== automaticMembership) {
-      changes.push(
-        automaticMembershipValue
-          ? {
-              title: "Enable Automatic Membership:",
-              body: "If a Convex account logs in with one of your verified domains, they will automatically be added to the Convex team as a team member.",
-            }
-          : {
-              title: "Disable Automatic Membership:",
-              body: "Convex accounts logging in with one of your verified domains will no longer be added to the Convex team automatically.",
-            },
-      );
-    }
-
-    if (jitProvisioningValue !== jitProvisioning) {
-      changes.push(
-        jitProvisioningValue
-          ? {
-              title: "Enable Just-in-Time Provisioning:",
-              body: "If a Convex account logs in with the configured SSO method, they will automatically be added to the Convex team as a team member.",
-            }
-          : {
-              title: "Disable Just-in-Time Provisioning:",
-              body: "Convex accounts logging in with the configured SSO method will no longer be added to the Convex team automatically.",
-            },
-      );
-    }
 
     if (requireSsoLoginValue !== requireSsoLogin) {
       if (requireSsoLoginValue) {
@@ -118,15 +81,7 @@ export function TeamSSO({ team }: { team: Team }) {
     }
 
     return changes;
-  }, [
-    automaticMembership,
-    automaticMembershipValue,
-    isSSOConfigured,
-    jitProvisioning,
-    jitProvisioningValue,
-    requireSsoLogin,
-    requireSsoLoginValue,
-  ]);
+  }, [isSSOConfigured, requireSsoLogin, requireSsoLoginValue]);
   const hasChanges = pendingChanges.length > 0;
 
   // Determine if any domain needs verification
@@ -137,14 +92,10 @@ export function TeamSSO({ team }: { team: Team }) {
 
   const baseSettingDisabled =
     isSubmitting || !hasAdminPermissions || !ssoEnabled;
-  const automaticMembershipDisabled = baseSettingDisabled;
-  const jitProvisioningDisabled = baseSettingDisabled;
   const requireSsoLoginDisabled = baseSettingDisabled;
 
   const handleSaveSettings = async () => {
     const payload: UpdateSsoRequest = {
-      automaticMembership: automaticMembershipValue,
-      jitProvisioning: jitProvisioningValue,
       requireSsoLogin: requireSsoLoginValue,
     };
     await updateSSO(payload);
@@ -383,49 +334,6 @@ export function TeamSSO({ team }: { team: Team }) {
                     Additional Options
                   </h4>
                   <div className="space-y-2">
-                    <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
-                      <Checkbox
-                        checked={automaticMembershipValue}
-                        disabled={automaticMembershipDisabled}
-                        onChange={() => {
-                          if (automaticMembershipDisabled) {
-                            return;
-                          }
-                          setAutomaticMembershipValue(
-                            !automaticMembershipValue,
-                          );
-                        }}
-                      />
-                      <span className="flex items-center gap-2">
-                        Automatic membership
-                        <Tooltip
-                          tip="If a Convex account logs in with one of your verified domains, they will automatically be added to the Convex team as a team member."
-                          side="right"
-                        >
-                          <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
-                        </Tooltip>
-                      </span>
-                    </label>
-
-                    <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
-                      <Checkbox
-                        checked={jitProvisioningValue}
-                        disabled={jitProvisioningDisabled}
-                        onChange={() => {
-                          setJitProvisioningValue(!jitProvisioningValue);
-                        }}
-                      />
-                      <span className="flex items-center gap-2">
-                        Just-in-time provisioning
-                        <Tooltip
-                          tip="If a Convex account logs in with the configured SSO method, they will automatically be added to the Convex team as a team member."
-                          side="right"
-                        >
-                          <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
-                        </Tooltip>
-                      </span>
-                    </label>
-
                     <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
                       <Checkbox
                         checked={requireSsoLoginValue}
