@@ -430,6 +430,27 @@
                 }
               }
             ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StorageUsageEvent"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "enum": [
+                      "current_storage_usage"
+                    ]
+                  }
+                }
+              }
+            ]
           }
         ]
       },
@@ -471,6 +492,49 @@
             "minimum": 0
           },
           "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "StorageUsageEvent": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "total_document_size_bytes",
+          "total_index_size_bytes",
+          "total_vector_storage_bytes",
+          "total_file_storage_bytes",
+          "total_backup_storage_bytes"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_backup_storage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_document_size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_file_storage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_index_size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_vector_storage_bytes": {
             "type": "integer",
             "format": "int64",
             "minimum": 0

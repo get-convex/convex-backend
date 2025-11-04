@@ -88,7 +88,7 @@ type-safe pipelines ingesting log events.
 All events will have the following three fields:
 
 - `topic`: string, categorizes a log event, one of
-  `["verification", "console", "function_execution", "audit_log"]`
+  `["verification", "console", "function_execution", "audit_log", "scheduler_stats", "current_storage_usage"]`
 - `timestamp`: number, Unix epoch timestamp in milliseconds as an integer
 - `convex`: An object containing metadata related to your Convex deployment,
   including `deployment_name`, `deployment_type`, `project_name`, and
@@ -244,6 +244,46 @@ Schema:
 - `lag_seconds`: The difference between `timestamp` and the scheduled run time
   of the oldest overdue scheduled job, in seconds.
 - `num_running_jobs`: number, the number of scheduled jobs currently running
+
+### `current_storage_usage` events
+
+These events are periodically sent with snapshots of the current storage usage
+across your deployment. They provide aggregated totals for all storage types.
+
+These events are not currently sent for self-hosted deployments.
+
+For calculating billing costs:
+
+- Database Storage Bytes: `total_document_size_bytes + total_index_size_bytes`
+- File Storage: `total_file_storage_bytes + total_backup_storage_bytes`
+- Vector Storage: `total_vector_storage_bytes`
+
+Schema:
+
+- `topic`: `"current_storage_usage"`
+- `timestamp`: Unix epoch timestamp in milliseconds
+- `total_document_size_bytes`: number, total size in bytes of all documents
+  stored in database tables
+- `total_index_size_bytes`: number, total size in bytes of all database indexes
+- `total_vector_storage_bytes`: number, total size in bytes of vector index
+  storage
+- `total_file_storage_bytes`: number, total size in bytes of file storage
+- `total_backup_storage_bytes`: number, total size in bytes of snapshot/backup
+  storage
+
+Example event:
+
+```json
+{
+  "topic": "current_storage_usage",
+  "timestamp": 1715973841548,
+  "total_document_size_bytes": 104857600,
+  "total_index_size_bytes": 10485760,
+  "total_vector_storage_bytes": 5242880,
+  "total_file_storage_bytes": 52428800,
+  "total_backup_storage_bytes": 209715200
+}
+```
 
 ### `audit_log` events
 

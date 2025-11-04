@@ -159,6 +159,15 @@ pub enum StructuredLogEvent {
     ScheduledJobLag {
         lag_seconds: Duration,
     },
+    /// Topic for storage usage metrics. These are periodic snapshots of current
+    /// storage state aggregated across all tables.
+    CurrentStorageUsage {
+        total_document_size_bytes: u64,
+        total_index_size_bytes: u64,
+        total_vector_storage_bytes: u64,
+        total_file_storage_bytes: u64,
+        total_backup_storage_bytes: u64,
+    },
     // User-specified topics -- not yet implemented.
     // See here for more details: https://www.notion.so/Log-Streaming-in-Convex-19a1dfadd6924c33b29b2796b0f5b2e2
     // User {
@@ -361,6 +370,21 @@ impl LogEvent {
                         "lag_seconds": lag_seconds.as_secs()
                     })
                 },
+                StructuredLogEvent::CurrentStorageUsage {
+                    total_document_size_bytes,
+                    total_index_size_bytes,
+                    total_vector_storage_bytes,
+                    total_file_storage_bytes,
+                    total_backup_storage_bytes,
+                } => serialize_map!({
+                    "_timestamp": ms,
+                    "_topic": "_current_storage_usage",
+                    "total_document_size_bytes": total_document_size_bytes,
+                    "total_index_size_bytes": total_index_size_bytes,
+                    "total_vector_storage_bytes": total_vector_storage_bytes,
+                    "total_file_storage_bytes": total_file_storage_bytes,
+                    "total_backup_storage_bytes": total_backup_storage_bytes,
+                }),
             },
             LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
@@ -496,6 +520,23 @@ impl LogEvent {
                         "timestamp": ms,
                         "topic": "scheduled_job_lag",
                         "lag_seconds": lag_seconds.as_secs()
+                    })
+                },
+                StructuredLogEvent::CurrentStorageUsage {
+                    total_document_size_bytes,
+                    total_index_size_bytes,
+                    total_vector_storage_bytes,
+                    total_file_storage_bytes,
+                    total_backup_storage_bytes,
+                } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "current_storage_usage",
+                        "total_document_size_bytes": total_document_size_bytes,
+                        "total_index_size_bytes": total_index_size_bytes,
+                        "total_vector_storage_bytes": total_vector_storage_bytes,
+                        "total_file_storage_bytes": total_file_storage_bytes,
+                        "total_backup_storage_bytes": total_backup_storage_bytes,
                     })
                 },
             },
@@ -838,6 +879,17 @@ mod tests {
         lag_seconds: u64,
     }
 
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+    #[allow(dead_code)]
+    struct StorageUsageEvent {
+        timestamp: u64,
+        total_document_size_bytes: u64,
+        total_index_size_bytes: u64,
+        total_vector_storage_bytes: u64,
+        total_file_storage_bytes: u64,
+        total_backup_storage_bytes: u64,
+    }
+
     // Union type for all log events, discriminated by topic field
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
     #[serde(tag = "topic")]
@@ -855,6 +907,8 @@ mod tests {
         SchedulerStats(SchedulerStatsEvent),
         #[serde(rename = "scheduled_job_lag")]
         ScheduledJobLag(ScheduledJobLagEvent),
+        #[serde(rename = "current_storage_usage")]
+        CurrentStorageUsage(StorageUsageEvent),
     }
 
     #[test]
