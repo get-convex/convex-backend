@@ -1103,6 +1103,7 @@ export function diffConfig(
  * legacy push path:
  * - /api/push_config
  * modern push paths:
+ * - /api/deploy2/evaluate_push
  * - /api/deploy2/start_push
  * - /api/deploy2/finish_push
  *

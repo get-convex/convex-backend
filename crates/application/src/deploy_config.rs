@@ -150,9 +150,63 @@ pub struct PushMetrics {
     pub occ_stats: OccRetryStats,
 }
 
+struct EvaluatedPushContents {
+    app: CheckedComponent,
+    auth_info: Vec<AuthInfo>,
+    component_definition_packages: BTreeMap<ComponentDefinitionPath, SourcePackage>,
+    evaluated_components: BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+    external_deps_id: Option<ExternalDepsPackageId>,
+    user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+}
+
 impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
     pub async fn start_push(&self, config: &ProjectConfig) -> anyhow::Result<StartPushResponse> {
+        let EvaluatedPushContents {
+            app,
+            auth_info,
+            component_definition_packages,
+            mut evaluated_components,
+            external_deps_id,
+            user_environment_variables,
+        } = self.evaluate_push_contents(config).await?;
+
+        let schema_change = self
+            .handle_schema_change_in_start_push(&app, &evaluated_components)
+            .await?;
+        self.database
+            .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
+            .await?;
+
+        // TODO(ENG-7533): Clean up exports from the start push response when we've
+        // updated clients to use `functions` directly.
+        for (path, definition) in evaluated_components.iter_mut() {
+            // We don't need to include exports for the root since we don't use codegen
+            // for the app's `api` object.
+            if path.is_root() {
+                continue;
+            }
+            anyhow::ensure!(definition.definition.exports.is_empty());
+            definition.definition.exports = file_based_exports(&definition.functions)?;
+        }
+
+        let resp = StartPushResponse {
+            environment_variables: user_environment_variables,
+            external_deps_id,
+            component_definition_packages,
+            app_auth: auth_info,
+            analysis: evaluated_components,
+            app,
+            schema_change,
+        };
+        Ok(resp)
+    }
+
+    #[fastrace::trace]
+    async fn evaluate_push_contents(
+        &self,
+        config: &ProjectConfig,
+    ) -> anyhow::Result<EvaluatedPushContents> {
         let unix_timestamp = self.runtime.unix_timestamp();
         let (external_deps_id, component_definition_packages) =
             self.upload_packages(config).await?;
@@ -206,7 +260,7 @@ impl<RT: Runtime> Application<RT> {
         )
         .await?;
 
-        let mut evaluated_components = self
+        let evaluated_components = self
             .evaluate_components(
                 config,
                 &component_definition_packages,
@@ -231,39 +285,18 @@ impl<RT: Runtime> Application<RT> {
         let ctx = TypecheckContext::new(&evaluated_components, &initializer_evaluator);
         let app = ctx.instantiate_root().await?;
 
-        let schema_change = self
-            ._handle_schema_change_in_start_push(&app, &evaluated_components)
-            .await?;
-        self.database
-            .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
-            .await?;
-
-        // TODO(ENG-7533): Clean up exports from the start push response when we've
-        // updated clients to use `functions` directly.
-        for (path, definition) in evaluated_components.iter_mut() {
-            // We don't need to include exports for the root since we don't use codegen
-            // for the app's `api` object.
-            if path.is_root() {
-                continue;
-            }
-            anyhow::ensure!(definition.definition.exports.is_empty());
-            definition.definition.exports = file_based_exports(&definition.functions)?;
-        }
-
-        let resp = StartPushResponse {
-            environment_variables: user_environment_variables,
-            external_deps_id,
-            component_definition_packages,
-            app_auth: auth_info,
-            analysis: evaluated_components,
+        Ok(EvaluatedPushContents {
             app,
-            schema_change,
-        };
-        Ok(resp)
+            auth_info,
+            component_definition_packages,
+            evaluated_components,
+            external_deps_id,
+            user_environment_variables,
+        })
     }
 
     #[fastrace::trace]
-    async fn _handle_schema_change_in_start_push(
+    async fn handle_schema_change_in_start_push(
         &self,
         app: &CheckedComponent,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
@@ -286,6 +319,20 @@ impl<RT: Runtime> Application<RT> {
                 },
             )
             .await?;
+        Ok(schema_change)
+    }
+
+    #[fastrace::trace]
+    async fn handle_schema_change_in_evaluate_push(
+        &self,
+        app: &CheckedComponent,
+        evaluated_components: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+    ) -> anyhow::Result<SchemaChange> {
+        let mut tx = self.begin(Identity::system()).await?;
+        let schema_change = ComponentConfigModel::new(&mut tx)
+            .start_component_schema_changes(app, evaluated_components)
+            .await?;
+        drop(tx);
         Ok(schema_change)
     }
 
@@ -449,6 +496,24 @@ impl<RT: Runtime> Application<RT> {
                 system_env_var_overrides,
             )
             .await
+    }
+
+    #[fastrace::trace]
+    pub async fn evaluate_push(
+        &self,
+        config: &ProjectConfig,
+    ) -> anyhow::Result<EvaluatePushResponse> {
+        let EvaluatedPushContents {
+            app,
+            evaluated_components,
+            ..
+        } = self.evaluate_push_contents(config).await?;
+
+        let schema_change = self
+            .handle_schema_change_in_evaluate_push(&app, &evaluated_components)
+            .await?;
+
+        Ok(EvaluatePushResponse { schema_change })
     }
 
     #[fastrace::trace]
@@ -857,6 +922,11 @@ pub struct StartPushResponse {
 
     pub app: CheckedComponent,
 
+    pub schema_change: SchemaChange,
+}
+
+#[derive(Debug)]
+pub struct EvaluatePushResponse {
     pub schema_change: SchemaChange,
 }
 

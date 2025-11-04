@@ -821,7 +821,7 @@ pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::
 });
 
 /// The maximum number of concurrent package uploads during
-/// `/api/deploy2/start_push`.
+/// `/api/deploy2/start_push` + `/api/deploy2/evaluate_push`.
 pub static APPLICATION_MAX_CONCURRENT_UPLOADS: LazyLock<usize> =
     LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_UPLOADS", 4));
 

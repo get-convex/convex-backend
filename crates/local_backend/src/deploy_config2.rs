@@ -4,6 +4,7 @@ use std::{
 };
 
 use application::deploy_config::{
+    EvaluatePushResponse,
     FinishPushDiff,
     SchemaStatusJson,
     StartPushRequest,
@@ -169,6 +170,22 @@ pub struct SerializedStartPushResponse {
     schema_change: SerializedSchemaChange,
 }
 
+impl TryFrom<EvaluatePushResponse> for SerializedEvaluatePushResponse {
+    type Error = anyhow::Error;
+
+    fn try_from(value: EvaluatePushResponse) -> Result<Self, Self::Error> {
+        Ok(Self {
+            schema_change: value.schema_change.try_into()?,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedEvaluatePushResponse {
+    schema_change: SerializedSchemaChange,
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedIndexDiff {
@@ -203,6 +220,32 @@ pub async fn start_push(
             e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}"))
         })?;
     Ok(Json(SerializedStartPushResponse::try_from(resp)?))
+}
+
+// This endpoint is similar to `start_push`, but it doesn’t save the schema (so
+// it won’t start schema validation/index backfill). It can be used to determine
+// what will be the effects of a large push without starting work that can take
+// a long time on large instances.
+#[debug_handler]
+pub async fn evaluate_push(
+    State(st): State<LocalAppState>,
+    Json(req): Json<StartPushRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let _identity = must_be_admin_from_key_with_write_access(
+        st.application.app_auth(),
+        st.instance_name.clone(),
+        req.admin_key.clone(),
+    )
+    .await?;
+    let config = req.into_project_config().map_err(|e| {
+        anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
+    })?;
+    let resp =
+        st.application.evaluate_push(&config).await.map_err(|e| {
+            e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}"))
+        })?;
+
+    Ok(Json(SerializedEvaluatePushResponse::try_from(resp)?))
 }
 
 const DEFAULT_SCHEMA_TIMEOUT_MS: u32 = 10_000;
