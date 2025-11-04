@@ -322,6 +322,12 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .0?
         };
 
+        let object_attributes = self
+            .exports_storage
+            .get_object_attributes(&object_key)
+            .await?
+            .context("error getting export object attributes from S3")?;
+
         // Export is done; mark it as such.
         tracing::info!("Export {id} completed");
         self.database
@@ -344,6 +350,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                             snapshot_ts,
                             *tx.begin_timestamp(),
                             object_key,
+                            object_attributes.size,
                         )?;
                         SystemMetadataModel::new_global(tx)
                             .replace(id, completed_export.try_into()?)
@@ -355,12 +362,6 @@ impl<RT: Runtime> ExportWorker<RT> {
                 },
             )
             .await?;
-
-        let object_attributes = self
-            .exports_storage
-            .get_object_attributes(&object_key)
-            .await?
-            .context("error getting export object attributes from S3")?;
 
         let tag = requestor.usage_tag().to_string();
         let call_type = match requestor {

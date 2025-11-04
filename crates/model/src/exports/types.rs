@@ -66,6 +66,7 @@ pub enum Export {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        size: u64,
     },
     Failed {
         /// Timestamp for the failed (final) attempt at Export.
@@ -127,6 +128,8 @@ pub enum SerializedExport {
         format: SerializedExportFormat,
         component: Option<String>,
         requestor: String,
+        #[serde(default)] // 0-default for backward compatibility
+        size: i64,
     },
     Failed {
         start_ts: u64,
@@ -187,6 +190,7 @@ impl TryFrom<Export> for SerializedExport {
                 format,
                 component,
                 requestor,
+                size,
             } => SerializedExport::Completed {
                 start_ts: start_ts.into(),
                 complete_ts: complete_ts.into(),
@@ -195,6 +199,7 @@ impl TryFrom<Export> for SerializedExport {
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
+                size: size as i64,
             },
             Export::Failed {
                 start_ts,
@@ -267,6 +272,7 @@ impl TryFrom<SerializedExport> for Export {
                 format,
                 component,
                 requestor,
+                size,
             } => Export::Completed {
                 start_ts: start_ts.try_into()?,
                 complete_ts: complete_ts.try_into()?,
@@ -275,6 +281,7 @@ impl TryFrom<SerializedExport> for Export {
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
+                size: size as u64,
             },
             SerializedExport::Failed {
                 start_ts,
@@ -474,6 +481,7 @@ impl Export {
         snapshot_ts: Timestamp,
         complete_ts: Timestamp,
         zip_object_key: ObjectKey,
+        size: u64,
     ) -> anyhow::Result<Export> {
         match self {
             Self::InProgress {
@@ -494,6 +502,7 @@ impl Export {
                     format,
                     component,
                     requestor,
+                    size,
                 })
             },
             Self::Requested {
@@ -510,6 +519,7 @@ impl Export {
                 format: _,
                 component: _,
                 requestor: _,
+                size: _,
             }
             | Self::Failed {
                 start_ts: _,
@@ -561,6 +571,7 @@ impl Export {
                 format: _,
                 component: _,
                 requestor: _,
+                size: _,
             }
             | Self::Failed {
                 start_ts: _,

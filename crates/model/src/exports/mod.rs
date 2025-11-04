@@ -359,9 +359,10 @@ mod tests {
         check_roundtrip(&in_progress_export);
 
         // Completed
-        let export = in_progress_export
-            .clone()
-            .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        let export =
+            in_progress_export
+                .clone()
+                .completed(ts, ts, ObjectKey::try_from("asdf")?, 5)?;
         check_roundtrip(&export);
 
         // Failed
@@ -479,7 +480,7 @@ mod tests {
             ts_u64 + 1000,
         )
         .in_progress(ts)?
-        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        .completed(ts, ts, ObjectKey::try_from("asdf")?, 5)?;
         exports_model.insert_export(export).await?;
         let backups = exports_model.list_unexpired_cloud_backups().await?;
         assert!(backups.is_empty());
@@ -494,7 +495,7 @@ mod tests {
             ts_u64 - 1000,
         )
         .in_progress(ts)?
-        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        .completed(ts, ts, ObjectKey::try_from("asdf")?, 5)?;
         exports_model.insert_export(export).await?;
         let backups = exports_model.list_unexpired_cloud_backups().await?;
         assert!(backups.is_empty());
@@ -509,7 +510,7 @@ mod tests {
             ts_u64 + 1000,
         )
         .in_progress(ts)?
-        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        .completed(ts, ts, ObjectKey::try_from("asdf")?, 5)?;
         exports_model.insert_export(export).await?;
         let backups = exports_model.list_unexpired_cloud_backups().await?;
         assert_eq!(backups.len(), 1);
@@ -535,7 +536,7 @@ mod tests {
             ts_u64 + 1000,
         )
         .in_progress(ts)?
-        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        .completed(ts, ts, ObjectKey::try_from("asdf")?, 5)?;
         let id = exports_model.insert_export(export).await?;
 
         let new_expiration = ts_u64 + 2000;
@@ -572,7 +573,7 @@ mod tests {
             ts_u64,
         )
         .in_progress(ts)?
-        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        .completed(ts, ts, ObjectKey::try_from("asdf")?, 5)?;
         exports_model.insert_export(export).await?;
         assert_eq!(exports_model.list().await?.len(), 1);
         let toremove = exports_model
@@ -642,6 +643,7 @@ mod tests {
                 ts,
                 ts,
                 ObjectKey::try_from("asdf")?,
+                5,
             )?,
             initial_export.clone().in_progress(ts)?.failed(ts, ts)?,
             initial_export.clone().canceled(ts)?,
