@@ -91,9 +91,7 @@ async fn cached_http_client_inner(
         for (name, value) in &parts.headers {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
-        let request = request_builder.build()?;
-
-        let response = HTTP_CLIENT.execute(request).await?;
+        let response = request_builder.send().await?;
 
         let cache_hit = response
             .headers()
