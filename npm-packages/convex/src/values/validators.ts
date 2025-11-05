@@ -39,10 +39,6 @@ abstract class BaseValidator<
     this.isOptional = isOptional;
     this.isConvexValidator = true;
   }
-  /** @deprecated - use isOptional instead */
-  get optional(): boolean {
-    return this.isOptional === "optional" ? true : false;
-  }
   /** @internal */
   abstract get json(): ValidatorJSON;
   /** @internal */
