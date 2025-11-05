@@ -468,11 +468,7 @@ async function importRsaPkcs8() {
     pemHeader.length,
     keyFile.length - pemFooter.length,
   );
-  const binaryDerString = atob(pemContents);
-  const binaryDer = new Uint8Array(binaryDerString.length);
-  for (let i = 0; i < binaryDerString.length; i++) {
-    binaryDer[i] = binaryDerString.charCodeAt(i);
-  }
+  const binaryDer = Uint8Array.fromBase64(pemContents);
 
   const key = await crypto.subtle.importKey(
     "pkcs8",
@@ -514,11 +510,7 @@ async function importRsaSpki() {
     pemHeader.length,
     keyFile.length - pemFooter.length,
   );
-  const binaryDerString = atob(pemContents);
-  const binaryDer = new Uint8Array(binaryDerString.length);
-  for (let i = 0; i < binaryDerString.length; i++) {
-    binaryDer[i] = binaryDerString.charCodeAt(i);
-  }
+  const binaryDer = Uint8Array.fromBase64(pemContents);
 
   const key = await crypto.subtle.importKey(
     "spki",
@@ -755,11 +747,7 @@ async function importNonInteroperableRsaPkcs8() {
       pemHeader.length,
       keyFile.length - pemFooter.length,
     );
-    const binaryDerString = atob(pemContents);
-    const binaryDer = new Uint8Array(binaryDerString.length);
-    for (let i = 0; i < binaryDerString.length; i++) {
-      binaryDer[i] = binaryDerString.charCodeAt(i);
-    }
+    const binaryDer = Uint8Array.fromBase64(pemContents);
 
     await expect(
       crypto.subtle.importKey(
@@ -1745,9 +1733,7 @@ async function testHMACSign() {
     cryptoKey,
     new Uint8Array(8),
   );
-  const actualBase64String = btoa(
-    String.fromCharCode(...new Uint8Array(actual)),
-  );
+  const actualBase64String = new Uint8Array(actual).toBase64();
   // This value is from running the above code in a browser
   const expected = "SdJ6jecfYHT1LzY/Vh03WauHRbzWZeVjDFL4ietJNCw=";
   assert.strictEqual(actualBase64String, expected);
@@ -1771,12 +1757,7 @@ async function testHMACVerify() {
     ["verify"],
   );
 
-  // Convert the base64 signature back to Uint8Array
-  const signature = new Uint8Array(
-    atob(base64Signature)
-      .split("")
-      .map((c) => c.charCodeAt(0)),
-  );
+  const signature = Uint8Array.fromBase64(base64Signature);
 
   const isVerified = await subtle.verify(
     { name: "HMAC" },
@@ -1810,9 +1791,7 @@ async function testHMACSignAlternativeSyntax() {
   await subtle.importKey("raw", key.buffer, importParams, false, ["sign"]);
 
   const actual = await subtle.sign("hmac", cryptoKey, new Uint8Array(8));
-  const actualBase64String = btoa(
-    String.fromCharCode(...new Uint8Array(actual)),
-  );
+  const actualBase64String = new Uint8Array(actual).toBase64();
   // This value is from running the above code in a browser
   const expected = "SdJ6jecfYHT1LzY/Vh03WauHRbzWZeVjDFL4ietJNCw=";
   assert.strictEqual(actualBase64String, expected);
@@ -1914,7 +1893,7 @@ async function testDigest() {
     "SHA-256",
     new TextEncoder().encode("hello"),
   );
-  const digestBase64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
+  const digestBase64 = new Uint8Array(digest).toBase64();
   assert.strictEqual(
     digestBase64,
     "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=",

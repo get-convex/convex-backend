@@ -586,6 +586,7 @@ pub fn initialize_v8() {
             // tell V8 it can use up to 2MiB of stack space itself. The
             // default is 1MiB. Note that the flag is in KiB (https://github.com/v8/v8/blob/master/src/flags/flag-definitions.h#L1594).
             "--stack-size=2048".to_string(),
+            "--js-base-64".to_string(),
         ];
         if let Ok(flags) = env::var("ISOLATE_V8_FLAGS") {
             argv.extend(
