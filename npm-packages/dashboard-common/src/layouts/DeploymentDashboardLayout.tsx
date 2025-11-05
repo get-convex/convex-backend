@@ -141,7 +141,10 @@ export function DeploymentDashboardLayout({
     <FunctionsProvider>
       <div className="flex h-full grow flex-col overflow-y-hidden">
         {(visiblePages === undefined || visiblePages.includes("settings")) && (
-          <PauseBanner />
+          <>
+            <PauseBanner />
+            <NodeVersionBanner />
+          </>
         )}
         <div className="flex h-full flex-col overflow-y-auto sm:flex-row">
           {sidebarItems.length > 0 && (
@@ -214,6 +217,30 @@ function PauseBanner() {
       page.
     </div>
   );
+}
+
+function NodeVersionBanner() {
+  const nodeVersion = useQuery(udfs.node.version);
+  const usingNode18 = nodeVersion === "nodejs18.x";
+
+  if (usingNode18) {
+    return (
+      <div className="border-y bg-background-warning py-2 text-center text-xs text-content-warning">
+        This deployment is using Node 18 and will be automatically upgraded to
+        Node 20 on October 22, 2025. To manually configure the Node version,
+        visit the{" "}
+        <Link
+          href="https://docs.convex.dev/production/project-configuration#configuring-the-nodejs-version"
+          className="text-content-link hover:underline"
+        >
+          docs
+        </Link>
+        .
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function EmbeddedConvexLogo({ collapsed }: { collapsed: boolean }) {
