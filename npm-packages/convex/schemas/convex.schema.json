@@ -54,6 +54,16 @@
       "type": "object",
       "description": "Configuration for Convex code generation.",
       "properties": {
+        "legacyJavaScriptFileType": {
+          "type": "boolean",
+          "description": "When true (or omitted, default is true), generates separate .js and .d.ts files for the Convex API. When false generates combined .ts files instead. The .ts format is more modern and recommended for TypeScript projects.\n\nNote: This option must be true when using generateCommonJSApi.",
+          "default": true
+        },
+        "legacyComponentApi": {
+          "type": "boolean",
+          "description": "When true (or omitted, default is true), generates inline expanded types for component APIs. When false, generates import-based component API references instead. The import-based format is more modern and recommended for projects using components.\n\nNote: When false, component.ts files are automatically generated for each component.",
+          "default": true
+        },
         "staticApi": {
           "type": "boolean",
           "description": "When true, generates static `api.d.ts` files, which improves autocomplete and incremental typechecking performance in large codebases.\n\nDocumentation: https://docs.convex.dev/production/project-configuration#using-static-code-generation-beta",

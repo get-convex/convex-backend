@@ -219,6 +219,9 @@ async function startComponentsPushAndCodegen(
       ),
   );
 
+  // Initial codegen is everything we need to get code runnable:
+  // root components and other components need a basic _generated/api.ts etc.
+  // just to make the code bundleable and runnable so we can analyze.
   if (options.codegen) {
     changeSpinner("Generating server code...");
     await parentSpan.enterAsync("doInitialComponentCodegen", () =>

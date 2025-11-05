@@ -20,12 +20,25 @@ import type { GenericId as Id } from "convex/values";
  * ```
  */
 export declare const api: {
+  messages: {
+    componentTest: FunctionReference<"action", "public", any, any>;
+    list: FunctionReference<"query", "public", any, any>;
+    save: FunctionReference<"action", "public", { message: string }, string>;
+    scheduleSendWaitlistMessage: FunctionReference<
+      "mutation",
+      "public",
+      any,
+      any
+    >;
+    send: FunctionReference<"mutation", "public", any, any>;
+    testPartialRollback: FunctionReference<"mutation", "public", any, any>;
+  };
   staticFunctions: {
-    q: FunctionReference<
-      "query",
+    a: FunctionReference<
+      "action",
       "public",
       { branded: string; id: Id<"empty"> },
-      { _creationTime: number; _id: Id<"empty"> } | string
+      string
     >;
     m: FunctionReference<
       "mutation",
@@ -33,11 +46,11 @@ export declare const api: {
       { branded: string; id: Id<"empty"> },
       string
     >;
-    a: FunctionReference<
-      "action",
+    q: FunctionReference<
+      "query",
       "public",
       { branded: string; id: Id<"empty"> },
-      string
+      { _creationTime: number; _id: Id<"empty"> } | string
     >;
   };
 };
@@ -52,6 +65,8 @@ export declare const api: {
  */
 export declare const internal: {
   staticFunctions: {
+    ia: FunctionReference<"action", "internal", {}, any>;
+    im: FunctionReference<"mutation", "internal", { branded: string }, null>;
     iq: FunctionReference<
       "query",
       "internal",
@@ -74,9 +89,122 @@ export declare const internal: {
       | null
       | Id<"empty">
     >;
-    im: FunctionReference<"mutation", "internal", { branded: string }, null>;
-    ia: FunctionReference<"action", "internal", {}, any>;
   };
 };
 
-export declare const components: {};
+export declare const components: {
+  waitlist: {
+    actionDemo: {
+      demo: FunctionReference<"action", "internal", any, any>;
+    };
+    index: {
+      fileDownloadUrl: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        string
+      >;
+      fileUploadUrl: FunctionReference<"mutation", "internal", {}, string>;
+      getMessageCount: FunctionReference<"query", "internal", {}, number>;
+      latestWrite: FunctionReference<"query", "internal", {}, string>;
+      listFiles: FunctionReference<"query", "internal", any, any>;
+      readFromFile: FunctionReference<
+        "action",
+        "internal",
+        { id: string },
+        string
+      >;
+      repeatMessage: FunctionReference<
+        "action",
+        "internal",
+        { message: string; n: number },
+        string
+      >;
+      sayGoodbyeFromQuery: FunctionReference<"query", "internal", {}, string>;
+      sayHelloFromMutation: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        string
+      >;
+      scheduleMessage: FunctionReference<"mutation", "internal", {}, any>;
+      scheduleSend: FunctionReference<"mutation", "internal", {}, any>;
+      sendMessage: FunctionReference<"mutation", "internal", {}, any>;
+      storeInFile: FunctionReference<
+        "action",
+        "internal",
+        { message: string },
+        string
+      >;
+      writeSuccessfully: FunctionReference<
+        "mutation",
+        "internal",
+        { text: string },
+        any
+      >;
+      writeThenFail: FunctionReference<
+        "mutation",
+        "internal",
+        { text: string },
+        any
+      >;
+    };
+  };
+  waitlist2: {
+    actionDemo: {
+      demo: FunctionReference<"action", "internal", any, any>;
+    };
+    index: {
+      fileDownloadUrl: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        string
+      >;
+      fileUploadUrl: FunctionReference<"mutation", "internal", {}, string>;
+      getMessageCount: FunctionReference<"query", "internal", {}, number>;
+      latestWrite: FunctionReference<"query", "internal", {}, string>;
+      listFiles: FunctionReference<"query", "internal", any, any>;
+      readFromFile: FunctionReference<
+        "action",
+        "internal",
+        { id: string },
+        string
+      >;
+      repeatMessage: FunctionReference<
+        "action",
+        "internal",
+        { message: string; n: number },
+        string
+      >;
+      sayGoodbyeFromQuery: FunctionReference<"query", "internal", {}, string>;
+      sayHelloFromMutation: FunctionReference<
+        "mutation",
+        "internal",
+        {},
+        string
+      >;
+      scheduleMessage: FunctionReference<"mutation", "internal", {}, any>;
+      scheduleSend: FunctionReference<"mutation", "internal", {}, any>;
+      sendMessage: FunctionReference<"mutation", "internal", {}, any>;
+      storeInFile: FunctionReference<
+        "action",
+        "internal",
+        { message: string },
+        string
+      >;
+      writeSuccessfully: FunctionReference<
+        "mutation",
+        "internal",
+        { text: string },
+        any
+      >;
+      writeThenFail: FunctionReference<
+        "mutation",
+        "internal",
+        { text: string },
+        any
+      >;
+    };
+  };
+};

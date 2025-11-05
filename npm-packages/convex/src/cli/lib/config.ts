@@ -76,7 +76,8 @@ export interface ProjectConfig {
   codegen: {
     staticApi: boolean;
     staticDataModel: boolean;
-    useComponentApiImports: boolean;
+    legacyComponentApi?: boolean;
+    legacyJavaScriptFileType?: boolean;
   };
 }
 
@@ -98,6 +99,16 @@ export interface ConfigWithModuleHashes {
 }
 
 const DEFAULT_FUNCTIONS_PATH = "convex/";
+
+/** Whether .ts file extensions should be used for generated code (default is false). */
+export function usesTypeScriptCodegen(projectConfig: ProjectConfig): boolean {
+  return projectConfig.codegen.legacyJavaScriptFileType === false;
+}
+
+/** Whether the new component API import style should be used (default is false) */
+export function usesComponentApiImports(projectConfig: ProjectConfig): boolean {
+  return projectConfig.codegen.legacyComponentApi === false;
+}
 
 /** Check if object is of AuthInfo type. */
 function isAuthInfo(object: any): object is AuthInfo {
@@ -202,25 +213,51 @@ export async function parseProjectConfig(
       printedMessage: "Expected `codegen` in `convex.json` to be an object",
     });
   }
+
+  if (
+    typeof obj.codegen.legacyJavaScriptFileType !== "undefined" &&
+    typeof obj.codegen.legacyJavaScriptFileType !== "boolean"
+  ) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage:
+        "Expected `codegen.legacyJavaScriptFileType` in `convex.json` to be true or false",
+    });
+  }
+
+  // Validate that generateCommonJSApi is not true when legacyJavaScriptFileType is false
+  if (
+    obj.generateCommonJSApi &&
+    obj.codegen.legacyJavaScriptFileType === false
+  ) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage:
+        "Cannot use `generateCommonJSApi: true` with `codegen.legacyJavaScriptFileType: false`. " +
+        "CommonJS modules require JavaScript generation. " +
+        "Either set `codegen.legacyJavaScriptFileType: true` or remove `generateCommonJSApi`.",
+    });
+  }
+
   if (typeof obj.codegen.staticApi === "undefined") {
     obj.codegen.staticApi = false;
   }
   if (typeof obj.codegen.staticDataModel === "undefined") {
     obj.codegen.staticDataModel = false;
   }
-  if (typeof obj.codegen.useComponentApiImports === "undefined") {
-    obj.codegen.useComponentApiImports = false;
-  }
   if (
     typeof obj.codegen.staticApi !== "boolean" ||
     typeof obj.codegen.staticDataModel !== "boolean" ||
-    typeof obj.codegen.useComponentApiImports !== "boolean"
+    (typeof obj.codegen.legacyComponentApi !== "undefined" &&
+      typeof obj.codegen.legacyComponentApi !== "boolean")
   ) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
       printedMessage:
-        "Expected `codegen.staticApi` and `codegen.staticDataModel` in `convex.json` to be booleans",
+        "Expected `codegen.staticApi`, `codegen.staticDataModel`, and `codegen.legacyComponentApi` in `convex.json` to be booleans",
     });
   }
 
@@ -324,7 +361,6 @@ export async function readProjectConfig(ctx: Context): Promise<{
         codegen: {
           staticApi: false,
           staticDataModel: false,
-          useComponentApiImports: false,
         },
       },
       configPath: configName(),
@@ -640,9 +676,8 @@ function stripDefaults(projectConfig: ProjectConfig): any {
   if (stripped.codegen.staticDataModel === false) {
     delete stripped.codegen.staticDataModel;
   }
-  if (stripped.codegen.useComponentApiImports === false) {
-    delete stripped.codegen.useComponentApiImports;
-  }
+  // legacyJavaScriptFileType and legacyComponentApi are optional and undefined by default,
+  // so they'll only be present if explicitly set - we don't need to strip them
   if (Object.keys(stripped.codegen).length === 0) {
     delete stripped.codegen;
   }
@@ -706,7 +741,6 @@ export async function pullConfig(
       codegen: {
         staticApi: false,
         staticDataModel: false,
-        useComponentApiImports: false,
       },
       project,
       team,

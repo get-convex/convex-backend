@@ -1,5 +1,8 @@
 {
   "node": {
     "externalPackages": ["*"]
+  },
+  "codegen": {
+    "legacyJavaScriptFileType": false
   }
 }

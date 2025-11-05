@@ -196,6 +196,7 @@
     "test-not-silent": "vitest",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
     "test-esm": "node ./scripts/test-esm.mjs && ./scripts/checkdeps.mjs && ./scripts/checkimports.mjs",
+    "compare-codegen": "node scripts/compare-codegen.mjs",
     "generateManagementApiSpec": "openapi-typescript ./management-openapi.json --output ./src/cli/generatedApi.ts --root-types --root-types-no-schema-prefix",
     "checkManagementApiSpec": "openapi-typescript ./management-openapi.json --output ./src/cli/generatedApi.ts --root-types --root-types-no-schema-prefix --check",
     "generateFunctionLogsApiSpec": "openapi-typescript ./function-logs-openapi.json --output ./src/cli/lib/generatedFunctionLogsApi.ts --root-types --root-types-no-schema-prefix",

@@ -25,3 +25,14 @@ export function apiComment(
      * \`\`\`
      */`;
 }
+
+/**
+ * Comparison function for sorting strings alphabetically.
+ * Uses localeCompare for consistent, locale-aware sorting.
+ *
+ * Usage: array.sort(compareStrings)
+ * or with entries: Object.entries(obj).sort(([a], [b]) => compareStrings(a, b))
+ */
+export function compareStrings(a: string, b: string): number {
+  return a.localeCompare(b);
+}

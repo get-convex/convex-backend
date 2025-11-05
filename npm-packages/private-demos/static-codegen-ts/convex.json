@@ -1,0 +1,7 @@
+{
+  "codegen": {
+    "staticApi": true,
+    "staticDataModel": true,
+    "legacyJavaScriptFileType": false
+  }
+}

@@ -1,5 +1,6 @@
 {
   "codegen": {
+    "legacyJavaScriptFileType": true,
     "useComponentApiImports": true
   }
 }

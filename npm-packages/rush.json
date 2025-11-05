@@ -351,8 +351,24 @@
       "projectFolder": "private-demos/static-codegen"
     },
     {
+      "packageName": "static-codegen-ts",
+      "projectFolder": "private-demos/static-codegen-ts"
+    },
+    {
       "packageName": "components-api-import",
       "projectFolder": "private-demos/components-api-import"
+    },
+    {
+      "packageName": "components-api-import-ts",
+      "projectFolder": "private-demos/components-api-import-ts"
+    },
+    {
+      "packageName": "components-legacy",
+      "projectFolder": "private-demos/components-legacy"
+    },
+    {
+      "packageName": "components-legacy-ts",
+      "projectFolder": "private-demos/components-legacy-ts"
     },
     {
       "packageName": "components-poc",

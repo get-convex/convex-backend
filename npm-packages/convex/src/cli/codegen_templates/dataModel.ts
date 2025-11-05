@@ -10,11 +10,10 @@ import {
 } from "../lib/deployApi/componentDefinition.js";
 import { StartPushResponse } from "../lib/deployApi/startPush.js";
 import { ConvexValidator } from "../lib/deployApi/validator.js";
-import { header } from "./common.js";
+import { compareStrings, header } from "./common.js";
 import { validatorToType } from "./validator_helpers.js";
 
-export function noSchemaDataModelDTS() {
-  return `
+const NO_SCHEMA_DATA_MODEL_CONTENT = `
   ${header("Generated data model types.")}
   import { AnyDataModel } from "convex/server";
   import type { GenericId } from "convex/values";
@@ -63,10 +62,16 @@ export function noSchemaDataModelDTS() {
    * \`mutationGeneric\` to make them type-safe.
    */
   export type DataModel = AnyDataModel;`;
+
+export function noSchemaDataModelDTS() {
+  return NO_SCHEMA_DATA_MODEL_CONTENT;
 }
 
-export function dynamicDataModelDTS() {
-  return `
+export function noSchemaDataModelTS() {
+  return NO_SCHEMA_DATA_MODEL_CONTENT;
+}
+
+const dynamicDataModelContent = `
   ${header("Generated data model types.")}
   import type { DataModelFromSchemaDefinition, DocumentByName, TableNamesInDataModel, SystemTableNames } from "convex/server";
   import type { GenericId } from "convex/values";
@@ -110,14 +115,22 @@ export function dynamicDataModelDTS() {
    */
   export type DataModel = DataModelFromSchemaDefinition<typeof schema>;
   `;
+
+export function dynamicDataModelDTS() {
+  return dynamicDataModelContent;
 }
 
-export async function staticDataModelDTS(
+export function dynamicDataModelTS() {
+  return dynamicDataModelContent;
+}
+
+async function staticDataModelImpl(
   ctx: Context,
   startPush: StartPushResponse,
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
-) {
+  useTypeScript: boolean,
+): Promise<string> {
   const definitionPath = toComponentDefinitionPath(
     rootComponent,
     componentDirectory,
@@ -132,7 +145,7 @@ export async function staticDataModelDTS(
     });
   }
   if (!analysis.schema) {
-    return noSchemaDataModelDTS();
+    return useTypeScript ? noSchemaDataModelTS() : noSchemaDataModelDTS();
   }
 
   const lines = [
@@ -175,6 +188,37 @@ export async function staticDataModelDTS(
   return lines.join("\n");
 }
 
+export async function staticDataModelDTS(
+  ctx: Context,
+  startPush: StartPushResponse,
+  rootComponent: ComponentDirectory,
+  componentDirectory: ComponentDirectory,
+) {
+  return staticDataModelImpl(
+    ctx,
+    startPush,
+    rootComponent,
+    componentDirectory,
+    false,
+  );
+}
+
+// Used for components and root
+export async function staticDataModelTS(
+  ctx: Context,
+  startPush: StartPushResponse,
+  rootComponent: ComponentDirectory,
+  componentDirectory: ComponentDirectory,
+) {
+  return staticDataModelImpl(
+    ctx,
+    startPush,
+    rootComponent,
+    componentDirectory,
+    true,
+  );
+}
+
 async function* codegenDataModel(ctx: Context, schema: AnalyzedSchema) {
   yield `
     /**
@@ -188,7 +232,7 @@ async function* codegenDataModel(ctx: Context, schema: AnalyzedSchema) {
      */
   `;
   const tables = [...schema.tables];
-  tables.sort((a, b) => a.tableName.localeCompare(b.tableName));
+  tables.sort((a, b) => compareStrings(a.tableName, b.tableName));
 
   yield `export type DataModel = {`;
   for (const table of tables) {
@@ -222,7 +266,7 @@ async function* codegenTable(ctx: Context, table: TableDefinition) {
   for (const fieldPath of extractFieldPaths(documentType)) {
     fieldPaths.add(fieldPath.join("."));
   }
-  yield `  fieldPaths: ${stringLiteralUnionType(Array.from(fieldPaths).sort())},`;
+  yield `  fieldPaths: ${stringLiteralUnionType(Array.from(fieldPaths).sort(compareStrings))},`;
 
   yield `  indexes: {`;
   const systemIndexes: SystemIndexes = {

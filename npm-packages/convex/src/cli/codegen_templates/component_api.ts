@@ -9,7 +9,7 @@ import {
 } from "../lib/components/definition/directoryStructure.js";
 import { StartPushResponse } from "../lib/deployApi/startPush.js";
 import { importPath, moduleIdentifier } from "./api.js";
-import { apiComment, header } from "./common.js";
+import { apiComment, compareStrings, header } from "./common.js";
 import {
   ComponentExports,
   EvaluatedComponentDefinition,
@@ -58,6 +58,21 @@ export function componentApiStubDTS() {
     export declare const components: AnyComponents;
   `);
 
+  return lines.join("\n");
+}
+
+// This is also used for root components
+export function componentApiStubTS() {
+  const lines = [];
+  lines.push(header("Generated `api` utility."));
+  lines.push(`
+    import type { AnyApi, AnyComponents } from "convex/server";
+    import { anyApi, componentsGeneric } from "convex/server";
+
+    export const api: AnyApi = anyApi;
+    export const internal: AnyApi = anyApi;
+    export const components: AnyComponents = componentsGeneric();
+  `);
   return lines.join("\n");
 }
 
@@ -151,16 +166,6 @@ export async function componentApiDTS(
   return lines.join("\n");
 }
 
-export function componentStubTS() {
-  const lines = [];
-  lines.push(header("Generated `ComponentApi` utility."));
-  lines.push(
-    `export type ComponentApi<Name extends string | undefined = string | undefined> = {}`,
-  );
-
-  return lines.join("\n");
-}
-
 export async function componentTS(
   ctx: Context,
   startPush: StartPushResponse,
@@ -184,7 +189,7 @@ export async function componentTS(
   lines.push(header("Generated `ComponentApi` utility."));
   lines.push(`
     import type { FunctionReference } from "convex/server";
-    
+
     /**
     * A utility for referencing a Convex component's exposed API.
     *
@@ -208,6 +213,96 @@ export async function componentTS(
     lines.push(line);
   }
   lines.push(`;`);
+  return lines.join("\n");
+}
+
+export async function componentApiTSWithTypes(
+  ctx: Context,
+  startPush: StartPushResponse,
+  rootComponent: ComponentDirectory,
+  componentDirectory: ComponentDirectory,
+  componentsMap: Map<string, ComponentDirectory>,
+  opts: { staticApi: boolean; useComponentApiImports: boolean },
+) {
+  const definitionPath = toComponentDefinitionPath(
+    rootComponent,
+    componentDirectory,
+  );
+
+  const analysis = startPush.analysis[definitionPath];
+  if (!analysis) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No analysis found for component ${definitionPath} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
+    });
+  }
+
+  const lines = [];
+  lines.push(header("Generated `api` utility."));
+  let apiLines: AsyncGenerator<string>;
+  if (opts.staticApi) {
+    apiLines = codegenStaticApiObjectsTS(ctx, analysis);
+  } else {
+    apiLines = codegenDynamicApiObjectsTS(ctx, componentDirectory);
+  }
+  for await (const line of apiLines) {
+    lines.push(line);
+  }
+
+  // Generate components section
+  lines.push(`
+  export const components = componentsGeneric() as unknown as {`);
+  for (const childComponent of analysis.definition.childComponents) {
+    const childComponentAnalysis = startPush.analysis[childComponent.path];
+    if (!childComponentAnalysis) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `No analysis found for child component ${childComponent.path}`,
+      });
+    }
+    if (opts.useComponentApiImports) {
+      const absolutePath = toAbsolutePath(
+        rootComponent,
+        childComponent.path as ComponentDefinitionPath,
+      );
+
+      let childComponentWithRelativePath = componentsMap?.get(absolutePath);
+      if (!childComponentWithRelativePath) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Invalid child component directory: ${childComponent.path}`,
+        });
+      }
+
+      let importPath;
+
+      // If the user uses a different import specifier than the absolute path of the child component, use the import specifier.
+      if (
+        childComponentWithRelativePath.importSpecifier &&
+        childComponentWithRelativePath.importSpecifier !== childComponent.path
+      ) {
+        importPath = childComponentWithRelativePath.importSpecifier;
+      } else {
+        importPath = `../${childComponent.path}`;
+      }
+      lines.push(
+        `  "${childComponent.name}": import("${importPath}/_generated/component.js").ComponentApi<"${childComponent.name}">,`,
+      );
+    } else {
+      for await (const line of codegenExports(
+        ctx,
+        childComponent.name,
+        childComponentAnalysis,
+      )) {
+        lines.push(line);
+      }
+    }
+  }
+  lines.push("};");
+
   return lines.join("\n");
 }
 
@@ -235,14 +330,39 @@ async function* codegenStaticApiObjects(
   yield ";";
 }
 
+async function* codegenStaticApiObjectsTS(
+  ctx: Context,
+  analysis: EvaluatedComponentDefinition,
+) {
+  yield `import type { FunctionReference } from "convex/server";`;
+  yield `import type { GenericId as Id } from "convex/values";`;
+  yield `import { anyApi, componentsGeneric } from "convex/server";`;
+
+  const apiTree = await buildApiTree(ctx, analysis.functions, {
+    kind: "public",
+  });
+  yield apiComment("api", "public");
+  yield `export const api:`;
+  yield* codegenApiTree(ctx, apiTree);
+  yield "= anyApi as any;";
+
+  yield apiComment("internal", "internal");
+  const internalTree = await buildApiTree(ctx, analysis.functions, {
+    kind: "internal",
+  });
+  yield `export const internal:`;
+  yield* codegenApiTree(ctx, internalTree);
+  yield "= anyApi as any;";
+}
+
 async function* codegenDynamicApiObjects(
   ctx: Context,
   componentDirectory: ComponentDirectory,
 ) {
   const absModulePaths = await entryPoints(ctx, componentDirectory.path);
-  const modulePaths = absModulePaths.map((p) =>
-    path.relative(componentDirectory.path, p),
-  );
+  const modulePaths = absModulePaths
+    .map((p) => path.relative(componentDirectory.path, p))
+    .sort();
   for (const modulePath of modulePaths) {
     const ident = moduleIdentifier(modulePath);
     const path = importPath(modulePath);
@@ -268,6 +388,43 @@ async function* codegenDynamicApiObjects(
     export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
     ${apiComment("internal", "internal")}
     export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
+  `;
+}
+
+async function* codegenDynamicApiObjectsTS(
+  ctx: Context,
+  componentDirectory: ComponentDirectory,
+) {
+  const absModulePaths = await entryPoints(ctx, componentDirectory.path);
+  const modulePaths = absModulePaths
+    .map((p) => path.relative(componentDirectory.path, p))
+    .sort();
+  for (const modulePath of modulePaths) {
+    const ident = moduleIdentifier(modulePath);
+    const path = importPath(modulePath);
+    yield `import type * as ${ident} from "../${path}.js";`;
+  }
+  yield `
+    import type {
+      ApiFromModules,
+      FilterApi,
+      FunctionReference,
+    } from "convex/server";
+    import { anyApi, componentsGeneric } from "convex/server";
+
+    const fullApi: ApiFromModules<{
+  `;
+  for (const modulePath of modulePaths) {
+    const ident = moduleIdentifier(modulePath);
+    const path = importPath(modulePath);
+    yield `  "${path}": typeof ${ident},`;
+  }
+  yield `}> = anyApi as any;`;
+  yield `
+    ${apiComment("api", "public")}
+    export const api: FilterApi<typeof fullApi, FunctionReference<any, "public">> = anyApi as any;
+    ${apiComment("internal", "internal")}
+    export const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">> = anyApi as any;
   `;
 }
 
@@ -326,7 +483,11 @@ async function* codegenApiTree(
   tree: ApiTree,
 ): AsyncGenerator<string> {
   yield "{";
-  for (const [identifier, subtree] of Object.entries(tree)) {
+  // Sort entries alphabetically for stable output
+  const sortedEntries = Object.entries(tree).sort(([a], [b]) =>
+    compareStrings(a, b),
+  );
+  for (const [identifier, subtree] of sortedEntries) {
     if (subtree.type === "branch") {
       yield `"${identifier}":`;
       yield* codegenApiTree(ctx, subtree.branch);
@@ -359,7 +520,9 @@ async function* codegenExports(
   analysis: EvaluatedComponentDefinition,
 ): AsyncGenerator<string> {
   yield `${name}: {`;
-  for (const [name, componentExport] of analysis.definition.exports.branch) {
+  const exports = analysis.definition.exports.branch;
+  const entries = Array.from(exports).sort(([a], [b]) => compareStrings(a, b));
+  for (const [name, componentExport] of entries) {
     yield `${name}:`;
     yield* codegenExport(ctx, analysis, componentExport, undefined);
     yield ",";
@@ -383,7 +546,10 @@ async function* codegenExport(
     );
   } else if (componentExport.type === "branch") {
     yield "{";
-    for (const [name, childExport] of componentExport.branch) {
+    const entries = Array.from(componentExport.branch).sort(([a], [b]) =>
+      compareStrings(a, b),
+    );
+    for (const [name, childExport] of entries) {
       yield `${name}:`;
       yield* codegenExport(ctx, analysis, childExport, componentPath);
       yield ",";
