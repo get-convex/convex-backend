@@ -44,16 +44,7 @@ export const throwNotImplementedError = (
 };
 
 export const throwUncatchableDeveloperError = (message: string): never => {
-  // Make an error object so we can grab its stack trace and pass it through to
-  // the syscall
-  const error = new Error();
-  // This calls `prepareStackTrace` that populates `__frameData`
-  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-  error.stack;
-  const frameData = JSON.parse((error as any).__frameData ?? []);
-  performOp("throwUncatchableDeveloperError", message, frameData);
-  // This is not actually reachable because the syscall above will throw
-  return null as never;
+  return performOp("throwUncatchableDeveloperError", message) as never;
 };
 
 export function requiredArguments(length, required, prefix) {

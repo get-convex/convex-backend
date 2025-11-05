@@ -55,6 +55,7 @@ macro_rules! declare_strings {
 // identifier as a string, or explicitly name the string with the `$name =>
 // $string` syntax.
 declare_strings!(
+    __frameData,
     _handler,
     _onInitCallbacks,
     Convex,
@@ -83,5 +84,6 @@ declare_strings!(
     path,
     runRequest,
     setup,
+    stack,
     syscall,
 );
