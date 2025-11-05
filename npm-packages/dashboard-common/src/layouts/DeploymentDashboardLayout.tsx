@@ -140,13 +140,12 @@ export function DeploymentDashboardLayout({
   return (
     <FunctionsProvider>
       <div className="flex h-full grow flex-col overflow-y-hidden">
-        {visiblePages === undefined ||
-          (visiblePages.includes("settings") && (
-            <>
-              <PauseBanner />
-              <NodeVersionBanner />
-            </>
-          ))}
+        {(visiblePages === undefined || visiblePages.includes("settings")) && (
+          <>
+            <PauseBanner />
+            <NodeVersionBanner />
+          </>
+        )}
         <div className="flex h-full flex-col overflow-y-auto sm:flex-row">
           {sidebarItems.length > 0 && (
             <Sidebar
