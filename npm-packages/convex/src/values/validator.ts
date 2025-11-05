@@ -166,9 +166,10 @@ export const v = {
   /**
    * Validates that the value is an Object with the given properties.
    * @param fields An object specifying the validator for each property.
+   * @param name An optional name for this object validator.
    */
-  object: <T extends PropertyValidators>(fields: T) => {
-    return new VObject<ObjectType<T>, T>({ isOptional: "required", fields });
+  object: <T extends PropertyValidators>(fields: T, name?: string|undefined) => {
+    return new VObject<ObjectType<T>, T>({ isOptional: "required", fields, name });
   },
 
   /**
