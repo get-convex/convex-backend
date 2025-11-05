@@ -1,11 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { type ReactNode } from "react";
-import { ConvexProviderWithAuth } from "convex/react";
-
-// TODO replace with AuthTokenFetcher from "convex/browser" once it's out.
-type AuthTokenFetcher = (args: {
-  forceRefreshToken: boolean;
-}) => Promise<string | null | undefined>;
+import { ConvexProviderWithAuth, type AuthTokenFetcher } from "convex/react";
 
 type IConvexReactClient = {
   setAuth(fetchToken: AuthTokenFetcher): void;
