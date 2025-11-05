@@ -1241,7 +1241,7 @@ pub static MAX_SEARCHLIGHT_REQUEST_SIZE: LazyLock<usize> =
 /// even if no writes occur. So any worker that checks this should always have
 /// some maximum period of time after which they checkpoint unconditionally.
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
-    LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 100));
+    LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 500));
 
 /// The TableSummaryWorker must checkpoint every
 /// [`DATABASE_WORKERS_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.
