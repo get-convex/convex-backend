@@ -202,3 +202,403 @@ describe("invalid validators fail when constructed obviously wrongly", () => {
     }).toThrow();
   });
 });
+
+describe("v.object utility methods", () => {
+  describe("omit", () => {
+    test("omits specified fields from VObject", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+        c: v.boolean(),
+      });
+
+      const omitted = original.omit("b");
+
+      // Type checks
+      assert<
+        Equals<
+          Infer<typeof omitted>,
+          {
+            a: string;
+            c: boolean;
+          }
+        >
+      >();
+
+      // Runtime checks
+      expect(omitted.fields).toHaveProperty("a");
+      expect(omitted.fields).toHaveProperty("c");
+      expect(omitted.fields).not.toHaveProperty("b");
+      expect(omitted.isOptional).toBe("required");
+    });
+
+    test("omits multiple fields", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+        c: v.boolean(),
+        d: v.int64(),
+      });
+
+      const omitted = original.omit("b", "d");
+
+      // Type checks
+      assert<
+        Equals<
+          Infer<typeof omitted>,
+          {
+            a: string;
+            c: boolean;
+          }
+        >
+      >();
+
+      // Runtime checks
+      expect(omitted.fields).toHaveProperty("a");
+      expect(omitted.fields).toHaveProperty("c");
+      expect(omitted.fields).not.toHaveProperty("b");
+      expect(omitted.fields).not.toHaveProperty("d");
+    });
+
+    test("preserves optional status", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+      });
+      const optional = original.asOptional();
+      const omitted = optional.omit("b");
+
+      // Runtime check: isOptional is preserved
+      expect(omitted.isOptional).toBe("optional");
+      expect(omitted.fields).toHaveProperty("a");
+      expect(omitted.fields).not.toHaveProperty("b");
+    });
+  });
+
+  describe("pick", () => {
+    test("picks specified fields from VObject", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+        c: v.boolean(),
+      });
+
+      const picked = original.pick("a", "c");
+
+      // Type checks
+      assert<
+        Equals<
+          Infer<typeof picked>,
+          {
+            a: string;
+            c: boolean;
+          }
+        >
+      >();
+
+      // Runtime checks
+      expect(picked.fields).toHaveProperty("a");
+      expect(picked.fields).toHaveProperty("c");
+      expect(picked.fields).not.toHaveProperty("b");
+      expect(picked.isOptional).toBe("required");
+    });
+
+    test("picks single field", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+        c: v.boolean(),
+      });
+
+      const picked = original.pick("b");
+
+      // Type checks
+      assert<
+        Equals<
+          Infer<typeof picked>,
+          {
+            b: number;
+          }
+        >
+      >();
+
+      // Runtime checks
+      expect(picked.fields).toHaveProperty("b");
+      expect(picked.fields).not.toHaveProperty("a");
+      expect(picked.fields).not.toHaveProperty("c");
+    });
+
+    test("preserves optional status", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+      });
+      const optional = original.asOptional();
+      const picked = optional.pick("a");
+
+      // Runtime check: isOptional is preserved
+      expect(picked.isOptional).toBe("optional");
+      expect(picked.fields).toHaveProperty("a");
+      expect(picked.fields).not.toHaveProperty("b");
+    });
+  });
+
+  describe("partial", () => {
+    test("makes all fields optional", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+        c: v.boolean(),
+      });
+
+      const partial = original.partial();
+
+      // Type checks
+      assert<
+        Equals<
+          Infer<typeof partial>,
+          {
+            a?: string;
+            b?: number;
+            c?: boolean;
+          }
+        >
+      >();
+
+      // Runtime checks
+      expect(partial.fields.a.isOptional).toBe("optional");
+      expect(partial.fields.b.isOptional).toBe("optional");
+      expect(partial.fields.c.isOptional).toBe("optional");
+      expect(partial.isOptional).toBe("required");
+    });
+
+    test("works with already optional fields", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.optional(v.number()),
+        c: v.boolean(),
+      });
+
+      const partial = original.partial();
+
+      // Type checks - all fields should be optional
+      type Result = Infer<typeof partial>;
+      const _test1: Result = { a: "hello", b: 42, c: true };
+      const _test2: Result = { a: "hello" };
+      const _test3: Result = {};
+
+      // Runtime checks
+      expect(partial.fields.a.isOptional).toBe("optional");
+      expect(partial.fields.b.isOptional).toBe("optional");
+      expect(partial.fields.c.isOptional).toBe("optional");
+    });
+
+    test("preserves optional status on VObject itself", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+      });
+      const optional = original.asOptional();
+      const partial = optional.partial();
+
+      // Runtime check: isOptional is preserved
+      expect(partial.isOptional).toBe("optional");
+      expect(partial.fields.a.isOptional).toBe("optional");
+      expect(partial.fields.b.isOptional).toBe("optional");
+    });
+  });
+
+  describe("extend", () => {
+    test("extends VObject with new fields", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+      });
+
+      const extended = original.extend({
+        c: v.boolean(),
+        d: v.int64(),
+      });
+
+      // Type checks
+      type Result = Infer<typeof extended>;
+      const _test: Result = { a: "hello", b: 42, c: true, d: 100n };
+
+      // Runtime checks
+      expect(extended.fields).toHaveProperty("a");
+      expect(extended.fields).toHaveProperty("b");
+      expect(extended.fields).toHaveProperty("c");
+      expect(extended.fields).toHaveProperty("d");
+      expect(extended.isOptional).toBe("required");
+    });
+
+    test("extends with additional fields without conflicts", () => {
+      const original = v.object({
+        a: v.string(),
+        b: v.number(),
+      });
+
+      const extended = original.extend({
+        c: v.int64(),
+        d: v.boolean(),
+      });
+
+      // Type checks
+      type Result = Infer<typeof extended>;
+      const _test: Result = { a: "hello", b: 42, c: 100n, d: true };
+
+      // Runtime checks
+      expect(extended.fields.c.kind).toBe("int64");
+      expect(extended.fields.d.kind).toBe("boolean");
+    });
+
+    test("preserves optional status", () => {
+      const original = v.object({
+        a: v.string(),
+      });
+      const optional = original.asOptional();
+      const extended = optional.extend({
+        b: v.number(),
+      });
+
+      // Runtime check: isOptional is preserved
+      expect(extended.isOptional).toBe("optional");
+      expect(extended.fields).toHaveProperty("a");
+      expect(extended.fields).toHaveProperty("b");
+    });
+  });
+
+  describe("chaining utility methods", () => {
+    test("can chain multiple operations", () => {
+      const base = v.object({
+        a: v.string(),
+        b: v.number(),
+        c: v.boolean(),
+        d: v.int64(),
+      });
+
+      const result = base.omit("d").extend({ e: v.bytes() }).partial();
+
+      // Type checks
+      type Result = Infer<typeof result>;
+      const _test1: Result = {
+        a: "hello",
+        b: 42,
+        c: true,
+        e: new ArrayBuffer(0),
+      };
+      const _test2: Result = { a: "hello" };
+      const _test3: Result = {};
+
+      // Runtime checks
+      expect(result.fields).toHaveProperty("a");
+      expect(result.fields).toHaveProperty("b");
+      expect(result.fields).toHaveProperty("c");
+      expect(result.fields).toHaveProperty("e");
+      expect(result.fields).not.toHaveProperty("d");
+      expect(result.fields.a.isOptional).toBe("optional");
+    });
+
+    test("complex chaining scenario", () => {
+      const user = v.object({
+        name: v.string(),
+        email: v.string(),
+        age: v.number(),
+        password: v.string(),
+      });
+
+      // Create a public user type: omit password, add system fields, then make partial for updates
+      const publicUser = user.omit("password").extend({
+        _id: v.id("users"),
+        _creationTime: v.number(),
+      });
+      const userUpdate = publicUser.partial().omit("_id", "_creationTime");
+
+      // Type checks
+      type PublicUser = Infer<typeof publicUser>;
+      const _testPublic: PublicUser = {
+        name: "Alice",
+        email: "alice@example.com",
+        age: 30,
+        _id: "123" as GenericId<"users">,
+        _creationTime: 1234567890,
+      };
+
+      type UserUpdate = Infer<typeof userUpdate>;
+      const _testUpdate1: UserUpdate = {
+        name: "Alice",
+        email: "alice@example.com",
+        age: 30,
+      };
+      const _testUpdate2: UserUpdate = { name: "Bob" };
+      const _testUpdate3: UserUpdate = {};
+
+      // Runtime checks
+      expect(publicUser.fields).toHaveProperty("name");
+      expect(publicUser.fields).toHaveProperty("_id");
+      expect(publicUser.fields).not.toHaveProperty("password");
+
+      expect(userUpdate.fields).toHaveProperty("name");
+      expect(userUpdate.fields.name.isOptional).toBe("optional");
+      expect(userUpdate.fields).not.toHaveProperty("_id");
+      expect(userUpdate.fields).not.toHaveProperty("password");
+    });
+  });
+
+  describe("fieldPaths inference", () => {
+    test("fieldPaths are correctly inferred after omit", () => {
+      const original = v.object({
+        user: v.object({
+          name: v.string(),
+          email: v.string(),
+        }),
+        count: v.number(),
+      });
+
+      const _omitted = original.omit("count");
+
+      // The fieldPaths should include nested paths
+      // TypeScript will infer this correctly from the Fields parameter
+      type FieldPaths = (typeof _omitted)["fieldPaths"];
+      const _fieldPaths: FieldPaths = "user";
+      const _fieldPaths2: FieldPaths = "user.name";
+      const _fieldPaths3: FieldPaths = "user.email";
+    });
+
+    test("fieldPaths are correctly inferred after pick", () => {
+      const original = v.object({
+        user: v.object({
+          name: v.string(),
+          email: v.string(),
+        }),
+        count: v.number(),
+      });
+
+      const _picked = original.pick("user");
+
+      // The fieldPaths should only include user paths
+      type FieldPaths = (typeof _picked)["fieldPaths"];
+      const _fieldPaths: FieldPaths = "user";
+      const _fieldPaths2: FieldPaths = "user.name";
+      const _fieldPaths3: FieldPaths = "user.email";
+    });
+
+    test("fieldPaths are correctly inferred after extend", () => {
+      const original = v.object({
+        a: v.string(),
+      });
+
+      const _extended = original.extend({
+        b: v.object({
+          c: v.number(),
+        }),
+      });
+
+      // The fieldPaths should include both original and new paths
+      type FieldPaths = (typeof _extended)["fieldPaths"];
+      const _fieldPaths: FieldPaths = "a";
+      const _fieldPaths2: FieldPaths = "b";
+      const _fieldPaths3: FieldPaths = "b.c";
+    });
+  });
+});

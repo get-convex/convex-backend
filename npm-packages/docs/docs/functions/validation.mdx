@@ -84,9 +84,9 @@ import { v } from "convex/values";
 
 export default mutation({
   args: {
-    stringOrNumber: v.union(v.string(), v.number()),
+    stringOrNull: v.union(v.string(), v.null()),
   },
-  handler: async ({ db }, { stringOrNumber }) => {
+  handler: async (ctx, { stringOrNull }) => {
     //...
   },
 });
@@ -109,7 +109,7 @@ export default mutation({
       v.literal("three"),
     ),
   },
-  handler: async ({ db }, { oneTwoOrThree }) => {
+  handler: async (ctx, { oneTwoOrThree }) => {
     //...
   },
 });
@@ -127,7 +127,7 @@ export default mutation({
   args: {
     simpleMapping: v.record(v.string(), v.boolean()),
   },
-  handler: async ({ db }, { simpleMapping }) => {
+  handler: async (ctx, { simpleMapping }) => {
     //...
   },
 });
@@ -145,10 +145,10 @@ Notes:
 
 - This type corresponds to the
   [Record\<K,V\>](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type)
-  type in TypeScript
-- You cannot use string literals as a `record` key
+  type in TypeScript.
+- You cannot use string literals as a `record` key.
 - Using `v.string()` as a `record` key validator will only allow ASCII
-  characters
+  characters.
 
 ### Any
 
@@ -162,7 +162,7 @@ export default mutation({
   args: {
     anyValue: v.any(),
   },
-  handler: async ({ db }, { anyValue }) => {
+  handler: async (ctx, { anyValue }) => {
     //...
   },
 });
@@ -183,7 +183,7 @@ export default mutation({
     optionalString: v.optional(v.string()),
     optionalNumber: v.optional(v.number()),
   },
-  handler: async ({ db }, { optionalString, optionalNumber }) => {
+  handler: async (ctx, { optionalString, optionalNumber }) => {
     //...
   },
 });
@@ -212,8 +212,55 @@ export default mutation({
   args: {
     nested: nestedObject,
   },
-  handler: async ({ db }, { nested }) => {
+  handler: async (ctx, { nested }) => {
     //...
   },
 });
 ```
+
+### Reusing and extending validators
+
+Validators can be defined once and shared between functions and table schemas.
+
+```typescript
+const statusValidator = v.union(v.literal("active"), v.literal("inactive"));
+
+const userValidator = v.object({
+  name: v.string(),
+  email: v.email(),
+  status: statusValidator,
+  profileUrl: v.optional(v.string()),
+});
+
+const schema = defineSchema({
+  users: defineTable(userValidator).index("by_email", ["email"]),
+});
+```
+
+You can create new object validators from existing ones by adding or removing
+fields using `.pick`, `.omit`, `.extend`, and `.partial` on object validators.
+
+```typescript
+// Creates a new validator with only the name and profileUrl fields.
+const publicUser = userValidator.pick("name", "profileUrl");
+
+// Creates a new validator with all fields except the specified fields.
+const userWithoutStatus = userValidator.omit("status", "profileUrl");
+
+// Creates a validator where all fields are optional.
+// This is useful for validating patches to a document.
+const userPatch = userWithoutStatus.partial();
+
+// Creates a new validator adding system fields to the user validator.
+const userDocument = userValidator.extend({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+});
+```
+
+Notes:
+
+- Object validators don't allow extra properties, objects with properties that
+  aren't specified will fail validation.
+- Top-level table fields cannot start with `_` because they are reserved for
+  system fields like `_id` and `_creationTime`.

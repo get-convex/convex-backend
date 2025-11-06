@@ -1,5 +1,5 @@
 import { GenericId } from "./index.js";
-import { GenericValidator } from "./validator.js";
+import { GenericValidator, ObjectType } from "./validator.js";
 import { JSONValue, convexToJson } from "./value.js";
 
 type TableNameFromType<T> =
@@ -320,6 +320,73 @@ export class VObject<
     return new VObject<Type | undefined, Fields, "optional", FieldPaths>({
       isOptional: "optional",
       fields: this.fields,
+    });
+  }
+
+  /**
+   * Create a new VObject with the specified fields omitted.
+   * @param fields The field names to omit from this VObject.
+   */
+  omit<K extends keyof Fields & string>(
+    ...fields: K[]
+  ): VObject<Omit<Type, K>, Omit<Fields, K>, IsOptional> {
+    const newFields = { ...this.fields };
+    for (const field of fields) {
+      delete newFields[field];
+    }
+    return new VObject({
+      isOptional: this.isOptional,
+      fields: newFields as Omit<Fields, K>,
+    });
+  }
+
+  /**
+   * Create a new VObject with only the specified fields.
+   * @param fields The field names to pick from this VObject.
+   */
+  pick<K extends keyof Fields & string>(
+    ...fields: K[]
+  ): VObject<Pick<Type, Extract<keyof Type, K>>, Pick<Fields, K>, IsOptional> {
+    const newFields: Record<string, GenericValidator> = {};
+    for (const field of fields) {
+      newFields[field] = this.fields[field];
+    }
+    return new VObject({
+      isOptional: this.isOptional,
+      fields: newFields as Pick<Fields, K>,
+    });
+  }
+
+  /**
+   * Create a new VObject with all fields marked as optional.
+   */
+  partial(): VObject<
+    { [K in keyof Type]?: Type[K] },
+    { [K in keyof Fields]: VOptional<Fields[K]> },
+    IsOptional
+  > {
+    const newFields: Record<string, GenericValidator> = {};
+    for (const [key, validator] of globalThis.Object.entries(this.fields)) {
+      newFields[key] = validator.asOptional();
+    }
+    return new VObject({
+      isOptional: this.isOptional,
+      fields: newFields as {
+        [K in keyof Fields]: VOptional<Fields[K]>;
+      },
+    });
+  }
+
+  /**
+   * Create a new VObject with additional fields merged in.
+   * @param fields An object with additional validators to merge into this VObject.
+   */
+  extend<NewFields extends Record<string, GenericValidator>>(
+    fields: NewFields,
+  ): VObject<Type & ObjectType<NewFields>, Fields & NewFields, IsOptional> {
+    return new VObject({
+      isOptional: this.isOptional,
+      fields: { ...this.fields, ...fields } as Fields & NewFields,
     });
   }
 }
