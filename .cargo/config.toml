@@ -1,10 +1,6 @@
 [env]
 CARGO_WORKSPACE_ROOT = { value = "", relative = true }
 CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
-# HACK: use custom build with leaptiering off,
-# until either https://issues.chromium.org/issues/419147069 is fixed or we can
-# turn on pointer compression
-RUSTY_V8_MIRROR = "https://github.com/get-convex/rusty_v8/releases/download"
 
 [target.aarch64-unknown-linux-gnu]
 rustflags = ["-Ctarget-cpu=neoverse-n1", "-Cforce-frame-pointers=yes"]

@@ -19,10 +19,7 @@ mod time;
 mod validate_args;
 mod validate_returns;
 
-use std::{
-    collections::BTreeMap,
-    ops::DerefMut,
-};
+use std::collections::BTreeMap;
 
 use ::errors::ErrorMetadata;
 use anyhow::anyhow;
@@ -159,7 +156,7 @@ use crate::{
 pub trait OpProvider<'b> {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
     fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng>;
-    fn scope(&mut self) -> &mut v8::HandleScope<'b>;
+    fn scope(&mut self) -> v8::PinScope<'_, 'b>;
     fn lookup_source_map(
         &mut self,
         specifier: &ModuleSpecifier,
@@ -203,8 +200,8 @@ pub trait OpProvider<'b> {
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
 }
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
-    for ExecutionScope<'a, 'b, RT, E>
+impl<'a, 's: 'a, 'i, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'i>
+    for ExecutionScope<'a, 's, 'i, RT, E>
 {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         let state = self.state_mut()?;
@@ -223,8 +220,8 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
         ExecutionScope::lookup_source_map(self, specifier)
     }
 
-    fn scope(&mut self) -> &mut v8::HandleScope<'b> {
-        self.deref_mut()
+    fn scope(&mut self) -> v8::PinScope<'_, 'i> {
+        self.as_mut_ref()
     }
 
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
@@ -362,7 +359,7 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         anyhow::bail!("op(op_name, ...) takes at least one argument");
     }
     let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
-    let op_name = to_rust_string(provider.scope(), &op_name)?;
+    let op_name = to_rust_string(&provider.scope(), &op_name)?;
 
     let timer = metrics::op_timer(&op_name);
     match &op_name[..] {
@@ -447,21 +444,21 @@ pub fn start_async_op<'b, P: OpProvider<'b>>(
     if args.length() < 1 {
         anyhow::bail!("asyncOp(op, ...args) takes at least one argument");
     }
+    let scope = provider.scope();
     let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
-    let op_name = to_rust_string(provider.scope(), &op_name)?;
+    let op_name = to_rust_string(&scope, &op_name)?;
 
-    let resolver = v8::PromiseResolver::new(provider.scope())
+    let resolver = v8::PromiseResolver::new(&scope)
         .ok_or_else(|| anyhow!("Failed to create PromiseResolver"))?;
-    let promise = resolver.get_promise(provider.scope());
-    let resolver = v8::Global::new(provider.scope(), resolver);
+    let resolver = v8::Global::new(&scope, resolver);
 
     match &op_name[..] {
-        "fetch" => async_op_fetch(provider, args, resolver)?,
-        "form/parseMultiPart" => async_op_parse_multi_part(provider, args, resolver)?,
-        "sleep" => async_op_sleep(provider, args, resolver)?,
-        "storage/store" => async_op_storage_store(provider, args, resolver)?,
-        "storage/get" => async_op_storage_get(provider, args, resolver)?,
-        "stream/readPart" => async_op_stream_read_part(provider, args, resolver)?,
+        "fetch" => async_op_fetch(provider, args, resolver.clone())?,
+        "form/parseMultiPart" => async_op_parse_multi_part(provider, args, resolver.clone())?,
+        "sleep" => async_op_sleep(provider, args, resolver.clone())?,
+        "storage/store" => async_op_storage_store(provider, args, resolver.clone())?,
+        "storage/get" => async_op_storage_get(provider, args, resolver.clone())?,
+        "stream/readPart" => async_op_stream_read_part(provider, args, resolver.clone())?,
         _ => {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "UnknownAsyncOperation",
@@ -470,6 +467,10 @@ pub fn start_async_op<'b, P: OpProvider<'b>>(
         },
     };
 
+    // TODO: ideally we should not need to clone `resolver`, but
+    // `OpProvider::scope` returns a scope with a restricted lifetime
+    let scope = provider.scope();
+    let promise = v8::Local::new(&scope, resolver).get_promise(&scope);
     rv.set(promise.into());
     Ok(())
 }

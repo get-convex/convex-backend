@@ -133,10 +133,10 @@ pub enum TaskResponseEnum {
 }
 
 impl TaskResponseEnum {
-    pub fn into_v8<'a>(
+    pub fn into_v8<'s, 'i>(
         self,
-        scope: &mut v8::HandleScope<'a>,
-    ) -> anyhow::Result<v8::Local<'a, v8::Value>> {
+        scope: &mut v8::PinScope<'s, 'i>,
+    ) -> anyhow::Result<v8::Local<'s, v8::Value>> {
         let value_v8 = match self {
             Self::Fetch(response) => serde_v8::to_v8(scope, response)?,
             Self::Syscall(s) => serde_v8::to_v8(scope, s)?,

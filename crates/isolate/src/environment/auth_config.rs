@@ -20,7 +20,11 @@ use common::{
     },
 };
 use deno_core::{
-    v8,
+    v8::{
+        self,
+        scope,
+        scope_with_context,
+    },
     ModuleSpecifier,
 };
 use errors::ErrorMetadata;
@@ -207,11 +211,9 @@ impl AuthConfigEnvironment {
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate.start_request(client_id, environment).await?;
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;
+            RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let handle = isolate_context.handle();
         let result = Self::run_evaluate_auth_config(&mut isolate_context).await;
 
@@ -230,32 +232,32 @@ impl AuthConfigEnvironment {
     }
 
     async fn run_evaluate_auth_config<RT: Runtime>(
-        isolate: &mut RequestScope<'_, '_, RT, Self>,
+        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
     ) -> anyhow::Result<AuthConfig> {
-        let mut v8_scope = isolate.scope();
-        let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
+        scope!(let v8_scope, isolate.scope());
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         let auth_config_url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/auth.config.js"))?;
         let module = scope.eval_module(&auth_config_url).await?;
         let namespace = module
             .get_module_namespace()
-            .to_object(&mut scope)
+            .to_object(&scope)
             .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
-        let default_str = strings::default.create(&mut scope)?;
+        let default_str = strings::default.create(&scope)?;
         let config_val: v8::Local<v8::Value> = namespace
-            .get(&mut scope, default_str.into())
+            .get(&scope, default_str.into())
             .ok_or_else(missing_export_error)?;
         if config_val.is_null_or_undefined() {
             anyhow::bail!(missing_export_error());
         }
 
-        let config_v8_str = v8::json::stringify(&mut scope, config_val).ok_or_else(|| {
+        let config_v8_str = v8::json::stringify(&scope, config_val).ok_or_else(|| {
             ErrorMetadata::bad_request(
                 "AuthConfigUnserializableError",
                 format!("auth config file can only contain strings {SEE_AUTH_DOCS}"),
             )
         })?;
-        let config_str = helpers::to_rust_string(&mut scope, &config_v8_str)?;
+        let config_str = helpers::to_rust_string(&scope, &config_v8_str)?;
 
         // Custom errors for misconfigured `convex/auth.config.ts` files that
         // are helpful because we allow extra properties in the

@@ -3,7 +3,11 @@ use std::collections::BTreeMap;
 use anyhow::anyhow;
 use deno_core::{
     serde_v8,
-    v8,
+    v8::{
+        self,
+        callback_scope,
+        scope,
+    },
     ToJsBuffer,
 };
 use errors::{
@@ -34,13 +38,13 @@ use crate::{
     request_scope::StreamListener,
 };
 
-pub struct CallbackContext<'callback, 'scope: 'callback> {
-    pub scope: &'callback mut v8::HandleScope<'scope>,
+pub struct CallbackContext<'callback, 'scope: 'callback, 'i> {
+    pub scope: &'callback mut v8::PinScope<'scope, 'i>,
     _context: v8::Local<'scope, v8::Context>,
 }
 
-impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
-    fn new(scope: &'callback mut v8::HandleScope<'scope>) -> Self {
+impl<'callback, 'scope: 'callback, 'i> CallbackContext<'callback, 'scope, 'i> {
+    fn new(scope: &'callback mut v8::PinScope<'scope, 'i>) -> Self {
         let context = scope.get_current_context();
         Self {
             scope,
@@ -55,7 +59,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     }
 
     pub fn syscall(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         mut rv: v8::ReturnValue,
     ) {
@@ -98,7 +102,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     }
 
     pub fn async_syscall(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         mut rv: v8::ReturnValue,
     ) {
@@ -151,11 +155,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
         Ok(promise)
     }
 
-    pub fn op(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        rv: v8::ReturnValue,
-    ) {
+    pub fn op(scope: &mut v8::PinScope, args: v8::FunctionCallbackArguments, rv: v8::ReturnValue) {
         let mut ctx = CallbackContext::new(scope);
         #[cfg(test)]
         let r = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -172,7 +172,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     }
 
     pub fn start_async_op(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         rv: v8::ReturnValue,
     ) {
@@ -192,14 +192,14 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     }
 
     pub extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
-        let mut scope = unsafe { v8::CallbackScope::new(&message) };
+        callback_scope!(unsafe let scope, &message);
 
         // NB: If we didn't `Context::enter` above in the stack, it's possible
         // that our scope will be attached to the default context at the top of the
         // stack, which then won't have the `RequestState` slot. This will then cause
         // the call into `ctx.push_unhandled_promise_rejection` to fail with a system
         // error, which we'll just trace out here.
-        let mut ctx = CallbackContext::new(&mut scope);
+        let mut ctx = CallbackContext::new(scope);
 
         if let Err(e) = ctx.push_unhandled_promise_rejection(message) {
             tracing::error!("Error in promise_reject_callback: {:?}", e);
@@ -254,8 +254,8 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
         _import_assertions: v8::Local<'callback, v8::FixedArray>,
         referrer: v8::Local<'callback, v8::Module>,
     ) -> Option<v8::Local<'callback, v8::Module>> {
-        let mut scope = unsafe { v8::CallbackScope::new(context) };
-        let mut ctx = CallbackContext::new(&mut scope);
+        callback_scope!(unsafe let scope, context);
+        let mut ctx = CallbackContext::new(scope);
         ctx.resolve_module_impl(specifier, referrer)
     }
 
@@ -292,7 +292,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     }
 
     pub fn dynamic_import_callback<'a>(
-        scope: &mut v8::HandleScope<'a>,
+        scope: &mut v8::PinScope<'a, '_>,
         _host_defined_options: v8::Local<'a, v8::Data>,
         resource_name: v8::Local<'a, v8::Value>,
         specifier: v8::Local<'a, v8::String>,
@@ -405,10 +405,10 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
                 if let Some(listener) = self.context_state()?.stream_listeners.remove(&stream_id) {
                     match listener {
                         StreamListener::JsPromise(resolver) => {
-                            let mut scope = v8::HandleScope::new(self.scope);
+                            scope!(let scope, self.scope);
                             let result = match update {
                                 Ok(update) => Ok(serde_v8::to_v8(
-                                    &mut scope,
+                                    scope,
                                     JsStreamChunk {
                                         done: update.is_none(),
                                         value: update.map(|chunk| chunk.to_vec().into()),
@@ -418,7 +418,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
                             };
                             // TODO: Is this okay? We're throwing a JsError here from within
                             // the callback context, which then needs to propagate it.
-                            resolve_promise(&mut scope, resolver, result)?;
+                            resolve_promise(scope, resolver, result)?;
                         },
                         StreamListener::RustStream(mut stream) => match update {
                             Ok(None) => drop(stream),
@@ -476,7 +476,7 @@ mod op_provider {
         },
     };
 
-    impl<'callback, 'scope: 'callback> OpProvider<'scope> for CallbackContext<'callback, 'scope> {
+    impl<'callback, 's: 'callback, 'i> OpProvider<'i> for CallbackContext<'callback, 's, 'i> {
         fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
             let state = self.context_state()?;
             state.environment.rng()
@@ -487,8 +487,8 @@ mod op_provider {
             anyhow::bail!("TODO: CryptoRng in isolate2")
         }
 
-        fn scope(&mut self) -> &mut v8::HandleScope<'scope> {
-            self.scope
+        fn scope(&mut self) -> v8::PinScope<'_, 'i> {
+            self.scope.as_mut_ref()
         }
 
         fn lookup_source_map(

@@ -17,7 +17,7 @@ impl StaticString {
 
     pub fn create<'s>(
         &'static self,
-        scope: &mut v8::HandleScope<'s, ()>,
+        scope: &v8::PinScope<'s, '_, ()>,
     ) -> anyhow::Result<v8::Local<'s, v8::String>> {
         v8::String::new_from_onebyte_const(scope, &self.v8)
             .ok_or_else(|| anyhow::anyhow!("Failed to create static string for {:?}", self.string))

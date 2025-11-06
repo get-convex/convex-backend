@@ -1,4 +1,7 @@
-use deno_core::v8;
+use deno_core::v8::{
+    self,
+    callback_scope,
+};
 
 use crate::strings;
 
@@ -34,7 +37,7 @@ impl Thread {
         _module: v8::Local<v8::Module>,
         _meta: v8::Local<v8::Object>,
     ) {
-        let scope = &mut unsafe { v8::CallbackScope::new(context) };
+        callback_scope!(unsafe let scope, context);
         let message = strings::import_meta_unsupported
             .create(scope)
             .expect("Failed to create exception string");

@@ -48,7 +48,11 @@ use common::{
     value::ConvexValue,
 };
 use database::Transaction;
-use deno_core::v8;
+use deno_core::v8::{
+    self,
+    scope,
+    scope_with_context,
+};
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -338,12 +342,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
 
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
+            RequestScope::new(context_scope, handle.clone(), state, true).await?;
 
         let request_head = request.head.clone();
 
@@ -397,14 +399,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
-        isolate: &mut RequestScope<'_, '_, RT, Self>,
+        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
         http_module_path: &CanonicalizedUdfPath,
         routed_path: RoutedHttpPath,
         http_request: HttpActionRequest,
     ) -> anyhow::Result<(HttpActionRoute, HttpActionResult)> {
         let handle = isolate.handle();
-        let mut v8_scope = isolate.scope();
-        let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
+        scope!(let v8_scope, isolate.scope());
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         {
             let state = scope.state_mut()?;
@@ -469,9 +471,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             Some(route) => route,
         };
 
-        let run_str = strings::runRequest.create(&mut scope)?.into();
+        let run_str = strings::runRequest.create(&scope)?.into();
         let v8_function: v8::Local<v8::Function> = router
-            .get(&mut scope, run_str)
+            .get(&scope, run_str)
             .ok_or_else(|| {
                 anyhow!(
                     "Couldn't find runRequest method of router in {:?}",
@@ -499,12 +501,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )?)?
         .to_string();
         metrics::log_argument_length(&request_str);
-        let args_v8_str = v8::String::new(&mut scope, &request_str)
+        let args_v8_str = v8::String::new(&scope, &request_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
 
         // Pass in `request_route` as a second argument so old clients can ignore it if
         // they're not component aware.
-        let request_route_v8_str = v8::String::new(&mut scope, &routed_path)
+        let request_route_v8_str = v8::String::new(&scope, &routed_path)
             .ok_or_else(|| anyhow!("Failed to create request route string"))?;
 
         let v8_args = [args_v8_str.into(), request_route_v8_str.into()];
@@ -529,8 +531,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     // AbortSignal passed to HTTP action request is implemented as a
     // ReadableStream which gets closed when the client requesting the HTTP action
     // goes away.
-    fn signal_http_action_abort<'a, 'b: 'a>(
-        scope: &mut ExecutionScope<'a, 'b, RT, Self>,
+    fn signal_http_action_abort(
+        scope: &mut ExecutionScope<'_, '_, '_, RT, Self>,
     ) -> anyhow::Result<uuid::Uuid> {
         let state = scope.state_mut()?;
         let response_streamer = state
@@ -556,8 +558,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(stream_id)
     }
 
-    fn stream_http_result<'a, 'b: 'a>(
-        scope: &mut ExecutionScope<'a, 'b, RT, Self>,
+    fn stream_http_result(
+        scope: &mut ExecutionScope<'_, '_, '_, RT, Self>,
         result_str: String,
     ) -> anyhow::Result<
         impl Stream<Item = anyhow::Result<Result<HttpActionResponsePart, JsError>>> + use<RT>,
@@ -670,12 +672,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         if let Some(tx) = function_started {
             _ = tx.send(());
         }
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
 
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
+            RequestScope::new(context_scope, handle.clone(), state, true).await?;
         let mut result =
             Self::run_action_inner(&mut isolate_context, request_params.clone(), cancellation)
                 .await;
@@ -726,13 +726,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     #[fastrace::trace]
     async fn run_action_inner(
-        isolate: &mut RequestScope<'_, '_, RT, Self>,
+        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<Result<ConvexValue, JsError>> {
         let handle = isolate.handle();
-        let mut v8_scope = isolate.scope();
-        let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
+        scope!(let v8_scope, isolate.scope());
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
         {
             let state = scope.state_mut()?;
             state
@@ -771,14 +771,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         };
         let namespace = module
             .get_module_namespace()
-            .to_object(&mut scope)
+            .to_object(&scope)
             .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
         let function_name = path.udf_path.function_name();
-        let function_str: v8::Local<'_, v8::Value> = v8::String::new(&mut scope, function_name)
+        let function_str: v8::Local<'_, v8::Value> = v8::String::new(&scope, function_name)
             .ok_or_else(|| anyhow!("Failed to create function name string"))?
             .into();
 
-        if namespace.has(&mut scope, function_str) != Some(true) {
+        if namespace.has(&scope, function_str) != Some(true) {
             let message = format!(
                 "{}",
                 FunctionNotFoundError::new(function_name, path.udf_path.module().as_str())
@@ -786,22 +786,22 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             return Ok(Err(JsError::from_message(message)));
         }
         let function: v8::Local<v8::Object> = namespace
-            .get(&mut scope, function_str)
+            .get(&scope, function_str)
             .ok_or_else(|| anyhow!("Did not find function in module after checking?"))?
             .try_into()?;
 
-        let run_str = strings::invokeAction.create(&mut scope)?.into();
+        let run_str = strings::invokeAction.create(&scope)?.into();
         let v8_function: v8::Local<v8::Function> = function
-            .get(&mut scope, run_str)
+            .get(&scope, run_str)
             .ok_or_else(|| anyhow!("Couldn't find invoke function in {:?}", path.udf_path))?
             .try_into()?;
         let args_str = serialize_udf_args(arguments)?;
         metrics::log_argument_length(&args_str);
-        let args_v8_str = v8::String::new(&mut scope, &args_str)
+        let args_v8_str = v8::String::new(&scope, &args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
         // TODO(rebecca): generate uuid4 here
         let request_id_str = "dummy_request_id";
-        let request_id_v8_str = v8::String::new(&mut scope, request_id_str)
+        let request_id_v8_str = v8::String::new(&scope, request_id_str)
             .ok_or_else(|| anyhow!("Failed to create request id string"))?;
         let v8_args = [request_id_v8_str.into(), args_v8_str.into()];
 
@@ -889,10 +889,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(Some(format!("{route_method_s} {route_path_s}").parse()?))
     }
 
-    async fn get_router<'a, 'b: 'a>(
-        scope: &mut ExecutionScope<'a, 'b, RT, Self>,
+    async fn get_router<'s>(
+        scope: &mut ExecutionScope<'_, 's, '_, RT, Self>,
         http_module_path: CanonicalizedUdfPath,
-    ) -> anyhow::Result<Result<v8::Local<'a, v8::Object>, JsError>> {
+    ) -> anyhow::Result<Result<v8::Local<'s, v8::Object>, JsError>> {
         // Except in tests, `http.js` will always be the udf_path.
         // We'll never hit these as long as this HTTP path only runs for
         // `convex/http.js`.
@@ -966,15 +966,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     /// Errors from collecting the result will be surfaced via
     /// `get_result_stream` -> `handle_result_part`
     #[fastrace::trace]
-    async fn run_inner<'a, 'b: 'a, T, S>(
-        scope: &mut ExecutionScope<'a, 'b, RT, Self>,
+    async fn run_inner<'a, 's, 'i, T, S>(
+        scope: &mut ExecutionScope<'a, 's, 'i, RT, Self>,
         handle: IsolateHandle,
         udf_type: UdfType,
         v8_function: v8::Local<'_, v8::Function>,
         v8_args: &[v8::Local<'_, v8::Value>],
         cancellation: BoxFuture<'_, ()>,
         get_result_stream: impl FnOnce(
-            &mut ExecutionScope<'a, 'b, RT, Self>,
+            &mut ExecutionScope<'a, 's, 'i, RT, Self>,
             String,
         ) -> anyhow::Result<S>,
         mut handle_result_part: impl FnMut(
@@ -1018,7 +1018,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
             scope.perform_microtask_checkpoint();
-            pump_message_loop(&mut *scope);
+            pump_message_loop(scope);
             scope.record_heap_stats()?;
             let request_stream_state = scope.state()?.request_stream_state.as_ref();
             if let Some(request_stream_state) = request_stream_state {
@@ -1149,13 +1149,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                                 .remove(&task_id) else {
                                     anyhow::bail!("Task with id {} did not have a promise", task_id);
                                 };
-                            let mut result_scope = v8::HandleScope::new(&mut **scope);
+                            scope!(let result_scope, &mut **scope);
                             let result_v8 = match variant {
-                                Ok(v) => Ok(v.into_v8(&mut result_scope)?),
+                                Ok(v) => Ok(v.into_v8(result_scope)?),
                                 Err(e) => Err(e),
                             };
                             resolve_promise_allow_all_errors(
-                                &mut result_scope,
+                                result_scope,
                                 resolver,
                                 result_v8,
                             )?;

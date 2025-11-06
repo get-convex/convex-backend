@@ -1,4 +1,7 @@
-use deno_core::v8;
+use deno_core::v8::{
+    self,
+    scope,
+};
 use isolate::ConcurrencyLimiter;
 use runtime::prod::ProdRuntime;
 
@@ -14,8 +17,8 @@ fn create_context(bencher: divan::Bencher) {
     let limiter = ConcurrencyLimiter::unlimited();
     let mut isolate = isolate::isolate::Isolate::new(rt.clone(), None, limiter.clone());
     bencher.bench_local(|| {
-        let mut scope = isolate.handle_scope();
-        v8::Context::new(&mut scope, v8::ContextOptions::default());
+        scope!(let scope, isolate.isolate());
+        v8::Context::new(scope, v8::ContextOptions::default());
     });
 }
 
@@ -26,7 +29,7 @@ fn create_isolate(bencher: divan::Bencher) {
     let limiter = ConcurrencyLimiter::unlimited();
     bencher.bench(|| {
         let mut isolate = isolate::isolate::Isolate::new(rt.clone(), None, limiter.clone());
-        let mut scope = isolate.handle_scope();
-        v8::Context::new(&mut scope, v8::ContextOptions::default());
+        scope!(let scope, isolate.isolate());
+        v8::Context::new(scope, v8::ContextOptions::default());
     });
 }

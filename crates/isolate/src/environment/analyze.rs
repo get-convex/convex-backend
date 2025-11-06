@@ -35,8 +35,9 @@ use common::{
 use deno_core::{
     v8::{
         self,
+        scope,
+        scope_with_context,
         GetPropertyNamesArgs,
-        HandleScope,
     },
     ModuleResolutionError,
 };
@@ -292,11 +293,9 @@ impl AnalyzeEnvironment {
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate.start_request(client_id, environment).await?;
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;
+            RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let handle = isolate_context.handle();
         let result = Self::run_analyze(&mut isolate_context, to_analyze).await;
 
@@ -359,11 +358,11 @@ impl AnalyzeEnvironment {
     }
 
     async fn run_analyze<RT: Runtime>(
-        isolate: &mut RequestScope<'_, '_, RT, Self>,
+        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
         to_analyze: Vec<CanonicalizedModulePath>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
-        let mut v8_scope = isolate.scope();
-        let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
+        scope!(let v8_scope, isolate.scope());
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         // Iterate through modules paths to_analyze
         let mut result = BTreeMap::new();
@@ -466,7 +465,7 @@ impl AnalyzeEnvironment {
 }
 
 fn make_str_val<'s>(
-    scope: &mut HandleScope<'s, ()>,
+    scope: &mut v8::PinScope<'s, '_, ()>,
     value: &str,
 ) -> anyhow::Result<v8::Local<'s, v8::Value>> {
     let v8_str_val: v8::Local<v8::Value> = v8::String::new(scope, value)

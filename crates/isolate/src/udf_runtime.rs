@@ -9,7 +9,10 @@ use common::knobs::{
     ISOLATE_MAX_USER_HEAP_SIZE,
 };
 use deno_core::{
-    v8,
+    v8::{
+        self,
+        scope,
+    },
     ModuleSpecifier,
 };
 
@@ -61,24 +64,27 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
     // so this is OK.
     let mut isolate = v8::Isolate::snapshot_creator(None, None);
 
-    let mut scope = v8::HandleScope::new(&mut isolate);
+    {
+        scope!(let scope, &mut isolate);
+        let context = v8::Context::new(scope, v8::ContextOptions::default());
 
-    let context = v8::Context::new(&mut scope, v8::ContextOptions::default());
-    let mut context_scope = v8::ContextScope::new(&mut scope, context);
+        {
+            let context_scope = &mut v8::ContextScope::new(scope, context);
 
-    // Create `global.Convex`, so that `setup.js` can populate `Convex.jsSyscall`
-    let convex_value = v8::Object::new(&mut context_scope);
-    let convex_key = strings::Convex.create(&mut context_scope)?;
-    let global = context.global(&mut context_scope);
-    global.set(&mut context_scope, convex_key.into(), convex_value.into());
+            // Create `global.Convex`, so that `setup.js` can populate `Convex.jsSyscall`
+            let convex_value = v8::Object::new(context_scope);
+            let convex_key = strings::Convex.create(context_scope)?;
+            let global = context.global(context_scope);
+            global.set(context_scope, convex_key.into(), convex_value.into());
 
-    run_setup_module(&mut context_scope)?;
+            run_setup_module(context_scope)?;
+        }
 
-    drop(context_scope);
-    // Mark the context we created as the "default context", so that every new
-    // context created from the snapshot will include this runtime.
-    scope.set_default_context(context);
-    drop(scope);
+        // Mark the context we created as the "default context", so that every
+        // new context created from the snapshot will include this
+        // runtime.
+        scope.set_default_context(context);
+    }
 
     let data = isolate
         .create_blob(v8::FunctionCodeHandling::Keep)
@@ -90,7 +96,7 @@ fn create_base_snapshot() -> anyhow::Result<v8::StartupData> {
 /// Go through all the V8 boilerplate to compile, instantiate, evaluate, and run
 /// the setup code. This is all inlined to avoid any dependencies on context
 /// state that isn't set up in the snapshot creation code path.
-fn run_setup_module(scope: &mut v8::HandleScope<'_>) -> anyhow::Result<()> {
+fn run_setup_module(scope: &mut v8::PinScope<'_, '_>) -> anyhow::Result<()> {
     let setup_url = ModuleSpecifier::parse(SETUP_URL)?;
     let (source, _source_map) = system_udf_file("setup.js").context("Setup module not found")?;
     let name_str =

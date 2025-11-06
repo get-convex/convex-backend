@@ -80,9 +80,10 @@ use database::{
     shutdown_error,
     Transaction,
 };
-use deno_core::{
-    v8,
-    v8::V8,
+use deno_core::v8::{
+    self,
+    scope,
+    V8,
 };
 use errors::{
     ErrorMetadata,
@@ -1366,9 +1367,9 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
             loop {
                 let v8_context = {
                     let _create_context_timer = create_context_timer();
-                    let mut scope = isolate.handle_scope();
-                    let context = v8::Context::new(&mut scope, v8::ContextOptions::default());
-                    v8::Global::new(&mut scope, context)
+                    scope!(let scope, isolate.isolate());
+                    let context = v8::Context::new(scope, v8::ContextOptions::default());
+                    v8::Global::new(scope, context)
                 };
                 // Check again whether the isolate has enough free heap memory
                 // before starting the next request

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use deno_core::{
     serde_v8,
-    v8,
+    v8::{
+        self,
+        scope,
+    },
     ModuleSpecifier,
 };
 use isolate::{
@@ -37,15 +40,15 @@ impl JsClientThread {
         let client_id = Arc::new(String::new());
         let environment = TestEnvironment::new(rt);
         let (handle, state) = isolate.start_request(client_id, environment).await?;
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Context::new(&mut handle_scope, v8::ContextOptions::default());
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope!(let handle_scope, isolate.isolate());
+        let v8_context = v8::Context::new(handle_scope, v8::ContextOptions::default());
+        let context_scope = &mut v8::ContextScope::new(handle_scope, v8_context);
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;
+            RequestScope::new(context_scope, handle.clone(), state, false).await?;
 
         {
-            let mut v8_scope = isolate_context.scope();
-            let mut scope = RequestScope::<TestRuntime, TestEnvironment>::enter(&mut v8_scope);
+            scope!(let v8_scope, isolate_context.scope());
+            let mut scope = RequestScope::<TestRuntime, TestEnvironment>::enter(v8_scope);
             let specifier = ModuleSpecifier::parse(TEST_SPECIFIER)?;
             let module = scope.eval_module(&specifier).await?;
 
@@ -60,13 +63,13 @@ impl JsClientThread {
 
                 tracing::debug!("Performing microtask checkpoint");
                 scope.perform_microtask_checkpoint();
-                pump_message_loop(&mut scope);
+                pump_message_loop(&scope);
 
                 let rejections = scope.pending_unhandled_promise_rejections_mut();
                 if let Some(promise) = rejections.exceptions.keys().next().cloned() {
                     let err = rejections.exceptions.remove(&promise).unwrap();
-                    let err = v8::Local::new(&mut scope, err);
-                    let err = extract_error(&mut scope, err)?;
+                    let err = v8::Local::new(&scope, err);
+                    let err = extract_error(&scope, err)?;
                     anyhow::bail!(err);
                 }
 
@@ -94,7 +97,7 @@ impl JsClientThread {
                         let resolver = resolver?;
                         let resolver = resolver.open(&mut scope);
                         let result = serde_v8::to_v8(&mut scope, ())?;
-                        resolver.resolve(&mut scope, result);
+                        resolver.resolve(&scope, result);
                     }
                 }
             }

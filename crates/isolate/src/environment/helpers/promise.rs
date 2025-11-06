@@ -10,7 +10,7 @@ use super::json_to_v8;
 use crate::strings;
 
 pub fn resolve_promise(
-    scope: &mut v8::HandleScope<'_>,
+    scope: &mut v8::PinScope<'_, '_>,
     resolver: v8::Global<v8::PromiseResolver>,
     result: anyhow::Result<v8::Local<v8::Value>>,
 ) -> anyhow::Result<()> {
@@ -20,7 +20,7 @@ pub fn resolve_promise(
 // Like `resolve_promise` but returns JS error even when the
 // error might have been caused by Convex, not by the user.
 pub fn resolve_promise_allow_all_errors(
-    scope: &mut v8::HandleScope<'_>,
+    scope: &mut v8::PinScope<'_, '_>,
     resolver: v8::Global<v8::PromiseResolver>,
     result: anyhow::Result<v8::Local<v8::Value>>,
 ) -> anyhow::Result<()> {
@@ -28,7 +28,7 @@ pub fn resolve_promise_allow_all_errors(
 }
 
 fn resolve_promise_inner(
-    scope: &mut v8::HandleScope<'_>,
+    scope: &mut v8::PinScope<'_, '_>,
     resolver: v8::Global<v8::PromiseResolver>,
     result: anyhow::Result<v8::Local<v8::Value>>,
     allow_all_errors: bool,

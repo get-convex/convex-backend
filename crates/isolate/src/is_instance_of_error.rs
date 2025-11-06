@@ -26,7 +26,7 @@ use deno_core::v8;
 /// of `instanceof`. `Value::is_native_error()` also checks for static class
 /// inheritance rather than just scanning the prototype chain, which doesn't
 /// work with our WebIDL implementation of `DOMException`.
-pub fn is_instance_of_error(scope: &mut v8::HandleScope<'_>, value: v8::Local<v8::Value>) -> bool {
+pub fn is_instance_of_error(scope: &v8::PinScope<'_, '_>, value: v8::Local<'_, v8::Value>) -> bool {
     if !value.is_object() {
         return false;
     }

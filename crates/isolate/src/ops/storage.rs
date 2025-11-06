@@ -17,7 +17,7 @@ pub fn async_op_storage_store<'b, P: OpProvider<'b>>(
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
-    let stream_id = serde_v8::from_v8(provider.scope(), args.get(1))?;
+    let stream_id = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
     let (body_sender, body_receiver) = spsc::unbounded_channel();
     match stream_id {
         Some(stream_id) => {
@@ -25,10 +25,10 @@ pub fn async_op_storage_store<'b, P: OpProvider<'b>>(
         },
         None => drop(body_sender),
     };
-    let content_type: Option<String> = serde_v8::from_v8(provider.scope(), args.get(2))?;
+    let content_type: Option<String> = serde_v8::from_v8(&mut provider.scope(), args.get(2))?;
     let content_type = content_type.filter(|ct| !ct.is_empty());
-    let content_length = serde_v8::from_v8(provider.scope(), args.get(3))?;
-    let digest = serde_v8::from_v8(provider.scope(), args.get(4))?;
+    let content_length = serde_v8::from_v8(&mut provider.scope(), args.get(3))?;
+    let digest = serde_v8::from_v8(&mut provider.scope(), args.get(4))?;
 
     provider.start_async_op(
         AsyncOpRequest::StorageStore {
@@ -46,7 +46,7 @@ pub fn async_op_storage_get<'b, P: OpProvider<'b>>(
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
-    let storage_id = serde_v8::from_v8(provider.scope(), args.get(1))?;
+    let storage_id = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
     let stream_id = provider.create_stream()?;
     provider.start_async_op(
         AsyncOpRequest::StorageGet {

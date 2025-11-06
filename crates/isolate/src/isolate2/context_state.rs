@@ -219,6 +219,7 @@ impl ContextState {
     }
 }
 
+#[derive(Debug)]
 pub enum ContextFailure {
     UncatchableDeveloperError(JsError),
     SystemError(anyhow::Error),

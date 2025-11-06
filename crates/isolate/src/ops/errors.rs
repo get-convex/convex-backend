@@ -4,7 +4,10 @@ use common::errors::{
     FrameData,
     JsError,
 };
-use deno_core::v8;
+use deno_core::v8::{
+    self,
+    scope,
+};
 
 use super::OpProvider;
 use crate::{
@@ -17,20 +20,21 @@ pub(crate) fn throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
     message: String,
 ) -> anyhow::Result<!> {
     let frame_data: anyhow::Result<Vec<FrameData>> = try {
-        let mut scope = v8::HandleScope::new(provider.scope());
-        let empty_string = strings::empty.create(&mut scope)?;
-        let error = v8::Exception::error(&mut scope, empty_string).try_cast::<v8::Object>()?;
-        let stack_string = strings::stack.create(&mut scope)?;
+        let mut scope = provider.scope();
+        scope!(let scope, &mut scope);
+        let empty_string = strings::empty.create(scope)?;
+        let error = v8::Exception::error(scope, empty_string).try_cast::<v8::Object>()?;
+        let stack_string = strings::stack.create(scope)?;
         // This calls `prepareStackTrace` that populates `__frameData`
         error
-            .get(&mut scope, stack_string.into())
+            .get(scope, stack_string.into())
             .context("Error.stack threw")?;
-        let frame_data_str = strings::__frameData.create(&mut scope)?;
+        let frame_data_str = strings::__frameData.create(scope)?;
         let frame_data_json = error
-            .get(&mut scope, frame_data_str.into())
+            .get(scope, frame_data_str.into())
             .context("Error.__frameData threw")?
             .try_cast::<v8::String>()?;
-        let frame_data_json = frame_data_json.to_rust_string_lossy(&mut scope);
+        let frame_data_json = frame_data_json.to_rust_string_lossy(scope);
         serde_json::from_str(&frame_data_json)?
     };
     let js_error = JsError::from_frames(

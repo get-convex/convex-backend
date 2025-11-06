@@ -6,6 +6,7 @@ use deno_core::{
     serde_v8,
     v8::{
         self,
+        scope,
     },
     ToJsBuffer,
 };
@@ -28,7 +29,7 @@ pub fn async_op_stream_read_part<'b, P: OpProvider<'b>>(
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
-    let stream_id = serde_v8::from_v8(provider.scope(), args.get(1))?;
+    let stream_id = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
     provider.new_stream_listener(stream_id, StreamListener::JsPromise(resolver))
 }
 
@@ -47,7 +48,7 @@ pub fn op_stream_extend<'b, P: OpProvider<'b>>(
     provider.extend_stream(id, bytes.map(|b| b.into_vec().into()), new_done)
 }
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 's, 'i, RT, E> {
     pub fn error_stream(&mut self, id: uuid::Uuid, error: anyhow::Error) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         state.streams.insert(id, Err(error));
@@ -107,10 +108,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 if let Some(listener) = self.state_mut()?.stream_listeners.remove(&stream_id) {
                     match listener {
                         StreamListener::JsPromise(resolver) => {
-                            let mut scope = v8::HandleScope::new(&mut **self);
+                            scope!(let scope, &mut **self);
                             let result = match update {
                                 Ok(update) => Ok(serde_v8::to_v8(
-                                    &mut scope,
+                                    scope,
                                     JsStreamChunk {
                                         done: update.is_none(),
                                         value: update.map(|chunk| chunk.to_vec().into()),
@@ -118,7 +119,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                                 )?),
                                 Err(e) => Err(e),
                             };
-                            resolve_promise(&mut scope, resolver, result)?;
+                            resolve_promise(scope, resolver, result)?;
                         },
                         StreamListener::RustStream(mut stream) => match update {
                             Ok(None) => drop(stream),

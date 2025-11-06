@@ -58,10 +58,10 @@ pub enum Phase {
     Executing,
 }
 
-pub fn json_to_v8<'a>(
-    scope: &mut v8::HandleScope<'a>,
+pub fn json_to_v8<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
     json: JsonValue,
-) -> anyhow::Result<v8::Local<'a, v8::Value>> {
+) -> anyhow::Result<v8::Local<'s, v8::Value>> {
     let value_v8 = serde_v8::to_v8(scope, json)?;
     Ok(value_v8)
 }

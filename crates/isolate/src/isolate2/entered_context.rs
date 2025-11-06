@@ -10,7 +10,11 @@ use common::{
 };
 use deno_core::{
     serde_v8,
-    v8,
+    v8::{
+        self,
+        scope,
+        tc_scope,
+    },
     ModuleSpecifier,
 };
 use model::modules::user_error::{
@@ -58,15 +62,15 @@ use crate::{
     termination::OutOfMemoryError,
 };
 
-pub struct EnteredContext<'enter, 'scope: 'enter> {
-    scope: &'enter mut v8::HandleScope<'scope>,
+pub struct EnteredContext<'enter, 'scope: 'enter, 'i> {
+    scope: &'enter mut v8::PinScope<'scope, 'i>,
     heap_context: &'enter HeapContext,
     _context: v8::Local<'scope, v8::Context>,
 }
 
-impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
+impl<'enter, 'scope: 'enter, 'i> EnteredContext<'enter, 'scope, 'i> {
     pub fn new(
-        scope: &'enter mut v8::HandleScope<'scope>,
+        scope: &'enter mut v8::PinScope<'scope, 'i>,
         heap_context: &'enter HeapContext,
         context: v8::Local<'scope, v8::Context>,
     ) -> Self {
@@ -94,12 +98,16 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
     // property in an op handler).
     pub fn execute_user_code<R>(
         &mut self,
-        f: impl FnOnce(&mut v8::HandleScope<'scope>) -> R,
+        f: impl FnOnce(&mut v8::PinScope<'scope, 'i>) -> R,
     ) -> anyhow::Result<R> {
-        let mut tc_scope = v8::TryCatch::new(self.scope);
-        let r = f(&mut tc_scope);
-        if tc_scope.is_execution_terminating() {
-            drop(tc_scope);
+        let (r, terminated, exception);
+        {
+            tc_scope!(let tc_scope, self.scope);
+            r = f(tc_scope);
+            terminated = tc_scope.has_terminated();
+            exception = tc_scope.exception();
+        }
+        if terminated {
             let context_state = self.context_state_mut()?;
             if let Some(failure) = context_state.failure.take() {
                 match failure {
@@ -121,11 +129,9 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 anyhow::bail!("Execution terminated");
             }
         }
-        if let Some(e) = tc_scope.exception() {
-            drop(tc_scope);
+        if let Some(e) = exception {
             return Err(self.format_traceback(e)?.into());
         }
-        drop(tc_scope);
         // Executing just about any user code can lead to an unhandled promise
         // rejection (e.g. calling `Promise.reject`). However, it's important
         // to only fail the session when we receive control... XXX explain more.
@@ -416,20 +422,20 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             (async_syscalls, async_ops)
         };
         for (resolver, result) in async_syscalls {
-            let mut scope = v8::HandleScope::new(self.scope);
+            scope!(let scope, self.scope);
             let result_v8 = match result {
-                Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
+                Ok(v) => Ok(serde_v8::to_v8(scope, v)?),
                 Err(e) => Err(e),
             };
-            resolve_promise(&mut scope, resolver, result_v8)?;
+            resolve_promise(scope, resolver, result_v8)?;
         }
         for (resolver, result) in async_ops {
-            let mut scope = v8::HandleScope::new(self.scope);
+            scope!(let scope, self.scope);
             let result_v8 = match result {
-                Ok(v) => Ok(v.into_v8(&mut scope)?),
+                Ok(v) => Ok(v.into_v8(scope)?),
                 Err(e) => Err(e),
             };
-            resolve_promise(&mut scope, resolver, result_v8)?;
+            resolve_promise(scope, resolver, result_v8)?;
         }
 
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;

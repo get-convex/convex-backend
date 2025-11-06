@@ -25,7 +25,12 @@ use common::{
     types::UdfType,
 };
 use deno_core::{
-    v8,
+    v8::{
+        self,
+        callback_scope,
+        scope,
+        tc_scope,
+    },
     ModuleResolutionError,
     ModuleSpecifier,
 };
@@ -147,30 +152,32 @@ impl PendingDynamicImports {
 /// Most functionality for executing JS and manipulating objects executes within
 /// a [`v8::HandleScope`]. The [`ExecutionScope`] wrapper is a convenience
 /// struct that represents executing code within a [`RequestScope`].
-pub struct ExecutionScope<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
-    v8_scope: &'a mut v8::HandleScope<'b>,
-    _v8_context: v8::Local<'b, v8::Context>,
+pub struct ExecutionScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
+    v8_scope: &'a mut v8::PinScope<'s, 'i>,
+    _v8_context: v8::Local<'s, v8::Context>,
     _pd: PhantomData<(RT, E)>,
 }
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Deref for ExecutionScope<'a, 'b, RT, E> {
-    type Target = v8::HandleScope<'b>;
-
-    fn deref(&self) -> &v8::HandleScope<'b> {
-        self.v8_scope
-    }
-}
-
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> DerefMut
-    for ExecutionScope<'a, 'b, RT, E>
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Deref
+    for ExecutionScope<'a, 's, 'i, RT, E>
 {
-    fn deref_mut(&mut self) -> &mut v8::HandleScope<'b> {
+    type Target = v8::PinScope<'s, 'i>;
+
+    fn deref(&self) -> &v8::PinScope<'s, 'i> {
         self.v8_scope
     }
 }
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
-    pub fn new(v8_scope: &'a mut v8::HandleScope<'b>) -> Self {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> DerefMut
+    for ExecutionScope<'a, 's, 'i, RT, E>
+{
+    fn deref_mut(&mut self) -> &mut v8::PinScope<'s, 'i> {
+        self.v8_scope
+    }
+}
+
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 's, 'i, RT, E> {
+    pub fn new(v8_scope: &'a mut v8::PinScope<'s, 'i>) -> Self {
         let v8_context = v8_scope.get_current_context();
         Self {
             v8_scope,
@@ -258,12 +265,15 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     pub fn with_try_catch<R>(
         &mut self,
-        f: impl FnOnce(&mut v8::HandleScope<'b>) -> R,
+        f: impl FnOnce(&mut v8::PinScope<'s, 'i>) -> R,
     ) -> anyhow::Result<Result<R, JsError>> {
-        let mut tc_scope = v8::TryCatch::new(self.v8_scope);
-        let r = f(&mut tc_scope);
-        if let Some(e) = tc_scope.exception() {
-            drop(tc_scope);
+        let (r, exception);
+        {
+            tc_scope!(let tc_scope, self.v8_scope);
+            r = f(tc_scope);
+            exception = tc_scope.exception();
+        }
+        if let Some(e) = exception {
             return Ok(Err(self.format_traceback(e)?));
         }
         Ok(Ok(r))
@@ -344,14 +354,14 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             ));
 
             // Create a nested scope so that objects can be GC'd
-            let mut scope = v8::HandleScope::new(&mut **self);
-            let mut scope = ExecutionScope::<RT, E>::new(&mut scope);
+            scope!(let scope, &mut **self);
+            let mut scope = ExecutionScope::<RT, E>::new(scope);
 
-            let name_str = v8::String::new(&mut scope, name.as_str())
+            let name_str = v8::String::new(&scope, name.as_str())
                 .ok_or_else(|| anyhow!("Failed to create name string"))?;
-            let source_str = make_source_string(&mut scope, &module_source.source)?;
+            let source_str = make_source_string(&scope, &module_source.source)?;
 
-            let origin = helpers::module_origin(&mut scope, name_str);
+            let origin = helpers::module_origin(&scope, name_str);
             let (mut v8_source, options) = match &code_cache {
                 ModuleCodeCacheResult::Cached(data) => (
                     v8::script_compiler::Source::new_with_cached_data(
@@ -390,7 +400,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 },
                 ModuleCodeCacheResult::Uncached(callback) => {
                     let timer = metrics::create_code_cache_timer();
-                    let module_script = module.get_unbound_module_script(&mut scope);
+                    let module_script = module.get_unbound_module_script(&scope);
                     if let Some(cached_data) = module_script.create_code_cache() {
                         callback(cached_data[..].into());
                         timer.finish();
@@ -403,11 +413,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             let module_requests = module.get_module_requests();
             for i in 0..module_requests.length() {
                 let module_request: v8::Local<v8::ModuleRequest> = module_requests
-                    .get(&mut scope, i)
+                    .get(&scope, i)
                     .ok_or_else(|| anyhow!("Module request {} out of bounds", i))?
                     .try_into()?;
                 let import_specifier =
-                    helpers::to_rust_string(&mut scope, &module_request.get_specifier())?;
+                    helpers::to_rust_string(&scope, &module_request.get_specifier())?;
                 let module_specifier = deno_core::resolve_import(&import_specifier, name.as_str())?;
                 let offset = module_request.get_source_offset();
                 let location = module.source_offset_to_location(offset);
@@ -417,7 +427,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
             // Step 2: Register the module with the module map.
             let id = {
-                let module_v8 = v8::Global::<v8::Module>::new(&mut scope, module);
+                let module_v8 = v8::Global::<v8::Module>::new(&scope, module);
                 let module_map = scope.module_map_mut();
                 module_map.register(name, module_v8, module_source)
             };
@@ -569,7 +579,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         _import_assertions: v8::Local<'c, v8::FixedArray>,
         referrer: v8::Local<'c, v8::Module>,
     ) -> Option<v8::Local<'c, v8::Module>> {
-        let scope = &mut unsafe { v8::CallbackScope::new(context) };
+        callback_scope!(unsafe let scope, context);
         match Self::_module_resolve_callback(scope, referrer, specifier) {
             Ok(m) => Some(m),
             Err(e) => {
@@ -580,13 +590,13 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     fn _module_resolve_callback<'c>(
-        scope: &mut v8::CallbackScope<'c>,
+        scope: &mut v8::PinScope<'c, '_>,
         referrer: v8::Local<'c, v8::Module>,
         specifier: v8::Local<'c, v8::String>,
     ) -> anyhow::Result<v8::Local<'c, v8::Module>> {
         let mut scope = ExecutionScope::<RT, E>::new(scope);
-        let referrer_global = v8::Global::new(&mut scope, referrer);
-        let specifier_str = helpers::to_rust_string(&mut scope, &specifier)?;
+        let referrer_global = v8::Global::new(&scope, referrer);
+        let specifier_str = helpers::to_rust_string(&scope, &specifier)?;
 
         let module_map = scope.module_map();
         let referrer_name = module_map
@@ -601,7 +611,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             .handle_by_id(id)
             .ok_or_else(|| anyhow!("Couldn't find {specifier_str} in {referrer_name}"))?;
 
-        Ok(v8::Local::new(&mut scope, handle))
+        Ok(v8::Local::new(&scope, handle))
     }
 
     pub fn syscall(
@@ -678,7 +688,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 }
 
 fn make_source_string<'s>(
-    scope: &mut v8::HandleScope<'s, ()>,
+    scope: &v8::PinScope<'s, '_, ()>,
     module_source: &ModuleSource,
 ) -> anyhow::Result<v8::Local<'s, v8::String>> {
     if module_source.is_ascii() {

@@ -6,9 +6,7 @@ use std::{
     },
 };
 
-use deno_core::v8::{
-    self,
-};
+use deno_core::v8;
 
 use super::{
     callback_context::CallbackContext,
@@ -17,35 +15,35 @@ use super::{
 
 // Isolate-level struct scoped to a "session," which enables isolate reuse
 // across sessions.
-pub struct Session<'a> {
-    pub handle_scope: v8::HandleScope<'a, ()>,
+pub struct Session<'i> {
+    pub isolate: &'i mut v8::Isolate,
     pub heap_context: Box<HeapContext>,
 }
 
-impl<'a> Session<'a> {
-    pub fn new(reactor_thread: &'a mut Thread) -> Self {
-        // Set callbacks on the `Isolate` (via the `HandleScope`) that will
+impl<'i> Session<'i> {
+    pub fn new(reactor_thread: &'i mut Thread) -> Self {
+        // Set callbacks on the `Isolate` that will
         // potentially read state from our session's contexts.
-        let mut handle_scope = v8::HandleScope::new(&mut reactor_thread.isolate);
+        let isolate = &mut reactor_thread.isolate;
 
         // Pass ownership of the HeapContext struct to the heap limit callback, which
         // we'll take back in the `Isolate`'s destructor.
         let heap_context = Box::new(HeapContext {
-            handle: handle_scope.thread_safe_handle(),
+            handle: isolate.thread_safe_handle(),
             oomed: AtomicBool::new(false),
         });
-        handle_scope.add_near_heap_limit_callback(
+        isolate.add_near_heap_limit_callback(
             Self::near_heap_limit_callback,
             &*heap_context as *const _ as *mut ffi::c_void,
         );
 
-        handle_scope.set_promise_reject_callback(CallbackContext::promise_reject_callback);
+        isolate.set_promise_reject_callback(CallbackContext::promise_reject_callback);
 
-        handle_scope
+        isolate
             .set_host_import_module_dynamically_callback(CallbackContext::dynamic_import_callback);
 
         Self {
-            handle_scope,
+            isolate,
             heap_context,
         }
     }
@@ -58,6 +56,7 @@ impl<'a> Session<'a> {
         let heap_ctx = unsafe { &*(data as *const HeapContext) };
 
         // XXX: heap_ctx.handle.terminate(TerminationReason::OutOfMemory);
+        tracing::debug!("near_heap_limit_callback");
         heap_ctx.handle.terminate_execution();
         heap_ctx.oomed.store(true, Ordering::Relaxed);
 
@@ -68,17 +67,17 @@ impl<'a> Session<'a> {
 
 impl Drop for Session<'_> {
     fn drop(&mut self) {
-        self.handle_scope
+        self.isolate
             .remove_near_heap_limit_callback(Self::near_heap_limit_callback, 0);
 
         // V8's API allows setting null function pointers here, but rusty_v8
         // does not. Use no-op functions instead.
         extern "C" fn null_promise_reject_callback(_message: v8::PromiseRejectMessage) {}
-        self.handle_scope
+        self.isolate
             .set_promise_reject_callback(null_promise_reject_callback);
 
         fn null_dynamic_import_callback<'s>(
-            _scope: &mut v8::HandleScope<'s>,
+            _scope: &mut v8::PinScope<'s, '_>,
             _host_defined_options: v8::Local<'s, v8::Data>,
             _resource_name: v8::Local<'s, v8::Value>,
             _specifier: v8::Local<'s, v8::String>,
@@ -86,7 +85,7 @@ impl Drop for Session<'_> {
         ) -> Option<v8::Local<'s, v8::Promise>> {
             None
         }
-        self.handle_scope
+        self.isolate
             .set_host_import_module_dynamically_callback(null_dynamic_import_callback);
     }
 }

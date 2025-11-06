@@ -39,7 +39,7 @@ pub fn async_op_fetch<'b, P: OpProvider<'b>>(
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
-    let arg: HttpRequestV8 = serde_v8::from_v8(provider.scope(), args.get(1))?;
+    let arg: HttpRequestV8 = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
 
     let request = with_argument_error("fetch", || HttpRequestV8::into_stream(arg, provider))?;
     let response_body_stream_id = provider.create_stream()?;
@@ -57,8 +57,8 @@ pub fn async_op_parse_multi_part<'b, P: OpProvider<'b>>(
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
-    let content_type: String = serde_v8::from_v8(provider.scope(), args.get(1))?;
-    let request_stream_id: uuid::Uuid = serde_v8::from_v8(provider.scope(), args.get(2))?;
+    let content_type: String = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
+    let request_stream_id: uuid::Uuid = serde_v8::from_v8(&mut provider.scope(), args.get(2))?;
     let (request_sender, request_receiver) = spsc::unbounded_channel();
     provider.new_stream_listener(
         request_stream_id,

@@ -19,7 +19,11 @@ use common::{
     },
 };
 use deno_core::{
-    v8,
+    v8::{
+        self,
+        scope,
+        scope_with_context,
+    },
     ModuleSpecifier,
 };
 use errors::{
@@ -196,11 +200,9 @@ impl SchemaEnvironment {
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate.start_request(client_id, environment).await?;
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;
+            RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let handle = isolate_context.handle();
         let result = Self::run_evaluate_schema(&mut isolate_context).await;
 
@@ -219,29 +221,29 @@ impl SchemaEnvironment {
     }
 
     async fn run_evaluate_schema<RT: Runtime>(
-        isolate: &mut RequestScope<'_, '_, RT, Self>,
+        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
     ) -> anyhow::Result<DatabaseSchema> {
-        let mut v8_scope = isolate.scope();
-        let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
+        scope!(let v8_scope, isolate.scope());
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         let schema_url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/schema.js"))?;
         let module = scope.eval_module(&schema_url).await?;
         let namespace = module
             .get_module_namespace()
-            .to_object(&mut scope)
+            .to_object(&scope)
             .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
-        let default_str = strings::default.create(&mut scope)?;
+        let default_str = strings::default.create(&scope)?;
         let schema_val: v8::Local<v8::Value> = namespace
-            .get(&mut scope, default_str.into())
+            .get(&scope, default_str.into())
             .ok_or_else(missing_schema_export_error)?;
         if schema_val.is_null_or_undefined() {
             anyhow::bail!(missing_schema_export_error());
         }
-        let export_str = strings::export.create(&mut scope)?;
+        let export_str = strings::export.create(&scope)?;
         let v8_schema_result: anyhow::Result<v8::Local<v8::String>> = try {
             let schema_obj: v8::Local<v8::Object> = schema_val.try_into()?;
             let export_function: v8::Local<v8::Function> = schema_obj
-                .get(&mut scope, export_str.into())
+                .get(&scope, export_str.into())
                 .ok_or_else(|| anyhow!("Couldn't find 'export' method on schema object"))?
                 .try_into()?;
 
@@ -258,7 +260,7 @@ impl SchemaEnvironment {
         let v8_schema_str: v8::Local<v8::String> =
             v8_schema_result.map_err(|_| invalid_schema_export_error())?;
 
-        let result_str = helpers::to_rust_string(&mut scope, &v8_schema_str)?;
+        let result_str = helpers::to_rust_string(&scope, &v8_schema_str)?;
         DatabaseSchema::json_deserialize(&result_str).map_err(|e| {
             if e.is_bad_request() {
                 e

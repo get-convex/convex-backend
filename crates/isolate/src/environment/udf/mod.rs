@@ -85,7 +85,11 @@ use database::{
 };
 use deno_core::{
     serde_v8,
-    v8,
+    v8::{
+        self,
+        scope,
+        scope_with_context,
+    },
 };
 use errors::ErrorMetadata;
 use file_storage::TransactionalFileStorage;
@@ -399,12 +403,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // reject the function for capacity reasons.
             _ = tx.send(());
         }
-        let mut handle_scope = isolate.handle_scope();
-        let v8_context = v8::Local::new(&mut handle_scope, v8_context);
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        scope_with_context!(let context_scope, isolate.isolate(), v8_context);
 
         let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle.clone(), state, false).await?;
+            RequestScope::new(context_scope, handle.clone(), state, false).await?;
         let mut result =
             Self::run_inner(&mut isolate_context, cancellation, rng_seed, unix_timestamp).await;
 
@@ -505,15 +507,15 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     #[convex_macro::instrument_future]
     #[fastrace::trace]
     async fn run_inner(
-        isolate: &mut RequestScope<'_, '_, RT, Self>,
+        isolate: &mut RequestScope<'_, '_, '_, RT, Self>,
         cancellation: BoxFuture<'_, ()>,
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<Result<ConvexValue, JsError>> {
         let handle = isolate.handle();
-        let mut v8_scope = isolate.scope();
+        scope!(let v8_scope, isolate.scope());
 
-        let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
+        let mut scope = RequestScope::<RT, Self>::enter(v8_scope);
 
         // Initialize the environment, preloading the UDF config, before executing any
         // JS.
@@ -562,14 +564,14 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         };
         let namespace = module
             .get_module_namespace()
-            .to_object(&mut scope)
+            .to_object(&scope)
             .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
         let function_name = udf_path.function_name();
-        let function_str: v8::Local<'_, v8::Value> = v8::String::new(&mut scope, function_name)
+        let function_str: v8::Local<'_, v8::Value> = v8::String::new(&scope, function_name)
             .ok_or_else(|| anyhow!("Failed to create function name string"))?
             .into();
 
-        if namespace.has(&mut scope, function_str) != Some(true) {
+        if namespace.has(&scope, function_str) != Some(true) {
             let message = format!(
                 "{}",
                 FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str())
@@ -577,31 +579,31 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             return Ok(Err(JsError::from_message(message)));
         }
         let function: v8::Local<v8::Object> = namespace
-            .get(&mut scope, function_str)
+            .get(&scope, function_str)
             .ok_or_else(|| anyhow!("Did not find function in module after checking?"))?
             .try_into()?;
 
         // Mutations and queries are wrapped in JavaScript by a function that adds a
         // property marking it as a query or mutation UDF.
-        let is_mutation_str = strings::isMutation.create(&mut scope)?.into();
+        let is_mutation_str = strings::isMutation.create(&scope)?.into();
         let mut is_mutation = false;
-        if let Some(true) = function.has(&mut scope, is_mutation_str) {
+        if let Some(true) = function.has(&scope, is_mutation_str) {
             is_mutation = function
-                .get(&mut scope, is_mutation_str)
+                .get(&scope, is_mutation_str)
                 .ok_or_else(|| anyhow!("Missing `is_mutation` after explicit check"))?
                 .is_true();
         }
 
-        let is_query_str = strings::isQuery.create(&mut scope)?.into();
+        let is_query_str = strings::isQuery.create(&scope)?.into();
         let mut is_query = false;
-        if let Some(true) = function.has(&mut scope, is_query_str) {
+        if let Some(true) = function.has(&scope, is_query_str) {
             is_query = function
-                .get(&mut scope, is_query_str)
+                .get(&scope, is_query_str)
                 .ok_or_else(|| anyhow!("Missing `is_query` after explicit check"))?
                 .is_true();
         }
-        let invoke_query_str = strings::invokeQuery.create(&mut scope)?.into();
-        let invoke_mutation_str = strings::invokeMutation.create(&mut scope)?.into();
+        let invoke_query_str = strings::invokeQuery.create(&scope)?.into();
+        let invoke_mutation_str = strings::invokeMutation.create(&scope)?.into();
 
         let invoke_str = match (udf_type, is_query, is_mutation) {
             (UdfType::Query, true, false) => invoke_query_str,
@@ -637,11 +639,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         let args_str = serialize_udf_args(udf_args)?;
         metrics::log_argument_length(&args_str);
-        let args_v8_str = v8::String::new(&mut scope, &args_str)
+        let args_v8_str = v8::String::new(&scope, &args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
 
         let invoke: v8::Local<v8::Function> = function
-            .get(&mut scope, invoke_str)
+            .get(&scope, invoke_str)
             .ok_or_else(|| anyhow!("Couldn't find invoke function in {udf_path:?}"))?
             .try_into()?;
 
@@ -653,7 +655,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 .phase
                 .begin_execution(rng_seed, unix_timestamp)?;
         }
-        let global = scope.get_current_context().global(&mut scope);
+        let global = scope.get_current_context().global(&scope);
         let promise_r =
             scope.with_try_catch(|s| invoke.call(s, global.into(), &[args_v8_str.into()]));
         // If we hit a system error within a syscall, return `Err`, even if JS thinks it
@@ -673,7 +675,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
             scope.perform_microtask_checkpoint();
-            pump_message_loop(&mut scope);
+            pump_message_loop(&scope);
             scope.record_heap_stats()?;
             handle.check_terminated()?;
 
@@ -682,7 +684,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             if let Some(promise) = rejections.exceptions.keys().next().cloned() {
                 let error = rejections.exceptions.remove(&promise).unwrap();
 
-                let as_local = v8::Local::new(&mut scope, error);
+                let as_local = v8::Local::new(&scope, error);
                 let err = match scope.format_traceback(as_local) {
                     Ok(e) => e,
                     Err(e) => {
@@ -754,12 +756,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // Complete the syscall's promise, which will put its handlers on the microtask
             // queue.
             for (resolver, result) in resolvers.into_iter().zip(results.into_iter()) {
-                let mut result_scope = v8::HandleScope::new(&mut *scope);
+                scope!(let result_scope, &mut *scope);
                 let result_v8 = match result {
-                    Ok(v) => Ok(serde_v8::to_v8(&mut result_scope, v)?),
+                    Ok(v) => Ok(serde_v8::to_v8(result_scope, v)?),
                     Err(e) => Err(e),
                 };
-                resolve_promise(&mut result_scope, resolver, result_v8)?;
+                resolve_promise(result_scope, resolver, result_v8)?;
             }
             handle.check_terminated()?;
         }
@@ -774,14 +776,14 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     scope.state()?.environment.pending_syscalls.is_empty(),
                     "queries and mutations should run all syscalls to completion"
                 );
-                let promise_result_v8 = promise.result(&mut scope);
+                let promise_result_v8 = promise.result(&scope);
                 let result_v8_str: v8::Local<v8::String> = promise_result_v8.try_into()?;
-                let result_str = helpers::to_rust_string(&mut scope, &result_v8_str)?;
+                let result_str = helpers::to_rust_string(&scope, &result_v8_str)?;
                 metrics::log_result_length(&result_str);
                 deserialize_udf_result(&path, &result_str)?
             },
             v8::PromiseState::Rejected => {
-                let e = promise.result(&mut scope);
+                let e = promise.result(&scope);
                 Err(scope.format_traceback(e)?)
             },
         };

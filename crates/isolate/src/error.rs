@@ -28,7 +28,7 @@ use crate::{
     metrics,
 };
 
-impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, RT, E> {
+impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, '_, RT, E> {
     pub fn format_traceback(&mut self, exception: v8::Local<v8::Value>) -> anyhow::Result<JsError> {
         // Check if we hit a system error or timeout and can't run any JavaScript now.
         // Abort with a system error here, and we'll (in the best case) pull out
@@ -109,10 +109,10 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, RT, E> {
 }
 
 pub fn extract_source_mapped_error(
-    scope: &mut v8::HandleScope<'_>,
-    exception: v8::Local<v8::Value>,
+    scope: &v8::PinScope<'_, '_>,
+    exception: v8::Local<'_, v8::Value>,
 ) -> anyhow::Result<(String, Vec<FrameData>, Option<ConvexValue>)> {
-    if !(is_instance_of_error(scope, exception)) {
+    if !is_instance_of_error(scope, exception) {
         anyhow::bail!("Exception wasn't an instance of `Error`");
     }
     let exception_obj: v8::Local<v8::Object> = exception.try_into()?;

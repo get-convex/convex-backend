@@ -50,10 +50,10 @@ use crate::{
 // SOFTWARE.
 
 /// Taken from `deno_core::bindings::module_origin`.
-pub fn module_origin<'a>(
-    s: &mut v8::HandleScope<'a>,
-    resource_name: v8::Local<'a, v8::String>,
-) -> v8::ScriptOrigin<'a> {
+pub fn module_origin<'s>(
+    s: &v8::PinScope<'s, '_>,
+    resource_name: v8::Local<'s, v8::String>,
+) -> v8::ScriptOrigin<'s> {
     // TODO: Fill this out more accurately.
     let source_map_url = strings::empty.create(s).unwrap();
     v8::ScriptOrigin::new(
@@ -73,19 +73,19 @@ pub fn module_origin<'a>(
 
 /// Run all queued tasks from this isolate's foreground task runner.
 /// In particular, this runs minor GC tasks that are scheduled.
-pub fn pump_message_loop(isolate: &mut v8::Isolate) {
+pub fn pump_message_loop(isolate: &v8::Isolate) {
     let platform = v8::V8::get_current_platform();
     while v8::Platform::pump_message_loop(&platform, isolate, false /* wait_for_work */) {}
 }
 
 /// Taken from `deno_core::bindings::throw_type_error`.
-pub fn throw_type_error(scope: &mut v8::HandleScope, message: impl AsRef<str>) {
+pub fn throw_type_error(scope: &mut v8::PinScope, message: impl AsRef<str>) {
     let message = v8::String::new(scope, message.as_ref()).unwrap();
     let exception = v8::Exception::type_error(scope, message);
     scope.throw_exception(exception);
 }
 
-pub fn to_rust_string(scope: &mut v8::Isolate, s: &v8::String) -> anyhow::Result<String> {
+pub fn to_rust_string(scope: &v8::Isolate, s: &v8::String) -> anyhow::Result<String> {
     let n = s.utf8_length(scope);
     let mut buf = vec![0; n];
     // Don't set `kReplaceInvalidUtf8` since we want unpaired surrogates to fail
@@ -96,11 +96,11 @@ pub fn to_rust_string(scope: &mut v8::Isolate, s: &v8::String) -> anyhow::Result
     Ok(s)
 }
 
-pub fn get_property<'a>(
-    scope: &mut v8::HandleScope<'a>,
+pub fn get_property<'s>(
+    scope: &v8::PinScope<'s, '_>,
     object: v8::Local<v8::Object>,
     key: &str,
-) -> anyhow::Result<Option<v8::Local<'a, v8::Value>>> {
+) -> anyhow::Result<Option<v8::Local<'s, v8::Value>>> {
     let key = v8::String::new(scope, key)
         .ok_or_else(|| anyhow::anyhow!("Failed to create string for {key}"))?;
     Ok(object.get(scope, key.into()))

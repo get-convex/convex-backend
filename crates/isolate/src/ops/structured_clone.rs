@@ -3,6 +3,7 @@
 
 use deno_core::v8::{
     self,
+    tc_scope,
     ValueDeserializerHelper,
     ValueSerializerHelper,
 };
@@ -16,8 +17,8 @@ pub fn op_structured_clone<'b, P: OpProvider<'b>>(
     value: v8::Local<v8::Value>,
     mut rv: v8::ReturnValue,
 ) -> anyhow::Result<()> {
-    let data = op_serialize(provider.scope(), value)?;
-    let value = op_deserialize(provider.scope(), data)?;
+    let data = op_serialize(&mut provider.scope(), value)?;
+    let value = op_deserialize(&mut provider.scope(), data)?;
     rv.set(value);
     Ok(())
 }
@@ -32,7 +33,7 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
     #[allow(unused_variables)]
     fn throw_data_clone_error<'s>(
         &self,
-        scope: &mut v8::HandleScope<'s>,
+        scope: &mut v8::PinScope<'s, '_>,
         message: v8::Local<'s, v8::String>,
     ) {
         let error = v8::Exception::type_error(scope, message);
@@ -41,7 +42,7 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
 
     fn get_shared_array_buffer_id<'s>(
         &self,
-        _scope: &mut v8::HandleScope<'s>,
+        _scope: &mut v8::PinScope<'s, '_>,
         _shared_array_buffer: v8::Local<'s, v8::SharedArrayBuffer>,
     ) -> Option<u32> {
         None
@@ -49,19 +50,19 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
 
     fn get_wasm_module_transfer_id(
         &self,
-        _scope: &mut v8::HandleScope<'_>,
+        _scope: &mut v8::PinScope<'_, '_>,
         _module: v8::Local<v8::WasmModuleObject>,
     ) -> Option<u32> {
         None
     }
 
-    fn has_custom_host_object(&self, _isolate: &mut v8::Isolate) -> bool {
+    fn has_custom_host_object(&self, _isolate: &v8::Isolate) -> bool {
         true
     }
 
     fn is_host_object<'s>(
         &self,
-        scope: &mut v8::HandleScope<'s>,
+        scope: &mut v8::PinScope<'s, '_>,
         object: v8::Local<'s, v8::Object>,
     ) -> Option<bool> {
         if let Some(symbol) = &self.host_object_brand {
@@ -74,7 +75,7 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
 
     fn write_host_object<'s>(
         &self,
-        scope: &mut v8::HandleScope<'s>,
+        scope: &mut v8::PinScope<'s, '_>,
         _object: v8::Local<'s, v8::Object>,
         _value_serializer: &dyn v8::ValueSerializerHelper,
     ) -> Option<bool> {
@@ -87,7 +88,7 @@ impl v8::ValueSerializerImpl for SerializeDeserialize {
 impl v8::ValueDeserializerImpl for SerializeDeserialize {
     fn get_shared_array_buffer_from_id<'s>(
         &self,
-        _scope: &mut v8::HandleScope<'s>,
+        _scope: &mut v8::PinScope<'s, '_>,
         _transfer_id: u32,
     ) -> Option<v8::Local<'s, v8::SharedArrayBuffer>> {
         None
@@ -95,7 +96,7 @@ impl v8::ValueDeserializerImpl for SerializeDeserialize {
 
     fn get_wasm_module_from_id<'s>(
         &self,
-        _scope: &mut v8::HandleScope<'s>,
+        _scope: &mut v8::PinScope<'s, '_>,
         _clone_id: u32,
     ) -> Option<v8::Local<'s, v8::WasmModuleObject>> {
         None
@@ -103,7 +104,7 @@ impl v8::ValueDeserializerImpl for SerializeDeserialize {
 
     fn read_host_object<'s>(
         &self,
-        scope: &mut v8::HandleScope<'s>,
+        scope: &mut v8::PinScope<'s, '_>,
         _value_deserializer: &dyn v8::ValueDeserializerHelper,
     ) -> Option<v8::Local<'s, v8::Object>> {
         let message: v8::Local<v8::String> =
@@ -115,7 +116,7 @@ impl v8::ValueDeserializerImpl for SerializeDeserialize {
 }
 
 pub fn op_serialize(
-    scope: &mut v8::HandleScope,
+    scope: &mut v8::PinScope,
     value: v8::Local<v8::Value>,
 ) -> anyhow::Result<Vec<u8>> {
     let key = v8::String::new(scope, "Deno.core.hostObject").unwrap();
@@ -126,7 +127,7 @@ pub fn op_serialize(
     let value_serializer = v8::ValueSerializer::new(scope, serialize_deserialize);
     value_serializer.write_header();
 
-    let scope = &mut v8::TryCatch::new(scope);
+    tc_scope!(let scope, scope);
     let ret = value_serializer.write_value(scope.get_current_context(), value);
     if scope.has_caught() || scope.has_terminated() {
         scope.rethrow();
@@ -141,10 +142,10 @@ pub fn op_serialize(
     }
 }
 
-pub fn op_deserialize<'a>(
-    scope: &mut v8::HandleScope<'a>,
+pub fn op_deserialize<'s>(
+    scope: &mut v8::PinScope<'s, '_>,
     data: Vec<u8>,
-) -> anyhow::Result<v8::Local<'a, v8::Value>> {
+) -> anyhow::Result<v8::Local<'s, v8::Value>> {
     let serialize_deserialize = Box::new(SerializeDeserialize {
         host_object_brand: None,
     });

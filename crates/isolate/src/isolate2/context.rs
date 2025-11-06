@@ -7,6 +7,8 @@ use anyhow::{
 use common::types::UdfType;
 use deno_core::v8::{
     self,
+    scope,
+    scope_with_context,
 };
 use sync_types::CanonicalizedUdfPath;
 use value::ConvexArray;
@@ -38,60 +40,54 @@ pub struct Context {
 impl Context {
     pub fn new(session: &mut Session, environment: Box<dyn Environment>) -> anyhow::Result<Self> {
         let context = {
-            let context =
-                v8::Context::new(&mut session.handle_scope, v8::ContextOptions::default());
-
-            let mut handle_scope = v8::HandleScope::new(&mut session.handle_scope);
-            let mut scope = v8::ContextScope::new(&mut handle_scope, context);
+            scope!(let handle_scope, session.isolate);
+            let context = v8::Context::new(handle_scope, v8::ContextOptions::default());
+            let mut scope = v8::ContextScope::new(handle_scope, context);
 
             let state = ContextState::new(environment);
             // TODO: this uses isolate-global slots, ideally it should use context-keyed
             // slots
             scope.set_slot(state);
 
-            let global = context.global(&mut scope);
-            let convex_key = strings::Convex.create(&mut scope)?;
+            let global = context.global(&scope);
+            let convex_key = strings::Convex.create(&scope)?;
             let convex_value: v8::Local<v8::Object> = global
-                .get(&mut scope, convex_key.into())
+                .get(&scope, convex_key.into())
                 .context("Missing global.Convex")?
                 .try_into()
                 .context("Wrong type of global.Convex")?;
 
-            let syscall_template = v8::FunctionTemplate::new(&mut scope, CallbackContext::syscall);
+            let syscall_template = v8::FunctionTemplate::new(&scope, CallbackContext::syscall);
             let syscall_value = syscall_template
-                .get_function(&mut scope)
+                .get_function(&scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-            let syscall_key = strings::syscall.create(&mut scope)?;
-            convex_value.set(&mut scope, syscall_key.into(), syscall_value.into());
+            let syscall_key = strings::syscall.create(&scope)?;
+            convex_value.set(&scope, syscall_key.into(), syscall_value.into());
 
             let async_syscall_template =
-                v8::FunctionTemplate::new(&mut scope, CallbackContext::async_syscall);
+                v8::FunctionTemplate::new(&scope, CallbackContext::async_syscall);
             let async_syscall_value = async_syscall_template
-                .get_function(&mut scope)
+                .get_function(&scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-            let async_syscall_key = strings::asyncSyscall.create(&mut scope)?;
-            convex_value.set(
-                &mut scope,
-                async_syscall_key.into(),
-                async_syscall_value.into(),
-            );
+            let async_syscall_key = strings::asyncSyscall.create(&scope)?;
+            convex_value.set(&scope, async_syscall_key.into(), async_syscall_value.into());
 
-            let op_template = v8::FunctionTemplate::new(&mut scope, CallbackContext::op);
+            let op_template = v8::FunctionTemplate::new(&scope, CallbackContext::op);
             let op_value = op_template
-                .get_function(&mut scope)
+                .get_function(&scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-            let op_key = strings::op.create(&mut scope)?;
-            convex_value.set(&mut scope, op_key.into(), op_value.into());
+            let op_key = strings::op.create(&scope)?;
+            convex_value.set(&scope, op_key.into(), op_value.into());
 
             let async_op_template =
-                v8::FunctionTemplate::new(&mut scope, CallbackContext::start_async_op);
+                v8::FunctionTemplate::new(&scope, CallbackContext::start_async_op);
             let async_op_value = async_op_template
-                .get_function(&mut scope)
+                .get_function(&scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-            let async_op_key = strings::asyncOp.create(&mut scope)?;
-            convex_value.set(&mut scope, async_op_key.into(), async_op_value.into());
+            let async_op_key = strings::asyncOp.create(&scope)?;
+            convex_value.set(&scope, async_op_key.into(), async_op_value.into());
 
-            v8::Global::new(&mut scope, context)
+            v8::Global::new(&scope, context)
         };
 
         Ok(Self {
@@ -102,10 +98,9 @@ impl Context {
     }
 
     pub fn enter<R>(&mut self, session: &mut Session, f: impl FnOnce(EnteredContext) -> R) -> R {
-        let mut handle_scope = v8::HandleScope::new(&mut session.handle_scope);
-        let context = v8::Local::new(&mut handle_scope, self.context.clone());
-        let mut scope = v8::ContextScope::new(&mut handle_scope, context);
-        let entered = EnteredContext::new(&mut scope, &session.heap_context, context);
+        scope_with_context!(let scope, session.isolate, &self.context);
+        let context = scope.get_current_context();
+        let entered = EnteredContext::new(scope, &session.heap_context, context);
         f(entered)
     }
 

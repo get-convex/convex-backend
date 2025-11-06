@@ -17,8 +17,8 @@ pub fn async_op_sleep<'b, P: OpProvider<'b>>(
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
     // NOTE: name is only used for error messages.
-    let name: String = serde_v8::from_v8(provider.scope(), args.get(1))?;
-    let mut millis: f64 = serde_v8::from_v8(provider.scope(), args.get(2))?;
+    let name: String = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
+    let mut millis: f64 = serde_v8::from_v8(&mut provider.scope(), args.get(2))?;
     if millis < 0.0 {
         millis = 0.0;
     }

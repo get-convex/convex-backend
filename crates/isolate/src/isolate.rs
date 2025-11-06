@@ -15,7 +15,10 @@ use common::{
     },
     runtime::Runtime,
 };
-use deno_core::v8;
+use deno_core::v8::{
+    self,
+    callback_scope,
+};
 use derive_more::{
     Add,
     AddAssign,
@@ -220,7 +223,7 @@ impl<RT: Runtime> Isolate<RT> {
         _module: v8::Local<v8::Module>,
         _meta: v8::Local<v8::Object>,
     ) {
-        let scope = &mut unsafe { v8::CallbackScope::new(context) };
+        callback_scope!(unsafe let scope, context);
         let message = strings::import_meta_unsupported
             .create(scope)
             .expect("Failed to create exception string");
@@ -229,7 +232,7 @@ impl<RT: Runtime> Isolate<RT> {
     }
 
     pub fn error_dynamic_import_callback<'s>(
-        scope: &mut v8::HandleScope<'s>,
+        scope: &mut v8::PinScope<'s, '_>,
         _host_defined_options: v8::Local<'s, v8::Data>,
         _resource_name: v8::Local<'s, v8::Value>,
         _specifier: v8::Local<'s, v8::String>,
@@ -257,7 +260,7 @@ impl<RT: Runtime> Isolate<RT> {
         // v8 doesn't expose whether it's empty, so we empty it ourselves.
         // TODO(CX-2874) use a different microtask queue for each context.
         self.v8_isolate.perform_microtask_checkpoint();
-        pump_message_loop(&mut self.v8_isolate);
+        pump_message_loop(&self.v8_isolate);
 
         // Isolate has not been terminated by heap overflow, system error, or timeout.
         if let Some(not_clean) = self.handle.is_not_clean() {
@@ -337,8 +340,8 @@ impl<RT: Runtime> Isolate<RT> {
         Ok((self.handle.clone(), state))
     }
 
-    pub fn handle_scope(&mut self) -> v8::HandleScope<'_, ()> {
-        v8::HandleScope::new(&mut self.v8_isolate)
+    pub fn isolate(&mut self) -> &mut v8::Isolate {
+        &mut self.v8_isolate
     }
 
     pub fn created(&self) -> &tokio::time::Instant {
@@ -364,7 +367,7 @@ impl<RT: Runtime> Drop for Isolate<RT> {
         // NotifyIsolateShutdown, so the isolate's foreground task runner is
         // going to leak. Before that happens, let's pump the message loop to at
         // least drain all the tasks from it.
-        pump_message_loop(&mut self.v8_isolate);
+        pump_message_loop(&self.v8_isolate);
     }
 }
 

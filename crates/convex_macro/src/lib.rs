@@ -1,5 +1,4 @@
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
     FnArg,
@@ -215,16 +214,27 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     let provider_ident = &first_pat_ident.ident;
 
-    let arg_parsing: TokenStream2 = inputs
+    let arg_pats: Vec<_> = inputs
+        .iter()
+        .skip(1)
+        .map(|input| {
+            let FnArg::Typed(pat) = input else {
+                panic!("input must be typed")
+            };
+            &pat.pat
+        })
+        .collect();
+    let arg_parsing: Vec<_> = inputs
         .iter()
         .enumerate()
         .skip(1)
         .map(|(idx, input)| {
             let idx = idx as i32;
+            let arg_info = format!("{ident} arg{idx}");
             let FnArg::Typed(pat) = input else {
                 panic!("input must be typed")
             };
-            let arg_info = format!("{ident} arg{idx}");
+            let ty = &pat.ty;
             // NOTE: deno has special case when pat.ty is &mut [u8].
             // While that would make some ops more efficient, it also makes them
             // unsafe because it's hard to prove that the same buffer isn't
@@ -233,13 +243,14 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             //
             // Forego all special casing and just use serde_v8.
             quote! {
-                let #pat = {
+                {
                     let __raw_arg = __args.get(#idx);
-                    ::deno_core::serde_v8::from_v8(
-                        &mut __scope,
+                    let __arg: #ty = ::deno_core::serde_v8::from_v8(
+                        __scope,
                         __raw_arg,
-                    ).context(#arg_info)?
-                };
+                    ).context(#arg_info)?;
+                    __arg
+                }
             }
         })
         .collect();
@@ -273,15 +284,17 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             __args: ::deno_core::v8::FunctionCallbackArguments,
             mut __rv: ::deno_core::v8::ReturnValue,
         ) -> ::anyhow::Result<()> {
-            let mut __scope = ::deno_core::v8::HandleScope::new(OpProvider::scope(#provider_ident));
-            #arg_parsing
-            drop(__scope);
+            #[allow(clippy::unused_unit)]
+            let ( #(#arg_pats,)*) = {
+                let mut __scope = OpProvider::scope(#provider_ident);
+                ::deno_core::v8::scope!(let __scope, &mut __scope);
+                (#(#arg_parsing,)*)
+            };
             let __result_v = (|| #output { #block })()?;
             {
-                let mut __scope = ::deno_core::v8::HandleScope::new(
-                    OpProvider::scope(#provider_ident),
-                );
-                let __value_v8 = deno_core::serde_v8::to_v8(&mut __scope, __result_v)?;
+                let mut __scope = OpProvider::scope(#provider_ident);
+                ::deno_core::v8::scope!(let __scope, &mut __scope);
+                let __value_v8 = deno_core::serde_v8::to_v8(__scope, __result_v)?;
                 __rv.set(__value_v8);
             }
             Ok(())

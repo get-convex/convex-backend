@@ -19,7 +19,10 @@ use common::{
 };
 use deno_core::{
     serde_v8,
-    v8,
+    v8::{
+        self,
+        callback_scope,
+    },
 };
 use encoding_rs::Decoder;
 use errors::{
@@ -74,11 +77,11 @@ use crate::{
 /// that's set up with our `RequestState` and `ModuleMap`. This scope lasts for
 /// the entirety of a request, where executing code may enter into potentially
 /// nested [`ExecutionScope`]s.
-pub struct RequestScope<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
+pub struct RequestScope<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
     // NB: The default type parameter to `HandleScope` indicates that it has a `Context`, so
     // this scope is attached to our request's context. The `v8::HandleScope<()>`, on
     // the other hand, does not have a currently executing context.
-    pub(crate) scope: &'a mut v8::HandleScope<'b>,
+    pub(crate) scope: &'a mut v8::PinScope<'s, 'i>,
     pub(crate) handle: IsolateHandle,
     pub(crate) _pd: PhantomData<(RT, E)>,
 }
@@ -229,10 +232,10 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
     }
 }
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT, E> {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 's, 'i, RT, E> {
     #[fastrace::trace]
     pub async fn new(
-        scope: &'a mut v8::HandleScope<'b>,
+        scope: &'a mut v8::PinScope<'s, 'i>,
         handle: IsolateHandle,
         state: RequestState<RT, E>,
         allow_dynamic_imports: bool,
@@ -260,7 +263,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) fn setup_context(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope<'_, '_>,
         state: RequestState<RT, E>,
         allow_dynamic_imports: bool,
     ) -> anyhow::Result<()> {
@@ -321,7 +324,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) fn op(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         rv: v8::ReturnValue,
     ) {
@@ -332,7 +335,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) fn async_op(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         rv: v8::ReturnValue,
     ) {
@@ -343,7 +346,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) fn syscall(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         rv: v8::ReturnValue,
     ) {
@@ -354,7 +357,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) fn async_syscall(
-        scope: &mut v8::HandleScope,
+        scope: &mut v8::PinScope,
         args: v8::FunctionCallbackArguments,
         rv: v8::ReturnValue,
     ) {
@@ -410,12 +413,14 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         scope.throw_exception(exception);
     }
 
-    pub fn scope(&mut self) -> v8::HandleScope<'_> {
-        v8::HandleScope::new(self.scope)
+    pub fn scope(&mut self) -> &mut v8::PinScope<'s, 'i> {
+        self.scope
     }
 
     /// Begin executing code within a single isolate's scope.
-    pub fn enter<'c, 'd>(v8_scope: &'c mut v8::HandleScope<'d>) -> ExecutionScope<'c, 'd, RT, E> {
+    pub fn enter<'c, 's2>(
+        v8_scope: &'c mut v8::PinScope<'s2, 'i>,
+    ) -> ExecutionScope<'c, 's2, 'i, RT, E> {
         ExecutionScope::new(v8_scope)
     }
 
@@ -487,7 +492,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
-        let scope = &mut unsafe { v8::CallbackScope::new(&message) };
+        callback_scope!(unsafe let scope, &message);
 
         match message.get_event() {
             v8::PromiseRejectEvent::PromiseRejectWithNoHandler => {
@@ -527,13 +532,13 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         }
     }
 
-    fn dynamic_import_callback<'s>(
-        scope: &mut v8::HandleScope<'s>,
-        _host_defined_options: v8::Local<'s, v8::Data>,
-        resource_name: v8::Local<'s, v8::Value>,
-        specifier: v8::Local<'s, v8::String>,
-        _import_assertions: v8::Local<'s, v8::FixedArray>,
-    ) -> Option<v8::Local<'s, v8::Promise>> {
+    fn dynamic_import_callback<'s2>(
+        scope: &mut v8::PinScope<'s2, '_>,
+        _host_defined_options: v8::Local<'s2, v8::Data>,
+        resource_name: v8::Local<'s2, v8::Value>,
+        specifier: v8::Local<'s2, v8::String>,
+        _import_assertions: v8::Local<'s2, v8::FixedArray>,
+    ) -> Option<v8::Local<'s2, v8::Promise>> {
         let r: anyhow::Result<_> = try {
             let promise_resolver = v8::PromiseResolver::new(scope)
                 .ok_or_else(|| anyhow::anyhow!("Failed to create v8::PromiseResolver"))?;
@@ -568,7 +573,9 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 }
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Drop for RequestScope<'a, 'b, RT, E> {
+impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: IsolateEnvironment<RT>> Drop
+    for RequestScope<'a, 's, 'i, RT, E>
+{
     fn drop(&mut self) {
         // Remove state from slot to stop Timeouts.
         self.take_state();

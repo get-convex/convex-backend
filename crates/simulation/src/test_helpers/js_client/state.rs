@@ -10,7 +10,10 @@ use common::{
 };
 use deno_core::{
     serde_v8,
-    v8,
+    v8::{
+        self,
+        tc_scope,
+    },
 };
 use futures::future;
 use isolate::error::extract_source_mapped_error;
@@ -89,7 +92,7 @@ pub struct JsThreadState<'a> {
 
 impl<'a> JsThreadState<'a> {
     pub fn new(
-        scope: &mut v8::HandleScope<'a>,
+        scope: &mut v8::PinScope<'a, '_>,
         server: ServerThread,
         module: v8::Local<v8::Module>,
     ) -> anyhow::Result<Self> {
@@ -137,7 +140,7 @@ impl<'a> JsThreadState<'a> {
 
     pub fn get_max_observed_timestamp(
         &self,
-        scope: &mut v8::HandleScope<'a>,
+        scope: &mut v8::PinScope<'a, '_>,
     ) -> anyhow::Result<Option<Timestamp>> {
         let Some(ts_str) =
             self.call::<_, Option<String>>(scope, self.get_max_observed_timestamp, ())?
@@ -156,7 +159,7 @@ impl<'a> JsThreadState<'a> {
         self.js_inbox.is_empty()
     }
 
-    pub fn process_js_inbox(&mut self, scope: &mut v8::HandleScope<'a>) -> anyhow::Result<()> {
+    pub fn process_js_inbox(&mut self, scope: &mut v8::PinScope<'a, '_>) -> anyhow::Result<()> {
         let messages =
             self.call::<(), Vec<JsOutgoingMessage>>(scope, self.get_outgoing_messages, ())?;
         self.js_inbox.extend(messages);
@@ -229,7 +232,7 @@ impl<'a> JsThreadState<'a> {
         Ok(())
     }
 
-    pub fn process_js_outbox(&mut self, scope: &mut v8::HandleScope<'a>) -> anyhow::Result<()> {
+    pub fn process_js_outbox(&mut self, scope: &mut v8::PinScope<'a, '_>) -> anyhow::Result<()> {
         if self.js_outbox.is_empty() {
             return Ok(());
         }
@@ -243,7 +246,7 @@ impl<'a> JsThreadState<'a> {
 
     pub fn handle_thread_request(
         &mut self,
-        scope: &mut v8::HandleScope<'a>,
+        scope: &mut v8::PinScope<'a, '_>,
         req: JsClientThreadRequest,
     ) -> anyhow::Result<()> {
         match req {
@@ -435,7 +438,7 @@ impl<'a> JsThreadState<'a> {
 
     pub fn call<Args, Returns>(
         &self,
-        scope: &mut v8::HandleScope<'a>,
+        scope: &mut v8::PinScope<'a, '_>,
         f: v8::Local<'a, v8::Function>,
         args: Args,
     ) -> anyhow::Result<Returns>
@@ -444,14 +447,16 @@ impl<'a> JsThreadState<'a> {
         Returns: Deserialize<'static>,
     {
         let args_v8 = serde_v8::to_v8(scope, args)?;
-        let mut tc_scope = v8::TryCatch::new(scope);
-        let result = f.call(&mut tc_scope, f.into(), &[args_v8]);
-        if let Some(e) = tc_scope.exception() {
-            drop(tc_scope);
+        let (result, exception);
+        {
+            tc_scope!(let tc_scope, scope);
+            result = f.call(tc_scope, f.into(), &[args_v8]);
+            exception = tc_scope.exception();
+        }
+        if let Some(e) = exception {
             let err = extract_error(scope, e)?;
             anyhow::bail!(err);
         }
-        drop(tc_scope);
         let result = result.ok_or_else(|| anyhow::anyhow!("No result"))?;
         let result: Returns = serde_v8::from_v8(scope, result)?;
         Ok(result)
@@ -521,7 +526,7 @@ impl NetworkState {
 }
 
 pub fn get_function<'a>(
-    scope: &mut v8::HandleScope<'a>,
+    scope: &v8::PinScope<'a, '_>,
     namespace: v8::Local<v8::Object>,
     name: &str,
 ) -> anyhow::Result<v8::Local<'a, v8::Function>> {
@@ -535,7 +540,7 @@ pub fn get_function<'a>(
 }
 
 pub fn extract_error<'a>(
-    scope: &mut v8::HandleScope<'a>,
+    scope: &v8::PinScope<'a, '_>,
     err: v8::Local<'a, v8::Value>,
 ) -> anyhow::Result<JsError> {
     let (message, frame_data, custom_data) = extract_source_mapped_error(scope, err)?;
