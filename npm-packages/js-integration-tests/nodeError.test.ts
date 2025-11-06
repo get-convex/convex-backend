@@ -16,5 +16,10 @@ describe("HTTPClient", () => {
     await expect(httpClient.action(api.nodeError.default)).rejects.toThrow(
       "uncaughtException: Yikes",
     );
+
+    // make sure it works a second time (IE server restarts)
+    await expect(httpClient.action(api.nodeError.default)).rejects.toThrow(
+      "uncaughtException: Yikes",
+    );
   });
 });

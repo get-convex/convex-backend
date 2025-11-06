@@ -22,7 +22,6 @@ testing = [
 
 [dependencies]
 anyhow = { workspace = true }
-async-once-cell = { workspace = true }
 async-trait = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }

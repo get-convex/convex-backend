@@ -1,11 +1,11 @@
 use std::{
     fs,
     path::PathBuf,
+    sync::Arc,
     time::Duration,
 };
 
 use anyhow::Context;
-use async_once_cell::OnceCell;
 use async_trait::async_trait;
 use common::log_lines::LogLine;
 use errors::ErrorMetadata;
@@ -23,7 +23,10 @@ use tokio::{
         Child,
         Command as TokioCommand,
     },
-    sync::mpsc,
+    sync::{
+        mpsc,
+        Mutex,
+    },
 };
 
 use crate::{
@@ -45,7 +48,7 @@ const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
 pub struct LocalNodeExecutor {
-    inner: OnceCell<InnerLocalNodeExecutor>,
+    inner: Arc<Mutex<Option<InnerLocalNodeExecutor>>>,
     config: LocalNodeExecutorConfig,
 }
 
@@ -167,7 +170,7 @@ impl InnerLocalNodeExecutor {
 impl LocalNodeExecutor {
     pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
         let executor = Self {
-            inner: OnceCell::new(),
+            inner: Arc::new(Mutex::new(None)),
             config: LocalNodeExecutorConfig {
                 node_process_timeout,
             },
@@ -225,16 +228,22 @@ impl NodeExecutor for LocalNodeExecutor {
         request: ExecutorRequest,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<InvokeResponse> {
-        let inner = self
-            .inner
-            .get_or_try_init(InnerLocalNodeExecutor::new())
-            .await
-            .context("Failed to initialize inner local node executor")?;
+        let (client, port) = {
+            let mut inner = self.inner.lock().await;
+            if inner.is_none() {
+                *inner = Some(
+                    InnerLocalNodeExecutor::new()
+                        .await
+                        .context("Failed to create inner local node executor")?,
+                )
+            }
+            let inner = inner.as_ref().unwrap();
+            (inner.client.clone(), inner.port)
+        };
         let request_json = JsonValue::try_from(request)?;
 
-        let response_result = inner
-            .client
-            .post(format!("http://127.0.0.1:{}/invoke", inner.port))
+        let response_result = client
+            .post(format!("http://127.0.0.1:{port}/invoke"))
             .json(&request_json)
             .timeout(self.config.node_process_timeout)
             .send()
@@ -269,10 +278,20 @@ impl NodeExecutor for LocalNodeExecutor {
         let stream = Box::pin(stream);
         let result = handle_node_executor_stream(log_line_sender, stream).await?;
         match result {
-            Ok(payload) => Ok(InvokeResponse {
-                response: payload,
-                aws_request_id: None,
-            }),
+            Ok(payload) => {
+                if payload
+                    .get("exitingProcess")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
+                    // Drop the server if it claims to be exiting.
+                    self.inner.lock().await.take();
+                }
+                Ok(InvokeResponse {
+                    response: payload,
+                    aws_request_id: None,
+                })
+            },
             Err(e) => Ok(e),
         }
     }

@@ -71,7 +71,6 @@ anyhow = "1"
 async-broadcast = "0.7.0"
 async-channel = "2.3.1"
 async-compression = { version = "0.4.11", features = [ "tokio", "zstd", "gzip" ] }
-async-once-cell = { version = "0.5.4" }
 async-recursion = "1.1.1"
 async-trait = "0.1"
 async_zip = { version = "0.0.17", default-features = false, features = [ "deflate", "tokio", "zstd" ] }

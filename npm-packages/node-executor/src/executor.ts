@@ -110,6 +110,7 @@ function unhandledRejectionHandler(
     syscallTrace: (globalSyscalls.getStore() as SyscallsImpl | null)
       ?.syscallTrace,
     memoryAllocatedMb: AWS_LAMBDA_FUNCTION_MEMORY_SIZE,
+    exitingProcess: true,
   };
   if (e instanceof Error) {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -223,6 +224,7 @@ export type ExecuteResponseInner =
       logLines: string[];
       udfTimeMs?: number;
       importTimeMs?: number;
+      exitingProcess: boolean;
     };
 
 export type SyscallStats = {
@@ -292,6 +294,7 @@ export async function execute(
       name: e.name,
       // Log lines should be streamed, but send an empty array for backwards compatibility
       logLines: [],
+      exitingProcess: false,
     };
   }
 
@@ -384,6 +387,7 @@ export async function executeInner(
       logLines: [],
       udfTimeMs,
       importTimeMs,
+      exitingProcess: false,
     };
   }
 
