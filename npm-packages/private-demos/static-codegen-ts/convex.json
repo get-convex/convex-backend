@@ -1,4 +1,5 @@
 {
+  "$schema": "../../convex/schemas/convex.schema.json",
   "codegen": {
     "staticApi": true,
     "staticDataModel": true,
