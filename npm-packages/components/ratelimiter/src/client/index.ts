@@ -1,8 +1,8 @@
 // This file is for thick component clients and helpers that run
 
 import { HttpRouter } from "convex/server";
-import { GenericActionCtx, PublicHttpAction } from "convex/server";
-import { httpAction } from "./ratelimiter/_generated/server.js";
+import type { GenericActionCtx, PublicHttpAction } from "convex/server";
+import { httpAction } from "../component/_generated/server.js";
 
 // A version of httpAction that typechecks when used in other components.
 type ClientHttpCtx = Omit<GenericActionCtx<any>, "vectorSearch"> & {

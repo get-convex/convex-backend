@@ -1,10 +1,17 @@
+import globals from "globals";
 import eslint from "@eslint/js";
-import tseslint from "typescript-eslint";
 import convexPlugin from "@convex-dev/eslint-plugin";
+
+import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "src/ratelimiter/_generated/**"],
+    ignores: [
+      "dist",
+      "*.config.{js,mjs,cjs,ts,tsx}",
+      "**/_generated/",
+      "node10stubs.mjs",
+    ],
   },
   eslint.configs.recommended,
   {
@@ -23,13 +30,20 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/ratelimiter/**/*.ts"],
+    files: ["src/**/*.{js,mjs,cjs,ts,tsx}"],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
         project: ["tsconfig.json"],
         tsconfigRootDir: ".",
       },
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/react/**"],
+    languageOptions: {
+      globals: globals.worker,
     },
     rules: {
       "@typescript-eslint/no-floating-promises": "error",

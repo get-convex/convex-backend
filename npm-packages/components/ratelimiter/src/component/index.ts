@@ -1,5 +1,5 @@
-import { ConvexError, Infer, v } from "convex/values";
-import { mutation, query, DatabaseReader } from "./_generated/server.js";
+import { ConvexError, type Infer, v } from "convex/values";
+import { mutation, query, type DatabaseReader } from "./_generated/server.js";
 
 const rateLimitArgs = {
   name: v.string(),
