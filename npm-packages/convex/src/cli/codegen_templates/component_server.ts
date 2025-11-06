@@ -5,7 +5,7 @@ export function componentServerTS(isRoot: boolean): string {
   ${header(
     "Generated utilities for implementing server-side Convex query and mutation functions.",
   )}
-  import {
+  import type {
     ActionBuilder,
     ${isRoot ? "AnyComponents," : ""}
     HttpActionBuilder,
@@ -16,6 +16,8 @@ export function componentServerTS(isRoot: boolean): string {
     GenericQueryCtx,
     GenericDatabaseReader,
     GenericDatabaseWriter,
+  } from "convex/server";
+  import {
     actionGeneric,
     httpActionGeneric,
     queryGeneric,

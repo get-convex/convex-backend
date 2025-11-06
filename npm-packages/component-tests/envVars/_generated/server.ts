@@ -8,7 +8,7 @@
  * @module
  */
 
-import {
+import type {
   ActionBuilder,
   HttpActionBuilder,
   MutationBuilder,
@@ -18,6 +18,8 @@ import {
   GenericQueryCtx,
   GenericDatabaseReader,
   GenericDatabaseWriter,
+} from "convex/server";
+import {
   actionGeneric,
   httpActionGeneric,
   queryGeneric,
