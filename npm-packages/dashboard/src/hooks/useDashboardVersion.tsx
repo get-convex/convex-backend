@@ -5,12 +5,14 @@ import { Button } from "@ui/Button";
 import { SymbolIcon } from "@radix-ui/react-icons";
 import { captureMessage } from "@sentry/nextjs";
 import { LocalDevCallout } from "@common/elements/LocalDevCallout";
+import { useLaunchDarkly } from "./useLaunchDarkly";
 
 // To test that this works
 // set the following in your .env.local:
 // NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA=<SHA_THAT_ISN'T_THE_LATEST>
 // VERCEL_TOKEN=<VERCEL_ACCESS_TOKEN>
 export function useDashboardVersion() {
+  const { enableNewDashboardVersionNotification } = useLaunchDarkly();
   const { data, error } = useSWR<{ sha?: string | null }>("/api/version", {
     // Refresh every hour.
     refreshInterval: 1000 * 60 * 60,
@@ -18,10 +20,17 @@ export function useDashboardVersion() {
     focusThrottleInterval: 1000 * 60 * 10,
     shouldRetryOnError: false,
     fetcher: dashboardVersionFetcher,
+    isPaused: () => !enableNewDashboardVersionNotification,
   });
 
   const currentSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
-  if (!error && data?.sha && currentSha && data?.sha !== currentSha) {
+  if (
+    enableNewDashboardVersionNotification &&
+    !error &&
+    data?.sha &&
+    currentSha &&
+    data?.sha !== currentSha
+  ) {
     toast(
       "info",
       <div className="flex flex-col">

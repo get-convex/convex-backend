@@ -6,11 +6,13 @@ const flagDefaults: {
   commandPaletteDeleteProjects: boolean;
   singleSignOn: boolean;
   workOsEnvironmentProvisioningDashboardUi: boolean;
+  enableNewDashboardVersionNotification: boolean;
 } = {
   commandPalette: false,
   commandPaletteDeleteProjects: false,
   singleSignOn: false,
   workOsEnvironmentProvisioningDashboardUi: false,
+  enableNewDashboardVersionNotification: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {
