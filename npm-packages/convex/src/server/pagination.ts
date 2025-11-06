@@ -1,4 +1,6 @@
 import { v } from "../values/validator.js";
+import type { Validator } from "../values/validators.js";
+import type { Value } from "../values/value.js";
 
 /**
  * An opaque identifier used for paginating a database query.
@@ -136,3 +138,41 @@ export const paginationOptsValidator = v.object({
   maximumRowsRead: v.optional(v.number()),
   maximumBytesRead: v.optional(v.number()),
 });
+
+/**
+ * A {@link values.Validator} factory for {@link PaginationResult}.
+ *
+ * Create a validator for the result of calling {@link OrderedQuery.paginate}
+ * with a given item validator.
+ *
+ * For example:
+ * ```ts
+ * const paginationResultValidator = paginationResultValidator(v.object({
+ *   _id: v.id("users"),
+ *   _creationTime: v.number(),
+ *   name: v.string(),
+ * }));
+ * ```
+ *
+ * @param itemValidator - A validator for the items in the page
+ * @returns A validator for the pagination result
+ *
+ * @public
+ */
+export function paginationResultValidator<
+  T extends Validator<Value, "required", string>,
+>(itemValidator: T) {
+  return v.object({
+    page: v.array(itemValidator),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
+    pageStatus: v.optional(
+      v.union(
+        v.literal("SplitRecommended"),
+        v.literal("SplitRequired"),
+        v.null(),
+      ),
+    ),
+  });
+}
