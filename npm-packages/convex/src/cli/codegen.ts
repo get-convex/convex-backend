@@ -5,7 +5,7 @@ import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 export const codegen = new Command("codegen")
   .summary("Generate backend type definitions")
   .description(
-    "Generate types in `convex/_generated/` based on the current contents of `convex/`.",
+    "Generate code in `convex/_generated/` based on the current contents of `convex/`.",
   )
   .allowExcessArguments(false)
   .option(
@@ -37,6 +37,10 @@ export const codegen = new Command("codegen")
   )
   // Only for doing codegen on system UDFs
   .addOption(new Option("--system-udfs").hideHelp())
+  .option(
+    "--component-dir <path>",
+    "Generate code for a specific component directory instead of the current application.",
+  )
   .action(async (options) => {
     const ctx = await oneoffContext(options);
     const deploymentSelection = await getDeploymentSelection(ctx, options);
@@ -52,5 +56,6 @@ export const codegen = new Command("codegen")
       liveComponentSources: !!options.liveComponentSources,
       debugNodeApis: false,
       systemUdfs: !!options.systemUdfs,
+      codegenOnlyThisComponent: options.componentDir,
     });
   });

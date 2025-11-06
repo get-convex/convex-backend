@@ -37,12 +37,40 @@ const VIRTUAL_CONFIG_CONTENTS = `import { defineApp } from "convex/server";\ncon
  *
  * This allows us to use the components push path even when the Convex project doesn't
  * have a config file defined.
+ *
+ * When importComponentPath is provided, the virtual config will import and use the
+ * component found at that path.
  */
 function virtualConfig({
   rootComponentDirectory,
+  importComponentPath,
 }: {
   rootComponentDirectory: ComponentDirectory;
+  importComponentPath?: string;
 }): Plugin {
+  // Empty config with no components
+  let contents = VIRTUAL_CONFIG_CONTENTS;
+
+  if (importComponentPath) {
+    // Generate config that imports the specified component
+    const relativeImport = path.relative(
+      rootComponentDirectory.path,
+      importComponentPath,
+    );
+    let normalizedImport = relativeImport
+      .replace(/\\/g, "/")
+      .replace(/\.ts$/, ".js");
+
+    // We don't generate code for this synthetic root component so the name we
+    // use for the component doesn't matter.
+    contents = `import { defineApp } from "convex/server";
+import component from "${normalizedImport}";
+
+const app = defineApp();
+app.use(component, { name: "exampleComponentInstance" });
+export default app;`;
+  }
+
   return {
     name: `convex-virtual-config`,
     async setup(build) {
@@ -54,8 +82,8 @@ function virtualConfig({
         { filter, namespace: VIRTUAL_CONFIG_NAMESPACE },
         async (_args) => {
           return {
-            contents: VIRTUAL_CONFIG_CONTENTS,
-            resolveDir: path.dirname(rootComponentDirectory.path),
+            contents,
+            resolveDir: rootComponentDirectory.path,
           };
         },
       );
@@ -99,8 +127,11 @@ function componentPlugin({
       // "convex.config", "convex.config.js", "convex.config.ts", etc.
       build.onResolve({ filter: /.*convex.config.*/ }, async (args) => {
         verbose && logMessage("esbuild resolving import:", args);
-        if (args.namespace !== "file") {
-          verbose && logMessage("  Not a file.");
+        if (
+          args.namespace !== "file" &&
+          args.namespace !== VIRTUAL_CONFIG_NAMESPACE
+        ) {
+          verbose && logMessage("  Not a file or virtual config.");
           return;
         }
         if (args.kind === "entry-point") {
@@ -252,7 +283,10 @@ export async function componentGraph(
   components: Map<string, ComponentDirectory>;
   dependencyGraph: [ComponentDirectory, ComponentDirectory][];
 }> {
-  if (rootComponentDirectory.isRootWithoutConfig) {
+  if (
+    rootComponentDirectory.isRootWithoutConfig &&
+    !rootComponentDirectory.syntheticComponentImport
+  ) {
     return {
       components: new Map([
         [rootComponentDirectory.path, rootComponentDirectory],
@@ -272,6 +306,15 @@ export async function componentGraph(
           verbose,
           rootComponentDirectory,
         }),
+        ...(rootComponentDirectory.syntheticComponentImport
+          ? [
+              virtualConfig({
+                rootComponentDirectory,
+                importComponentPath:
+                  rootComponentDirectory.syntheticComponentImport,
+              }),
+            ]
+          : []),
       ],
       sourcemap: "external",
       sourcesContent: false,
@@ -298,6 +341,17 @@ export async function componentGraph(
   for (const warning of result.warnings) {
     logWarning(chalk.yellow(`esbuild warning: ${warning.text}`));
   }
+
+  if (rootComponentDirectory.syntheticComponentImport) {
+    // Virtual configs appear in the metafile with a namespace prefix
+    // and can't have ComponentDirectory objects built by reading the filesystem
+    // so swap in this rootComponentDirectory.
+    return await findComponentDependencies(ctx, result.metafile, {
+      [`${VIRTUAL_CONFIG_NAMESPACE}:${qualifiedDefinitionPath(rootComponentDirectory)}`]:
+        rootComponentDirectory,
+    });
+  }
+
   return await findComponentDependencies(ctx, result.metafile);
 }
 
@@ -326,43 +380,58 @@ export function getDeps(
  * This doesn't work on just any esbuild metafile because it assumes input
  * imports have not been transformed. We run it on the metafile produced by
  * the esbuild invocation that uses the component plugin in "discover" mode.
+ *
+ * @param inputOverrides - ComponentDirectory objects to be used for metafile.inputs
+ * keys, in case they don't exist (namely virtual configs via esbuild plugin namespaces).
  */
 async function findComponentDependencies(
   ctx: Context,
   metafile: Metafile,
+  inputOverrides: Record<string, ComponentDirectory> = {},
 ): Promise<{
   components: Map<string, ComponentDirectory>;
   dependencyGraph: [ComponentDirectory, ComponentDirectory][];
 }> {
   const { inputs } = metafile;
-  // This filter means we only supports *direct imports* of component definitions
-  // from other component definitions.
-  const componentInputs = Object.keys(inputs).filter((path) =>
-    path.includes(".config."),
-  );
 
-  // Absolute path doesn't appear to be necessary here since only inputs marked
-  // external get transformed to an absolute path but it's not clear what's an
-  // esbuild implementation detail in the metafile or which settings change this.
-  const componentsByAbsPath = new Map<string, ComponentDirectory>();
-  for (const inputPath of componentInputs) {
-    const importer = await buildComponentDirectory(ctx, inputPath);
-    componentsByAbsPath.set(path.resolve(inputPath), importer);
+  const componentsByKey = new Map<string, ComponentDirectory>();
+  for (const inputPath of Object.keys(inputs)) {
+    if (!inputPath.includes(".config.")) continue;
+
+    const override: ComponentDirectory | undefined = inputOverrides[inputPath];
+    if (override) {
+      componentsByKey.set(inputPath, override);
+    } else {
+      // Normal component - build from filesystem
+      const component = await buildComponentDirectory(ctx, inputPath);
+      componentsByKey.set(path.resolve(inputPath), component);
+    }
   }
+
   const dependencyGraph: [ComponentDirectory, ComponentDirectory][] = [];
-  for (const inputPath of componentInputs) {
-    const importer = componentsByAbsPath.get(path.resolve(inputPath))!;
+
+  for (const inputPath of Object.keys(inputs)) {
+    if (!inputPath.includes(".config.")) continue;
+
+    // For overridden inputs, use the original key; for normal components, use resolved path
+    const importerKey =
+      inputPath in inputOverrides ? inputPath : path.resolve(inputPath);
+
+    const importer = componentsByKey.get(importerKey);
+    if (!importer) continue;
+
     const { imports } = inputs[inputPath];
     const componentImports = imports.filter((imp) =>
       imp.path.includes(".config."),
     );
+
     for (const imp of componentImports) {
-      const imported = componentsByAbsPath.get(path.resolve(imp.path));
+      const imported = componentsByKey.get(path.resolve(imp.path));
       if (!imported) {
         return await ctx.crash({
           exitCode: 1,
           errorType: "invalid filesystem data",
-          printedMessage: `Didn't find ${path.resolve(imp.path)} in ${[...componentsByAbsPath.keys()].toString()}`,
+          printedMessage: `Didn't find ${path.resolve(imp.path)} in ${[...componentsByKey.keys()].toString()}`,
         });
       }
 
@@ -383,9 +452,10 @@ async function findComponentDependencies(
   }
 
   const components = new Map<string, ComponentDirectory>();
-  for (const directory of componentsByAbsPath.values()) {
+  for (const directory of componentsByKey.values()) {
     components.set(directory.path, directory);
   }
+
   return { components, dependencyGraph };
 }
 
@@ -417,8 +487,22 @@ export async function bundleDefinitions(
         rootComponentDirectory,
       }),
     ];
-    if (rootComponentDirectory.isRootWithoutConfig) {
-      plugins.push(virtualConfig({ rootComponentDirectory }));
+    if (
+      rootComponentDirectory.syntheticComponentImport ||
+      rootComponentDirectory.isRootWithoutConfig
+    ) {
+      // Use virtual config (either with a component import or empty)
+      plugins.push(
+        virtualConfig(
+          rootComponentDirectory.syntheticComponentImport
+            ? {
+                rootComponentDirectory,
+                importComponentPath:
+                  rootComponentDirectory.syntheticComponentImport,
+              }
+            : { rootComponentDirectory },
+        ),
+      );
     }
     result = await esbuild.build({
       absWorkingDir,
@@ -556,8 +640,13 @@ export async function bundleImplementations(
   let appImplementation;
   const componentImplementations = [];
 
-  let isRoot = true;
-  for (const directory of [rootComponentDirectory, ...componentDirectories]) {
+  // For --component-dir flag, skip bundling root implementations (no real code to bundle)
+  const directoriesToBundle = rootComponentDirectory.syntheticComponentImport
+    ? componentDirectories
+    : [rootComponentDirectory, ...componentDirectories];
+
+  for (const directory of directoriesToBundle) {
+    const isRoot = directory.path === rootComponentDirectory.path;
     const resolvedPath = path.resolve(
       rootComponentDirectory.path,
       directory.path,
@@ -665,15 +754,23 @@ export async function bundleImplementations(
       );
       componentImplementations.push({ definitionPath, schema, functions });
     }
-    isRoot = false;
   }
 
   if (!appImplementation) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: "No app implementation found",
-    });
+    // For --component-dir flag, we don't bundle root implementations so provide an empty one
+    if (rootComponentDirectory.syntheticComponentImport) {
+      appImplementation = {
+        schema: null,
+        functions: [],
+        externalNodeDependencies: [],
+      };
+    } else {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "No app implementation found",
+      });
+    }
   }
 
   return { appImplementation, componentImplementations };

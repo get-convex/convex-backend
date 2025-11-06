@@ -55,6 +55,7 @@ export type CodegenOptions = {
   liveComponentSources: boolean;
   debugNodeApis: boolean;
   systemUdfs: boolean;
+  codegenOnlyThisComponent?: string | undefined;
 };
 
 export async function doCodegenForNewProject(ctx: Context) {
@@ -104,6 +105,7 @@ async function prepareForCodegen(
   return codegenDir;
 }
 
+/** Codegen only for an application (a root component) */
 export async function doCodegen(
   ctx: Context,
   functionsDir: string,

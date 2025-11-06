@@ -45,6 +45,12 @@ export type ComponentDirectory = {
    * This is undefined for components discovered through the filesystem (not through imports).
    */
   importSpecifier?: string;
+
+  /**
+   * For synthetic configs (used with --component-dir flag), the path to the component
+   * that should be imported in the virtual convex.config.ts.
+   */
+  syntheticComponentImport?: string;
 };
 
 /**

@@ -128,7 +128,7 @@ export async function runCodegen(
         url: credentials.url,
         adminKey: credentials.adminKey,
         generateCommonJSApi: options.commonjs,
-        verbose: options.dryRun,
+        verbose: !!process.env.CONVEX_VERBOSE,
         codegen: true,
         liveComponentSources: options.liveComponentSources,
         typecheckComponents: false,
@@ -182,6 +182,7 @@ async function startComponentsPushAndCodegen(
     codegen: boolean;
     liveComponentSources?: boolean;
     debugNodeApis: boolean;
+    codegenOnlyThisComponent?: string | undefined;
   },
 ): Promise<StartPushResponse | null> {
   const convexDir = await getFunctionsDirectoryPath(ctx);
@@ -201,7 +202,34 @@ async function startComponentsPushAndCodegen(
       printedMessage: `Invalid component root directory (${isComponent.why}): ${convexDir}`,
     });
   }
-  const rootComponent = isComponent.component;
+
+  let rootComponent = isComponent.component;
+  if (options.codegenOnlyThisComponent) {
+    const absolutePath = path.resolve(options.codegenOnlyThisComponent);
+    let componentConfigPath: string;
+
+    // Must be a directory containing a convex.config.ts
+    componentConfigPath = path.join(absolutePath, DEFINITION_FILENAME_TS);
+    if (!ctx.fs.exists(componentConfigPath)) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Only directories with convex.config.ts files are supported, this directory does not: ${absolutePath}`,
+      });
+    }
+
+    const syntheticConfigPath = path.join(
+      rootComponent.path,
+      DEFINITION_FILENAME_TS,
+    );
+    rootComponent = {
+      isRoot: true,
+      path: rootComponent.path,
+      definitionPath: syntheticConfigPath,
+      isRootWithoutConfig: false,
+      syntheticComponentImport: componentConfigPath,
+    };
+  }
 
   changeSpinner("Finding component definitions...");
   // Create a list of relevant component directories. These are just for knowing
@@ -226,8 +254,22 @@ async function startComponentsPushAndCodegen(
     changeSpinner("Generating server code...");
     await parentSpan.enterAsync("doInitialComponentCodegen", () =>
       withTmpDir(async (tmpDir) => {
-        await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
+        // Skip the root in component cases
+        if (!rootComponent.syntheticComponentImport) {
+          // Do root first so if a component fails, we'll at least have a working root.
+          await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
+        }
         for (const directory of components.values()) {
+          if (directory.isRoot) {
+            continue;
+          }
+          // When --component-dir is used, only generate code for the target component
+          if (
+            rootComponent.syntheticComponentImport &&
+            directory.definitionPath !== rootComponent.syntheticComponentImport
+          ) {
+            continue;
+          }
           await doInitialComponentCodegen(ctx, tmpDir, directory, options);
         }
       }),
@@ -248,6 +290,7 @@ async function startComponentsPushAndCodegen(
       // Note that this *includes* the root component.
       [...components.values()],
       !!options.liveComponentSources,
+      options.verbose,
     ),
   );
 
@@ -265,7 +308,8 @@ async function startComponentsPushAndCodegen(
       bundleImplementations(
         ctx,
         rootComponent,
-        [...components.values()],
+        // When running codegen for a specific component, don't bundle the root.
+        [...components.values()].filter((dir) => !dir.syntheticComponentImport),
         projectConfig.node.externalPackages,
         options.liveComponentSources ? ["@convex-dev/component-source"] : [],
         options.verbose,
@@ -349,16 +393,31 @@ async function startComponentsPushAndCodegen(
     changeSpinner("Generating TypeScript bindings...");
     await parentSpan.enterAsync("doFinalComponentCodegen", () =>
       withTmpDir(async (tmpDir) => {
-        await doFinalComponentCodegen(
-          ctx,
-          tmpDir,
-          rootComponent,
-          rootComponent,
-          startPushResponse,
-          components,
-          options,
-        );
+        // TODO generating code for the root component last might be better DX
+        // When running codegen for a specific component, don't generate types for the root
+        if (!rootComponent.syntheticComponentImport) {
+          // Do the root first
+          await doFinalComponentCodegen(
+            ctx,
+            tmpDir,
+            rootComponent,
+            rootComponent,
+            startPushResponse,
+            components,
+            options,
+          );
+        }
         for (const directory of components.values()) {
+          if (directory.isRoot) {
+            continue;
+          }
+          // When --component-dir is used, only generate code for the target component
+          if (
+            rootComponent.syntheticComponentImport &&
+            directory.definitionPath !== rootComponent.syntheticComponentImport
+          ) {
+            continue;
+          }
           await doFinalComponentCodegen(
             ctx,
             tmpDir,
@@ -375,9 +434,33 @@ async function startComponentsPushAndCodegen(
 
   changeSpinner("Running TypeScript...");
   await parentSpan.enterAsync("typeCheckFunctionsInMode", async () => {
-    await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
+    // When running codegen for a specific component, don't typecheck the root
+    if (!rootComponent.syntheticComponentImport) {
+      await typeCheckFunctionsInMode(
+        ctx,
+        options.typecheck,
+        rootComponent.path,
+      );
+    }
     if (options.typecheckComponents) {
       for (const directory of components.values()) {
+        if (!directory.isRoot) {
+          await typeCheckFunctionsInMode(
+            ctx,
+            options.typecheck,
+            directory.path,
+          );
+        }
+      }
+    } else if (rootComponent.syntheticComponentImport) {
+      // When running codegen for a specific component, only typecheck that component.
+      for (const directory of components.values()) {
+        if (
+          directory.isRoot ||
+          directory.definitionPath !== rootComponent.syntheticComponentImport
+        ) {
+          continue;
+        }
         await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
       }
     }
