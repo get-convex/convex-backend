@@ -73,6 +73,7 @@ Object.defineProperty(consoleImpl, Symbol.toStringTag, {
   value: "console",
   enumerable: false,
   writable: false,
+  configurable: true,
 });
 export function setupConsole(global) {
   // Delete v8's console since it doesn't go anywhere. We'll eventually want to mirror our console
@@ -81,5 +82,7 @@ export function setupConsole(global) {
   Object.defineProperty(global, "console", {
     value: consoleImpl,
     enumerable: false,
+    writable: true,
+    configurable: true,
   });
 }
