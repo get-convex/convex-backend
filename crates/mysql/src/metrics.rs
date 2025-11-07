@@ -1,4 +1,7 @@
-use common::pool_stats::ConnectionPoolStats;
+use common::{
+    persistence::PersistenceGlobalKey,
+    pool_stats::ConnectionPoolStats,
+};
 use metrics::{
     log_counter_with_labels,
     log_distribution,
@@ -24,14 +27,22 @@ fn cluster_name_label(cluster_name: &str) -> StaticMetricLabel {
     StaticMetricLabel::new("cluster_name", cluster_name.to_owned())
 }
 
+fn persistence_global_key_label(key: PersistenceGlobalKey) -> StaticMetricLabel {
+    StaticMetricLabel::new("key", String::from(key))
+}
+
 register_convex_histogram!(
     MYSQL_WRITE_PERSISTENCE_GLOBAL_SECONDS,
     "Time to write persistence global",
-    &[STATUS_LABEL[0], "cluster_name"]
+    &[STATUS_LABEL[0], "cluster_name", "key"]
 );
-pub fn write_persistence_global_timer(cluster_name: &str) -> StatusTimer {
+pub fn write_persistence_global_timer(
+    cluster_name: &str,
+    key: PersistenceGlobalKey,
+) -> StatusTimer {
     let mut timer = StatusTimer::new(&MYSQL_WRITE_PERSISTENCE_GLOBAL_SECONDS);
     timer.add_label(cluster_name_label(cluster_name));
+    timer.add_label(persistence_global_key_label(key));
     timer
 }
 

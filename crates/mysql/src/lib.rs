@@ -501,7 +501,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         key: PersistenceGlobalKey,
         value: JsonValue,
     ) -> anyhow::Result<()> {
-        let timer = write_persistence_global_timer(self.read_pool.cluster_name());
+        let timer = write_persistence_global_timer(self.read_pool.cluster_name(), key);
         let multitenant = self.multitenant;
         let instance_name = mysql_async::Value::from(&self.instance_name.raw);
         self.lease
