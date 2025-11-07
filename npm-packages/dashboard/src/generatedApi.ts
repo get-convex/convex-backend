@@ -1853,6 +1853,7 @@ export interface components {
             /** Format: int64 */
             expirationTime: number;
             id: components["schemas"]["CloudBackupId"];
+            includeStorage: boolean;
             /** Format: int64 */
             requestedTime: number;
             snapshotId?: string | null;
@@ -1864,6 +1865,7 @@ export interface components {
             cronspec: string;
             /** Format: int64 */
             expirationDeltaSecs?: number | null;
+            includeStorage?: boolean | null;
         };
         CreateInvitationArgs: {
             email: string;
@@ -2148,6 +2150,7 @@ export interface components {
             cronspec: string;
             /** Format: int64 */
             expirationDeltaSecs: number;
+            includeStorage: boolean;
             /** Format: int64 */
             nextRun: number;
             sourceDeploymentId: components["schemas"]["DeploymentId"];
@@ -2243,6 +2246,9 @@ export interface components {
             /** @description Authentication token is expected to be the access token from WorkOS */
             accessToken: string;
             newName: components["schemas"]["DeviceName"];
+        };
+        RequestCloudBackupArgs: {
+            includeStorage: boolean;
         };
         /** @enum {string} */
         RequestDestination: "convexCloud" | "convexSite";
@@ -2583,6 +2589,7 @@ export type ReferralState = components['schemas']['ReferralState'];
 export type RegisterOauthAppArgs = components['schemas']['RegisterOauthAppArgs'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs'];
+export type RequestCloudBackupArgs = components['schemas']['RequestCloudBackupArgs'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
@@ -3466,7 +3473,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RequestCloudBackupArgs"];
+            };
+        };
         responses: {
             200: {
                 headers: {

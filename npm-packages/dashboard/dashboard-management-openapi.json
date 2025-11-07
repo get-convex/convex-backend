@@ -1004,6 +1004,15 @@
             "required": true
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestCloudBackupArgs"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -3578,7 +3587,8 @@
           "sourceDeploymentName",
           "expirationTime",
           "state",
-          "requestedTime"
+          "requestedTime",
+          "includeStorage"
         ],
         "properties": {
           "expirationTime": {
@@ -3587,6 +3597,9 @@
           },
           "id": {
             "$ref": "#/components/schemas/CloudBackupId"
+          },
+          "includeStorage": {
+            "type": "boolean"
           },
           "requestedTime": {
             "type": "integer",
@@ -3625,6 +3638,12 @@
             ],
             "format": "int64",
             "minimum": 0
+          },
+          "includeStorage": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       },
@@ -4757,7 +4776,8 @@
           "sourceDeploymentId",
           "cronspec",
           "expirationDeltaSecs",
-          "nextRun"
+          "nextRun",
+          "includeStorage"
         ],
         "properties": {
           "cronspec": {
@@ -4767,6 +4787,9 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "includeStorage": {
+            "type": "boolean"
           },
           "nextRun": {
             "type": "integer",
@@ -5122,6 +5145,17 @@
           }
         },
         "additionalProperties": false
+      },
+      "RequestCloudBackupArgs": {
+        "type": "object",
+        "required": [
+          "includeStorage"
+        ],
+        "properties": {
+          "includeStorage": {
+            "type": "boolean"
+          }
+        }
       },
       "RequestDestination": {
         "type": "string",

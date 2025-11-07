@@ -22,6 +22,7 @@ const backup: BackupResponse = {
   state: "complete",
   requestedTime: +now,
   expirationTime: +inOneWeek,
+  includeStorage: true,
 };
 
 const targetDeployment: DeploymentResponse = {
