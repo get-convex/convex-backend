@@ -1,7 +1,11 @@
-use std::time::Instant;
+use std::{
+    future,
+    time::Instant,
+};
 
 use axum::{
     extract::{
+        FromRef,
         FromRequest,
         FromRequestParts,
         Request,
@@ -15,9 +19,10 @@ use axum::{
 use bytes::Bytes;
 use errors::ErrorMetadata;
 use fastrace::{
-    future::FutureExt,
+    future::FutureExt as _,
     Span,
 };
+use futures::TryFutureExt as _;
 use http::HeaderMap;
 use serde::{
     de::DeserializeOwned,
@@ -143,5 +148,42 @@ where
 {
     fn into_response(self) -> Response {
         axum::Json(self.0).into_response()
+    }
+}
+
+/// Like `axum::extract::State`, but customizable
+pub struct MtState<T>(pub T);
+
+impl<S, T> FromRequestParts<S> for MtState<T>
+where
+    T: FromMtState<S>,
+    S: Send + Sync,
+{
+    type Rejection = HttpResponseError;
+
+    fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        T::from_request_parts(parts, state).map_ok(MtState)
+    }
+}
+
+pub trait FromMtState<Outer>: Sized {
+    fn from_request_parts(
+        parts: &mut Parts,
+        state: &Outer,
+    ) -> impl Future<Output = Result<Self, HttpResponseError>> + Send;
+}
+
+impl<Outer, T: FromRef<Outer>> FromMtState<Outer> for T
+where
+    T: Send + Sync,
+{
+    fn from_request_parts(
+        _parts: &mut Parts,
+        state: &Outer,
+    ) -> impl Future<Output = Result<Self, HttpResponseError>> + Send {
+        future::ready(Ok(T::from_ref(state)))
     }
 }

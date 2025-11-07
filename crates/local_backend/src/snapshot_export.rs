@@ -3,8 +3,6 @@ use std::time::Duration;
 use anyhow::Context;
 use axum::{
     body::Body,
-    debug_handler,
-    extract::State,
     response::IntoResponse,
 };
 use axum_extra::{
@@ -19,6 +17,7 @@ use common::{
     http::{
         extract::{
             Json,
+            MtState,
             Path,
             Query,
         },
@@ -61,7 +60,7 @@ pub struct RequestZipExport {
 
 #[fastrace::trace]
 pub async fn request_zip_export(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(RequestZipExport {
         include_storage,
@@ -88,9 +87,8 @@ pub struct ZipExportRequest {
     id: String,
 }
 
-#[debug_handler]
 pub async fn get_zip_export(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Path(ZipExportRequest { id }): Path<ZipExportRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -129,10 +127,9 @@ pub struct SetExportExpirationPathArgs {
     snapshot_id: String,
 }
 
-#[debug_handler]
 #[fastrace::trace]
 pub async fn set_export_expiration(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
     Json(SetExportExpirationRequest { expiration_ts_ns }): Json<SetExportExpirationRequest>,
@@ -154,10 +151,9 @@ pub async fn set_export_expiration(
     Ok(StatusCode::OK)
 }
 
-#[debug_handler]
 #[fastrace::trace]
 pub async fn cancel_export(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Path(SetExportExpirationPathArgs { snapshot_id }): Path<SetExportExpirationPathArgs>,
 ) -> Result<StatusCode, HttpResponseError> {

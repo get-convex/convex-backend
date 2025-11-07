@@ -4,11 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use axum::{
-    debug_handler,
-    extract::State,
-    response::IntoResponse,
-};
+use axum::response::IntoResponse;
 use common::{
     bootstrap_model::schema::SchemaState,
     components::{
@@ -22,6 +18,7 @@ use common::{
     http::{
         extract::{
             Json,
+            MtState,
             Query,
         },
         HttpResponseError,
@@ -89,17 +86,16 @@ use crate::{
 
 #[fastrace::trace]
 pub async fn document_deltas_get(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Query(args): Query<DocumentDeltasArgs>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     _document_deltas(st, args, identity).await
 }
 
-#[debug_handler]
 #[fastrace::trace]
 pub async fn document_deltas_post(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<DocumentDeltasArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -172,17 +168,16 @@ pub async fn _document_deltas(
 
 #[fastrace::trace]
 pub async fn list_snapshot_get(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Query(query_args): Query<ListSnapshotArgs>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     _list_snapshot(st, query_args, identity).await
 }
 
-#[debug_handler]
 #[fastrace::trace]
 pub async fn list_snapshot_post(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<ListSnapshotArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -274,7 +269,7 @@ async fn _list_snapshot(
 
 /// Confirms that streaming export is enabled
 pub async fn test_streaming_export_connection(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
@@ -292,7 +287,7 @@ pub async fn test_streaming_export_connection(
 /// TODO(nicolas): Remove this endpoint (replaced by
 /// get_table_column_names)
 pub async fn get_tables_and_columns(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
@@ -325,7 +320,7 @@ pub async fn get_tables_and_columns(
 /// It’s ok for the list of columns to be incomplete since Fivetran can handle
 /// extra fields during an export.
 pub async fn get_table_column_names(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
@@ -425,7 +420,7 @@ pub struct JsonSchemaArgs {
 /// component, { "waitlist": { "users": { "type": "object", "properties": { ...
 /// } } } }
 pub async fn json_schemas(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Query(query_args): Query<JsonSchemaArgs>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {

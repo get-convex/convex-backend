@@ -22,7 +22,10 @@ use common::{
     },
     bootstrap_model::components::definition::SerializedComponentDefinitionMetadata,
     http::{
-        extract::Json,
+        extract::{
+            Json,
+            MtState,
+        },
         HttpResponseError,
     },
 };
@@ -226,9 +229,8 @@ pub async fn start_push(
 // it won’t start schema validation/index backfill). It can be used to determine
 // what will be the effects of a large push without starting work that can take
 // a long time on large instances.
-#[debug_handler]
 pub async fn evaluate_push(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Json(req): Json<StartPushRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let _identity = must_be_admin_from_key_with_write_access(
@@ -258,9 +260,8 @@ pub struct WaitForSchemaRequest {
     timeout_ms: Option<u32>,
 }
 
-#[debug_handler]
 pub async fn wait_for_schema(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Json(req): Json<WaitForSchemaRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let identity = must_be_admin_from_key(
@@ -289,9 +290,8 @@ pub struct FinishPushRequest {
     dry_run: bool,
 }
 
-#[debug_handler]
 pub async fn finish_push(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Json(req): Json<FinishPushRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let identity = must_be_admin_from_key_with_write_access(

@@ -5,17 +5,16 @@ use application::{
 };
 use axum::{
     debug_handler,
-    extract::{
-        FromRef,
-        State,
-    },
+    extract::State,
     response::IntoResponse,
 };
 use common::{
     components::ComponentId,
     http::{
         extract::{
+            FromMtState,
             Json,
+            MtState,
             Query,
         },
         ExtractClientVersion,
@@ -94,9 +93,8 @@ pub struct ShapesArgs {
     ),
     responses((status = 200, body = serde_json::Value)),
 )]
-#[debug_handler]
 pub async fn shapes2(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(ShapesArgs { component }): Query<ShapesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -136,9 +134,8 @@ pub async fn shapes2(
     request_body = DeleteTableArgs,
     responses((status = 200)),
 )]
-#[debug_handler]
 pub async fn delete_tables(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(DeleteTableArgs {
         table_names,
@@ -168,9 +165,8 @@ pub async fn delete_tables(
     request_body = DeleteComponentArgs,
     responses((status = 200)),
 )]
-#[debug_handler]
 pub async fn delete_component(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(DeleteComponentArgs { component_id }): Json<DeleteComponentArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -206,9 +202,8 @@ struct GetIndexesResponse {
     ),
     responses((status = 200, body = GetIndexesResponse)),
 )]
-#[debug_handler]
 pub async fn get_indexes(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(GetIndexesArgs { component_id }): Query<GetIndexesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -245,9 +240,8 @@ pub struct GetSourceCodeArgs {
     ),
     responses((status = 200, body = String)),
 )]
-#[debug_handler]
 pub async fn get_source_code(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(GetSourceCodeArgs { path, component }): Query<GetSourceCodeArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -351,7 +345,7 @@ pub fn local_only_dashboard_router() -> OpenApiRouter<crate::LocalAppState> {
 // Routes with the same handlers for the local backend + closed source backend
 pub fn common_dashboard_api_router<S>() -> OpenApiRouter<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     OpenApiRouter::new()

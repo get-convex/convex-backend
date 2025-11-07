@@ -15,16 +15,15 @@ use application::{
     },
     valid_identifier::ValidIdentifier,
 };
-use axum::{
-    debug_handler,
-    extract::State,
-    response::IntoResponse,
-};
+use axum::response::IntoResponse;
 use common::{
     self,
     components::ComponentPath,
     http::{
-        extract::Json,
+        extract::{
+            Json,
+            MtState,
+        },
         HttpResponseError,
     },
     schemas::json::DatabaseSchemaJson,
@@ -63,9 +62,8 @@ pub struct AirbyteImportArgs {
     messages: Vec<AirbyteRecordMessage>,
 }
 
-#[debug_handler]
 pub async fn import_airbyte_records(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(AirbyteImportArgs { tables, messages }): Json<AirbyteImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -84,9 +82,8 @@ pub async fn import_airbyte_records(
     Ok(StatusCode::OK)
 }
 
-#[debug_handler]
 pub async fn apply_fivetran_operations(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(rows): Json<Vec<BatchWriteRow>>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -99,9 +96,8 @@ pub async fn apply_fivetran_operations(
     Ok(StatusCode::OK)
 }
 
-#[debug_handler]
 pub async fn get_schema(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
@@ -115,9 +111,8 @@ pub async fn get_schema(
     }))
 }
 
-#[debug_handler]
 pub async fn fivetran_create_table(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(CreateTableArgs { table_definition }): Json<CreateTableArgs>,
 ) -> Result<StatusCode, HttpResponseError> {
@@ -136,9 +131,8 @@ pub struct ClearTableArgs {
     table_names: Vec<String>,
 }
 
-#[debug_handler]
 pub async fn clear_tables(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(ClearTableArgs { table_names }): Json<ClearTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -169,9 +163,8 @@ pub async fn clear_tables(
 /// In any case, we use the index that the user created on `fivetran.synced`
 /// (and `fivetran.deleted` when using soft deletes) to efficiently find the
 /// rows to delete.
-#[debug_handler]
 pub async fn fivetran_truncate_table(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(TruncateTableArgs {
         table_name,
@@ -204,9 +197,8 @@ pub struct ReplaceTableArgs {
     _table_names: BTreeMap<String, String>,
 }
 
-#[debug_handler]
 pub async fn replace_tables(
-    State(_st): State<LocalAppState>,
+    MtState(_st): MtState<LocalAppState>,
     ExtractIdentity(_identity): ExtractIdentity,
     Json(ReplaceTableArgs { _table_names: _ }): Json<ReplaceTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -227,9 +219,8 @@ pub struct AddIndexesArgs {
     indexes: BTreeMap<String, Vec<Vec<String>>>,
 }
 
-#[debug_handler]
 pub async fn add_primary_key_indexes(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(AddIndexesArgs { indexes }): Json<AddIndexesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -265,9 +256,8 @@ pub struct IndexesReadyResponse {
     indexes_ready: bool,
 }
 
-#[debug_handler]
 pub async fn primary_key_indexes_ready(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(IndexesReadyArgs { tables }): Json<IndexesReadyArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {

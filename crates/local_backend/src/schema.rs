@@ -33,6 +33,7 @@ use common::{
     http::{
         extract::{
             Json,
+            MtState,
             Path,
         },
         HttpResponseError,
@@ -349,7 +350,7 @@ impl From<SchemaState> for SchemaStateJson {
 
 /// Gets the current state of the indexes and schema.
 pub async fn schema_state(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Path(schema_id): Path<String>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {

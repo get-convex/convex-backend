@@ -7,8 +7,6 @@ use application::snapshot_import::{
 };
 use axum::{
     body::Body,
-    debug_handler,
-    extract::State,
     response::IntoResponse,
 };
 use common::{
@@ -16,6 +14,7 @@ use common::{
     http::{
         extract::{
             Json,
+            MtState,
             Query,
         },
         HttpResponseError,
@@ -127,7 +126,7 @@ fn parse_format_arg(
 }
 
 pub async fn import(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(ImportQueryArgs {
         table_name,
@@ -163,7 +162,7 @@ pub struct StartUploadResponse {
 }
 
 pub async fn import_start_upload(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
@@ -176,9 +175,8 @@ pub async fn import_start_upload(
     }))
 }
 
-#[debug_handler]
 pub async fn import_upload_part(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(ImportUploadPartArgs {
         upload_token,
@@ -215,7 +213,7 @@ pub struct ImportFinishUploadResponse {
 }
 
 pub async fn import_finish_upload(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(ImportFinishUploadArgs {
         import:
@@ -258,7 +256,7 @@ pub struct PerformImportArgs {
 }
 
 pub async fn perform_import(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(PerformImportArgs { import_id }): Json<PerformImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -278,7 +276,7 @@ pub struct CancelImportArgs {
 }
 
 pub async fn cancel_import(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(CancelImportArgs { import_id }): Json<CancelImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {

@@ -6,7 +6,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::http::{
-    extract::Json,
+    extract::{
+        Json,
+        MtState,
+    },
     HttpResponseError,
     RequestDestination,
 };
@@ -111,7 +114,7 @@ pub struct GetCanonicalUrlsResponse {
     ),
 )]
 pub async fn get_canonical_urls(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin(&identity)?;

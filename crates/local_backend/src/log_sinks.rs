@@ -1,12 +1,11 @@
 use anyhow::Context;
-use axum::{
-    debug_handler,
-    extract::State,
-    response::IntoResponse,
-};
+use axum::response::IntoResponse;
 use common::{
     http::{
-        extract::Json,
+        extract::{
+            Json,
+            MtState,
+        },
         HttpResponseError,
     },
     knobs::AXIOM_MAX_ATTRIBUTES,
@@ -69,9 +68,8 @@ impl TryFrom<DatadogSinkPostArgs> for DatadogConfig {
     }
 }
 
-#[debug_handler]
 pub async fn add_datadog_sink(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<DatadogSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -111,9 +109,8 @@ impl TryFrom<WebhookSinkPostArgs> for WebhookConfig {
     }
 }
 
-#[debug_handler]
 pub async fn add_webhook_sink(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<WebhookSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -158,9 +155,8 @@ impl TryFrom<AxiomSinkPostArgs> for AxiomConfig {
     }
 }
 
-#[debug_handler]
 pub async fn add_axiom_sink(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<AxiomSinkPostArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -183,9 +179,8 @@ pub async fn add_axiom_sink(
     Ok(StatusCode::OK)
 }
 
-#[debug_handler]
 pub async fn add_sentry_sink(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(args): Json<SerializedSentryConfig>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -205,9 +200,8 @@ pub struct LogSinkDeleteArgs {
     sink_type: SinkType,
 }
 
-#[debug_handler]
 pub async fn delete_log_sink(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Json(LogSinkDeleteArgs { sink_type }): Json<LogSinkDeleteArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {

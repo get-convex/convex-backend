@@ -7,7 +7,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::http::{
-    extract::Json,
+    extract::{
+        Json,
+        MtState,
+    },
     HttpResponseError,
 };
 use http::StatusCode;
@@ -134,7 +137,7 @@ pub struct ListEnvVarsResponse {
     ),
 )]
 pub async fn list_environment_variables(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin(&identity)?;

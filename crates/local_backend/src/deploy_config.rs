@@ -16,7 +16,10 @@ use axum::{
 use common::{
     components::ComponentId,
     http::{
-        extract::Json,
+        extract::{
+            Json,
+            MtState,
+        },
         HttpResponseError,
     },
     version::Version,
@@ -182,9 +185,8 @@ pub struct ModuleHashJson {
     environment: Option<String>,
 }
 
-#[debug_handler]
 pub async fn get_config(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Json(req): Json<GetConfigRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let identity = must_be_admin_from_key(
@@ -212,9 +214,8 @@ pub async fn get_config(
     }))
 }
 
-#[debug_handler]
 pub async fn get_config_hashes(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     Json(req): Json<GetConfigRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let identity = must_be_admin_from_key(

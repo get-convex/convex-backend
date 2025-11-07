@@ -9,7 +9,6 @@ use axum::{
     extract::{
         DefaultBodyLimit,
         FromRef,
-        State,
     },
     routing::{
         delete,
@@ -20,7 +19,13 @@ use axum::{
     Router,
 };
 use common::{
-    http::cli_cors,
+    http::{
+        cli_cors,
+        extract::{
+            FromMtState,
+            MtState,
+        },
+    },
     knobs::{
         AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT,
         MAX_BACKEND_RPC_REQUEST_SIZE,
@@ -271,17 +276,6 @@ struct PublicApiDoc;
 )]
 struct DashboardApiDoc;
 
-pub async fn add_extension<S, B>(
-    State(st): State<S>,
-    mut request: http::Request<B>,
-) -> http::Request<B>
-where
-    S: Clone + Send + Sync + 'static,
-{
-    request.extensions_mut().insert(st);
-    request
-}
-
 pub fn router(st: LocalAppState) -> Router {
     let browser_routes = Router::new()
         // Called by the browser (and optionally authenticated by a cookie or `Authorization`
@@ -371,13 +365,7 @@ pub fn router(st: LocalAppState) -> Router {
         .merge(cli_routes)
         .merge(dashboard_routes)
         .merge(streaming_export_routes())
-        .nest(
-            "/actions",
-            action_callback_routes().layer(axum::middleware::map_request_with_state(
-                st.clone(),
-                add_extension::<LocalAppState, _>,
-            )),
-        )
+        .nest("/actions", action_callback_routes(st.clone()))
         .nest("/export", snapshot_export_routes)
         .nest("/logs", log_sink_routes())
         .nest("/streaming_import", streaming_import_routes())
@@ -443,9 +431,9 @@ pub fn storage_api_routes() -> Router<RouterState> {
 // IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
 // such as adding or removing a route, or changing limits, also need to be
 // applied to `crates_private/usher/src/proxy.rs`.
-pub fn action_callback_routes<S>() -> Router<S>
+pub fn action_callback_routes<S>(state: S) -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Send + Sync + Clone + 'static,
 {
     Router::new()
@@ -463,12 +451,12 @@ where
         .route("/storage_delete", post(storage_delete))
         // All routes above this line get the increased limit
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_RPC_REQUEST_SIZE))
-        .layer(axum::middleware::from_fn(action_callbacks_middleware))
+        .layer(axum::middleware::from_fn_with_state(state, action_callbacks_middleware::<S>))
 }
 
 pub fn import_routes<S>() -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     Router::new()
@@ -489,7 +477,7 @@ pub fn http_action_routes() -> Router<RouterState> {
 
 pub fn app_metrics_routes<S>() -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     Router::new()
@@ -510,7 +498,7 @@ where
 // Routes with the same handlers for the local backend + closed source backend
 pub fn common_dashboard_routes<S>() -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     let (dashboard_routes_from_openapi, _dashboard_openapi_spec) =
@@ -525,13 +513,13 @@ where
 
 pub fn health_check_routes<S>(version: String) -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     Router::new()
         .route(
             "/instance_name",
-            get(|State(st): State<LocalAppState>| async move { st.instance_name.clone() }),
+            get(|MtState(st): MtState<LocalAppState>| async move { st.instance_name.clone() }),
         )
         .route("/instance_version", get(|| async move { version }))
         .route(
@@ -552,7 +540,7 @@ where
 // applied to `crates_private/usher/src/proxy.rs`.
 pub fn streaming_import_routes<S>() -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     Router::new()
@@ -580,7 +568,7 @@ where
 // applied to `crates_private/usher/src/proxy.rs`.
 pub fn streaming_export_routes<S>() -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     Router::new()
@@ -602,7 +590,7 @@ where
 // applied to `crates_private/usher/src/proxy.rs`.
 pub fn log_sink_routes<S>() -> Router<S>
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Clone + Send + Sync + 'static,
 {
     Router::new()

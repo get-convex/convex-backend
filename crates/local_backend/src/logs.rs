@@ -6,14 +6,12 @@ use application::function_log::{
     FunctionExecutionPart,
     UdfParams,
 };
-use axum::{
-    extract::State,
-    response::IntoResponse,
-};
+use axum::response::IntoResponse;
 use common::{
     http::{
         extract::{
             Json,
+            MtState,
             Query,
         },
         ExtractClientVersion,
@@ -38,7 +36,7 @@ use crate::{
 };
 
 pub async fn stream_udf_execution(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Query(query_args): Query<StreamUdfExecutionQueryArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -80,7 +78,7 @@ pub async fn stream_udf_execution(
 // If (session_id, client_request_counter) is provided, the results will be
 // filtered to events from the root execution of the corresponding request.
 pub async fn stream_function_logs(
-    State(st): State<LocalAppState>,
+    MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Query(query_args): Query<StreamFunctionLogs>,

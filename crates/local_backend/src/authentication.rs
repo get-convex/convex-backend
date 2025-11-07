@@ -7,15 +7,15 @@ use anyhow::{
 };
 use authentication::extract_bearer_token;
 use axum::{
-    extract::{
-        FromRef,
-        FromRequestParts,
-    },
+    extract::FromRequestParts,
     RequestPartsExt,
 };
 use common::{
     http::{
-        extract::Query,
+        extract::{
+            FromMtState,
+            Query,
+        },
         ExtractRequestId,
         ExtractResolvedHostname,
         HttpResponseError,
@@ -105,7 +105,7 @@ pub struct ExtractIdentity(pub Identity);
 
 impl<S> FromRequestParts<S> for ExtractIdentity
 where
-    LocalAppState: FromRef<S>,
+    LocalAppState: FromMtState<S>,
     S: Send + Sync + Clone + 'static,
 {
     type Rejection = HttpResponseError;
@@ -116,7 +116,7 @@ where
     ) -> Result<Self, Self::Rejection> {
         let token: AuthenticationToken =
             parts.extract::<ExtractAuthenticationToken>().await?.into();
-        let st = LocalAppState::from_ref(st);
+        let st = LocalAppState::from_request_parts(parts, st).await?;
 
         Ok(Self(
             st.application
