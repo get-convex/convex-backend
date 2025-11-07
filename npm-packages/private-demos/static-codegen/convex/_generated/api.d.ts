@@ -43,15 +43,10 @@ export declare const api: {
     m: FunctionReference<
       "mutation",
       "public",
-      { branded: string; id: Id<"empty"> },
-      string
+      { branded: string },
+      { _creationTime: number; _id: Id<"empty"> } | null
     >;
-    q: FunctionReference<
-      "query",
-      "public",
-      { branded: string; id: Id<"empty"> },
-      { _creationTime: number; _id: Id<"empty"> } | string
-    >;
+    q: FunctionReference<"query", "public", { branded: string }, string>;
   };
 };
 
@@ -205,6 +200,23 @@ export declare const components: {
         { text: string },
         any
       >;
+    };
+  };
+  staticComponent: {
+    staticFunctions: {
+      a: FunctionReference<
+        "action",
+        "internal",
+        { branded: string; id: string },
+        string
+      >;
+      m: FunctionReference<
+        "mutation",
+        "internal",
+        { branded: string },
+        { _creationTime: number; _id: string } | null
+      >;
+      q: FunctionReference<"query", "internal", { branded: string }, string>;
     };
   };
 };
