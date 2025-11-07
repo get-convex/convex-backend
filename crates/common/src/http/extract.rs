@@ -8,6 +8,7 @@ use axum::{
         FromRef,
         FromRequest,
         FromRequestParts,
+        OptionalFromRequest,
         Request,
     },
     http::request::Parts,
@@ -125,6 +126,37 @@ where
                 .0
         };
         Ok(Self(t))
+    }
+}
+
+impl<S, T> OptionalFromRequest<S> for Json<T>
+where
+    T: DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = HttpResponseError;
+
+    async fn from_request(req: Request, state: &S) -> Result<Option<Self>, Self::Rejection> {
+        if !json_content_type(req.headers()) {
+            return Ok(None);
+        }
+        let bytes = Bytes::from_request(req, state)
+            .in_span(Span::enter_with_local_parent("buffering_body"))
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(ErrorMetadata::bad_request("BadJsonBody", e.body_text()))
+            })?;
+
+        let t = {
+            let _span = Span::enter_with_local_parent("parse_json");
+            #[allow(clippy::disallowed_types)]
+            axum::Json::<T>::from_bytes(&bytes)
+                .map_err(|e| {
+                    anyhow::anyhow!(ErrorMetadata::bad_request("BadJsonBody", e.body_text()))
+                })?
+                .0
+        };
+        Ok(Some(Self(t)))
     }
 }
 
