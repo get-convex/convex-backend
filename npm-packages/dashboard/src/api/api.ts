@@ -171,13 +171,15 @@ export function useBBMutation<
   const mutate = useMutate();
   const googleAnalyticsId = getGoogleAnalyticsClientId(document.cookie);
 
+  type RequestBody = RequestBodyOption<BigBrainPaths[T][Method]>["body"];
+
   return useCallback(
     async (
-      ...body: RequestBodyOption<
-        BigBrainPaths[T][Method]
-      >["body"] extends undefined
-        ? []
-        : [RequestBodyOption<BigBrainPaths[T][Method]>["body"]]
+      ...body: undefined extends RequestBody
+        ? RequestBody extends undefined
+          ? [] // the endpoint does not accept a request body
+          : [] | [RequestBody] // the request body is optional
+        : [RequestBody] // the request body is required
     ): Promise<
       FetchResponse<BigBrainPaths[T], any, "application/json">["data"]
     > => {
