@@ -379,6 +379,10 @@
       "projectFolder": "private-demos/components-npm"
     },
     {
+      "packageName": "components-ts-alias",
+      "projectFolder": "private-demos/components-ts-alias"
+    },
+    {
       "packageName": "@convex-dev/ratelimiter",
       "projectFolder": "components/ratelimiter"
     },

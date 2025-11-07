@@ -952,7 +952,7 @@ importers:
         version: 1.3.2(react@18.3.1)
       '@sentry/nextjs':
         specifier: 7.120.4
-        version: 7.120.4(encoding@0.1.13)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+        version: 7.120.4(encoding@0.1.13)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@stripe/react-stripe-js':
         specifier: ~2.9.0
         version: 2.9.0(@stripe/stripe-js@3.5.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1064,7 +1064,7 @@ importers:
         version: 29.6.3
       '@storybook/nextjs':
         specifier: ^9.1.2
-        version: 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+        version: 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(babel-plugin-macros@3.1.0)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@tailwindcss/forms':
         specifier: ^0.5.10
         version: 0.5.10(tailwindcss@4.1.11)
@@ -1124,7 +1124,7 @@ importers:
         version: 6.21.0(eslint@8.57.1)(typescript@5.9.2)
       babel-loader:
         specifier: ^8.2.5
-        version: 8.4.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+        version: 8.4.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       chalk:
         specifier: '5'
         version: 5.4.1
@@ -1178,7 +1178,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
+        version: 0.9.13(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
       next-themes:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1214,7 +1214,7 @@ importers:
         version: 46.1.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(encoding@0.1.13)(rollup@2.79.2)
       webpack:
         specifier: ^5.99.9
-        version: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
+        version: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
 
   ../../dashboard-common:
     dependencies:
@@ -1389,7 +1389,7 @@ importers:
         version: 29.6.3
       '@storybook/nextjs':
         specifier: ^9.1.2
-        version: 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+        version: 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       '@tailwindcss/forms':
         specifier: ^0.5.10
         version: 0.5.10(tailwindcss@4.1.11)
@@ -1500,7 +1500,7 @@ importers:
         version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       next-router-mock:
         specifier: ~0.9.11
-        version: 0.9.13(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
+        version: 0.9.13(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -3809,6 +3809,31 @@ importers:
         version: 5.9.2
 
   ../../private-demos/components-poc:
+    dependencies:
+      '@convex-dev/ratelimiter':
+        specifier: workspace:*
+        version: link:../../components/ratelimiter
+      '@convex-dev/triggers':
+        specifier: workspace:*
+        version: link:../../components/triggers
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+      convex-helpers:
+        specifier: ^0.1.104
+        version: 0.1.104(convex@..+convex)(hono@4.7.2)(react@19.0.0)(typescript@5.0.4)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.70
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+
+  ../../private-demos/components-ts-alias:
     dependencies:
       '@convex-dev/ratelimiter':
         specifier: workspace:*
@@ -31181,23 +31206,7 @@ snapshots:
       playwright: 1.49.1
     optional: true
 
-  '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
-    dependencies:
-      ansi-html: 0.0.9
-      core-js-pure: 3.40.0
-      error-stack-parser: 2.1.4
-      html-entities: 2.5.2
-      loader-utils: 2.0.4
-      react-refresh: 0.14.2
-      schema-utils: 4.3.2
-      source-map: 0.7.4
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
-    optionalDependencies:
-      type-fest: 4.41.0
-      webpack-dev-server: 5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      webpack-hot-middleware: 2.26.1
-
-  '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
+  '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
     dependencies:
       ansi-html: 0.0.9
       core-js-pure: 3.40.0
@@ -31210,7 +31219,23 @@ snapshots:
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
     optionalDependencies:
       type-fest: 4.41.0
-      webpack-dev-server: 5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+      webpack-dev-server: 5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+      webpack-hot-middleware: 2.26.1
+
+  '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
+    dependencies:
+      ansi-html: 0.0.9
+      core-js-pure: 3.40.0
+      error-stack-parser: 2.1.4
+      html-entities: 2.5.2
+      loader-utils: 2.0.4
+      react-refresh: 0.14.2
+      schema-utils: 4.3.2
+      source-map: 0.7.4
+      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
+    optionalDependencies:
+      type-fest: 4.41.0
+      webpack-dev-server: 5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       webpack-hot-middleware: 2.26.1
 
   '@pnpm/config.env-replace@1.1.0': {}
@@ -31906,7 +31931,7 @@ snapshots:
       '@sentry/utils': 7.120.4
       localforage: 1.10.0
 
-  '@sentry/nextjs@7.120.4(encoding@0.1.13)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
+  '@sentry/nextjs@7.120.4(encoding@0.1.13)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
     dependencies:
       '@rollup/plugin-commonjs': 24.0.0(rollup@2.79.2)
       '@sentry/core': 7.120.4
@@ -31924,7 +31949,7 @@ snapshots:
       rollup: 2.79.2
       stacktrace-parser: 0.1.10
     optionalDependencies:
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
+      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -32726,9 +32751,9 @@ snapshots:
       ts-dedent: 2.2.0
       vite: 6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
 
-  '@storybook/builder-webpack5@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)':
+  '@storybook/builder-webpack5@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(typescript@5.9.2)':
     dependencies:
-      '@storybook/core-webpack': 9.1.2(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))
+      '@storybook/core-webpack': 9.1.2(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))
       case-sensitive-paths-webpack-plugin: 2.4.0
       cjs-module-lexer: 1.4.1
       css-loader: 6.11.0(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
@@ -32736,39 +32761,12 @@ snapshots:
       fork-ts-checker-webpack-plugin: 8.0.0(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       html-webpack-plugin: 5.6.3(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       magic-string: 0.30.17
-      storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
+      storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       style-loader: 3.3.4(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       terser-webpack-plugin: 5.3.11(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       ts-dedent: 2.2.0
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
       webpack-dev-middleware: 6.1.3(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      webpack-hot-middleware: 2.26.1
-      webpack-virtual-modules: 0.6.2
-    optionalDependencies:
-      typescript: 5.9.2
-    transitivePeerDependencies:
-      - '@rspack/core'
-      - '@swc/core'
-      - esbuild
-      - uglify-js
-      - webpack-cli
-
-  '@storybook/builder-webpack5@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(typescript@5.9.2)':
-    dependencies:
-      '@storybook/core-webpack': 9.1.2(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))
-      case-sensitive-paths-webpack-plugin: 2.4.0
-      cjs-module-lexer: 1.4.1
-      css-loader: 6.11.0(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      es-module-lexer: 1.7.0
-      fork-ts-checker-webpack-plugin: 8.0.0(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      html-webpack-plugin: 5.6.3(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      magic-string: 0.30.17
-      storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10)
-      style-loader: 3.3.4(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      terser-webpack-plugin: 5.3.11(@swc/core@1.10.4(@swc/helpers@0.5.15))(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      ts-dedent: 2.2.0
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
-      webpack-dev-middleware: 6.1.3(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       webpack-hot-middleware: 2.26.1
       webpack-virtual-modules: 0.6.2
     optionalDependencies:
@@ -32903,9 +32901,9 @@ snapshots:
       '@babel/preset-react': 7.26.3(@babel/core@7.27.1)
       '@babel/preset-typescript': 7.26.0(@babel/core@7.27.1)
       '@babel/runtime': 7.27.1
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@storybook/builder-webpack5': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)
-      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(typescript@5.9.2)
+      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)
       '@storybook/react': 9.1.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(typescript@5.9.2)
       '@types/semver': 7.5.8
       babel-loader: 9.2.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
@@ -32948,67 +32946,7 @@ snapshots:
       - webpack-hot-middleware
       - webpack-plugin-serve
 
-  '@storybook/nextjs@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
-    dependencies:
-      '@babel/core': 7.27.1
-      '@babel/plugin-syntax-bigint': 7.8.3(@babel/core@7.27.1)
-      '@babel/plugin-syntax-dynamic-import': 7.8.3(@babel/core@7.27.1)
-      '@babel/plugin-syntax-import-assertions': 7.27.1(@babel/core@7.27.1)
-      '@babel/plugin-transform-class-properties': 7.27.1(@babel/core@7.27.1)
-      '@babel/plugin-transform-export-namespace-from': 7.27.1(@babel/core@7.27.1)
-      '@babel/plugin-transform-numeric-separator': 7.27.1(@babel/core@7.27.1)
-      '@babel/plugin-transform-object-rest-spread': 7.27.2(@babel/core@7.27.1)
-      '@babel/plugin-transform-runtime': 7.25.9(@babel/core@7.27.1)
-      '@babel/preset-env': 7.27.2(@babel/core@7.27.1)
-      '@babel/preset-react': 7.26.3(@babel/core@7.27.1)
-      '@babel/preset-typescript': 7.26.0(@babel/core@7.27.1)
-      '@babel/runtime': 7.27.1
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      '@storybook/builder-webpack5': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)
-      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)
-      '@storybook/react': 9.1.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(typescript@5.9.2)
-      '@types/semver': 7.5.8
-      babel-loader: 9.2.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      css-loader: 6.11.0(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      image-size: 2.0.2
-      loader-utils: 3.3.1
-      next: 14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)
-      node-polyfill-webpack-plugin: 2.0.1(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      postcss: 8.5.6
-      postcss-loader: 8.1.1(postcss@8.5.6)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      react-refresh: 0.14.2
-      resolve-url-loader: 5.0.0
-      sass-loader: 16.0.5(sass@1.89.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      semver: 7.7.2
-      storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
-      style-loader: 3.3.4(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      styled-jsx: 5.1.6(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react@18.3.1)
-      tsconfig-paths: 4.2.0
-      tsconfig-paths-webpack-plugin: 4.2.0
-    optionalDependencies:
-      typescript: 5.9.2
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
-    transitivePeerDependencies:
-      - '@rspack/core'
-      - '@swc/core'
-      - '@types/webpack'
-      - babel-plugin-macros
-      - esbuild
-      - node-sass
-      - sass
-      - sass-embedded
-      - sockjs-client
-      - supports-color
-      - type-fest
-      - uglify-js
-      - webpack-cli
-      - webpack-dev-server
-      - webpack-hot-middleware
-      - webpack-plugin-serve
-
-  '@storybook/nextjs@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
+  '@storybook/nextjs@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(type-fest@4.41.0)(typescript@5.9.2)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
     dependencies:
       '@babel/core': 7.27.1(supports-color@10.0.0)
       '@babel/plugin-syntax-bigint': 7.8.3(@babel/core@7.27.1(supports-color@10.0.0))
@@ -33023,33 +32961,33 @@ snapshots:
       '@babel/preset-react': 7.26.3(@babel/core@7.27.1(supports-color@10.0.0))(supports-color@10.0.0)
       '@babel/preset-typescript': 7.26.0(@babel/core@7.27.1(supports-color@10.0.0))(supports-color@10.0.0)
       '@babel/runtime': 7.27.1
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      '@storybook/builder-webpack5': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(typescript@5.9.2)
-      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(typescript@5.9.2)
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+      '@storybook/builder-webpack5': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(typescript@5.9.2)
+      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(typescript@5.9.2)
       '@storybook/react': 9.1.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(typescript@5.9.2)
       '@types/semver': 7.5.8
-      babel-loader: 9.2.1(@babel/core@7.27.1(supports-color@10.0.0))(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      css-loader: 6.11.0(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      babel-loader: 9.2.1(@babel/core@7.27.1(supports-color@10.0.0))(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
+      css-loader: 6.11.0(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       image-size: 2.0.2
       loader-utils: 3.3.1
       next: 14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)
-      node-polyfill-webpack-plugin: 2.0.1(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      node-polyfill-webpack-plugin: 2.0.1(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       postcss: 8.5.6
-      postcss-loader: 8.1.1(postcss@8.5.6)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      postcss-loader: 8.1.1(postcss@8.5.6)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       react-refresh: 0.14.2
       resolve-url-loader: 5.0.0
-      sass-loader: 16.0.5(sass@1.89.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      sass-loader: 16.0.5(sass@1.89.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       semver: 7.7.2
       storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10)
-      style-loader: 3.3.4(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      style-loader: 3.3.4(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       styled-jsx: 5.1.6(@babel/core@7.27.1(supports-color@10.0.0))(react@18.3.1)
       tsconfig-paths: 4.2.0
       tsconfig-paths-webpack-plugin: 4.2.0
     optionalDependencies:
       typescript: 5.9.2
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
+      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
     transitivePeerDependencies:
       - '@rspack/core'
       - '@swc/core'
@@ -33083,9 +33021,9 @@ snapshots:
       '@babel/preset-react': 7.26.3(@babel/core@7.27.1)
       '@babel/preset-typescript': 7.26.0(@babel/core@7.27.1)
       '@babel/runtime': 7.27.1
-      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(react-refresh@0.14.2)(type-fest@4.41.0)(webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@storybook/builder-webpack5': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)
-      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(typescript@5.9.2)
+      '@storybook/preset-react-webpack': 9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)
       '@storybook/react': 9.1.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(typescript@5.9.2)
       '@types/semver': 7.5.8
       babel-loader: 9.2.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
@@ -33128,34 +33066,10 @@ snapshots:
       - webpack-hot-middleware
       - webpack-plugin-serve
 
-  '@storybook/preset-react-webpack@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)':
-    dependencies:
-      '@storybook/core-webpack': 9.1.2(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))
-      '@storybook/react-docgen-typescript-plugin': 1.0.6--canary.9.0c3f3b7.0(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
-      '@types/semver': 7.5.8
-      find-up: 7.0.0
-      magic-string: 0.30.17
-      react: 18.3.1
-      react-docgen: 7.1.1
-      react-dom: 18.3.1(react@18.3.1)
-      resolve: 1.22.10
-      semver: 7.7.2
-      storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0))
-      tsconfig-paths: 4.2.0
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
-    optionalDependencies:
-      typescript: 5.9.2
-    transitivePeerDependencies:
-      - '@swc/core'
-      - esbuild
-      - supports-color
-      - uglify-js
-      - webpack-cli
-
-  '@storybook/preset-react-webpack@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(typescript@5.9.2)':
+  '@storybook/preset-react-webpack@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))(supports-color@10.0.0)(typescript@5.9.2)':
     dependencies:
       '@storybook/core-webpack': 9.1.2(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10))
-      '@storybook/react-docgen-typescript-plugin': 1.0.6--canary.9.0c3f3b7.0(supports-color@10.0.0)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      '@storybook/react-docgen-typescript-plugin': 1.0.6--canary.9.0c3f3b7.0(supports-color@10.0.0)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))
       '@types/semver': 7.5.8
       find-up: 7.0.0
       magic-string: 0.30.17
@@ -33166,7 +33080,7 @@ snapshots:
       semver: 7.7.2
       storybook: 9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(supports-color@10.0.0)(utf-8-validate@5.0.10)
       tsconfig-paths: 4.2.0
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
+      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
     optionalDependencies:
       typescript: 5.9.2
     transitivePeerDependencies:
@@ -33176,10 +33090,10 @@ snapshots:
       - uglify-js
       - webpack-cli
 
-  '@storybook/preset-react-webpack@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))(typescript@5.9.2)':
+  '@storybook/preset-react-webpack@9.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10))(typescript@5.9.2)':
     dependencies:
       '@storybook/core-webpack': 9.1.2(storybook@9.1.2(@testing-library/dom@10.4.0)(bufferutil@4.0.9)(prettier@3.6.2)(utf-8-validate@5.0.10)(vite@6.4.1(@types/node@22.10.5)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)))
-      '@storybook/react-docgen-typescript-plugin': 1.0.6--canary.9.0c3f3b7.0(supports-color@10.0.0)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      '@storybook/react-docgen-typescript-plugin': 1.0.6--canary.9.0c3f3b7.0(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@types/semver': 7.5.8
       find-up: 7.0.0
       magic-string: 0.30.17
@@ -33200,21 +33114,7 @@ snapshots:
       - uglify-js
       - webpack-cli
 
-  '@storybook/react-docgen-typescript-plugin@1.0.6--canary.9.0c3f3b7.0(supports-color@10.0.0)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
-    dependencies:
-      debug: 4.4.1(supports-color@10.0.0)
-      endent: 2.1.0
-      find-cache-dir: 3.3.2
-      flat-cache: 3.2.0
-      micromatch: 4.0.8
-      react-docgen-typescript: 2.2.2(typescript@5.9.2)
-      tslib: 2.8.1
-      typescript: 5.9.2
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
-    transitivePeerDependencies:
-      - supports-color
-
-  '@storybook/react-docgen-typescript-plugin@1.0.6--canary.9.0c3f3b7.0(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
+  '@storybook/react-docgen-typescript-plugin@1.0.6--canary.9.0c3f3b7.0(supports-color@10.0.0)(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4))':
     dependencies:
       debug: 4.4.1(supports-color@10.0.0)
       endent: 2.1.0
@@ -33225,6 +33125,20 @@ snapshots:
       tslib: 2.8.1
       typescript: 5.9.2
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@storybook/react-docgen-typescript-plugin@1.0.6--canary.9.0c3f3b7.0(typescript@5.9.2)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
+    dependencies:
+      debug: 4.4.1(supports-color@10.0.0)
+      endent: 2.1.0
+      find-cache-dir: 3.3.2
+      flat-cache: 3.2.0
+      micromatch: 4.0.8
+      react-docgen-typescript: 2.2.2(typescript@5.9.2)
+      tslib: 2.8.1
+      typescript: 5.9.2
+      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
     transitivePeerDependencies:
       - supports-color
 
@@ -37555,25 +37469,18 @@ snapshots:
       - supports-color
     optional: true
 
-  babel-loader@8.4.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)):
+  babel-loader@8.4.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))):
     dependencies:
       '@babel/core': 7.27.1
       find-cache-dir: 3.3.2
       loader-utils: 2.0.4
       make-dir: 3.1.0
       schema-utils: 2.7.1
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
-
-  babel-loader@9.2.1(@babel/core@7.27.1(supports-color@10.0.0))(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))):
-    dependencies:
-      '@babel/core': 7.27.1(supports-color@10.0.0)
-      find-cache-dir: 4.0.0
-      schema-utils: 4.3.2
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
 
-  babel-loader@9.2.1(@babel/core@7.27.1)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)):
+  babel-loader@9.2.1(@babel/core@7.27.1(supports-color@10.0.0))(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)):
     dependencies:
-      '@babel/core': 7.27.1
+      '@babel/core': 7.27.1(supports-color@10.0.0)
       find-cache-dir: 4.0.0
       schema-utils: 4.3.2
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
@@ -46405,7 +46312,7 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next-router-mock@0.9.13(next@14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1):
+  next-router-mock@0.9.13(next@14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2))(react@18.3.1):
     dependencies:
       next: 14.2.33(@babel/core@7.27.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.89.2)
       react: 18.3.1
@@ -52722,46 +52629,7 @@ snapshots:
     optionalDependencies:
       webpack: 5.99.9
 
-  webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))):
-    dependencies:
-      '@types/bonjour': 3.5.13
-      '@types/connect-history-api-fallback': 1.5.4
-      '@types/express': 4.17.21
-      '@types/express-serve-static-core': 4.19.6
-      '@types/serve-index': 1.9.4
-      '@types/serve-static': 1.15.7
-      '@types/sockjs': 0.3.36
-      '@types/ws': 8.5.13
-      ansi-html-community: 0.0.8
-      bonjour-service: 1.3.0
-      chokidar: 3.6.0
-      colorette: 2.0.20
-      compression: 1.7.5
-      connect-history-api-fallback: 2.0.0
-      express: 4.21.2
-      graceful-fs: 4.2.11
-      http-proxy-middleware: 2.0.9(@types/express@4.17.21)
-      ipaddr.js: 2.2.0
-      launch-editor: 2.9.1
-      open: 10.2.0
-      p-retry: 6.2.1
-      schema-utils: 4.3.2
-      selfsigned: 2.4.1
-      serve-index: 1.9.1
-      sockjs: 0.3.24
-      spdy: 4.0.2(supports-color@10.0.0)
-      webpack-dev-middleware: 7.4.2(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
-      ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-    optionalDependencies:
-      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - supports-color
-      - utf-8-validate
-    optional: true
-
-  webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)):
+  webpack-dev-server@5.2.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)):
     dependencies:
       '@types/bonjour': 3.5.13
       '@types/connect-history-api-fallback': 1.5.4
@@ -52793,6 +52661,45 @@ snapshots:
       ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     optionalDependencies:
       webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.25.4)
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
+    optional: true
+
+  webpack-dev-server@5.2.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))):
+    dependencies:
+      '@types/bonjour': 3.5.13
+      '@types/connect-history-api-fallback': 1.5.4
+      '@types/express': 4.17.21
+      '@types/express-serve-static-core': 4.19.6
+      '@types/serve-index': 1.9.4
+      '@types/serve-static': 1.15.7
+      '@types/sockjs': 0.3.36
+      '@types/ws': 8.5.13
+      ansi-html-community: 0.0.8
+      bonjour-service: 1.3.0
+      chokidar: 3.6.0
+      colorette: 2.0.20
+      compression: 1.7.5
+      connect-history-api-fallback: 2.0.0
+      express: 4.21.2
+      graceful-fs: 4.2.11
+      http-proxy-middleware: 2.0.9(@types/express@4.17.21)
+      ipaddr.js: 2.2.0
+      launch-editor: 2.9.1
+      open: 10.2.0
+      p-retry: 6.2.1
+      schema-utils: 4.3.2
+      selfsigned: 2.4.1
+      serve-index: 1.9.1
+      sockjs: 0.3.24
+      spdy: 4.0.2(supports-color@10.0.0)
+      webpack-dev-middleware: 7.4.2(webpack@5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    optionalDependencies:
+      webpack: 5.99.9(@swc/core@1.10.4(@swc/helpers@0.5.15))
     transitivePeerDependencies:
       - bufferutil
       - debug
