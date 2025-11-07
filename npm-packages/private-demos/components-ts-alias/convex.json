@@ -2,6 +2,6 @@
   "$schema": "../../convex/schemas/convex.schema.json",
   "codegen": {
     "legacyComponentApi": false,
-    "legacyJavaScriptFileType": false
+    "fileType": "ts"
   }
 }

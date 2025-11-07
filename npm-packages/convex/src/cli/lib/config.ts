@@ -77,7 +77,7 @@ export interface ProjectConfig {
     staticApi: boolean;
     staticDataModel: boolean;
     legacyComponentApi?: boolean;
-    legacyJavaScriptFileType?: boolean;
+    fileType?: "ts" | "js/dts";
   };
 }
 
@@ -102,7 +102,7 @@ const DEFAULT_FUNCTIONS_PATH = "convex/";
 
 /** Whether .ts file extensions should be used for generated code (default is false). */
 export function usesTypeScriptCodegen(projectConfig: ProjectConfig): boolean {
-  return projectConfig.codegen.legacyJavaScriptFileType === false;
+  return projectConfig.codegen.fileType === "ts";
 }
 
 /** Whether the new component API import style should be used (default is false) */
@@ -215,29 +215,27 @@ export async function parseProjectConfig(
   }
 
   if (
-    typeof obj.codegen.legacyJavaScriptFileType !== "undefined" &&
-    typeof obj.codegen.legacyJavaScriptFileType !== "boolean"
+    typeof obj.codegen.fileType !== "undefined" &&
+    obj.codegen.fileType !== "ts" &&
+    obj.codegen.fileType !== "js/dts"
   ) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
       printedMessage:
-        "Expected `codegen.legacyJavaScriptFileType` in `convex.json` to be true or false",
+        'Expected `codegen.fileType` in `convex.json` to be "ts" or "js/dts"',
     });
   }
 
-  // Validate that generateCommonJSApi is not true when legacyJavaScriptFileType is false
-  if (
-    obj.generateCommonJSApi &&
-    obj.codegen.legacyJavaScriptFileType === false
-  ) {
+  // Validate that generateCommonJSApi is not true when using TypeScript codegen
+  if (obj.generateCommonJSApi && obj.codegen.fileType === "ts") {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
       printedMessage:
-        "Cannot use `generateCommonJSApi: true` with `codegen.legacyJavaScriptFileType: false`. " +
+        'Cannot use `generateCommonJSApi: true` with `codegen.fileType: "ts"`. ' +
         "CommonJS modules require JavaScript generation. " +
-        "Either set `codegen.legacyJavaScriptFileType: true` or remove `generateCommonJSApi`.",
+        'Either set `codegen.fileType: "js/dts"` or remove `generateCommonJSApi`.',
     });
   }
 
@@ -676,8 +674,11 @@ function stripDefaults(projectConfig: ProjectConfig): any {
   if (stripped.codegen.staticDataModel === false) {
     delete stripped.codegen.staticDataModel;
   }
-  // legacyJavaScriptFileType and legacyComponentApi are optional and undefined by default,
-  // so they'll only be present if explicitly set - we don't need to strip them
+
+  // `"fileType"` and `"legacyComponentApi"` are optional and undefined by
+  // default, and the behavior of undefined may change in the future for these
+  // so we don't want to strip them.
+
   if (Object.keys(stripped.codegen).length === 0) {
     delete stripped.codegen;
   }

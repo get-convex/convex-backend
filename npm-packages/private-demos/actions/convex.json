@@ -4,6 +4,6 @@
     "externalPackages": ["*"]
   },
   "codegen": {
-    "legacyJavaScriptFileType": false
+    "fileType": "ts"
   }
 }

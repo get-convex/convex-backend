@@ -54,10 +54,11 @@
       "type": "object",
       "description": "Configuration for Convex code generation.",
       "properties": {
-        "legacyJavaScriptFileType": {
-          "type": "boolean",
-          "description": "When true (or omitted, default is true), generates separate .js and .d.ts files for the Convex API. When false generates combined .ts files instead. The .ts format is more modern and recommended for TypeScript projects.\n\nNote: This option must be true when using generateCommonJSApi.",
-          "default": true
+        "fileType": {
+          "type": "string",
+          "enum": ["ts", "js/dts"],
+          "description": "The file format of generated code. \"ts\" generates combined .ts files (recommended for TypeScript projects), \"js/dts\" generates separate .js and .d.ts files.\n\nNote: \"js/dts\" must be used when using generateCommonJSApi.",
+          "default": "js/dts"
         },
         "legacyComponentApi": {
           "type": "boolean",
