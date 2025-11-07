@@ -171,7 +171,7 @@ pub mod tests {
         );
 
         // Check that we fast-forward if we advance time sufficiently far forward past
-        // DATABASE_WORKERS_MAX_CHECKPOINT_AGE even with no writes.
+        // SEARCH_WORKERS_MAX_CHECKPOINT_AGE even with no writes.
         rt.advance_time(Duration::from_secs(7200)).await;
         database.bump_max_repeatable_ts().await?;
         let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;

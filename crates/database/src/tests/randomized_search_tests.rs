@@ -21,7 +21,7 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
-    knobs::DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
+    knobs::SEARCH_WORKERS_MAX_CHECKPOINT_AGE,
     pause::PauseController,
     persistence::Persistence,
     query::{
@@ -1435,7 +1435,7 @@ async fn test_flushing_does_not_invalidate_subscriptions(rt: TestRuntime) -> any
     // Force a checkpoint by advancing time
     scenario
         .rt
-        .advance_time(*DATABASE_WORKERS_MAX_CHECKPOINT_AGE * 2)
+        .advance_time(*SEARCH_WORKERS_MAX_CHECKPOINT_AGE * 2)
         .await;
     scenario.insert("new text", "b").await?;
     scenario.backfill().await?;

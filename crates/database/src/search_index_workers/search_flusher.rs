@@ -16,8 +16,8 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::IndexMetadata,
     knobs::{
-        DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DEFAULT_DOCUMENTS_PAGE_SIZE,
+        SEARCH_WORKERS_MAX_CHECKPOINT_AGE,
         VECTOR_INDEX_WORKER_PAGE_SIZE,
     },
     persistence::{
@@ -297,7 +297,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     anyhow::ensure!(ts <= *step_ts);
 
                     let index_age = *step_ts - ts;
-                    let too_old = (index_age >= *DATABASE_WORKERS_MAX_CHECKPOINT_AGE
+                    let too_old = (index_age >= *SEARCH_WORKERS_MAX_CHECKPOINT_AGE
                         && index_size > 0)
                         .then_some(BuildReason::TooOld);
                     if too_old.is_some() {

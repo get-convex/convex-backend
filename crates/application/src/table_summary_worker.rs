@@ -10,10 +10,10 @@ use common::{
         LeaseLostError,
     },
     knobs::{
-        DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DATABASE_WORKERS_MIN_COMMITS,
         TABLE_SUMMARY_AGE_JITTER_SECONDS,
         TABLE_SUMMARY_BOOTSTRAP_RECENT_THRESHOLD,
+        TABLE_SUMMARY_MAX_CHECKPOINT_AGE,
     },
     persistence::Persistence,
     runtime::{
@@ -136,12 +136,10 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
 
     fn jittered_max_age(&self) -> Duration {
         let max_age_jitter = (*TABLE_SUMMARY_AGE_JITTER_SECONDS)
-            .min(DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() / 2.0)
+            .min(TABLE_SUMMARY_MAX_CHECKPOINT_AGE.as_secs_f32() / 2.0)
             * self.runtime.rng().random_range(-1.0..=1.0);
-        Duration::try_from_secs_f32(
-            DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() + max_age_jitter,
-        )
-        .unwrap_or_default()
+        Duration::try_from_secs_f32(TABLE_SUMMARY_MAX_CHECKPOINT_AGE.as_secs_f32() + max_age_jitter)
+            .unwrap_or_default()
     }
 
     async fn go(self, cancel_receiver: oneshot::Receiver<()>, lease_lost_shutdown: ShutdownSignal) {

@@ -20,10 +20,10 @@ use common::{
         Interval,
     },
     knobs::{
-        DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DATABASE_WORKERS_MIN_COMMITS,
         DATABASE_WORKERS_POLL_INTERVAL,
         INDEX_WORKERS_INITIAL_BACKOFF,
+        SEARCH_WORKERS_MAX_CHECKPOINT_AGE,
     },
     persistence::PersistenceSnapshot,
     query::Order,
@@ -177,7 +177,7 @@ impl FastForwardIndexWorker {
         if let Some(last_fast_forward_info) = last_fast_forward_info
             && commits_since_load - last_fast_forward_info.observed_commits
                 < *DATABASE_WORKERS_MIN_COMMITS
-            && now - last_fast_forward_info.ts < *DATABASE_WORKERS_MAX_CHECKPOINT_AGE
+            && now - last_fast_forward_info.ts < *SEARCH_WORKERS_MAX_CHECKPOINT_AGE
         {
             tracing::debug!(
                 "{log_name} not enough commits and too recent to fast forward: {}, {:?}",

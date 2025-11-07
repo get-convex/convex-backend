@@ -524,7 +524,7 @@ pub static SEARCH_INDEX_WORKER_PAGES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock
     )
 });
 
-/// Don't allow database workers to have more than an hour of uncheckpointed
+/// Don't allow search index workers to have more than an hour of uncheckpointed
 /// data.
 ///
 /// For search/vector index workers - Note that fast-forwarding will keep the
@@ -535,8 +535,8 @@ pub static SEARCH_INDEX_WORKER_PAGES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock
 /// DocumentRevisionStream to build new segments, so this value needs to be low
 /// enough to not block the search index flushers for too long, or else writes
 /// will start failing. This is why we set this value lower for pro users (10m).
-pub static DATABASE_WORKERS_MAX_CHECKPOINT_AGE: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("DATABASE_WORKERS_MAX_CHECKPOINT_AGE", 3600)));
+pub static SEARCH_WORKERS_MAX_CHECKPOINT_AGE: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SEARCH_WORKERS_MAX_CHECKPOINT_AGE", 3600)));
 
 /// Don't fast-forward an index less than ten seconds forward so we don't
 /// amplify every commit into another write when the system is under heavy load.
@@ -1237,19 +1237,24 @@ pub static MAX_SEARCHLIGHT_REQUEST_SIZE: LazyLock<usize> =
 /// other than the other workers happens.
 ///
 /// We must also ensure that workers advance periodically to ensure that we can
-/// run document retention in the future. Database times are bumped periodically
+/// run document retention. Database times are bumped periodically
 /// even if no writes occur. So any worker that checks this should always have
 /// some maximum period of time after which they checkpoint unconditionally.
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
     LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 500));
 
+/// Update table summaries for idle instances once every 4 hours.
+pub static TABLE_SUMMARY_MAX_CHECKPOINT_AGE: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("TABLE_SUMMARY_MAX_CHECKPOINT_AGE", 4 * 60 * 60))
+});
+
 /// The TableSummaryWorker must checkpoint every
-/// [`DATABASE_WORKERS_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.
+/// [`TABLE_SUMMARY_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.
 /// However, to prevent all instances from checkpointing at the same time, we'll
 /// add a jitter of up to ±TABLE_SUMMARY_AGE_JITTER_SECONDS.
 ///
 /// Note: the configured value is capped at
-/// `DATABASE_WORKERS_MAX_CHECKPOINT_AGE/2`.
+/// `TABLE_SUMMARY_MAX_CHECKPOINT_AGE/2`.
 pub static TABLE_SUMMARY_AGE_JITTER_SECONDS: LazyLock<f32> =
     LazyLock::new(|| env_config("TABLE_SUMMARY_AGE_JITTER_SECONDS", 900.0));
 
