@@ -206,10 +206,6 @@ export function TeamMemberListItem({
                     You are about to remove {confirmationDisplayName} from{" "}
                     {team.name}, are you sure you want to continue?{" "}
                   </p>
-                  <p className="font-semibold">
-                    All development deployments created by this member will be
-                    deleted.
-                  </p>
                   {team.managedBy && (
                     <Callout>
                       Note that this member may be able to re-join the team
