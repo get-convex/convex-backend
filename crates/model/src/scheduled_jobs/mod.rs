@@ -444,6 +444,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         Ok(count)
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<ScheduledJob>>> {
         let scheduled_query = Query::full_table_scan(SCHEDULED_JOBS_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, scheduled_query)?;
