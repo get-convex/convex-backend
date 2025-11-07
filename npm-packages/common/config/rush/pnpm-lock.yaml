@@ -567,6 +567,9 @@ importers:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
+      convex-test:
+        specifier: ^0.0.38
+        version: 0.0.38(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0))
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -576,6 +579,9 @@ importers:
       typescript-eslint:
         specifier: ~8.38.0
         version: 8.38.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.0.4)
+      vite:
+        specifier: ^6.4.1
+        version: 6.4.1(@types/node@18.19.70)(jiti@2.6.1)(less@4.2.1)(lightningcss@1.30.1)(sass@1.89.2)(terser@5.37.0)(tsx@4.19.4)(yaml@2.7.0)
 
   ../../components/triggers:
     dependencies:
@@ -13976,6 +13982,7 @@ packages:
 
   convex-test@0.0.38:
     resolution: {integrity: sha512-1o/3GvUR9gMLjiqq7SxchI/0OYQaWwbQC4INmB1SNt1WLBjUgEM8+brgpqrZwJ+Vb1DdGZokCVeihwT5IPk49w==}
+    version: 0.0.38
     peerDependencies:
       convex: ^1.16.4
 
@@ -38591,6 +38598,10 @@ snapshots:
   convex-test@0.0.38(convex@..+convex):
     dependencies:
       convex: link:../../convex
+
+  convex-test@0.0.38(convex@file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0)):
+    dependencies:
+      convex: file:../../convex(@auth0/auth0-react@2.4.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(@clerk/clerk-react@5.33.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0)
 
   convex@1.16.0-alpha.2(@auth0/auth0-react@2.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.33.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
