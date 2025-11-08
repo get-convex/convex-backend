@@ -1,5 +1,4 @@
 import { useBBMutation } from "api/api";
-import { useDeployments } from "api/deployments";
 import { useProfile } from "api/profile";
 import { useCurrentProject, useProjects } from "api/projects";
 import {
@@ -11,7 +10,6 @@ import {
 import { Sheet } from "@ui/Sheet";
 import { Combobox } from "@ui/Combobox";
 import { Button } from "@ui/Button";
-import { Callout } from "@ui/Callout";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useRouter } from "next/router";
 import { useState } from "react";
@@ -52,10 +50,6 @@ export function TransferProject() {
     destinationTeamMembers?.find((member) => member.id === me?.id)?.role ===
     "admin";
 
-  const membersNotOnNewTeam = originTeamMembers?.filter(
-    (member) => !destinationTeamMembers?.some((m) => m.id === member.id),
-  );
-
   const entitlements = useTeamEntitlements(destinationTeamId ?? undefined);
   const maxProjects = entitlements?.maxProjects ?? 0;
   const destinationTeamProjects = useProjects(
@@ -64,12 +58,6 @@ export function TransferProject() {
 
   const overProjectLimit =
     destinationTeamProjects && destinationTeamProjects.length >= maxProjects;
-
-  const { deployments } = useDeployments(project?.id);
-
-  const deploymentsToBeDeleted = deployments?.filter((deployment) =>
-    membersNotOnNewTeam?.some((member) => member.id === deployment.creator),
-  );
 
   const loading = destinationTeamId
     ? !originTeamMembers ||
@@ -166,18 +154,6 @@ export function TransferProject() {
             dialogBody={
               <div className="flex flex-col gap-2">
                 Are you sure you want to transfer this project?
-                {deploymentsToBeDeleted &&
-                  deploymentsToBeDeleted.length > 0 && (
-                    <Callout className="block">
-                      {deploymentsToBeDeleted.length} development deployment
-                      {deploymentsToBeDeleted.length > 1 ? "s" : ""} will be
-                      deleted because their creators are not members of{" "}
-                      <span className="font-semibold">
-                        {destinationTeam.name}
-                      </span>
-                      .
-                    </Callout>
-                  )}
               </div>
             }
             onConfirm={async () => {
