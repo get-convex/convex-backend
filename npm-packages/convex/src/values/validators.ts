@@ -1,3 +1,4 @@
+import { Expand } from "../type_utils.js";
 import { GenericId } from "./index.js";
 import { GenericValidator, ObjectType } from "./validator.js";
 import { JSONValue, convexToJson } from "./value.js";
@@ -329,14 +330,14 @@ export class VObject<
    */
   omit<K extends keyof Fields & string>(
     ...fields: K[]
-  ): VObject<Omit<Type, K>, Omit<Fields, K>, IsOptional> {
+  ): VObject<Expand<Omit<Type, K>>, Expand<Omit<Fields, K>>, IsOptional> {
     const newFields = { ...this.fields };
     for (const field of fields) {
       delete newFields[field];
     }
     return new VObject({
       isOptional: this.isOptional,
-      fields: newFields as Omit<Fields, K>,
+      fields: newFields as any,
     });
   }
 
@@ -346,14 +347,18 @@ export class VObject<
    */
   pick<K extends keyof Fields & string>(
     ...fields: K[]
-  ): VObject<Pick<Type, Extract<keyof Type, K>>, Pick<Fields, K>, IsOptional> {
+  ): VObject<
+    Expand<Pick<Type, Extract<keyof Type, K>>>,
+    Expand<Pick<Fields, K>>,
+    IsOptional
+  > {
     const newFields: Record<string, GenericValidator> = {};
     for (const field of fields) {
       newFields[field] = this.fields[field];
     }
     return new VObject({
       isOptional: this.isOptional,
-      fields: newFields as Pick<Fields, K>,
+      fields: newFields as Expand<Pick<Fields, K>>,
     });
   }
 
@@ -383,10 +388,14 @@ export class VObject<
    */
   extend<NewFields extends Record<string, GenericValidator>>(
     fields: NewFields,
-  ): VObject<Type & ObjectType<NewFields>, Fields & NewFields, IsOptional> {
+  ): VObject<
+    Expand<Type & ObjectType<NewFields>>,
+    Expand<Fields & NewFields>,
+    IsOptional
+  > {
     return new VObject({
       isOptional: this.isOptional,
-      fields: { ...this.fields, ...fields } as Fields & NewFields,
+      fields: { ...this.fields, ...fields } as Expand<Fields & NewFields>,
     });
   }
 }
