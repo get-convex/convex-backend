@@ -38,6 +38,10 @@ export function TeamSSO({ team }: { team: Team }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingDomainsLink, setIsGeneratingDomainsLink] = useState(false);
   const [isGeneratingSSOLink, setIsGeneratingSSOLink] = useState(false);
+  const [
+    isGeneratingCertificateRenewalLink,
+    setIsGeneratingCertificateRenewalLink,
+  ] = useState(false);
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [disableError, setDisableError] = useState<string>();
   const [requireSsoLoginValue, setRequireSsoLoginValue] = useState(false);
@@ -277,30 +281,7 @@ export function TeamSSO({ team }: { team: Team }) {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <ManageDomainsButton
-                        variant="neutral"
-                        loading={isGeneratingDomainsLink}
-                        onClick={async () => {
-                          setIsGeneratingDomainsLink(true);
-                          try {
-                            const result = await generateSSOConfigurationLink({
-                              intent: "domainVerification",
-                            });
-                            if (result?.link) {
-                              window.open(result.link, "_blank");
-                            }
-                          } finally {
-                            setIsGeneratingDomainsLink(false);
-                          }
-                        }}
-                        disabled={
-                          isSubmitting ||
-                          !hasAdminPermissions ||
-                          isGeneratingAnyLink
-                        }
-                      />
                       <ManageSSOConfigurationButton
-                        variant="primary"
                         loading={isGeneratingSSOLink}
                         onClick={async () => {
                           setIsGeneratingSSOLink(true);
@@ -327,36 +308,89 @@ export function TeamSSO({ team }: { team: Team }) {
                             : undefined
                         }
                       />
-                    </div>
-                  </div>
-                  <hr />
-                  <h4 className="text-sm font-semibold text-content-primary">
-                    Additional Options
-                  </h4>
-                  <div className="space-y-2">
-                    <label className="ml-1 flex items-center gap-3 text-sm text-content-primary">
-                      <Checkbox
-                        checked={requireSsoLoginValue}
-                        disabled={requireSsoLoginDisabled}
-                        onChange={() => {
-                          if (requireSsoLoginDisabled) {
-                            return;
+                      <ManageDomainsButton
+                        loading={isGeneratingDomainsLink}
+                        onClick={async () => {
+                          setIsGeneratingDomainsLink(true);
+                          try {
+                            const result = await generateSSOConfigurationLink({
+                              intent: "domainVerification",
+                            });
+                            if (result?.link) {
+                              window.open(result.link, "_blank");
+                            }
+                          } finally {
+                            setIsGeneratingDomainsLink(false);
                           }
-                          setRequireSsoLoginValue(!requireSsoLoginValue);
                         }}
+                        disabled={
+                          isSubmitting ||
+                          !hasAdminPermissions ||
+                          isGeneratingAnyLink
+                        }
                       />
-                      <span className="flex items-center gap-2">
-                        Require SSO to access team
-                        <Tooltip
-                          tip="Require that team members log in with SSO to access the team."
-                          side="right"
-                        >
-                          <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
-                        </Tooltip>
-                      </span>
-                    </label>
+                      <CertificateRenewalButton
+                        loading={isGeneratingCertificateRenewalLink}
+                        onClick={async () => {
+                          try {
+                            setIsGeneratingCertificateRenewalLink(true);
+                            const result = await generateSSOConfigurationLink({
+                              intent: "certificateRenewal",
+                            });
+                            if (result) {
+                              window.open(result.link, "_blank");
+                            }
+                          } finally {
+                            setIsGeneratingCertificateRenewalLink(false);
+                          }
+                        }}
+                        disabled={
+                          isSubmitting ||
+                          !hasAdminPermissions ||
+                          !hasVerifiedDomain ||
+                          isGeneratingAnyLink
+                        }
+                        tooltip={
+                          !hasVerifiedDomain
+                            ? "You must verify at least one domain before managing the SSO configuration."
+                            : undefined
+                        }
+                      />
+                    </div>
+                    <hr />
+                    <h4 className="text-sm font-semibold text-content-primary">
+                      Additional Options
+                    </h4>
+                    <Tooltip
+                      tip={
+                        !hasAdminPermissions
+                          ? "You do not have permission to change SSO settings."
+                          : !ssoEnabled
+                            ? "SSO is not available on your plan."
+                            : undefined
+                      }
+                    >
+                      <label className="ml-px flex items-center gap-2">
+                        <Checkbox
+                          checked={requireSsoLoginValue}
+                          disabled={requireSsoLoginDisabled}
+                          onChange={() => {
+                            setRequireSsoLoginValue(!requireSsoLoginValue);
+                          }}
+                        />
+                        <span className="ml-px flex items-center gap-2">
+                          Require SSO to access team
+                          <Tooltip
+                            tip="Require that team members log in with SSO to access the team."
+                            side="right"
+                          >
+                            <QuestionMarkCircledIcon className="h-4 w-4 text-content-secondary" />
+                          </Tooltip>
+                        </span>
+                      </label>
+                    </Tooltip>
 
-                    <div className="mt-4 flex">
+                    <div className="flex">
                       <Button
                         type="button"
                         variant="primary"
@@ -468,16 +502,14 @@ function ManageDomainsButton({
   onClick,
   disabled,
   loading,
-  variant,
 }: {
   onClick: () => Promise<void>;
   disabled: boolean;
   loading: boolean;
-  variant: "primary" | "neutral";
 }) {
   return (
     <Button
-      variant={variant}
+      variant="neutral"
       className="w-fit"
       size="sm"
       loading={loading}
@@ -493,31 +525,50 @@ function ManageSSOConfigurationButton({
   onClick,
   disabled,
   loading,
-  variant,
   tooltip,
 }: {
   onClick: () => Promise<void>;
   disabled: boolean;
   loading: boolean;
-  variant: "primary" | "neutral";
   tooltip?: string;
 }) {
-  const button = (
+  return (
     <Button
-      variant={variant}
+      variant="primary"
       className="w-fit"
       size="sm"
       loading={loading}
       onClick={onClick}
       disabled={disabled}
+      tip={tooltip}
     >
       Manage SSO configuration
     </Button>
   );
+}
 
-  if (tooltip) {
-    return <Tooltip tip={tooltip}>{button}</Tooltip>;
-  }
-
-  return button;
+function CertificateRenewalButton({
+  onClick,
+  disabled,
+  loading,
+  tooltip,
+}: {
+  onClick: () => Promise<void>;
+  disabled: boolean;
+  loading: boolean;
+  tooltip?: string;
+}) {
+  return (
+    <Button
+      variant="neutral"
+      className="w-fit"
+      size="sm"
+      loading={loading}
+      onClick={onClick}
+      disabled={disabled}
+      tip={tooltip}
+    >
+      Renew Certificate
+    </Button>
+  );
 }

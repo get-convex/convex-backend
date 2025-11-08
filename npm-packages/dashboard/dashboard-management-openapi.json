@@ -5237,7 +5237,8 @@
         "type": "string",
         "enum": [
           "sso",
-          "domainVerification"
+          "domainVerification",
+          "certificateRenewal"
         ]
       },
       "SerializedAccessToken": {

@@ -116,7 +116,7 @@ pub struct WorkOSAPIKeyResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct WorkOSErrorResponse {
-    pub code: String,
+    pub code: Option<String>,
     pub message: String,
 }
 
@@ -182,6 +182,7 @@ pub struct WorkOSPortalLinkResponse {
 pub enum WorkOSPortalIntent {
     Sso,
     DomainVerification,
+    CertificateRenewal,
 }
 
 #[async_trait]
@@ -500,6 +501,7 @@ impl WorkOSClient for MockWorkOSClient {
         let intent_str = match intent {
             WorkOSPortalIntent::Sso => "sso",
             WorkOSPortalIntent::DomainVerification => "domain_verification",
+            WorkOSPortalIntent::CertificateRenewal => "certificate_renewal",
         };
         Ok(WorkOSPortalLinkResponse {
             link: format!(
@@ -857,7 +859,7 @@ where
         let response_body = response.into_body();
 
         if let Ok(error_response) = serde_json::from_slice::<WorkOSErrorResponse>(&response_body)
-            && error_response.code == "user_already_exists"
+            && error_response.code == Some("user_already_exists".to_string())
         {
             // This will be special-cased in scripts.
             anyhow::bail!(ErrorMetadata::bad_request(
@@ -1372,6 +1374,21 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
+
+        // Handle 400 Bad Request specially to forward the error message
+        if status == http::StatusCode::BAD_REQUEST {
+            println!("Hello! Bad request");
+            if let Ok(error_response) =
+                serde_json::from_slice::<WorkOSErrorResponse>(&response_body)
+            {
+                println!("Error message: {}", error_response.message);
+                return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                    "WorkOSPortalLinkError",
+                    error_response.message
+                )));
+            }
+        }
+
         anyhow::bail!(format_workos_error(
             "generate portal link",
             status,

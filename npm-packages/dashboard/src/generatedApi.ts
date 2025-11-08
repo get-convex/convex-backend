@@ -2271,7 +2271,7 @@ export interface components {
             requireSsoLogin: boolean;
         };
         /** @enum {string} */
-        SSOPortalIntent: "sso" | "domainVerification";
+        SSOPortalIntent: "sso" | "domainVerification" | "certificateRenewal";
         /** @description ConvexAccessToken is our own internal notion of authorization.
          *     It is versioned.
          *
