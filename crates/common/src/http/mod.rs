@@ -33,7 +33,6 @@ use axum::{
         connect_info::IntoMakeServiceWithConnectInfo,
         rejection::ExtensionRejection,
         FromRequestParts,
-        MatchedPath,
         OptionalFromRequestParts,
         State,
     },
@@ -827,7 +826,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     let method = req.method().clone();
     // tag with the route. 404s lack matched query path - and the
     // uri is generally unhelpful for metrics aggregation, so leave it out there.
-    let mut route = matched_path
+    let route = matched_path
         .map(|r| r.as_str().to_owned())
         .unwrap_or("unknown".to_owned());
 
@@ -848,19 +847,6 @@ pub async fn stats_middleware<RM: RouteMapper>(
     let resp = next.run(req).in_span(root).await;
 
     let client_version_s = client_version.to_string();
-
-    // Since conductor is using a fallback handler which creates a new sub-router
-    // within the handler, we can't extract the matched path from the request
-    // extension. So we extract it from the response extension.
-    // This allows it to participate in log_http_request, though it sadly won't
-    // participate in the root span.
-    //
-    // We can probably work around this with some effort by switching from State
-    // to Extension in axum and using a layer instead of a multiplex handler.
-    let matched_path = resp.extensions().get::<Option<MatchedPath>>();
-    if let Some(Some(matched_path)) = matched_path {
-        route = matched_path.as_str().to_owned();
-    }
 
     if route == "unknown" {
         tracing::info!("stats_middleware: matched_path is None, uri: {}", uri);
