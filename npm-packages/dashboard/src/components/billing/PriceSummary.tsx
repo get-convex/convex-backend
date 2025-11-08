@@ -29,17 +29,13 @@ export function PriceSummary({
       {teamManagedBy && (
         <Callout className="mb-2 flex flex-col gap-1" variant="upsell">
           <p>
-            This team's billing is currently being managed by{" "}
+            {newPlanName} is not available for teams managed by{" "}
             {startCase(teamManagedBy)}.
           </p>
+          <p>You can create a new team to use {newPlanName}.</p>
           <p>
-            To switch to {newPlanName}, you may create a new Convex team, and
-            upgrade that team to the Professional plan.{" "}
-          </p>
-          <p>
-            Once you've created a new team with the Professional plan, you can
-            transfer your existing projects to the new team and invite your team
-            members.
+            Existing projects can be transferred to another team on the Project
+            Settings page.
           </p>
         </Callout>
       )}

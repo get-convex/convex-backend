@@ -73,8 +73,10 @@ export function OrbSelfServePlan({
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL"
-                    ? `This team is managed by ${startCase(team.managedBy)}. You may select this plan in ${startCase(team.managedBy)}.`
+                  : team.managedBy
+                    ? plan.planType === "CONVEX_PROFESSIONAL"
+                      ? `Convex Professional is not available for teams managed by ${startCase(team.managedBy)}. You can create a new team to use Convex Professional. Existing projects can be transferred to another team on the Project Settings page.`
+                      : `You can manage your subscription in ${startCase(team.managedBy)}.`
                     : missingRequiredPaymentMethod
                       ? "Add a payment method in the settings below to switch to this plan."
                       : undefined
@@ -85,7 +87,7 @@ export function OrbSelfServePlan({
               disabled={
                 !hasAdminPermissions ||
                 missingRequiredPaymentMethod ||
-                (!!team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL")
+                !!team.managedBy
               }
               variant={isDowngrade ? "neutral" : "primary"}
             >
@@ -96,18 +98,17 @@ export function OrbSelfServePlan({
           ) : (
             <Button
               onClick={() => upgrade()}
-              disabled={
-                !hasAdminPermissions ||
-                (!!team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL")
-              }
+              disabled={!hasAdminPermissions || !!team.managedBy}
               variant={
                 plan.planType === "CONVEX_PROFESSIONAL" ? "primary" : "neutral"
               }
               tip={
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
-                  : team.managedBy && plan.planType !== "CONVEX_PROFESSIONAL"
-                    ? `This team is managed by ${startCase(team.managedBy)}. You may select this plan in ${startCase(team.managedBy)}.`
+                  : team.managedBy
+                    ? plan.planType === "CONVEX_PROFESSIONAL"
+                      ? `Convex Professional is not available for teams managed by ${startCase(team.managedBy)}. You can create a new team to use Convex Professional. Existing projects can be transferred to another team on the Project Settings page.`
+                      : `You can manage your subscription in ${startCase(team.managedBy)}.`
                     : undefined
               }
             >

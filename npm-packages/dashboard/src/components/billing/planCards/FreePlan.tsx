@@ -58,7 +58,7 @@ export function FreePlan({
                 !hasAdminPermissions
                   ? "You do not have permission to modify the team subscription."
                   : team.managedBy
-                    ? `This team is managed by ${startCase(team.managedBy)}. You may manage the team subscription in ${startCase(team.managedBy)}.`
+                    ? `You can manage your subscription in ${startCase(team.managedBy)}.`
                     : typeof subscription.endDate === "number"
                       ? `Your subscription has already been canceled and will end on ${formatDate(new Date(subscription.endDate))}. You may resume the subscription before then to avoid losing access to features.`
                       : undefined
