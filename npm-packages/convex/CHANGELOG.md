@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.29.0
+
+- Code generation changes: modules and functions are sorted in more situations,
+  some unused imports have been removed, and some docstrings have been updated.
+  Expect to need to commit a larger-than-usual change to generated files after
+  upgrading to this version of Convex.
+
+- Add .pick(), .omit(), .partial(), and .extend() methods to v.objects()
+  validators. This makes reusing validator with small changes simpler. See
+  https://docs.convex.dev/functions/validation#reusing-and-extending-validators
+  for more.
+
+- Add a pagination result validation helper
+  `paginationResultValidator(itemValidator)` describing and validating the
+  return valud of a paginated query.
+
+- New `npx convex codegen --component-dir ../path/to/component` flag for
+  component authors to generate code only for a component.
+
+- New `convex.json` configuration property `codegen.fileType` (`"dts/js"` or
+  `"ts"`, default `"dts/js"`) Default for applications is still "dts/js" but for
+  components generated files always use "ts" file extensions.
+
+- New `convex.json` configuration property `codegen.legacyComponentApi` (default
+  true) which can be set to false to opt into importing the API of a component
+  directly from its package or directory instead of inlining the result of
+  analyzing a component in parent component that uses it.
+
+- Improved TypeScript inference performance for `ApiFromModules`, the workhorse
+  type that transforms modules of Convex functions into a tree of
+  `FunctionReference` types for the `api` object. Thanks to David Blass, the
+  maintainer of ArkType, for working with us on these improvements.
+
+## 1.28.2
+
+- Bundling fix: don't double-deploy components in the convex/ directory.
+
+## 1.28.1
+
+- Add json schema to package.json.
+
 ## 1.28.0
 
 - Deploy code path unification: all deploys now use a codepath that supports
