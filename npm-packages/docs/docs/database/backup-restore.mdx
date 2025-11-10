@@ -11,8 +11,8 @@ Convex supports Backup & Restore of data via the
 
 # Backups
 
-A backup is a consistent snapshot of your table data and file storage made at
-the time of your request.
+A backup is a consistent snapshot of your table data made at the time of your
+request. Backups can be configured to include file storage.
 
 Take a manual backup by pressing the "Backup Now" button. This may take a few
 seconds to a few hours, depending on how much data is in your deployment.
@@ -27,7 +27,7 @@ functions, etc.) will not be included.
 
 Schedule a periodic daily or weekly backup by checking the "Backup
 automatically" box. You can select what time of day / day of week to have the
-backup occur.
+backup occur and whether to include file storage or not.
 
 Daily backups are stored for 7 days. Weekly backups are stored for 14 days.
 
@@ -44,6 +44,10 @@ is in your backup.
 Note that restoring is a destructive operation that wipes your existing data and
 replaces it with that from the backup. It's recommended that you generate an
 additional backup before doing a restore.
+
+Existing files in the deployment will not be deleted when restoring from a
+backup, but any files in the backup that do not currently exist in the
+deployment will be uploaded to the deployment.
 
 ### Restoring in an emergency
 
@@ -79,8 +83,8 @@ The ZIP file's name has the format `snapshot_{ts}.zip` where `ts` is a UNIX
 timestamp of the snapshot in nanoseconds. The export ZIP file contains documents
 for each table at `<table_name>/documents.jsonl`, with one document per line.
 
-Exported ZIP files also contain data from [file storage](/file-storage) in a
-`_storage` folder, with metadata like IDs and checksums in
+Exported ZIP files that include [file storage](/file-storage) will contain
+storage data in a `_storage` folder, with metadata like IDs and checksums in
 `_storage/documents.jsonl` and each file as `_storage/<id>`.
 
 ### Using the downloaded backup.
