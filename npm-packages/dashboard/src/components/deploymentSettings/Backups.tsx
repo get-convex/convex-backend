@@ -15,9 +15,10 @@ import {
   useConfigurePeriodicBackup,
 } from "api/backups";
 import { useCurrentProject } from "api/projects";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   DeploymentResponse,
+  PeriodicBackupConfig,
   Team,
   TeamEntitlementsResponse,
 } from "generatedApi";
@@ -91,7 +92,7 @@ export function Backups({
               </span>
             </Tooltip>
           )}
-
+          <hr className="w-full" />
           <BackupNowButton
             deployment={deployment}
             team={team}
@@ -171,7 +172,7 @@ function BackupProCallouts({
   );
 }
 
-function AutomaticBackupSelector({
+export function AutomaticBackupSelector({
   deployment,
   canPerformActions,
 }: {
@@ -210,7 +211,10 @@ function AutomaticBackupSelector({
                   const randomHour = Math.floor(Math.random() * 24);
                   const randomMinute = Math.floor(Math.random() * 60);
                   const defaultCronspec = `${randomMinute} ${randomHour} * * *`;
-                  await configurePeriodicBackup({ cronspec: defaultCronspec });
+                  await configurePeriodicBackup({
+                    cronspec: defaultCronspec,
+                    includeStorage: false,
+                  });
                 } else {
                   // Disable automatic backups
                   await disablePeriodicBackup();
@@ -244,10 +248,81 @@ function AutomaticBackupSelector({
                 {localTimezoneName()})
               </p>
             </div>
+            <BackupIncludeStorageSelector
+              periodicBackup={periodicBackup}
+              deployment={deployment}
+              disabled={!canPerformActions}
+            />
           </>
         )}
       </div>
     </Tooltip>
+  );
+}
+
+export function BackupIncludeStorageSelector({
+  periodicBackup,
+  deployment,
+  disabled,
+}: {
+  periodicBackup: PeriodicBackupConfig;
+  deployment: DeploymentResponse;
+  disabled: boolean;
+}) {
+  const configurePeriodicBackup = useConfigurePeriodicBackup(deployment.id);
+
+  const includeStorageCheckboxId = useId();
+
+  const [includeStorage, setIncludeStorage] = useState(
+    periodicBackup.includeStorage,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync local state when server state updates (after mutation refetches)
+  useEffect(() => {
+    setIncludeStorage(periodicBackup.includeStorage);
+  }, [periodicBackup.includeStorage]);
+
+  const handleChange = async () => {
+    const newValue = !includeStorage;
+    setIncludeStorage(newValue); // Optimistic update
+    setIsSubmitting(true);
+
+    try {
+      await configurePeriodicBackup({
+        ...periodicBackup,
+        includeStorage: newValue,
+      });
+    } catch (error) {
+      // Revert on error
+      setIncludeStorage(!newValue);
+    } finally {
+      setIsSubmitting(false);
+      toast(
+        "success",
+        `Updated automatic backups to include ${newValue ? "file storage" : "tables only"}.`,
+      );
+    }
+  };
+
+  return (
+    <label
+      className="flex items-center gap-2 text-sm"
+      htmlFor={includeStorageCheckboxId}
+    >
+      <Checkbox
+        id={includeStorageCheckboxId}
+        checked={includeStorage}
+        disabled={disabled || isSubmitting}
+        onChange={handleChange}
+      />
+      Include file storage{" "}
+      {isSubmitting && (
+        <div>
+          <Spinner />
+        </div>
+      )}
+    </label>
   );
 }
 

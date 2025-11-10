@@ -2,7 +2,12 @@ import { render } from "@testing-library/react";
 import { DeploymentResponse } from "generatedApi";
 import userEvent from "@testing-library/user-event";
 import { useConfigurePeriodicBackup } from "api/backups";
-import { BackupScheduleSelector, BackupScheduleSelectorInner } from "./Backups";
+import {
+  BackupScheduleSelector,
+  BackupScheduleSelectorInner,
+  BackupIncludeStorageSelector,
+  AutomaticBackupSelector,
+} from "./Backups";
 
 const deployment: DeploymentResponse = {
   kind: "cloud",
@@ -18,6 +23,8 @@ const deployment: DeploymentResponse = {
 jest.mock("api/profile", () => {});
 jest.mock("api/backups", () => ({
   useConfigurePeriodicBackup: jest.fn().mockReturnValue(jest.fn()),
+  useGetPeriodicBackupConfig: jest.fn().mockReturnValue(null),
+  useDisablePeriodicBackup: jest.fn().mockReturnValue(jest.fn()),
 }));
 jest.mock("api/vanityDomains", () => ({}));
 jest.mock("api/usage", () => ({}));
@@ -210,5 +217,62 @@ describe("BackupScheduleSelectorInner", () => {
       cronspec: `${+utcMinute} ${+utcHour} * * ${selectedDow}`,
       expirationDeltaSecs: 14 * 24 * 60 * 60, // 14 days
     });
+  });
+});
+
+describe("BackupIncludeStorageSelector", () => {
+  it.each([
+    [true, false],
+    [false, true],
+  ])(
+    "toggles includeStorage from %s to %s when checkbox is clicked",
+    async (initialValue, expectedValue) => {
+      const user = userEvent.setup({ delay: null });
+
+      const periodicBackup = {
+        sourceDeploymentId: 1,
+        cronspec: "0 0 * * *",
+        expirationDeltaSecs: 604800,
+        nextRun: Date.now() + 86400000,
+        includeStorage: initialValue,
+      };
+
+      const { getByLabelText } = render(
+        <BackupIncludeStorageSelector
+          periodicBackup={periodicBackup}
+          deployment={deployment}
+          disabled={false}
+        />,
+      );
+
+      const checkbox = getByLabelText(/Include file storage/i);
+      expect(checkbox).toBeInTheDocument();
+      await user.click(checkbox);
+
+      expect(useConfigurePeriodicBackup()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          includeStorage: expectedValue,
+        }),
+      );
+    },
+  );
+});
+
+describe("AutomaticBackupSelector", () => {
+  it("defaults includeStorage to false when enabling automatic backups", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    const { getByLabelText } = render(
+      <AutomaticBackupSelector deployment={deployment} canPerformActions />,
+    );
+
+    const checkbox = getByLabelText(/Backup automatically/i);
+    await user.click(checkbox);
+
+    expect(useConfigurePeriodicBackup()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        includeStorage: false,
+      }),
+    );
   });
 });

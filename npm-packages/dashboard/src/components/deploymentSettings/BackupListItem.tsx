@@ -117,13 +117,18 @@ export function BackupListItem({
               </div>
             )}
           </div>
-          {backup.expirationTime !== null && (
-            <TimestampDistance
-              prefix="Expires "
-              date={new Date(backup.expirationTime)}
-              className="text-left text-content-errorSecondary"
-            />
-          )}
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-xs text-content-secondary">
+              {backup.includeStorage ? "Includes file storage" : "Tables only"}
+            </span>
+            {backup.expirationTime !== null && (
+              <TimestampDistance
+                prefix="Expires "
+                date={new Date(backup.expirationTime)}
+                className="text-left text-content-errorSecondary"
+              />
+            )}
+          </div>
           {backup.state === "failed" && (
             <Tooltip
               tip="This backup couldn’t be completed. Contact support@convex.dev for help."
@@ -374,13 +379,15 @@ function RestoreConfirmation({
       />
 
       <p className="my-2 text-sm">
-        The data (tables and files) in <code>{targetDeployment.name}</code> will
-        be replaced by the contents of the backup.
+        The tables in <code>{targetDeployment.name}</code> will be replaced by
+        the contents of the backup.{" "}
+        {backup.includeStorage ??
+          "Any files in the backup that do not already exist will be uploaded."}
       </p>
 
       <p className="text-sm text-content-secondary">
         The rest of your deployment configuration (code, environment variables,
-        scheduled functions, etc.) will not be changed.
+        scheduled functions, existing files, etc.) will not be changed.
       </p>
 
       {needsCheckboxConfirmation && (
@@ -521,6 +528,9 @@ function BackupSummary({
             </p>
             <p className="text-xs text-content-secondary">
               (<TimestampDistance date={new Date(backup.requestedTime)} />)
+            </p>
+            <p className="text-xs text-content-secondary">
+              {backup.includeStorage ? "Includes file storage" : "Tables only"}
             </p>
           </>
         ) : (
@@ -704,46 +714,79 @@ export function BackupNowButton({
 
   const requestBackup = useRequestCloudBackup(deployment.id, team.id);
   const [isOngoing, setIsOngoing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [includeStorage, setIncludeStorage] = useState(false);
+  const includeStorageCheckboxId = useId();
 
   const doBackup = async () => {
     setIsOngoing(true);
     try {
-      await requestBackup();
+      await requestBackup({ includeStorage });
     } finally {
       setIsOngoing(false);
+    }
+    setShowModal(false);
+    if (onBackupRequested) {
+      onBackupRequested();
     }
   };
 
   return (
-    <Button
-      variant="neutral"
-      className="w-fit"
-      loading={isOngoing}
-      icon={<ArchiveIcon />}
-      onClick={async () => {
-        await doBackup();
-        if (onBackupRequested) {
-          onBackupRequested();
+    <>
+      <Button
+        variant="neutral"
+        className="w-fit"
+        loading={isOngoing}
+        icon={<ArchiveIcon />}
+        onClick={() => setShowModal(true)}
+        disabled={
+          nonFailedBackupsForDeployment === undefined ||
+          nonFailedBackupsForDeployment.length >= maxCloudBackups ||
+          !canPerformActions
         }
-      }}
-      disabled={
-        nonFailedBackupsForDeployment === undefined ||
-        nonFailedBackupsForDeployment.length >= maxCloudBackups ||
-        !canPerformActions
-      }
-      tip={
-        isOngoing
-          ? "A backup is currently in progress."
-          : nonFailedBackupsForDeployment &&
-              nonFailedBackupsForDeployment.length >= maxCloudBackups
-            ? `You can only have up to ${maxCloudBackups} backups on your current plan. Delete some of your existing backups in this deployment to create a new one.`
-            : !canPerformActions
-              ? "You do not have permission to create backups in production."
-              : undefined
-      }
-    >
-      Backup Now
-    </Button>
+        tip={
+          isOngoing
+            ? "A backup is currently in progress."
+            : nonFailedBackupsForDeployment &&
+                nonFailedBackupsForDeployment.length >= maxCloudBackups
+              ? `You can only have up to ${maxCloudBackups} backups on your current plan. Delete some of your existing backups in this deployment to create a new one.`
+              : !canPerformActions
+                ? "You do not have permission to create backups in production."
+                : undefined
+        }
+      >
+        Backup Now
+      </Button>
+
+      {showModal && (
+        <Modal
+          onClose={() => setShowModal(false)}
+          title="Request an immediate backup"
+          size="sm"
+        >
+          <label
+            className="ml-px flex items-center gap-2 text-sm"
+            htmlFor={includeStorageCheckboxId}
+          >
+            <Checkbox
+              id={includeStorageCheckboxId}
+              checked={includeStorage}
+              onChange={() => setIncludeStorage(!includeStorage)}
+            />
+            Include file storage
+          </label>
+
+          <Button
+            className="mt-4 ml-auto flex gap-2"
+            variant="primary"
+            onClick={doBackup}
+            loading={isOngoing}
+          >
+            Create Backup
+          </Button>
+        </Modal>
+      )}
+    </>
   );
 }
 

@@ -6,9 +6,17 @@ import {
   TeamMemberResponse,
 } from "generatedApi";
 import userEvent from "@testing-library/user-event";
-import { BackupResponse, useRestoreFromCloudBackup } from "api/backups";
+import {
+  BackupResponse,
+  useRestoreFromCloudBackup,
+  useRequestCloudBackup,
+} from "api/backups";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
-import { BackupListItem, progressMessageForBackup } from "./BackupListItem";
+import {
+  BackupListItem,
+  progressMessageForBackup,
+  BackupNowButton,
+} from "./BackupListItem";
 
 const now = new Date();
 
@@ -30,6 +38,8 @@ const backup: BackupResponse = {
 };
 
 const backupInProgress: BackupResponse = { ...backup, state: "inProgress" };
+
+const backupNoStorage: BackupResponse = { ...backup, includeStorage: false };
 
 const existingCloudBackupRequested: Doc<"_exports"> = {
   _id: "yo" as Id<"_exports">,
@@ -272,4 +282,97 @@ describe("BackupListItem", () => {
       progressMessageForBackup(badIdBackup, existingCloudBackupInProgress),
     ).toEqual(null);
   });
+
+  it("indicates backup includes storage", async () => {
+    const { findByText } = render(
+      <BackupListItem
+        backup={backup}
+        restoring={false}
+        someBackupInProgress={false}
+        someRestoreInProgress={false}
+        latestBackupInTargetDeployment={null}
+        targetDeployment={{ ...targetDeployment, deploymentType: "dev" }}
+        team={team}
+        getZipExportUrl={getZipExportUrl}
+        canPerformActions
+        maxCloudBackups={2}
+        progressMessage={null}
+      />,
+    );
+
+    expect(await findByText("Includes file storage")).toBeInTheDocument();
+  });
+
+  it("indicates backup does not include storage", async () => {
+    const { findByText } = render(
+      <BackupListItem
+        backup={backupNoStorage}
+        restoring={false}
+        someBackupInProgress={false}
+        someRestoreInProgress={false}
+        latestBackupInTargetDeployment={null}
+        targetDeployment={{ ...targetDeployment, deploymentType: "dev" }}
+        team={team}
+        getZipExportUrl={getZipExportUrl}
+        canPerformActions
+        maxCloudBackups={2}
+        progressMessage={null}
+      />,
+    );
+
+    expect(await findByText("Tables only")).toBeInTheDocument();
+  });
+});
+
+describe("BackupNowButton", () => {
+  afterEach(cleanup);
+
+  it("shows modal when clicked", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { getByText, findByText } = render(
+      <BackupNowButton
+        deployment={targetDeployment}
+        team={team}
+        maxCloudBackups={10}
+        canPerformActions
+      />,
+    );
+
+    await user.click(getByText("Backup Now"));
+
+    expect(await findByText("Request an immediate backup")).toBeInTheDocument();
+    expect(await findByText("Include file storage")).toBeInTheDocument();
+  });
+
+  it.each([[true], [false]])(
+    "calls useRequestCloudBackup with includeStorage=%s when checkbox is toggled",
+    async (includeStorage) => {
+      const user = userEvent.setup({ delay: null });
+
+      const { getByText, getByLabelText } = render(
+        <BackupNowButton
+          deployment={targetDeployment}
+          team={team}
+          maxCloudBackups={10}
+          canPerformActions
+        />,
+      );
+
+      // Open modal
+      await user.click(getByText("Backup Now"));
+
+      // Toggle checkbox to match desired state
+      const checkbox = getByLabelText(/Include file storage/i);
+      if (includeStorage) {
+        await user.click(checkbox);
+      }
+
+      // Submit
+      await user.click(getByText("Create Backup"));
+
+      expect(useRequestCloudBackup()).toHaveBeenCalledWith({
+        includeStorage,
+      });
+    },
+  );
 });
