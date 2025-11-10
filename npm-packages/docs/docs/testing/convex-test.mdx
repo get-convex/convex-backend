@@ -27,7 +27,7 @@ you can browse to see examples of using it.
   </Step>
 
   <Step title="Setup NPM scripts">
-    
+
     Add these scripts to your `package.json`
 
     ```json title="package.json"
@@ -42,7 +42,7 @@ you can browse to see examples of using it.
   </Step>
 
   <Step title="Configure Vitest">
-    
+
     Add <JSDialectFileName name="vitest.config.mts" /> file to configure the test
     environment to better match the Convex runtime, and to inline the test library
     for better dependency tracking.
@@ -61,7 +61,7 @@ you can browse to see examples of using it.
   </Step>
 
   <Step title="Add a test file">
-    
+
     In your `convex` folder add a file ending in <JSDialectFileName name=".test.ts" />
 
     The example test calls the `api.messages.send` mutation twice
@@ -468,8 +468,8 @@ Some of the ways the mock differs:
   built-ins not available in the Convex runtime.
 - Some features have only simplified semantics, namely:
   - [Text search](/search.mdx) returns all documents that include a word for
-    which at least one word in the searched string is a prefix. It does not
-    implement fuzzy searching and doesn't sort the results by relevance.
+    which at least one word in the searched string is a prefix. It does not sort
+    the results by relevance.
   - [Vector search](/search/vector-search.mdx) returns results sorted by cosine
     similarity, but doesn't use an efficient vector index in its implementation.
   - There is no support for [cron jobs](/scheduling/cron-jobs.mdx), you should
