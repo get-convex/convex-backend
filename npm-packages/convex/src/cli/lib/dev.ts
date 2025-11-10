@@ -77,6 +77,7 @@ export async function devAgainstDeployment(
         codegen: devOptions.codegen,
         liveComponentSources: devOptions.liveComponentSources,
         logManager, // Pass logManager to control logs during deploy
+        largeIndexDeletionCheck: "no verification", // `convex dev` can’t push to prod
       },
       devOptions,
     ),

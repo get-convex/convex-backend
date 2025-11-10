@@ -75,6 +75,12 @@ deployment, e.g. ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_V
 Same format as .env.local or .env files, and overrides them.`,
     ),
   )
+  .addOption(
+    new Option("--allow-deleting-large-indexes")
+      .hideHelp()
+      .conflicts("preview-create")
+      .conflicts("preview-name"),
+  )
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = await oneoffContext(cmdOptions);
@@ -141,7 +147,11 @@ Same format as .env.local or .env files, and overrides them.`,
         },
       );
     } else {
-      await deployToExistingDeployment(ctx, cmdOptions);
+      await deployToExistingDeployment(ctx, {
+        ...cmdOptions,
+        allowDeletingLargeIndexes:
+          cmdOptions.allowDeletingLargeIndexes ?? false,
+      });
     }
   });
 
@@ -231,6 +241,7 @@ async function deployToNewPreviewDeployment(
     codegen: options.codegen === "enable",
     url: previewUrl,
     liveComponentSources: false,
+    largeIndexDeletionCheck: "no verification", // fine for preview deployments
   };
   showSpinner(`Deploying to ${previewUrl}...`);
   await runPush(ctx, pushOptions);
@@ -271,6 +282,7 @@ async function deployToExistingDeployment(
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
     envFile?: string | undefined;
+    allowDeletingLargeIndexes: boolean;
   },
 ) {
   const selectionWithinProject = deploymentSelectionWithinProjectFromOptions({

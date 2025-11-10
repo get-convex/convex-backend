@@ -56,6 +56,7 @@ export const codegen = new Command("codegen")
       liveComponentSources: !!options.liveComponentSources,
       debugNodeApis: false,
       systemUdfs: !!options.systemUdfs,
+      largeIndexDeletionCheck: "no verification", // `codegen` is a read-only operation
       codegenOnlyThisComponent: options.componentDir,
     });
   });

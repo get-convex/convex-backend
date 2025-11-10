@@ -36,7 +36,16 @@ export type PushOptions = {
   writePushRequest?: string | undefined;
   liveComponentSources: boolean;
   logManager?: LogManager | undefined;
+  largeIndexDeletionCheck: LargeIndexDeletionCheck;
 };
+
+export type LargeIndexDeletionCheck =
+  // Don’t verify whether large indexes have been deleted
+  | "no verification"
+  // If large indexes are being deleted, ask for confirmation (and fail in non-interactive envs)
+  | "ask for confirmation"
+  // If large indexes are being deleted, confirm (the user has used --allow-deleting-large-indexes)
+  | "has confirmation";
 
 export async function runNonComponentsPush(
   ctx: Context,

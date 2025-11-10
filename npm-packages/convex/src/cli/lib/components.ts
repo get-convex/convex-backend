@@ -21,7 +21,11 @@ import {
   waitForSchema,
 } from "./deploy2.js";
 import { version } from "../version.js";
-import { PushOptions, runNonComponentsPush } from "./push.js";
+import {
+  LargeIndexDeletionCheck,
+  PushOptions,
+  runNonComponentsPush,
+} from "./push.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
 import {
   bundleDefinitions,
@@ -58,6 +62,7 @@ import {
 import { DeploymentSelection } from "./deploymentSelection.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex } from "./indexes.js";
+import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
 
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
   // Default to `.ts` but fallback to `.js` if not present.
@@ -182,6 +187,7 @@ async function startComponentsPushAndCodegen(
     codegen: boolean;
     liveComponentSources?: boolean;
     debugNodeApis: boolean;
+    largeIndexDeletionCheck: LargeIndexDeletionCheck;
     codegenOnlyThisComponent?: string | undefined;
   },
 ): Promise<StartPushResponse | null> {
@@ -379,6 +385,19 @@ async function startComponentsPushAndCodegen(
     return null;
   }
   logStartPushSizes(parentSpan, startPushRequest);
+
+  if (options.largeIndexDeletionCheck !== "no verification") {
+    await parentSpan.enterAsync("checkForLargeIndexDeletion", (span) =>
+      checkForLargeIndexDeletion({
+        ctx,
+        span,
+        request: startPushRequest,
+        options,
+        askForConfirmation:
+          options.largeIndexDeletionCheck === "ask for confirmation",
+      }),
+    );
+  }
 
   changeSpinner("Uploading functions to Convex...");
   const startPushResponse = await parentSpan.enterAsync("startPush", (span) =>

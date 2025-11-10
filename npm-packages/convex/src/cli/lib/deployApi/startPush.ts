@@ -48,6 +48,11 @@ export const startPushResponse = looseObject({
 });
 export type StartPushResponse = z.infer<typeof startPushResponse>;
 
+export const evaluatePushResponse = looseObject({
+  schemaChange,
+});
+export type EvaluatePushResponse = z.infer<typeof evaluatePushResponse>;
+
 export const componentSchemaStatus = looseObject({
   schemaValidationComplete: z.boolean(),
   indexesComplete: z.number(),

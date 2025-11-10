@@ -10,6 +10,8 @@ import {
 import { spawnSync } from "child_process";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 import {
+  EvaluatePushResponse,
+  evaluatePushResponse,
   schemaStatus,
   SchemaStatus,
   StartPushRequest,
@@ -61,6 +63,45 @@ export async function startPush(
     deploymentName: string | null;
   },
 ): Promise<StartPushResponse> {
+  const response = await pushCode(
+    ctx,
+    span,
+    request,
+    options,
+    "/api/deploy2/start_push",
+  );
+  return startPushResponse.parse(response);
+}
+
+export async function evaluatePush(
+  ctx: Context,
+  span: Span,
+  request: StartPushRequest,
+  options: {
+    url: string;
+    deploymentName: string | null;
+  },
+): Promise<EvaluatePushResponse> {
+  const response = await pushCode(
+    ctx,
+    span,
+    request,
+    options,
+    "/api/deploy2/evaluate_push",
+  );
+  return evaluatePushResponse.parse(response);
+}
+
+async function pushCode(
+  ctx: Context,
+  span: Span,
+  request: StartPushRequest,
+  options: {
+    url: string;
+    deploymentName: string | null;
+  },
+  endpoint: "/api/deploy2/start_push" | "/api/deploy2/evaluate_push",
+): Promise<unknown> {
   const custom = (_k: string | number, s: any) =>
     typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
   logVerbose(JSON.stringify(request, custom, 2));
@@ -74,9 +115,8 @@ export async function startPush(
     adminKey: request.adminKey,
     onError,
   });
-  changeSpinner("Analyzing source code...");
   try {
-    const response = await fetch("/api/deploy2/start_push", {
+    const response = await fetch(endpoint, {
       body: await brotliCompress(ctx, JSON.stringify(request)),
       method: "POST",
       headers: {
@@ -85,7 +125,7 @@ export async function startPush(
         traceparent: span.encodeW3CTraceparent(),
       },
     });
-    return startPushResponse.parse(await response.json());
+    return await response.json();
   } catch (error: unknown) {
     return await handlePushConfigError(
       ctx,
@@ -333,6 +373,7 @@ export async function deployToDeployment(
     debug?: boolean | undefined;
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
+    allowDeletingLargeIndexes: boolean;
   },
 ) {
   const { url, adminKey } = credentials;
@@ -352,6 +393,9 @@ export async function deployToDeployment(
     url,
     writePushRequest: options.writePushRequest,
     liveComponentSources: !!options.liveComponentSources,
+    largeIndexDeletionCheck: options.allowDeletingLargeIndexes
+      ? "has confirmation"
+      : "ask for confirmation",
   };
   showSpinner(`Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`);
   await runPush(ctx, pushOptions);

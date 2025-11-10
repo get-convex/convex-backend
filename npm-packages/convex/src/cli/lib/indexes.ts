@@ -391,7 +391,7 @@ export function toDeveloperIndexConfig(
 
 export function formatIndex(index: DeveloperIndexConfig) {
   const [tableName, indexName] = index.name.split(".");
-  return `${tableName}.${chalk.bold(indexName)} ${chalk.gray(formatIndexFields(index))}`;
+  return `${tableName}.${chalk.bold(indexName)} ${chalk.gray(formatIndexFields(index))}${index.staged ? chalk.blue("  (staged)") : ""}`;
 }
 
 function formatIndexFields(index: DeveloperIndexConfig) {
