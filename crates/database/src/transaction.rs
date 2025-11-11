@@ -472,12 +472,9 @@ impl<RT: Runtime> Transaction<RT> {
         let existing_updates = self.writes().as_flat()?.clone().into_updates();
 
         let mut updates = updates.into_iter().collect::<Vec<_>>();
-        updates.sort_by_key(|(id, update)| {
-            table_dependency_sort_key(
-                self.bootstrap_tables(),
-                (*id).into(),
-                update.new_document.as_ref(),
-            )
+        let bootstrap_tables = self.bootstrap_tables();
+        updates.sort_by_cached_key(|(id, update)| {
+            table_dependency_sort_key(bootstrap_tables, (*id).into(), update.new_document.as_ref())
         });
 
         let mut preserved_update_count = 0;
