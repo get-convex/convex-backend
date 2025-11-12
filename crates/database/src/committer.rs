@@ -1164,7 +1164,13 @@ impl CommitterClient {
         self.check_generated_ids(&transaction).await?;
 
         // Finish reading everything from persistence.
-        let transaction = transaction.finalize(self.snapshot_reader.clone()).await?;
+        let transaction = transaction.finalize()?;
+
+        // Note that we do a best effort validation for memory index sizes. We
+        // use the latest snapshot instead of the transaction base snapshot. This
+        // is both more accurate and also avoids pedant hitting transient errors.
+        let latest_snapshot = self.snapshot_reader.lock().latest_snapshot();
+        transaction.validate_memory_index_sizes(&latest_snapshot)?;
 
         let queue_timer = metrics::commit_queue_timer();
         let (tx, rx) = oneshot::channel();

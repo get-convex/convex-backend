@@ -53,7 +53,6 @@ use common::{
     },
     runtime::Runtime,
     schemas::DatabaseSchema,
-    sync::split_rw_lock::Reader,
     types::{
         GenericIndexName,
         IndexId,
@@ -120,10 +119,7 @@ use crate::{
     },
     reads::TransactionReadSet,
     schema_registry::SchemaRegistry,
-    snapshot_manager::{
-        Snapshot,
-        SnapshotManager,
-    },
+    snapshot_manager::Snapshot,
     table_summary::table_summary_bootstrapping_error,
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
@@ -1119,11 +1115,8 @@ impl<RT: Runtime> Transaction<RT> {
         self.index_size_override = Some(size);
     }
 
-    pub async fn finalize(
-        self,
-        snapshot_reader: Reader<SnapshotManager>,
-    ) -> anyhow::Result<FinalTransaction> {
-        FinalTransaction::new(self, snapshot_reader).await
+    pub fn finalize(self) -> anyhow::Result<FinalTransaction> {
+        FinalTransaction::new(self)
     }
 }
 
@@ -1149,6 +1142,9 @@ pub struct FinalTransaction {
     pub(crate) writes: Writes,
 
     pub(crate) usage_tracker: FunctionUsageTracker,
+
+    #[cfg(any(test, feature = "testing"))]
+    index_size_override: Option<usize>,
 }
 
 impl FinalTransaction {
@@ -1156,58 +1152,49 @@ impl FinalTransaction {
         self.writes.is_empty()
     }
 
-    pub async fn new<RT: Runtime>(
-        mut transaction: Transaction<RT>,
-        snapshot_reader: Reader<SnapshotManager>,
-    ) -> anyhow::Result<Self> {
+    fn new<RT: Runtime>(transaction: Transaction<RT>) -> anyhow::Result<Self> {
         // All subtransactions must have committed or rolled back.
         transaction.require_not_nested()?;
 
         let begin_timestamp = transaction.begin_timestamp();
-        let table_mapping = transaction.table_mapping().clone();
-        let component_registry = transaction.component_registry.deref().clone();
-        // Note that we do a best effort validation for memory index sizes. We
-        // use the latest snapshot instead of the transaction base snapshot. This
-        // is both more accurate and also avoids pedant hitting transient errors.
-        let latest_snapshot = snapshot_reader.lock().latest_snapshot();
-        Self::validate_memory_index_sizes(&table_mapping, &transaction, &latest_snapshot)?;
         Ok(Self {
             begin_timestamp,
-            table_mapping,
-            component_registry,
+            table_mapping: transaction.metadata.into_flat()?.table_mapping().clone(),
+            component_registry: transaction.component_registry.into_flat()?,
             reads: transaction.reads,
             writes: transaction.writes.into_flat()?,
-            usage_tracker: transaction.usage_tracker.clone(),
+            usage_tracker: transaction.usage_tracker,
+
+            #[cfg(any(test, feature = "testing"))]
+            index_size_override: transaction.index_size_override,
         })
     }
 
-    fn validate_memory_index_sizes<RT: Runtime>(
-        table_mapping: &TableMapping,
-        transaction: &Transaction<RT>,
+    pub(crate) fn validate_memory_index_sizes(
+        &self,
         base_snapshot: &Snapshot,
     ) -> anyhow::Result<()> {
         #[allow(unused_mut)]
         let mut vector_size_limit = *VECTOR_INDEX_SIZE_HARD_LIMIT;
         #[cfg(any(test, feature = "testing"))]
-        if let Some(size) = transaction.index_size_override {
+        if let Some(size) = self.index_size_override {
             vector_size_limit = size;
         }
 
         #[allow(unused_mut)]
         let mut search_size_limit = *TEXT_INDEX_SIZE_HARD_LIMIT;
         #[cfg(any(test, feature = "testing"))]
-        if let Some(size) = transaction.index_size_override {
+        if let Some(size) = self.index_size_override {
             search_size_limit = size;
         }
 
-        let modified_tables: BTreeSet<_> = transaction
+        let modified_tables: BTreeSet<_> = self
             .writes
-            .as_flat()?
             .coalesced_writes()
             .map(|update| update.id.tablet_id)
             .collect();
         Self::validate_memory_index_size(
-            table_mapping,
+            &self.table_mapping,
             base_snapshot,
             &modified_tables,
             base_snapshot.text_indexes.in_memory_sizes().into_iter(),
@@ -1215,7 +1202,7 @@ impl FinalTransaction {
             SearchType::Text,
         )?;
         Self::validate_memory_index_size(
-            table_mapping,
+            &self.table_mapping,
             base_snapshot,
             &modified_tables,
             base_snapshot.vector_indexes.in_memory_sizes().into_iter(),
