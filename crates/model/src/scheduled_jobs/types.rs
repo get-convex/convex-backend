@@ -270,3 +270,38 @@ mod state {
 
     codegen_convex_serialization!(ScheduledJobState, SerializedScheduledJobState);
 }
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct ScheduledJobArgs {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "proptest::arbitrary::any_with::<ConvexArray>((0..4).into()).\
+                        prop_map(args_to_bytes).prop_filter_map(\"invalid json\", |b| b.ok())"
+        )
+    )]
+    args: ByteBuf,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedScheduledJobArgs {
+    args: ByteBuf,
+}
+
+impl From<ScheduledJobArgs> for SerializedScheduledJobArgs {
+    fn from(value: ScheduledJobArgs) -> SerializedScheduledJobArgs {
+        SerializedScheduledJobArgs { args: value.args }
+    }
+}
+
+impl TryFrom<SerializedScheduledJobArgs> for ScheduledJobArgs {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedScheduledJobArgs) -> anyhow::Result<Self> {
+        Ok(ScheduledJobArgs { args: value.args })
+    }
+}
+
+codegen_convex_serialization!(ScheduledJobArgs, SerializedScheduledJobArgs);

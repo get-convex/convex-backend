@@ -199,6 +199,10 @@ use crate::{
     exports::ExportsTable,
     external_packages::EXTERNAL_PACKAGES_TABLE,
     log_sinks::LOG_SINKS_TABLE,
+    scheduled_jobs::args::{
+        ScheduledJobArgsTable,
+        SCHEDULED_JOBS_ARGS_TABLE,
+    },
 };
 
 pub mod airbyte_import;
@@ -266,9 +270,10 @@ enum DefaultTableNumber {
     CronNextRun = 35,
     IndexBackfills = 36,
     SchemaValidationProgress = 37,
+    ScheduledJobArgs = 38,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 38 - emma
+    // Next Number - 39 - emma
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -312,6 +317,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::CronNextRun => &CronNextRunTable,
             DefaultTableNumber::IndexBackfills => &IndexBackfillTable,
             DefaultTableNumber::SchemaValidationProgress => &SchemaValidationProgressTable,
+            DefaultTableNumber::ScheduledJobArgs => &ScheduledJobArgsTable,
         }
     }
 }
@@ -553,6 +559,7 @@ pub fn component_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
     vec![
         &FileStorageTable,
         &ScheduledJobsTable,
+        &ScheduledJobArgsTable,
         &CronJobsTable,
         &CronJobLogsTable,
         &CronNextRunTable,
@@ -629,6 +636,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         CANONICAL_URLS_TABLE.clone() => 116,
         INDEX_BACKFILLS_TABLE.clone() => 120,
         SCHEMA_VALIDATION_PROGRESS_TABLE.clone() => 122,
+        SCHEDULED_JOBS_ARGS_TABLE.clone() => 123,
     }
 });
 
