@@ -21,11 +21,6 @@ import {
   waitForSchema,
 } from "./deploy2.js";
 import { version } from "../version.js";
-import {
-  LargeIndexDeletionCheck,
-  PushOptions,
-  runNonComponentsPush,
-} from "./push.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
 import {
   bundleDefinitions,
@@ -55,27 +50,30 @@ import {
 } from "./api.js";
 import { FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
-import {
-  DEFINITION_FILENAME_JS,
-  DEFINITION_FILENAME_TS,
-} from "./components/constants.js";
+import { DEFINITION_FILENAME_TS } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
-import { formatIndex } from "./indexes.js";
+import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
 import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
+import { LogManager } from "./logs.js";
 
-async function findComponentRootPath(ctx: Context, functionsDir: string) {
-  // Default to `.ts` but fallback to `.js` if not present.
-  let componentRootPath = path.resolve(
-    path.join(functionsDir, DEFINITION_FILENAME_TS),
-  );
-  if (!ctx.fs.exists(componentRootPath)) {
-    componentRootPath = path.resolve(
-      path.join(functionsDir, DEFINITION_FILENAME_JS),
-    );
-  }
-  return componentRootPath;
-}
+export type PushOptions = {
+  adminKey: string;
+  verbose: boolean;
+  dryRun: boolean;
+  typecheck: "enable" | "try" | "disable";
+  typecheckComponents: boolean;
+  debug: boolean;
+  debugBundlePath?: string | undefined;
+  debugNodeApis: boolean;
+  codegen: boolean;
+  url: string;
+  deploymentName: string | null;
+  writePushRequest?: string | undefined;
+  liveComponentSources: boolean;
+  logManager?: LogManager | undefined;
+  largeIndexDeletionCheck: LargeIndexDeletionCheck;
+};
 
 export async function runCodegen(
   ctx: Context,
@@ -88,11 +86,6 @@ export async function runCodegen(
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const functionsDirectoryPath = functionsDir(configPath, projectConfig);
 
-  const componentRootPath = await findComponentRootPath(
-    ctx,
-    functionsDirectoryPath,
-  );
-
   if (options.init) {
     await doInitCodegen(ctx, functionsDirectoryPath, false, {
       dryRun: options.dryRun,
@@ -100,11 +93,7 @@ export async function runCodegen(
     });
   }
 
-  if (
-    (ctx.fs.exists(componentRootPath) ||
-      process.env.USE_LEGACY_PUSH === undefined) &&
-    !options.systemUdfs
-  ) {
+  if (!options.systemUdfs) {
     // Early exit for a better error message trying to use a preview key.
     if (deploymentSelection.kind === "preview") {
       return await ctx.crash({
@@ -155,16 +144,7 @@ export async function runCodegen(
 
 export async function runPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
-  const convexDir = functionsDir(configPath, projectConfig);
-  const componentRootPath = await findComponentRootPath(ctx, convexDir);
-  if (
-    !ctx.fs.exists(componentRootPath) &&
-    process.env.USE_LEGACY_PUSH !== undefined
-  ) {
-    await runNonComponentsPush(ctx, options, configPath, projectConfig);
-  } else {
-    await runComponentsPush(ctx, options, configPath, projectConfig);
-  }
+  await runComponentsPush(ctx, options, configPath, projectConfig);
 }
 
 async function startComponentsPushAndCodegen(

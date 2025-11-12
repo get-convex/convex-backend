@@ -27,7 +27,7 @@ import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
-import { PushOptions } from "./push.js";
+import { PushOptions } from "./components.js";
 import { runPush } from "./components.js";
 import { suggestedEnvVarName } from "./envvars.js";
 import { runSystemQuery } from "./run.js";

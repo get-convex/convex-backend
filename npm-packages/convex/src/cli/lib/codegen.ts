@@ -43,7 +43,7 @@ import {
   rootComponentApiCJS,
 } from "../codegen_templates/component_api.js";
 import { functionsDir } from "./utils/utils.js";
-import { LargeIndexDeletionCheck } from "./push.js";
+import { LargeIndexDeletionCheck } from "./indexes.js";
 
 export type CodegenOptions = {
   url?: string | undefined;

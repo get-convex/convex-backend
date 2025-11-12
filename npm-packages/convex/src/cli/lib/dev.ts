@@ -13,7 +13,7 @@ import { runPush } from "./components.js";
 import { performance } from "perf_hooks";
 import path from "path";
 import { LogManager, LogMode, watchLogs } from "./logs.js";
-import { PushOptions } from "./push.js";
+import { PushOptions } from "./components.js";
 import {
   formatDuration,
   getCurrentTimeString,

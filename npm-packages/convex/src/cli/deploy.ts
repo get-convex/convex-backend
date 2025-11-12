@@ -11,7 +11,7 @@ import {
   isNonProdBuildEnvironment,
   suggestedEnvVarName,
 } from "./lib/envvars.js";
-import { PushOptions } from "./lib/push.js";
+import { PushOptions } from "./lib/components.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,

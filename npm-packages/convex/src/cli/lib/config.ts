@@ -32,8 +32,6 @@ import {
   currentPackageHomepage,
 } from "./utils/utils.js";
 import { createHash } from "crypto";
-import { promisify } from "util";
-import zlib from "zlib";
 import { recursivelyDelete } from "./fsUtils.js";
 import { NodeDependency } from "./deployApi/modules.js";
 import { ComponentDefinitionPath } from "./components/definition/directoryStructure.js";
@@ -44,8 +42,6 @@ import {
 import { debugIsolateBundlesSerially } from "../../bundler/debugBundle.js";
 import { ensureWorkosEnvironmentProvisioned } from "./workos/workos.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
-
-const brotli = promisify(zlib.brotliCompress);
 
 /** Type representing auth configuration. */
 export interface AuthInfo {
@@ -800,114 +796,6 @@ export type AppDefinitionSpecWithoutImpls = Omit<
   AppDefinitionSpec,
   "schema" | "functions" | "auth"
 >;
-
-export function configJSON(
-  config: Config,
-  adminKey: string,
-  schemaId?: string,
-  pushMetrics?: PushMetrics,
-  bundledModuleInfos?: BundledModuleInfo[],
-) {
-  // Override origin with the url
-  const projectConfig = {
-    projectSlug: config.projectConfig.project,
-    teamSlug: config.projectConfig.team,
-    functions: config.projectConfig.functions,
-    authInfo: config.projectConfig.authInfo,
-  };
-  return {
-    config: projectConfig,
-    modules: config.modules,
-    nodeDependencies: config.nodeDependencies,
-    udfServerVersion: config.udfServerVersion,
-    schemaId,
-    adminKey,
-    pushMetrics,
-    bundledModuleInfos,
-    nodeVersion: config.nodeVersion,
-  };
-}
-
-// Time in seconds of various spans of time during a push.
-export type PushMetrics = {
-  typecheck: number;
-  bundle: number;
-  schemaPush: number;
-  codePull: number;
-  totalBeforePush: number;
-};
-
-/** Push configuration to the given remote origin. */
-export async function pushConfig(
-  ctx: Context,
-  config: Config,
-  options: {
-    adminKey: string;
-    url: string;
-    deploymentName: string | null;
-    pushMetrics?: PushMetrics | undefined;
-    schemaId?: string | undefined;
-    bundledModuleInfos?: BundledModuleInfo[];
-  },
-): Promise<void> {
-  const serializedConfig = configJSON(
-    config,
-    options.adminKey,
-    options.schemaId,
-    options.pushMetrics,
-    options.bundledModuleInfos,
-  );
-  const fetch = deploymentFetch(ctx, {
-    deploymentUrl: options.url,
-    adminKey: options.adminKey,
-  });
-  try {
-    if (config.nodeDependencies.length > 0) {
-      changeSpinner(
-        "Installing external packages and deploying source code...",
-      );
-    } else {
-      changeSpinner("Analyzing and deploying source code...");
-    }
-    await fetch("/api/push_config", {
-      body: await brotli(JSON.stringify(serializedConfig), {
-        params: {
-          [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
-          [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
-        },
-      }),
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Encoding": "br",
-      },
-    });
-  } catch (error: unknown) {
-    await handlePushConfigError(
-      ctx,
-      error,
-      "Error: Unable to push deployment config to " + options.url,
-      options.deploymentName,
-      {
-        adminKey: options.adminKey,
-        deploymentUrl: options.url,
-        deploymentNotice: "",
-      },
-    );
-  }
-}
-
-type Files = { source: string; filename: string }[];
-
-export type CodegenResponse =
-  | {
-      success: true;
-      files: Files;
-    }
-  | {
-      success: false;
-      error: string;
-    };
 
 function renderModule(module: {
   path: string;
