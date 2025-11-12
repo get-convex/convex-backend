@@ -1,4 +1,7 @@
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import {
+  QuestionMarkCircledIcon,
+  CrossCircledIcon,
+} from "@radix-ui/react-icons";
 
 export function UsageNoDataError({ entity }: { entity: string }) {
   return (
@@ -15,6 +18,19 @@ export function UsageDataNotAvailable({ entity }: { entity: string }) {
       title={`${entity} not available`}
       description={`${entity} is not available for the period shown.`}
     />
+  );
+}
+
+export function UsageDataError({ entity = "usage" }: { entity?: string }) {
+  const title = `Error fetching ${entity} data`;
+  const description = `An error occurred while fetching ${entity.toLowerCase()} data. Please try again later.`;
+
+  return (
+    <div className="flex h-56 animate-fadeInFromLoading flex-col justify-center p-2 text-center">
+      <CrossCircledIcon className="mx-auto h-6 w-6 text-content-error" />
+      <h5 className="mt-2">{title}</h5>
+      <p className="mt-1 text-sm text-content-secondary">{description}</p>
+    </div>
   );
 }
 

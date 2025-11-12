@@ -1,6 +1,6 @@
 import { PlanSummary, UsageOverview } from "components/billing/PlanSummary";
 import { Sheet } from "@ui/Sheet";
-import { Loading } from "@ui/Loading";
+import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { sidebarLinkClassNames } from "@common/elements/Sidebar";
@@ -73,6 +73,7 @@ import {
   UsageChartUnavailable,
   UsageDataNotAvailable,
   UsageNoDataError,
+  UsageDataError,
 } from "./TeamUsageError";
 import { TeamUsageToolbar } from "./TeamUsageToolbar";
 import { GroupBy, GroupBySelector } from "./GroupBySelector";
@@ -115,7 +116,7 @@ export function TeamUsage({ team }: { team: Team }) {
 
   const { subscription } = useTeamOrbSubscription(team?.id);
 
-  const teamSummary = useUsageTeamSummary(
+  const { data: teamSummary, error: teamSummaryError } = useUsageTeamSummary(
     team?.id,
     shownBillingPeriod
       ? { from: shownBillingPeriod.from, to: shownBillingPeriod.to }
@@ -187,6 +188,7 @@ export function TeamUsage({ team }: { team: Team }) {
                 entitlements={entitlements}
                 hasSubscription={hasSubscription}
                 showEntitlements={showEntitlements}
+                error={teamSummaryError}
               />
 
               <FunctionCallsUsage
@@ -274,12 +276,13 @@ function FunctionBreakdownSection({
 }) {
   const projects = useProjects(team.id);
 
-  const metricsByFunction = useUsageTeamMetricsByFunction(
-    team.id,
-    dateRange,
-    projectId,
-    componentPrefix,
-  );
+  const { data: metricsByFunction, error: metricsByFunctionError } =
+    useUsageTeamMetricsByFunction(
+      team.id,
+      dateRange,
+      projectId,
+      componentPrefix,
+    );
 
   const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
   const metric = FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex];
@@ -336,7 +339,9 @@ function FunctionBreakdownSection({
       }
     >
       <div className="px-4">
-        {!metricsByFunction || !projects ? (
+        {metricsByFunctionError ? (
+          <UsageDataError entity="Functions breakdown" />
+        ) : !metricsByFunction || !projects ? (
           <ChartLoading />
         ) : functionBreakdownTabIndex === 0 ||
           isFunctionBreakdownBandwidthAvailable ? (
@@ -389,7 +394,13 @@ function useUsageByProject(
 }
 
 function ChartLoading() {
-  return <Loading className="h-56 w-full rounded-sm" fullHeight={false} />;
+  return (
+    <div className="flex h-56 w-full items-center justify-center">
+      <div className="flex items-center justify-center">
+        <Spinner className="size-12" />
+      </div>
+    </div>
+  );
 }
 
 function FunctionUsageBreakdown({
@@ -536,24 +547,26 @@ function DatabaseUsage({
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  const databaseStorageByProject = useUsageTeamDatabaseStoragePerDayByProject(
+  const {
+    data: databaseStorageByProject,
+    error: databaseStorageByProjectError,
+  } = useUsageTeamDatabaseStoragePerDayByProject(
     team.id,
     dateRange,
     componentPrefix,
   );
 
-  const documentsCountByProject = useUsageTeamDocumentsPerDayByProject(
+  const { data: documentsCountByProject, error: documentsCountByProjectError } =
+    useUsageTeamDocumentsPerDayByProject(team.id, dateRange, componentPrefix);
+
+  const {
+    data: databaseBandwidthByProject,
+    error: databaseBandwidthByProjectError,
+  } = useUsageTeamDatabaseBandwidthPerDayByProject(
     team.id,
     dateRange,
     componentPrefix,
   );
-
-  const databaseBandwidthByProject =
-    useUsageTeamDatabaseBandwidthPerDayByProject(
-      team.id,
-      dateRange,
-      componentPrefix,
-    );
 
   const databaseStorage =
     viewMode === "byType"
@@ -623,84 +636,98 @@ function DatabaseUsage({
       >
         <Tab.Panels className="px-4">
           <Tab.Panel>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={storage}
-                entitlement={storageEntitlement ?? 0}
-                format={formatBytes}
-                showEntitlements={showEntitlements}
-              />
-            )}
-            {viewMode === "byType" ? (
-              databaseStorage === undefined ? (
-                <ChartLoading />
-              ) : databaseStorage === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={databaseStorage}
-                  categories={DATABASE_STORAGE_CATEGORIES}
-                  entity="documents"
-                  quantityType="storage"
-                  showCategoryTotals={false}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : databaseStorageByProject === undefined ? (
-              <ChartLoading />
+            {databaseStorageByProjectError ? (
+              <UsageDataError entity="Database storage" />
             ) : (
-              <UsageByProjectChart
-                rows={databaseStorageByProject}
-                entity="documents"
-                quantityType="storage"
-                projects={projects}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                {showEntitlements && selectedDate === null && (
+                  <UsageOverview
+                    metric={storage}
+                    entitlement={storageEntitlement ?? 0}
+                    format={formatBytes}
+                    showEntitlements={showEntitlements}
+                  />
+                )}
+                {viewMode === "byType" ? (
+                  databaseStorage === undefined ? (
+                    <ChartLoading />
+                  ) : databaseStorage === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageStackedBarChart
+                      rows={databaseStorage}
+                      categories={DATABASE_STORAGE_CATEGORIES}
+                      entity="documents"
+                      quantityType="storage"
+                      showCategoryTotals={false}
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                    />
+                  )
+                ) : databaseStorageByProject === undefined ? (
+                  <ChartLoading />
+                ) : (
+                  <UsageByProjectChart
+                    rows={databaseStorageByProject}
+                    entity="documents"
+                    quantityType="storage"
+                    projects={projects}
+                    team={team}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                  />
+                )}
+              </>
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={bandwidth}
-                entitlement={bandwidthEntitlement ?? 0}
-                format={formatBytes}
-                showEntitlements={showEntitlements}
-              />
-            )}
-            {viewMode === "byType" ? (
-              databaseBandwidth === undefined ? (
-                <ChartLoading />
-              ) : databaseBandwidth === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={databaseBandwidth}
-                  categories={BANDWIDTH_CATEGORIES}
-                  entity="documents"
-                  quantityType="storage"
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : databaseBandwidthByProject === undefined ? (
-              <ChartLoading />
+            {databaseBandwidthByProjectError ? (
+              <UsageDataError entity="Database bandwidth" />
             ) : (
-              <UsageByProjectChart
-                rows={databaseBandwidthByProject}
-                entity="documents"
-                quantityType="storage"
-                projects={projects}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                {showEntitlements && selectedDate === null && (
+                  <UsageOverview
+                    metric={bandwidth}
+                    entitlement={bandwidthEntitlement ?? 0}
+                    format={formatBytes}
+                    showEntitlements={showEntitlements}
+                  />
+                )}
+                {viewMode === "byType" ? (
+                  databaseBandwidth === undefined ? (
+                    <ChartLoading />
+                  ) : databaseBandwidth === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageStackedBarChart
+                      rows={databaseBandwidth}
+                      categories={BANDWIDTH_CATEGORIES}
+                      entity="documents"
+                      quantityType="storage"
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                    />
+                  )
+                ) : databaseBandwidthByProject === undefined ? (
+                  <ChartLoading />
+                ) : (
+                  <UsageByProjectChart
+                    rows={databaseBandwidthByProject}
+                    entity="documents"
+                    quantityType="storage"
+                    projects={projects}
+                    team={team}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                  />
+                )}
+              </>
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {viewMode === "byType" ? (
+            {documentsCountByProjectError ? (
+              <UsageDataError entity="Document count" />
+            ) : viewMode === "byType" ? (
               documentsCount === undefined ? (
                 <ChartLoading />
               ) : documentsCount === null ? (
@@ -754,11 +781,8 @@ function FunctionCallsUsage({
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  const callsByTagByProject = useUsageTeamDailyCallsByTagByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
+  const { data: callsByTagByProject, error: callsByTagByProjectError } =
+    useUsageTeamDailyCallsByTagByProject(team.id, dateRange, componentPrefix);
 
   const callsByTag =
     viewMode === "byType"
@@ -801,40 +825,46 @@ function FunctionCallsUsage({
       }
     >
       <div className="px-4">
-        {showEntitlements && selectedDate === null && (
-          <UsageOverview
-            metric={functionCalls}
-            entitlement={functionCallsEntitlement ?? 0}
-            format={formatNumberCompact}
-            showEntitlements={showEntitlements}
-          />
-        )}
-        {viewMode === "byType" ? (
-          callsByTag === undefined ? (
-            <ChartLoading />
-          ) : callsByTag === null ? (
-            <UsageChartUnavailable />
-          ) : (
-            <UsageStackedBarChart
-              rows={callsByTag}
-              entity="calls"
-              categories={TAG_CATEGORIES}
-              categoryRenames={CATEGORY_RENAMES}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-            />
-          )
-        ) : callsByTagByProject === undefined ? (
-          <ChartLoading />
+        {callsByTagByProjectError ? (
+          <UsageDataError entity="Function calls" />
         ) : (
-          <UsageByProjectChart
-            rows={callsByTagByProject}
-            entity="calls"
-            projects={projects}
-            team={team}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-          />
+          <>
+            {showEntitlements && selectedDate === null && (
+              <UsageOverview
+                metric={functionCalls}
+                entitlement={functionCallsEntitlement ?? 0}
+                format={formatNumberCompact}
+                showEntitlements={showEntitlements}
+              />
+            )}
+            {viewMode === "byType" ? (
+              callsByTag === undefined ? (
+                <ChartLoading />
+              ) : callsByTag === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageStackedBarChart
+                  rows={callsByTag}
+                  entity="calls"
+                  categories={TAG_CATEGORIES}
+                  categoryRenames={CATEGORY_RENAMES}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                />
+              )
+            ) : callsByTagByProject === undefined ? (
+              <ChartLoading />
+            ) : (
+              <UsageByProjectChart
+                rows={callsByTagByProject}
+                entity="calls"
+                projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+              />
+            )}
+          </>
         )}
       </div>
     </TeamUsageSection>
@@ -868,7 +898,10 @@ function ActionComputeUsage({
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  const actionComputeDailyByProject = useUsageTeamActionComputeDailyByProject(
+  const {
+    data: actionComputeDailyByProject,
+    error: actionComputeDailyByProjectError,
+  } = useUsageTeamActionComputeDailyByProject(
     team.id,
     dateRange,
     componentPrefix,
@@ -915,39 +948,45 @@ function ActionComputeUsage({
       }
     >
       <div className="px-4">
-        {showEntitlements && selectedDate === null && (
-          <UsageOverview
-            metric={actionCompute}
-            entitlement={actionComputeEntitlement ?? 0}
-            format={formatNumberCompact}
-            showEntitlements={showEntitlements}
-            suffix="GB-hours"
-          />
-        )}
-        {viewMode === "byType" ? (
-          actionComputeDaily === undefined ? (
-            <ChartLoading />
-          ) : actionComputeDaily === null ? (
-            <UsageChartUnavailable />
-          ) : (
-            <UsageBarChart
-              rows={actionComputeDaily}
-              entity="action calls"
-              quantityType="actionCompute"
-            />
-          )
-        ) : actionComputeDailyByProject === undefined ? (
-          <ChartLoading />
+        {actionComputeDailyByProjectError ? (
+          <UsageDataError entity="Action compute" />
         ) : (
-          <UsageByProjectChart
-            rows={actionComputeDailyByProject}
-            entity="action calls"
-            quantityType="actionCompute"
-            projects={projects}
-            team={team}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-          />
+          <>
+            {showEntitlements && selectedDate === null && (
+              <UsageOverview
+                metric={actionCompute}
+                entitlement={actionComputeEntitlement ?? 0}
+                format={formatNumberCompact}
+                showEntitlements={showEntitlements}
+                suffix="GB-hours"
+              />
+            )}
+            {viewMode === "byType" ? (
+              actionComputeDaily === undefined ? (
+                <ChartLoading />
+              ) : actionComputeDaily === null ? (
+                <UsageChartUnavailable />
+              ) : (
+                <UsageBarChart
+                  rows={actionComputeDaily}
+                  entity="action calls"
+                  quantityType="actionCompute"
+                />
+              )
+            ) : actionComputeDailyByProject === undefined ? (
+              <ChartLoading />
+            ) : (
+              <UsageByProjectChart
+                rows={actionComputeDailyByProject}
+                entity="action calls"
+                quantityType="actionCompute"
+                projects={projects}
+                team={team}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+              />
+            )}
+          </>
         )}
       </div>
     </TeamUsageSection>
@@ -985,17 +1024,15 @@ function FilesUsage({
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  const filesBandwidthByProject = useUsageTeamStorageThroughputDailyByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
+  const { data: filesBandwidthByProject, error: filesBandwidthByProjectError } =
+    useUsageTeamStorageThroughputDailyByProject(
+      team.id,
+      dateRange,
+      componentPrefix,
+    );
 
-  const fileStorageByProject = useUsageTeamStoragePerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
+  const { data: fileStorageByProject, error: fileStorageByProjectError } =
+    useUsageTeamStoragePerDayByProject(team.id, dateRange, componentPrefix);
 
   const filesBandwidth =
     viewMode === "byType"
@@ -1059,80 +1096,92 @@ function FilesUsage({
       >
         <Tab.Panels className="px-4">
           <Tab.Panel>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={storage}
-                entitlement={storageEntitlement ?? 0}
-                format={formatBytes}
-                showEntitlements={showEntitlements}
-              />
-            )}
-            {viewMode === "byType" ? (
-              fileStorage === undefined ? (
-                <ChartLoading />
-              ) : fileStorage === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={fileStorage}
-                  categories={FILE_STORAGE_CATEGORIES}
-                  entity="files"
-                  quantityType="storage"
-                  showCategoryTotals={false}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : fileStorageByProject === undefined ? (
-              <ChartLoading />
+            {fileStorageByProjectError ? (
+              <UsageDataError entity="File storage" />
             ) : (
-              <UsageByProjectChart
-                rows={fileStorageByProject}
-                entity="files"
-                quantityType="storage"
-                projects={projects}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                {showEntitlements && selectedDate === null && (
+                  <UsageOverview
+                    metric={storage}
+                    entitlement={storageEntitlement ?? 0}
+                    format={formatBytes}
+                    showEntitlements={showEntitlements}
+                  />
+                )}
+                {viewMode === "byType" ? (
+                  fileStorage === undefined ? (
+                    <ChartLoading />
+                  ) : fileStorage === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageStackedBarChart
+                      rows={fileStorage}
+                      categories={FILE_STORAGE_CATEGORIES}
+                      entity="files"
+                      quantityType="storage"
+                      showCategoryTotals={false}
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                    />
+                  )
+                ) : fileStorageByProject === undefined ? (
+                  <ChartLoading />
+                ) : (
+                  <UsageByProjectChart
+                    rows={fileStorageByProject}
+                    entity="files"
+                    quantityType="storage"
+                    projects={projects}
+                    team={team}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                  />
+                )}
+              </>
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={bandwidth}
-                entitlement={bandwidthEntitlement ?? 0}
-                format={formatBytes}
-                showEntitlements={showEntitlements}
-              />
-            )}
-            {viewMode === "byType" ? (
-              filesBandwidth === undefined ? (
-                <ChartLoading />
-              ) : filesBandwidth === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={filesBandwidth}
-                  categories={FILE_BANDWIDTH_CATEGORIES}
-                  entity="files"
-                  quantityType="storage"
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : filesBandwidthByProject === undefined ? (
-              <ChartLoading />
+            {filesBandwidthByProjectError ? (
+              <UsageDataError entity="File bandwidth" />
             ) : (
-              <UsageByProjectChart
-                rows={filesBandwidthByProject}
-                entity="files"
-                quantityType="storage"
-                projects={projects}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                {showEntitlements && selectedDate === null && (
+                  <UsageOverview
+                    metric={bandwidth}
+                    entitlement={bandwidthEntitlement ?? 0}
+                    format={formatBytes}
+                    showEntitlements={showEntitlements}
+                  />
+                )}
+                {viewMode === "byType" ? (
+                  filesBandwidth === undefined ? (
+                    <ChartLoading />
+                  ) : filesBandwidth === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageStackedBarChart
+                      rows={filesBandwidth}
+                      categories={FILE_BANDWIDTH_CATEGORIES}
+                      entity="files"
+                      quantityType="storage"
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                    />
+                  )
+                ) : filesBandwidthByProject === undefined ? (
+                  <ChartLoading />
+                ) : (
+                  <UsageByProjectChart
+                    rows={filesBandwidthByProject}
+                    entity="files"
+                    quantityType="storage"
+                    projects={projects}
+                    team={team}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                  />
+                )}
+              </>
             )}
           </Tab.Panel>
         </Tab.Panels>
@@ -1171,13 +1220,17 @@ function VectorUsage({
 
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  const vectorStorageByProject = useUsageTeamVectorStoragePerDayByProject(
-    team.id,
-    dateRange,
-    componentPrefix,
-  );
+  const { data: vectorStorageByProject, error: vectorStorageByProjectError } =
+    useUsageTeamVectorStoragePerDayByProject(
+      team.id,
+      dateRange,
+      componentPrefix,
+    );
 
-  const vectorBandwidthByProject = useUsageTeamVectorBandwidthPerDayByProject(
+  const {
+    data: vectorBandwidthByProject,
+    error: vectorBandwidthByProjectError,
+  } = useUsageTeamVectorBandwidthPerDayByProject(
     team.id,
     dateRange,
     componentPrefix,
@@ -1245,76 +1298,88 @@ function VectorUsage({
       >
         <Tab.Panels className="px-4">
           <Tab.Panel>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={storage}
-                entitlement={storageEntitlement ?? 0}
-                format={formatBytes}
-                showEntitlements={showEntitlements}
-              />
-            )}
-            {viewMode === "byType" ? (
-              vectorStorage === undefined ? (
-                <ChartLoading />
-              ) : vectorStorage === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageBarChart
-                  rows={vectorStorage}
-                  entity="vectors"
-                  quantityType="storage"
-                />
-              )
-            ) : vectorStorageByProject === undefined ? (
-              <ChartLoading />
+            {vectorStorageByProjectError ? (
+              <UsageDataError entity="Vector storage" />
             ) : (
-              <UsageByProjectChart
-                rows={vectorStorageByProject}
-                entity="vectors"
-                quantityType="storage"
-                projects={projects}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                {showEntitlements && selectedDate === null && (
+                  <UsageOverview
+                    metric={storage}
+                    entitlement={storageEntitlement ?? 0}
+                    format={formatBytes}
+                    showEntitlements={showEntitlements}
+                  />
+                )}
+                {viewMode === "byType" ? (
+                  vectorStorage === undefined ? (
+                    <ChartLoading />
+                  ) : vectorStorage === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageBarChart
+                      rows={vectorStorage}
+                      entity="vectors"
+                      quantityType="storage"
+                    />
+                  )
+                ) : vectorStorageByProject === undefined ? (
+                  <ChartLoading />
+                ) : (
+                  <UsageByProjectChart
+                    rows={vectorStorageByProject}
+                    entity="vectors"
+                    quantityType="storage"
+                    projects={projects}
+                    team={team}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                  />
+                )}
+              </>
             )}
           </Tab.Panel>
           <Tab.Panel>
-            {showEntitlements && selectedDate === null && (
-              <UsageOverview
-                metric={bandwidth}
-                entitlement={bandwidthEntitlement ?? 0}
-                format={formatBytes}
-                showEntitlements={showEntitlements}
-              />
-            )}
-            {viewMode === "byType" ? (
-              vectorBandwidth === undefined ? (
-                <ChartLoading />
-              ) : vectorBandwidth === null ? (
-                <UsageChartUnavailable />
-              ) : (
-                <UsageStackedBarChart
-                  rows={vectorBandwidth}
-                  categories={BANDWIDTH_CATEGORIES}
-                  entity="vectors"
-                  quantityType="storage"
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                />
-              )
-            ) : vectorBandwidthByProject === undefined ? (
-              <ChartLoading />
+            {vectorBandwidthByProjectError ? (
+              <UsageDataError entity="Vector bandwidth" />
             ) : (
-              <UsageByProjectChart
-                rows={vectorBandwidthByProject}
-                entity="vectors"
-                quantityType="storage"
-                projects={projects}
-                team={team}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-              />
+              <>
+                {showEntitlements && selectedDate === null && (
+                  <UsageOverview
+                    metric={bandwidth}
+                    entitlement={bandwidthEntitlement ?? 0}
+                    format={formatBytes}
+                    showEntitlements={showEntitlements}
+                  />
+                )}
+                {viewMode === "byType" ? (
+                  vectorBandwidth === undefined ? (
+                    <ChartLoading />
+                  ) : vectorBandwidth === null ? (
+                    <UsageChartUnavailable />
+                  ) : (
+                    <UsageStackedBarChart
+                      rows={vectorBandwidth}
+                      categories={BANDWIDTH_CATEGORIES}
+                      entity="vectors"
+                      quantityType="storage"
+                      selectedDate={selectedDate}
+                      setSelectedDate={setSelectedDate}
+                    />
+                  )
+                ) : vectorBandwidthByProject === undefined ? (
+                  <ChartLoading />
+                ) : (
+                  <UsageByProjectChart
+                    rows={vectorBandwidthByProject}
+                    entity="vectors"
+                    quantityType="storage"
+                    projects={projects}
+                    team={team}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                  />
+                )}
+              </>
             )}
           </Tab.Panel>
         </Tab.Panels>

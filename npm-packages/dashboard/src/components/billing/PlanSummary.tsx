@@ -1,11 +1,15 @@
 import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
 import { Loading } from "@ui/Loading";
+import { Spinner } from "@ui/Spinner";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { UsageSummary } from "hooks/usageMetrics";
 import { ReactNode } from "react";
 import { GetTokenInfoResponse, TeamEntitlementsResponse } from "generatedApi";
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import {
+  QuestionMarkCircledIcon,
+  CrossCircledIcon,
+} from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import Link from "next/link";
 import { Donut } from "@ui/Donut";
@@ -17,6 +21,7 @@ export function PlanSummary({
   hasSubscription,
   showEntitlements,
   hasFilter,
+  error,
 }: {
   chefTokenUsage?: GetTokenInfoResponse;
   teamSummary?: UsageSummary;
@@ -24,6 +29,7 @@ export function PlanSummary({
   hasSubscription: boolean;
   showEntitlements: boolean;
   hasFilter: boolean;
+  error?: any;
 }) {
   return (
     <PlanSummaryForTeam
@@ -33,6 +39,7 @@ export function PlanSummary({
       hasSubscription={hasSubscription}
       showEntitlements={showEntitlements}
       hasFilter={hasFilter}
+      error={error}
     />
   );
 }
@@ -138,6 +145,7 @@ export type PlanSummaryForTeamProps = {
   showEntitlements: boolean;
   hasSubscription: boolean;
   hasFilter: boolean;
+  error?: any;
 };
 
 export function PlanSummaryForTeam({
@@ -147,6 +155,7 @@ export function PlanSummaryForTeam({
   hasSubscription,
   showEntitlements,
   hasFilter,
+  error,
 }: PlanSummaryForTeamProps) {
   return (
     <Sheet
@@ -192,39 +201,70 @@ export function PlanSummaryForTeam({
             </div>
           )}
         </div>
-        {sections.map((section, index) => (
-          <UsageSection
-            key={index}
-            metric={
-              section.metric === "chefTokens"
-                ? chefTokenUsage
-                  ? chefTokenUsage.centitokensUsed / 100
-                  : undefined
-                : teamSummary
-                  ? teamSummary[section.metric]
-                  : undefined
-            }
-            entitlement={
-              section.metric === "chefTokens"
-                ? chefTokenUsage
-                  ? chefTokenUsage.centitokensQuota / 100
-                  : undefined
-                : entitlements
-                  ? (entitlements[section.entitlement] ?? 0)
-                  : undefined
-            }
-            isNotSubjectToFilter={section.metric === "chefTokens" && hasFilter}
-            hasSubscription={hasSubscription}
-            metricName={section.metric}
-            format={section.format}
-            detail={section.detail}
-            title={section.title}
-            suffix={section.suffix}
-            showEntitlements={showEntitlements}
-          />
-        ))}
+        {error ? (
+          <PlanSummaryError />
+        ) : !teamSummary ? (
+          <PlanSummaryLoading />
+        ) : (
+          sections.map((section, index) => (
+            <UsageSection
+              key={index}
+              metric={
+                section.metric === "chefTokens"
+                  ? chefTokenUsage
+                    ? chefTokenUsage.centitokensUsed / 100
+                    : undefined
+                  : teamSummary
+                    ? teamSummary[section.metric]
+                    : undefined
+              }
+              entitlement={
+                section.metric === "chefTokens"
+                  ? chefTokenUsage
+                    ? chefTokenUsage.centitokensQuota / 100
+                    : undefined
+                  : entitlements
+                    ? (entitlements[section.entitlement] ?? 0)
+                    : undefined
+              }
+              isNotSubjectToFilter={
+                section.metric === "chefTokens" && hasFilter
+              }
+              hasSubscription={hasSubscription}
+              metricName={section.metric}
+              format={section.format}
+              detail={section.detail}
+              title={section.title}
+              suffix={section.suffix}
+              showEntitlements={showEntitlements}
+            />
+          ))
+        )}
       </div>
     </Sheet>
+  );
+}
+
+function PlanSummaryError() {
+  return (
+    <div className="flex h-56 flex-col items-center justify-center p-4 text-center">
+      <CrossCircledIcon className="h-6 w-6 text-content-error" />
+      <h5 className="mt-2">Error fetching Usage summary data</h5>
+      <p className="mt-1 text-sm text-content-secondary">
+        An error occurred while fetching usage summary data. Please try again
+        later.
+      </p>
+    </div>
+  );
+}
+
+function PlanSummaryLoading() {
+  return (
+    <div className="flex h-56 items-center justify-center p-4">
+      <div className="flex items-center justify-center">
+        <Spinner className="size-12" />
+      </div>
+    </div>
   );
 }
 
@@ -267,7 +307,8 @@ function UsageAmount({
     <>
       <div className="flex items-center gap-2">
         {showEntitlements &&
-          (metric !== undefined && entitlement !== undefined ? (
+          metric !== undefined &&
+          entitlement !== undefined && (
             <Tooltip
               side="bottom"
               tip={`Your team has used ${Math.floor(100 * (metric / entitlement))}% of the included amount${title ? ` of ${title}` : ``}.`}
@@ -275,9 +316,7 @@ function UsageAmount({
             >
               <Donut current={metric} max={entitlement} />
             </Tooltip>
-          ) : (
-            <Loading className="h-6 w-6" />
-          ))}
+          )}
         {title && <SectionLabel detail={detail}>{title}</SectionLabel>}
       </div>
       {metric === undefined || entitlement === undefined ? (
