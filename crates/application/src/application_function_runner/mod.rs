@@ -402,7 +402,9 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 udf_type,
                 tx.identity().clone(),
                 tx.begin_timestamp(),
-                tx.writes().as_flat()?.clone().into(),
+                FunctionWrites {
+                    updates: tx.writes().as_flat()?.coalesced_writes().cloned().collect(),
+                },
                 log_line_sender,
                 function_metadata,
                 http_action_metadata,

@@ -38,9 +38,7 @@ use database::{
     Transaction,
     TransactionReadSet,
     TransactionReadSize,
-    Writes,
 };
-use imbl::OrdMap;
 use isolate::ActionCallbacks;
 use keybroker::Identity;
 pub use metrics::record_module_sizes;
@@ -75,7 +73,6 @@ use udf::{
 use usage_tracking::FunctionUsageStats;
 use value::{
     identifier::Identifier,
-    ResolvedDocumentId,
     TabletId,
 };
 
@@ -179,7 +176,13 @@ impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
         Ok(Self {
             begin_timestamp,
             reads: reads.into(),
-            writes: writes.into_flat()?.into(),
+            writes: FunctionWrites {
+                updates: writes
+                    .into_flat()?
+                    .into_coalesced_writes()
+                    .map(Arc::unwrap_or_clone)
+                    .collect(),
+            },
             rows_read_by_tablet,
         })
     }
@@ -213,10 +216,11 @@ impl From<TransactionReadSet> for FunctionReads {
 
 /// Subset of [`Writes`] that is returned by [FunctionRunner] after a function
 /// has executed.
-#[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
-#[derive(Clone, Default)]
+#[cfg_attr(any(test, feature = "testing"), derive(Clone, Debug, PartialEq))]
+#[derive(Default)]
 pub struct FunctionWrites {
-    pub updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
+    /// N.B.: these are expected to have unique `id`s
+    pub updates: Vec<DocumentUpdateWithPrevTs>,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -227,17 +231,11 @@ impl proptest::arbitrary::Arbitrary for FunctionWrites {
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         proptest::collection::vec(proptest::prelude::any::<DocumentUpdateWithPrevTs>(), 0..4)
-            .prop_map(|updates| Self {
-                updates: updates.into_iter().map(|u| (u.id, u)).collect(),
+            .prop_map(|mut updates| {
+                updates.sort_by_key(|u| u.id);
+                updates.dedup_by_key(|u| u.id);
+                Self { updates }
             })
             .boxed()
-    }
-}
-
-impl From<Writes> for FunctionWrites {
-    fn from(writes: Writes) -> Self {
-        Self {
-            updates: writes.into_updates(),
-        }
     }
 }

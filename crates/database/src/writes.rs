@@ -1,10 +1,12 @@
 //! Write set tracking for an active transaction
 use std::{
-    collections::BTreeSet,
+    borrow::Borrow,
+    cmp::Ordering,
     ops::{
         Deref,
         DerefMut,
     },
+    sync::Arc,
 };
 
 use anyhow::Context;
@@ -40,7 +42,7 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
-use imbl::OrdMap;
+use imbl::OrdSet;
 use value::{
     values_to_bytes,
     DeveloperDocumentId,
@@ -54,13 +56,6 @@ use crate::{
     ComponentRegistry,
     TableRegistry,
 };
-
-#[derive(Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct DocumentWrite {
-    pub document: Option<ResolvedDocument>,
-}
 
 pub trait PendingWrites: Clone {}
 
@@ -165,10 +160,50 @@ impl<W: PendingWrites> NestedWrites<W> {
     }
 }
 
+#[derive(Debug, Clone)]
+struct Update(Arc<DocumentUpdateWithPrevTs>);
+
+impl Deref for Update {
+    type Target = DocumentUpdateWithPrevTs;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Ord for Update {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.id.cmp(&other.0.id)
+    }
+}
+
+impl PartialOrd for Update {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for Update {}
+
+impl PartialEq for Update {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Borrow<ResolvedDocumentId> for Update {
+    fn borrow(&self) -> &ResolvedDocumentId {
+        &self.id
+    }
+}
+
 /// The write set for a transaction, maintained by `TransactionState`
 #[derive(Debug, Clone, PartialEq)]
 pub struct Writes {
-    updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
+    // N.B.: OrdMap/OrdSet are very sensitive to the size of keys and values (as
+    // a map stores a minimum of 64 key-value pairs, even if empty) and likes to
+    // clone them at will, so we store just a single Arc inside of it
+    updates: OrdSet<Update>,
 
     // Fields below can be recomputed from `updates`.
 
@@ -191,7 +226,7 @@ impl Writes {
     /// Create an empty write set.
     pub fn new() -> Self {
         Self {
-            updates: OrdMap::new(),
+            updates: OrdSet::new(),
             user_tx_size: TransactionWriteSize::default(),
             system_tx_size: TransactionWriteSize::default(),
         }
@@ -212,7 +247,7 @@ impl Writes {
         new_document: Option<ResolvedDocument>,
     ) -> anyhow::Result<()> {
         if old_document.is_none() {
-            anyhow::ensure!(!self.updates.contains_key(&document_id), "Duplicate insert");
+            anyhow::ensure!(!self.updates.contains(&document_id), "Duplicate insert");
             self.register_new_id(reads, document_id)?;
         }
         Self::record_reads_for_write(bootstrap_tables, reads, document_id.tablet_id)?;
@@ -273,7 +308,7 @@ impl Writes {
             tx_size
         };
 
-        if let Some(old_update) = self.updates.get_mut(&document_id) {
+        if let Some(old_update) = self.updates.get(&document_id) {
             let (old_document, old_document_ts) = old_document.unzip();
             anyhow::ensure!(
                 old_update.new_document == old_document,
@@ -286,11 +321,15 @@ impl Writes {
                  but is {:?}",
                 old_document_ts
             );
-            old_update.new_document = new_document;
+            self.updates
+                .insert(Update(Arc::new(DocumentUpdateWithPrevTs {
+                    id: document_id,
+                    old_document: old_update.old_document.clone(),
+                    new_document,
+                })));
         } else {
-            self.updates.insert(
-                document_id,
-                DocumentUpdateWithPrevTs {
+            self.updates
+                .insert(Update(Arc::new(DocumentUpdateWithPrevTs {
                     id: document_id,
                     old_document: match old_document {
                         Some((d, ts)) => Some((
@@ -306,8 +345,7 @@ impl Writes {
                         None => None,
                     },
                     new_document,
-                },
-            );
+                })));
         }
 
         Ok(())
@@ -404,27 +442,26 @@ impl Writes {
     }
 
     /// Iterate over the coalesced writes (so no `DocumentId` appears twice).
-    pub fn coalesced_writes(
-        &self,
-    ) -> impl Iterator<Item = (&ResolvedDocumentId, &DocumentUpdateWithPrevTs)> {
-        self.updates.iter()
+    pub fn coalesced_writes(&self) -> impl Iterator<Item = &DocumentUpdateWithPrevTs> {
+        self.updates.iter().map(|x| &**x)
     }
 
-    pub fn into_coalesced_writes(
+    pub fn into_coalesced_writes(self) -> impl Iterator<Item = Arc<DocumentUpdateWithPrevTs>> {
+        self.updates.into_iter().map(|x| x.0)
+    }
+
+    pub fn into_updates(
         self,
-    ) -> impl Iterator<Item = (ResolvedDocumentId, DocumentUpdateWithPrevTs)> {
-        self.updates.into_iter()
-    }
-
-    pub fn into_updates(self) -> OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs> {
+    ) -> OrdSet<impl Borrow<ResolvedDocumentId> + Ord + Deref<Target = DocumentUpdateWithPrevTs>>
+    {
         self.updates
     }
 
-    pub fn generated_ids(&self) -> BTreeSet<ResolvedDocumentId> {
+    pub fn generated_ids(&self) -> Vec<ResolvedDocumentId> {
         self.updates
             .iter()
-            .filter(|(_, update)| update.old_document.is_none())
-            .map(|(id, _)| *id)
+            .filter(|update| update.old_document.is_none())
+            .map(|update| update.id)
             .collect()
     }
 }
@@ -454,7 +491,6 @@ mod tests {
             WriteTimestamp,
         },
     };
-    use maplit::btreeset;
     use sync_types::Timestamp;
     use value::{
         assert_obj,
@@ -610,7 +646,7 @@ mod tests {
             None,
             Some(document),
         )?;
-        assert_eq!(writes.generated_ids(), btreeset! {id});
+        assert_eq!(writes.generated_ids(), vec![id]);
         Ok(())
     }
 
@@ -654,17 +690,14 @@ mod tests {
 
         assert_eq!(writes.updates.len(), 1);
         assert_eq!(
-            writes.updates.get_min().unwrap(),
-            &(
+            **writes.updates.get_min().unwrap(),
+            DocumentUpdateWithPrevTs {
                 id,
-                DocumentUpdateWithPrevTs {
-                    id,
-                    old_document: Some((old_document, Timestamp::must(123))),
-                    new_document: Some(newer_document),
-                }
-            )
+                old_document: Some((old_document, Timestamp::must(123))),
+                new_document: Some(newer_document),
+            }
         );
-        assert_eq!(writes.generated_ids(), btreeset! {});
+        assert_eq!(writes.generated_ids(), vec![]);
         Ok(())
     }
 }

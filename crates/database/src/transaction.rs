@@ -77,7 +77,6 @@ use common::{
     virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
-use imbl::OrdMap;
 use indexing::backend_in_memory_indexes::RangeRequest;
 use keybroker::{
     Identity,
@@ -394,8 +393,11 @@ impl<RT: Runtime> Transaction<RT> {
         let mut biggest_document_id = None;
         let mut max_nesting = 0;
         let mut most_nested_document_id = None;
-        for (document_id, DocumentUpdateWithPrevTs { new_document, .. }) in
-            self.writes.coalesced_writes()
+        for DocumentUpdateWithPrevTs {
+            id: document_id,
+            new_document,
+            ..
+        } in self.writes.coalesced_writes()
         {
             let (size, nesting) = new_document
                 .as_ref()
@@ -440,7 +442,7 @@ impl<RT: Runtime> Transaction<RT> {
         num_intervals: usize,
         user_tx_size: crate::reads::TransactionReadSize,
         system_tx_size: crate::reads::TransactionReadSize,
-        updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
+        updates: Vec<DocumentUpdateWithPrevTs>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -467,24 +469,29 @@ impl<RT: Runtime> Transaction<RT> {
     // In most scenarios this transaction will have no writes.
     pub fn merge_writes(
         &mut self,
-        updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
+        updates: impl IntoIterator<Item = DocumentUpdateWithPrevTs>,
     ) -> anyhow::Result<()> {
         let existing_updates = self.writes().as_flat()?.clone().into_updates();
 
         let mut updates = updates.into_iter().collect::<Vec<_>>();
         let bootstrap_tables = self.bootstrap_tables();
-        updates.sort_by_cached_key(|(id, update)| {
-            table_dependency_sort_key(bootstrap_tables, (*id).into(), update.new_document.as_ref())
+        updates.sort_by_cached_key(|update| {
+            table_dependency_sort_key(
+                bootstrap_tables,
+                update.id.into(),
+                update.new_document.as_ref(),
+            )
         });
 
         let mut preserved_update_count = 0;
-        for (id, update) in updates {
+        for update in updates {
+            let id = update.id;
             // Ensure that the existing update matches, and that
             // that the merged-in writes didn't otherwise modify documents
             // already written to in this transaction.
             if let Some(existing_update) = existing_updates.get(&id) {
                 anyhow::ensure!(
-                    *existing_update == update,
+                    **existing_update == update,
                     "Conflicting updates for document {id}"
                 );
                 preserved_update_count += 1;
@@ -1197,7 +1204,7 @@ impl FinalTransaction {
             .writes
             .as_flat()?
             .coalesced_writes()
-            .map(|(id, _)| id.tablet_id)
+            .map(|update| update.id.tablet_id)
             .collect();
         Self::validate_memory_index_size(
             table_mapping,

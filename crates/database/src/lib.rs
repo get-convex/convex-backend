@@ -93,7 +93,6 @@ pub use write_log::{
     WriteSource,
 };
 pub use writes::{
-    DocumentWrite,
     TransactionWriteSize,
     Writes,
 };

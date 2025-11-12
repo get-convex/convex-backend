@@ -73,7 +73,6 @@ use common::{
         Timestamp,
         WriteTimestamp,
     },
-    value::ResolvedDocumentId,
 };
 use errors::ErrorMetadata;
 use fastrace::prelude::*;
@@ -142,7 +141,6 @@ use crate::{
         PendingWrites,
         WriteSource,
     },
-    writes::DocumentWrite,
     ComponentRegistry,
     Snapshot,
     Transaction,
@@ -695,10 +693,10 @@ impl<RT: Runtime> Committer<RT> {
         // which is the same order they should be applied to database metadata
         // and index data structures
         let mut ordered_updates = updates;
-        ordered_updates.sort_by_key(|(id, update)| {
+        ordered_updates.sort_by_key(|update| {
             table_dependency_sort_key(
                 BootstrapTableIds::new(&transaction.table_mapping),
-                InternalDocumentId::from(**id),
+                InternalDocumentId::from(update.id),
                 update.new_document.as_ref(),
             )
         });
@@ -717,7 +715,7 @@ impl<RT: Runtime> Committer<RT> {
             commit_ts,
             ordered_updates
                 .into_iter()
-                .map(|(&id, update)| (id, PackedDocumentUpdate::pack(update)))
+                .map(|update| (update.id, PackedDocumentUpdate::pack(update)))
                 .collect(),
             write_source,
             snapshot,
@@ -735,7 +733,7 @@ impl<RT: Runtime> Committer<RT> {
     fn compute_writes(
         &self,
         commit_ts: Timestamp,
-        ordered_updates: &Vec<(&ResolvedDocumentId, &DocumentUpdateWithPrevTs)>,
+        ordered_updates: &Vec<&DocumentUpdateWithPrevTs>,
     ) -> anyhow::Result<(
         Vec<ValidatedDocumentWrite>,
         BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -754,16 +752,14 @@ impl<RT: Runtime> Committer<RT> {
             .pending_writes
             .latest_snapshot()
             .unwrap_or_else(|| self.snapshot_manager.read().latest_snapshot());
-        for &(id, document_update) in ordered_updates.iter() {
+        for &document_update in ordered_updates.iter() {
             let (updates, doc_in_vector_index) =
                 latest_pending_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
             document_writes.push(ValidatedDocumentWrite {
                 commit_ts,
-                id: (*id).into(),
-                write: DocumentWrite {
-                    document: document_update.new_document.clone(),
-                },
+                id: document_update.id.into(),
+                write: document_update.new_document.clone(),
                 doc_in_vector_index,
                 prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
             });
@@ -934,7 +930,7 @@ impl<RT: Runtime> Committer<RT> {
                         .map(|write| DocumentLogEntry {
                             ts: write.commit_ts,
                             id: write.id,
-                            value: write.write.document,
+                            value: write.write,
                             prev_ts: write.prev_ts,
                         })
                         .collect_vec(),
@@ -1021,7 +1017,7 @@ impl<RT: Runtime> Committer<RT> {
         }
         for validated_write in document_writes {
             let ValidatedDocumentWrite {
-                write: DocumentWrite { document },
+                write: document,
                 doc_in_vector_index,
                 ..
             } = validated_write;
@@ -1090,7 +1086,7 @@ impl<RT: Runtime> Committer<RT> {
 struct ValidatedDocumentWrite {
     commit_ts: Timestamp,
     id: InternalDocumentId,
-    write: DocumentWrite,
+    write: Option<ResolvedDocument>,
     doc_in_vector_index: DocInVectorIndex,
     prev_ts: Option<Timestamp>,
 }
