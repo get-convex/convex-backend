@@ -81,7 +81,7 @@ export function CellEditor({
           unset
         </div>
       )}
-      {showAsDate && isTimestampLike ? (
+      {showAsDate && isTimestampLike && typeof editedValue === "number" ? (
         <div className="w-full">
           <DateTimePicker
             date={new Date(editedValue as number)}
@@ -91,8 +91,18 @@ export function CellEditor({
             onError={setError}
             onKeyDown={(e, date) => {
               if (e.key === "Enter") {
-                setEditedValue(date.getTime());
-                void saveEditedValue(date.getTime());
+                if (date === undefined) {
+                  // User cleared the input - check if undefined is allowed
+                  if (!allowTopLevelUndefined) {
+                    setError("This field is required and cannot be unset");
+                    return;
+                  }
+                  setEditedValue(UNDEFINED_PLACEHOLDER);
+                  void saveEditedValue(UNDEFINED_PLACEHOLDER);
+                } else {
+                  setEditedValue(date.getTime());
+                  void saveEditedValue(date.getTime());
+                }
               }
             }}
           />

@@ -19,7 +19,7 @@ type DateTimePickerProps = {
   onError?: (error: string | undefined) => void;
   onKeyDown?: (
     event: React.KeyboardEvent<HTMLInputElement>,
-    date: Date,
+    date: Date | undefined,
   ) => void;
 };
 
@@ -211,9 +211,13 @@ export function DateTimePicker({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!onKeyDown) return;
+
     const parsedDate = parse(inputValue, dateTimeFormat, new Date());
     if (!Number.isNaN(parsedDate.getTime())) {
-      onKeyDown?.(event, parsedDate);
+      onKeyDown(event, parsedDate);
+    } else if (inputValue.trim() === "" && event.key === "Enter") {
+      onKeyDown(event, undefined);
     }
   };
 
