@@ -31,7 +31,7 @@ export function Checkbox({
       tabIndex={0}
       type="checkbox"
       className={classNames(
-        "size-3.5 form-checkbox enabled:cursor-pointer rounded-sm disabled:opacity-50 disabled:bg-background-primary disabled:cursor-not-allowed enabled:hover:text-content-link enabled:hover:outline enabled:hover:outline-content-primary",
+        "size-3.5 form-checkbox enabled:cursor-pointer rounded-sm disabled:opacity-50 disabled:cursor-not-allowed enabled:hover:text-content-link enabled:hover:outline enabled:hover:outline-content-primary",
         "focus:outline-0 focus:ring-0",
         "bg-background-secondary ring-offset-background-secondary checked:bg-util-accent text-util-accent",
         className,
