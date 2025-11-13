@@ -25,6 +25,19 @@ use thiserror::Error;
 // alphabetical characters. We also don't decode permissively.
 const ALPHABET: &[u8] = b"0123456789abcdefghjkmnpqrstvwxyz";
 
+/// Lookup table for decoding base32 characters
+/// Maps ASCII byte values to 5-bit indices (0-31)
+/// Invalid characters are marked with 0xFF
+const DECODE_TABLE: [u8; 256] = {
+    let mut table = [0xFFu8; 256];
+    let mut i = 0;
+    while i < 32 {
+        table[ALPHABET[i] as usize] = i as u8;
+        i += 1;
+    }
+    table
+};
+
 pub const fn encoded_len(len: usize) -> usize {
     let last_chunk = match len % 5 {
         0 => 0,
@@ -93,32 +106,27 @@ pub fn decode(data: &str) -> Result<Vec<u8>, InvalidBase32Error> {
     let out_length = data_bytes.len() * 5 / 8;
     let mut out = Vec::with_capacity(out_length.div_ceil(5) * 5);
 
-    // Process the data in 8 byte chunks, reversing the encoding process.
+    // Process the data in 8 byte chunks
     for chunk in data_bytes.chunks(8) {
         let mut indexes = [0u8; 8];
         for (i, byte) in chunk.iter().enumerate() {
-            // Invert the alphabet mapping to recover `indexes`.
-            let offset = match *byte {
-                b'0'..=b'9' => b'0',
-                b'a'..=b'h' => b'a' - 10,
-                b'j'..=b'k' => b'a' - 10 + 1,
-                b'm'..=b'n' => b'a' - 10 + 2,
-                b'p'..=b't' => b'a' - 10 + 3,
-                b'v'..=b'z' => b'a' - 10 + 4,
-                _ => {
-                    // Recover the index within `data_bytes`
-                    let position = i + chunk.as_ptr().addr() - data_bytes.as_ptr().addr();
-                    return Err(InvalidBase32Error {
-                        character: data[position..].chars().next().unwrap_or_else(|| {
-                            panic!("Checked characters 0..{position} in {data} were one-byte")
-                        }),
-                        position,
-                        string: data.to_string(),
-                    });
-                },
-            };
-            indexes[i] = byte - offset;
+            // Safe, bounds-checked, and (after inlining) O(1) lookup
+            let index = DECODE_TABLE[*byte as usize];
+
+            if index == 0xFF {
+                // Invalid character found
+                let position = i + chunk.as_ptr().addr() - data_bytes.as_ptr().addr();
+                return Err(InvalidBase32Error {
+                    character: data[position..].chars().next().unwrap_or_else(|| {
+                        panic!("Checked characters 0..{position} in {data} were one-byte")
+                    }),
+                    position,
+                    string: data.to_string(),
+                });
+            }
+            indexes[i] = index;
         }
+
         // Regroup our block of 8 5-bit indexes into 5 output bytes.
         out.push((indexes[0] << 3) | (indexes[1] >> 2));
         out.push((indexes[1] << 6) | (indexes[2] << 1) | (indexes[3] >> 4));
