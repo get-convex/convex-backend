@@ -54,7 +54,6 @@ import { DEFINITION_FILENAME_TS } from "./components/constants.js";
 import { DeploymentSelection } from "./deploymentSelection.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
-import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
 import { LogManager } from "./logs.js";
 
 export type PushOptions = {
@@ -365,19 +364,6 @@ async function startComponentsPushAndCodegen(
     return null;
   }
   logStartPushSizes(parentSpan, startPushRequest);
-
-  if (options.largeIndexDeletionCheck !== "no verification") {
-    await parentSpan.enterAsync("checkForLargeIndexDeletion", (span) =>
-      checkForLargeIndexDeletion({
-        ctx,
-        span,
-        request: startPushRequest,
-        options,
-        askForConfirmation:
-          options.largeIndexDeletionCheck === "ask for confirmation",
-      }),
-    );
-  }
 
   changeSpinner("Uploading functions to Convex...");
   const startPushResponse = await parentSpan.enterAsync("startPush", (span) =>

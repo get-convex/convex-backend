@@ -90,10 +90,9 @@ export async function checkForLargeIndexDeletion({
     }),
   );
 
-  const minDocumentsForWarning = minDocumentsForIndexDeleteWarning();
   if (
     !deletedIndexesWithDocumentsCount.some(
-      ({ count }) => count >= minDocumentsForWarning,
+      ({ count }) => count >= MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING,
     )
   ) {
     logFinishedStep("No large indexes are deleted by this push");
@@ -105,13 +104,12 @@ from your production deployment (${options.url}):
 
 ${deletedIndexesWithDocumentsCount
   .map(({ componentDefinitionPath, index, count }) =>
-    formatDeletedIndex({
+    formatDeletedIndex(
       componentDefinitionPath,
       index,
-      indexDiff: indexDiffs[componentDefinitionPath],
-      documentsCount: count,
-      minDocumentsForWarning,
-    }),
+      indexDiffs[componentDefinitionPath],
+      count,
+    ),
   )
   .join("\n")}
 
@@ -153,26 +151,19 @@ to be backfilled again if you want to restore it later.
   logFinishedStep("Proceeding with push.");
 }
 
-function formatDeletedIndex({
-  componentDefinitionPath,
-  index,
-  indexDiff,
-  documentsCount,
-  minDocumentsForWarning,
-}: {
-  componentDefinitionPath: string;
-  index: DeveloperIndexConfig;
-  indexDiff: IndexDiff;
-  documentsCount: number;
-  minDocumentsForWarning: number;
-}) {
+function formatDeletedIndex(
+  componentDefinitionPath: string,
+  index: DeveloperIndexConfig,
+  indexDiff: IndexDiff,
+  documentsCount: number,
+) {
   const componentNameFormatted =
     componentDefinitionPath !== ""
       ? `${chalk.gray(componentDefinitionPath)}:`
       : "";
 
   const documentsCountFormatted =
-    documentsCount >= minDocumentsForWarning
+    documentsCount >= MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING
       ? `  ${chalk.yellowBright(`⚠️  ${documentsCount.toLocaleString()} documents`)}`
       : `  ${documentsCount.toLocaleString()} ${documentsCount === 1 ? "document" : "documents"}`;
 
@@ -193,15 +184,4 @@ function formatDeletedIndex({
 function getTableName(index: DeveloperIndexConfig) {
   const [tableName, _indexName] = index.name.split(".");
   return tableName;
-}
-
-function minDocumentsForIndexDeleteWarning(): number {
-  const envValue = process.env.CONVEX_MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING;
-  if (envValue !== undefined) {
-    const parsed = parseInt(envValue, 10);
-    if (!isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING;
 }
