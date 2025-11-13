@@ -53,13 +53,6 @@ impl TableNamespace {
     pub const fn by_component_TODO() -> Self {
         Self::Global
     }
-
-    /// Namespace that should be passed down, and could be Global, ByComponent,
-    /// or ByComponentDefinition.
-    #[allow(non_snake_case)]
-    pub const fn TODO() -> Self {
-        Self::Global
-    }
 }
 
 // This TableMapping contains the mapping between TableNames and
