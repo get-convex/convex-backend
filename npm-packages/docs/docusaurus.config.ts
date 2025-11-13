@@ -134,7 +134,7 @@ const config: Config = {
         },
         {
           label: "Twitter",
-          href: "https://twitter.com/convex_dev",
+          href: "https://twitter.com/convex",
           className: "convex-twitter-logo convex-icon-link",
         },
       ],
