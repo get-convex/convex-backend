@@ -4528,6 +4528,12 @@
           }
         }
       },
+      "ManagedBy": {
+        "type": "string",
+        "enum": [
+          "vercel"
+        ]
+      },
       "MemberDataResponse": {
         "type": "object",
         "required": [
@@ -5310,9 +5316,13 @@
             "$ref": "#/components/schemas/TeamId"
           },
           "managedBy": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedBy"
+              }
             ]
           },
           "name": {
@@ -5582,9 +5592,13 @@
             "$ref": "#/components/schemas/TeamId"
           },
           "managedBy": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedBy"
+              }
             ]
           },
           "name": {

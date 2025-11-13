@@ -271,6 +271,12 @@
           }
         }
       },
+      "ManagedBy": {
+        "type": "string",
+        "enum": [
+          "vercel"
+        ]
+      },
       "MemberId": {
         "type": "integer",
         "format": "int64",
@@ -429,9 +435,13 @@
             "$ref": "#/components/schemas/TeamId"
           },
           "managedBy": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedBy"
+              }
             ]
           },
           "name": {

@@ -2089,6 +2089,8 @@ export interface components {
         ListVanityDomainsResponse: {
             domains: components["schemas"]["VanityDomainResponse"][];
         };
+        /** @enum {string} */
+        ManagedBy: "vercel";
         MemberDataResponse: {
             deployments: components["schemas"]["DeploymentResponse"][];
             optInsToAccept: components["schemas"]["OptInToAccept"][];
@@ -2305,7 +2307,7 @@ export interface components {
         Team: {
             creator?: null | components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
-            managedBy?: string | null;
+            managedBy?: null | components["schemas"]["ManagedBy"];
             name: components["schemas"]["TeamName"];
             referralCode: components["schemas"]["ReferralCode"];
             referredBy?: null | components["schemas"]["TeamId"];
@@ -2377,7 +2379,7 @@ export interface components {
         TeamResponse: {
             creator?: null | components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
-            managedBy?: string | null;
+            managedBy?: null | components["schemas"]["ManagedBy"];
             name: components["schemas"]["TeamName"];
             referralCode: components["schemas"]["ReferralCode"];
             referredBy?: null | components["schemas"]["TeamId"];
@@ -2554,6 +2556,7 @@ export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
 export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
+export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
 export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
