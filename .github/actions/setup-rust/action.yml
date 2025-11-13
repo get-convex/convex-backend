@@ -47,7 +47,7 @@ runs:
     - name: Install sccache
       uses: mozilla-actions/sccache-action@v0.0.9
       with:
-        version: "v0.8.0"
+        version: "v0.12.0"
 
     - name: Start sccache
       shell: bash
