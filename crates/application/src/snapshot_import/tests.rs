@@ -6,6 +6,11 @@ use std::{
 };
 
 use anyhow::Context;
+use async_zip::{
+    base::write::ZipFileWriter,
+    Compression,
+    ZipEntryBuilder,
+};
 use bytes::Bytes;
 use common::{
     bootstrap_model::{
@@ -34,6 +39,7 @@ use common::{
         DatabaseSchema,
         DocumentSchema,
     },
+    testing::assert_contains,
     tokio::select,
     types::{
         IndexDescriptor,
@@ -90,8 +96,10 @@ use value::{
     val,
     ConvexObject,
     FieldName,
+    InternalId,
     TableName,
     TableNamespace,
+    TableNumber,
 };
 
 use crate::{
@@ -584,9 +592,10 @@ async fn import_preserves_foreign_key(rt: TestRuntime) -> anyhow::Result<()> {
     let table_name = "table1";
     let identity = new_admin_id();
 
+    let doc_id;
     {
         let mut tx = app.begin(identity).await?;
-        UserFacingModel::new_root_for_test(&mut tx)
+        doc_id = UserFacingModel::new_root_for_test(&mut tx)
             .insert(table_name.parse()?, assert_obj!())
             .await?;
         app.commit_test(tx).await?;
@@ -613,6 +622,19 @@ a
     activate_schema(&app, initial_schema).await?;
 
     run_csv_import(&app, table_name, test_csv).await?;
+
+    // Now import a document into table_with_foreign_key that references table1
+    run_csv_import(
+        &app,
+        table_with_foreign_key,
+        &format!(
+            r#"a
+{doc_id}
+{doc_id}
+"#
+        ),
+    )
+    .await?;
     Ok(())
 }
 
@@ -893,6 +915,182 @@ async fn import_zip_to_clone_of_deployment(rt: TestRuntime) -> anyhow::Result<()
     Ok(())
 }
 
+async fn make_zip(files: &[(impl AsRef<str>, impl AsRef<[u8]>)]) -> anyhow::Result<Bytes> {
+    let mut zip = ZipFileWriter::new(vec![]);
+    for (filename, content) in files {
+        zip.write_entry_whole(
+            ZipEntryBuilder::new(filename.as_ref().into(), Compression::Stored),
+            content.as_ref(),
+        )
+        .await?;
+    }
+    Ok(zip.close().await?.into())
+}
+
+#[convex_macro::test_runtime]
+async fn import_conflicting_table_numbers(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let identity = new_admin_id();
+
+    let id_table10001 = DeveloperDocumentId::new(TableNumber::try_from(10001)?, InternalId::MAX);
+
+    let test_cases = [
+        // _tables has two conflicting table numbers
+        make_zip(&[(
+            "_tables/documents.jsonl",
+            r#"{"name":"table1","id":10001}
+            {"name":"table2","id":10001}"#,
+        )])
+        .await?,
+        // Same, but in a component
+        make_zip(&[(
+            "component/_tables/documents.jsonl",
+            r#"{"name":"table1","id":10001}
+                {"name":"table2","id":10001}"#,
+        )])
+        .await?,
+        // Two tables with conflicting inferred table numbers
+        make_zip(&[
+            (
+                "table1/documents.jsonl",
+                format!(r#"{{"_id":"{id_table10001}"}}"#),
+            ),
+            (
+                "table2/documents.jsonl",
+                format!(r#"{{"_id":"{id_table10001}"}}"#),
+            ),
+        ])
+        .await?,
+        // Inferred table number conflicts with declared table number
+        make_zip(&[
+            (
+                "_tables/documents.jsonl",
+                format!(r#"{{"name":"table1","id":10001}}"#),
+            ),
+            (
+                "table2/documents.jsonl",
+                format!(r#"{{"_id":"{id_table10001}"}}"#),
+            ),
+        ])
+        .await?,
+    ];
+
+    for zip_data in test_cases {
+        let object_key = app
+            .upload_snapshot_import(stream::iter([zip_data]).map(Ok).boxed())
+            .await?;
+
+        for mode in [
+            ImportMode::Replace,
+            ImportMode::ReplaceAll,
+            ImportMode::RequireEmpty,
+        ] {
+            assert_contains(
+                &do_import_from_object_key(
+                    &app,
+                    identity.clone(),
+                    ImportFormat::Zip,
+                    mode,
+                    ComponentPath::root(),
+                    object_key.clone(),
+                )
+                .await
+                .unwrap_err(),
+                "conflict between `table1` and `table2`",
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_table_number_conflict_with_existing_table(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let identity = new_admin_id();
+
+    let mut tx = app.begin(identity.clone()).await?;
+    let id = UserFacingModel::new_root_for_test(&mut tx)
+        .insert("table1".parse()?, assert_obj!())
+        .await?;
+    app.commit_test(tx).await?;
+
+    let test_case = make_zip(&[("table2/documents.jsonl", format!(r#"{{"_id":"{id}"}}"#))]).await?;
+    let object_key = app
+        .upload_snapshot_import(stream::iter([test_case]).map(Ok).boxed())
+        .await?;
+    assert_contains(
+        &do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            ImportMode::Replace,
+            ComponentPath::root(),
+            object_key.clone(),
+        )
+        .await
+        .unwrap_err(),
+        "New table `table2` has IDs that conflict with existing table `table1`",
+    );
+
+    Ok(())
+}
+#[convex_macro::test_runtime]
+async fn import_table_number_conflict_race(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let identity = new_admin_id();
+
+    let id_table10001 = DeveloperDocumentId::new(TableNumber::try_from(10001)?, InternalId::MAX);
+
+    let test_case = make_zip(&[(
+        "table1/documents.jsonl",
+        format!(r#"{{"_id":"{id_table10001}"}}"#),
+    )])
+    .await?;
+    let object_key = app
+        .upload_snapshot_import(stream::iter([test_case]).map(Ok).boxed())
+        .await?;
+
+    let hold_guard = pause_controller.hold("before_assign_table_numbers");
+    let import = do_import_from_object_key(
+        &app,
+        identity.clone(),
+        ImportFormat::Zip,
+        ImportMode::Replace,
+        ComponentPath::root(),
+        object_key.clone(),
+    );
+    pin_mut!(import);
+
+    let pause_guard = select! {
+        _ = import.as_mut() => panic!("being held"),
+        r = hold_guard.wait_for_blocked() => r.unwrap(),
+    };
+
+    // Create a table
+    let mut tx = app.begin(identity.clone()).await?;
+    assert_eq!(
+        UserFacingModel::new_root_for_test(&mut tx)
+            .insert("table2".parse()?, assert_obj!())
+            .await?
+            .table(),
+        id_table10001.table()
+    );
+    app.commit_test(tx).await?;
+
+    pause_guard.unpause();
+
+    assert_contains(
+        &import.await.unwrap_err(),
+        "New table `table1` has IDs that conflict with existing table `table2`",
+    );
+
+    Ok(())
+}
+
 #[convex_macro::test_runtime]
 async fn import_zip_to_deployment_with_unrelated_tables(rt: TestRuntime) -> anyhow::Result<()> {
     let app = Application::new_for_tests(&rt).await?;
@@ -1108,6 +1306,7 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         &app.database,
         &app.file_storage,
         identity,
+        &vec![],
         ImportMode::Replace,
         import,
         usage.clone(),
@@ -1145,6 +1344,7 @@ async fn test_import_file_storage_changing_table_number(rt: TestRuntime) -> anyh
         &app.database,
         &app.file_storage,
         new_admin_id(),
+        &vec![],
         ImportMode::Replace,
         import,
         FunctionUsageTracker::new(),

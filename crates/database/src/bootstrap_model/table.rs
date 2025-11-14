@@ -21,15 +21,12 @@ use common::{
             TABLES_TABLE,
         },
     },
+    components::ComponentPath,
     document::{
         ParseDocument,
         ParsedDocument,
     },
     interval::Interval,
-    query::{
-        Order,
-        Query,
-    },
     runtime::Runtime,
     types::{
         GenericIndexName,
@@ -37,12 +34,11 @@ use common::{
         TabletIndexName,
     },
     value::TabletIdAndTableNumber,
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
 use value::{
-    DeveloperDocumentId,
     FieldPath,
-    ResolvedDocumentId,
     TableNamespace,
     TableNumber,
     TabletId,
@@ -55,8 +51,8 @@ use crate::{
         SystemTable,
     },
     table_summary::table_summary_bootstrapping_error,
+    BootstrapComponentsModel,
     IndexModel,
-    ResolvedQuery,
     SchemaModel,
     SystemMetadataModel,
     Transaction,
@@ -307,19 +303,18 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         is_system: bool,
         namespace: TableNamespace,
     ) -> anyhow::Result<TableNumber> {
-        let occupied_table_numbers = {
-            let mut occupied_table_numbers = BTreeSet::new();
-            let tables_query = Query::full_table_scan(TABLES_TABLE.clone(), Order::Asc);
-            let mut query_stream =
-                ResolvedQuery::new(self.tx, TableNamespace::Global, tables_query)?;
-            while let Some(table_metadata) = query_stream.next(self.tx, None).await? {
-                let parsed_metadata: ParsedDocument<TableMetadata> = table_metadata.parse()?;
-                if parsed_metadata.namespace == namespace {
-                    occupied_table_numbers.insert(parsed_metadata.number);
-                }
-            }
-            occupied_table_numbers
-        };
+        let occupied_table_numbers: BTreeSet<TableNumber> = self
+            .tx
+            .query_system(
+                TableNamespace::Global,
+                &SystemIndex::<TablesTable>::by_creation_time(),
+            )?
+            .all()
+            .await?
+            .into_iter()
+            .filter(|table_metadata| table_metadata.namespace == namespace)
+            .map(|table_metadata| table_metadata.number)
+            .collect();
 
         let mut candidate_table_number = TableNumber::try_from(if is_system {
             NUM_RESERVED_LEGACY_TABLE_NUMBERS
@@ -334,20 +329,15 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(candidate_table_number)
     }
 
-    /// Checks for conflicts when replacing table, e.g. snapshot import.
-    /// A table with the same name can be replaced with a different table
-    /// number, but if a different table has the same table number then we have
-    /// a problem.
-    fn check_can_overwrite(
+    /// Checks for table number conflicts when activating a table, e.g. snapshot
+    /// import. No two active tables in a namespace can have the same table
+    /// number.
+    fn check_can_activate(
         &mut self,
         namespace: TableNamespace,
         table: &TableName,
-        table_number: Option<TableNumber>,
-        tables_affected_in_import: &BTreeSet<(TableNamespace, TableName)>,
+        table_number: TableNumber,
     ) -> anyhow::Result<()> {
-        let Some(table_number) = table_number else {
-            return Ok(());
-        };
         let Some(existing_table_by_number) = self
             .tx
             .table_mapping()
@@ -358,114 +348,93 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             // No existing table with this number.
             return Ok(());
         };
-        if let Some(existing_virtual_table) = self
-            .tx
-            .virtual_system_mapping()
-            .system_to_virtual_table(&existing_table_by_number)
-        {
-            let existing_system_table = self
-                .tx
-                .virtual_system_mapping()
-                .virtual_to_system_table(existing_virtual_table)?;
-            if existing_system_table == table {
-                // Setting physical table to have the same table number as its virtual table is
-                // allowed.
-                return Ok(());
-            }
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "TableConflict",
-                format!("New table {table} has IDs that conflict with existing system table")
-            ));
-        }
-        // Don't mess with creating conflicts with bootstrap system tables.
-        anyhow::ensure!(
-            bootstrap_system_tables()
-                .iter()
-                .all(|t| *t.table_name() != existing_table_by_number),
-            "Conflict with bootstrap system table {existing_table_by_number}",
-        );
-        if existing_table_by_number == *table {
-            // Overwriting in-place, same table name and number.
-            return Ok(());
-        }
-        if tables_affected_in_import.contains(&(namespace, existing_table_by_number.clone())) {
-            // Overwriting would create a table number conflict with an
-            // existing table, but that existing table is also being
-            // overwritten.
-            return Ok(());
-        }
-        if existing_table_by_number.is_system() {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "TableConflict",
-                format!(
-                    "New table `{table}` has IDs that conflict with existing internal table. \
-                     Consider importing this table without `_id` fields or import into a new \
-                     deployment."
-                )
-            ));
-        }
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "TableConflict",
-            format!(
-                "New table {table} has IDs that conflict with existing table \
-                 {existing_table_by_number}"
-            )
-        ));
+        let component_path = BootstrapComponentsModel::new(self.tx)
+            .get_component_path(namespace.into())
+            .unwrap_or_default();
+        Err(Self::table_conflict_error(
+            &self.tx.virtual_system_mapping,
+            &component_path,
+            table,
+            &existing_table_by_number,
+        )
+        .into())
     }
 
-    pub async fn activate_table(
+    pub fn table_conflict_error(
+        virtual_system_mapping: &VirtualSystemMapping,
+        component_path: &ComponentPath,
+        table: &TableName,
+        existing_table: &TableName,
+    ) -> ErrorMetadata {
+        let in_component = component_path.in_component_str();
+        let msg = if virtual_system_mapping
+            .system_to_virtual_table(existing_table)
+            .is_some()
+        {
+            format!(
+                "New table `{table}`{in_component} has IDs that conflict with existing system \
+                 table"
+            )
+        } else if existing_table.is_system() {
+            format!(
+                "New table `{table}`{in_component} has IDs that conflict with existing internal \
+                 table. Consider importing this table without `_id` fields or import into a new \
+                 deployment."
+            )
+        } else {
+            format!(
+                "New table `{table}`{in_component} has IDs that conflict with existing table \
+                 `{existing_table}`"
+            )
+        };
+        ErrorMetadata::bad_request("TableConflict", msg)
+    }
+
+    pub async fn activate_tables(
         &mut self,
-        tablet_id: TabletId,
-        table_name: &TableName,
-        table_number: TableNumber,
-        tables_affected_in_import: &BTreeSet<(TableNamespace, TableName)>,
+        tablet_ids: impl IntoIterator<Item = TabletId>,
     ) -> anyhow::Result<u64> {
         let mut documents_deleted = 0;
-        let table_metadata = self.get_table_metadata(tablet_id).await?;
-        match table_metadata.state {
-            TableState::Active => return Ok(0),
-            TableState::Deleting => anyhow::bail!("cannot activate {table_name} which is deleting"),
-            TableState::Hidden => {},
-        }
-        let namespace = table_metadata.namespace;
-        self.check_can_overwrite(
-            namespace,
-            table_name,
-            Some(table_number),
-            tables_affected_in_import,
-        )?;
-        if self.table_exists(namespace, table_name) {
-            let existing_table_by_name = self
-                .tx
-                .table_mapping()
-                .namespace(namespace)
-                .id(table_name)?;
-            documents_deleted += self.must_count(namespace, table_name).await?;
-            self.delete_table_by_id_bypassing_schema_enforcement(existing_table_by_name.tablet_id)
+        let mut table_metadatas = vec![];
+        // Delete all existing tables before activating the new ones.
+        // This ensures that we never have duplicate table numbers, even temporarily.
+        for tablet_id in tablet_ids {
+            let table_metadata = self.get_table_metadata(tablet_id).await?;
+            match table_metadata.state {
+                TableState::Active => continue,
+                TableState::Deleting => {
+                    anyhow::bail!("cannot activate {} which is deleting", table_metadata.name)
+                },
+                TableState::Hidden => {},
+            }
+            let namespace = table_metadata.namespace;
+            if self.table_exists(namespace, &table_metadata.name) {
+                let existing_table_by_name = self
+                    .tx
+                    .table_mapping()
+                    .namespace(namespace)
+                    .id(&table_metadata.name)?;
+                documents_deleted += self.must_count(namespace, &table_metadata.name).await?;
+                self.delete_table_by_id_bypassing_schema_enforcement(
+                    existing_table_by_name.tablet_id,
+                )
                 .await?
+            }
+            table_metadatas.push(table_metadata);
         }
-        let table_metadata = TableMetadata::new_with_state(
-            namespace,
-            table_name.clone(),
-            table_number,
-            TableState::Active,
-        );
-        let tables_table_id = self.tables_table_id()?;
-        let table_doc_id = ResolvedDocumentId::new(
-            tables_table_id.tablet_id,
-            DeveloperDocumentId::new(tables_table_id.table_number, tablet_id.0),
-        );
-        SystemMetadataModel::new_global(self.tx)
-            .replace(table_doc_id, table_metadata.try_into()?)
-            .await?;
+        for table_metadata in table_metadatas {
+            self.check_can_activate(
+                table_metadata.namespace,
+                &table_metadata.name,
+                table_metadata.number,
+            )?;
+            let (table_doc_id, mut table_metadata) = table_metadata.into_id_and_value();
+            table_metadata.state = TableState::Active;
+            SystemMetadataModel::new_global(self.tx)
+                .replace(table_doc_id, table_metadata.try_into()?)
+                .await?;
+        }
         Ok(documents_deleted)
-    }
-
-    fn tables_table_id(&mut self) -> anyhow::Result<TabletIdAndTableNumber> {
-        self.tx
-            .table_mapping()
-            .namespace(TableNamespace::Global)
-            .name_to_id()(TABLES_TABLE.clone())
     }
 
     #[async_recursion]
@@ -489,7 +458,6 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
-        tables_affected_in_import: &BTreeSet<(TableNamespace, TableName)>,
     ) -> anyhow::Result<TabletIdAndTableNumber> {
         anyhow::ensure!(
             bootstrap_system_tables()
@@ -497,14 +465,6 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 .all(|t| t.table_name() != table),
             "Conflict with bootstrap system table {table}",
         );
-        let existing_table_by_name = self
-            .tx
-            .table_mapping()
-            .namespace(namespace)
-            .id_and_number_if_exists(table)
-            .map(|id| id.table_number);
-        let table_number = table_number.or(existing_table_by_name);
-        self.check_can_overwrite(namespace, table, table_number, tables_affected_in_import)?;
         self._insert_table_metadata(namespace, table, table_number, TableState::Hidden)
             .await
     }
@@ -521,10 +481,12 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             anyhow::ensure!(table_number.is_none() || table_number == Some(table_id.table_number));
             Ok(table_id)
         } else {
-            anyhow::ensure!(
-                self.count_user_tables() < MAX_USER_TABLES,
-                index_validation_error::too_many_tables(MAX_USER_TABLES)
-            );
+            if !table.is_system() {
+                anyhow::ensure!(
+                    self.count_user_tables() < MAX_USER_TABLES,
+                    index_validation_error::too_many_tables(MAX_USER_TABLES)
+                );
+            }
             let table_number = if let Some(table_number) = table_number {
                 anyhow::ensure!(
                     state == TableState::Hidden

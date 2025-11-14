@@ -1005,7 +1005,7 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
     }
 
     pub fn apply(
-        schema: &mut Option<&mut Self>,
+        mut schema: Option<&mut Self>,
         exported_value: JsonValue,
     ) -> anyhow::Result<ConvexValue> {
         let Some(exported_object) = exported_value.as_object() else {
@@ -1019,7 +1019,7 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
                 if truncated { "..." } else { "" }
             );
         };
-        let export_context = if let Some(schema) = schema
+        let export_context = if let Some(schema) = &mut schema
             && let Some(JsonValue::String(id_str)) = exported_object.get("_id")
         {
             let id = DeveloperDocumentId::decode(id_str)?;
@@ -1080,12 +1080,14 @@ mod test_generated_schema {
             for (id, object) in id_to_object.iter() {
                 generated_schema.insert(object, *id);
             }
-            let generated_schema = &mut Some(&mut generated_schema);
             // Now generated_schema contains all the info.
             // See if we can extract it.
             for (_, object) in id_to_object.into_iter() {
                 let exported_value = object.clone().export(ValueFormat::ConvexCleanJSON);
-                let extracted = GeneratedSchema::apply(generated_schema, exported_value).unwrap();
+                let extracted = GeneratedSchema::apply(
+                    Some(&mut generated_schema),
+                    exported_value,
+                ).unwrap();
                 assert_eq!(extracted, assert_val!(object));
             }
         }

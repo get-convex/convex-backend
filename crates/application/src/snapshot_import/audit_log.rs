@@ -7,11 +7,14 @@ use common::{
     components::ComponentPath,
     runtime::Runtime,
 };
-use database::Database;
-use keybroker::Identity;
+use database::Transaction;
 use model::{
     deployment_audit_log::types::DeploymentAuditLogEvent,
-    snapshot_imports::types::SnapshotImport,
+    snapshot_imports::types::{
+        ImportFormat,
+        ImportMode,
+        ImportRequestor,
+    },
 };
 use value::{
     TableName,
@@ -21,34 +24,35 @@ use value::{
 use crate::snapshot_import::TableMappingForImport;
 
 pub async fn make_audit_log_event<RT: Runtime>(
-    database: &Database<RT>,
+    tx: &mut Transaction<RT>,
     table_mapping_for_import: &TableMappingForImport,
-    snapshot_import: &SnapshotImport,
+    import_mode: ImportMode,
+    import_format: ImportFormat,
+    requestor: ImportRequestor,
 ) -> anyhow::Result<DeploymentAuditLogEvent> {
     let (table_count, table_names) =
-        audit_log_table_names(database, table_mapping_for_import.tables_imported()).await?;
+        audit_log_table_names(tx, table_mapping_for_import.tables_imported()).await?;
     let (table_count_deleted, table_names_deleted) =
-        audit_log_table_names(database, table_mapping_for_import.tables_deleted()).await?;
+        audit_log_table_names(tx, table_mapping_for_import.tables_deleted()).await?;
 
     Ok(DeploymentAuditLogEvent::SnapshotImport {
         table_names,
         table_count,
-        import_mode: snapshot_import.mode,
-        import_format: snapshot_import.format.clone(),
-        requestor: snapshot_import.requestor.clone(),
+        import_mode,
+        import_format,
+        requestor,
         table_names_deleted,
         table_count_deleted,
     })
 }
 
 async fn audit_log_table_names<RT: Runtime>(
-    database: &Database<RT>,
+    tx: &mut Transaction<RT>,
     input: BTreeSet<(TableNamespace, TableName)>,
 ) -> anyhow::Result<(u64, BTreeMap<ComponentPath, Vec<TableName>>)> {
     // Truncate list of table names to avoid hitting the object size limit for the
     // audit log object and failing the import.
     let table_names: BTreeSet<_> = {
-        let mut tx = database.begin(Identity::system()).await?;
         input
             .into_iter()
             .map(|(namespace, name)| {

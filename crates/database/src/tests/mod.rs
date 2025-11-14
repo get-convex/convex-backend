@@ -2,7 +2,6 @@ use std::{
     assert_matches::assert_matches,
     collections::{
         BTreeMap,
-        BTreeSet,
         HashSet,
     },
     ops::RangeBounds,
@@ -1072,12 +1071,7 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(
-            TableNamespace::test_user(),
-            &table_name,
-            None,
-            &BTreeSet::new(),
-        )
+        .insert_table_for_import(TableNamespace::test_user(), &table_name, None)
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
@@ -1132,12 +1126,7 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(
-            TableNamespace::test_user(),
-            &table_name,
-            None,
-            &BTreeSet::new(),
-        )
+        .insert_table_for_import(TableNamespace::test_user(), &table_name, None)
         .await?;
     database.commit(tx).await?;
 
@@ -1195,12 +1184,7 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
     let mut table_model = TableModel::new(&mut tx);
     let mut table_mapping_for_import = TableMapping::new();
     let table_id = table_model
-        .insert_table_for_import(
-            TableNamespace::test_user(),
-            &table_name,
-            None,
-            &BTreeSet::new(),
-        )
+        .insert_table_for_import(TableNamespace::test_user(), &table_name, None)
         .await?;
     table_mapping_for_import.insert(
         table_id.tablet_id,
@@ -1208,12 +1192,14 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
         table_id.table_number,
         table_name.clone(),
     );
+    let foreign_table_number = table_model
+        .next_user_table_number(TableNamespace::test_user())
+        .await?;
     let foreign_table_id = table_model
         .insert_table_for_import(
             TableNamespace::test_user(),
             &foreign_table_name,
-            None,
-            &BTreeSet::new(),
+            Some(foreign_table_number),
         )
         .await?;
     table_mapping_for_import.insert(
@@ -1299,26 +1285,11 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let mut table_mapping_for_import = TableMapping::new();
-    // If tables_in_import is empty, there is a conflict.
-    let mut tables_in_import = BTreeSet::new();
-    assert!(table_model
-        .insert_table_for_import(
-            TableNamespace::test_user(),
-            &table_name,
-            Some(active_foreign_table_number),
-            &tables_in_import
-        )
-        .await
-        .is_err());
-    tables_in_import.insert((TableNamespace::test_user(), table_name.clone()));
-    tables_in_import.insert((TableNamespace::test_user(), foreign_table_name.clone()));
-    // If tables_in_import is populated, we're allowed to create both tables.
     let table_id = table_model
         .insert_table_for_import(
             TableNamespace::test_user(),
             &table_name,
             Some(active_foreign_table_number),
-            &tables_in_import,
         )
         .await?;
     table_mapping_for_import.insert(
@@ -1332,7 +1303,6 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
             TableNamespace::test_user(),
             &foreign_table_name,
             Some(active_table_number),
-            &tables_in_import,
         )
         .await?;
     table_mapping_for_import.insert(
@@ -1403,11 +1373,13 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
 
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    for (table_id, _, table_number, table_name) in table_mapping_for_import.iter() {
-        table_model
-            .activate_table(table_id, table_name, table_number, &tables_in_import)
-            .await?;
-    }
+    table_model
+        .activate_tables(
+            table_mapping_for_import
+                .iter()
+                .map(|(tablet_id, ..)| tablet_id),
+        )
+        .await?;
     database.commit(tx).await?;
 
     // Check everything was activated correctly.
@@ -1449,7 +1421,6 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
             TableNamespace::test_user(),
             &table_name,
             Some(doc0_id.developer_id.table()),
-            &BTreeSet::new(),
         )
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
@@ -1493,12 +1464,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     TableModel::new(&mut tx)
-        .activate_table(
-            table_id.tablet_id,
-            &table_name,
-            table_id.table_number,
-            &BTreeSet::new(),
-        )
+        .activate_tables([table_id.tablet_id])
         .await?;
     database.commit(tx).await?;
 
@@ -1534,12 +1500,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(
-            TableNamespace::test_user(),
-            &table_name,
-            None,
-            &BTreeSet::new(),
-        )
+        .insert_table_for_import(TableNamespace::test_user(), &table_name, None)
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(

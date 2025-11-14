@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use common::{
     bootstrap_model::{
         components::ComponentState,
@@ -510,12 +508,7 @@ async fn test_delete_component_with_hidden_tables(rt: TestRuntime) -> anyhow::Re
     let mut table_model = TableModel::new(&mut tx);
     let hidden_table_name = "hiddentable".parse()?;
     let tablet_id_and_table_number = table_model
-        .insert_table_for_import(
-            TableNamespace::from(component_id),
-            &hidden_table_name,
-            None,
-            &BTreeSet::new(),
-        )
+        .insert_table_for_import(TableNamespace::from(component_id), &hidden_table_name, None)
         .await?;
     application.commit_test(tx).await?;
 

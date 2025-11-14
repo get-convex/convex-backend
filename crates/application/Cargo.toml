@@ -41,7 +41,6 @@ async-broadcast = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
-async_zip = { workspace = true }
 authentication = { workspace = true }
 aws_s3 = { workspace = true }
 bytes = { workspace = true }
@@ -116,6 +115,7 @@ vector = { workspace = true }
 libc = { workspace = true }
 
 [dev-dependencies]
+async_zip = { workspace = true }
 authentication = { workspace = true, features = ["testing"] }
 common = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
