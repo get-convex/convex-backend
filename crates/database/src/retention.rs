@@ -1079,6 +1079,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
         let mut min_snapshot_ts = RepeatableTimestamp::MIN;
         let mut is_working = false;
+        min_snapshot_rx.mark_changed();
         loop {
             if !is_working {
                 min_snapshot_ts = match min_snapshot_rx.changed().await {
@@ -1204,6 +1205,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let mut is_working = false;
         let mut interval = tokio::time::interval(*DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        min_document_snapshot_rx.mark_changed();
 
         loop {
             if !is_working {
