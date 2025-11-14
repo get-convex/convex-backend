@@ -141,7 +141,7 @@ function ProjectSelectorPanel({
               ) : (
                 <Button
                   variant="unstyled"
-                  className="group flex items-center gap-1 px-1.5 py-2"
+                  className="mx-1.5 mb-1 flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-1 hover:bg-background-tertiary"
                   onClick={() => setSwitchingTeams(true)}
                   tip="Select team"
                   tipSide="right"
