@@ -14,7 +14,7 @@
 
 - Add a pagination result validation helper
   `paginationResultValidator(itemValidator)` describing and validating the
-  return valud of a paginated query.
+  return value of a paginated query.
 
 - New `npx convex codegen --component-dir ../path/to/component` flag for
   component authors to generate code only for a component.
