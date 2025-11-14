@@ -27,11 +27,11 @@ export const send = action(
     }
 
     // Query OpenAI for the image.
-    const opanaiResponse = await openai.images.generate({
+    const openaiResponse = await openai.images.generate({
       prompt,
       size: "256x256",
     });
-    const dallEImageUrl = opanaiResponse.data[0]["url"]!;
+    const dallEImageUrl = openaiResponse.data![0]["url"]!;
 
     // @snippet start storeImage
     // Download the image

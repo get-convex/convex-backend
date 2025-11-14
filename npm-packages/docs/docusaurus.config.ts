@@ -353,6 +353,7 @@ const config: Config = {
         content: {
           enableLlmsFullTxt: true,
           excludeRoutes: [
+            "/",
             "/home",
             "/quickstarts",
             "/understanding/best-practices/other-recommendations",

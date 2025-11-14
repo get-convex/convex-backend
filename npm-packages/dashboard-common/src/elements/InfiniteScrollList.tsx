@@ -98,8 +98,12 @@ export function InfiniteScrollList<T, U>({
               onItemsRendered={onItemsRendered}
               itemData={itemData}
               itemCount={Math.max(items.length, totalNumItems || 0)}
-              height={height}
-              width={width}
+              height={
+                height! /* see https://github.com/bvaughn/react-virtualized-auto-sizer/issues/45 */
+              }
+              width={
+                width! /* see https://github.com/bvaughn/react-virtualized-auto-sizer/issues/45 */
+              }
               itemSize={itemSize}
               itemKey={itemKey}
             >
