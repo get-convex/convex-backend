@@ -157,6 +157,26 @@
         }
       }
     },
+    "/delete_scheduled_functions_table": {
+      "post": {
+        "operationId": "delete_scheduled_functions_table",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteScheduledFunctionsTableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/check_admin_key": {
       "get": {
         "tags": [
@@ -181,6 +201,17 @@
   "components": {
     "schemas": {
       "DeleteComponentArgs": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DeleteScheduledFunctionsTableRequest": {
         "type": "object",
         "properties": {
           "componentId": {

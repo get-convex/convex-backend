@@ -59,6 +59,10 @@ use crate::{
         export_value,
         UdfResponse,
     },
+    scheduling::{
+        __path_delete_scheduled_functions_table,
+        delete_scheduled_functions_table,
+    },
     schema::IndexMetadataResponse,
     LocalAppState,
 };
@@ -354,4 +358,5 @@ where
         .routes(utoipa_axum::routes!(delete_tables))
         .routes(utoipa_axum::routes!(delete_component))
         .routes(utoipa_axum::routes!(get_source_code))
+        .routes(utoipa_axum::routes!(delete_scheduled_functions_table))
 }

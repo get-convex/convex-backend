@@ -217,7 +217,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .namespace(namespace)
             .id(&table_name)?;
         self.delete_table_by_id_bypassing_schema_enforcement(table_id_and_number.tablet_id)
-            .await
+            .await?;
+        Ok(())
     }
 
     pub async fn delete_hidden_table(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
@@ -225,10 +226,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         // We don't need to validate hidden table with the schema.
         anyhow::ensure!(table_metadata.state == TableState::Hidden);
         self.delete_table_by_id_bypassing_schema_enforcement(tablet_id)
-            .await
+            .await?;
+        Ok(())
     }
 
-    pub async fn delete_table(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
+    pub async fn delete_table(&mut self, tablet_id: TabletId) -> anyhow::Result<TableNumber> {
         self.delete_table_by_id_bypassing_schema_enforcement(tablet_id)
             .await
     }
@@ -236,7 +238,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     async fn delete_table_by_id_bypassing_schema_enforcement(
         &mut self,
         tablet_id: TabletId,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<TableNumber> {
         for index in IndexModel::new(self.tx)
             .all_indexes_on_table(tablet_id)
             .await?
@@ -258,7 +260,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, updated_table_metadata.try_into()?)
             .await?;
-        Ok(())
+        Ok(table_metadata.number)
     }
 
     pub async fn get_table_metadata(
@@ -418,7 +420,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 self.delete_table_by_id_bypassing_schema_enforcement(
                     existing_table_by_name.tablet_id,
                 )
-                .await?
+                .await?;
             }
             table_metadatas.push(table_metadata);
         }
@@ -450,6 +452,40 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         self._insert_table_metadata(namespace, table, None, TableState::Active)
             .await?;
 
+        Ok(())
+    }
+
+    pub async fn replace_with_empty_table<S: SystemTable>(
+        &mut self,
+        _system_table: S,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<()> {
+        let tablet_id = self
+            .tx
+            .table_mapping()
+            .namespace(namespace)
+            .name_to_tablet()(S::table_name().clone())?;
+
+        let table_number = self.delete_table(tablet_id).await?;
+        self._insert_table_metadata(
+            namespace,
+            S::table_name(),
+            Some(table_number),
+            TableState::Active,
+        )
+        .await?;
+        let mut index_model = IndexModel::new(self.tx);
+        for index in S::indexes() {
+            let index_metadata = IndexMetadata::new_enabled(
+                index
+                    .name
+                    .map_table(&|_| anyhow::Ok(S::table_name().clone()))?,
+                index.fields,
+            );
+            index_model
+                .add_system_index(namespace, index_metadata)
+                .await?;
+        }
         Ok(())
     }
 

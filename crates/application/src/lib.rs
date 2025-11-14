@@ -271,7 +271,10 @@ use model::{
         },
         ModuleModel,
     },
-    scheduled_jobs::SchedulerModel,
+    scheduled_jobs::{
+        ScheduledJobsTable,
+        SchedulerModel,
+    },
     session_requests::types::SessionRequestIdentifier,
     snapshot_imports::types::{
         ImportFormat,
@@ -2951,6 +2954,30 @@ impl<RT: Runtime> Application<RT> {
             anyhow::bail!(unauthorized_error("scheduled_job_lag"));
         }
         self.function_log.scheduled_job_lag(window)
+    }
+
+    pub async fn delete_scheduled_jobs_table(
+        &self,
+        identity: Identity,
+        component_id: ComponentId,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            identity.is_admin() || identity.is_system(),
+            unauthorized_error("delete_scheduled_jobs_table")
+        );
+        let mut tx = self.begin(identity).await?;
+        let mut model = TableModel::new(&mut tx);
+        model
+            .replace_with_empty_table(ScheduledJobsTable, component_id.into())
+            .await?;
+        let component = tx.must_component_path(component_id)?;
+        self.commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::DeleteScheduledJobsTable { component }],
+            "delete_scheduled_jobs_table",
+        )
+        .await?;
+        Ok(())
     }
 
     pub async fn cancel_all_jobs(

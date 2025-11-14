@@ -11,7 +11,10 @@ use common::{
         ComponentPath,
     },
     http::{
-        extract::Json,
+        extract::{
+            Json,
+            MtState,
+        },
         HttpResponseError,
     },
 };
@@ -26,6 +29,7 @@ use serde::{
     Serialize,
 };
 use sync_types::Timestamp;
+use utoipa::ToSchema;
 use value::TableNamespace;
 
 use crate::{
@@ -138,5 +142,32 @@ pub async fn cancel_job(
         })
         .await?;
 
+    Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteScheduledFunctionsTableRequest {
+    pub component_id: Option<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/delete_scheduled_functions_table",
+    request_body = DeleteScheduledFunctionsTableRequest,
+    responses((status = 200))
+)]
+pub async fn delete_scheduled_functions_table(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Json(DeleteScheduledFunctionsTableRequest { component_id }): Json<
+        DeleteScheduledFunctionsTableRequest,
+    >,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
+    st.application
+        .delete_scheduled_jobs_table(identity, component_id)
+        .await?;
     Ok(StatusCode::OK)
 }

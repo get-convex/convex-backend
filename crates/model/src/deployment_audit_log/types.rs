@@ -194,6 +194,9 @@ pub enum DeploymentAuditLogEvent {
         table_names_deleted: BTreeMap<ComponentPath, Vec<TableName>>,
         table_count_deleted: u64,
     },
+    DeleteScheduledJobsTable {
+        component: ComponentPath,
+    },
 }
 
 impl From<IndexDiff> for DeploymentAuditLogEvent {
@@ -247,6 +250,9 @@ impl DeploymentAuditLogEvent {
             DeploymentAuditLogEvent::ChangeDeploymentState { .. } => "change_deployment_state",
             DeploymentAuditLogEvent::SnapshotImport { .. } => "snapshot_import",
             DeploymentAuditLogEvent::ClearTables => "clear_tables",
+            DeploymentAuditLogEvent::DeleteScheduledJobsTable { .. } => {
+                "delete_scheduled_jobs_table"
+            },
         }
     }
 
@@ -375,6 +381,12 @@ impl DeploymentAuditLogEvent {
                 )
             },
             DeploymentAuditLogEvent::ClearTables => obj!(),
+            DeploymentAuditLogEvent::DeleteScheduledJobsTable { component } => {
+                let component = component.serialize();
+                obj!(
+                    "component" => component
+                )
+            },
         }
     }
 
@@ -512,6 +524,12 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     table_names_deleted,
                     table_count_deleted: remove_int64(&mut fields, "table_count_deleted")? as u64,
                 }
+            },
+            "delete_scheduled_jobs_table" => {
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                DeploymentAuditLogEvent::DeleteScheduledJobsTable { component }
             },
             _ => anyhow::bail!("action {action} unrecognized"),
         };

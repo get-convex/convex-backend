@@ -401,3 +401,26 @@ async fn test_scheduled_job_retry(
     assert_eq!(state, ScheduledJobState::Success);
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_delete_scheduled_jobs_table(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let mut tx = application.begin(Identity::system()).await?;
+    create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
+    application.commit_test(tx).await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
+    let scheduled_jobs = model.list().await?;
+    assert_eq!(scheduled_jobs.len(), 1);
+
+    application
+        .delete_scheduled_jobs_table(Identity::system(), ComponentId::Root)
+        .await?;
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
+    let scheduled_jobs = model.list().await?;
+    assert!(scheduled_jobs.is_empty());
+
+    Ok(())
+}
