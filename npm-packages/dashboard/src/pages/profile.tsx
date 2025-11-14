@@ -186,16 +186,21 @@ function ToggleDarkMode() {
             <RadioGroup.Option
               key={theme.title}
               value={theme.value}
-              className={({ checked, active }) =>
+              className={({ checked }) =>
                 classNames(
-                  checked ? "border-transparent" : "",
-                  active ? "" : "",
-                  "relative block cursor-pointer rounded-2xl border px-6 py-4 focus:outline-hidden sm:flex sm:justify-between",
-                  "bg-background-primary/30 hover:bg-background-primary/70 transition-colors shadow-sm border",
+                  "relative block cursor-pointer rounded-2xl border px-6 py-4 focus:outline-none sm:flex sm:justify-between",
+                  checked
+                    ? "[--theme-selector-border:var(--border-transparent)]"
+                    : "[--theme-selector-border:transparent]",
+                  "focus-visible:[--theme-selector-border:var(--border-selected)]",
+                  "bg-background-primary/30 hover:bg-background-primary/70 transition-colors shadow-sm",
+                  checked
+                    ? "bg-background-tertiary"
+                    : "bg-background-secondary",
                 )
               }
             >
-              {({ checked, active }) => (
+              {({ checked }) => (
                 <>
                   <span className="flex flex-1">
                     <span className="flex flex-col">
@@ -213,8 +218,7 @@ function ToggleDarkMode() {
                   />
                   <span
                     className={classNames(
-                      active ? "ring-2 ring-util-accent" : "border",
-                      checked ? "border-border-selected" : "border-transparent",
+                      "border border-(--theme-selector-border)",
                       "pointer-events-none absolute -inset-px rounded-2xl",
                     )}
                     aria-hidden="true"
