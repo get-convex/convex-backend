@@ -14,7 +14,7 @@ import { evaluatePush } from "./deploy2.js";
 import { DeveloperIndexConfig, IndexDiff } from "./deployApi/finishPush.js";
 import { runSystemQuery } from "./run.js";
 
-const MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING = 10_000_000;
+const MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING = 100_000;
 
 export async function checkForLargeIndexDeletion({
   ctx,
@@ -90,9 +90,10 @@ export async function checkForLargeIndexDeletion({
     }),
   );
 
+  const minDocumentsForWarning = minDocumentsForIndexDeleteWarning();
   if (
     !deletedIndexesWithDocumentsCount.some(
-      ({ count }) => count >= MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING,
+      ({ count }) => count >= minDocumentsForWarning,
     )
   ) {
     logFinishedStep("No large indexes are deleted by this push");
@@ -104,12 +105,13 @@ from your production deployment (${options.url}):
 
 ${deletedIndexesWithDocumentsCount
   .map(({ componentDefinitionPath, index, count }) =>
-    formatDeletedIndex(
+    formatDeletedIndex({
       componentDefinitionPath,
       index,
-      indexDiffs[componentDefinitionPath],
-      count,
-    ),
+      indexDiff: indexDiffs[componentDefinitionPath],
+      documentsCount: count,
+      minDocumentsForWarning,
+    }),
   )
   .join("\n")}
 
@@ -151,19 +153,26 @@ to be backfilled again if you want to restore it later.
   logFinishedStep("Proceeding with push.");
 }
 
-function formatDeletedIndex(
-  componentDefinitionPath: string,
-  index: DeveloperIndexConfig,
-  indexDiff: IndexDiff,
-  documentsCount: number,
-) {
+function formatDeletedIndex({
+  componentDefinitionPath,
+  index,
+  indexDiff,
+  documentsCount,
+  minDocumentsForWarning,
+}: {
+  componentDefinitionPath: string;
+  index: DeveloperIndexConfig;
+  indexDiff: IndexDiff;
+  documentsCount: number;
+  minDocumentsForWarning: number;
+}) {
   const componentNameFormatted =
     componentDefinitionPath !== ""
       ? `${chalk.gray(componentDefinitionPath)}:`
       : "";
 
   const documentsCountFormatted =
-    documentsCount >= MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING
+    documentsCount >= minDocumentsForWarning
       ? `  ${chalk.yellowBright(`⚠️  ${documentsCount.toLocaleString()} documents`)}`
       : `  ${documentsCount.toLocaleString()} ${documentsCount === 1 ? "document" : "documents"}`;
 
@@ -184,4 +193,15 @@ function formatDeletedIndex(
 function getTableName(index: DeveloperIndexConfig) {
   const [tableName, _indexName] = index.name.split(".");
   return tableName;
+}
+
+function minDocumentsForIndexDeleteWarning(): number {
+  const envValue = process.env.CONVEX_MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING;
+  if (envValue !== undefined) {
+    const parsed = parseInt(envValue, 10);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING;
 }
