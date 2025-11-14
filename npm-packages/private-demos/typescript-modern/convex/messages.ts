@@ -34,7 +34,7 @@ const messageDoc = messageValidator.extend({
 
 export const get = query({
   args: { id: v.id("messages") },
-  returns: v.union(v.null(), messageDoc),
+  returns: v.nullable(messageDoc),
   handler: async (ctx, { id }) => {
     return await ctx.db.get(id);
   },

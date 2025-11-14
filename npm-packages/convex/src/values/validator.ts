@@ -222,6 +222,13 @@ export const v = {
   optional: <T extends GenericValidator>(value: T) => {
     return value.asOptional() as VOptional<T>;
   },
+
+  /**
+   * Allows specifying a value or null.
+   */
+  nullable: <T extends GenericValidator>(value: T) => {
+    return v.union(value, v.null());
+  },
 };
 
 /**

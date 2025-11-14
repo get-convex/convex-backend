@@ -92,6 +92,8 @@ export default mutation({
 });
 ```
 
+For convenience, `v.nullable(foo)` is equivalent to `v.union(foo, v.null())`.
+
 ### Literals
 
 Fields that are a constant can be expressed with `v.literal`. This is especially
