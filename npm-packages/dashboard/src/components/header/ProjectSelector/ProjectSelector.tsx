@@ -151,7 +151,7 @@ function ProjectSelectorPanel({
                   <CaretSortIcon
                     className={cn(
                       "text-content-primary",
-                      "min-h-[1rem] min-w-[1rem] rounded-full group-hover:bg-background-tertiary",
+                      "min-h-[1rem] min-w-[1rem] rounded-full",
                     )}
                   />
                 </Button>

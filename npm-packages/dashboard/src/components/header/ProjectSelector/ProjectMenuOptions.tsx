@@ -8,6 +8,8 @@ import { SelectorItem } from "elements/SelectorItem";
 import { useDeploymentUris } from "hooks/useDeploymentUris";
 import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
 import { InfiniteScrollList } from "dashboard-common/src/elements/InfiniteScrollList";
+import { OpenInVercel } from "components/OpenInVercel";
+import startCase from "lodash/startCase";
 
 const PROJECT_SELECTOR_ITEM_SIZE = 44;
 
@@ -97,18 +99,27 @@ export function ProjectMenuOptions({
           }
         />
       </div>
-      <Button
-        inline
-        onClick={() => {
-          onCreateProjectClick(team);
-          close();
-        }}
-        icon={<PlusIcon aria-hidden="true" />}
-        className="w-full"
-        size="sm"
-      >
-        Create Project
-      </Button>
+      <div className="flex w-full gap-2 p-2">
+        <Button
+          inline
+          onClick={() => {
+            onCreateProjectClick(team);
+            close();
+          }}
+          icon={<PlusIcon aria-hidden="true" />}
+          className="grow"
+          size="sm"
+          disabled={!!team.managedBy}
+          tip={
+            team.managedBy
+              ? `This team is managed by ${startCase(team.managedBy)}. You can create new projects through the ${startCase(team.managedBy)} dashboard.`
+              : ""
+          }
+        >
+          Create Project
+        </Button>
+        <OpenInVercel team={team} />
+      </div>
     </>
   );
 }

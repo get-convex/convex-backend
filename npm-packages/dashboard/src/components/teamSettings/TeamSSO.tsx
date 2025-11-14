@@ -24,6 +24,8 @@ import { cn } from "@ui/cn";
 import { useProfileEmails } from "api/profile";
 import Link from "next/link";
 import { LoadingTransition } from "@ui/Loading";
+import { OpenInVercel } from "components/OpenInVercel";
+import startCase from "lodash/startCase";
 
 export function TeamSSO({ team }: { team: TeamResponse }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
@@ -119,7 +121,17 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
 
       {entitlements && !ssoEnabled && (
         <Callout variant="upsell">
-          SSO is not available on your plan. Upgrade your plan to use SSO.
+          {team.managedBy ? (
+            <div className="flex w-full items-center justify-between gap-4">
+              <div>
+                SSO is not available for teams managed by{" "}
+                {startCase(team.managedBy)}.
+              </div>
+              <OpenInVercel team={team} />
+            </div>
+          ) : (
+            "SSO is not available on your plan. Upgrade your plan to use SSO."
+          )}
         </Callout>
       )}
 

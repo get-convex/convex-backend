@@ -19,6 +19,8 @@ import { useProfile } from "api/profile";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { Loading } from "@ui/Loading";
 import { planNameMap } from "components/billing/planCards/PlanCard";
+import { OpenInVercel } from "components/OpenInVercel";
+import startCase from "lodash/startCase";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -72,6 +74,17 @@ function Billing({ team }: { team: TeamResponse }) {
         )}
         <h2>Billing</h2>
       </div>
+      {team.managedBy && (
+        <Callout className="mx-6 mb-4" variant="upsell">
+          <div className="flex w-full items-center justify-between gap-4">
+            <div>
+              This team is managed by {startCase(team.managedBy)}. You must
+              manage billing through the {startCase(team.managedBy)} dashboard.
+            </div>
+            <OpenInVercel team={team} />
+          </div>
+        </Callout>
+      )}
       <ErrorBoundary fallback={BillingErrorFallback}>
         <div className="relative min-h-0 flex-1 overflow-x-hidden">
           {!isOrbSubLoading && orbSub !== undefined ? (

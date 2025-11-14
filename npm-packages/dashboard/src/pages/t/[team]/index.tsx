@@ -13,7 +13,7 @@ import { useProjects } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { useTeamOrbSubscription } from "api/billing";
 import { useReferralState } from "api/referrals";
-import { ProjectDetails } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import Link from "next/link";
 import { ReferralsBanner } from "components/referral/ReferralsBanner";
 import { DocsGrid } from "components/projects/DocsGrid";
@@ -25,6 +25,7 @@ import { cn } from "@ui/cn";
 import { PaginationControls } from "elements/PaginationControls";
 import { usePagination } from "hooks/usePagination";
 import { EmptySection } from "@common/elements/EmptySection";
+import { OpenInVercel } from "components/OpenInVercel";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -92,7 +93,7 @@ export default withAuthenticatedPage(() => {
                   />
                 )}
 
-                <ProjectGrid projects={nonDemoProjects} />
+                <ProjectGrid projects={nonDemoProjects} team={team} />
               </div>
             )}
           </div>
@@ -103,7 +104,13 @@ export default withAuthenticatedPage(() => {
   );
 });
 
-function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
+function ProjectGrid({
+  team,
+  projects,
+}: {
+  team: TeamResponse;
+  projects: ProjectDetails[];
+}) {
   const [createProjectModal, showCreateProjectModal] = useCreateProjectModal();
   const [showAsList, setShowAsList] = useGlobalLocalStorage(
     "showProjectsAsList",
@@ -160,14 +167,17 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
             type="search"
             id="Search projects"
           />
-          <Button
-            onClick={() => showCreateProjectModal()}
-            variant="neutral"
-            size="sm"
-            icon={<PlusIcon />}
-          >
-            Create Project
-          </Button>
+          {!team.managedBy && (
+            <Button
+              onClick={() => showCreateProjectModal()}
+              variant="neutral"
+              size="sm"
+              icon={<PlusIcon />}
+            >
+              Create Project
+            </Button>
+          )}
+          <OpenInVercel team={team} />
           {paginatedProjects.length > 0 && (
             <Button
               href="https://docs.convex.dev/tutorial"

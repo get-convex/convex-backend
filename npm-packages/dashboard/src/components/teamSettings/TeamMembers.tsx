@@ -1,6 +1,7 @@
 import { EnvelopeClosedIcon } from "@radix-ui/react-icons";
 import { Callout } from "@ui/Callout";
 import { Loading } from "@ui/Loading";
+import { Sheet } from "@ui/Sheet";
 import { useTeamMembers, useTeamEntitlements } from "api/teams";
 import { useTeamInvites } from "api/invitations";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
@@ -9,6 +10,7 @@ import { TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";
 
 import { captureMessage } from "@sentry/nextjs";
+import { OpenInVercel } from "components/OpenInVercel";
 import { InviteMemberForm } from "./InviteMemberForm";
 import { TeamMemberList } from "./TeamMemberList";
 
@@ -31,14 +33,15 @@ export function TeamMembers({ team }: { team: TeamResponse }) {
     );
   } else if (team.managedBy) {
     inviteMembers = (
-      <Callout>
-        <div className="flex flex-col gap-2 p-2">
+      <Sheet>
+        <div className="flex items-center justify-between gap-4">
           <div>
             This team is managed by {startCase(team.managedBy)}.{" "}
             {joinInstructionsForTeamManagedBy(team.managedBy)}
           </div>
+          <OpenInVercel team={team} />
         </div>
-      </Callout>
+      </Sheet>
     );
   } else if (canAddMembers) {
     // Show invite form if you can add members.
@@ -103,7 +106,7 @@ export function TeamMembers({ team }: { team: TeamResponse }) {
 function joinInstructionsForTeamManagedBy(managedBy: string) {
   switch (managedBy) {
     case "vercel":
-      return 'Your team members may join the team by clicking "Open in Convex" when viewing the Convex integration in their Vercel dashboard.';
+      return 'Your Vercel team members may join this Convex team by clicking "Open in Convex" when viewing the Convex integration in their Vercel dashboard.';
     default:
       captureMessage(`Unknown team managed by: ${managedBy}`, "error");
       return "";

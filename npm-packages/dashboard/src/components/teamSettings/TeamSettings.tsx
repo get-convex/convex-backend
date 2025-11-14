@@ -13,7 +13,7 @@ import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useState } from "react";
 import startCase from "lodash/startCase";
-import { Callout } from "@ui/Callout";
+import { OpenInVercel } from "components/OpenInVercel";
 import { TeamForm } from "./TeamForm";
 
 export function TeamSettings({ team }: { team: TeamResponse }) {
@@ -36,9 +36,13 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
       <Sheet>
         <h3 className="mb-4">Delete Team</h3>
         <p className="mb-4">
-          Permanently delete this team. To delete your team, you must first
-          remove all team members and delete all projects associated with the
-          team.
+          Permanently deletes this team.{" "}
+          {!team.managedBy && (
+            <>
+              To delete your team, you must first remove all team members and
+              delete all projects associated with the team.
+            </>
+          )}
         </p>
         {subscription && (
           <p className="mb-4">
@@ -48,39 +52,44 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
           </p>
         )}
         {team.managedBy && (
-          <Callout className="mb-4">
-            This team is managed by {startCase(team.managedBy)}. You must delete
-            the integration in {startCase(team.managedBy)} before you can delete
-            this team.
-          </Callout>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              This team is managed by {startCase(team.managedBy)}. You may
+              delete this Convex team by deleting your Convex integration in{" "}
+              {startCase(team.managedBy)}.
+            </div>
+            <OpenInVercel team={team} />
+          </div>
         )}
-        <Button
-          variant="danger"
-          onClick={() => setShowDeleteTeamModal(true)}
-          disabled={
-            !!team.managedBy ||
-            !hasAdminPermissions ||
-            !teams ||
-            teams.length === 1 ||
-            !teamMembers ||
-            teamMembers.length > 1 ||
-            !projects ||
-            projects.length > 0
-          }
-          tip={
-            !hasAdminPermissions
-              ? "You do not have permission to delete this team."
-              : teams && teams.length === 1
-                ? "You cannot delete your last team."
-                : teamMembers && teamMembers.length > 1
-                  ? "You must remove all other team members before deleting the team."
-                  : projects && projects.length > 0
-                    ? "You must delete all projects before deleting the team."
-                    : undefined
-          }
-        >
-          Delete Team
-        </Button>
+        {!team.managedBy && (
+          <Button
+            variant="danger"
+            onClick={() => setShowDeleteTeamModal(true)}
+            disabled={
+              !!team.managedBy ||
+              !hasAdminPermissions ||
+              !teams ||
+              teams.length === 1 ||
+              !teamMembers ||
+              teamMembers.length > 1 ||
+              !projects ||
+              projects.length > 0
+            }
+            tip={
+              !hasAdminPermissions
+                ? "You do not have permission to delete this team."
+                : teams && teams.length === 1
+                  ? "You cannot delete your last team."
+                  : teamMembers && teamMembers.length > 1
+                    ? "You must remove all other team members before deleting the team."
+                    : projects && projects.length > 0
+                      ? "You must delete all projects before deleting the team."
+                      : undefined
+            }
+          >
+            Delete Team
+          </Button>
+        )}
         {showDeleteTeamModal && (
           <ConfirmationDialog
             onClose={() => setShowDeleteTeamModal(false)}
