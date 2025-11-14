@@ -100,8 +100,8 @@ use crate::{
         do_import_from_object_key,
         import_objects,
         parse::{
-            parse_objects,
-            ImportUnit,
+            parse_import_file,
+            ParsedImport,
         },
         start_stored_import,
         wait_for_import_worker,
@@ -136,7 +136,7 @@ async fn test_peeking_take_while(_rt: TestRuntime) {
 async fn run_parse_objects<RT: Runtime>(
     rt: RT,
     format: ImportFormat,
-    v: &str,
+    v: impl AsRef<[u8]>,
 ) -> anyhow::Result<Vec<JsonValue>> {
     let storage_dir = tempfile::TempDir::new()?;
     let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
@@ -145,25 +145,20 @@ async fn run_parse_objects<RT: Runtime>(
         StorageUseCase::SnapshotImports,
     )?);
     let mut upload = storage.start_upload().await?;
-    upload.write(Bytes::copy_from_slice(v.as_bytes())).await?;
+    upload.write(Bytes::copy_from_slice(v.as_ref())).await?;
     let object_key = upload.complete().await?;
-    parse_objects(
+    let import = parse_import_file(
         format,
         ComponentPath::root(),
         storage.clone(),
         storage.fully_qualified_key(&object_key),
     )
-    .filter_map(|line| async move {
-        match line {
-            Ok(super::ImportUnit::Object(object)) => Some(Ok(object)),
-            Ok(super::ImportUnit::NewTable(..)) => None,
-            Ok(super::ImportUnit::GeneratedSchema(..)) => None,
-            Ok(super::ImportUnit::StorageFileChunk(..)) => None,
-            Err(e) => Some(Err(e)),
-        }
-    })
-    .try_collect()
-    .await
+    .await?;
+
+    stream::iter(import.documents.into_iter().map(|(_, _, stream)| stream))
+        .flatten()
+        .try_collect()
+        .await
 }
 
 fn stream_from_str(str: &str) -> BoxStream<'static, anyhow::Result<Bytes>> {
@@ -1086,25 +1081,26 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     let storage_id = "kg21pzwemsm55e1fnt2kcsvgjh6h6gtf";
     let storage_idv6 = DeveloperDocumentId::decode(storage_id)?;
 
-    let objects = stream::iter(vec![
-        Ok(ImportUnit::NewTable(
+    let import = ParsedImport {
+        generated_schemas: vec![],
+        documents: vec![
+            (
+                component_path.clone(),
+                "_storage".parse()?,
+                stream::iter(vec![Ok(json!({"_id": storage_id}))]).boxed(),
+            ),
+            (
+                component_path.clone(),
+                table_name.clone(),
+                stream::iter(vec![Ok(json!({"foo": "bar"})), Ok(json!({"foo": "baz"}))]).boxed(),
+            ),
+        ],
+        storage_files: vec![(
             component_path.clone(),
-            "_storage".parse()?,
-        )),
-        Ok(ImportUnit::Object(json!({"_id": storage_id}))),
-        Ok(ImportUnit::StorageFileChunk(
             storage_idv6,
-            Bytes::from_static(b"foobarbaz"),
-        )),
-        Ok(ImportUnit::NewTable(
-            component_path.clone(),
-            table_name.clone(),
-        )),
-        Ok(ImportUnit::Object(json!({"foo": "bar"}))),
-        Ok(ImportUnit::Object(json!({"foo": "baz"}))),
-    ])
-    .boxed()
-    .peekable();
+            stream::iter(vec![Ok(Bytes::from_static(b"foobarbaz"))]).boxed(),
+        )],
+    };
 
     let usage = FunctionUsageTracker::new();
 
@@ -1113,7 +1109,7 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         &app.file_storage,
         identity,
         ImportMode::Replace,
-        objects,
+        import,
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
@@ -1130,21 +1126,19 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_import_file_storage_changing_table_number(rt: TestRuntime) -> anyhow::Result<()> {
     let app = Application::new_for_tests(&rt).await?;
     let old_storage_id: DeveloperDocumentId = "4d9wy5r5x7rmjdjqnx45ct829fff4ar".parse()?;
-    let objects = stream::iter(vec![
-        Ok(ImportUnit::NewTable(
+    let import = ParsedImport {
+        generated_schemas: vec![],
+        documents: vec![(
             ComponentPath::root(),
             "_storage".parse()?,
-        )),
-        Ok(ImportUnit::Object(
-            json!({"_id": old_storage_id.to_string()}),
-        )),
-        Ok(ImportUnit::StorageFileChunk(
+            stream::iter(vec![Ok(json!({"_id": old_storage_id.to_string()}))]).boxed(),
+        )],
+        storage_files: vec![(
+            ComponentPath::root(),
             old_storage_id,
-            Bytes::from_static(b"foobarbaz"),
-        )),
-    ])
-    .boxed()
-    .peekable();
+            stream::iter(vec![Ok(Bytes::from_static(b"foobarbaz"))]).boxed(),
+        )],
+    };
 
     // Regression test: used to fail with "cannot find table with id 35"
     import_objects(
@@ -1152,7 +1146,7 @@ async fn test_import_file_storage_changing_table_number(rt: TestRuntime) -> anyh
         &app.file_storage,
         new_admin_id(),
         ImportMode::Replace,
-        objects,
+        import,
         FunctionUsageTracker::new(),
         None,
         ImportRequestor::SnapshotImport,
@@ -1379,24 +1373,11 @@ async fn test_utf8_bom_jsonarray(rt: TestRuntime) -> anyhow::Result<()> {
     content_with_bom.extend_from_slice(&utf8_bom);
     content_with_bom.extend_from_slice(json_content.as_bytes());
 
-    let storage_dir = tempfile::TempDir::new()?;
-    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+    let result = run_parse_objects(
         rt.clone(),
-        &storage_dir.path().to_string_lossy(),
-        StorageUseCase::SnapshotImports,
-    )?);
-
-    let mut upload = storage.start_upload().await?;
-    upload.write(Bytes::from(content_with_bom)).await?;
-    let object_key = upload.complete().await?;
-
-    let result = parse_objects(
         ImportFormat::JsonArray("test_table".parse()?),
-        ComponentPath::root(),
-        storage.clone(),
-        storage.fully_qualified_key(&object_key),
+        content_with_bom,
     )
-    .try_collect::<Vec<_>>()
     .await;
 
     // Should fail with UTF-8 BOM error
@@ -1419,24 +1400,11 @@ async fn test_utf8_bom_jsonlines(rt: TestRuntime) -> anyhow::Result<()> {
     content_with_bom.extend_from_slice(&utf8_bom);
     content_with_bom.extend_from_slice(jsonl_content.as_bytes());
 
-    let storage_dir = tempfile::TempDir::new()?;
-    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+    let result = run_parse_objects(
         rt.clone(),
-        &storage_dir.path().to_string_lossy(),
-        StorageUseCase::SnapshotImports,
-    )?);
-
-    let mut upload = storage.start_upload().await?;
-    upload.write(Bytes::from(content_with_bom)).await?;
-    let object_key = upload.complete().await?;
-
-    let result = parse_objects(
         ImportFormat::JsonLines("test_table".parse()?),
-        ComponentPath::root(),
-        storage.clone(),
-        storage.fully_qualified_key(&object_key),
+        content_with_bom,
     )
-    .try_collect::<Vec<_>>()
     .await;
 
     // Should fail with UTF-8 BOM error
@@ -1500,24 +1468,11 @@ async fn test_utf8_bom_jsonlines_empty_lines(rt: TestRuntime) -> anyhow::Result<
     content_with_bom.extend_from_slice(&utf8_bom);
     content_with_bom.extend_from_slice(jsonl_content.as_bytes());
 
-    let storage_dir = tempfile::TempDir::new()?;
-    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::for_use_case(
+    let result = run_parse_objects(
         rt.clone(),
-        &storage_dir.path().to_string_lossy(),
-        StorageUseCase::SnapshotImports,
-    )?);
-
-    let mut upload = storage.start_upload().await?;
-    upload.write(Bytes::from(content_with_bom)).await?;
-    let object_key = upload.complete().await?;
-
-    let result = parse_objects(
         ImportFormat::JsonLines("test_table".parse()?),
-        ComponentPath::root(),
-        storage.clone(),
-        storage.fully_qualified_key(&object_key),
+        content_with_bom,
     )
-    .try_collect::<Vec<_>>()
     .await;
 
     // Should fail with UTF-8 BOM error

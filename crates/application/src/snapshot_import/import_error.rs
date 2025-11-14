@@ -47,19 +47,19 @@ pub enum ImportError {
     CsvInvalidHeader(String, anyhow::Error),
 
     #[error("Failed to parse CSV row {0}: {1}")]
-    CsvInvalidRow(usize, csv_async::Error),
+    CsvInvalidRow(u64, csv_async::Error),
 
     #[error("CSV row {0} doesn't have all of the fields in the header")]
-    CsvRowMissingFields(usize),
+    CsvRowMissingFields(u64),
 
     #[error("Row {0} wasn't valid JSON: {1}")]
-    JsonInvalidRow(usize, serde_json::Error),
+    JsonInvalidRow(u64, serde_json::Error),
 
     #[error("Row {0} wasn't a valid Convex value: {1}")]
-    InvalidConvexValue(usize, anyhow::Error),
+    InvalidConvexValue(u64, anyhow::Error),
 
     #[error("Row {0} wasn't an object")]
-    NotAnObject(usize),
+    NotAnObject(u64),
 
     #[error("Not a JSON array")]
     NotJsonArray,

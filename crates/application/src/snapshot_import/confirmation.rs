@@ -31,7 +31,6 @@ use model::{
 
 use crate::snapshot_import::{
     import_error::ImportError,
-    parse::ImportUnit,
     table_change::{
         render_table_changes,
         TableChange,
@@ -70,59 +69,39 @@ async fn messages_to_confirm_replace<RT: Runtime>(
     snapshot_import: ParsedDocument<SnapshotImport>,
 ) -> anyhow::Result<(Vec<String>, bool, Vec<ImportTableCheckpoint>)> {
     let mode = snapshot_import.mode;
-    let (_, mut objects) = executor.parse_import(snapshot_import.id()).await?;
+    let (_, import) = executor.parse_import(snapshot_import.id()).await?;
     // Find all tables being written to.
     let mut count_by_table: BTreeMap<(ComponentPath, TableName), u64> = BTreeMap::new();
     let mut tables_missing_id_field: BTreeSet<(ComponentPath, TableName)> = BTreeSet::new();
-    let mut current_table = None;
-    let mut lineno = 0;
-    while let Some(object) = objects.try_next().await? {
-        match object {
-            ImportUnit::NewTable(component_path, table_name) => {
-                lineno = 0;
+    for (component_path, table_name, mut objects) in import.documents {
+        let mut lineno = 0u64;
+        let component_table = (component_path, table_name);
+        while let Some(exported_value) = objects.try_next().await? {
+            lineno += 1;
+            if component_table.1 == *TABLES_TABLE {
+                let exported_object = exported_value
+                    .as_object()
+                    .with_context(|| ImportError::NotAnObject(lineno))?;
+                let entry_table_name = exported_object
+                    .get("name")
+                    .and_then(|name| name.as_str())
+                    .with_context(|| {
+                    ImportError::InvalidConvexValue(lineno, anyhow::anyhow!("table requires name"))
+                })?;
+                let entry_table_name = entry_table_name
+                    .parse()
+                    .map_err(|e| ImportError::InvalidName(entry_table_name.to_string(), e))?;
                 count_by_table
-                    .entry((component_path.clone(), table_name.clone()))
+                    .entry((component_table.0.clone(), entry_table_name))
                     .or_default();
-                current_table = Some((component_path, table_name));
-            },
-            ImportUnit::Object(exported_value) => {
-                lineno += 1;
-                let Some(current_component_table) = &current_table else {
-                    continue;
-                };
-                let (current_component, current_table) = current_component_table;
-                if current_table == &*TABLES_TABLE {
-                    let exported_object = exported_value
-                        .as_object()
-                        .with_context(|| ImportError::NotAnObject(lineno))?;
-                    let table_name = exported_object
-                        .get("name")
-                        .and_then(|name| name.as_str())
-                        .with_context(|| {
-                            ImportError::InvalidConvexValue(
-                                lineno,
-                                anyhow::anyhow!("table requires name"),
-                            )
-                        })?;
-                    let table_name = table_name
-                        .parse()
-                        .map_err(|e| ImportError::InvalidName(table_name.to_string(), e))?;
-                    count_by_table
-                        .entry((current_component.clone(), table_name))
-                        .or_default();
-                }
-                if let Some(count) = count_by_table.get_mut(current_component_table) {
-                    *count += 1;
-                }
-                if !tables_missing_id_field.contains(current_component_table)
-                    && exported_value.get(&**ID_FIELD).is_none()
-                {
-                    tables_missing_id_field.insert(current_component_table.clone());
-                }
-            },
-            // Ignore storage file chunks and generated schemas.
-            ImportUnit::StorageFileChunk(..) | ImportUnit::GeneratedSchema(..) => {},
+            }
+            if !tables_missing_id_field.contains(&component_table)
+                && exported_value.get(&**ID_FIELD).is_none()
+            {
+                tables_missing_id_field.insert(component_table.clone());
+            }
         }
+        *count_by_table.entry(component_table.clone()).or_default() += lineno;
     }
 
     let db_snapshot = executor.database.latest_snapshot()?;

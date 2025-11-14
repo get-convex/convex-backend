@@ -27,7 +27,6 @@ use common::{
     },
     errors::report_error,
     execution_context::ExecutionId,
-    ext::TryPeekableExt,
     knobs::{
         MAX_IMPORT_AGE,
         TRANSACTION_MAX_NUM_USER_WRITES,
@@ -57,12 +56,12 @@ use errors::{
 };
 use file_storage::FileStorage;
 use futures::{
-    pin_mut,
     stream::{
         self,
         BoxStream,
         Peekable,
     },
+    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -129,8 +128,10 @@ use crate::{
         import_file_storage::import_storage_table,
         metrics::log_snapshot_import_age,
         parse::{
-            parse_objects,
-            ImportUnit,
+            parse_import_file,
+            ImportDocumentStream,
+            ImportStorageFileStream,
+            ParsedImport,
         },
         prepare_component::prepare_component_for_import,
         progress::{
@@ -329,7 +330,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         snapshot_import: ParsedDocument<SnapshotImport>,
     ) -> anyhow::Result<(Timestamp, u64)> {
         self.fail_if_too_old(&snapshot_import)?;
-        let (initial_schemas, objects) = self.parse_import(snapshot_import.id()).await?;
+        let (initial_schemas, import) = self.parse_import(snapshot_import.id()).await?;
 
         let usage = FunctionUsageTracker::new();
 
@@ -338,7 +339,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             &self.file_storage,
             Identity::system(),
             snapshot_import.mode,
-            objects,
+            import,
             usage.clone(),
             Some(snapshot_import.id()),
             snapshot_import.requestor.clone(),
@@ -394,31 +395,32 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
     async fn parse_import(
         &self,
         import_id: ResolvedDocumentId,
-    ) -> anyhow::Result<(
-        SchemasForImport,
-        Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>,
-    )> {
-        let (object_key, format, component_path) = {
+    ) -> anyhow::Result<(SchemasForImport, ParsedImport)> {
+        let SnapshotImport {
+            object_key,
+            format,
+            component_path,
+            ..
+        } = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let mut model = SnapshotImportModel::new(&mut tx);
-            let snapshot_import = model.get(import_id).await?.context("import not found")?;
-            (
-                snapshot_import.object_key.clone(),
-                snapshot_import.format.clone(),
-                snapshot_import.component_path.clone(),
-            )
+            model
+                .get(import_id)
+                .await?
+                .context("import not found")?
+                .into_value()
         };
-        let fq_key = match &object_key {
-            Ok(key) => key.clone(),
-            Err(key) => self.snapshot_imports_storage.fully_qualified_key(key),
+        let fq_key = match object_key {
+            Ok(key) => key,
+            Err(key) => self.snapshot_imports_storage.fully_qualified_key(&key),
         };
-        let objects = parse_objects(
+        let import = parse_import_file(
             format.clone(),
             component_path.clone(),
             self.snapshot_imports_storage.clone(),
             fq_key,
         )
-        .boxed();
+        .await?;
 
         let component_id = prepare_component_for_import(&self.database, &component_path).await?;
         // Remapping could be more extensive here, it's just relatively simple to handle
@@ -427,21 +429,20 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         // of a transaction, though I haven't explicitly tested the performance.
         let mut tx = self.database.begin(Identity::system()).await?;
         let initial_schemas = schemas_for_import(&mut tx).await?;
-        let objects = match format {
+        let import = match format {
             ImportFormat::Csv(table_name) => {
                 remap_empty_string_by_schema(
                     TableNamespace::from(component_id),
                     table_name,
                     &mut tx,
-                    objects,
+                    import,
                 )
                 .await?
             },
-            _ => objects,
-        }
-        .peekable();
+            _ => import,
+        };
         drop(tx);
-        Ok((initial_schemas, objects))
+        Ok((initial_schemas, import))
     }
 }
 
@@ -659,18 +660,23 @@ pub async fn clear_tables<RT: Runtime>(
         schemas_for_import(&mut tx).await?
     };
 
-    let objects = stream::iter(table_names.into_iter().map(|(component_path, table_name)| {
-        anyhow::Ok(ImportUnit::NewTable(component_path, table_name))
-    }))
-    .boxed()
-    .peekable();
+    let import = ParsedImport {
+        generated_schemas: vec![],
+        storage_files: vec![],
+        documents: table_names
+            .into_iter()
+            .map(|(component_path, table_name)| {
+                (component_path, table_name, stream::empty().boxed())
+            })
+            .collect(),
+    };
 
     let (table_mapping_for_import, _) = import_objects(
         &application.database,
         &application.file_storage,
         identity.clone(),
         ImportMode::Replace,
-        objects,
+        import,
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
@@ -698,13 +704,18 @@ async fn import_objects<RT: Runtime>(
     file_storage: &FileStorage<RT>,
     identity: Identity,
     mode: ImportMode,
-    objects: Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>,
+    mut import: ParsedImport,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
 ) -> anyhow::Result<(TableMappingForImport, u64)> {
-    pin_mut!(objects);
-    let mut generated_schemas = BTreeMap::new();
+    let mut generated_schemas: BTreeMap<_, _> = import
+        .generated_schemas
+        .into_iter()
+        .map(|(component_path, table_name, generated_schema)| {
+            ((component_path, table_name), generated_schema)
+        })
+        .collect();
     let mut total_num_documents = 0;
 
     // In ReplaceAll mode, we want to delete all unaffected user tables
@@ -726,21 +737,39 @@ async fn import_objects<RT: Runtime>(
         to_delete,
     };
 
-    while let Some(num_documents) = import_single_table(
-        database,
-        file_storage,
-        &identity,
-        mode,
-        objects.as_mut(),
-        &mut generated_schemas,
-        &mut table_mapping_for_import,
-        usage.clone(),
-        import_id,
-        requestor.clone(),
-    )
-    .await?
-    {
-        total_num_documents += num_documents;
+    let mut storage_files_by_component: BTreeMap<
+        ComponentPath,
+        Vec<(DeveloperDocumentId, ImportStorageFileStream)>,
+    > = BTreeMap::new();
+    for (component_path, id, stream) in import.storage_files {
+        storage_files_by_component
+            .entry(component_path)
+            .or_default()
+            .push((id, stream));
+    }
+
+    // _tables needs to be imported before user tables so we can
+    // pick table numbers correctly for schema validation.
+    import
+        .documents
+        .sort_by_key(|(_, table_name, _)| *table_name != *TABLES_TABLE);
+    for (component_path, table_name, document_stream) in import.documents {
+        total_num_documents += import_single_table(
+            database,
+            file_storage,
+            &identity,
+            mode,
+            component_path,
+            table_name,
+            document_stream,
+            &mut storage_files_by_component,
+            &mut generated_schemas,
+            &mut table_mapping_for_import,
+            usage.clone(),
+            import_id,
+            requestor.clone(),
+        )
+        .await?;
     }
 
     let mut tx = database.begin(identity.clone()).await?;
@@ -959,18 +988,14 @@ async fn import_tables_table<RT: Runtime>(
     database: &Database<RT>,
     identity: &Identity,
     mode: ImportMode,
-    mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
+    mut objects: impl Stream<Item = anyhow::Result<JsonValue>> + Unpin,
     component_path: &ComponentPath,
     import_id: Option<ResolvedDocumentId>,
     table_mapping_for_import: &mut TableMappingForImport,
 ) -> anyhow::Result<()> {
     let mut import_tables: Vec<(TableName, TableNumber)> = vec![];
     let mut lineno = 0;
-    while let Some(ImportUnit::Object(exported_value)) = objects
-        .as_mut()
-        .try_next_if(|line| matches!(line, ImportUnit::Object(_)))
-        .await?
-    {
+    while let Some(exported_value) = objects.try_next().await? {
         lineno += 1;
         let exported_object = exported_value
             .as_object()
@@ -1045,28 +1070,21 @@ async fn import_single_table<RT: Runtime>(
     file_storage: &FileStorage<RT>,
     identity: &Identity,
     mode: ImportMode,
-    mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
+    component_path: ComponentPath,
+    mut table_name: TableName,
+    objects: ImportDocumentStream,
+    storage_files_by_component: &mut BTreeMap<
+        ComponentPath,
+        Vec<(DeveloperDocumentId, ImportStorageFileStream)>,
+    >,
     generated_schemas: &mut BTreeMap<(ComponentPath, TableName), GeneratedSchema<ProdConfig>>,
     table_mapping_for_import: &mut TableMappingForImport,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
-) -> anyhow::Result<Option<u64>> {
-    while let Some(ImportUnit::GeneratedSchema(component_path, table_name, generated_schema)) =
-        objects
-            .as_mut()
-            .try_next_if(|line| matches!(line, ImportUnit::GeneratedSchema(_, _, _)))
-            .await?
-    {
-        generated_schemas.insert((component_path, table_name), generated_schema);
-    }
-    let mut component_and_table = match objects.try_next().await? {
-        Some(ImportUnit::NewTable(component_path, table_name)) => (component_path, table_name),
-        Some(_) => anyhow::bail!("parse_objects should start with NewTable"),
-        // No more tables to import.
-        None => return Ok(None),
-    };
-    let table_number_from_docs = table_number_for_import(objects.as_mut()).await;
+) -> anyhow::Result<u64> {
+    let mut objects = objects.peekable();
+    let table_number_from_docs = table_number_for_import(&mut objects).await;
     if let Some(import_id) = import_id {
         best_effort_update_progress_message(
             database,
@@ -1074,20 +1092,20 @@ async fn import_single_table<RT: Runtime>(
             import_id,
             format!(
                 "Importing \"{}\"{}",
-                component_and_table.1,
-                component_and_table.0.in_component_str()
+                table_name,
+                component_path.in_component_str()
             ),
-            &component_and_table.0,
-            &component_and_table.1,
+            &component_path,
+            &table_name,
             0,
         )
         .await;
     }
 
-    let table_name = &mut component_and_table.1;
-    if *table_name == *FILE_STORAGE_VIRTUAL_TABLE {
-        *table_name = FILE_STORAGE_TABLE.clone();
+    if table_name == *FILE_STORAGE_VIRTUAL_TABLE {
+        table_name = FILE_STORAGE_TABLE.clone();
     }
+    let component_and_table = (component_path, table_name);
     let (component_path, table_name) = &component_and_table;
     let component_id = prepare_component_for_import(database, component_path).await?;
 
@@ -1096,13 +1114,13 @@ async fn import_single_table<RT: Runtime>(
             database,
             identity,
             mode,
-            objects.as_mut(),
+            objects,
             component_path,
             import_id,
             table_mapping_for_import,
         )
         .await?;
-        return Ok(Some(0));
+        return Ok(0);
     }
 
     let mut generated_schema = generated_schemas.get_mut(&component_and_table);
@@ -1146,13 +1164,17 @@ async fn import_single_table<RT: Runtime>(
     };
 
     if *table_name == *FILE_STORAGE_TABLE {
+        let storage_files = storage_files_by_component
+            .remove(component_path)
+            .unwrap_or_default();
         import_storage_table(
             database,
             file_storage,
             identity,
             table_id,
             component_path,
-            objects.as_mut(),
+            objects,
+            storage_files,
             &usage,
             import_id,
             num_to_skip,
@@ -1160,7 +1182,7 @@ async fn import_single_table<RT: Runtime>(
             &table_mapping_for_import.table_mapping_in_import,
         )
         .await?;
-        return Ok(Some(0));
+        return Ok(0);
     }
 
     let mut num_objects = 0;
@@ -1170,17 +1192,12 @@ async fn import_single_table<RT: Runtime>(
     table_mapping_for_schema.update(table_mapping_for_import.table_mapping_in_import.clone());
     let mut objects_to_insert = vec![];
     let mut objects_to_insert_size = 0;
-    // Peek so we don't pop ImportUnit::NewTable items.
-    while let Some(ImportUnit::Object(exported_value)) = objects
-        .as_mut()
-        .try_next_if(|line| matches!(line, ImportUnit::Object(_)))
-        .await?
-    {
+    while let Some(exported_value) = objects.try_next().await? {
         if num_objects < num_to_skip {
             num_objects += 1;
             continue;
         }
-        let row_number = (num_objects + 1) as usize;
+        let row_number = num_objects + 1;
         let convex_value =
             GeneratedSchema::<ProdConfig>::apply(&mut generated_schema, exported_value)
                 .map_err(|e| ImportError::InvalidConvexValue(row_number, e))?;
@@ -1252,7 +1269,7 @@ async fn import_single_table<RT: Runtime>(
         .await?;
     }
 
-    Ok(Some(num_objects))
+    Ok(num_objects)
 }
 
 async fn insert_import_objects<RT: Runtime>(
@@ -1478,31 +1495,24 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
 }
 
 async fn table_number_for_import(
-    objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
+    objects: &mut Peekable<ImportDocumentStream>,
 ) -> Option<TableNumber> {
-    let first_object = objects.peek().await?.as_ref().ok();
-    match first_object? {
-        ImportUnit::Object(object) => {
-            let object = object.as_object()?;
-            let first_id = object.get(&**ID_FIELD)?;
-            let JsonValue::String(id) = first_id else {
-                return None;
-            };
-            let id_v6 = DeveloperDocumentId::decode(id).ok()?;
-            Some(id_v6.table())
-        },
-        ImportUnit::NewTable(..) => None,
-        ImportUnit::GeneratedSchema(..) => None,
-        ImportUnit::StorageFileChunk(..) => None,
-    }
+    let first_object = Pin::new(objects).peek().await?.as_ref().ok()?;
+    let object = first_object.as_object()?;
+    let first_id = object.get(&**ID_FIELD)?;
+    let JsonValue::String(id) = first_id else {
+        return None;
+    };
+    let id_v6 = DeveloperDocumentId::decode(id).ok()?;
+    Some(id_v6.table())
 }
 
-async fn remap_empty_string_by_schema<'a, RT: Runtime>(
+async fn remap_empty_string_by_schema<RT: Runtime>(
     namespace: TableNamespace,
     table_name: TableName,
     tx: &mut Transaction<RT>,
-    objects: BoxStream<'a, anyhow::Result<ImportUnit>>,
-) -> anyhow::Result<BoxStream<'a, anyhow::Result<ImportUnit>>> {
+    mut import: ParsedImport,
+) -> anyhow::Result<ParsedImport> {
     if let Some((_, schema)) = SchemaModel::new(tx, namespace)
         .get_by_state(SchemaState::Active)
         .await?
@@ -1512,28 +1522,33 @@ async fn remap_empty_string_by_schema<'a, RT: Runtime>(
             .get(&table_name)
             .and_then(|table_schema| table_schema.document_type.clone())
         {
-            None => return Ok(objects),
+            None => return Ok(import),
             Some(document_schema) => document_schema,
         };
         let optional_fields = document_schema.optional_top_level_fields();
         if optional_fields.is_empty() {
-            return Ok(objects);
+            return Ok(import);
         }
 
-        Ok(objects
-            .map_ok(move |object| match object {
-                unit @ ImportUnit::NewTable(..)
-                | unit @ ImportUnit::GeneratedSchema(..)
-                | unit @ ImportUnit::StorageFileChunk(..) => unit,
-                ImportUnit::Object(mut object) => ImportUnit::Object({
-                    remove_empty_string_optional_entries(&optional_fields, &mut object);
-                    object
-                }),
+        import.documents = import
+            .documents
+            .into_iter()
+            .map(move |(component, table, stream)| {
+                let optional_fields = optional_fields.clone();
+                (
+                    component,
+                    table,
+                    stream
+                        .map_ok(move |mut object| {
+                            remove_empty_string_optional_entries(&optional_fields, &mut object);
+                            object
+                        })
+                        .boxed(),
+                )
             })
-            .boxed())
-    } else {
-        Ok(objects)
+            .collect();
     }
+    Ok(import)
 }
 
 fn remove_empty_string_optional_entries(

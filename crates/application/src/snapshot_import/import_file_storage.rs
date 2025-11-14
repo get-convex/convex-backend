@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    pin::Pin,
     str::FromStr,
 };
 
@@ -11,10 +10,6 @@ use common::{
         CreationTime,
         CREATION_TIME_FIELD,
         ID_FIELD,
-    },
-    ext::{
-        PeekableExt,
-        TryPeekableExt,
     },
     runtime::Runtime,
     types::StorageUuid,
@@ -27,10 +22,7 @@ use errors::ErrorMetadata;
 use exports::FileStorageZipMetadata;
 use file_storage::FileStorage;
 use futures::{
-    stream::{
-        BoxStream,
-        Peekable,
-    },
+    Stream,
     TryStreamExt,
 };
 use headers::{
@@ -45,6 +37,7 @@ use model::{
     },
     snapshot_imports::types::ImportRequestor,
 };
+use serde_json::Value as JsonValue;
 use thousands::Separable;
 use usage_tracking::{
     FunctionUsageTracker,
@@ -63,7 +56,7 @@ use value::{
 
 use crate::snapshot_import::{
     import_error::ImportError,
-    parse::ImportUnit,
+    parse::ImportStorageFileStream,
     progress::{
         add_checkpoint_message,
         best_effort_update_progress_message,
@@ -76,7 +69,8 @@ pub async fn import_storage_table<RT: Runtime>(
     identity: &Identity,
     table_id: TabletIdAndTableNumber,
     component_path: &ComponentPath,
-    mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
+    mut documents: impl Stream<Item = anyhow::Result<JsonValue>> + Unpin,
+    storage_files: Vec<(DeveloperDocumentId, ImportStorageFileStream)>,
     usage: &FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     num_to_skip: u64,
@@ -87,11 +81,7 @@ pub async fn import_storage_table<RT: Runtime>(
     let virtual_table_number = snapshot.table_mapping().tablet_number(table_id.tablet_id)?;
     let mut lineno = 0;
     let mut storage_metadata = BTreeMap::new();
-    while let Some(ImportUnit::Object(exported_value)) = objects
-        .as_mut()
-        .try_next_if(|line| matches!(line, ImportUnit::Object(_)))
-        .await?
-    {
+    while let Some(exported_value) = documents.try_next().await? {
         lineno += 1;
         let metadata: FileStorageZipMetadata = serde_json::from_value(exported_value)
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e.into()))?;
@@ -145,26 +135,12 @@ pub async fn import_storage_table<RT: Runtime>(
     }
     let total_num_files = storage_metadata.len();
     let mut num_files = 0;
-    while let Some(Ok(ImportUnit::StorageFileChunk(id, _))) = objects.as_mut().peek().await {
-        let id = *id;
+    for (id, file_chunks) in storage_files {
         // The or_default means a storage file with a valid id will be imported
         // even if it has been explicitly removed from _storage/documents.jsonl,
         // to be robust to manual modifications.
         let (content_length, content_type, expected_sha256, storage_id, creation_time) =
             storage_metadata.remove(&id).unwrap_or_default();
-        let file_chunks = objects
-            .as_mut()
-            .peeking_take_while(move |unit| match unit {
-                Ok(ImportUnit::StorageFileChunk(chunk_id, _)) => *chunk_id == id,
-                Err(_) => true,
-                Ok(_) => false,
-            })
-            .try_filter_map(|unit| async move {
-                match unit {
-                    ImportUnit::StorageFileChunk(_, chunk) => Ok(Some(chunk)),
-                    _ => Ok(None),
-                }
-            });
         let mut entry = file_storage
             .transactional_file_storage
             .upload_file(content_length, content_type, file_chunks, expected_sha256)

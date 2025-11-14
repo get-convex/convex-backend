@@ -24,13 +24,19 @@ use common::{
 };
 use errors::ErrorMetadata;
 use futures::{
-    pin_mut,
+    stream::{
+        self,
+        BoxStream,
+    },
     AsyncBufReadExt,
     AsyncReadExt,
     StreamExt,
     TryStreamExt,
 };
-use futures_async_stream::try_stream;
+use futures_async_stream::{
+    try_stream,
+    try_stream_block,
+};
 use model::{
     file_storage::FILE_STORAGE_VIRTUAL_TABLE,
     snapshot_imports::types::ImportFormat,
@@ -53,10 +59,7 @@ use storage::{
     Storage,
     StorageExt,
 };
-use storage_zip_reader::{
-    rc_zip::parse::Entry,
-    StorageZipArchive,
-};
+use storage_zip_reader::StorageZipArchive;
 use tokio::io::{
     AsyncBufReadExt as _,
     AsyncRead,
@@ -70,12 +73,26 @@ use value::{
 
 use crate::snapshot_import::import_error::ImportError;
 
-#[derive(Debug)]
-pub enum ImportUnit {
-    Object(JsonValue),
-    NewTable(ComponentPath, TableName),
-    GeneratedSchema(ComponentPath, TableName, GeneratedSchema<ProdConfig>),
-    StorageFileChunk(DeveloperDocumentId, Bytes),
+pub type ImportDocumentStream = BoxStream<'static, anyhow::Result<JsonValue>>;
+pub type ImportStorageFileStream = BoxStream<'static, anyhow::Result<Bytes>>;
+pub struct ParsedImport {
+    pub generated_schemas: Vec<(ComponentPath, TableName, GeneratedSchema<ProdConfig>)>,
+    pub documents: Vec<(ComponentPath, TableName, ImportDocumentStream)>,
+    pub storage_files: Vec<(ComponentPath, DeveloperDocumentId, ImportStorageFileStream)>,
+}
+
+impl ParsedImport {
+    fn single_table(
+        component_path: ComponentPath,
+        table_name: TableName,
+        documents: ImportDocumentStream,
+    ) -> Self {
+        Self {
+            generated_schemas: vec![],
+            documents: vec![(component_path, table_name, documents)],
+            storage_files: vec![],
+        }
+    }
 }
 
 static COMPONENT_NAME_PATTERN: LazyLock<Regex> =
@@ -100,8 +117,7 @@ fn map_zip_io_error(e: io::Error) -> anyhow::Error {
 }
 
 fn map_csv_error(e: csv_async::Error) -> anyhow::Error {
-    let pos_line =
-        |pos: &Option<csv_async::Position>| pos.as_ref().map_or(0, |pos| pos.line() as usize);
+    let pos_line = |pos: &Option<csv_async::Position>| pos.as_ref().map_or(0, |pos| pos.line());
     match e.kind() {
         csv_async::ErrorKind::Utf8 { pos, .. } => {
             ImportError::CsvInvalidRow(pos_line(pos), e).into()
@@ -120,28 +136,14 @@ fn map_csv_error(e: csv_async::Error) -> anyhow::Error {
     }
 }
 
-/// Parse and stream units from the imported file, starting with a NewTable
-/// for each table and then Objects for each object to import into the table.
-/// stream_body returns the file as streamed bytes. stream_body() can be called
-/// multiple times to read the file multiple times, for cases where the file
-/// must be read out of order, e.g. because the _tables table must be imported
-/// first.
-/// Objects are yielded with the following guarantees:
-/// 1. When an Object is yielded, it is in the table corresponding to the most
-///    recently yielded NewTable.
-/// 2. When a StorageFileChunk is yielded, it is in the _storage table
-///    corresponding to the most recently yielded NewTable.
-/// 3. All StorageFileChunks for a single file are yielded contiguously, in
-///    order.
-/// 4. If a table has a GeneratedSchema, the GeneratedSchema will be yielded
-///    before any Objects in that table.
-#[try_stream(ok = ImportUnit, error = anyhow::Error)]
-pub async fn parse_objects(
+/// Parse the imported file, returning separate streams for each table or
+/// storage file.
+pub async fn parse_import_file(
     format: ImportFormat,
     component_path: ComponentPath,
     storage: Arc<dyn Storage>,
     fq_object_key: FullyQualifiedObjectKey,
-) {
+) -> anyhow::Result<ParsedImport> {
     let stream_body = || async {
         storage
             .get_fq_object(&fq_object_key)
@@ -149,68 +151,41 @@ pub async fn parse_objects(
             .with_context(|| format!("Missing import object {fq_object_key:?}"))
     };
     match format {
-        ImportFormat::Csv(table_name) => {
-            let reader = stream_body().await?;
-            yield ImportUnit::NewTable(component_path, table_name);
-            let mut reader = csv_async::AsyncReader::from_reader(reader.into_reader());
-            if !reader.has_headers() {
-                anyhow::bail!(ImportError::CsvMissingHeaders);
-            }
-            let field_names = {
-                let headers = reader.headers().await.map_err(map_csv_error)?;
-                headers
-                    .iter()
-                    .map(|s| {
-                        let trimmed = s.trim_matches(' ');
-                        let field_name = FieldName::from_str(trimmed)
-                            .map_err(|e| ImportError::CsvInvalidHeader(trimmed.to_string(), e))?;
-                        Ok(field_name)
-                    })
-                    .collect::<anyhow::Result<Vec<_>>>()?
-            };
-            let mut enumerate_rows = reader.records().enumerate();
-            while let Some((i, row_r)) = enumerate_rows.next().await {
-                let lineno = i + 1;
-                let parsed_row = row_r
-                    .map_err(map_csv_error)?
-                    .iter()
-                    .map(parse_csv_cell)
-                    .collect::<Vec<JsonValue>>();
-                let mut obj = BTreeMap::new();
-                if field_names.len() != parsed_row.len() {
-                    anyhow::bail!(ImportError::CsvRowMissingFields(lineno));
-                }
-                for (field_name, value) in field_names.iter().zip(parsed_row.into_iter()) {
-                    obj.insert(field_name.to_string(), value);
-                }
-                yield ImportUnit::Object(serde_json::to_value(obj)?);
-            }
-        },
+        ImportFormat::Csv(table_name) => Ok(ParsedImport::single_table(
+            component_path,
+            table_name,
+            parse_csv_import(stream_body().await?).boxed(),
+        )),
         ImportFormat::JsonLines(table_name) => {
             let mut reader = stream_body().await?.into_reader();
-            yield ImportUnit::NewTable(component_path, table_name);
-            let mut line = String::new();
-            let mut lineno = 1;
-            while reader
-                .read_line(&mut line)
-                .await
-                .map_err(ImportError::NotUtf8)?
-                > 0
-            {
-                // Check for UTF-8 BOM at the start of the first line
-                if lineno == 1 && line.as_bytes().starts_with(&[0xEF, 0xBB, 0xBF]) {
-                    anyhow::bail!(ImportError::Utf8BomNotSupported);
-                }
-                let v: serde_json::Value = serde_json::from_str(&line)
-                    .map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
-                yield ImportUnit::Object(v);
-                line.clear();
-                lineno += 1;
-            }
+            Ok(ParsedImport::single_table(
+                component_path,
+                table_name,
+                try_stream_block!({
+                    let mut line = String::new();
+                    let mut lineno = 1;
+                    while reader
+                        .read_line(&mut line)
+                        .await
+                        .map_err(ImportError::NotUtf8)?
+                        > 0
+                    {
+                        // Check for UTF-8 BOM at the start of the first line
+                        if lineno == 1 && line.as_bytes().starts_with(&[0xEF, 0xBB, 0xBF]) {
+                            anyhow::bail!(ImportError::Utf8BomNotSupported);
+                        }
+                        let v: serde_json::Value = serde_json::from_str(&line)
+                            .map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
+                        yield v;
+                        line.clear();
+                        lineno += 1;
+                    }
+                })
+                .boxed(),
+            ))
         },
         ImportFormat::JsonArray(table_name) => {
             let reader = stream_body().await?;
-            yield ImportUnit::NewTable(component_path, table_name);
             let mut buf = Vec::new();
             let mut truncated_reader = reader
                 .into_reader()
@@ -226,130 +201,110 @@ pub async fn parse_objects(
                 }
                 serde_json::from_slice(&buf).map_err(ImportError::NotJson)?
             };
-            let array = v.as_array().ok_or(ImportError::NotJsonArray)?;
-            for value in array.iter() {
-                yield ImportUnit::Object(value.clone());
-            }
+            let JsonValue::Array(array) = v else {
+                anyhow::bail!(ImportError::NotJsonArray)
+            };
+            Ok(ParsedImport::single_table(
+                component_path,
+                table_name,
+                stream::iter(array.into_iter().map(Ok)).boxed(),
+            ))
         },
         ImportFormat::Zip => {
             let base_component_path = component_path;
             let zip_reader = StorageZipArchive::open_fq(storage, fq_object_key).await?;
-            let num_entries = zip_reader.entries().count();
-            {
-                // First pass, all the things we can store in memory:
-                // a. _tables/documents.jsonl
-                // b. _storage/documents.jsonl
-                // c. user_table/generated_schema.jsonl
-                // _tables needs to be imported before user tables so we can
-                // pick table numbers correctly for schema validation.
-                // Each generated schema must be parsed before the corresponding
-                // table/documents.jsonl file, so we correctly infer types from
-                // export-formatted JsonValues.
-                let mut table_metadata: BTreeMap<_, Vec<_>> = BTreeMap::new();
-                let mut storage_metadata: BTreeMap<_, Vec<_>> = BTreeMap::new();
-                let mut generated_schemas: BTreeMap<_, Vec<_>> = BTreeMap::new();
-                for entry in zip_reader.entries() {
-                    let documents_table_name =
-                        parse_documents_jsonl_table_name(&entry.name, &base_component_path)?;
-                    if let Some((component_path, table_name)) = documents_table_name.clone()
-                        && table_name == *TABLES_TABLE
-                    {
-                        let entry_reader = zip_reader.read_entry(entry.clone());
-                        table_metadata.insert(
-                            component_path,
-                            parse_documents_jsonl(entry, entry_reader, &base_component_path)
-                                .try_collect()
-                                .await?,
-                        );
-                    } else if let Some((component_path, table_name)) = documents_table_name
-                        && table_name == *FILE_STORAGE_VIRTUAL_TABLE
-                    {
-                        let entry_reader = zip_reader.read_entry(entry.clone());
-                        storage_metadata.insert(
-                            component_path,
-                            parse_documents_jsonl(entry, entry_reader, &base_component_path)
-                                .try_collect()
-                                .await?,
-                        );
-                    } else if let Some((component_path, table_name)) = parse_table_filename(
-                        &entry.name,
-                        &base_component_path,
-                        &GENERATED_SCHEMA_PATTERN,
-                    )? {
-                        let entry_reader = zip_reader.read_entry(entry.clone());
-                        tracing::info!(
-                            "importing zip file containing generated_schema {table_name}"
-                        );
-                        let generated_schema =
-                            parse_generated_schema(&entry.name, entry_reader).await?;
-                        generated_schemas
-                            .entry(component_path.clone())
-                            .or_default()
-                            .push(ImportUnit::GeneratedSchema(
-                                component_path,
-                                table_name,
-                                generated_schema,
-                            ));
-                    }
-                }
-                for table_unit in table_metadata.into_values().flatten() {
-                    yield table_unit;
-                }
-                for generated_schema_unit in generated_schemas.into_values().flatten() {
-                    yield generated_schema_unit;
-                }
-                for (component_path, storage_metadata) in storage_metadata {
-                    if !storage_metadata.is_empty() {
-                        // Yield NewTable for _storage and Object for each storage file's metadata.
-                        for storage_unit in storage_metadata {
-                            yield storage_unit;
-                        }
-                        // Yield StorageFileChunk for each file in this component.
-                        for (i, entry) in zip_reader.entries().enumerate() {
-                            if let Some((file_component_path, storage_id)) =
-                                parse_storage_filename(&entry.name, &base_component_path)?
-                                && file_component_path == component_path
-                            {
-                                let entry_reader = zip_reader.read_entry(entry.clone());
-                                tracing::info!(
-                                    "importing zip file containing storage file {} [{i}/{}]",
-                                    storage_id.encode(),
-                                    num_entries
-                                );
-                                let mut byte_stream = ReaderStream::new(entry_reader);
-                                let mut empty = true;
-                                while let Some(chunk) =
-                                    byte_stream.try_next().await.map_err(map_zip_io_error)?
-                                {
-                                    empty = false;
-                                    yield ImportUnit::StorageFileChunk(storage_id, chunk);
-                                }
-                                // In case it's an empty file, make sure we send at
-                                // least one chunk.
-                                if empty {
-                                    yield ImportUnit::StorageFileChunk(storage_id, Bytes::new());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
-            // Second pass: user tables.
+            let mut import = ParsedImport {
+                generated_schemas: vec![],
+                documents: vec![],
+                storage_files: vec![],
+            };
             for entry in zip_reader.entries() {
-                if let Some((_, table_name)) =
+                if let Some((component_path, table_name)) =
                     parse_documents_jsonl_table_name(&entry.name, &base_component_path)?
-                    && !table_name.is_system()
+                {
+                    if table_name.is_system()
+                        && table_name != *TABLES_TABLE
+                        && table_name != *FILE_STORAGE_VIRTUAL_TABLE
+                    {
+                        tracing::info!("Skipping system table entry {}", entry.name);
+                        continue;
+                    }
+                    let entry_reader = zip_reader.read_entry(entry.clone());
+                    tracing::info!(
+                        "importing zip file containing table {component_path}:{table_name}"
+                    );
+                    import.documents.push((
+                        component_path,
+                        table_name,
+                        parse_documents_jsonl(entry_reader).boxed(),
+                    ));
+                } else if let Some((component_path, table_name)) = parse_table_filename(
+                    &entry.name,
+                    &base_component_path,
+                    &GENERATED_SCHEMA_PATTERN,
+                )? {
+                    let entry_reader = zip_reader.read_entry(entry.clone());
+                    tracing::info!("importing zip file containing generated_schema {table_name}");
+                    let generated_schema =
+                        parse_generated_schema(&entry.name, entry_reader).await?;
+                    import
+                        .generated_schemas
+                        .push((component_path, table_name, generated_schema));
+                } else if let Some((component_path, storage_id)) =
+                    parse_storage_filename(&entry.name, &base_component_path)?
                 {
                     let entry_reader = zip_reader.read_entry(entry.clone());
-                    let stream = parse_documents_jsonl(entry, entry_reader, &base_component_path);
-                    pin_mut!(stream);
-                    while let Some(unit) = stream.try_next().await? {
-                        yield unit;
-                    }
+                    import.storage_files.push((
+                        component_path,
+                        storage_id,
+                        ReaderStream::new(entry_reader)
+                            .map_err(anyhow::Error::from)
+                            .boxed(),
+                    ));
                 }
             }
+            Ok(import)
         },
+    }
+}
+
+#[try_stream(ok = JsonValue, error = anyhow::Error)]
+async fn parse_csv_import(reader: storage::StorageGetStream) {
+    let mut reader = csv_async::AsyncReader::from_reader(reader.into_reader());
+    if !reader.has_headers() {
+        // TODO: this will never happen.
+        anyhow::bail!(ImportError::CsvMissingHeaders);
+    }
+    let field_names = {
+        let headers = reader.headers().await.map_err(map_csv_error)?;
+        headers
+            .iter()
+            .map(|s| {
+                let trimmed = s.trim_matches(' ');
+                let field_name = FieldName::from_str(trimmed)
+                    .map_err(|e| ImportError::CsvInvalidHeader(trimmed.to_string(), e))?;
+                Ok(field_name)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?
+    };
+    let mut lineno = 0;
+    let mut rows = reader.records();
+    while let Some(row_r) = rows.next().await {
+        lineno += 1;
+        let parsed_row = row_r
+            .map_err(map_csv_error)?
+            .iter()
+            .map(parse_csv_cell)
+            .collect::<Vec<JsonValue>>();
+        let mut obj = BTreeMap::new();
+        if field_names.len() != parsed_row.len() {
+            anyhow::bail!(ImportError::CsvRowMissingFields(lineno));
+        }
+        for (field_name, value) in field_names.iter().zip(parsed_row.into_iter()) {
+            obj.insert(field_name.to_string(), value);
+        }
+        yield serde_json::to_value(obj)?;
     }
 }
 
@@ -439,17 +394,8 @@ fn parse_documents_jsonl_table_name(
     parse_table_filename(filename, base_component_path, &DOCUMENTS_PATTERN)
 }
 
-#[try_stream(ok = ImportUnit, error = anyhow::Error)]
-async fn parse_documents_jsonl<'a>(
-    entry: &'a Entry,
-    reader: impl AsyncRead + Unpin + 'a,
-    base_component_path: &'a ComponentPath,
-) {
-    let (component_path, table_name) =
-        parse_documents_jsonl_table_name(&entry.name, base_component_path)?
-            .context("expected documents.jsonl file")?;
-    tracing::info!("importing zip file containing table {table_name}");
-    yield ImportUnit::NewTable(component_path, table_name);
+#[try_stream(ok = JsonValue, error = anyhow::Error)]
+async fn parse_documents_jsonl(reader: impl AsyncRead + Unpin) {
     let mut line = String::new();
     let mut lineno = 1;
     let mut reader = BufReader::new(reader);
@@ -461,7 +407,7 @@ async fn parse_documents_jsonl<'a>(
     {
         let v: serde_json::Value =
             serde_json::from_str(&line).map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
-        yield ImportUnit::Object(v);
+        yield v;
         line.clear();
         lineno += 1;
     }
