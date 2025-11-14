@@ -2,7 +2,7 @@ import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { useCurrentProject } from "api/projects";
 import { useState, useMemo, useRef } from "react";
-import { Team, ProjectDetails } from "generatedApi";
+import { TeamResponse, ProjectDetails } from "generatedApi";
 import classNames from "classnames";
 import { SelectorItem } from "elements/SelectorItem";
 import { useDeploymentUris } from "hooks/useDeploymentUris";
@@ -18,8 +18,8 @@ export function ProjectMenuOptions({
   close,
 }: {
   projectsForCurrentTeam?: ProjectDetails[];
-  team: Team;
-  onCreateProjectClick: (team: Team) => void;
+  team: TeamResponse;
+  onCreateProjectClick: (team: TeamResponse) => void;
   close(): void;
 }) {
   const currentProject = useCurrentProject();
@@ -122,7 +122,7 @@ function ProjectSelectorListItem({
   style: React.CSSProperties;
   data: {
     items: (ProjectDetails & { _isCurrent?: boolean })[];
-    team: Team;
+    team: TeamResponse;
     close: () => void;
   };
 }) {

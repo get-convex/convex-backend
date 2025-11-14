@@ -2,12 +2,12 @@ import {
   useTeamAccessTokens,
   useCreateTeamAccessToken,
 } from "api/accessTokens";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { TeamAccessTokens } from "components/teamSettings/TeamAccessTokens";
 import React from "react";
 import { useAccessToken } from "hooks/useServerSideData";
 
-export function TokensLayout({ team }: { team: Team }) {
+export function TokensLayout({ team }: { team: TeamResponse }) {
   const [accessToken] = useAccessToken();
   const teamAccessTokens = useTeamAccessTokens(team.id);
   const createTeamAccessToken = useCreateTeamAccessToken({

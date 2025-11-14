@@ -11,7 +11,7 @@ import {
   Pencil2Icon,
   Share1Icon,
 } from "@radix-ui/react-icons";
-import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
+import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
 import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
@@ -22,7 +22,7 @@ export function DeploymentMenuOptions({
   project,
   deployments,
 }: {
-  team: Team;
+  team: TeamResponse;
   project: ProjectDetails;
   deployments: DeploymentResponse[];
 }) {
@@ -203,7 +203,7 @@ function AllPersonalDeployments({
   deployments,
 }: {
   project: ProjectDetails;
-  team: Team;
+  team: TeamResponse;
   deployments: DeploymentResponse[];
 }) {
   const member = useProfile();

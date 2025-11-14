@@ -2,7 +2,7 @@ import {
   useDeleteAppAccessTokenByName,
   useTeamAppAccessTokens,
 } from "api/accessTokens";
-import { AppAccessTokenResponse, Team } from "generatedApi";
+import { AppAccessTokenResponse, TeamResponse } from "generatedApi";
 import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { OauthApps } from "components/teamSettings/OauthApps";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
@@ -12,7 +12,7 @@ import { Tab as HeadlessTab } from "@headlessui/react";
 import { Tab } from "@ui/Tab";
 import { useRouter } from "next/router";
 
-export function ApplicationsLayout({ team }: { team: Team }) {
+export function ApplicationsLayout({ team }: { team: TeamResponse }) {
   const router = useRouter();
   // Determine selected tab based on route
   const isOauthApps = router.pathname.endsWith("/oauth-apps");

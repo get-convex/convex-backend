@@ -6,7 +6,7 @@ import { useCopy } from "@common/lib/useCopy";
 import { CopyIcon } from "@radix-ui/react-icons";
 import { useFormik } from "formik";
 import { useUpdateProject } from "api/projects";
-import { ProjectDetails, Team } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 
 const TeamSchema = Yup.object().shape({
@@ -29,7 +29,7 @@ export function ProjectForm({
   team,
   hasAdminPermissions,
 }: {
-  team: Team;
+  team: TeamResponse;
   project: ProjectDetails;
   hasAdminPermissions: boolean;
 }) {

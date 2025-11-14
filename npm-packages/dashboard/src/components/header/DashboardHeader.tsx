@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { useAccessToken } from "hooks/useServerSideData";
 import { ProjectSelector } from "components/header/ProjectSelector/ProjectSelector";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 
 import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
 import { UsageBanner, useCurrentUsageBanner } from "./UsageBanner";
@@ -80,7 +80,7 @@ function DashboardHeaderWhenLoggedIn() {
         logEvent("view create team modal");
         setShowCreateTeamModal(true);
       }}
-      onCreateProjectClick={(t: Team) => {
+      onCreateProjectClick={(t: TeamResponse) => {
         logEvent("view create project modal");
         showCreateProjectModal(t);
       }}

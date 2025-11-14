@@ -9,7 +9,7 @@ import { TeamSettingsLayout } from "layouts/TeamSettingsLayout";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { Plans } from "components/billing/Plans";
 import { SubscriptionOverview } from "components/billing/SubscriptionOverview";
 import { ErrorBoundary, captureMessage } from "@sentry/nextjs";
@@ -22,7 +22,7 @@ import { planNameMap } from "components/billing/planCards/PlanCard";
 
 export { getServerSideProps } from "lib/ssr";
 
-function Billing({ team }: { team: Team }) {
+function Billing({ team }: { team: TeamResponse }) {
   const { subscription: orbSub, isLoading: isOrbSubLoading } =
     useTeamOrbSubscription(team.id);
 

@@ -3,7 +3,7 @@ import { Combobox } from "@ui/Combobox";
 import { useState } from "react";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { Loading } from "@ui/Loading";
 import { ReferralsBenefits } from "components/referral/ReferralsBenefits";
 import Link from "next/link";
@@ -35,9 +35,9 @@ export function RedeemReferralForm({
         exhausted: boolean;
       }
     | undefined;
-  teams: Team[] | undefined;
-  selectedTeam: Team | null;
-  onTeamSelect: (team: Team) => void;
+  teams: TeamResponse[] | undefined;
+  selectedTeam: TeamResponse | null;
+  onTeamSelect: (team: TeamResponse) => void;
   onSubmit: () => Promise<void>;
   isTeamSelectorShown: boolean;
   onShowTeamSelector: () => void;

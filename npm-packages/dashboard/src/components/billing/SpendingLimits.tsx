@@ -14,7 +14,7 @@ import {
 import { Tooltip } from "@ui/Tooltip";
 import Link from "next/link";
 import { formatUsd } from "@common/lib/utils";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import * as Sentry from "@sentry/nextjs";
 
 export type SpendingLimitsValue = {
@@ -86,7 +86,7 @@ export function spendingLimitsSchema({
   });
 }
 
-export function useSubmitSpendingLimits(team: Team) {
+export function useSubmitSpendingLimits(team: TeamResponse) {
   const setSpendingLimit = useSetSpendingLimit(team.id);
 
   return useCallback(

@@ -1,4 +1,4 @@
-import { DeploymentResponse, Team } from "generatedApi";
+import { DeploymentResponse, TeamResponse } from "generatedApi";
 import { ArchiveIcon } from "@radix-ui/react-icons";
 import { useState } from "react";
 import { useGetZipExport } from "hooks/deploymentApi";
@@ -18,7 +18,7 @@ export function BackupList({
   maxCloudBackups,
 }: {
   targetDeployment: DeploymentResponse; // = deployment the settings page is open for
-  team: Team;
+  team: TeamResponse;
   canPerformActions: boolean;
   maxCloudBackups: number;
 }) {
@@ -83,7 +83,7 @@ function BackupListForDeployment({
   selectedDeployment: DeploymentResponse;
   targetDeployment: DeploymentResponse;
   restoringBackupId: bigint | null;
-  team: Team;
+  team: TeamResponse;
   canPerformActions: boolean;
   maxCloudBackups: number;
 }) {

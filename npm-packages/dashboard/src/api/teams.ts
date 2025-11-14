@@ -1,4 +1,4 @@
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { useLastViewedTeam } from "hooks/useLastViewed";
 import { useInitialData } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
@@ -6,7 +6,7 @@ import { useBBMutation, useBBQuery } from "./api";
 
 export function useTeams(): {
   selectedTeamSlug?: string;
-  teams?: Team[];
+  teams?: TeamResponse[];
 } {
   const [initialData] = useInitialData();
   const { data: teams, isValidating } = useBBQuery({

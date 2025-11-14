@@ -1,5 +1,9 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { InvitationResponse, Team, TeamMemberResponse } from "generatedApi";
+import {
+  InvitationResponse,
+  TeamResponse,
+  TeamMemberResponse,
+} from "generatedApi";
 
 import { TeamMemberList } from "./TeamMemberList";
 
@@ -35,7 +39,7 @@ const invites: InvitationResponse[] = [
     role: "admin",
   },
 ];
-const team: Team = {
+const team: TeamResponse = {
   id: 1,
   creator: 1,
   slug: "team",

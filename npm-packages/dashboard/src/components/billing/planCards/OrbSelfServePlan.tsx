@@ -1,6 +1,10 @@
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import { Button } from "@ui/Button";
-import { OrbSubscriptionResponse, PlanResponse, Team } from "generatedApi";
+import {
+  OrbSubscriptionResponse,
+  PlanResponse,
+  TeamResponse,
+} from "generatedApi";
 import { useRouter } from "next/router";
 import { useChangeSubscription } from "api/billing";
 import { useState } from "react";
@@ -19,7 +23,7 @@ export function OrbSelfServePlan({
 }: {
   orbSub?: OrbSubscriptionResponse;
   plan: PlanResponse;
-  team: Team;
+  team: TeamResponse;
 }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
 

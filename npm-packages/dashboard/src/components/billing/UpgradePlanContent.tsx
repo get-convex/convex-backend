@@ -7,7 +7,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { useGetCoupon, useCreateSubscription } from "api/billing";
 import { FormikProvider, useFormik, useFormikContext } from "formik";
 import * as Yup from "yup";
-import { Address, PlanResponse, Team } from "generatedApi";
+import { Address, PlanResponse, TeamResponse } from "generatedApi";
 import Link from "next/link";
 import { PriceSummary } from "components/billing/PriceSummary";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
@@ -58,7 +58,7 @@ export function UpgradePlanContentContainer({
   isChef,
   ...props
 }: Pick<UpgradePlanContentProps, "numMembers" | "plan"> & {
-  team: Team;
+  team: TeamResponse;
   email?: string;
   name?: string | null;
   onUpgradeComplete: () => void;

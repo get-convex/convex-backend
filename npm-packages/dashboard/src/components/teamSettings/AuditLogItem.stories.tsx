@@ -3,11 +3,11 @@ import {
   AuditLogAction,
   AuditLogEventResponse,
   MemberResponse,
-  Team,
+  TeamResponse,
 } from "generatedApi";
 import { AuditLogItem } from "./AuditLogItem";
 
-const team: Team = {
+const team: TeamResponse = {
   id: 1,
   slug: "team-slug",
   name: "Team Name",

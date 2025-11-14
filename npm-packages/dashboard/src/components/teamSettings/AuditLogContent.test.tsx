@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import {
   MemberResponse,
-  Team,
+  TeamResponse,
   ProjectDetails,
   AuditLogEventResponse,
 } from "generatedApi";
@@ -20,7 +20,7 @@ jest.mock("../../elements/TeamMemberLink", () => ({
 }));
 
 describe("AuditLogContent", () => {
-  const team: Team = {
+  const team: TeamResponse = {
     id: 1,
     name: "Team 1",
     slug: "team-1",

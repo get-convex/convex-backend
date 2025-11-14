@@ -444,6 +444,12 @@
               }
             ]
           },
+          "managedByUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "$ref": "#/components/schemas/TeamName"
           },

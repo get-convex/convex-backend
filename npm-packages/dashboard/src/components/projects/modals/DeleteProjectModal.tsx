@@ -8,7 +8,7 @@ import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useDeleteProject } from "api/projects";
 import { useQuery } from "convex/react";
-import { ProjectDetails, Team } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import udfs from "@common/udfs";
 import { useState } from "react";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
@@ -22,7 +22,7 @@ export function DeleteProjectModal({
 }: {
   onClose: () => void;
   onDelete?: () => void;
-  team: Team;
+  team: TeamResponse;
   project: ProjectDetails;
 }) {
   const deleteProject = useDeleteProject(
@@ -69,7 +69,7 @@ function DeleteProjectModalContentWithProd({
   onClose,
   handleDelete,
 }: {
-  team: Team;
+  team: TeamResponse;
   project: ProjectDetails;
   onClose: () => void;
   handleDelete: () => Promise<void>;
@@ -155,7 +155,7 @@ function DeleteProjectModalContent({
   team,
   additionalBody,
 }: {
-  team: Team;
+  team: TeamResponse;
   additionalBody?: React.ReactNode;
 }) {
   const members = useTeamMembers(team?.id);

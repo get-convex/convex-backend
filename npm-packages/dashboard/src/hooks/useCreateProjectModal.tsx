@@ -5,17 +5,17 @@ import { Loading } from "@ui/Loading";
 import { ReactElement, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Team, CreateProjectResponse } from "generatedApi";
+import { TeamResponse, CreateProjectResponse } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCreateProject } from "api/projects";
 import { cn } from "@ui/cn";
 
 export function useCreateProjectModal(): [
   ReactElement | null,
-  (team?: Team) => void,
+  (team?: TeamResponse) => void,
 ] {
   const [modalOpen, setModalOpen] = useState(false);
-  const [team, setTeam] = useState<Team | undefined>();
+  const [team, setTeam] = useState<TeamResponse | undefined>();
   const currentTeam = useCurrentTeam();
 
   const selectedTeam = team || currentTeam;
@@ -47,7 +47,7 @@ export function useCreateProjectModal(): [
 
   return [
     modal,
-    (t?: Team) => {
+    (t?: TeamResponse) => {
       setModalOpen(true);
       setTeam(t);
     },
@@ -69,7 +69,7 @@ export function CreateProjectForm({
   onSuccess,
 }: {
   onClose(): void;
-  team: Team;
+  team: TeamResponse;
   showLabel?: boolean;
   onSuccess: (project: CreateProjectResponse) => void;
 }) {

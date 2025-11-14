@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import {
-  Team,
+  TeamResponse,
   ProjectDetails,
   MemberResponse,
   TeamMemberResponse,
@@ -24,7 +24,7 @@ jest.mock("api/roles", () => ({
 }));
 
 describe("TeamMemberListItem", () => {
-  const team: Team = {
+  const team: TeamResponse = {
     id: 1,
     name: "Team A",
     creator: 0,

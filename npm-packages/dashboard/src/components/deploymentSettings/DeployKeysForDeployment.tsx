@@ -10,7 +10,7 @@ import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
 import {
   DeploymentResponse,
-  Team,
+  TeamResponse,
   ProjectDetails,
   AuthorizeArgs,
   AuthorizeResponse,
@@ -55,7 +55,7 @@ function toDeployKeyResponse(
 export async function getAccessTokenBasedDeployKey(
   deployment: DeploymentResponse,
   project: ProjectDetails | undefined,
-  team: Team,
+  team: TeamResponse,
   prefix: string,
   accessToken: string,
   createAccessTokenMutation: (
@@ -92,7 +92,7 @@ export async function getAccessTokenBasedDeployKey(
 
 export async function getAccessTokenBasedDeployKeyForPreview(
   project: ProjectDetails,
-  team: Team,
+  team: TeamResponse,
   prefix: string,
   accessToken: string,
   createAccessTokenMutation: (

@@ -20,7 +20,7 @@ import {
   Address,
   BillingContactResponse,
   OrbSubscriptionResponse,
-  Team,
+  TeamResponse,
 } from "generatedApi";
 import { Tooltip } from "@ui/Tooltip";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
@@ -44,7 +44,7 @@ export function SubscriptionOverview({
   hasAdminPermissions,
   subscription,
 }: {
-  team: Team;
+  team: TeamResponse;
   hasAdminPermissions: boolean;
   subscription?: OrbSubscriptionResponse | null;
 }) {
@@ -152,7 +152,7 @@ function SpendingLimitsSectionContainer({
   hasAdminPermissions,
 }: {
   subscription: OrbSubscriptionResponse;
-  team: Team;
+  team: TeamResponse;
   hasAdminPermissions: boolean;
 }) {
   const submitSpendingLimits = useSubmitSpendingLimits(team);
@@ -324,7 +324,7 @@ function BillingContactForm({
   hasAdminPermissions,
 }: {
   subscription: OrbSubscriptionResponse;
-  team: Team;
+  team: TeamResponse;
   hasAdminPermissions: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -417,7 +417,7 @@ function BillingAddressForm({
   subscription,
   hasAdminPermissions,
 }: {
-  team: Team;
+  team: TeamResponse;
   subscription: OrbSubscriptionResponse;
   hasAdminPermissions: boolean;
 }) {
@@ -585,7 +585,7 @@ function PaymentMethodForm({
   subscription,
   hasAdminPermissions,
 }: {
-  team: Team;
+  team: TeamResponse;
   subscription: OrbSubscriptionResponse;
   hasAdminPermissions: boolean;
 }) {
@@ -644,7 +644,7 @@ function UpdatePaymentMethod({
   team,
   onSave,
 }: {
-  team: Team;
+  team: TeamResponse;
   onSave: () => void;
 }) {
   const updatePaymentMethod = useUpdatePaymentMethod(team.id);

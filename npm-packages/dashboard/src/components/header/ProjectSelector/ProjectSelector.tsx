@@ -1,4 +1,4 @@
-import { ProjectDetails, Team } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 
 import classNames from "classnames";
 import React, { useState } from "react";
@@ -22,12 +22,12 @@ export function ProjectSelector({
   onCreateProjectClick,
   onCreateTeamClick,
 }: {
-  teams?: Team[];
+  teams?: TeamResponse[];
   selectedTeamSlug?: string;
   selectedProject?: ProjectDetails;
   className?: string;
   onCreateTeamClick: () => void;
-  onCreateProjectClick: (team: Team) => void;
+  onCreateProjectClick: (team: TeamResponse) => void;
 }) {
   const team = teams?.find((t) => t.slug === selectedTeamSlug) ?? null;
 
@@ -120,11 +120,11 @@ function ProjectSelectorPanel({
   team,
   projectsForCurrentTeam,
 }: {
-  teams?: Team[];
+  teams?: TeamResponse[];
   onCreateTeamClick: () => void;
-  onCreateProjectClick: (team: Team) => void;
+  onCreateProjectClick: (team: TeamResponse) => void;
   close: () => void;
-  team: Team | null;
+  team: TeamResponse | null;
   projectsForCurrentTeam: ProjectDetails[] | undefined;
 }) {
   const [switchingTeams, setSwitchingTeams] = useState(false);

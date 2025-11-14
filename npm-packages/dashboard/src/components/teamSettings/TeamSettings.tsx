@@ -7,7 +7,7 @@ import {
 import { useProjects } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
@@ -16,7 +16,7 @@ import startCase from "lodash/startCase";
 import { Callout } from "@ui/Callout";
 import { TeamForm } from "./TeamForm";
 
-export function TeamSettings({ team }: { team: Team }) {
+export function TeamSettings({ team }: { team: TeamResponse }) {
   const updateTeam = useUpdateTeam(team.id);
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
   const { teams } = useTeams();

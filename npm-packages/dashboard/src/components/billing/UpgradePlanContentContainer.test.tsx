@@ -1,10 +1,10 @@
 import { render, waitFor } from "@testing-library/react";
 import { fireEvent, screen } from "@testing-library/dom";
-import { PlanResponse, Team } from "generatedApi";
+import { PlanResponse, TeamResponse } from "generatedApi";
 import React from "react";
 import { UpgradePlanContentContainer } from "./UpgradePlanContent";
 
-const team: Team = {
+const team: TeamResponse = {
   id: 1,
   creator: 1,
   slug: "team",

@@ -270,7 +270,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Team"
+                  "$ref": "#/components/schemas/TeamResponse"
                 }
               }
             }
@@ -1755,7 +1755,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Team"
+                  "$ref": "#/components/schemas/TeamResponse"
                 }
               }
             }
@@ -4564,7 +4564,7 @@
           "teams": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Team"
+              "$ref": "#/components/schemas/TeamResponse"
             }
           }
         }
@@ -5292,63 +5292,6 @@
           "Warning"
         ]
       },
-      "Team": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "suspended",
-          "referralCode"
-        ],
-        "properties": {
-          "creator": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MemberId"
-              }
-            ]
-          },
-          "id": {
-            "$ref": "#/components/schemas/TeamId"
-          },
-          "managedBy": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ManagedBy"
-              }
-            ]
-          },
-          "name": {
-            "$ref": "#/components/schemas/TeamName"
-          },
-          "referralCode": {
-            "$ref": "#/components/schemas/ReferralCode"
-          },
-          "referredBy": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/TeamId"
-              }
-            ]
-          },
-          "slug": {
-            "$ref": "#/components/schemas/TeamSlug"
-          },
-          "suspended": {
-            "type": "boolean"
-          }
-        }
-      },
       "TeamAccessTokenResponse": {
         "type": "object",
         "required": [
@@ -5599,6 +5542,12 @@
               {
                 "$ref": "#/components/schemas/ManagedBy"
               }
+            ]
+          },
+          "managedByUrl": {
+            "type": [
+              "string",
+              "null"
             ]
           },
           "name": {

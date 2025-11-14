@@ -5,14 +5,14 @@ import { useTeamMembers, useTeamEntitlements } from "api/teams";
 import { useTeamInvites } from "api/invitations";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import Link from "next/link";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";
 
 import { captureMessage } from "@sentry/nextjs";
 import { InviteMemberForm } from "./InviteMemberForm";
 import { TeamMemberList } from "./TeamMemberList";
 
-export function TeamMembers({ team }: { team: Team }) {
+export function TeamMembers({ team }: { team: TeamResponse }) {
   const members = useTeamMembers(team.id);
   const invites = useTeamInvites(team.id);
   const entitlements = useTeamEntitlements(team.id);

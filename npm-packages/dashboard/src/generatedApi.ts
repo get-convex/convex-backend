@@ -2095,7 +2095,7 @@ export interface components {
             deployments: components["schemas"]["DeploymentResponse"][];
             optInsToAccept: components["schemas"]["OptInToAccept"][];
             projects: components["schemas"]["ProjectDetails"][];
-            teams: components["schemas"]["Team"][];
+            teams: components["schemas"]["TeamResponse"][];
         };
         /** Format: int64 */
         MemberEmailId: number;
@@ -2304,16 +2304,6 @@ export interface components {
         };
         /** @enum {string} */
         SpendingLimitsState: "Running" | "Disabled" | "Warning";
-        Team: {
-            creator?: null | components["schemas"]["MemberId"];
-            id: components["schemas"]["TeamId"];
-            managedBy?: null | components["schemas"]["ManagedBy"];
-            name: components["schemas"]["TeamName"];
-            referralCode: components["schemas"]["ReferralCode"];
-            referredBy?: null | components["schemas"]["TeamId"];
-            slug: components["schemas"]["TeamSlug"];
-            suspended: boolean;
-        };
         TeamAccessTokenResponse: {
             accessToken: string;
             /** Format: int64 */
@@ -2380,6 +2370,7 @@ export interface components {
             creator?: null | components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
             managedBy?: null | components["schemas"]["ManagedBy"];
+            managedByUrl?: string | null;
             name: components["schemas"]["TeamName"];
             referralCode: components["schemas"]["ReferralCode"];
             referredBy?: null | components["schemas"]["TeamId"];
@@ -2604,7 +2595,6 @@ export type SerializedAccessToken = components['schemas']['SerializedAccessToken
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
 export type SpendingLimitsState = components['schemas']['SpendingLimitsState'];
-export type Team = components['schemas']['Team'];
 export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResponse'];
 export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
@@ -2914,7 +2904,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Team"];
+                    "application/json": components["schemas"]["TeamResponse"];
                 };
             };
         };
@@ -4106,7 +4096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Team"];
+                    "application/json": components["schemas"]["TeamResponse"];
                 };
             };
         };

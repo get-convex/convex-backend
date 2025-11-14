@@ -5,7 +5,7 @@ import {
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
-import { ProjectDetails, Team } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { toNumericUTC } from "@common/lib/format";
 import { Bar, Legend, Rectangle } from "recharts";
 import { useDeployments } from "api/deployments";
@@ -51,7 +51,7 @@ function getProjectName(
 function useProjectDeploymentHrefs(
   projectIds: (number | string)[],
   projects: ProjectDetails[] | undefined,
-  team: Team | undefined,
+  team: TeamResponse | undefined,
   memberId: number | undefined,
 ): Map<number | string, { href?: string; loading: boolean }> {
   // Fetch deployments for all projects
@@ -113,7 +113,7 @@ export function UsageByProjectChart({
   entity: string;
   quantityType?: QuantityType;
   projects: ProjectDetails[] | undefined;
-  team?: Team;
+  team?: TeamResponse;
   selectedDate: number | null;
   setSelectedDate: (date: number | null) => void;
 }) {

@@ -1,7 +1,7 @@
 import { ArrowLeftIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { ProgressBar } from "@ui/ProgressBar";
-import { ProjectDetails, Team } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { formatQuantity, QuantityType } from "./lib/formatQuantity";
 import { ProjectLink } from "./ProjectLink";
 
@@ -24,7 +24,7 @@ export function DailyChartDetailView({
   items: DailyChartDetailItem[];
   quantityType: QuantityType;
   onBack: () => void;
-  team?: Team;
+  team?: TeamResponse;
   memberId?: number;
 }) {
   // Calculate total for percentage calculations

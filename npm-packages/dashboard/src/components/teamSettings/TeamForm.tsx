@@ -4,12 +4,12 @@ import { Tooltip } from "@ui/Tooltip";
 import { Sheet } from "@ui/Sheet";
 import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import * as Yup from "yup";
 import { useCopy } from "@common/lib/useCopy";
 
 export type TeamFormProps = {
-  team: Team;
+  team: TeamResponse;
   onUpdateTeam: (body: { name: string; slug: string }) => void;
   hasAdminPermissions: boolean;
 };

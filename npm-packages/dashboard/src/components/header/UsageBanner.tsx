@@ -9,7 +9,7 @@ import { useUnpauseTeam } from "api/teams";
 import { useTeamUsageState } from "api/usage";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { useGetSpendingLimits } from "api/billing";
 
 export type Variant =
@@ -47,7 +47,7 @@ export function UsageBanner({
   team,
 }: {
   variant: Variant;
-  team: Team;
+  team: TeamResponse;
 }) {
   const { dismiss } = useDismiss(team.id);
 

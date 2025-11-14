@@ -1,7 +1,7 @@
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { getAccessToken, withPageAuthRequired } from "server/workos";
 import groupBy from "lodash/groupBy";
-import { DeploymentResponse, Team, ProjectDetails } from "generatedApi";
+import { DeploymentResponse, TeamResponse, ProjectDetails } from "generatedApi";
 import fetchRetryFactory from "fetch-retry";
 import { getGoogleAnalyticsClientId } from "hooks/fetching";
 
@@ -112,7 +112,7 @@ const getProps: GetServerSideProps<{
       deployments,
       optInsToAccept,
     }: {
-      teams: Team[];
+      teams: TeamResponse[];
       projects: ProjectDetails[];
       deployments: DeploymentResponse[];
       optInsToAccept?: {
@@ -122,7 +122,7 @@ const getProps: GetServerSideProps<{
     } = await resp.json();
     const { team, project, deploymentName } = query;
     if (
-      (team && !teams.find((t: Team) => t.slug === team.toString())) ||
+      (team && !teams.find((t: TeamResponse) => t.slug === team.toString())) ||
       (project &&
         !projects.find((p: ProjectDetails) => p.slug === project.toString()))
     ) {
@@ -236,11 +236,11 @@ function redirectToProjectPage(
   resolvedUrl: string,
   res: GetServerSidePropsContext["res"],
   projectSlug: string,
-  teams: Team[],
+  teams: TeamResponse[],
   projects: ProjectDetails[],
 ) {
   const project = projects.find((p: ProjectDetails) => p.slug === projectSlug);
-  const owningTeam = teams.find((t: Team) => t.id === project?.teamId);
+  const owningTeam = teams.find((t: TeamResponse) => t.id === project?.teamId);
 
   if (owningTeam === undefined || project === undefined) {
     return pageNotFound(res);
@@ -258,7 +258,7 @@ function redirectToDeploymentPage(
   resolvedUrl: string,
   res: GetServerSidePropsContext["res"],
   deploymentName: string,
-  teams: Team[],
+  teams: TeamResponse[],
   projects: ProjectDetails[],
   deployments: DeploymentResponse[],
 ) {
@@ -269,7 +269,9 @@ function redirectToDeploymentPage(
   const owningProject = projects.find(
     (p: ProjectDetails) => p.id === deployment?.projectId,
   );
-  const owningTeam = teams.find((t: Team) => t.id === owningProject?.teamId);
+  const owningTeam = teams.find(
+    (t: TeamResponse) => t.id === owningProject?.teamId,
+  );
   if (
     owningTeam === undefined ||
     owningProject === undefined ||
@@ -290,7 +292,7 @@ function redirectToProjectPageFromDeploymentName(
   resolvedUrl: string,
   res: GetServerSidePropsContext["res"],
   deploymentName: string,
-  teams: Team[],
+  teams: TeamResponse[],
   projects: ProjectDetails[],
   deployments: DeploymentResponse[],
 ) {
@@ -301,7 +303,9 @@ function redirectToProjectPageFromDeploymentName(
   const owningProject = projects.find(
     (p: ProjectDetails) => p.id === deployment?.projectId,
   );
-  const owningTeam = teams.find((t: Team) => t.id === owningProject?.teamId);
+  const owningTeam = teams.find(
+    (t: TeamResponse) => t.id === owningProject?.teamId,
+  );
   if (
     owningTeam === undefined ||
     owningProject === undefined ||

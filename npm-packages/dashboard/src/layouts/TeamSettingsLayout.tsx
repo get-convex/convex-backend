@@ -5,7 +5,7 @@ import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import startCase from "lodash/startCase";
 import Head from "next/head";
 import React from "react";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { SidebarLink } from "@common/elements/Sidebar";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
@@ -24,7 +24,7 @@ export function TeamSettingsLayout({
     | "access-tokens"
     | "applications"
     | "sso";
-  Component: React.FunctionComponent<{ team: Team }>;
+  Component: React.FunctionComponent<{ team: TeamResponse }>;
   title: string;
 }) {
   const selectedTeam = useCurrentTeam();

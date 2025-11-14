@@ -6,7 +6,7 @@ import {
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { captureException, captureMessage } from "@sentry/nextjs";
-import { Team, ProjectDetails, DeploymentResponse } from "generatedApi";
+import { TeamResponse, ProjectDetails, DeploymentResponse } from "generatedApi";
 import { retryingFetch } from "lib/ssr";
 
 const apiKey = process.env.PLAIN_API_KEY;
@@ -83,7 +83,7 @@ export default async function handler(
       projects,
       deployments,
     }: {
-      teams: Team[];
+      teams: TeamResponse[];
       projects: ProjectDetails[];
       deployments: DeploymentResponse[];
     } = await memberDataResp.json();
@@ -244,7 +244,7 @@ function upsertPlainCustomer(
 
 async function upsertPlainTenant(
   plainClient: PlainClient,
-  team: Team,
+  team: TeamResponse,
   accessToken: string,
 ) {
   const upsertTenantRes = await plainClient.upsertTenant({
@@ -310,7 +310,7 @@ async function upsertPlainTenant(
 async function setPlainCustomerTenants(
   plainClient: PlainClient,
   customerId: string,
-  teams: Team[],
+  teams: TeamResponse[],
 ) {
   const setCustomerTenantsRes = await plainClient.setCustomerTenants({
     customerIdentifier: {

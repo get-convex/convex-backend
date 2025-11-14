@@ -1,4 +1,8 @@
-import { Team, InvitationResponse, TeamMemberResponse } from "generatedApi";
+import {
+  TeamResponse,
+  InvitationResponse,
+  TeamMemberResponse,
+} from "generatedApi";
 
 import { Sheet } from "@ui/Sheet";
 import { LoadingTransition } from "@ui/Loading";
@@ -20,7 +24,7 @@ import { TeamMemberListItem } from "./TeamMemberListItem";
 import { TeamMemberListSkeleton } from "./TeamMemberListSkeleton";
 
 type TeamMemberListProps = {
-  team: Team;
+  team: TeamResponse;
   members?: TeamMemberResponse[];
   invites?: InvitationResponse[];
 };

@@ -23,7 +23,7 @@ import {
   DailyPerTagMetrics,
   DailyPerTagMetricsByProject,
 } from "hooks/usageMetrics";
-import { Team, ProjectDetails } from "generatedApi";
+import { TeamResponse, ProjectDetails } from "generatedApi";
 import {
   forwardRef,
   ReactNode,
@@ -86,7 +86,7 @@ const FUNCTION_BREAKDOWN_TABS = [
   FunctionBreakdownMetricVectorBandwidth,
 ];
 
-export function TeamUsage({ team }: { team: Team }) {
+export function TeamUsage({ team }: { team: TeamResponse }) {
   const projects = useProjects(team.id);
   const { query } = useRouter();
   const project = query.projectSlug
@@ -268,7 +268,7 @@ function FunctionBreakdownSection({
   componentPrefix,
   shownBillingPeriod,
 }: {
-  team: Team;
+  team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
@@ -412,7 +412,7 @@ function FunctionUsageBreakdown({
   usageByProject: UsageInProject[];
   metricsByDeployment: AggregatedFunctionMetrics[];
   metric: FunctionBreakdownMetric;
-  team: Team;
+  team: TeamResponse;
 }) {
   const maxValue = useMemo(
     () => Math.max(...metricsByDeployment.map(metric.getTotal)),
@@ -470,7 +470,7 @@ function FunctionUsageBreakdownByProject({
   project: ProjectDetails | null;
   metric: FunctionBreakdownMetric;
   rows: AggregatedFunctionMetrics[];
-  team: Team;
+  team: TeamResponse;
   maxValue: number;
   projectTotal: number;
 }) {
@@ -527,7 +527,7 @@ function DatabaseUsage({
   showEntitlements,
   componentPrefix,
 }: {
-  team: Team;
+  team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
@@ -763,7 +763,7 @@ function FunctionCallsUsage({
   functionCallsEntitlement,
   showEntitlements,
 }: {
-  team: Team;
+  team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
@@ -880,7 +880,7 @@ function ActionComputeUsage({
   actionComputeEntitlement,
   showEntitlements,
 }: {
-  team: Team;
+  team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
@@ -1004,7 +1004,7 @@ function FilesUsage({
   bandwidthEntitlement,
   showEntitlements,
 }: {
-  team: Team;
+  team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;
@@ -1200,7 +1200,7 @@ function VectorUsage({
   bandwidthEntitlement,
   showEntitlements,
 }: {
-  team: Team;
+  team: TeamResponse;
   dateRange: DateRange | null;
   projectId: number | null;
   componentPrefix: string | null;

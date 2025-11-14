@@ -3,7 +3,7 @@ import type {
   ProjectDetails,
   ProjectMemberRoleResponse,
   UpdateProjectRolesArgs,
-  Team,
+  TeamResponse,
   TeamMemberResponse,
 } from "generatedApi";
 import { useRouter } from "next/router";
@@ -26,7 +26,7 @@ export const roleOptions: Option<"admin" | "developer">[] = [
 ];
 
 type TeamMemberListItemProps = {
-  team: Team;
+  team: TeamResponse;
   myProfile: MemberResponse;
   member: TeamMemberResponse;
   members: TeamMemberResponse[];

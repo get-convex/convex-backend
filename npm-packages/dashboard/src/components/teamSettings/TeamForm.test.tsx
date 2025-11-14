@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import userEvent from "@testing-library/user-event";
 import { TeamForm, TeamFormProps } from "./TeamForm";
 
@@ -15,8 +15,8 @@ Object.defineProperty(window, "location", {
 });
 
 describe("<TeamForm />", () => {
-  let team: Team;
-  let updatedTeam: Team;
+  let team: TeamResponse;
+  let updatedTeam: TeamResponse;
   let nameTextBox: HTMLInputElement;
   let slugTextBox: HTMLInputElement;
   const onUpdateTeam = jest.fn();

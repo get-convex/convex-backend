@@ -1,7 +1,7 @@
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { CopyButton } from "@common/elements/CopyButton";
-import { ProjectDetails, Team } from "generatedApi";
+import { ProjectDetails, TeamResponse } from "generatedApi";
 import { useDeployments } from "api/deployments";
 
 export function ProjectLink({
@@ -10,7 +10,7 @@ export function ProjectLink({
   memberId,
 }: {
   project: ProjectDetails | null;
-  team?: Team;
+  team?: TeamResponse;
   memberId?: number;
 }) {
   const { deployments } = useDeployments(project?.id);

@@ -19,7 +19,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import {
   DeploymentResponse,
   PeriodicBackupConfig,
-  Team,
+  TeamResponse,
   TeamEntitlementsResponse,
 } from "generatedApi";
 import Link from "next/link";
@@ -37,7 +37,7 @@ export function Backups({
   deployment,
   entitlements,
 }: {
-  team: Team;
+  team: TeamResponse;
   deployment: DeploymentResponse;
   entitlements: TeamEntitlementsResponse;
 }) {
@@ -148,7 +148,7 @@ function BackupProCallouts({
   periodicBackupsEnabled,
   maxCloudBackups,
 }: {
-  team: Team;
+  team: TeamResponse;
   periodicBackupsEnabled: boolean;
   maxCloudBackups: number;
 }) {

@@ -1,11 +1,11 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
 import { Menu, MenuItem } from "@ui/Menu";
-import { ReferralState, Team } from "generatedApi";
+import { ReferralState, TeamResponse } from "generatedApi";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { ReferralProgress } from "./ReferralProgress";
 
 interface ReferralsBannerProps {
-  team: Team;
+  team: TeamResponse;
   referralState: ReferralState;
   onHide: () => void;
 }

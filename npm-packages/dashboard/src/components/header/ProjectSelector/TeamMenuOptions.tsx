@@ -3,7 +3,7 @@ import { Button } from "@ui/Button";
 import { SelectorItem } from "elements/SelectorItem";
 import { useCurrentTeam } from "api/teams";
 import { useRouter } from "next/router";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { Avatar } from "elements/Avatar";
 
 export function TeamMenuOptions({
@@ -12,8 +12,8 @@ export function TeamMenuOptions({
   team,
   onCreateTeamClick,
 }: {
-  teams?: Team[];
-  team: Team | null;
+  teams?: TeamResponse[];
+  team: TeamResponse | null;
   onCreateTeamClick: () => void;
   close(): void;
 }) {

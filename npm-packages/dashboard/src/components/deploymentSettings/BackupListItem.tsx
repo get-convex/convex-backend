@@ -20,7 +20,7 @@ import { Modal } from "@ui/Modal";
 import { Checkbox } from "@ui/Checkbox";
 import { Menu, MenuItem } from "@ui/Menu";
 import { useEffect, useId, useRef, useState } from "react";
-import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
+import { DeploymentResponse, ProjectDetails, TeamResponse } from "generatedApi";
 import { useDeploymentById } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjects } from "api/projects";
@@ -62,7 +62,7 @@ export function BackupListItem({
   someRestoreInProgress: boolean;
   latestBackupInTargetDeployment: BackupResponse | null;
   targetDeployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
   canPerformActions: boolean;
   getZipExportUrl: (snapshotId: Id<"_exports">) => string;
   maxCloudBackups: number;
@@ -312,7 +312,7 @@ function SuggestBackup({
   maxCloudBackups,
   canPerformActions,
 }: {
-  team: Team;
+  team: TeamResponse;
   targetDeployment: DeploymentResponse;
   onClose: () => void;
   onContinue: () => void;
@@ -357,7 +357,7 @@ function RestoreConfirmation({
 }: {
   backup: BackupResponse;
   targetDeployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
   latestBackupInTargetDeployment: BackupResponse | null;
   onClose: () => void;
 }) {
@@ -438,7 +438,7 @@ function DeleteOrCancelBackupModal({
 }: {
   action: "delete" | "cancel";
   backup: BackupResponse;
-  team: Team;
+  team: TeamResponse;
   onClose: () => void;
 }) {
   const doDelete = useDeleteCloudBackup(team.id, backup.id);
@@ -490,7 +490,7 @@ function DeleteOrCancelBackupModal({
 export type BackupSummaryProps = {
   backup: BackupResponse | null;
   sourceDeploymentAppearance: null | "inline" | "differentDeploymentWarning";
-  team: Team;
+  team: TeamResponse;
 };
 
 function BackupSummary({
@@ -561,7 +561,7 @@ type DeploymentSummaryProps = {
   deployment: DeploymentResponse;
   // null = show no backup warning, undefined = show nothing
   latestBackup: BackupResponse | null | undefined;
-  team: Team;
+  team: TeamResponse;
 };
 
 function DeploymentSummary({
@@ -591,7 +591,7 @@ export function TransferSummary({
   backup: BackupResponse | null;
   targetDeployment: DeploymentResponse;
   latestBackupInTargetDeployment: BackupResponse | null | undefined;
-  team: Team;
+  team: TeamResponse;
 }) {
   return (
     <div className="mb-4 grid justify-center gap-2 rounded-lg border md:flex md:gap-5">
@@ -625,7 +625,7 @@ export function FullDeploymentName({
   showProjectName = true,
 }: {
   deployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
   showProjectName?: boolean;
 }) {
   const projects = useProjects(team.id);
@@ -698,7 +698,7 @@ export function BackupNowButton({
   onBackupRequested,
 }: {
   deployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
   maxCloudBackups: number;
   canPerformActions: boolean;
   onBackupRequested?: () => void;

@@ -6,7 +6,7 @@ import {
   getByText,
   getByRole,
 } from "@testing-library/react";
-import { OrbSubscriptionResponse, Team } from "generatedApi";
+import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
 import { FreePlan } from "./FreePlan";
 
 const cancelSubscription = jest.fn();
@@ -37,7 +37,7 @@ const subscription: OrbSubscriptionResponse = {
   nextBillingPeriodStart: "2025-09-25",
 };
 
-const team: Team = {
+const team: TeamResponse = {
   id: 0,
   name: "",
   creator: 0,

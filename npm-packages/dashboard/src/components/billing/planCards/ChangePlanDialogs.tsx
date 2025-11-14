@@ -7,7 +7,7 @@ import { useTeamMembers } from "api/teams";
 import { PriceSummary } from "components/billing/PriceSummary";
 import { debounceDurationMs } from "components/billing/UpgradePlanContent";
 import { planNameMap } from "components/billing/planCards/PlanCard";
-import { PlanResponse, Team } from "generatedApi";
+import { PlanResponse, TeamResponse } from "generatedApi";
 import Link from "next/link";
 import { useState } from "react";
 import { useDebounce } from "react-use";
@@ -21,7 +21,7 @@ export function DowngradePlanDialog({
   onClose: () => void;
   onConfirm: () => Promise<void>;
   newPlan: PlanResponse;
-  team: Team;
+  team: TeamResponse;
 }) {
   const [acceptedConsequences, setAcceptedConsequences] = useState(false);
   const newPlanName = newPlan.planType
@@ -85,7 +85,7 @@ export function UpgradePlanDialog({
   onClose: () => void;
   onConfirm: (planId: string) => Promise<void>;
   newPlan: PlanResponse;
-  team: Team;
+  team: TeamResponse;
 }) {
   const [promoCode, setPromoCode] = useState("");
   const [debouncedPromoCode, setDebouncedPromoCode] = useState(promoCode);

@@ -7,7 +7,7 @@ import { useQuery } from "convex/react";
 import { useConfirmImport } from "hooks/deploymentApi";
 import { useEffect, useState } from "react";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
-import { DeploymentResponse, Team } from "generatedApi";
+import { DeploymentResponse, TeamResponse } from "generatedApi";
 import udfs from "@common/udfs";
 import { CheckCircledIcon, CrossCircledIcon } from "@radix-ui/react-icons";
 import { ProgressBar } from "@ui/ProgressBar";
@@ -20,7 +20,7 @@ export function BackupRestoreStatus({
   team,
 }: {
   deployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
 }) {
   const currentRestore = useLatestRestore();
   const requestor = currentRestore?.requestor;
@@ -100,7 +100,7 @@ export function BackupRestoreFail({
   errorMessage: string;
   restoreStartTime: Date;
   deployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
   backup: BackupResponse | null;
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -167,7 +167,7 @@ export function BackupRestoreSuccess({
   restoredRowsCount: bigint | number;
 
   deployment: DeploymentResponse;
-  team: Team;
+  team: TeamResponse;
   backup: BackupResponse | null;
   snapshotImportCheckpoints: Doc<"_snapshot_imports">["checkpoints"] | null;
 }) {

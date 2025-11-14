@@ -5,7 +5,7 @@ import { Modal } from "@ui/Modal";
 import difference from "lodash/difference";
 import React, { useState } from "react";
 import type {
-  Team,
+  TeamResponse,
   ProjectMemberRoleResponse,
   ProjectDetails,
   UpdateProjectRolesArgs,
@@ -25,7 +25,7 @@ export function MemberProjectRolesModal({
   onUpdateProjectRoles,
   onClose,
 }: {
-  team: Team;
+  team: TeamResponse;
   projects: ProjectDetails[];
   member: TeamMemberResponse;
   projectRoles: ProjectMemberRoleResponse[];
@@ -168,7 +168,7 @@ function ProjectRoleItem({
 }: {
   project: ProjectDetails;
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
   originalProjectRoles: number[];
   newProjectRoles: number[];
   setNewProjectRoles: React.Dispatch<React.SetStateAction<number[]>>;

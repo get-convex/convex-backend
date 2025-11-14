@@ -5,13 +5,13 @@ import {
 } from "@stripe/stripe-js";
 import { useCreateSetupIntent } from "api/billing";
 import { useState, useEffect, useCallback } from "react";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { useTheme } from "next-themes";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
 
 export function useStripePaymentSetup(
-  team: Team,
+  team: TeamResponse,
   paymentMethod: string | undefined,
   setPaymentMethod: (paymentMethod?: string) => Promise<void>,
   hasAdminPermissions = true,
@@ -165,7 +165,7 @@ export function useStripePaymentSetup(
 }
 
 export function useStripeAddressSetup(
-  team: Team,
+  team: TeamResponse,
   hasAdminPermissions: boolean,
 ) {
   // Reuse the existing stripe initialization for collecting the payment method,

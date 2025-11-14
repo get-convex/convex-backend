@@ -1,9 +1,9 @@
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "@storybook/nextjs";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { RedeemReferralForm } from "./RedeemReferralForm";
 
-const mockTeams: Team[] = [
+const mockTeams: TeamResponse[] = [
   {
     id: 1,
     name: "Team 1",

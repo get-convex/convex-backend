@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { formatDate } from "@common/lib/format";
-import { OrbSubscriptionResponse, Team } from "generatedApi";
+import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
 import { SubscriptionOverview } from "./SubscriptionOverview";
 
 const resumeSubscription = jest.fn();
@@ -45,7 +45,7 @@ const subscription: OrbSubscriptionResponse = {
   nextBillingPeriodStart: "2025-09-25",
 };
 
-const team: Team = {
+const team: TeamResponse = {
   id: 0,
   name: "",
   creator: 0,

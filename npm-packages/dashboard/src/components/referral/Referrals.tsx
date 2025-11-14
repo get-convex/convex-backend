@@ -1,5 +1,5 @@
 import React from "react";
-import { ReferralState, Team } from "generatedApi";
+import { ReferralState, TeamResponse } from "generatedApi";
 import { useTeamOrbSubscription } from "api/billing";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
@@ -13,7 +13,7 @@ import { ReferralProgress } from "./ReferralProgress";
 // Keep in sync with MAX_REFERRALS_BONUS in big_brain_lib/src/model/referrals.rs
 export const MAX_REFERRALS = 5;
 
-export function Referrals({ team }: { team: Team }) {
+export function Referrals({ team }: { team: TeamResponse }) {
   const { subscription } = useTeamOrbSubscription(team.id);
   const isPaidPlan =
     subscription === undefined ? undefined : subscription !== null;

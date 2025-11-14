@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { DeploymentResponse, Team } from "generatedApi";
+import { DeploymentResponse, TeamResponse } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { useAccessToken } from "hooks/useServerSideData";
 import { Id } from "system-udfs/convex/_generated/dataModel";
@@ -36,7 +36,7 @@ const targetDeployment: DeploymentResponse = {
   previewIdentifier: null,
 };
 
-const team: Team = {
+const team: TeamResponse = {
   id: 1,
   creator: 1,
   slug: "team",

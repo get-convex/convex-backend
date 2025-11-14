@@ -1,4 +1,4 @@
-import { Team, UpdateSsoRequest } from "generatedApi";
+import { TeamResponse, UpdateSsoRequest } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
 import { Checkbox } from "@ui/Checkbox";
@@ -25,7 +25,7 @@ import { useProfileEmails } from "api/profile";
 import Link from "next/link";
 import { LoadingTransition } from "@ui/Loading";
 
-export function TeamSSO({ team }: { team: Team }) {
+export function TeamSSO({ team }: { team: TeamResponse }) {
   const hasAdminPermissions = useIsCurrentMemberTeamAdmin();
   const entitlements = useTeamEntitlements(team.id);
   const { data: ssoOrganization, isLoading: isSSOLoading } = useGetSSO(team.id);

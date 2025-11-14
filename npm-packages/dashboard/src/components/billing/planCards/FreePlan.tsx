@@ -7,7 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCancelSubscription } from "api/billing";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
-import { OrbSubscriptionResponse, Team } from "generatedApi";
+import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
 import startCase from "lodash/startCase";
 import { PlanCard } from "./PlanCard";
 
@@ -18,7 +18,7 @@ export function FreePlan({
 }: {
   subscription?: OrbSubscriptionResponse;
   hasAdminPermissions: boolean;
-  team: Team;
+  team: TeamResponse;
 }) {
   const [isSelfServeDowngradeModalOpen, setIsSelfServeDowngradeModalOpen] =
     useState(false);

@@ -3,7 +3,7 @@ import {
   AuditLogEventResponse,
   MemberResponse,
   ProjectDetails,
-  Team,
+  TeamResponse,
 } from "generatedApi";
 import { AuditLogItem } from "./AuditLogItem";
 
@@ -13,7 +13,7 @@ export function AuditLogContent({
   members,
   entries,
 }: {
-  team: Team;
+  team: TeamResponse;
   projects: ProjectDetails[];
   members: MemberResponse[];
   entries: AuditLogEventResponse[];

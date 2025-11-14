@@ -1,6 +1,6 @@
 import { useListPlans } from "api/billing";
 import { Loading } from "@ui/Loading";
-import { OrbSubscriptionResponse, Team } from "generatedApi";
+import { OrbSubscriptionResponse, TeamResponse } from "generatedApi";
 import classNames from "classnames";
 import { OrbSelfServePlan } from "./planCards/OrbSelfServePlan";
 import { FreePlan } from "./planCards/FreePlan";
@@ -10,7 +10,7 @@ export function Plans({
   hasAdminPermissions,
   subscription,
 }: {
-  team: Team;
+  team: TeamResponse;
   hasAdminPermissions: boolean;
   subscription?: OrbSubscriptionResponse;
 }) {

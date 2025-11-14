@@ -8,7 +8,7 @@ import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
 import { cn } from "@ui/cn";
 import { Fragment, useCallback, useMemo, useState } from "react";
-import { DeploymentResponse, Team } from "generatedApi";
+import { DeploymentResponse, TeamResponse } from "generatedApi";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 import { FullDeploymentName } from "./BackupListItem";
@@ -21,7 +21,7 @@ export function BackupDeploymentSelector({
 }: {
   selectedDeployment: DeploymentResponse;
   onChange: (newDeployment: DeploymentResponse) => void;
-  team: Team;
+  team: TeamResponse;
   targetDeployment: DeploymentResponse;
 }) {
   const projects = useProjects(team.id);

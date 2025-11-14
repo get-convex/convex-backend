@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 import {
   DeploymentResponse,
   DeploymentType,
-  Team,
+  TeamResponse,
   ProjectDetails,
 } from "generatedApi";
 import { PuzzlePieceIcon } from "@common/elements/icons";
@@ -93,7 +93,7 @@ export function TeamUsageByFunctionChart({
   metric: FunctionBreakdownMetric;
   deployments: DeploymentResponse[];
   rows: AggregatedFunctionMetrics[];
-  team: Team;
+  team: TeamResponse;
   maxValue: number;
 }) {
   const [showAll, setShowAll] = useState(false);
@@ -393,7 +393,7 @@ function useOrderedAndGroupedRows(
   metric: FunctionBreakdownMetric,
   project: ProjectDetails | null,
   deployments: DeploymentResponse[],
-  team: Team,
+  team: TeamResponse,
 ): DeploymentTypeRow[] {
   const arePreviewDeploymentsAvailable =
     useTeamEntitlements(team.id)?.projectMaxPreviewDeployments !== 0;

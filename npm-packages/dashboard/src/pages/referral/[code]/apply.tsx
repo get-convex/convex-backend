@@ -7,7 +7,7 @@ import { RedeemReferralForm } from "components/referral/RedeemReferralForm";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { useParams, usePathname } from "next/navigation";
 import { useState } from "react";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { useApplyReferralCode, useReferralCode } from "api/referrals";
 import { useProfile } from "api/profile";
 import { logEvent } from "convex-analytics";
@@ -27,7 +27,9 @@ function RedeemReferralCodePage() {
 
   const { selectedTeamSlug: defaultTeamSlug, teams } = useTeams();
   const defaultTeam = teams?.find((t) => t.slug === defaultTeamSlug) ?? null;
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(defaultTeam);
+  const [selectedTeam, setSelectedTeam] = useState<TeamResponse | null>(
+    defaultTeam,
+  );
   const [isTeamSelectorShown, setIsTeamSelectorShown] = useState(false);
 
   const referralCode = useReferralCode(code);
@@ -72,7 +74,7 @@ function RedeemReferralCodePage() {
   );
 }
 
-function useTeamReedeemEligibility(team: Team | null) {
+function useTeamReedeemEligibility(team: TeamResponse | null) {
   const { subscription } = useTeamOrbSubscription(team?.id);
   const isAdmin = useIsAdminOfTeam(team);
 
@@ -95,7 +97,7 @@ function useTeamReedeemEligibility(team: Team | null) {
   return { eligible: true } as const;
 }
 
-function useIsAdminOfTeam(team: Team | null): boolean | undefined {
+function useIsAdminOfTeam(team: TeamResponse | null): boolean | undefined {
   const profile = useProfile();
   const members = useTeamMembers(team?.id);
   const member = members?.find((m) => m.id === profile?.id);

@@ -2,7 +2,7 @@ import { cleanup, render } from "@testing-library/react";
 import {
   DeploymentResponse,
   ProjectDetails,
-  Team,
+  TeamResponse,
   TeamMemberResponse,
 } from "generatedApi";
 import userEvent from "@testing-library/user-event";
@@ -68,7 +68,7 @@ const targetDeployment: DeploymentResponse = {
   previewIdentifier: null,
 };
 
-const team: Team = {
+const team: TeamResponse = {
   id: 1,
   creator: 1,
   slug: "team",
@@ -122,7 +122,7 @@ jest.mock("api/billing", () => ({}));
 jest.mock("api/environmentVariables", () => ({}));
 
 jest.mock("api/teams", () => {
-  const t: Team = {
+  const t: TeamResponse = {
     id: 1,
     creator: 1,
     slug: "team",

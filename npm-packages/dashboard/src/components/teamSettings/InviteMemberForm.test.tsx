@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import { Team } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import { InviteMemberForm, InviteMemberFormProps } from "./InviteMemberForm";
 
 jest.mock("api/roles", () => ({
@@ -24,7 +24,7 @@ const { useCreateInvite } = require("../../api/invitations");
 const createInvite = useCreateInvite();
 
 describe("<InviteMemberForm />", () => {
-  let team: Team;
+  let team: TeamResponse;
   let emailTextbox: HTMLInputElement;
 
   const setup = (props?: Partial<InviteMemberFormProps>) => {

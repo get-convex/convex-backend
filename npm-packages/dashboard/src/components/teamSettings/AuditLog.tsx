@@ -5,12 +5,12 @@ import { useDateFilters } from "@common/elements/DateRangePicker";
 import { useTeamAuditLog } from "api/auditLog";
 import { useProjects } from "api/projects";
 import { useTeamEntitlements, useTeamMembers } from "api/teams";
-import { AuditLogAction, Team } from "generatedApi";
+import { AuditLogAction, TeamResponse } from "generatedApi";
 import { useRouter } from "next/router";
 import { AuditLogContent } from "./AuditLogContent";
 import { AuditLogToolbar } from "./AuditLogToolbar";
 
-export function AuditLog({ team }: { team: Team }) {
+export function AuditLog({ team }: { team: TeamResponse }) {
   const projects = useProjects(team.id);
   const members = useTeamMembers(team.id);
   const auditLogRetentionDays =

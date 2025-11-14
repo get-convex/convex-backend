@@ -10,7 +10,7 @@ import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import {
-  Team,
+  TeamResponse,
   MemberResponse,
   ProjectDetails,
   AuditLogAction,
@@ -42,7 +42,7 @@ export function AuditLogItem({
   projects,
 }: {
   entry: AuditLogEventResponse;
-  team: Team;
+  team: TeamResponse;
   memberId: number | null;
   members: MemberResponse[];
   projects: ProjectDetails[];
@@ -111,7 +111,7 @@ function EntryAction({
 }: {
   action: AuditLogAction;
   metadata: AuditLogEntryMetadata;
-  team: Team;
+  team: TeamResponse;
   members: MemberResponse[];
   projects: ProjectDetails[];
 }) {
@@ -610,7 +610,7 @@ export function ProjectLink({
   projectId: number;
   metadata: AuditLogEntryMetadata;
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
 }) {
   const project = projects.find((p) => p.id === projectId);
 
@@ -640,7 +640,7 @@ function EnvironmentVariableEntryAction({
   metadata,
 }: {
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
   action: string;
   metadata: AuditLogEntryMetadata;
 }) {
@@ -686,7 +686,7 @@ function ProjectEntryAction({
   metadata,
 }: {
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
   action: string;
   metadata: AuditLogEntryMetadata;
 }) {
@@ -738,7 +738,7 @@ function ProjectRoleUpdateEntry({
   memberId: number;
   projectId: number;
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
   removed?: boolean;
 }) {
   return (
@@ -816,7 +816,7 @@ function DeploymentSettingsLink({
   urlSuffix = "",
 }: {
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
   deploymentId: number;
   urlSuffix?: string;
 }) {
@@ -856,7 +856,7 @@ function ProjectSettingsLink({
   projectId,
 }: {
   projects: ProjectDetails[];
-  team: Team;
+  team: TeamResponse;
   projectId: number;
 }) {
   const project = projects.find((p) => p.id === projectId);
@@ -881,7 +881,7 @@ function AccessTokenSettingsLink({
   metadataEntity,
   verb,
 }: {
-  team: Team;
+  team: TeamResponse;
   projects: ProjectDetails[];
   metadataEntity: Record<string, any>;
   verb: string;
