@@ -6,6 +6,14 @@ use std::{
 };
 
 use common::{
+    bootstrap_model::tables::{
+        TableMetadata,
+        TableState,
+    },
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     json::JsonForm,
     persistence::{
         new_static_repeatable_recent,
@@ -546,6 +554,19 @@ fn add_revision(
                 tables.remove(&tablet_id);
             },
             _ => {},
+        }
+        if let Some(new_doc) = revision_pair.document() {
+            let table_metadata: ParsedDocument<TableMetadata> = new_doc.parse()?;
+            if table_metadata.state == TableState::Deleting {
+                // Hax alert! Remove shape tracking from soft-deleted tables'
+                // summaries, to prevent old shapes from filling up the overall
+                // table summary object.
+                // It's not correct to remove the summary entry entirely because
+                // we still want to be able to rewind through this revision.
+                if let Some(summary) = tables.get_mut(&tablet_id) {
+                    summary.reset_shape();
+                }
+            }
         }
     }
     let id = &revision_pair.id;
