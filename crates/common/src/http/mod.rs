@@ -677,7 +677,9 @@ impl ConvexHttpService {
         }
         let make_svc = router.into_make_service_with_connect_info::<SocketAddr>();
         tracing::info!("{} listening on {addr}", self.service_name);
-        serve_http(make_svc, addr, shutdown).await
+        serve_http(make_svc, addr, shutdown)
+            .await
+            .with_context(|| format!("Could not start {} on {addr}", self.service_name))
     }
 
     /// Apply `middleware_fn` to incoming requests *before* passing them to
