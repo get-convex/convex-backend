@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- When running `npx convex deploy`, the CLI will now ask for explicit confirmation
+  before deleting large indexes. This change is helpful for avoiding situations
+  where an index is accidentally deleted and backfilling it takes a long time.
+
 ## 1.29.0
 
 - Code generation changes: modules and functions are sorted in more situations,
