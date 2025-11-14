@@ -40,6 +40,45 @@ const MAX_RETRIES = 6;
 // After 3 retries, log a progress message that we're retrying the request
 const RETRY_LOG_THRESHOLD = 3;
 
+/**
+ * Processes the CONVEX_DEPLOY_KEY value to handle special sentinel values.
+ *
+ * - If the value is `<ignore_deploy_key>`, treats it as if the env var isn't set (returns undefined)
+ * - If the value matches `<missing_deploy_key:$STRING>`, crashes with the message in $STRING
+ * - Otherwise returns the value as-is
+ *
+ * @param ctx Context for crashing if needed
+ * @param deployKey The raw deploy key value from environment or config
+ * @returns The processed deploy key value or undefined
+ */
+export async function processDeployKeyValue(
+  ctx: Context,
+  deployKey: string | undefined,
+): Promise<string | undefined> {
+  if (deployKey === undefined) {
+    return undefined;
+  }
+
+  // Check for <ignore_deploy_key> sentinel
+  if (deployKey === "<ignore_deploy_key>") {
+    return undefined;
+  }
+
+  // Check for <missing_deploy_key:$STRING> sentinel
+  const missingKeyPattern = /^<missing_deploy_key:(.+)>$/;
+  const match = deployKey.match(missingKeyPattern);
+  if (match) {
+    const errorMessage = match[1];
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: errorMessage,
+    });
+  }
+
+  return deployKey;
+}
+
 export function parsePositiveInteger(value: string) {
   const parsedValue = parseInteger(value);
   if (parsedValue <= 0) {
