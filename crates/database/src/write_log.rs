@@ -397,9 +397,9 @@ impl LogOwner {
 
     /// Blocks until the log has advanced past the given timestamp.
     pub async fn wait_for_higher_ts(&mut self, target_ts: Timestamp) -> Timestamp {
-        let fut = block_in_place(|| self.inner.lock().wait_for_higher_ts(target_ts));
+        let fut = self.inner.lock().wait_for_higher_ts(target_ts);
         fut.await;
-        let result = block_in_place(|| self.inner.lock().log.max_ts());
+        let result = self.inner.lock().log.max_ts();
         assert!(result > target_ts);
         result
     }
