@@ -32,7 +32,7 @@ import { mcp } from "./mcp.js";
 import dns from "node:dns";
 import net from "node:net";
 import { integration } from "./integration.js";
-import { setGlobalDispatcher, ProxyAgent } from "undici";
+import { setGlobalDispatcher, EnvHttpProxyAgent } from "undici";
 import { logVerbose } from "../bundler/log.js";
 
 const MINIMUM_MAJOR_VERSION = 16;
@@ -50,7 +50,7 @@ async function main() {
 
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   if (proxy) {
-    setGlobalDispatcher(new ProxyAgent(proxy));
+    setGlobalDispatcher(new EnvHttpProxyAgent());
     logVerbose(`[proxy-bootstrap] Using proxy: ${proxy}`);
   }
 
