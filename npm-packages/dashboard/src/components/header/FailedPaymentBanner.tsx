@@ -27,7 +27,7 @@ export function FailedPaymentBanner() {
 
 export function useShowFailedPaymentBanner() {
   const team = useCurrentTeam();
-  const { invoices } = useListInvoices(team?.id);
+  const { invoices } = useListInvoices(team?.managedBy ? undefined : team?.id);
   const failedInvoice = invoices
     ? invoices.find(
         (invoice) => invoice.status === "issued" && invoice.hasFailedPayment,
