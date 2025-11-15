@@ -239,7 +239,7 @@ pub async fn public_function_post(
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
     let response = match udf_result {
         Ok(write_return) => UdfResponse::Success {
-            value: export_value(write_return.value.unpack(), value_format, client_version)?,
+            value: export_value(write_return.value.unpack()?, value_format, client_version)?,
             log_lines: write_return.log_lines,
         },
         Err(write_error) => UdfResponse::error(
@@ -333,7 +333,7 @@ pub async fn public_function_post_with_path(
     };
     let response = match udf_result {
         Ok(write_return) => UdfResponse::Success {
-            value: export_value(write_return.value.unpack(), value_format, client_version)?,
+            value: export_value(write_return.value.unpack()?, value_format, client_version)?,
             log_lines: write_return.log_lines,
         },
         Err(write_error) => UdfResponse::error(
@@ -409,7 +409,7 @@ pub async fn public_query_get(
     let log_lines = query_result.log_lines;
     let response = match query_result.result {
         Ok(value) => UdfResponse::Success {
-            value: export_value(value.unpack(), value_format, client_version)?,
+            value: export_value(value.unpack()?, value_format, client_version)?,
             log_lines,
         },
         Err(error) => UdfResponse::error(error, log_lines, value_format, client_version)?,
@@ -462,7 +462,7 @@ pub async fn public_query_post(
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
     let response = match query_return.result {
         Ok(value) => UdfResponse::Success {
-            value: export_value(value.unpack(), value_format, client_version)?,
+            value: export_value(value.unpack()?, value_format, client_version)?,
             log_lines: query_return.log_lines,
         },
         Err(error) => {
@@ -536,7 +536,7 @@ pub async fn public_query_at_ts_post(
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
     let response = match query_return.result {
         Ok(value) => UdfResponse::Success {
-            value: export_value(value.unpack(), value_format, client_version)?,
+            value: export_value(value.unpack()?, value_format, client_version)?,
             log_lines: query_return.log_lines,
         },
         Err(error) => {
@@ -599,7 +599,7 @@ pub async fn public_query_batch_post(
             .await?;
         let response = match udf_return.result {
             Ok(value) => UdfResponse::Success {
-                value: export_value(value.unpack(), value_format, client_version.clone())?,
+                value: export_value(value.unpack()?, value_format, client_version.clone())?,
                 log_lines: udf_return.log_lines,
             },
             Err(error) => UdfResponse::error(
@@ -658,7 +658,7 @@ pub async fn public_mutation_post(
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
     let response = match udf_result {
         Ok(write_return) => UdfResponse::Success {
-            value: export_value(write_return.value.unpack(), value_format, client_version)?,
+            value: export_value(write_return.value.unpack()?, value_format, client_version)?,
             log_lines: write_return.log_lines,
         },
         Err(write_error) => UdfResponse::error(
@@ -714,7 +714,7 @@ pub async fn public_action_post(
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
     let response = match action_result {
         Ok(action_return) => UdfResponse::Success {
-            value: export_value(action_return.value.unpack(), value_format, client_version)?,
+            value: export_value(action_return.value.unpack()?, value_format, client_version)?,
             log_lines: action_return.log_lines,
         },
         Err(action_error) => UdfResponse::error(

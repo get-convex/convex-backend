@@ -610,7 +610,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         self.emit_sub_function_log_lines(path.for_logging(), log_lines);
 
         let result = match result {
-            Ok(r) => r.unpack(),
+            Ok(r) => r.unpack()?,
             Err(e) => {
                 // TODO: How do we want to propagate stack traces between component calls?
                 anyhow::bail!(e);

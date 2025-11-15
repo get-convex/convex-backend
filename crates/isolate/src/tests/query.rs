@@ -699,7 +699,7 @@ fn unpack_pagination_result(
     t: &UdfTest<TestRuntime, TestPersistence>,
     outcome: &UdfOutcome,
 ) -> (ConvexArray, bool, Cursor, String) {
-    must_let!(let ConvexValue::Object(output) = outcome.result.clone().unwrap().unpack());
+    must_let!(let ConvexValue::Object(output) = outcome.result.clone().unwrap().unpack().unwrap());
     must_let!(let Some(ConvexValue::Array(page)) = output.get("page"));
     must_let!(let Some(ConvexValue::Boolean(is_done)) = output.get("isDone"));
     must_let!(let Some(ConvexValue::String(cursor_string)) = output.get("continueCursor"));

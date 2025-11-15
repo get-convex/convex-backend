@@ -528,13 +528,13 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         let value = outcome
             .result
             .as_ref()
-            .map(|v| v.unpack())
             .map_err(|e| {
                 anyhow::anyhow!(
                     "mutation failed with user error. If that is intended, call mutation_js_error \
                      or raw_mutation instead. {e:?}"
                 )
             })
+            .and_then(|v| v.unpack())
             .unwrap();
         Ok((value, outcome))
     }
@@ -685,13 +685,13 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         let value = outcome
             .result
             .as_ref()
-            .map(|v| v.unpack())
             .map_err(|e| {
                 anyhow::anyhow!(
                     "query failed with user error. If that is intended, call query_js_error or \
                      raw_query instead. {e:?}"
                 )
             })
+            .and_then(|v| v.unpack())
             .unwrap();
         Ok((value, outcome))
     }
@@ -1096,13 +1096,13 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         let value = outcome
             .result
             .as_ref()
-            .map(|v| v.unpack())
             .map_err(|e| {
                 anyhow::anyhow!(
                     "action failed with user error. If that is intended, call action_js_error or \
                      raw_action instead. {e:?}"
                 )
             })
+            .and_then(|v| v.unpack())
             .unwrap();
         Ok((value, outcome, log_lines))
     }

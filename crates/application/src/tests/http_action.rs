@@ -420,7 +420,10 @@ async fn test_http_action_continues_after_client_disconnects(
             None,
         )
         .await?;
-    assert_eq!(query_result.result.map(|v| v.unpack()), Ok(val!(true)));
+    assert_eq!(
+        query_result.result.map(|v| v.unpack().unwrap()),
+        Ok(val!(true))
+    );
 
     Ok(())
 }

@@ -9,7 +9,10 @@ use common::{
         PublicFunctionPath,
         ResolvedComponentFunctionPath,
     },
-    errors::JsError,
+    errors::{
+        report_error_sync,
+        JsError,
+    },
     identity::InertIdentity,
     log_lines::LogLines,
     query_journal::QueryJournal,
@@ -901,7 +904,13 @@ impl ValidatedUdfOutcome {
 
         // TODO(CX-6318) Don't pack json value until it's been validated.
         let returns: ConvexValue = match &validated.result {
-            Ok(json_packed_value) => json_packed_value.unpack(),
+            Ok(json_packed_value) => match json_packed_value.unpack() {
+                Ok(v) => v,
+                Err(mut e) => {
+                    report_error_sync(&mut e);
+                    return validated;
+                },
+            },
             Err(_) => return validated,
         };
 
@@ -948,11 +957,17 @@ impl ValidatedActionOutcome {
         };
 
         if let Ok(json_packed_value) = &validated.result {
-            let output = json_packed_value.unpack();
-            if let Some(js_err) =
-                returns_validator.check_output(&output, table_mapping, virtual_system_mapping())
-            {
-                validated.result = Err(js_err);
+            match json_packed_value.unpack() {
+                Ok(output) => {
+                    if let Some(js_err) = returns_validator.check_output(
+                        &output,
+                        table_mapping,
+                        virtual_system_mapping(),
+                    ) {
+                        validated.result = Err(js_err);
+                    }
+                },
+                Err(mut e) => report_error_sync(&mut e),
             }
         }
 

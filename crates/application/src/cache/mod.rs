@@ -604,7 +604,7 @@ impl<RT: Runtime> CacheManager<RT> {
                             anyhow::bail!("Received non-query outcome when executing a query")
                         };
                         if let Ok(json_packed_value) = &query_outcome.result {
-                            let output: ConvexValue = json_packed_value.unpack();
+                            let output: ConvexValue = json_packed_value.unpack()?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(

@@ -332,7 +332,7 @@ pub async fn run_test_function(
     let value_format = Some(req.format.parse()?);
     let response = match udf_return {
         Ok(result) => UdfResponse::Success {
-            value: export_value(result.value.unpack(), value_format, client_version)?,
+            value: export_value(result.value.unpack()?, value_format, client_version)?,
             log_lines: result.log_lines,
         },
         Err(error) => {

@@ -68,7 +68,7 @@ async fn run_query_with_journal(
     let (function_log, _) = application.function_log().stream(0.0).await;
     let last_log_entry = function_log.last().unwrap();
     assert_eq!(last_log_entry.cached_result, expect_cached);
-    Ok((result.result?.unpack(), result.journal))
+    Ok((result.result?.unpack()?, result.journal))
 }
 
 async fn run_query(
@@ -103,7 +103,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             None,
         )
         .await??;
-    Ok(result.value.unpack())
+    result.value.unpack()
 }
 
 #[convex_macro::test_runtime]

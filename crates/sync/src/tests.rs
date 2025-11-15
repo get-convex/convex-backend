@@ -243,7 +243,7 @@ impl<RT: Runtime> TestSyncWorker<RT> {
         // Check that the mutation ID on the outgoing message matches to
         // confirm we intercepted the right message
         assert_eq!(request_id, outgoing_mutation_id);
-        Ok((result.unwrap().unpack(), ts.unwrap()))
+        Ok((result.unwrap().unpack()?, ts.unwrap()))
     }
 
     async fn shutdown(self) -> anyhow::Result<()> {
@@ -315,7 +315,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(modifications.len(), 1);
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[0]);
     assert_eq!(*query_id, QueryId::new(0));
-    assert_eq!(value.unpack(), ConvexValue::from(100.0));
+    assert_eq!(value.unpack()?, ConvexValue::from(100.0));
 
     // 3. Mutate a single query and see that it gets updated.
     let (result, _) = sync_worker
@@ -340,7 +340,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(modifications.len(), 1);
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[0]);
     assert_eq!(*query_id, QueryId::new(0));
-    assert_eq!(value.unpack(), ConvexValue::from(150.0));
+    assert_eq!(value.unpack()?, ConvexValue::from(150.0));
 
     // 4. Add a new query.
     let query = Query {
@@ -369,7 +369,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(modifications.len(), 1);
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[0]);
     assert_eq!(*query_id, QueryId::new(1));
-    assert_eq!(value.unpack(), ConvexValue::from(50.0));
+    assert_eq!(value.unpack()?, ConvexValue::from(50.0));
 
     // 5. Do a transfer and see that the two queries get updated atomically.
     let (result, _) = sync_worker
@@ -394,10 +394,10 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(modifications.len(), 2);
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[0]);
     assert_eq!(*query_id, QueryId::new(0));
-    assert_eq!(value.unpack(), ConvexValue::from(125.0));
+    assert_eq!(value.unpack()?, ConvexValue::from(125.0));
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[1]);
     assert_eq!(*query_id, QueryId::new(1));
-    assert_eq!(value.unpack(), ConvexValue::from(75.0));
+    assert_eq!(value.unpack()?, ConvexValue::from(75.0));
 
     // 5. Remove a query.
     let msg = ClientMessage::ModifyQuerySet {
@@ -540,7 +540,7 @@ async fn test_query_failure(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(modifications.len(), 1);
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[0]);
     assert_eq!(*query_id, QueryId::new(2));
-    assert_eq!(value.unpack(), ConvexValue::try_from("on my list")?);
+    assert_eq!(value.unpack()?, ConvexValue::try_from("on my list")?);
 
     // Remove the two failing queries.
     let msg = ClientMessage::ModifyQuerySet {
@@ -763,7 +763,7 @@ async fn test_value_deduplication_success(rt: TestRuntime) -> anyhow::Result<()>
     assert_eq!(modifications.len(), 1, "{modifications:?}");
     must_let!(let StateModification::QueryUpdated { query_id, value, .. } = &modifications[0]);
     assert_eq!(*query_id, QueryId::new(0));
-    assert_eq!(value.unpack(), assert_val!("hi"));
+    assert_eq!(value.unpack()?, assert_val!("hi"));
 
     // Insert a new value into the "accounts" table, which will invalidate the query
     // but not change its result.
@@ -890,7 +890,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
         )
         .await?;
-    assert_eq!(result1.result?.unpack(), ConvexValue::from(5.0));
+    assert_eq!(result1.result?.unpack()?, ConvexValue::from(5.0));
 
     let result2 = test
         .application
@@ -904,7 +904,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
         )
         .await?;
-    assert_eq!(result2.result?.unpack(), ConvexValue::from(0.0));
+    assert_eq!(result2.result?.unpack()?, ConvexValue::from(0.0));
     Ok(())
 }
 
