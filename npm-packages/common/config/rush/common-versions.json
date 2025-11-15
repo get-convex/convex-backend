@@ -109,7 +109,8 @@
     "@types/react": ["^18", "^18.3.17", "^18.2.65"],
     "@types/react-dom": ["^18", "^18.3.1", "^18.2.21"],
     "typescript-eslint": ["^8.45.0"],
-    "@typescript-eslint/eslint-plugin": ["^8.45.0"],
+    "@typescript-eslint/eslint-plugin": ["^6.7.4"], // TODO(nicolas) Update the dashboard ESLint config
+    "@typescript-eslint/parser": ["^6.7.4"], // TODO(nicolas) Update the dashboard ESLint config
     //"eslint": ["^8"],
     "@eslint/eslintrc": ["^3"],
     "eslint-config-next": ["~13.4.16", "15.2.3"],

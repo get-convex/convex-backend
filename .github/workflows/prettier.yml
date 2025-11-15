@@ -28,7 +28,7 @@ jobs:
 
       - name: Get dprint version
         run: |
-          echo DPRINT_VERSION=$(node -p "require('./scripts/package.json').devDependencies['dprint']") >> $GITHUB_ENV
+          echo DPRINT_VERSION=$(node -p "require('./npm-packages/lint/package.json').devDependencies['dprint']") >> $GITHUB_ENV
 
       - uses: dprint/check@v2.3
         with:

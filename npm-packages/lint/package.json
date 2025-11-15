@@ -1,0 +1,25 @@
+{
+  "name": "lint",
+  "description": "Linting and formatting for the Convex monorepo projects",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": ""
+  },
+  "devDependencies": {
+    "@eslint/compat": "~1.3.0",
+    "@eslint/eslintrc": "^3",
+    "@eslint/js": "~9.34.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "dprint": "0.50.1",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-jest": "~28.14.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "~16.3.0",
+    "prettier": "3.6.2"
+  }
+}

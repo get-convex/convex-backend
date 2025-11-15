@@ -15,7 +15,7 @@
     "next": "15.5.2",
     "react": "^19",
     "react-dom": "^19",
-    "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "@next/eslint-plugin-next": "~15.1.0"
   },
   "devDependencies": {

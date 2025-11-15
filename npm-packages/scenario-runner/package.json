@@ -29,7 +29,7 @@
     "typescript": "~5.0.3",
     "ws": "8.18.0",
     "eslint": "^8.29.0",
-    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@commander-js/extra-typings": "^11.1.0"
   }
 }
