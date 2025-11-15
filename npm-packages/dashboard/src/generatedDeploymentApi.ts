@@ -104,6 +104,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/delete_scheduled_functions_table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete_scheduled_functions_table"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/check_admin_key": {
         parameters: {
             query?: never;
@@ -132,6 +148,9 @@ export interface components {
         DeleteComponentArgs: {
             componentId?: string | null;
         };
+        DeleteScheduledFunctionsTableRequest: {
+            componentId?: string | null;
+        };
         DeleteTableArgs: {
             componentId?: string | null;
             tableNames: string[];
@@ -147,6 +166,7 @@ export interface components {
     pathItems: never;
 }
 export type DeleteComponentArgs = components['schemas']['DeleteComponentArgs'];
+export type DeleteScheduledFunctionsTableRequest = components['schemas']['DeleteScheduledFunctionsTableRequest'];
 export type DeleteTableArgs = components['schemas']['DeleteTableArgs'];
 export type GetIndexesResponse = components['schemas']['GetIndexesResponse'];
 export type $defs = Record<string, never>;
@@ -258,6 +278,27 @@ export interface operations {
                 content: {
                     "text/plain": string;
                 };
+            };
+        };
+    };
+    delete_scheduled_functions_table: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteScheduledFunctionsTableRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
