@@ -62,6 +62,11 @@ function Main() {
   if (query.projectId) {
     return <RedirectToProjectById id={query.projectId as string} />;
   }
+
+  if (!!query.vercelLogin && firstVercelTeam) {
+    void push(`/t/${firstVercelTeam.slug}`);
+    return <Loading />;
+  }
   return <RedirectToTeam />;
 }
 

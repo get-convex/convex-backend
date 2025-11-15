@@ -19,19 +19,6 @@ export default async function handler(
 
   const { resource_id, path, url } = req.query;
 
-  let returnTo = state && !state.startsWith("/api") ? state : "/";
-
-  // url is a query parameter that is only set by the Vercel auth flow
-  // if it is set, and looks like a redirect to the device-auth flow,
-  // we redirect to the device-auth flow.
-  if (typeof url === "string" && url.startsWith("https://auth.convex.dev")) {
-    returnTo = url;
-  } else if (typeof path === "string" || typeof resource_id === "string") {
-    const key = typeof path === "string" ? "vercelPath" : "projectId";
-    const value = typeof path === "string" ? path : resource_id;
-    returnTo = addQueryParam(returnTo, key, value as string);
-  }
-
   if (!code) {
     return res.status(400).send("No code provided");
   }
@@ -47,7 +34,7 @@ export default async function handler(
         },
       });
 
-    const { sealedSession } = authenticateResponse;
+    const { sealedSession, authenticationMethod } = authenticateResponse;
 
     // Store the session in a cookie
     const secure =
@@ -59,7 +46,23 @@ export default async function handler(
       `wos-session=${sealedSession}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=${60 * 60 * 24 * 14}`,
     );
 
-    // Use the information in `user` for further business logic.
+    let returnTo = state && !state.startsWith("/api") ? state : "/";
+
+    // url is a query parameter that is only set by the Vercel auth flow
+    // if it is set, and looks like a redirect to the device-auth flow,
+    // we redirect to the device-auth flow.
+    if (typeof url === "string" && url.startsWith("https://auth.convex.dev")) {
+      returnTo = url;
+    } else if (typeof path === "string" || typeof resource_id === "string") {
+      const key = typeof path === "string" ? "vercelPath" : "projectId";
+      const value = typeof path === "string" ? path : resource_id;
+      returnTo = addQueryParam(returnTo, key, value as string);
+    }
+
+    // @ts-expect-error VercelOAuth is a real authentication method
+    if (authenticationMethod === "VercelOAuth") {
+      returnTo = addQueryParam(returnTo, "vercelLogin", "true");
+    }
 
     // Redirect the user to the homepage
     res.redirect(returnTo);
