@@ -31,7 +31,10 @@ import {
 } from "./config.js";
 import { recursivelyDelete } from "./fsUtils.js";
 import { componentServerTS } from "../codegen_templates/component_server.js";
-import { ComponentDirectory } from "./components/definition/directoryStructure.js";
+import {
+  ComponentDirectory,
+  isComponentDirectory,
+} from "./components/definition/directoryStructure.js";
 import { StartPushResponse } from "./deployApi/startPush.js";
 import {
   componentApiDTS,
@@ -65,8 +68,24 @@ export async function doCodegenForNewProject(ctx: Context) {
   const configPath = await configFilepath(ctx);
   const functionsPath = functionsDir(configPath, existingProjectConfig);
   await doInitCodegen(ctx, functionsPath, true);
-  // Disable typechecking since there isn't any code yet.
-  await doCodegen(ctx, functionsPath, "disable");
+
+  const componentDir = isComponentDirectory(ctx, functionsPath, true);
+  if (componentDir.kind === "err") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Invalid component directory: ${componentDir.why}`,
+    });
+  }
+
+  if (componentDir.component.isRootWithoutConfig) {
+    // Disable typechecking since there isn't any code yet.
+    await doCodegen(ctx, functionsPath, "disable");
+  } else {
+    await withTmpDir(async (tmpDir) => {
+      await doInitialComponentCodegen(ctx, tmpDir, componentDir.component);
+    });
+  }
 }
 
 export async function doInitCodegen(
