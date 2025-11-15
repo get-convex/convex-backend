@@ -72,14 +72,14 @@ Applied per document and to any nested `Object` unless stated otherwise.
 
 Number of functions you can run at a time for each function type.
 
-|                | Free/Starter | Professional<sup>\*</sup> |
-| -------------- | ------------ | ------------------------- |
-| Queries        | 16           | 256                       |
-| Mutations      | 16           | 256                       |
-| V8 actions     | 64           | 256                       |
-| Node actions   | 64           | 1000                      |
-| HTTP actions   | 16           | 128                       |
-| Scheduled jobs | 10           | 300                       |
+|                        | Free/Starter | Professional<sup>\*</sup> |
+| ---------------------- | ------------ | ------------------------- |
+| Queries                | 16           | 256                       |
+| Mutations              | 16           | 256                       |
+| Convex runtime actions | 64           | 256                       |
+| Node actions           | 64           | 1000                      |
+| HTTP actions           | 16           | 128                       |
+| Scheduled jobs         | 10           | 300                       |
 
 <sup>*</sup> Limits can be lifted for Professional plan customers on a
 case-by-case basis. Send us support message through the dashboard to discuss
