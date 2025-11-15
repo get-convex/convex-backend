@@ -129,9 +129,10 @@ use crate::{
 };
 
 // Vitess limits query results to 64MiB.
-// As documents can be up to 1MiB (plus some overhead), we may need to fall back
-// to a much smaller page size if we hit the limit while loading documents.
-const FALLBACK_PAGE_SIZE: u32 = 10;
+// As documents can be up to 1MiB (plus some overhead) and system documents can
+// be larger still, we may need to fall back to a much smaller page size if we
+// hit the limit while loading documents.
+const FALLBACK_PAGE_SIZE: u32 = 5;
 
 #[derive(Clone, Debug)]
 pub struct MySqlInstanceName {
