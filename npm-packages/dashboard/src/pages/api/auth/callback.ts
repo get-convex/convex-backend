@@ -51,16 +51,18 @@ export default async function handler(
     // url is a query parameter that is only set by the Vercel auth flow
     // if it is set, and looks like a redirect to the device-auth flow,
     // we redirect to the device-auth flow.
-    if (typeof url === "string" && url.startsWith("https://auth.convex.dev")) {
+    if (
+      typeof url === "string" &&
+      process.env.WORKOS_LOGIN_URL &&
+      url.startsWith(process.env.WORKOS_LOGIN_URL)
+    ) {
       returnTo = url;
     } else if (typeof path === "string" || typeof resource_id === "string") {
       const key = typeof path === "string" ? "vercelPath" : "projectId";
       const value = typeof path === "string" ? path : resource_id;
       returnTo = addQueryParam(returnTo, key, value as string);
-    }
-
-    // @ts-expect-error VercelOAuth is a real authentication method
-    if (authenticationMethod === "VercelOAuth") {
+      // @ts-expect-error VercelOAuth is a real authentication method
+    } else if (authenticationMethod === "VercelOAuth") {
       returnTo = addQueryParam(returnTo, "vercelLogin", "true");
     }
 
