@@ -755,7 +755,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// internal_document_ts))
     #[try_stream(ok = (Timestamp, Option<(Timestamp, InternalDocumentId)>), error = anyhow::Error)]
     async fn expired_documents(
-        rt: &RT,
         persistence: Arc<dyn PersistenceReader>,
         cursor: RepeatableTimestamp,
         min_document_snapshot_ts: RepeatableTimestamp,
@@ -793,12 +792,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 let Some(prev_rev_ts) = prev_ts else {
                     log_document_retention_scanned_document(maybe_doc.is_none(), false);
                     if maybe_doc.is_none() {
-                        anyhow::ensure!(
-                            ts <= Timestamp::try_from(rt.unix_timestamp().as_system_time())?
-                                .sub(*DOCUMENT_RETENTION_DELAY)?,
-                            "Tried to delete document (id: {id}, ts: {ts}), which was out of the \
-                             retention window"
-                        );
                         yield (ts, Some((ts, id)));
                     } else {
                         yield (ts, None);
@@ -806,13 +799,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     continue;
                 };
 
-                anyhow::ensure!(
-                    prev_rev_ts
-                        <= Timestamp::try_from(rt.unix_timestamp().as_system_time())?
-                            .sub(*DOCUMENT_RETENTION_DELAY)?,
-                    "Tried to delete document (id: {id}, ts: {prev_rev_ts}), which was out of the \
-                     retention window"
-                );
                 log_document_retention_scanned_document(maybe_doc.is_none(), true);
                 yield (ts, Some((prev_rev_ts, id)));
 
@@ -853,7 +839,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let snapshot_ts = min_snapshot_ts;
 
         tracing::trace!("delete_documents: about to grab chunks");
-        let expired_chunks = Self::expired_documents(rt, reader, cursor, min_snapshot_ts)
+        let expired_chunks = Self::expired_documents(reader, cursor, min_snapshot_ts)
             .try_chunks2(*DOCUMENT_RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
         while let Some(scanned_chunk) = expired_chunks.try_next().await? {
@@ -1239,14 +1225,23 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete_documents: loaded checkpoint: {cursor:?}");
+
+                // Only delete documents up to (now() -
+                // DOCUMENT_RETENTION_DELAY), even if min_document_snapshot_ts
+                // is ahead of that point.
+                let max_end_cursor = min_document_snapshot_ts.prior_ts(
+                    (*min_document_snapshot_ts)
+                        .min(rt.generate_timestamp()?.sub(*DOCUMENT_RETENTION_DELAY)?),
+                )?;
                 let (new_cursor, scanned_documents) = Self::delete_documents(
-                    min_document_snapshot_ts,
+                    max_end_cursor,
                     persistence.clone(),
                     &rt,
                     cursor,
                     retention_rate_limiter.clone(),
                 )
                 .await?;
+                max_end_cursor.prior_ts(*new_cursor)?;
                 tracing::debug!("go_delete_documents: Checkpointing at: {new_cursor:?}");
 
                 Self::checkpoint(
@@ -1259,9 +1254,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
 
-                // If we scanned >= the scanned batch, we probably returned
-                // early and have more work to do, so run again immediately.
-                is_working = scanned_documents >= *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS;
+                is_working = new_cursor < min_document_snapshot_ts;
                 if is_working {
                     tracing::trace!(
                         "go_delete_documents: processed {scanned_documents:?} rows, more to go"
@@ -1855,7 +1848,7 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn test_expired_documents(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_expired_documents(_rt: TestRuntime) -> anyhow::Result<()> {
         let p = TestPersistence::new();
         let mut id_generator = TestIdGenerator::new();
         let table: TableName = str::parse("table")?;
@@ -1889,7 +1882,6 @@ mod tests {
         let reader = p.reader();
 
         let scanned_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
-            &rt,
             reader,
             RepeatableTimestamp::MIN,
             min_snapshot_ts,
@@ -1933,7 +1925,7 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn test_delete_document_chunk(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_delete_document_chunk(_rt: TestRuntime) -> anyhow::Result<()> {
         unsafe { env::set_var("DOCUMENT_RETENTION_DELETE_PARALLEL", "4") };
         let p = Arc::new(TestPersistence::new());
         let mut id_generator = TestIdGenerator::new();
@@ -1964,7 +1956,6 @@ mod tests {
         let reader = p.reader();
 
         let scanned_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
-            &rt,
             reader,
             RepeatableTimestamp::MIN,
             min_snapshot_ts,
