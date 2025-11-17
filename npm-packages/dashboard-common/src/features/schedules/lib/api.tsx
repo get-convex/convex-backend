@@ -86,3 +86,34 @@ export function useCancelJob(): (
     }
   };
 }
+
+export function useDeleteScheduledJobsTable(): () => Promise<void> {
+  const deploymentUrl = useDeploymentUrl();
+  const adminKey = useAdminKey();
+  const { selectedNent } = useNents();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
+
+  return async () => {
+    const body = JSON.stringify({
+      componentId: selectedNent?.id ?? undefined,
+    });
+    const res = await fetch(
+      `${deploymentUrl}/api/delete_scheduled_functions_table`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Convex ${adminKey}`,
+          "Content-Type": "application/json",
+        },
+        body,
+      },
+    );
+    if (res.status !== 200) {
+      const err = await res.json();
+      reportHttpError("POST", res.url, err);
+      toast("error", err.message);
+    } else {
+      toast("success", "Scheduled functions table deleted.");
+    }
+  };
+}
