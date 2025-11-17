@@ -408,7 +408,7 @@ pub static INDEX_RETENTION_DELAY: LazyLock<Duration> =
 ///
 /// Smaller window means we keep less historical data around.
 pub static DOCUMENT_RETENTION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config("DOCUMENT_RETENTION_DELAY", 60 * 60 * 24 * 79))
+    Duration::from_secs(env_config("DOCUMENT_RETENTION_DELAY", 60 * 60 * 24 * 30))
 });
 
 /// When to start rejecting new additions to the search memory index.
