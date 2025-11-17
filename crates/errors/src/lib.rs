@@ -511,13 +511,13 @@ impl ErrorMetadata {
             ErrorCode::BadRequest
             | ErrorCode::Conflict
             | ErrorCode::NotFound
-            | ErrorCode::PaginationLimit
             | ErrorCode::Forbidden
             | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
             // Unauthenticated errors happen regularly, e.g. for expired ID tokens
-            ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
-                Some((sentry::Level::Info, Some(0.001)))
-            },
+            // Pagination limits also happen regularly, e.g. for large queries
+            ErrorCode::Unauthenticated
+            | ErrorCode::AuthUpdateFailed
+            | ErrorCode::PaginationLimit => Some((sentry::Level::Info, Some(0.001))),
             ErrorCode::OutOfRetention
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
