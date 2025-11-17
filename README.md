@@ -47,6 +47,8 @@ instructions. Community support for self-hosting is available in the
   discussions.
 - Report issues when building and using the open source Convex backend through
   [GitHub Issues](https://github.com/get-convex/convex-backend/issues)
+- By submitting pull requests, you confirm that Convex can use, modify, copy,
+  and redistribute the contribution, under the terms of its choice.
 
 ## Building from source
 

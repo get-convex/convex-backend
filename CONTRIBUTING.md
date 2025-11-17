@@ -32,3 +32,6 @@ Instructions for building and running Convex packages locally:
 Note: If you just want to self-host Convex and not modify the codebase, we
 recommend using the pre-built Docker image or binary. See the
 [self-hosted README](self-hosted/README.md) for more information.
+
+By submitting pull requests, you confirm that Convex can use, modify, copy, and
+redistribute the contribution, under the terms of its choice.
