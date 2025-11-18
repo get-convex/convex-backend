@@ -117,7 +117,8 @@ function Billing({ team }: { team: TeamResponse }) {
                       >
                         pricing page
                       </Link>
-                      .
+                      . Please reach out if any of these limits are not
+                      sufficient.
                     </div>
                     <Plans
                       team={team}
