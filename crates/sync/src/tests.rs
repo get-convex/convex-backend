@@ -57,6 +57,7 @@ use model::{
 use must_let::must_let;
 use parking_lot::Mutex;
 use runtime::testing::TestRuntime;
+use serde_json::json;
 use sync_types::{
     types::SerializedArgs,
     AuthenticationToken,
@@ -521,7 +522,7 @@ async fn test_query_failure(rt: TestRuntime) -> anyhow::Result<()> {
     let query3: Query = Query {
         query_id: QueryId::new(2),
         udf_path: "sync:succeed".parse()?,
-        args: SerializedArgs::from_args(vec![])?,
+        args: SerializedArgs::from_args(vec![json!({})])?,
         journal: None,
         component_path: None,
     };

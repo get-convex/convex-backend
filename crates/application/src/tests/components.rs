@@ -53,7 +53,7 @@ use crate::{
 async fn run_function<RT: Runtime>(
     application: &Application<RT>,
     udf_path: CanonicalizedUdfPath,
-    args: Vec<JsonValue>,
+    args: JsonValue,
 ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
     run_component_function(application, udf_path, args, ComponentPath::root()).await
 }
@@ -61,7 +61,7 @@ async fn run_function<RT: Runtime>(
 async fn run_component_function<RT: Runtime>(
     application: &Application<RT>,
     udf_path: CanonicalizedUdfPath,
-    args: Vec<JsonValue>,
+    args: JsonValue,
     component: ComponentPath,
 ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
     application
@@ -71,7 +71,7 @@ async fn run_component_function<RT: Runtime>(
                 component,
                 udf_path,
             },
-            args,
+            vec![args],
             Identity::system(),
             FunctionCaller::Test,
         )
@@ -85,7 +85,7 @@ async fn test_run_component_query(rt: TestRuntime) -> anyhow::Result<()> {
     application
         .load_component_tests_modules("with-schema")
         .await?;
-    let result = run_function(&application, "componentEntry:list".parse()?, vec![]).await??;
+    let result = run_function(&application, "componentEntry:list".parse()?, json!({})).await??;
     assert_eq!(result.log_lines.iter().collect_vec().len(), 1);
     Ok(())
 }
@@ -99,7 +99,7 @@ async fn test_run_component_mutation(rt: TestRuntime) -> anyhow::Result<()> {
     let result = run_function(
         &application,
         "componentEntry:insert".parse()?,
-        vec![json!({"channel": "random", "text": "convex is kewl"})],
+        json!({"channel": "random", "text": "convex is kewl"}),
     )
     .await?;
     assert!(result.is_ok());
@@ -112,7 +112,7 @@ async fn test_run_component_action(rt: TestRuntime) -> anyhow::Result<()> {
     application
         .load_component_tests_modules("with-schema")
         .await?;
-    let result = run_function(&application, "componentEntry:hello".parse()?, vec![]).await??;
+    let result = run_function(&application, "componentEntry:hello".parse()?, json!({})).await??;
     // No logs returned because only the action inside the component logs.
     assert_eq!(result.log_lines.iter().collect_vec().len(), 0);
     Ok(())
@@ -133,11 +133,19 @@ async fn test_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::
         )
         .await?;
     application.commit_test(tx).await?;
-    let result =
-        run_function(&application, "componentEntry:envVarQuery".parse()?, vec![]).await??;
+    let result = run_function(
+        &application,
+        "componentEntry:envVarQuery".parse()?,
+        json!({}),
+    )
+    .await??;
     assert_eq!(ConvexValue::Null, result.value.unpack()?);
-    let result =
-        run_function(&application, "componentEntry:envVarAction".parse()?, vec![]).await??;
+    let result = run_function(
+        &application,
+        "componentEntry:envVarAction".parse()?,
+        json!({}),
+    )
+    .await??;
     assert_eq!(ConvexValue::Null, result.value.unpack()?);
     Ok(())
 }
@@ -149,14 +157,14 @@ async fn test_system_env_vars_not_accessible_in_components(rt: TestRuntime) -> a
     let result = run_function(
         &application,
         "componentEntry:systemEnvVarQuery".parse()?,
-        vec![],
+        json!({}),
     )
     .await??;
     assert_eq!(ConvexValue::Null, result.value.unpack()?);
     let result = run_function(
         &application,
         "componentEntry:systemEnvVarAction".parse()?,
-        vec![],
+        json!({}),
     )
     .await??;
     assert_eq!(ConvexValue::Null, result.value.unpack()?);
@@ -172,7 +180,7 @@ async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
     let error = run_function(
         &application,
         "errors:throwSystemErrorFromQuery".parse()?,
-        vec![],
+        json!({}),
     )
     .await
     .unwrap_err();
@@ -183,7 +191,7 @@ async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
     let result = run_function(
         &application,
         "errors:throwSystemErrorFromAction".parse()?,
-        vec![],
+        json!({}),
     )
     .await?
     .unwrap_err();
@@ -199,7 +207,7 @@ async fn test_paginate_within_component(rt: TestRuntime) -> anyhow::Result<()> {
     let err = run_function(
         &application,
         "errors:tryPaginateWithinComponent".parse()?,
-        vec![],
+        json!({}),
     )
     .await?
     .unwrap_err();
@@ -250,7 +258,7 @@ async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> 
 async fn test_date_now_within_component(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules("basic").await?;
-    let result = run_function(&application, "componentEntry:dateNow".parse()?, vec![])
+    let result = run_function(&application, "componentEntry:dateNow".parse()?, json!({}))
         .await??
         .value;
     must_let!(let ConvexValue::Array(dates) = result.unpack()?);
@@ -270,9 +278,13 @@ async fn test_date_now_within_component(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_math_random_within_component(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules("basic").await?;
-    let result = run_function(&application, "componentEntry:mathRandom".parse()?, vec![])
-        .await??
-        .value;
+    let result = run_function(
+        &application,
+        "componentEntry:mathRandom".parse()?,
+        json!({}),
+    )
+    .await??
+    .value;
     must_let!(let ConvexValue::Array(randoms) = result.unpack()?);
     assert_eq!(randoms.len(), 2);
     must_let!(let ConvexValue::Float64(parent_random) = randoms[0].clone());
@@ -291,7 +303,7 @@ pub async fn unmount_component(
     run_component_function(
         application,
         "messages:insertMessage".parse()?,
-        vec![example_message().into()],
+        example_message().into(),
         component_path(),
     )
     .await??;
@@ -356,7 +368,7 @@ async fn test_unmount_cannot_call_functions(rt: TestRuntime) -> anyhow::Result<(
     let result = run_component_function(
         &application,
         "messages:listMessages".parse()?,
-        vec![assert_obj!().into()],
+        json!({}),
         ComponentPath::deserialize(Some("component"))?,
     )
     .await?;
@@ -489,7 +501,7 @@ async fn test_mounted_component_delete_component_errors_out(rt: TestRuntime) -> 
 async fn test_infinite_loop_in_component(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules("basic").await?;
-    let err = run_function(&application, "errors:tryInfiniteLoop".parse()?, vec![])
+    let err = run_function(&application, "errors:tryInfiniteLoop".parse()?, json!({}))
         .await?
         .unwrap_err();
     assert_contains(&err.error, "Cross component call depth limit exceeded");
@@ -547,7 +559,7 @@ async fn test_component_status_skips_staged_index(
     let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules("basic").await?;
     // Insert a doc into a table
-    run_function(&application, "errors:insertDoc".parse()?, vec![])
+    run_function(&application, "errors:insertDoc".parse()?, json!({}))
         .await?
         .unwrap();
     // Don't let the index get backfilled before we can check its status
