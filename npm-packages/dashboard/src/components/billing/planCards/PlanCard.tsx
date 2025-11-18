@@ -36,7 +36,7 @@ export function PlanCard({
             <ul className="ml-4 list-disc">
               <li>For hobbyists and prototypes</li>
               <li>Up to 6 team members</li>
-              <li>Up to 20 projects</li>
+              <li>Up to 40 deployments</li>
               <li>Projects are disabled after exceeding monthly usage limit</li>
               <li>Community-driven support on Discord</li>
             </ul>
@@ -55,7 +55,7 @@ export function PlanCard({
           {plan.planType === "CONVEX_PROFESSIONAL" && (
             <ul className="ml-4 list-disc">
               <li>Everything in Starter</li>
-              <li>Unlimited projects</li>
+              <li>120 deployments</li>
               <li>Higher included usage limits</li>
               <li className="font-semibold">
                 Usage-based pricing applies for usage above included limits
