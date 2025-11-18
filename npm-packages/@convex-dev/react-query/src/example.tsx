@@ -22,6 +22,7 @@ import "./index.css";
 import { FormEvent, useState } from "react";
 import { api } from "../convex/_generated/api.js";
 import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
+import { SuspenseMessageCountWithFallback } from "./suspense.js";
 
 // Build a global convexClient wherever you would normally create a TanStack Query client.
 const convexClient = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
@@ -105,7 +106,7 @@ function SignIn() {
 function Weather() {
   const { data, isPending, error } = useQuery(
     // This query doesn't update reactively, it refetches like a normal queryFn.
-    convexAction(api.weather.getSFWeather, {}),
+    convexAction(api.weather.getSFWeather),
   );
   if (isPending || error) return <span>?</span>;
   const fetchedAt = new Date(data.fetchedAt);
@@ -144,19 +145,53 @@ function MessageCount() {
   );
 }
 
+function SearchMessages() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const { data, isPending } = useQuery(
+    convexQuery(
+      api.messages.search,
+      searchTerm ? { query: searchTerm, limit: 5 } : "skip",
+    ),
+  );
+
+  return (
+    <div className="search-messages">
+      <input
+        type="text"
+        placeholder="Search messages..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+      {isPending ? (
+        <div>Searching...</div>
+      ) : data && data.length > 0 ? (
+        <ul>
+          {data.map((message) => (
+            <li key={message._id}>{message.body}</li>
+          ))}
+        </ul>
+      ) : searchTerm ? (
+        <div>No results found</div>
+      ) : null}
+    </div>
+  );
+}
+
 function App() {
   const { signOut } = useAuthActions();
+
   const { data, error, isPending } = useQuery({
     // This query updates reactively.
-    ...convexQuery(api.messages.list, {}),
+    ...convexQuery(api.messages.list),
     initialData: [],
   });
+
   const {
     data: user,
     error: _userError,
     isPending: _userIsPending,
   } = useQuery({
-    ...convexQuery(api.user.getCurrent, {}),
+    ...convexQuery(api.user.getCurrent),
     initialData: null,
   });
 
@@ -166,9 +201,10 @@ function App() {
   });
   async function handleSendMessage(event: FormEvent) {
     event.preventDefault();
+    if (!user?._id) return;
     if (!sending && newMessageText) {
       mutate(
-        { body: newMessageText, author: user?._id },
+        { body: newMessageText, author: user._id },
         {
           onSuccess: () => setNewMessageText(""),
         },
@@ -189,6 +225,8 @@ function App() {
       <h1>Convex Chat</h1>
       <Weather />
       <MessageCount />
+      <SuspenseMessageCountWithFallback />
+      <SearchMessages />
       <p className="badge">
         <span>{user?.email}</span>
       </p>

@@ -8,7 +8,9 @@
   ],
   "exclude": [
     "../src/example.tsx",
+    "../src/suspense.tsx",
     "../src/**/*.test.ts",
+    "../convex/**/*",
     "../src/**/*.mts",
     "../src/package.json"
   ],

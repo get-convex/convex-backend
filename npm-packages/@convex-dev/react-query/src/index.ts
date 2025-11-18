@@ -21,6 +21,8 @@ import {
   FunctionReturnType,
   getFunctionName,
 } from "convex/server";
+
+type EmptyObject = Record<string, never>;
 import { convexToJson } from "convex/values";
 
 // Re-export React Query-friendly names for Convex hooks.
@@ -443,6 +445,13 @@ export class ConvexQueryClient {
   };
 }
 
+type ConvexQueryArgsOrSkip<FuncRef extends FunctionReference<"query">> =
+  keyof FunctionArgs<FuncRef> extends never
+    ? [args?: EmptyObject | "skip"]
+    : EmptyObject extends FunctionArgs<FuncRef>
+      ? [args?: FunctionArgs<FuncRef> | "skip"]
+      : [args: FunctionArgs<FuncRef> | "skip"];
+
 /**
  * Query options factory for Convex query function subscriptions.
  * This options factory requires the `convexQueryClient.queryFn()` has been set
@@ -460,13 +469,12 @@ export class ConvexQueryClient {
  * });
  * ```
  */
-export const convexQuery = <
+export function convexQuery<
   ConvexQueryReference extends FunctionReference<"query">,
-  Args extends FunctionArgs<ConvexQueryReference> | "skip",
 >(
   funcRef: ConvexQueryReference,
-  queryArgs: Args,
-): Args extends "skip"
+  ...argsOrSkip: ConvexQueryArgsOrSkip<ConvexQueryReference>
+): (typeof argsOrSkip)[0] extends "skip"
   ? Pick<
       UseQueryOptions<
         FunctionReturnType<ConvexQueryReference>,
@@ -492,19 +500,28 @@ export const convexQuery = <
         ]
       >,
       "queryKey" | "queryFn" | "staleTime"
-    > => {
+    > {
+  const queryArgs = argsOrSkip[0];
+  const finalArgs = queryArgs ?? {};
   return {
     queryKey: [
       "convexQuery",
       // Make query key serializable
       getFunctionName(funcRef) as unknown as typeof funcRef,
       // TODO bigints are not serializable
-      queryArgs === "skip" ? "skip" : queryArgs,
+      finalArgs === "skip" ? "skip" : finalArgs,
     ],
     staleTime: Infinity,
-    ...(queryArgs === "skip" ? { enabled: false } : {}),
-  };
-};
+    ...(finalArgs === "skip" ? { enabled: false } : {}),
+  } as any;
+}
+
+type ConvexActionArgsOrSkip<FuncRef extends FunctionReference<"action">> =
+  keyof FunctionArgs<FuncRef> extends never
+    ? [args?: EmptyObject | "skip"]
+    : EmptyObject extends FunctionArgs<FuncRef>
+      ? [args?: FunctionArgs<FuncRef> | "skip"]
+      : [args: FunctionArgs<FuncRef> | "skip"];
 
 /**
  * Query options factory for Convex action function.
@@ -523,50 +540,34 @@ export const convexQuery = <
  * });
  * ```
  */
-export const convexAction = <
+export function convexAction<
   ConvexActionReference extends FunctionReference<"action">,
-  Args extends FunctionArgs<ConvexActionReference> | "skip",
 >(
   funcRef: ConvexActionReference,
-  args: Args,
-): Args extends "skip"
-  ? Pick<
-      UseQueryOptions<
-        FunctionReturnType<ConvexActionReference>,
-        Error,
-        FunctionReturnType<ConvexActionReference>,
-        [
-          "convexAction",
-          ConvexActionReference,
-          FunctionArgs<ConvexActionReference>,
-        ]
-      >,
-      "queryKey" | "queryFn" | "staleTime" | "enabled"
-    >
-  : Pick<
-      UseSuspenseQueryOptions<
-        FunctionReturnType<ConvexActionReference>,
-        Error,
-        FunctionReturnType<ConvexActionReference>,
-        [
-          "convexAction",
-          ConvexActionReference,
-          FunctionArgs<ConvexActionReference>,
-        ]
-      >,
-      "queryKey" | "queryFn" | "staleTime"
-    > => {
+  ...argsOrSkip: ConvexActionArgsOrSkip<ConvexActionReference>
+): Pick<
+  UseQueryOptions<
+    FunctionReturnType<ConvexActionReference>,
+    Error,
+    FunctionReturnType<ConvexActionReference>,
+    ["convexAction", ConvexActionReference, FunctionArgs<ConvexActionReference>]
+  >,
+  "queryKey" | "queryFn" | "staleTime" | "enabled"
+> {
+  const args = argsOrSkip[0];
+  const finalArgs = args ?? {};
   return {
     queryKey: [
       "convexAction",
       // Make query key serializable
       getFunctionName(funcRef) as unknown as typeof funcRef,
       // TODO bigints are not serializable
-      args === "skip" ? {} : args,
+      finalArgs === "skip" ? {} : finalArgs,
     ],
-    ...(args === "skip" ? { enabled: false } : {}),
-  };
-};
+    staleTime: Infinity,
+    ...(finalArgs === "skip" ? { enabled: false } : {}),
+  } as any;
+}
 
 function throwBecauseNotConvexQuery(
   context: QueryFunctionContext<ReadonlyArray<unknown>>,
