@@ -447,11 +447,11 @@ pub fn retention_advance_timestamp_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
-    RETENTION_DELETE_SECONDS,
-    "Time for retention to complete deletions"
+    INDEX_RETENTION_DELETE_SECONDS,
+    "Time for index retention to complete deletions"
 );
-pub fn retention_delete_timer() -> Timer<VMHistogram> {
-    Timer::new(&RETENTION_DELETE_SECONDS)
+pub fn index_retention_delete_timer() -> Timer<VMHistogram> {
+    Timer::new(&INDEX_RETENTION_DELETE_SECONDS)
 }
 
 register_convex_histogram!(
@@ -463,11 +463,11 @@ pub fn retention_delete_documents_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
-    RETENTION_DELETE_CHUNK_SECONDS,
-    "Time for retention to delete one chunk"
+    INDEX_RETENTION_DELETE_CHUNK_SECONDS,
+    "Time for index retention to delete one chunk"
 );
-pub fn retention_delete_chunk_timer() -> Timer<VMHistogram> {
-    Timer::new(&RETENTION_DELETE_CHUNK_SECONDS)
+pub fn index_retention_delete_chunk_timer() -> Timer<VMHistogram> {
+    Timer::new(&INDEX_RETENTION_DELETE_CHUNK_SECONDS)
 }
 
 register_convex_histogram!(
@@ -478,17 +478,20 @@ pub fn retention_delete_document_chunk_timer() -> Timer<VMHistogram> {
     Timer::new(&RETENTION_DELETE_DOCUMENT_CHUNK_SECONDS)
 }
 
-register_convex_histogram!(RETENTION_CURSOR_AGE_SECONDS, "Age of the retention cursor");
-pub fn log_retention_cursor_age(age_secs: f64) {
-    log_distribution(&RETENTION_CURSOR_AGE_SECONDS, age_secs)
+register_convex_histogram!(
+    INDEX_RETENTION_CURSOR_AGE_SECONDS,
+    "Age of the index retention cursor"
+);
+pub fn log_index_retention_cursor_age(age_secs: f64) {
+    log_distribution(&INDEX_RETENTION_CURSOR_AGE_SECONDS, age_secs)
 }
 
 register_convex_histogram!(
-    RETENTION_CURSOR_LAG_SECONDS,
-    "Lag between the retention cursor and the min index snapshot"
+    INDEX_RETENTION_CURSOR_LAG_SECONDS,
+    "Lag between the index retention cursor and the min index snapshot"
 );
-pub fn log_retention_cursor_lag(age_secs: f64) {
-    log_distribution(&RETENTION_CURSOR_LAG_SECONDS, age_secs)
+pub fn log_index_retention_cursor_lag(age_secs: f64) {
+    log_distribution(&INDEX_RETENTION_CURSOR_LAG_SECONDS, age_secs)
 }
 
 register_convex_histogram!(
@@ -508,11 +511,11 @@ pub fn log_document_retention_cursor_lag(age_secs: f64) {
 }
 
 register_convex_counter!(
-    RETENTION_MISSING_CURSOR_INFO,
+    INDEX_RETENTION_MISSING_CURSOR_INFO,
     "Index retention has no cursor"
 );
-pub fn log_retention_no_cursor() {
-    log_counter(&RETENTION_MISSING_CURSOR_INFO, 1)
+pub fn log_index_retention_no_cursor() {
+    log_counter(&INDEX_RETENTION_MISSING_CURSOR_INFO, 1)
 }
 
 register_convex_counter!(
@@ -524,13 +527,13 @@ pub fn log_document_retention_no_cursor() {
 }
 
 register_convex_counter!(
-    RETENTION_SCANNED_DOCUMENT_TOTAL,
-    "Count of documents scanned by retention",
+    INDEX_RETENTION_SCANNED_DOCUMENT_TOTAL,
+    "Count of documents scanned by index retention",
     &["tombstone", "prev_rev"]
 );
-pub fn log_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
+pub fn log_index_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
     log_counter_with_labels(
-        &RETENTION_SCANNED_DOCUMENT_TOTAL,
+        &INDEX_RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
         vec![
             StaticMetricLabel::new(

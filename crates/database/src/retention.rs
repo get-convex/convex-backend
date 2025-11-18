@@ -132,26 +132,26 @@ use value::InternalDocumentId;
 
 use crate::{
     metrics::{
+        index_retention_delete_chunk_timer,
+        index_retention_delete_timer,
         latest_min_document_snapshot_timer,
         latest_min_snapshot_timer,
         log_document_retention_cursor_age,
         log_document_retention_cursor_lag,
         log_document_retention_no_cursor,
         log_document_retention_scanned_document,
-        log_retention_cursor_age,
-        log_retention_cursor_lag,
+        log_index_retention_cursor_age,
+        log_index_retention_cursor_lag,
+        log_index_retention_no_cursor,
+        log_index_retention_scanned_document,
         log_retention_documents_deleted,
         log_retention_expired_index_entry,
         log_retention_index_entries_deleted,
-        log_retention_no_cursor,
-        log_retention_scanned_document,
         log_retention_ts_advanced,
         log_snapshot_verification_age,
         retention_advance_timestamp_timer,
-        retention_delete_chunk_timer,
         retention_delete_document_chunk_timer,
         retention_delete_documents_timer,
-        retention_delete_timer,
     },
     snapshot_manager::SnapshotManager,
     BootstrapMetadata,
@@ -579,7 +579,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             // If this happens for a tombstone, it means the document was created and
             // deleted in the same transaction, with no index rows.
             let Some(prev_rev) = prev_rev else {
-                log_retention_scanned_document(maybe_doc.is_none(), false);
+                log_index_retention_scanned_document(maybe_doc.is_none(), false);
                 continue;
             };
             let DocumentRevision {
@@ -594,10 +594,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     prev_ts = prev_rev.ts
                 );
                 report_error(&mut e).await;
-                log_retention_scanned_document(maybe_doc.is_none(), false);
+                log_index_retention_scanned_document(maybe_doc.is_none(), false);
                 continue;
             };
-            log_retention_scanned_document(maybe_doc.is_none(), true);
+            log_index_retention_scanned_document(maybe_doc.is_none(), true);
             for (index_id, (_, index_fields)) in all_indexes
                 .iter()
                 .filter(|(_, (index, _))| *index.table() == id.table())
@@ -967,7 +967,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         mut new_cursor: Timestamp,
     ) -> anyhow::Result<(Timestamp, usize)> {
-        let _timer = retention_delete_chunk_timer();
+        let _timer = index_retention_delete_chunk_timer();
         let index_entries_to_delete = delete_chunk.len();
         tracing::trace!("delete: got entries to delete {index_entries_to_delete:?}");
         for index_entry_to_delete in delete_chunk.iter() {
@@ -1087,7 +1087,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             );
             let span = get_sampled_span("", "delete_indexes", &mut rt.rng());
             let r: anyhow::Result<()> = async {
-                let _timer = retention_delete_timer();
+                let _timer = index_retention_delete_timer();
                 let cursor = Self::get_checkpoint(
                     reader.as_ref(),
                     snapshot_reader.clone(),
@@ -1307,11 +1307,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     );
                 },
                 RetentionType::Index => {
-                    log_retention_cursor_age(
+                    log_index_retention_cursor_age(
                         (*snapshot_reader.lock().persisted_max_repeatable_ts())
                             .secs_since_f64(*cursor),
                     );
-                    log_retention_cursor_lag(
+                    log_index_retention_cursor_lag(
                         bounds_reader
                             .lock()
                             .min_index_snapshot_ts
@@ -1322,7 +1322,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         } else {
             match retention_type {
                 RetentionType::Document => log_document_retention_no_cursor(),
-                RetentionType::Index => log_retention_no_cursor(),
+                RetentionType::Index => log_index_retention_no_cursor(),
             }
         }
         Ok(())
