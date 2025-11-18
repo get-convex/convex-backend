@@ -10,6 +10,7 @@ overrides:
   esbuild@<=0.24.2: 0.25.0
   form-data@>=2.5.0 <2.5.5: 2.5.5
   form-data@>=4.0.0 <4.0.4: 4.0.4
+  glob@>=11.0.0 <11.1.0: ^11.1.0
   http-proxy-middleware@2.0.8: ^2.0.9
   http-proxy-middleware@2.0.9: ^2.0.9
   http-proxy@1.11.1: ^1.18.1
@@ -15393,8 +15394,8 @@ packages:
     resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
     hasBin: true
 
-  glob@11.0.3:
-    resolution: {integrity: sha512-2Nim7dha1KVkaiF4q6Dj+ngPPMdfvLJEOpZk/jKiUAkqKebpGAWQXAq9z1xu9HKu5lWfqw/FASuccEjyznjPaA==}
+  glob@11.1.0:
+    resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
     hasBin: true
 
@@ -38204,7 +38205,7 @@ snapshots:
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
 
-  glob@11.0.3:
+  glob@11.1.0:
     dependencies:
       foreground-child: 3.3.1
       jackspeak: 4.1.1
@@ -44973,7 +44974,7 @@ snapshots:
 
   resolve-import@2.1.0:
     dependencies:
-      glob: 11.0.3
+      glob: 11.1.0
       walk-up-path: 4.0.0
 
   resolve-pathname@3.0.0: {}
@@ -45058,7 +45059,7 @@ snapshots:
 
   rimraf@6.1.0:
     dependencies:
-      glob: 11.0.3
+      glob: 11.1.0
       package-json-from-dist: 1.0.1
 
   ripemd160@2.0.3:
@@ -46296,7 +46297,7 @@ snapshots:
 
   sync-content@2.0.1:
     dependencies:
-      glob: 11.0.3
+      glob: 11.1.0
       mkdirp: 3.0.1
       path-scurry: 2.0.1
       rimraf: 6.1.0
