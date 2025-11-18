@@ -498,10 +498,12 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
 /// Note that while this serves as an upper bound, retention speed is mostly
 /// limited by `DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS`,
 /// `DOCUMENT_RETENTION_DELETE_CHUNK`, and `DOCUMENT_RETENTION_DELETE_PARALLEL`
+/// TODO(ENG-10039): Increase this after retention has caught up so we don't get
+/// too behind on partitions that have high write rates.
 pub static DOCUMENT_RETENTION_RATE_LIMIT: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "DOCUMENT_RETENTION_RATE_LIMIT",
-        NonZeroU32::new(1024).unwrap(),
+        NonZeroU32::new(100).unwrap(),
     )
 });
 
