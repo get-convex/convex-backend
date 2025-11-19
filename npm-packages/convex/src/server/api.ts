@@ -6,7 +6,7 @@ import {
   RegisteredMutation,
   RegisteredQuery,
 } from "./registration.js";
-import type { UnionToIntersection } from "../type_utils.js";
+import { Expand, UnionToIntersection } from "../type_utils.js";
 import { PaginationOptions, PaginationResult } from "./pagination.js";
 import { functionName } from "./functionName.js";
 import { getFunctionAddress } from "./components/paths.js";
@@ -226,7 +226,7 @@ type FunctionReferencesInModule<Module extends Record<string, any>> = {
   -readonly [ExportName in keyof Module as Module[ExportName]["isConvexFunction"] extends true
     ? ExportName
     : never]: FunctionReferenceFromExport<Module[ExportName]>;
-} & unknown;
+};
 
 /**
  * Given a path to a module and it's type, generate an API type for this module.
@@ -236,17 +236,11 @@ type FunctionReferencesInModule<Module extends Record<string, any>> = {
 type ApiForModule<
   ModulePath extends string,
   Module extends object,
-  LastPathWasSegmented extends boolean,
-> =
-  ModulePath extends SegmentedPath<infer First, infer Rest>
-    ? {
-        [_ in First]: ApiForModule<Rest, Module, true>;
-      }
-    : LastPathWasSegmented extends true
-      ? {
-          [_ in ModulePath]: FunctionReferencesInModule<Module>;
-        }
-      : FunctionReferencesInModule<Module>;
+> = ModulePath extends `${infer First}/${infer Second}`
+  ? {
+      [_ in First]: ApiForModule<Second, Module>;
+    }
+  : { [_ in ModulePath]: FunctionReferencesInModule<Module> };
 
 /**
  * Given the types of all modules in the `convex/` directory, construct the type
@@ -259,42 +253,22 @@ type ApiForModule<
  * @public
  */
 export type ApiFromModules<AllModules extends Record<string, object>> =
-  keyof AllModules & SegmentedPath extends never
-    ? ApiFromNonSegmentedModules<AllModules>
-    : ApiFromSegmentedModules<AllModules>;
-
-// fast path for cases with no segmented modules
-type ApiFromNonSegmentedModules<AllModules extends Record<string, object>> = {
-  [ModulePath in keyof AllModules as keyof FunctionReferencesInModule<
-    AllModules[ModulePath]
-  > extends never
-    ? never
-    : ModulePath]: FunctionReferencesInModule<AllModules[ModulePath]>;
-};
-
-type ApiFromSegmentedModules<AllModules extends Record<string, object>> =
-  ExpandModulesAndDirs<
-    IntersectUnionProperties<{
-      [ModulePath in keyof AllModules as FirstSegment<ModulePath>]: ModulePath extends SegmentedPath<
-        string,
-        infer Rest
-      >
-        ? ApiForModule<Rest, AllModules[ModulePath], true>
-        : ApiForModule<ModulePath & string, AllModules[ModulePath], false>;
-    }>
+  FilterApi<
+    ApiFromModulesAllowEmptyNodes<AllModules>,
+    FunctionReference<any, any, any, any>
   >;
 
-type IntersectUnionProperties<O extends object> = {
-  [K in keyof O]: UnionToIntersection<O[K]>;
-};
-
-type SegmentedPath<
-  First extends string = string,
-  Rest extends string = string,
-> = `${First}/${Rest}`;
-
-type FirstSegment<ModulePath> =
-  ModulePath extends SegmentedPath<infer First> ? First : ModulePath;
+type ApiFromModulesAllowEmptyNodes<AllModules extends Record<string, object>> =
+  ExpandModulesAndDirs<
+    UnionToIntersection<
+      {
+        [ModulePath in keyof AllModules]: ApiForModule<
+          ModulePath & string,
+          AllModules[ModulePath]
+        >;
+      }[keyof AllModules]
+    >
+  >;
 
 /**
  * @public
@@ -302,18 +276,17 @@ type FirstSegment<ModulePath> =
  * Filter a Convex deployment api object for functions which meet criteria,
  * for example all public queries.
  */
-export type FilterApi<API, Predicate> = {
+export type FilterApi<API, Predicate> = Expand<{
   [mod in keyof API as API[mod] extends Predicate
     ? mod
-    : API[mod] extends AnyFunctionReference
+    : API[mod] extends FunctionReference<any, any, any, any>
       ? never
-      : {} extends FilterApi<API[mod], Predicate>
+      : FilterApi<API[mod], Predicate> extends Record<string, never>
         ? never
         : mod]: API[mod] extends Predicate
     ? API[mod]
     : FilterApi<API[mod], Predicate>;
-  // equivalent to Expand without requiring another mapped type
-} & unknown;
+}>;
 
 /**
  * Given an api of type API and a FunctionReference subtype, return an api object
@@ -392,18 +365,12 @@ export function justSchedulable<API>(
  * The differences are:
  * 1. This version is recursive.
  * 2. This stops recursing when it hits a {@link FunctionReference}.
- * 3. This omits empty object properties
  */
-type ExpandModulesAndDirs<ObjectType> =
-  ObjectType extends Record<string, AnyFunctionReference>
-    ? ObjectType
-    : {
-        [Key in keyof ObjectType as keyof ExpandModulesAndDirs<
-          ObjectType[Key]
-        > extends never
-          ? never
-          : Key]: ExpandModulesAndDirs<ObjectType[Key]>;
-      };
+type ExpandModulesAndDirs<ObjectType> = ObjectType extends AnyFunctionReference
+  ? ObjectType
+  : {
+      [Key in keyof ObjectType]: ExpandModulesAndDirs<ObjectType[Key]>;
+    };
 
 /**
  * A {@link FunctionReference} of any type and any visibility with any
