@@ -5,7 +5,7 @@ import {
   ChevronDownIcon,
   DotsVerticalIcon,
 } from "@radix-ui/react-icons";
-import { useContext } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { CreateNewTable } from "@common/features/data/components/DataSidebar";
 import { EmptySection } from "@common/elements/EmptySection";
 import { useNents } from "@common/lib/useNents";
@@ -54,6 +54,24 @@ export function EmptyDataContent({
 
   const sizeMe = <div />;
   const [sized, { width }] = useSize(sizeMe);
+
+  const [fakeRowsCount, setFakeRowsCount] = useState(20);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!tableContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const ROW_HEIGHT = 33;
+        const rowsNeeded = Math.ceil(entry.contentRect.height / ROW_HEIGHT);
+        setFakeRowsCount(rowsNeeded + 5);
+      }
+    });
+    resizeObserver.observe(tableContainerRef.current);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   if (!tableMetadata) {
     return <Loading />;
@@ -129,6 +147,7 @@ export function EmptyDataContent({
           <div
             className="flex h-full w-full flex-col overflow-hidden rounded-sm rounded-t-none border bg-background-secondary"
             inert
+            ref={tableContainerRef}
           >
             <table className="h-full w-full table-fixed">
               <thead>
@@ -136,7 +155,7 @@ export function EmptyDataContent({
                   {EXAMPLE_COLUMNS.map((col) => (
                     <th
                       key={col}
-                      className="border-r p-3 text-left text-xs font-semibold text-content-secondary select-none last:border-r-0"
+                      className="border-r p-2.5 text-left text-xs font-semibold text-content-secondary select-none last:border-r-0"
                     >
                       {col}
                     </th>
@@ -144,13 +163,13 @@ export function EmptyDataContent({
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {Array.from({ length: 20 }).map((_, i) => (
+                {Array.from({ length: fakeRowsCount }).map((_, i) => (
                   <tr key={i} className="group">
                     {EXAMPLE_COLUMNS.map((col) => (
                       // eslint-disable-next-line jsx-a11y/control-has-associated-label
                       <td
                         key={col}
-                        className="border-r p-3 group-last:border-b-0 last:border-r-0"
+                        className="border-r p-2.5 group-last:border-b-0 last:border-r-0"
                       >
                         <div className="h-3 w-full max-w-64 bg-content-secondary/30" />
                       </td>
