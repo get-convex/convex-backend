@@ -23,7 +23,7 @@ type OutcomeNode = {
   inProgress: boolean;
   functionName?: string;
   caller?: string;
-  environment?: string;
+  environment?: "isolate" | "node";
   identityType?: string;
   executionTime?: number;
   localizedTimestamp?: string;
@@ -327,7 +327,11 @@ function ResourcesUsed({
   );
 }
 
-function FunctionEnvironment({ environment }: { environment?: string }) {
+function FunctionEnvironment({
+  environment,
+}: {
+  environment?: "isolate" | "node" | "unknown";
+}) {
   switch (environment) {
     case "isolate":
       return (
@@ -343,6 +347,15 @@ function FunctionEnvironment({ environment }: { environment?: string }) {
         <div className="flex items-center gap-1">
           Node
           <Tooltip tip="This function was executed in Convex's Node.js environment.">
+            <QuestionMarkCircledIcon className="text-content-tertiary" />
+          </Tooltip>
+        </div>
+      );
+    case "unknown":
+      return (
+        <div className="flex items-center gap-1">
+          Unknown
+          <Tooltip tip="This function's environment is unknown.">
             <QuestionMarkCircledIcon className="text-content-tertiary" />
           </Tooltip>
         </div>
@@ -530,13 +543,7 @@ function RequestInfoList({
       </li>
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Started at</span>
-        <span
-          className={
-            outcomeNode?.endTime && outcomeNode?.executionTime
-              ? "truncate text-content-primary"
-              : "truncate text-content-tertiary"
-          }
-        >
+        <span className="truncate text-content-primary">
           {outcomeNode?.endTime && outcomeNode?.executionTime ? (
             new Date(
               outcomeNode.endTime - outcomeNode.executionTime,
@@ -548,13 +555,7 @@ function RequestInfoList({
       </li>
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Completed at</span>
-        <span
-          className={
-            outcomeNode?.endTime
-              ? "truncate text-content-primary"
-              : "truncate text-content-tertiary"
-          }
-        >
+        <span className="truncate text-content-primary">
           {outcomeNode?.endTime ? (
             new Date(outcomeNode.endTime).toLocaleString()
           ) : (
@@ -564,13 +565,7 @@ function RequestInfoList({
       </li>
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Duration</span>
-        <span
-          className={
-            outcomeNode?.executionTime
-              ? "flex items-center gap-1 text-content-primary"
-              : "flex items-center gap-1 text-content-tertiary"
-          }
-        >
+        <span className="flex items-center gap-1 text-content-primary">
           {outcomeNode?.executionTime ? (
             msFormat(outcomeNode.executionTime)
           ) : (
@@ -596,7 +591,11 @@ function RequestInfoList({
       <li className="grid grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Environment</span>
         <span className="truncate text-content-primary">
-          <FunctionEnvironment environment={outcomeNode?.environment} />
+          <FunctionEnvironment
+            environment={
+              outcomeNode ? outcomeNode.environment || "unknown" : undefined
+            }
+          />
         </span>
       </li>
     </ul>
@@ -646,14 +645,9 @@ function ExecutionInfoList({
       </li>
       <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Started at</span>
-        <span
-          className={
-            outcomeNode?.endTime && outcomeNode?.executionTime
-              ? "truncate text-content-primary"
-              : "truncate text-content-tertiary"
-          }
-        >
-          {outcomeNode?.endTime && outcomeNode?.executionTime ? (
+        <span className="truncate text-content-primary">
+          {outcomeNode?.endTime !== undefined &&
+          outcomeNode?.executionTime !== undefined ? (
             new Date(
               outcomeNode.endTime - outcomeNode.executionTime,
             ).toLocaleString()
@@ -664,14 +658,8 @@ function ExecutionInfoList({
       </li>
       <li className="grid min-w-fit grid-cols-2 items-center gap-2 py-1.5">
         <span className="text-content-secondary">Completed at</span>
-        <span
-          className={
-            outcomeNode?.endTime
-              ? "truncate text-content-primary"
-              : "truncate text-content-tertiary"
-          }
-        >
-          {outcomeNode?.endTime ? (
+        <span className="truncate text-content-primary">
+          {outcomeNode?.endTime !== undefined ? (
             new Date(outcomeNode.endTime).toLocaleString()
           ) : (
             <Running />

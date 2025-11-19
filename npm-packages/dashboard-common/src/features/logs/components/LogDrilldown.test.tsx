@@ -59,7 +59,7 @@ describe("useNavigateLogs", () => {
       outcome: { status: "success", statusCode: null },
       executionTimeMs: 100,
       caller: "dashboard",
-      environment: "production",
+      environment: "isolate",
       identityType: "user",
       parentExecutionId: null,
       executionTimestamp: timestamp - 100,
