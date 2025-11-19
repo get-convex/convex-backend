@@ -315,6 +315,10 @@
       "projectFolder": "private-demos/tanstack-start-clerk"
     },
     {
+      "packageName": "tanstack-start-workos",
+      "projectFolder": "private-demos/tanstack-start-workos"
+    },
+    {
       "packageName": "test-data",
       "projectFolder": "private-demos/test-data"
     },

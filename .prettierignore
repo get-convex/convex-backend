@@ -70,6 +70,7 @@ npm-packages/private-demos/quickstarts/nextjs-app-dir-14
 # Should match TanStack demos for now
 npm-packages/private-demos/tanstack-start
 npm-packages/private-demos/tanstack-start-clerk
+npm-packages/private-demos/tanstack-start-workos
 # Docs that we sync over to fivetran
 crates/fivetran_source/docs/
 crates/fivetran_destination/docs/
