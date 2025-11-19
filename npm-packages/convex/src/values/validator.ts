@@ -226,7 +226,7 @@ export const v = {
   /**
    * Allows specifying a value or null.
    */
-  nullable: <T extends GenericValidator>(value: T) => {
+  nullable: <T extends Validator<any, "required", any>>(value: T) => {
     return v.union(value, v.null());
   },
 };
