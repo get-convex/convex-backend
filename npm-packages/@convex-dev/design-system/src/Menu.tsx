@@ -129,14 +129,13 @@ export function MenuLink({
   selected = false,
   shortcut,
   target,
-}: {
-  children: React.ReactChild | React.ReactChild[];
+}: React.PropsWithChildren<{
   href: string;
   disabled?: boolean;
   selected?: boolean;
   shortcut?: Key[];
   target?: "_blank";
-}) {
+}>) {
   return (
     <HeadlessMenu.Item disabled={disabled}>
       {({ active, close }) => (
