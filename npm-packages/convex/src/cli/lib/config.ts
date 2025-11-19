@@ -205,6 +205,9 @@ const createProjectConfigSchema = (strict: boolean) => {
     }),
     generateCommonJSApi: z.boolean().default(false),
 
+    // Optional $schema field for JSON schema validation in editors
+    $schema: z.string().optional(),
+
     // Deprecated fields that have been deprecated for years, only here so we
     // know it's safe to delete them.
     project: z.string().optional(),

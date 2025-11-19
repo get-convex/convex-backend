@@ -941,4 +941,14 @@ test("parseProjectConfig - warns about unknown properties", async () => {
   const stderr4 = stderrSpy.mock.calls.map((call) => call[0]).join("");
   expect(stripVTControlCharacters(stderr4)).not.toContain("Warning");
   expect(stripVTControlCharacters(stderr4)).not.toContain("Unknown");
+
+  // No warning for $schema field (used by JSON schema validation)
+  stderrSpy.mockClear();
+  await parseProjectConfig(ctx, {
+    functions: "convex/",
+    $schema: "../../../convex/schemas/convex.schema.json",
+  });
+  const stderr5 = stderrSpy.mock.calls.map((call) => call[0]).join("");
+  expect(stripVTControlCharacters(stderr5)).not.toContain("Warning");
+  expect(stripVTControlCharacters(stderr5)).not.toContain("Unknown");
 });
