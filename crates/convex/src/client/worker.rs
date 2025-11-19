@@ -9,20 +9,12 @@ use convex_sync_types::{
     AuthenticationToken,
     UdfPath,
 };
-use futures::{
-    stream::FusedStream,
-    StreamExt,
-};
 use tokio::sync::{
     broadcast,
     mpsc,
     oneshot,
 };
-use tokio_stream::wrappers::{
-    BroadcastStream,
-    ReceiverStream,
-    UnboundedReceiverStream,
-};
+use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
     base_client::{
@@ -89,20 +81,18 @@ pub struct UnsubscribeRequest {
 }
 
 pub async fn worker<T: SyncProtocol>(
-    protocol_response_receiver: mpsc::Receiver<ProtocolResponse>,
-    client_request_receiver: mpsc::UnboundedReceiver<ClientRequest>,
+    mut protocol_response_receiver: mpsc::Receiver<ProtocolResponse>,
+    mut client_request_receiver: mpsc::UnboundedReceiver<ClientRequest>,
     mut watch_sender: broadcast::Sender<QueryResults>,
     mut base_client: BaseConvexClient,
     mut protocol_manager: T,
 ) -> Infallible {
     let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
-    let mut protocol_response_stream = ReceiverStream::new(protocol_response_receiver).fuse();
-    let mut client_request_stream = UnboundedReceiverStream::new(client_request_receiver).fuse();
     loop {
         let e = loop {
             match _worker_once(
-                &mut protocol_response_stream,
-                &mut client_request_stream,
+                &mut protocol_response_receiver,
+                &mut client_request_receiver,
                 &mut watch_sender,
                 &mut base_client,
                 &mut protocol_manager,
@@ -118,6 +108,8 @@ pub async fn worker<T: SyncProtocol>(
         tracing::error!(
             "Convex Client Worker failed: {e:?}. Backing off for {delay:?} and retrying."
         );
+        tokio::time::sleep(delay).await;
+
         // Tell the sync protocol to reconnect followed by an immediate resend of
         // ongoing queries/mutations. It's important these happen together to
         // ensure mutation ordering.
@@ -128,37 +120,33 @@ pub async fn worker<T: SyncProtocol>(
             })
             .await;
         base_client.resend_ongoing_queries_mutations();
-        flush_messages(&mut base_client, &mut protocol_manager).await;
-        tokio::time::sleep(delay).await;
+        // We'll flush messages from base_client inside the next call to
+        // `_worker_once`.
     }
 }
 
 async fn _worker_once<T: SyncProtocol>(
-    protocol_response_stream: impl FusedStream<Item = ProtocolResponse>,
-    client_request_stream: impl FusedStream<Item = ClientRequest>,
+    protocol_response_receiver: &mut mpsc::Receiver<ProtocolResponse>,
+    client_request_receiver: &mut mpsc::UnboundedReceiver<ClientRequest>,
     watch_sender: &mut broadcast::Sender<QueryResults>,
     base_client: &mut BaseConvexClient,
     protocol_manager: &mut T,
 ) -> Result<(), ReconnectProtocolReason> {
-    tokio::pin!(protocol_response_stream);
-    tokio::pin!(client_request_stream);
+    // If there are any outgoing messages to flush (e.g. from an outer reconnect),
+    // do so first.
+    communicate(
+        base_client,
+        protocol_response_receiver,
+        watch_sender,
+        protocol_manager,
+    )
+    .await?;
+
     tokio::select! {
-        Some(protocol_response) = protocol_response_stream.next(),
-        if !protocol_response_stream.is_terminated() => {
-            match protocol_response {
-                ProtocolResponse::ServerMessage(msg) => {
-                    if let Some(subscriber_id_to_latest_value) = base_client.receive_message(msg)? {
-                        // Notify watchers of the new consistent query results at new timestamp
-                        let _ = watch_sender.send(subscriber_id_to_latest_value);
-                    }
-                },
-                ProtocolResponse::Failure => {
-                    return Err("ProtocolFailure".into());
-                },
-            }
+        Some(protocol_response) = protocol_response_receiver.recv() => {
+            handle_protocol_response(base_client, watch_sender, protocol_response)?;
         }
-        Some(client_request) = client_request_stream.next(),
-        if !client_request_stream.is_terminated() => {
+        Some(client_request) = client_request_receiver.recv() => {
             match client_request {
                 ClientRequest::Subscribe(query, tx, request_sender) => {
                     let watch = watch_sender.subscribe();
@@ -167,7 +155,13 @@ async fn _worker_once<T: SyncProtocol>(
                         args,
                     } =  query;
                     let subscriber_id = base_client.subscribe(udf_path, args);
-                    flush_messages(base_client, protocol_manager).await;
+                    communicate(
+                        base_client,
+                        protocol_response_receiver,
+                        watch_sender,
+                        protocol_manager,
+                    )
+                    .await?;
 
                     let watch = BroadcastStream::new(watch);
                     let subscription = QuerySubscription {
@@ -185,7 +179,13 @@ async fn _worker_once<T: SyncProtocol>(
                     } = mutation;
                     let result_receiver = base_client
                         .mutation(udf_path, args);
-                    flush_messages(base_client, protocol_manager).await;
+                        communicate(
+                            base_client,
+                            protocol_response_receiver,
+                            watch_sender,
+                            protocol_manager,
+                        )
+                        .await?;
                     let _ = tx.send(result_receiver);
                 },
                 ClientRequest::Action(action, tx) => {
@@ -195,28 +195,83 @@ async fn _worker_once<T: SyncProtocol>(
                     } = action;
                     let result_receiver = base_client
                         .action(udf_path, args);
-                    flush_messages(base_client, protocol_manager).await;
+                        communicate(
+                            base_client,
+                            protocol_response_receiver,
+                            watch_sender,
+                            protocol_manager,
+                        )
+                        .await?;
                     let _ = tx.send(result_receiver);
                 },
                 ClientRequest::Unsubscribe(unsubscribe) => {
                     let UnsubscribeRequest {subscriber_id} = unsubscribe;
                     base_client.unsubscribe(subscriber_id);
-                    flush_messages(base_client, protocol_manager).await;
+                    communicate(
+                        base_client,
+                        protocol_response_receiver,
+                        watch_sender,
+                        protocol_manager,
+                    )
+                    .await?;
                 },
                 ClientRequest::Authenticate(authenticate) => {
                     base_client.set_auth(authenticate.token);
-                    flush_messages(base_client, protocol_manager).await;
+                    communicate(
+                        base_client,
+                        protocol_response_receiver,
+                        watch_sender,
+                        protocol_manager,
+                    )
+                    .await?;
                 },
             }
         },
+        // TODO: this else branch will lead to an infinite loop if both channels
+        // are closed
         else => (),
     }
     Ok(())
 }
 
-/// Flush all messages to the protocol
-async fn flush_messages<P: SyncProtocol>(base_client: &mut BaseConvexClient, protocol: &mut P) {
+/// Flush all messages to the protocol while processing server mesages.
+async fn communicate<P: SyncProtocol>(
+    base_client: &mut BaseConvexClient,
+    protocol_response_receiver: &mut mpsc::Receiver<ProtocolResponse>,
+    watch_sender: &mut broadcast::Sender<QueryResults>,
+    protocol: &mut P,
+) -> Result<(), ReconnectProtocolReason> {
     while let Some(modification) = base_client.pop_next_message() {
-        let _ = protocol.send(modification).await;
+        let mut send_future = protocol.send(modification);
+        loop {
+            tokio::select! {
+               _ = &mut send_future => break,
+               // Keep processing protocol responses while waiting so that we
+               // don't deadlock with the websocket worker.
+               Some(protocol_response) = protocol_response_receiver.recv() => {
+                   handle_protocol_response(base_client, watch_sender, protocol_response)?;
+               }
+            }
+        }
     }
+    Ok(())
+}
+
+fn handle_protocol_response(
+    base_client: &mut BaseConvexClient,
+    watch_sender: &mut broadcast::Sender<QueryResults>,
+    protocol_response: ProtocolResponse,
+) -> Result<(), ReconnectProtocolReason> {
+    match protocol_response {
+        ProtocolResponse::ServerMessage(msg) => {
+            if let Some(subscriber_id_to_latest_value) = base_client.receive_message(msg)? {
+                // Notify watchers of the new consistent query results at new timestamp
+                let _ = watch_sender.send(subscriber_id_to_latest_value);
+            }
+        },
+        ProtocolResponse::Failure => {
+            return Err("ProtocolFailure".into());
+        },
+    }
+    Ok(())
 }
