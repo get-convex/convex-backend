@@ -57,6 +57,7 @@ use common::{
         INDEX_RETENTION_DELETE_CHUNK,
         INDEX_RETENTION_DELETE_PARALLEL,
         MAX_RETENTION_DELAY_SECONDS,
+        RETENTION_CHECKPOINT_LIMIT_PER_MINUTE,
         RETENTION_DELETES_ENABLED,
         RETENTION_DELETE_BATCH,
         RETENTION_DOCUMENT_DELETES_ENABLED,
@@ -81,6 +82,7 @@ use common::{
     },
     query::Order,
     runtime::{
+        new_rate_limiter,
         shutdown_and_join,
         RateLimiter,
         Runtime,
@@ -117,6 +119,7 @@ use futures_async_stream::try_stream;
 use governor::{
     InsufficientCapacity,
     Jitter,
+    Quota,
 };
 use parking_lot::Mutex;
 use rand::Rng;
@@ -328,6 +331,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 lease_lost_shutdown.clone(),
             ),
         );
+        let index_deletion_cursor = Self::get_checkpoint(
+            reader.as_ref(),
+            snapshot_reader.clone(),
+            RetentionType::Index,
+        )
+        .await?;
         let deletion_handle = rt.spawn(
             "retention_delete",
             Self::go_delete_indexes(
@@ -341,8 +350,16 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 receive_min_snapshot,
                 checkpoint_writer,
                 snapshot_reader.clone(),
+                index_deletion_cursor,
             ),
         );
+        let document_deletion_cursor = Self::get_checkpoint(
+            reader.as_ref(),
+            snapshot_reader.clone(),
+            RetentionType::Document,
+        )
+        .await?;
+
         let document_deletion_handle = rt.spawn(
             "document_retention_delete",
             Self::go_delete_documents(
@@ -353,6 +370,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 document_checkpoint_writer,
                 snapshot_reader.clone(),
                 retention_rate_limiter.clone(),
+                document_deletion_cursor,
             ),
         );
         Ok(Self {
@@ -822,7 +840,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         rt: &RT,
         cursor: RepeatableTimestamp,
-        retention_rate_limiter: Arc<RateLimiter<RT>>,
+        document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
     ) -> anyhow::Result<(RepeatableTimestamp, usize)> {
         if !*RETENTION_DOCUMENT_DELETES_ENABLED || *min_snapshot_ts == Timestamp::MIN {
             return Ok((cursor, 0));
@@ -840,7 +858,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         tracing::trace!("delete_documents: about to grab chunks");
         let expired_chunks = Self::expired_documents(reader, cursor, min_snapshot_ts)
-            .try_chunks2(*DOCUMENT_RETENTION_DELETE_CHUNK);
+            .try_chunks2(DOCUMENT_RETENTION_DELETE_CHUNK.get() as usize);
         pin_mut!(expired_chunks);
         while let Some(scanned_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
@@ -871,7 +889,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         }
                         let mut chunk_len = delete_chunk.len() as u32;
                         loop {
-                            match retention_rate_limiter.check_n(chunk_len.try_into().unwrap()) {
+                            match document_deletion_rate_limiter
+                                .check_n(chunk_len.try_into().unwrap())
+                            {
                                 Ok(Ok(())) => {
                                     break;
                                 },
@@ -1059,9 +1079,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         mut min_snapshot_rx: Receiver<RepeatableTimestamp>,
         mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
+        mut cursor: RepeatableTimestamp,
     ) {
-        let reader = persistence.reader();
-
+        let checkpoint_rate_limiter = new_rate_limiter(
+            rt.clone(),
+            Quota::per_minute(*RETENTION_CHECKPOINT_LIMIT_PER_MINUTE),
+        );
         let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
         let mut min_snapshot_ts = RepeatableTimestamp::MIN;
         let mut is_working = false;
@@ -1088,13 +1111,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             let span = get_sampled_span("", "delete_indexes", &mut rt.rng());
             let r: anyhow::Result<()> = async {
                 let _timer = index_retention_delete_timer();
-                let cursor = Self::get_checkpoint(
-                    reader.as_ref(),
-                    snapshot_reader.clone(),
-                    RetentionType::Index,
-                )
-                .await?;
-                tracing::trace!("go_delete: loaded checkpoint: {cursor:?}");
+                tracing::trace!("go_delete_indexes: loaded checkpoint: {cursor:?}");
                 let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
@@ -1105,7 +1122,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     retention_validator.clone(),
                 )
                 .await?;
-                tracing::trace!("go_delete: Loaded initial indexes");
+                tracing::trace!("go_delete_indexes: Loaded initial indexes");
                 let index_count_before = all_indexes.len();
                 let (new_cursor, expired_index_entries_processed) = Self::delete(
                     min_snapshot_ts,
@@ -1115,7 +1132,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     retention_validator.clone(),
                 )
                 .await?;
-                tracing::trace!("go_delete: finished running delete");
+                tracing::trace!("go_delete_indexes: finished running delete");
                 let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
@@ -1126,24 +1143,34 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     retention_validator.clone(),
                 )
                 .await?;
-                tracing::trace!("go_delete: loaded second round of indexes");
+                tracing::trace!("go_delete_indexes: loaded second round of indexes");
                 if all_indexes.len() == index_count_before {
-                    tracing::debug!("go_delete: Checkpointing at: {new_cursor:?}");
-                    // No indexes were added while we were doing the delete.
-                    // So the `delete` covered all index rows up to new_cursor.
-                    Self::checkpoint(
-                        persistence.as_ref(),
-                        new_cursor,
-                        &mut checkpoint_writer,
-                        RetentionType::Index,
-                        bounds_reader.clone(),
-                        snapshot_reader.clone(),
-                    )
-                    .await?;
+                    match checkpoint_rate_limiter.check() {
+                        Ok(_) => {
+                            tracing::debug!("go_delete_indexes: Checkpointing at: {new_cursor:?}");
+                            // No indexes were added while we were doing the delete.
+                            // So the `delete` covered all index rows up to new_cursor.
+                            Self::checkpoint(
+                                persistence.as_ref(),
+                                new_cursor,
+                                &mut checkpoint_writer,
+                                RetentionType::Index,
+                                bounds_reader.clone(),
+                                snapshot_reader.clone(),
+                            )
+                            .await?;
+                            cursor = new_cursor;
+                        },
+                        Err(not_until) => {
+                            tracing::debug!(
+                                "go_delete_indexes: Not checkpointing, not until: {not_until:?}"
+                            );
+                        },
+                    }
                 } else {
                     tracing::debug!(
-                        "go_delete: Skipping checkpoint, index count changed, now: {:?}, before: \
-                         {index_count_before:?}",
+                        "go_delete_indexes: Skipping checkpoint, index count changed, now: {:?}, \
+                         before: {index_count_before:?}",
                         all_indexes.len()
                     );
                 }
@@ -1178,12 +1205,15 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         mut min_document_snapshot_rx: Receiver<RepeatableTimestamp>,
         mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
-        retention_rate_limiter: Arc<RateLimiter<RT>>,
+        document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
+        mut cursor: RepeatableTimestamp,
     ) {
+        let checkpoint_rate_limiter = new_rate_limiter(
+            rt.clone(),
+            Quota::per_minute(*RETENTION_CHECKPOINT_LIMIT_PER_MINUTE),
+        );
         // Wait with jitter on startup to avoid thundering herd
         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
-
-        let reader = persistence.reader();
 
         let mut error_backoff =
             Backoff::new(INITIAL_BACKOFF, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
@@ -1192,7 +1222,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let mut interval = tokio::time::interval(*DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         min_document_snapshot_rx.mark_changed();
-
         loop {
             if !is_working {
                 min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
@@ -1218,12 +1247,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             );
             let r: anyhow::Result<()> = try {
                 let _timer = retention_delete_documents_timer();
-                let cursor = Self::get_checkpoint(
-                    reader.as_ref(),
-                    snapshot_reader.clone(),
-                    RetentionType::Document,
-                )
-                .await?;
                 tracing::trace!("go_delete_documents: loaded checkpoint: {cursor:?}");
 
                 // Only delete documents up to (now() -
@@ -1238,21 +1261,31 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     persistence.clone(),
                     &rt,
                     cursor,
-                    retention_rate_limiter.clone(),
+                    document_deletion_rate_limiter.clone(),
                 )
                 .await?;
+                cursor = new_cursor;
                 max_end_cursor.prior_ts(*new_cursor)?;
-                tracing::debug!("go_delete_documents: Checkpointing at: {new_cursor:?}");
 
-                Self::checkpoint(
-                    persistence.as_ref(),
-                    new_cursor,
-                    &mut checkpoint_writer,
-                    RetentionType::Document,
-                    bounds_reader.clone(),
-                    snapshot_reader.clone(),
-                )
-                .await?;
+                match checkpoint_rate_limiter.check() {
+                    Ok(_) => {
+                        tracing::debug!("go_delete_documents: Checkpointing at: {new_cursor:?}");
+                        Self::checkpoint(
+                            persistence.as_ref(),
+                            new_cursor,
+                            &mut checkpoint_writer,
+                            RetentionType::Document,
+                            bounds_reader.clone(),
+                            snapshot_reader.clone(),
+                        )
+                        .await?;
+                    },
+                    Err(not_until) => {
+                        tracing::debug!(
+                            "go_delete_documents: Skipping checkpointing until: {not_until:?}"
+                        );
+                    },
+                }
 
                 is_working = new_cursor < min_document_snapshot_ts;
                 if is_working {

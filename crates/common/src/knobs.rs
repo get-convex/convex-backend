@@ -455,8 +455,12 @@ pub static INDEX_RETENTION_DELETE_CHUNK: LazyLock<usize> =
     LazyLock::new(|| env_config("INDEX_RETENTION_DELETE_CHUNK", 512));
 
 /// Chunk size of documents for deleting from Persistence.
-pub static DOCUMENT_RETENTION_DELETE_CHUNK: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_CHUNK", 256));
+pub static DOCUMENT_RETENTION_DELETE_CHUNK: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "DOCUMENT_RETENTION_DELETE_CHUNK",
+        NonZeroU32::new(256).unwrap(),
+    )
+});
 
 /// Batch size of index entries to delete between checkpoints.
 pub static RETENTION_DELETE_BATCH: LazyLock<usize> =
@@ -503,7 +507,16 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
 pub static DOCUMENT_RETENTION_RATE_LIMIT: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "DOCUMENT_RETENTION_RATE_LIMIT",
-        NonZeroU32::new(100).unwrap(),
+        NonZeroU32::new(128).unwrap(),
+    )
+});
+
+/// Maximum number of times both the document and index retention workers should
+/// write a checkpoint to the persistence globals table per minute
+pub static RETENTION_CHECKPOINT_LIMIT_PER_MINUTE: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "RETENTION_CHECKPOINT_LIMIT_PER_MINUTE",
+        NonZeroU32::new(1).unwrap(),
     )
 });
 
