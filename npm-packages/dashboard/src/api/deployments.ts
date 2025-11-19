@@ -14,6 +14,7 @@ export function useDeployments(projectId?: number) {
     swrOptions: {
       revalidateOnMount: initialData === undefined,
       refreshInterval: 30 * 1000,
+      keepPreviousData: false,
     },
   });
 
