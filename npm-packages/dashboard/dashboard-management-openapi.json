@@ -5380,7 +5380,8 @@
           "ssoEnabled",
           "auditLogRetentionDays",
           "maxDeployments",
-          "managementApiEnabled"
+          "managementApiEnabled",
+          "previewDeploymentRetentionDays"
         ],
         "properties": {
           "auditLogRetentionDays": {
@@ -5424,6 +5425,11 @@
           },
           "periodicBackupsEnabled": {
             "type": "boolean"
+          },
+          "previewDeploymentRetentionDays": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "projectMaxPreviewDeployments": {
             "type": "integer",

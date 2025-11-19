@@ -44,6 +44,7 @@ export const Primary: Story = {
       auditLogRetentionDays: 90,
       maxDeployments: 40,
       managementApiEnabled: true,
+      previewDeploymentRetentionDays: 1,
     },
     hasFilter: false,
   },
