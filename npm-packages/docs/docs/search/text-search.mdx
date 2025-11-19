@@ -204,8 +204,8 @@ not include `"snake"` for a typo like `"stake"`.
 ### Relevance order
 
 **Relevance order is subject to change.** The relevance of search results and
-the exact typo-tolerance rules Convex applies is subject to change to improve
-the quality of search results.
+the exact rules Convex applies is subject to change to improve the quality of
+search results.
 
 Search queries return results in relevance order. Internally, Convex ranks the
 relevance of a document based on a combination of its
