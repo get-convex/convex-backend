@@ -3,8 +3,7 @@ import { DecoratorHelpers } from "@storybook/addon-themes";
 import type { DecoratorFunction } from "storybook/internal/types";
 import { ThemeProvider } from "next-themes";
 import { ReactRenderer } from "@storybook/nextjs";
-const { initializeThemeState, pluckThemeFromContext, useThemeParameters } =
-  DecoratorHelpers;
+const { initializeThemeState, pluckThemeFromContext } = DecoratorHelpers;
 
 const themeDecorator: (args: {
   themes: Record<string, string>;
@@ -14,7 +13,7 @@ const themeDecorator: (args: {
 
   return (storyFn, context) => {
     const selectedTheme = pluckThemeFromContext(context);
-    const { themeOverride } = useThemeParameters();
+    const { themeOverride } = context.parameters.themes ?? {};
 
     const selected = themeOverride || selectedTheme || defaultTheme;
 
