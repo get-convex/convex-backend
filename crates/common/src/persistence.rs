@@ -116,14 +116,14 @@ pub enum ConflictStrategy {
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum PersistenceGlobalKey {
-    /// Minimum snapshot that is retained. Data in earlier snapshots may have
-    /// been deleted.
-    RetentionMinSnapshotTimestamp,
+    /// Minimum snapshot that is retained for indexes. Data in earlier snapshots
+    /// may have been deleted.
+    IndexRetentionMinSnapshotTimestamp,
 
-    /// Timestamp for a snapshot that has been deleted by retention.
+    /// Timestamp for a snapshot that has been deleted by index retention.
     /// This is used as a cursor by retention, bumped after retention deletes
     /// entries at the snapshot.
-    RetentionConfirmedDeletedTimestamp,
+    IndexRetentionConfirmedDeletedTimestamp,
 
     /// Minimum timestamp for valid write-ahead log
     DocumentRetentionMinSnapshotTimestamp,
@@ -153,8 +153,10 @@ pub enum PersistenceGlobalKey {
 impl From<PersistenceGlobalKey> for String {
     fn from(key: PersistenceGlobalKey) -> Self {
         match key {
-            PersistenceGlobalKey::RetentionMinSnapshotTimestamp => "min_snapshot_ts".to_string(),
-            PersistenceGlobalKey::RetentionConfirmedDeletedTimestamp => {
+            PersistenceGlobalKey::IndexRetentionMinSnapshotTimestamp => {
+                "min_snapshot_ts".to_string()
+            },
+            PersistenceGlobalKey::IndexRetentionConfirmedDeletedTimestamp => {
                 "confirmed_deleted_ts".to_string()
             },
             PersistenceGlobalKey::DocumentRetentionMinSnapshotTimestamp => {
@@ -178,8 +180,8 @@ impl FromStr for PersistenceGlobalKey {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "min_snapshot_ts" => Ok(Self::RetentionMinSnapshotTimestamp),
-            "confirmed_deleted_ts" => Ok(Self::RetentionConfirmedDeletedTimestamp),
+            "min_snapshot_ts" => Ok(Self::IndexRetentionMinSnapshotTimestamp),
+            "confirmed_deleted_ts" => Ok(Self::IndexRetentionConfirmedDeletedTimestamp),
             "document_min_snapshot_ts" => Ok(Self::DocumentRetentionMinSnapshotTimestamp),
             "document_confirmed_deleted_ts" => Ok(Self::DocumentRetentionConfirmedDeletedTimestamp),
             "max_repeatable_ts" => Ok(Self::MaxRepeatableTimestamp),

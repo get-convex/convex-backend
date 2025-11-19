@@ -231,7 +231,7 @@ pub async fn latest_retention_min_snapshot_ts(
     };
     let key = match retention_type {
         RetentionType::Document => PersistenceGlobalKey::DocumentRetentionMinSnapshotTimestamp,
-        RetentionType::Index => PersistenceGlobalKey::RetentionMinSnapshotTimestamp,
+        RetentionType::Index => PersistenceGlobalKey::IndexRetentionMinSnapshotTimestamp,
     };
     let min_snapshot_value = persistence
         .get_persistence_global(key)
@@ -433,7 +433,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let new_min_snapshot_ts = candidate;
         let persistence_key = match retention_type {
             RetentionType::Document => PersistenceGlobalKey::DocumentRetentionMinSnapshotTimestamp,
-            RetentionType::Index => PersistenceGlobalKey::RetentionMinSnapshotTimestamp,
+            RetentionType::Index => PersistenceGlobalKey::IndexRetentionMinSnapshotTimestamp,
         };
         // It's very important that we write to persistence before writing to memory,
         // because reads (follower reads and leader on restart) use persistence, while
@@ -1284,7 +1284,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             RetentionType::Document => {
                 PersistenceGlobalKey::DocumentRetentionConfirmedDeletedTimestamp
             },
-            RetentionType::Index => PersistenceGlobalKey::RetentionConfirmedDeletedTimestamp,
+            RetentionType::Index => PersistenceGlobalKey::IndexRetentionConfirmedDeletedTimestamp,
         };
         persistence
             .write_persistence_global(key, ConvexValue::from(i64::from(*cursor)).into())
@@ -1336,7 +1336,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             RetentionType::Document => {
                 PersistenceGlobalKey::DocumentRetentionConfirmedDeletedTimestamp
             },
-            RetentionType::Index => PersistenceGlobalKey::RetentionConfirmedDeletedTimestamp,
+            RetentionType::Index => PersistenceGlobalKey::IndexRetentionConfirmedDeletedTimestamp,
         };
         let checkpoint_value = persistence
             .get_persistence_global(key)

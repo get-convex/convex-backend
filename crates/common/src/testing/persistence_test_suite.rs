@@ -1490,7 +1490,7 @@ where
 }
 
 pub async fn persistence_global<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
-    let key = PersistenceGlobalKey::RetentionMinSnapshotTimestamp;
+    let key = PersistenceGlobalKey::IndexRetentionMinSnapshotTimestamp;
     p.write_persistence_global(key, json!(5)).await?;
     assert_eq!(
         p.reader().get_persistence_global(key).await?,
