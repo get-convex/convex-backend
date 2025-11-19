@@ -387,12 +387,12 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         }
         metrics::log_write_bytes(write_size);
         metrics::log_write_documents(documents.len());
-        LocalSpan::add_event(Event::new("write_to_persistence_size").with_properties(|| {
+        LocalSpan::add_properties(|| {
             [
                 ("num_documents", documents.len().to_string()),
                 ("write_size", write_size.to_string()),
             ]
-        }));
+        });
 
         // True, the below might end up failing and not changing anything.
         self.newly_created.store(false, SeqCst);
@@ -433,21 +433,21 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                         tx.exec_drop(insert_chunk_query, insert_document_chunk)
                             .await?;
                         timer.finish();
-                        LocalSpan::add_event(Event::new("document_smart_chunks").with_properties(
-                            || {
+                        Ok::<_, anyhow::Error>(())
+                    };
+                    future
+                        .in_span(
+                            Span::enter_with_local_parent(format!(
+                                "{}::document_chunk_write",
+                                func_path!()
+                            ))
+                            .with_properties(|| {
                                 [
                                     ("chunk_length", chunk.len().to_string()),
                                     ("chunk_bytes", chunk_bytes.to_string()),
                                 ]
-                            },
-                        ));
-                        Ok::<_, anyhow::Error>(())
-                    };
-                    future
-                        .in_span(Span::enter_with_local_parent(format!(
-                            "{}::document_chunk_write",
-                            func_path!()
-                        )))
+                            }),
+                        )
                         .await?;
                 }
 
@@ -475,21 +475,21 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                         tx.exec_drop(insert_index_chunk, insert_index_chunk_params)
                             .await?;
                         timer.finish();
-                        LocalSpan::add_event(Event::new("index_smart_chunks").with_properties(
-                            || {
+                        Ok::<_, anyhow::Error>(())
+                    };
+                    future
+                        .in_span(
+                            Span::enter_with_local_parent(format!(
+                                "{}::index_chunk_write",
+                                func_path!()
+                            ))
+                            .with_properties(|| {
                                 [
                                     ("chunk_length", chunk.len().to_string()),
                                     ("chunk_bytes", chunk_bytes.to_string()),
                                 ]
-                            },
-                        ));
-                        Ok::<_, anyhow::Error>(())
-                    };
-                    future
-                        .in_span(Span::enter_with_local_parent(format!(
-                            "{}::index_chunk_write",
-                            func_path!()
-                        )))
+                            }),
+                        )
                         .await?;
                 }
                 Ok(())
