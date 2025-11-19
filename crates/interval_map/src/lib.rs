@@ -153,86 +153,122 @@ impl IntervalMap {
         interval: Interval,
         weight: u32,
     ) -> Result<(), TooFull> {
-        let entry = self.nodes.vacant_entry();
-        let key = NodeKey::new(entry.key())?;
+        let key = NodeKey::new(self.nodes.vacant_key())?;
         let sub = self
             .subscribers
             .get_mut(&subscriber)
             .expect("unknown subscriber");
-        entry.insert(Node {
+        let node = Node {
             weight,
-            // awkward, but we insert the key later so that it can be borrowed in `insert_node`
-            key: StartIncluded(Vec::new().into()),
+            key: interval.start,
             upper_bound: interval.end,
             parent: None,
             child: [None; 2],
             max_upper_bound: key,
-            next: sub.take(),
+            next: sub.replace(key),
             subscriber,
-        });
-        *sub = Some(key);
+        };
         match self.root {
-            None => self.root = Some(key),
-            Some(root) => self.root = Some(self.insert_node(root, &interval.start, key)),
+            None => {
+                self.nodes.insert(node);
+                self.root = Some(key);
+            },
+            Some(root) => self.insert_node(root, key, node),
         }
-        self.nodes[key].key = interval.start;
         Ok(())
     }
 
-    fn insert_node(&mut self, parent: NodeKey, key: &StartIncluded, node: NodeKey) -> NodeKey {
-        if self.nodes[node].weight < self.nodes[parent].weight {
-            // to maintain heap ordering, `node` replaces `parent` in the tree
-            let (l, r) = self.split(parent, key);
-            self.nodes[node].child = [l, r];
-            if let Some(l) = l {
-                self.nodes[l].parent = Some(node);
+    fn insert_node(&mut self, mut parent: NodeKey, node_key: NodeKey, mut node: Node) {
+        loop {
+            if node.weight < self.nodes[parent].weight {
+                // to maintain heap ordering, `node` replaces `parent` in the tree
+                let grandparent = self.nodes[parent].parent;
+                if let Some(grandparent) = grandparent {
+                    self.nodes[grandparent].replace_child(parent, Some(node_key));
+                    node.parent = Some(grandparent);
+                } else {
+                    debug_assert_eq!(self.root, Some(parent));
+                    debug_assert_eq!(node.parent, None);
+                    self.root = Some(node_key);
+                }
+                assert_eq!(self.nodes.insert(node), node_key.key());
+                self.split(parent, node_key);
+                break;
+            } else {
+                // `node` is going to become a descendant of `parent`, so update
+                // its `max_upper_bound` annotation
+                if node.upper_bound > self.nodes[self.nodes[parent].max_upper_bound].upper_bound {
+                    self.nodes[parent].max_upper_bound = node_key;
+                }
+                // N.B.: if `key` is already present, we always insert the node at the
+                // end of the range of equal keys
+                let child = if node.key < self.nodes[parent].key {
+                    0
+                } else {
+                    1
+                };
+                if let Some(child_node) = self.nodes[parent].child[child] {
+                    parent = child_node;
+                } else {
+                    self.nodes[parent].child[child] = Some(node_key);
+                    node.parent = Some(parent);
+                    assert_eq!(self.nodes.insert(node), node_key.key());
+                    break;
+                }
             }
-            if let Some(r) = r {
-                self.nodes[r].parent = Some(node);
-            }
-            self.recalculate_annotation(node);
-            return node;
         }
-        let child = if *key < self.nodes[parent].key { 0 } else { 1 };
-        let inserted = if let Some(child_node) = self.nodes[parent].child[child] {
-            self.insert_node(child_node, key, node)
-        } else {
-            node
-        };
-        self.nodes[parent].child[child] = Some(inserted);
-        self.nodes[inserted].parent = Some(parent);
-        self.recalculate_annotation(parent);
-        parent
     }
 
-    /// Splits the subtree at `node` into two: one where all keys are `<= key`
-    /// and one `> key`
-    fn split(&mut self, node: NodeKey, key: &StartIncluded) -> (Option<NodeKey>, Option<NodeKey>) {
-        if self.nodes[node].key <= *key {
-            if let Some(child) = self.nodes[node].child[1] {
-                let (r0, r1) = self.split(child, key);
-                self.nodes[node].child[1] = r0;
-                if let Some(r0) = r0 {
-                    self.nodes[r0].parent = Some(node);
+    /// Inserts the subtree rooted at `node` into `dest`; this effectively
+    /// splits the subtree into one where all keys are `<= dest.key` and one
+    /// `> dest.key`
+    fn split(&mut self, mut node: NodeKey, dest: NodeKey) {
+        debug_assert_eq!(self.nodes[dest].child[0], None);
+        debug_assert_eq!(self.nodes[dest].child[1], None);
+        debug_assert!(self.nodes[dest].weight < self.nodes[node].weight);
+        // `l` is the rightmost node left of `dest`;
+        // `r` is the leftmost node right of `dest`;
+        // except if there is no such node, it points at `dest` itself.
+        let (mut l, mut r) = (dest, dest);
+        loop {
+            // Take apart `node` and figure out which side of `dest` it belongs on.
+            if self.nodes[node].key <= self.nodes[dest].key {
+                debug_assert_eq!(self.nodes[l].child[1], None);
+                self.nodes[node].parent = Some(l);
+                self.nodes[l].child[1] = Some(node);
+                l = node;
+                if let Some(child) = self.nodes[node].child[1].take() {
+                    node = child;
+                } else {
+                    break;
                 }
-                self.recalculate_annotation(node);
-                (Some(node), r1)
             } else {
-                (Some(node), None)
-            }
-        } else {
-            if let Some(child) = self.nodes[node].child[0] {
-                let (l0, l1) = self.split(child, key);
-                self.nodes[node].child[0] = l1;
-                if let Some(l1) = l1 {
-                    self.nodes[l1].parent = Some(node);
+                debug_assert_eq!(self.nodes[r].child[0], None);
+                self.nodes[node].parent = Some(r);
+                self.nodes[r].child[0] = Some(node);
+                r = node;
+                if let Some(child) = self.nodes[node].child[0].take() {
+                    node = child;
+                } else {
+                    break;
                 }
-                self.recalculate_annotation(node);
-                (l0, Some(node))
-            } else {
-                (None, Some(node))
             }
         }
+        debug_assert_eq!(self.nodes[l].child[1], None);
+        debug_assert_eq!(self.nodes[r].child[0], None);
+        // Because we inserted into the *right* child of `l` and vice versa, the
+        // children of dest are actually swapped, so unswap them.
+        self.nodes[dest].child.swap(0, 1);
+        // Now recalculate annotations upward on the branches that were modified.
+        for mut p in [l, r] {
+            while p != dest {
+                self.recalculate_annotation(p);
+                p = self.nodes[p]
+                    .parent
+                    .expect("should eventually root at `dest`");
+            }
+        }
+        self.recalculate_annotation(dest);
     }
 
     /// Removes all intervals belonging to the given `subscriber` and frees that
@@ -255,9 +291,18 @@ impl IntervalMap {
         if let Some(c) = new_child {
             self.nodes[c].parent = parent;
         }
-        if let Some(p) = parent {
+        if let Some(mut p) = parent {
             self.nodes[p].replace_child(n, new_child);
-            self.recalculate_annotations_to_root(p);
+            loop {
+                if self.nodes[p].max_upper_bound == n {
+                    self.recalculate_annotation(p);
+                }
+                if let Some(gp) = self.nodes[p].parent {
+                    p = gp;
+                } else {
+                    break;
+                }
+            }
         } else {
             self.root = new_child;
         }
@@ -307,14 +352,6 @@ impl IntervalMap {
             }
         }
         self.nodes[node].max_upper_bound = ix;
-    }
-
-    fn recalculate_annotations_to_root(&mut self, node: NodeKey) {
-        let mut node = Some(node);
-        while let Some(n) = node {
-            self.recalculate_annotation(n);
-            node = self.nodes[n].parent;
-        }
     }
 
     /// Calls `cb` for each interval in the map that overlaps `point`.
