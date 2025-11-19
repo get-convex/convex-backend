@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { TeamResponse } from "generatedApi";
@@ -74,9 +74,7 @@ describe("<InviteMemberForm />", () => {
 
     expect(screen.getByText("Send Invite")).toBeEnabled();
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Send Invite"));
-    });
+    await user.click(screen.getByText("Send Invite"));
     expect(useCreateInvite).toHaveBeenCalledWith(team.id);
     expect(createInvite).toHaveBeenCalledWith({
       email: "ari@convex.dev",
@@ -93,18 +91,12 @@ describe("<InviteMemberForm />", () => {
     expect(screen.getByText("Send Invite")).toBeEnabled();
 
     const roleCombobox = screen.getByTestId("combobox-button-Role");
-    await act(async () => {
-      fireEvent.click(roleCombobox);
-    });
+    await user.click(roleCombobox);
 
     const roleOption = screen.getByText("Admin");
-    await act(async () => {
-      fireEvent.click(roleOption);
-    });
+    await user.click(roleOption);
 
-    await act(async () => {
-      fireEvent.click(screen.getByText("Send Invite"));
-    });
+    await user.click(screen.getByText("Send Invite"));
     expect(useCreateInvite).toHaveBeenCalledWith(team.id);
     expect(createInvite).toHaveBeenCalledWith({
       email: "ari@convex.dev",

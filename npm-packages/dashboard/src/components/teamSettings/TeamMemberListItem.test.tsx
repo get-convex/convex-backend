@@ -1,10 +1,5 @@
-import {
-  render,
-  screen,
-  fireEvent,
-  act,
-  waitFor,
-} from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {
   TeamResponse,
   ProjectDetails,
@@ -158,15 +153,13 @@ describe("TeamMemberListItem", () => {
         hasAdminPermissions
       />,
     );
-    act(() => {
-      const roleCombobox = screen.getByTestId(`combobox-button-Role`);
-      fireEvent.click(roleCombobox);
-    });
+    const user = userEvent.setup();
+    const roleCombobox = screen.getByTestId(`combobox-button-Role`);
+    await user.click(roleCombobox);
     await waitFor(() => expect(onChangeRole).not.toHaveBeenCalled());
-    act(() => {
-      const roleOption = screen.getByText("Admin");
-      fireEvent.click(roleOption);
-    });
+
+    const roleOption = screen.getByText("Admin");
+    await user.click(roleOption);
     await waitFor(() =>
       expect(onChangeRole).toHaveBeenCalledWith({
         memberId: member.id,
@@ -211,17 +204,14 @@ describe("TeamMemberListItem", () => {
         hasAdminPermissions
       />,
     );
+    const user = userEvent.setup();
     const removeButton = screen.getByText("Remove member");
     expect(removeButton).toBeEnabled();
-    await act(() => {
-      fireEvent.click(removeButton);
-    });
+    await user.click(removeButton);
 
     expect(onRemoveMember).not.toHaveBeenCalled();
-    await act(() => {
-      const confirmButton = screen.getByText("Confirm");
-      fireEvent.click(confirmButton);
-    });
+    const confirmButton = screen.getByText("Confirm");
+    await user.click(confirmButton);
 
     expect(onRemoveMember).toHaveBeenCalledWith({ memberId: member.id });
   });
