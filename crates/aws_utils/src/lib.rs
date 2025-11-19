@@ -54,7 +54,7 @@ pub async fn must_config_from_env() -> anyhow::Result<ConfigLoader> {
     // Check for credentials using the default provider chain
     let _creds = preflight_credentials().await?;
 
-    Ok(aws_config::defaults(BehaviorVersion::v2025_01_17()).region(region))
+    Ok(aws_config::defaults(BehaviorVersion::v2025_08_07()).region(region))
 }
 
 pub async fn must_s3_config_from_env() -> anyhow::Result<S3ConfigBuilder> {
