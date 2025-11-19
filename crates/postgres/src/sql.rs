@@ -629,6 +629,26 @@ DELETE FROM @db_name.documents WHERE
     )
 }
 
+pub const fn delete_tablet_chunk(multitenant: bool) -> &'static str {
+    tableify!(multitenant, {
+        const LIMIT_PARAM: i32 = if multitenant { 3 } else { 2 };
+        formatcp!(
+            r#"DELETE FROM @db_name.documents WHERE table_id = $1 AND id IN (
+            SELECT id FROM @db_name.documents
+            WHERE table_id = $1{instance_clause}
+            LIMIT ${limit_param}
+        ){instance_clause}
+"#,
+            instance_clause = if multitenant {
+                " AND instance_name = $2"
+            } else {
+                ""
+            },
+            limit_param = LIMIT_PARAM,
+        )
+    })
+}
+
 pub const fn write_persistence_global(multitenant: bool) -> &'static str {
     tableify!(
         multitenant,

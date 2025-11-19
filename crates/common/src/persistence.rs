@@ -237,6 +237,12 @@ pub trait Persistence: Sync + Send + 'static {
         documents: Vec<(Timestamp, InternalDocumentId)>,
     ) -> anyhow::Result<usize>;
 
+    async fn delete_tablet_documents(
+        &self,
+        tablet_id: TabletId,
+        chunk_size: usize,
+    ) -> anyhow::Result<usize>;
+
     // No-op by default. Persistence implementation can override.
     async fn shutdown(&self) -> anyhow::Result<()> {
         Ok(())

@@ -541,6 +541,28 @@ pub fn delete_document_chunk(chunk_size: usize, multitenant: bool) -> &'static s
         .unwrap()
 }
 
+pub const DELETE_TABLE_COLUMN_COUNT: usize = 2;
+static DELETE_TABLET_CHUNK_QUERIES: LazyLock<HashMap<bool, String>> = LazyLock::new(|| {
+    [false, true]
+        .into_iter()
+        .map(move |multitenant| {
+            let where_clause = if multitenant {
+                "(table_id = ? AND instance_name = ?)"
+            } else {
+                "(table_id = ?)"
+            };
+            (
+                multitenant,
+                format!("DELETE FROM @db_name.documents WHERE {where_clause} LIMIT ?",),
+            )
+        })
+        .collect()
+});
+
+pub fn delete_tablet_chunk(multitenant: bool) -> &'static str {
+    DELETE_TABLET_CHUNK_QUERIES.get(&multitenant).unwrap()
+}
+
 pub const fn write_persistence_global(multitenant: bool) -> &'static str {
     tableify!(
         multitenant,

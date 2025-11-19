@@ -421,6 +421,24 @@ impl Persistence for SqlitePersistence {
         tx.commit()?;
         Ok(count_deleted)
     }
+
+    async fn delete_tablet_documents(
+        &self,
+        tablet_id: TabletId,
+        chunk_size: usize,
+    ) -> anyhow::Result<usize> {
+        let mut inner = self.inner.lock();
+        let tx = inner.connection.transaction()?;
+        let mut delete_table_documents_query = tx.prepare_cached(DELETE_TABLE_DOCUMENTS)?;
+        let count_deleted = delete_table_documents_query.execute(params![
+            &tablet_id.0[..],
+            &tablet_id.0[..],
+            chunk_size,
+        ])?;
+        drop(delete_table_documents_query);
+        tx.commit()?;
+        Ok(count_deleted)
+    }
 }
 
 #[async_trait]
@@ -681,6 +699,9 @@ const WALK_INDEXES: &str =
 const DELETE_INDEX: &str = "DELETE FROM indexes WHERE index_id = ? AND ts <= ? AND key = ?";
 
 const DELETE_DOCUMENT: &str = "DELETE FROM documents WHERE table_id = ? AND id = ? AND ts <= ?";
+
+const DELETE_TABLE_DOCUMENTS: &str = "DELETE FROM documents WHERE table_id = ? AND id IN (SELECT \
+                                      id FROM documents WHERE table_id = ? LIMIT ?)";
 
 const PREV_REV_QUERY: &str = r#"
 SELECT id, ts, table_id, json_value, deleted, prev_ts

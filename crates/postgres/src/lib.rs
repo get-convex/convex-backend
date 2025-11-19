@@ -724,6 +724,29 @@ impl Persistence for PostgresPersistence {
             .await
     }
 
+    async fn delete_tablet_documents(
+        &self,
+        tablet_id: TabletId,
+        chunk_size: usize,
+    ) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = self.instance_name.clone();
+        self.lease
+            .transact(async move |tx| {
+                let delete_doc = tx
+                    .prepare_cached(sql::delete_tablet_chunk(multitenant))
+                    .await?;
+                let mut params = vec![Param::Bytes(tablet_id.0.into())];
+                if multitenant {
+                    params.push(Param::Text(instance_name.to_string()));
+                }
+                params.push(Param::Limit(chunk_size as i64));
+                let deleted_count = tx.execute_raw(&delete_doc, params).await?;
+                Ok(deleted_count as usize)
+            })
+            .await
+    }
+
     async fn import_documents_batch(
         &self,
         mut documents: BoxStream<'_, Vec<DocumentLogEntry>>,

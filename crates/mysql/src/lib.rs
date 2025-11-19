@@ -598,6 +598,32 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             })
             .await
     }
+
+    async fn delete_tablet_documents(
+        &self,
+        tablet_id: TabletId,
+        chunk_size: usize,
+    ) -> anyhow::Result<usize> {
+        let multitenant = self.multitenant;
+        let instance_name = mysql_async::Value::from(&self.instance_name.raw);
+        self.lease
+            .transact(async move |tx| {
+                let mut deleted_count = 0;
+                let mut params =
+                    Vec::with_capacity(sql::DELETE_TABLE_COLUMN_COUNT + (multitenant as usize));
+                let tablet_id: Vec<u8> = tablet_id.0.into();
+                params.push(tablet_id.into());
+                if multitenant {
+                    params.push(instance_name.clone());
+                }
+                params.push(chunk_size.into());
+                deleted_count += tx
+                    .exec_iter(sql::delete_tablet_chunk(multitenant), params)
+                    .await?;
+                Ok(deleted_count as usize)
+            })
+            .await
+    }
 }
 
 #[derive(Clone)]

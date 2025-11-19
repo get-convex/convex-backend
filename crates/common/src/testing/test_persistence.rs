@@ -204,6 +204,25 @@ impl Persistence for TestPersistence {
         }
         Ok(total_deleted)
     }
+
+    async fn delete_tablet_documents(
+        &self,
+        tablet_id: TabletId,
+        chunk_size: usize,
+    ) -> anyhow::Result<usize> {
+        let mut inner = self.inner.lock();
+        let log = &mut inner.log;
+        let log_len = log.len();
+        let mut num_deleted = 0;
+        log.retain(|(_ts, id), _| {
+            if num_deleted >= chunk_size {
+                return true;
+            }
+            num_deleted += 1;
+            id.table() != tablet_id
+        });
+        Ok(log_len - log.len())
+    }
 }
 
 #[async_trait]

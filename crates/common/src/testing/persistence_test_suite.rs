@@ -53,6 +53,7 @@ use crate::{
         Interval,
         StartIncluded,
     },
+    knobs::DELETE_TABLET_CHUNK_SIZE,
     persistence::{
         fake_retention_validator::FakeRetentionValidator,
         ConflictStrategy,
@@ -223,6 +224,14 @@ macro_rules! run_persistence_test_suite {
             let $db = $create_db;
             let p = $create_persistence;
             persistence_test_suite::persistence_delete_many_documents(::std::sync::Arc::new(p))
+                .await
+        }
+
+        #[tokio::test]
+        async fn test_persistence_delete_tablet_documents() -> anyhow::Result<()> {
+            let $db = $create_db;
+            let p = $create_persistence;
+            persistence_test_suite::persistence_delete_tablet_documents(::std::sync::Arc::new(p))
                 .await
         }
 
@@ -1775,6 +1784,38 @@ pub async fn persistence_delete_many_documents<P: Persistence>(p: Arc<P>) -> any
     let stream = reader.load_all_documents();
     let all_docs = stream.try_collect::<Vec<_>>().await?;
     assert_eq!(all_docs, [documents.last().unwrap().clone()]);
+    Ok(())
+}
+
+pub async fn persistence_delete_tablet_documents<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
+    let mut id_generator = TestIdGenerator::new();
+    let table: TableName = str::parse("table")?;
+
+    const NUM_DOCS: usize = 256;
+    let ids: Vec<_> = (0..NUM_DOCS)
+        .map(|_| id_generator.user_generate(&table))
+        .collect();
+    let tablet_id = ids[0].tablet_id;
+    let documents: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, &id)| doc(id, i as i32 + 1, Some(i as i64), None).unwrap())
+        .collect();
+
+    p.write(&documents, &[], ConflictStrategy::Error).await?;
+
+    let num_deleted = p
+        .delete_tablet_documents(tablet_id, *DELETE_TABLET_CHUNK_SIZE as usize)
+        .await?;
+    assert_eq!(num_deleted, *DELETE_TABLET_CHUNK_SIZE as usize);
+
+    let reader = p.reader();
+    let stream = reader.load_all_documents();
+    let all_docs = stream.try_collect::<Vec<_>>().await?;
+    assert_eq!(
+        all_docs.len(),
+        NUM_DOCS - *DELETE_TABLET_CHUNK_SIZE as usize
+    );
     Ok(())
 }
 
