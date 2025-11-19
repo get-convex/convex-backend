@@ -30,6 +30,7 @@ export const Full: Story = {
 };
 
 export const AnimatedValue: Story = {
+  args: { fraction: 0 },
   render: () => <Animation />,
 };
 

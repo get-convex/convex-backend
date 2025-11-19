@@ -1,10 +1,12 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { ComponentProps, useState } from "react";
 import { Combobox } from "@ui/Combobox";
+import { fn } from "storybook/test";
 
 const meta = {
   component: Combobox,
   args: {
+    label: "My combobox",
     options: [
       { label: "Option 1", value: "1" },
       { label: "Option 2", value: "2" },
@@ -27,6 +29,8 @@ const meta = {
       { label: "Option 19", value: "19" },
       { label: "Option 20", value: "20" },
     ],
+    selectedOption: "1",
+    setSelectedOption: fn(),
   },
   render: (args) => <Example {...args} />,
 } satisfies Meta<typeof Combobox>;
@@ -34,13 +38,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function Example(args: Omit<ComponentProps<typeof Combobox>, "Option">) {
-  const [selectedOption, setSelectedOption] = useState<string>("1");
+function Example<T>(args: Omit<ComponentProps<typeof Combobox<T>>, "Option">) {
+  const [selectedOption, setSelectedOption] = useState<T | null | undefined>(
+    args.selectedOption,
+  );
   return (
     <Combobox
       {...args}
       selectedOption={selectedOption}
-      setSelectedOption={(opt: string | null) => opt && setSelectedOption(opt)}
+      setSelectedOption={(opt: T | null) => opt && setSelectedOption(opt)}
     />
   );
 }

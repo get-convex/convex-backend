@@ -8,7 +8,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "tsc && tsc-alias && mkdir -p dist/styles && cp src/styles/shared.css dist/styles/shared.css",
+    "build": "tsc && tsc -p tsconfig.publish.json && tsc-alias -p tsconfig.publish.json && mkdir -p dist/styles && cp src/styles/shared.css dist/styles/shared.css",
     "lint": "bash ../../dashboard-common/scripts/checkNode20.sh && eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'",
     "lint:fix": "bash ../../dashboard-common/scripts/checkNode20.sh && eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'",
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
@@ -64,6 +64,7 @@
     "postcss": "^8.4.19",
     "prettier": "3.6.2",
     "prettier-plugin-tailwindcss": "~0.6.11",
+    "storybook": "^9.1.2",
     "typescript": "^5.9.2",
     "tsc-alias": "~1.8.15",
     "@types/lodash-es": "~4.17.12"
