@@ -35,3 +35,21 @@ export const Primary: Story = {
     ),
   },
 };
+
+export const WithTooltip: Story = {
+  args: {
+    buttonProps: {
+      children: "Menu",
+      variant: "neutral",
+      tip: "Hello",
+    },
+    placement: "bottom",
+    children: (
+      <>
+        <MenuItem tip="world" action={() => {}} shortcut={["CtrlOrCmd", "C"]}>
+          Item 1
+        </MenuItem>
+      </>
+    ),
+  },
+};

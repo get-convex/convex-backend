@@ -300,7 +300,7 @@ export function ImportSummary({
   );
 }
 
-function ImportState({
+export function ImportState({
   snapshotImport,
 }: {
   snapshotImport: Doc<"_snapshot_imports"> & { memberName: string };
