@@ -1145,6 +1145,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 .await?;
                 tracing::trace!("go_delete_indexes: loaded second round of indexes");
                 if all_indexes.len() == index_count_before {
+                    cursor = new_cursor;
                     match checkpoint_rate_limiter.check() {
                         Ok(_) => {
                             tracing::debug!("go_delete_indexes: Checkpointing at: {new_cursor:?}");
@@ -1159,7 +1160,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                                 snapshot_reader.clone(),
                             )
                             .await?;
-                            cursor = new_cursor;
                         },
                         Err(not_until) => {
                             tracing::debug!(
