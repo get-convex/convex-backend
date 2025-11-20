@@ -511,14 +511,10 @@ pub static DOCUMENT_RETENTION_RATE_LIMIT: LazyLock<NonZeroU32> = LazyLock::new(|
     )
 });
 
-/// Maximum number of times both the document and index retention workers should
-/// write a checkpoint to the persistence globals table per minute
-pub static RETENTION_CHECKPOINT_LIMIT_PER_MINUTE: LazyLock<NonZeroU32> = LazyLock::new(|| {
-    env_config(
-        "RETENTION_CHECKPOINT_LIMIT_PER_MINUTE",
-        NonZeroU32::new(1).unwrap(),
-    )
-});
+/// How frequently document and index retention workers should write
+/// checkpoints to the persistence globals table in seconds
+pub static RETENTION_CHECKPOINT_PERIOD_SECS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("RETENTION_CHECKPOINT_PERIOD_SECS", 60 * 5)));
 
 /// Maximum scanned documents within a single run for document retention unless
 /// there are a bunch of writes at single timestamp. Then, we go until there are

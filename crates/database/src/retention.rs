@@ -57,7 +57,7 @@ use common::{
         INDEX_RETENTION_DELETE_CHUNK,
         INDEX_RETENTION_DELETE_PARALLEL,
         MAX_RETENTION_DELAY_SECONDS,
-        RETENTION_CHECKPOINT_LIMIT_PER_MINUTE,
+        RETENTION_CHECKPOINT_PERIOD_SECS,
         RETENTION_DELETES_ENABLED,
         RETENTION_DELETE_BATCH,
         RETENTION_DOCUMENT_DELETES_ENABLED,
@@ -337,6 +337,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             RetentionType::Index,
         )
         .await?;
+        let checkpoint_quota = Quota::with_period(*RETENTION_CHECKPOINT_PERIOD_SECS)
+            .context("Checkpoint period cannot be zero")?;
+
         let deletion_handle = rt.spawn(
             "retention_delete",
             Self::go_delete_indexes(
@@ -351,6 +354,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 checkpoint_writer,
                 snapshot_reader.clone(),
                 index_deletion_cursor,
+                checkpoint_quota,
             ),
         );
         let document_deletion_cursor = Self::get_checkpoint(
@@ -371,6 +375,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 snapshot_reader.clone(),
                 retention_rate_limiter.clone(),
                 document_deletion_cursor,
+                checkpoint_quota,
             ),
         );
         Ok(Self {
@@ -1080,11 +1085,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
         mut cursor: RepeatableTimestamp,
+        quota: Quota,
     ) {
-        let checkpoint_rate_limiter = new_rate_limiter(
-            rt.clone(),
-            Quota::per_minute(*RETENTION_CHECKPOINT_LIMIT_PER_MINUTE),
-        );
+        let checkpoint_rate_limiter = new_rate_limiter(rt.clone(), quota);
         let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
         let mut min_snapshot_ts = RepeatableTimestamp::MIN;
         let mut is_working = false;
@@ -1207,11 +1210,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: Reader<SnapshotManager>,
         document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
         mut cursor: RepeatableTimestamp,
+        quota: Quota,
     ) {
-        let checkpoint_rate_limiter = new_rate_limiter(
-            rt.clone(),
-            Quota::per_minute(*RETENTION_CHECKPOINT_LIMIT_PER_MINUTE),
-        );
+        let checkpoint_rate_limiter = new_rate_limiter(rt.clone(), quota);
         // Wait with jitter on startup to avoid thundering herd
         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
 
