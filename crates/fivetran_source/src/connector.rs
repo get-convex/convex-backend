@@ -168,12 +168,31 @@ impl SourceConnector for ConvexConnector {
 fn deserialize_state_json(state_json: &str) -> anyhow::Result<Option<State>> {
     // Deserialize to a serde_json::Value first
     let state: serde_json::Value = serde_json::from_str(state_json)?;
+
     // Special case {} - which means we're initializing from fresh state
     let state = if state == serde_json::json!({}) {
         None
     } else {
-        Some(serde_json::from_value(state)?)
+        let deserialized: State = serde_json::from_value(state)?;
+
+        // Version 2 of the Fivetran Convex connector started supporting components.
+        // This is a breaking change, since tables would previously be
+        // imported to Fivetran without a “schema” (i.e. all components in the
+        // same database). For this reason, we require customers that have
+        // already set up a Fivetran connection to perform a full historical
+        // resync.
+        anyhow::ensure!(
+            deserialized.version >= 2,
+            "This Fivetran connection was created with an old version of the Convex connector. To \
+             continue syncing, a full historical resync is required. To perform a historical \
+             re-sync: In Fivetran, go to your connection page. Select the Setup tab. Click \
+             'Re-sync all historical data'. In the confirmation pop-up window, click 'Re-sync \
+             Connection'."
+        );
+
+        Some(deserialized)
     };
+
     Ok(state)
 }
 
@@ -191,13 +210,26 @@ mod tests {
         assert!(deserialize_state_json("{'invalid':'things'}").is_err());
         assert_eq!(
             deserialize_state_json(
-                "{ \"version\": 1, \"checkpoint\": { \"DeltaUpdates\": { \"cursor\": 42 } } }"
+                "{ \"version\": 2, \"checkpoint\": { \"DeltaUpdates\": { \"cursor\": 42 } } }"
             )?,
             Some(State::create(
                 Checkpoint::DeltaUpdates { cursor: 42.into() },
                 None,
             ))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_state_json_refuses_pre_v2() -> anyhow::Result<()> {
+        let result = deserialize_state_json(
+            "{ \"version\": 1, \"checkpoint\": { \"DeltaUpdates\": { \"cursor\": 42 } }, \
+             \"tablesSeen\": [\"documents\"] }",
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(
+            "This Fivetran connection was created with an old version of the Convex connector."
+        ));
         Ok(())
     }
 }

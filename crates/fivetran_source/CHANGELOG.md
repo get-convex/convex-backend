@@ -1,4 +1,8 @@
-# Upcoming
+# 2.0.0
+
+- Add support for Convex components.
+- Add support for partial component, table, and column selection.
+- This version requires a full historical resync for existing connections.
 
 # 0.6.0
 

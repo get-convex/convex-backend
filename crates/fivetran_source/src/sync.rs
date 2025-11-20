@@ -37,7 +37,7 @@ use crate::{
 };
 
 /// The value currently used for the `version` field of [`State`].
-const CURSOR_VERSION: i64 = 1;
+const CURSOR_VERSION: i64 = 2;
 
 /// Stores the current synchronization state of a destination. A state will be
 /// send (as JSON) to Fivetran every time we perform a checkpoint, and will be
