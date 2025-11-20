@@ -16,6 +16,7 @@ import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
 import { cn } from "@ui/cn";
 import { useSize } from "react-use";
+import { useTableDensity } from "../lib/useTableDensity";
 
 // Example table data for the background
 const EXAMPLE_COLUMNS = ["_id", "name", "email", "_creationTime"];
@@ -57,12 +58,16 @@ export function EmptyDataContent({
 
   const [fakeRowsCount, setFakeRowsCount] = useState(20);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  const { densityValues } = useTableDensity();
+  const rowHeight = densityValues.height;
+
   useEffect(() => {
     if (!tableContainerRef.current) return;
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const ROW_HEIGHT = 33;
+        const ROW_HEIGHT = rowHeight;
         const rowsNeeded = Math.ceil(entry.contentRect.height / ROW_HEIGHT);
         setFakeRowsCount(rowsNeeded + 5);
       }
@@ -71,7 +76,7 @@ export function EmptyDataContent({
     return () => {
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [rowHeight]);
 
   if (!tableMetadata) {
     return <Loading />;
@@ -155,7 +160,10 @@ export function EmptyDataContent({
                   {EXAMPLE_COLUMNS.map((col) => (
                     <th
                       key={col}
-                      className="border-r p-2.5 text-left text-xs font-semibold text-content-secondary select-none last:border-r-0"
+                      className="border-r px-2.5 text-left text-xs font-semibold text-content-secondary select-none last:border-r-0"
+                      style={{
+                        height: `${rowHeight}px`,
+                      }}
                     >
                       {col}
                     </th>
@@ -169,7 +177,10 @@ export function EmptyDataContent({
                       // eslint-disable-next-line jsx-a11y/control-has-associated-label
                       <td
                         key={col}
-                        className="border-r p-2.5 group-last:border-b-0 last:border-r-0"
+                        className="border-r px-2.5 group-last:border-b-0 last:border-r-0"
+                        style={{
+                          height: `${rowHeight}px`,
+                        }}
                       >
                         <div className="h-3 w-full max-w-64 bg-content-secondary/30" />
                       </td>
