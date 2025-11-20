@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "../react/client.js";
-import { FunctionReference, makeFunctionReference } from "../server/api.js";
-import { jsonToConvex } from "../values/index.js";
+import { FunctionReference } from "../server/api.js";
+import { parsePreloaded } from "./preloaded_utils.js";
 
 /**
  * The preloaded query payload, which should be passed to a client component
@@ -34,17 +34,10 @@ export type Preloaded<Query extends FunctionReference<"query">> = {
 export function usePreloadedQuery<Query extends FunctionReference<"query">>(
   preloadedQuery: Preloaded<Query>,
 ): Query["_returnType"] {
-  const args = useMemo(
-    () => jsonToConvex(preloadedQuery._argsJSON),
-    [preloadedQuery._argsJSON],
-  ) as Query["_args"];
-  const preloadedResult = useMemo(
-    () => jsonToConvex(preloadedQuery._valueJSON),
-    [preloadedQuery._valueJSON],
+  const parsed = useMemo(
+    () => parsePreloaded(preloadedQuery),
+    [preloadedQuery],
   );
-  const result = useQuery(
-    makeFunctionReference(preloadedQuery._name) as Query,
-    args,
-  );
-  return result === undefined ? preloadedResult : result;
+  const result = useQuery(parsed.queryReference, parsed.argsObject);
+  return result === undefined ? parsed.preloadedResult : result;
 }
