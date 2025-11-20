@@ -68,7 +68,7 @@
   "devDependencies": {
     "@babel/core": "^7.27.1",
     "@jest/types": "^29.6.0",
-    "@storybook/nextjs": "^9.1.2",
+    "@storybook/nextjs": "^10.0.8",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/jest-dom": "~6.8.0",
@@ -108,7 +108,7 @@
     "postcss": "^8.4.19",
     "prettier": "3.6.2",
     "prettier-plugin-tailwindcss": "~0.6.11",
-    "storybook": "^9.1.2",
+    "storybook": "^10.0.8",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",

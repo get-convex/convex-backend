@@ -47,7 +47,7 @@
     "@types/testing-library__jest-dom": "~5.14.5",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
-    "@storybook/nextjs": "^9.1.2",
+    "@storybook/nextjs": "^10.0.8",
     "eslint": "^8.29.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^18.0.0",
@@ -64,7 +64,7 @@
     "postcss": "^8.4.19",
     "prettier": "3.6.2",
     "prettier-plugin-tailwindcss": "~0.6.11",
-    "storybook": "^9.1.2",
+    "storybook": "^10.0.8",
     "typescript": "^5.9.2",
     "tsc-alias": "~1.8.15",
     "@types/lodash-es": "~4.17.12"

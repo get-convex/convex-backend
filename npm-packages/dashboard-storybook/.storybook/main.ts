@@ -16,19 +16,25 @@ const config: StorybookConfig = {
   framework: {
     name: "@storybook/nextjs-vite",
     options: {
-      nextConfigPath: path.resolve(__dirname, "../../dashboard/next.config.js"),
+      nextConfigPath: path.resolve(
+        import.meta.dirname,
+        "../../dashboard/next.config.js",
+      ),
     },
   },
   viteFinal: async (config) => {
     return mergeConfig(config, {
       css: {
-        postcss: path.resolve(__dirname, "../../dashboard/postcss.config.js"),
+        postcss: path.resolve(
+          import.meta.dirname,
+          "../../dashboard/postcss.config.js",
+        ),
       },
       server: {
         fs: {
           allow: [
             ...(config.server?.fs?.allow || []),
-            path.resolve(__dirname, "../../"),
+            path.resolve(import.meta.dirname, "../../"),
           ],
         },
       },
