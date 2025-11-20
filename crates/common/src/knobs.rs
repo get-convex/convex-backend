@@ -868,6 +868,15 @@ pub static MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE: LazyLock<usize> =
 pub static MYSQL_MAX_CHUNK_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_CHUNK_BYTES", 10 << 20));
 
+/// Page size to fall back to when Vitess rejects large result sets.
+/// Vitess limits query results to 64MiB. As documents can be up to 1MiB (plus
+/// some overhead) and system documents can be larger still, we may need to fall
+/// back to a much smaller page size if we hit the limit while loading
+/// documents. If the fallback page size still fails, we'll try page size 1
+/// before giving up.
+pub static MYSQL_FALLBACK_PAGE_SIZE: LazyLock<u32> =
+    LazyLock::new(|| env_config("MYSQL_FALLBACK_PAGE_SIZE", 5));
+
 /// Timeout for all operations on MySQL connections, Vitess timeout is 20s so
 /// set lower than that
 pub static MYSQL_TIMEOUT: LazyLock<u64> = LazyLock::new(|| env_config("MYSQL_TIMEOUT_SECONDS", 19));

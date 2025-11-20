@@ -55,6 +55,7 @@ use common::{
     },
     interval::Interval,
     knobs::{
+        MYSQL_FALLBACK_PAGE_SIZE,
         MYSQL_MAX_QUERY_BATCH_SIZE,
         MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE,
         MYSQL_MIN_QUERY_BATCH_SIZE,
@@ -127,12 +128,6 @@ use crate::{
         QueryIndexStats,
     },
 };
-
-// Vitess limits query results to 64MiB.
-// As documents can be up to 1MiB (plus some overhead) and system documents can
-// be larger still, we may need to fall back to a much smaller page size if we
-// hit the limit while loading documents.
-const FALLBACK_PAGE_SIZE: u32 = 5;
 
 #[derive(Clone, Debug)]
 pub struct MySqlInstanceName {
@@ -764,18 +759,26 @@ impl<RT: Runtime> MySqlReader<RT> {
                             .message
                             .contains("trying to send message larger than max") =>
                 {
-                    if page_size == FALLBACK_PAGE_SIZE {
+                    if page_size == 1 {
                         anyhow::bail!(
-                            "Failed to load documents with fallback page size \
-                             `{FALLBACK_PAGE_SIZE}`: {}",
-                            db_err.message
+                            "Failed to load documents with minimum page size `1`: {}",
+                            db_err.message,
                         );
                     }
-                    tracing::warn!(
-                        "Falling back to page size `{FALLBACK_PAGE_SIZE}` due to server error: {}",
-                        db_err.message
-                    );
-                    page_size = FALLBACK_PAGE_SIZE;
+                    if page_size == *MYSQL_FALLBACK_PAGE_SIZE {
+                        tracing::warn!(
+                            "Falling back to page size `1` due to repeated server error: {}",
+                            db_err.message
+                        );
+                        page_size = 1;
+                    } else {
+                        tracing::warn!(
+                            "Falling back to page size `{}` due to server error: {}",
+                            *MYSQL_FALLBACK_PAGE_SIZE,
+                            db_err.message
+                        );
+                        page_size = *MYSQL_FALLBACK_PAGE_SIZE;
+                    }
                     continue;
                 },
                 Err(e) => Err(e),
@@ -931,19 +934,26 @@ impl<RT: Runtime> MySqlReader<RT> {
                                 .message
                                 .contains("trying to send message larger than max") =>
                     {
-                        if batch_size == FALLBACK_PAGE_SIZE {
+                        if batch_size == 1 {
                             anyhow::bail!(
-                                "Failed to load documents with fallback page size \
-                                 `{FALLBACK_PAGE_SIZE}`: {}",
+                                "Failed to load index rows with minimum page size `1`: {}",
                                 db_err.message
                             );
                         }
-                        tracing::warn!(
-                            "Falling back to page size `{FALLBACK_PAGE_SIZE}` due to server \
-                             error: {}",
-                            db_err.message
-                        );
-                        batch_size = FALLBACK_PAGE_SIZE;
+                        if batch_size == *MYSQL_FALLBACK_PAGE_SIZE {
+                            tracing::warn!(
+                                "Falling back to page size `1` due to repeated server error: {}",
+                                db_err.message
+                            );
+                            batch_size = 1;
+                        } else {
+                            tracing::warn!(
+                                "Falling back to page size `{}` due to server error: {}",
+                                *MYSQL_FALLBACK_PAGE_SIZE,
+                                db_err.message
+                            );
+                            batch_size = *MYSQL_FALLBACK_PAGE_SIZE;
+                        }
                         fallback = true;
                         continue;
                     },
