@@ -824,12 +824,6 @@ export type UseQueryOptions<Query extends FunctionReference<"query">> = {
    * @defaultValue undefined
    */
   initialValue?: Query["_returnType"];
-  /**
-   * When true, the query will not be subscribed and it will behave the same as
-   * if it was loading.
-   * @defaultValue false
-   */
-  skip?: boolean;
 } & (FunctionArgs<Query> extends EmptyObject
   ? {
       /**
@@ -862,12 +856,6 @@ export type UseQueryPreloadedOptions<Query extends FunctionReference<"query">> =
      * @defaultValue false
      */
     throwOnError?: boolean;
-    /**
-     * When true, the query will not be subscribed and it will behave the same as
-     * if it was loading.
-     * @defaultValue false
-     */
-    skip?: boolean;
   };
 
 /**
@@ -945,8 +933,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
     typeof queryOrOptions === "object" &&
     queryOrOptions !== null &&
     ("query" in queryOrOptions || "preloaded" in queryOrOptions);
-  const isObjectSkip =
-    queryOrOptions === "skip" || (isObjectOptions && !!queryOrOptions.skip);
+  const isObjectSkip = queryOrOptions === "skip";
   const isLegacy = !isObjectOptions && !isObjectSkip;
   const legacySkip = isLegacy && args[0] === "skip";
   const isObjectReturn = isObjectOptions || isObjectSkip;

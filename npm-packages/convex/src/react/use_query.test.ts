@@ -97,11 +97,16 @@ describe("useQuery types", () => {
       throwOnError: true,
     });
 
-    useQuery({
-      query: api.module.args,
-      args: { _arg: "asdf" },
-      skip: true,
-    });
+    const _arg: string | undefined = undefined;
+
+    useQuery(
+      !_arg
+        ? "skip"
+        : {
+            query: api.module.args,
+            args: { _arg },
+          },
+    );
 
     const {
       status: _status,
