@@ -1,5 +1,6 @@
 use std::fmt;
 
+use common::runtime::Runtime;
 use serde::{
     Deserialize,
     Serialize,
@@ -14,6 +15,7 @@ pub struct WebhookConfig {
     )]
     pub url: reqwest::Url,
     pub format: WebhookFormat,
+    pub hmac_secret: Option<String>,
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -29,6 +31,7 @@ pub enum WebhookFormat {
 pub struct SerializedWebhookConfig {
     pub url: String,
     pub format: WebhookFormat,
+    pub hmac_secret: Option<String>,
 }
 
 impl From<WebhookConfig> for SerializedWebhookConfig {
@@ -36,6 +39,7 @@ impl From<WebhookConfig> for SerializedWebhookConfig {
         Self {
             url: value.url.to_string(),
             format: value.format,
+            hmac_secret: value.hmac_secret,
         }
     }
 }
@@ -47,6 +51,7 @@ impl TryFrom<SerializedWebhookConfig> for WebhookConfig {
         Ok(WebhookConfig {
             url: value.url.parse()?,
             format: value.format,
+            hmac_secret: value.hmac_secret,
         })
     }
 }
@@ -55,6 +60,10 @@ impl fmt::Display for WebhookConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "WebhookConfig {{ url: ... }}")
     }
+}
+
+pub fn generate_webhook_hmac_secret<RT: Runtime>(rt: RT) -> String {
+    rt.new_uuid_v4().as_simple().to_string()
 }
 
 #[cfg(any(test, feature = "testing"))]

@@ -39,6 +39,16 @@ impl<RT: Runtime> Application<RT> {
         Ok(())
     }
 
+    pub async fn get_log_sink(&self, sink_type: SinkType) -> anyhow::Result<Option<SinkConfig>> {
+        let mut tx = self.begin(Identity::system()).await?;
+        let mut model = LogSinksModel::new(&mut tx);
+        let sink = model
+            .get_by_provider(sink_type.clone())
+            .await?
+            .map(|sink| sink.into_value().config);
+        Ok(sink)
+    }
+
     pub async fn remove_log_sink(&self, sink_type: SinkType) -> anyhow::Result<()> {
         let mut tx = self.begin(Identity::system()).await?;
         let mut model = LogSinksModel::new(&mut tx);

@@ -93,6 +93,7 @@ use crate::{
         add_sentry_sink,
         add_webhook_sink,
         delete_log_sink,
+        regenerate_webhook_secret,
     },
     logs::{
         stream_function_logs,
@@ -596,6 +597,10 @@ where
     Router::new()
         .route("/datadog_sink", post(add_datadog_sink))
         .route("/webhook_sink", post(add_webhook_sink))
+        .route(
+            "/regenerate_webhook_secret",
+            post(regenerate_webhook_secret),
+        )
         .route("/axiom_sink", post(add_axiom_sink))
         .route("/sentry_sink", post(add_sentry_sink))
         .route("/delete_sink", delete(delete_log_sink))

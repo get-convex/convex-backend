@@ -24,6 +24,7 @@ use model::log_sinks::types::{
     },
     sentry::SerializedSentryConfig,
     webhook::{
+        generate_webhook_hmac_secret,
         WebhookConfig,
         WebhookFormat,
     },
@@ -85,28 +86,40 @@ pub async fn add_datadog_sink(
     Ok(StatusCode::OK)
 }
 
+pub async fn regenerate_webhook_secret(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
+    st.application
+        .ensure_log_streaming_allowed(identity)
+        .await?;
+
+    let Some(SinkConfig::Webhook(existing_webhook_sink)) =
+        st.application.get_log_sink(SinkType::Webhook).await?
+    else {
+        return Err(anyhow::anyhow!("No webhook log stream exists for this deployment").into());
+    };
+
+    let hmac_secret = generate_webhook_hmac_secret(st.application.runtime());
+
+    let config = WebhookConfig {
+        url: existing_webhook_sink.url,
+        format: existing_webhook_sink.format,
+        hmac_secret: Some(hmac_secret),
+    };
+    st.application
+        .add_log_sink(SinkConfig::Webhook(config))
+        .await?;
+
+    Ok(StatusCode::OK)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebhookSinkPostArgs {
     url: String,
     format: WebhookFormat,
-}
-
-impl TryFrom<WebhookSinkPostArgs> for WebhookConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: WebhookSinkPostArgs) -> Result<Self, Self::Error> {
-        let url = value.url.parse().map_err(|_| {
-            anyhow::anyhow!(ErrorMetadata::bad_request(
-                "InvalidWebhookUrl",
-                "The URL passed was invalid"
-            ))
-        })?;
-        Ok(WebhookConfig {
-            url,
-            format: value.format,
-        })
-    }
 }
 
 pub async fn add_webhook_sink(
@@ -119,7 +132,28 @@ pub async fn add_webhook_sink(
         .ensure_log_streaming_allowed(identity)
         .await?;
 
-    let config: WebhookConfig = args.try_into()?;
+    let existing_webhook_sink = st.application.get_log_sink(SinkType::Webhook).await?;
+
+    let hmac_secret = match existing_webhook_sink {
+        Some(SinkConfig::Webhook(WebhookConfig {
+            hmac_secret: Some(existing_secret),
+            ..
+        })) => existing_secret,
+        _ => generate_webhook_hmac_secret(st.application.runtime()),
+    };
+
+    let url = args.url.parse().map_err(|_| {
+        anyhow::anyhow!(ErrorMetadata::bad_request(
+            "InvalidWebhookUrl",
+            "The URL passed was invalid"
+        ))
+    })?;
+
+    let config = WebhookConfig {
+        url,
+        format: args.format,
+        hmac_secret: Some(hmac_secret),
+    };
     st.application
         .add_log_sink(SinkConfig::Webhook(config))
         .await?;
