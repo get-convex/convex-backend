@@ -1,7 +1,7 @@
 [package]
 name = "convex_sync_types"
 description = "Sync types for the Convex Websocket protocol (convex.dev)"
-version = "0.10.0"
+version = "0.10.2"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 rust-version = "1.80.1"

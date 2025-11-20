@@ -1,3 +1,12 @@
+# 0.10.2
+
+- Fix for deadlock between client and websocket worker tasks
+- Update `tokio` dependency
+
+# 0.10.1
+
+- Bump sync_types version and depend on it
+
 # 0.10.0
 
 - Fix for panic in query subscriptions

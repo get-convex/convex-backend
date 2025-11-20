@@ -2,7 +2,7 @@
 name = "convex"
 description = "Client library for Convex (convex.dev)"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
-version = "0.10.1"
+version = "0.10.2"
 edition = "2021"
 rust-version = "1.80.1"
 resolver = "2"
@@ -28,7 +28,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
-convex_sync_types = { path = "./sync_types", version = "=0.10.0" }
+convex_sync_types = { path = "./sync_types", version = "=0.10.2" }
 futures = { workspace = true }
 imbl = { workspace = true }
 parking_lot = { workspace = true, optional = true }
@@ -50,7 +50,7 @@ uuid = { workspace = true, features = ["serde", "v4"] }
 
 [dev-dependencies]
 colored = { workspace = true }
-convex_sync_types = { path = "./sync_types", version = "=0.10.0", features = [
+convex_sync_types = { path = "./sync_types", version = "=0.10.2", features = [
     "testing",
 ] }
 dotenvy = { workspace = true }
