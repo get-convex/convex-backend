@@ -3,11 +3,12 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { test, describe, expect } from "vitest";
+import { test, describe, expect, expectTypeOf } from "vitest";
 import { anyApi } from "../server/api.js";
 
-import { ApiFromModules, QueryBuilder } from "../server/index.js";
+import type { ApiFromModules, QueryBuilder } from "../server/index.js";
 import { useQuery as useQueryReal } from "./client.js";
+import type { Preloaded } from "./hydration.js";
 
 // Intentional noop, we're just testing types.
 const useQuery = (() => {}) as unknown as typeof useQueryReal;
@@ -67,5 +68,71 @@ describe("useQuery types", () => {
 
     // @ts-expect-error adding args is not allowed
     useQuery(api.module.noArgs, { _arg: 1 });
+  });
+
+  test("Queries with object options", () => {
+    useQuery({
+      query: api.module.noArgs,
+    });
+
+    useQuery({
+      query: api.module.noArgs,
+      args: {},
+    });
+
+    useQuery({
+      query: api.module.args,
+      args: { _arg: "asdf" },
+    });
+
+    useQuery({
+      query: api.module.args,
+      args: { _arg: "asdf" },
+      initialValue: "initial value",
+    });
+
+    useQuery({
+      query: api.module.args,
+      args: { _arg: "asdf" },
+      throwOnError: true,
+    });
+
+    useQuery({
+      query: api.module.args,
+      args: { _arg: "asdf" },
+      skip: true,
+    });
+
+    const {
+      status: _status,
+      value: _value,
+      error: _error,
+    } = useQuery({
+      query: api.module.args,
+      args: { _arg: "asdf" },
+      initialValue: "initial value",
+      throwOnError: true,
+    });
+    if (_status === "success") {
+      expectTypeOf(_value).toEqualTypeOf("initial value");
+    }
+    if (_status === "error") {
+      expectTypeOf(_error).toEqualTypeOf<Error>();
+    }
+    if (_status === "loading") {
+      expectTypeOf(_value).toEqualTypeOf<undefined>();
+    }
+
+    useQuery("skip");
+  });
+
+  test("Queries with preloaded options", () => {
+    const {
+      status: _status,
+      value: _value,
+      error: _error,
+    } = useQuery({
+      preloaded: {} as Preloaded<typeof api.module.noArgs>,
+    });
   });
 });
