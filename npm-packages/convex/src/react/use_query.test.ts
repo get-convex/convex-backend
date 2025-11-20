@@ -110,7 +110,7 @@ describe("useQuery types", () => {
 
     const {
       status: _status,
-      value: _value,
+      data: _data,
       error: _error,
     } = useQuery({
       query: api.module.args,
@@ -119,13 +119,13 @@ describe("useQuery types", () => {
       throwOnError: true,
     });
     if (_status === "success") {
-      expectTypeOf(_value).toEqualTypeOf("initial value");
+      expectTypeOf(_data).toEqualTypeOf("initial value");
     }
     if (_status === "error") {
       expectTypeOf(_error).toEqualTypeOf<Error>();
     }
     if (_status === "loading") {
-      expectTypeOf(_value).toEqualTypeOf<undefined>();
+      expectTypeOf(_data).toEqualTypeOf<undefined>();
     }
 
     useQuery("skip");
@@ -134,7 +134,7 @@ describe("useQuery types", () => {
   test("Queries with preloaded options", () => {
     const {
       status: _status,
-      value: _value,
+      data: _data,
       error: _error,
     } = useQuery({
       preloaded: {} as Preloaded<typeof api.module.noArgs>,

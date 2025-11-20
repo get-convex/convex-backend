@@ -866,17 +866,17 @@ export type UseQueryPreloadedOptions<Query extends FunctionReference<"query">> =
 export type UseQueryResult<T> =
   | {
       status: "success";
-      value: T;
+      data: T;
       error: undefined;
     }
   | {
       status: "error";
-      value: undefined;
+      data: undefined;
       error: Error;
     }
   | {
       status: "loading";
-      value: undefined;
+      data: undefined;
       error: undefined;
     };
 
@@ -1000,7 +1000,7 @@ export function useQuery<Query extends FunctionReference<"query">>(
     }
     return {
       status: "error",
-      value: undefined,
+      data: undefined,
       error: result,
     } satisfies UseQueryResult<Query["_returnType"]>;
   }
@@ -1010,20 +1010,20 @@ export function useQuery<Query extends FunctionReference<"query">>(
     if (fallbackValue !== undefined) {
       return {
         status: "success",
-        value: fallbackValue,
+        data: fallbackValue,
         error: undefined,
       } satisfies UseQueryResult<Query["_returnType"]>;
     }
     return {
       status: "loading",
-      value: undefined,
+      data: undefined,
       error: undefined,
     } satisfies UseQueryResult<Query["_returnType"]>;
   }
 
   return {
     status: "success",
-    value: result,
+    data: result,
     error: undefined,
   } satisfies UseQueryResult<Query["_returnType"]>;
 }
