@@ -1287,7 +1287,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     },
                 }
 
-                is_working = new_cursor < min_document_snapshot_ts;
+                is_working = new_cursor.succ()? < *min_document_snapshot_ts;
                 if is_working {
                     tracing::trace!(
                         "go_delete_documents: processed {scanned_documents:?} rows, more to go"
