@@ -8,6 +8,7 @@ use std::{
     str::FromStr,
 };
 
+use errors::ErrorMetadata;
 use itertools::Itertools;
 use sync_types::path::check_valid_path_component;
 use value::{
@@ -131,8 +132,11 @@ impl ComponentPath {
 
     pub fn deserialize(path: Option<&str>) -> anyhow::Result<Self> {
         match path {
-            Some(p) => p.parse(),
             None => Ok(ComponentPath::root()),
+            Some(p) => p.parse().map_err(|e: anyhow::Error| {
+                let msg = e.to_string();
+                e.context(ErrorMetadata::bad_request("InvalidComponentPath", msg))
+            }),
         }
     }
 
