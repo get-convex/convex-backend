@@ -24,7 +24,7 @@ You can see more examples in the
 [test suite](https://github.com/get-convex/convex-test/tree/main/convex) of the
 convex-test library.
 
-## Get Started
+## Get started
 
 <StepByStep>
 
@@ -54,11 +54,71 @@ convex-test library.
 
   <Step title="Configure Vitest">
 
-    Add <JSDialectFileName name="vitest.config.mts" /> file to configure the test
+    Add <JSDialectFileName name="vitest.config.ts" /> file to configure the test
     environment to better match the Convex runtime, and to inline the test library
     for better dependency tracking.
 
-    ```ts title="vitest.config.mts"
+    <Details summary={<>If your Convex functions are in a directory other than <code>convex</code></>}>
+      If your project has a
+      [different name or location configured](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
+      for the `convex/` folder in `convex.json`, you need to call
+      [`import.meta.glob`](https://vitejs.dev/guide/features#glob-import) and pass the
+      result as the second argument to `convexTest`.
+
+      The argument to `import.meta.glob` must be a glob pattern matching all the files
+      containing your Convex functions. The paths are relative to the test file in
+      which `import.meta.glob` is called. It's best to do this in one place in your
+      custom functions folder:
+
+      ```ts title="src/convex/test.setup.ts"
+      /// <reference types="vite/client" />
+      export const modules = import.meta.glob(
+        "./**/!(*.*.*)*.*s"
+      );
+      ```
+
+      This example glob pattern includes all files with a single extension ending in
+      `s` (like `js` or `ts`) in the `src/convex` folder and any of its children.
+
+      Use the result in your tests:
+
+      ```ts title="src/convex/messages.test.ts"
+      import { convexTest } from "convex-test";
+      import { test } from "vitest";
+      import schema from "./schema";
+      import { modules } from "./test.setup";
+
+      test("some behavior", async () => {
+        const t = convexTest(schema, modules);
+        // use `t`...
+      });
+      ```
+    </Details>
+
+    <Details summary="Set up multiple test environments (e.g. Convex + frontend)">
+      If you want to use Vitest to test both your Convex functions and your React
+      frontend, you might want to use multiple Vitest environments depending on the
+      test file location via
+      [environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs):
+
+      ```ts title="vitest.config.ts"
+      import { defineConfig } from "vitest/config";
+
+      export default defineConfig({
+        test: {
+          environmentMatchGlobs: [
+            // all tests in convex/ will run in edge-runtime
+            ["convex/**", "edge-runtime"],
+            // all other tests use jsdom
+            ["**", "jsdom"],
+          ],
+          server: { deps: { inline: ["convex-test"] } },
+        },
+      });
+      ```
+    </Details>
+
+    ```ts title="vitest.config.ts"
     import { defineConfig } from "vitest/config";
 
     export default defineConfig({
@@ -112,10 +172,12 @@ convex-test library.
 
 </StepByStep>
 
-If you're not familiar with Vitest or Jest read the
+If you're not familiar with Vitest, read the
 [Vitest Getting Started docs](https://vitest.dev/guide) first.
 
-## `convexTest`
+## Using convex-test
+
+### Initialize `convexTest`
 
 The library exports a `convexTest` function which should be called at the start
 of each of your tests. The function returns an object which is by convention
@@ -142,7 +204,7 @@ validation and for correct typing of
 
 If you don't have a schema, call `convexTest()` with no argument.
 
-## Calling functions with `t.query`, `t.mutation` and `t.action`
+### Call functions
 
 Your test can call public and internal Convex [functions](/functions.mdx) in
 your project:
@@ -163,7 +225,7 @@ test("functions", async () => {
 });
 ```
 
-## Setting up and inspecting data and storage with `t.run`
+### Modify data outside of functions
 
 Sometimes you might want to directly [write](/database/writing-data.mdx) to the
 mock database or [file storage](/file-storage.mdx) from your test, without
@@ -185,7 +247,7 @@ test("functions", async () => {
 });
 ```
 
-## Testing HTTP actions with `t.fetch`
+### HTTP actions
 
 Your test can call [HTTP actions](/functions/http-actions.mdx) registered by
 your router:
@@ -203,7 +265,7 @@ test("functions", async () => {
 Mocking the global `fetch` function doesn't affect `t.fetch`, but you can use
 `t.fetch` in a `fetch` mock to route to your HTTP actions.
 
-## Testing scheduled functions
+### Scheduled functions
 
 One advantage of using a mock implementation running purely in JavaScript is
 that you can control time in the Vitest test environment. To test
@@ -293,7 +355,7 @@ test("mutation scheduling action scheduling action", async () => {
 Check out more examples in
 [this file](https://github.com/get-convex/convex-test/blob/main/convex/scheduler.test.ts).
 
-## Testing authentication with `t.withIdentity`
+### Authentication
 
 To test functions which depend on the current [authenticated](/auth.mdx) user
 identity you can create a version of the `t` accessor with given
@@ -322,33 +384,9 @@ test("authenticated functions", async () => {
 });
 ```
 
-## Mocking `fetch` calls
+## Vitest tips
 
-You can use Vitest's
-[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) method:
-
-```ts title="convex/ai.test.ts"
-import { expect, test, vi } from "vitest";
-import { convexTest } from "../index";
-import { api } from "./_generated/api";
-import schema from "./schema";
-
-test("ai", async () => {
-  const t = convexTest(schema);
-
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => ({ text: async () => "I am the overlord" }) as Response),
-  );
-
-  const reply = await t.action(api.messages.sendAIMessage, { prompt: "hello" });
-  expect(reply).toEqual("I am the overlord");
-
-  vi.unstubAllGlobals();
-});
-```
-
-## Asserting results
+### Asserting results
 
 See Vitest's [Expect](https://vitest.dev/api/expect.html) reference.
 
@@ -375,7 +413,33 @@ test("messages validation", async () => {
 });
 ```
 
-## Measuring test coverage
+### Mocking `fetch` calls
+
+You can use Vitest's
+[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) method:
+
+```ts title="convex/ai.test.ts"
+import { expect, test, vi } from "vitest";
+import { convexTest } from "../index";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("ai", async () => {
+  const t = convexTest(schema);
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ text: async () => "I am the overlord" }) as Response),
+  );
+
+  const reply = await t.action(api.messages.sendAIMessage, { prompt: "hello" });
+  expect(reply).toEqual("I am the overlord");
+
+  vi.unstubAllGlobals();
+});
+```
+
+### Measuring test coverage
 
 You can get a printout of the code coverage provided by your tests. Besides
 answering the question "how much of my code is covered by tests" it is also
@@ -393,69 +457,12 @@ install a required dependency the first time you run it.
   />
 </p>
 
-## Debugging tests
+### Debugging tests
 
 You can attach a debugger to the running tests. Read the Vitest
-[Debugging docs](https://vitest.dev/guide/debugging.html) and then
-use&#32;<CodeWithCopyButton text="npm run test:debug" />.
+[Debugging docs](https://vitest.dev/guide/debugging.html) and then use
 
-## Multiple environments
-
-If you want to use Vitest to test both your Convex functions and your React
-frontend, you might want to use multiple Vitest environments depending on the
-test file location via
-[environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs):
-
-```ts title="vitest.config.mts"
-import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-  test: {
-    environmentMatchGlobs: [
-      // all tests in convex/ will run in edge-runtime
-      ["convex/**", "edge-runtime"],
-      // all other tests use jsdom
-      ["**", "jsdom"],
-    ],
-    server: { deps: { inline: ["convex-test"] } },
-  },
-});
-```
-
-## Custom `convex/` folder name or location
-
-If your project has a
-[different name or location configured](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
-for the `convex/` folder in `convex.json`, you need to call
-[`import.meta.glob`](https://vitejs.dev/guide/features#glob-import) and pass the
-result as the second argument to `convexTest`.
-
-The argument to `import.meta.glob` must be a glob pattern matching all the files
-containing your Convex functions. The paths are relative to the test file in
-which `import.meta.glob` is called. It's best to do this in one place in your
-custom functions folder:
-
-```ts title="src/convex/test.setup.ts"
-/// <reference types="vite/client" />
-export const modules = import.meta.glob("./**/!(*.*.*)*.*s");
-```
-
-This example glob pattern includes all files with a single extension ending in
-`s` (like `js` or `ts`) in the `src/convex` folder and any of its children.
-
-Use the result in your tests:
-
-```ts title="src/convex/messages.test.ts"
-import { convexTest } from "convex-test";
-import { test } from "vitest";
-import schema from "./schema";
-import { modules } from "./test.setup";
-
-test("some behavior", async () => {
-  const t = convexTest(schema, modules);
-  // use `t`...
-});
-```
+<CodeWithCopyButton text="npm run test:debug" />.
 
 ## Limitations
 
