@@ -581,7 +581,10 @@ export default query(async () => {
   });
 });
 
-export const setHostUnimplemented = query(() => {
-  const url = new URL("https://baz.qat:8000/qux/quux?foo=bar&baz=12#qat");
-  url.host = "qat.baz:8080";
+export const setHostUnimplemented = query({
+  args: {},
+  handler: () => {
+    const url = new URL("https://baz.qat:8000/qux/quux?foo=bar&baz=12#qat");
+    url.host = "qat.baz:8080";
+  },
 });

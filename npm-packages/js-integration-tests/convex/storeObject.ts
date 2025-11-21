@@ -5,6 +5,9 @@ export default mutation(async ({ db }, obj) => {
   return (await db.get(id))!;
 });
 
-export const throwError = mutation(async () => {
-  throw new Error("Failure is temporary, undefined is forever.");
+export const throwError = mutation({
+  args: {},
+  handler: async () => {
+    throw new Error("Failure is temporary, undefined is forever.");
+  },
 });

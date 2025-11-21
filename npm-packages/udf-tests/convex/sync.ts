@@ -1,14 +1,20 @@
 import { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 
-export const initialize = mutation(
-  async ({ db }, { name, balance }: { name: string; balance: number }) => {
+export const initialize = mutation({
+  handler: async (
+    { db },
+    { name, balance }: { name: string; balance: number },
+  ) => {
     await db.insert("accounts", { name, balance });
   },
-);
+});
 
-export const deposit = mutation(
-  async ({ db }, { name, balance }: { name: string; balance: number }) => {
+export const deposit = mutation({
+  handler: async (
+    { db },
+    { name, balance }: { name: string; balance: number },
+  ) => {
     const doc = await db
       .query("accounts")
       .filter((q) => q.eq(q.field("name"), name))
@@ -21,20 +27,20 @@ export const deposit = mutation(
     // return a result so we can test that functionality too
     return name + "'s balance is now " + doc.balance;
   },
-);
+});
 
-export const accountBalance = query(
-  async ({ db }, { name }: { name: string }) => {
+export const accountBalance = query({
+  handler: async ({ db }, { name }: { name: string }) => {
     const doc = await db
       .query("accounts")
       .filter((q) => q.eq(q.field("name"), name))
       .first();
     return doc?.balance ?? 0;
   },
-);
+});
 
-export const transfer = mutation(
-  async (
+export const transfer = mutation({
+  handler: async (
     { db },
     { from, to, amount }: { from: string; to: string; amount: number },
   ) => {
@@ -56,28 +62,33 @@ export const transfer = mutation(
     await db.replace(fromDoc._id, fromDoc);
     await db.replace(toDoc._id, toDoc);
   },
-);
-
-export const fail = query((_, { i }: { i: number }) => {
-  const messages = [
-    "I can't go for that",
-    "No can do.",
-    "I'd do anything for love",
-    "But I won't do that.",
-  ];
-  throw new Error(messages[i]);
 });
 
-export const succeed = query(() => {
-  return "on my list";
+export const fail = query({
+  handler: (_, { i }: { i: number }) => {
+    const messages = [
+      "I can't go for that",
+      "No can do.",
+      "I'd do anything for love",
+      "But I won't do that.",
+    ];
+    throw new Error(messages[i]);
+  },
 });
 
-export const discardQueryResults = query(
-  async ({ db }, { throwError }: { throwError: boolean }) => {
+export const succeed = query({
+  args: {},
+  handler: () => {
+    return "on my list";
+  },
+});
+
+export const discardQueryResults = query({
+  handler: async ({ db }, { throwError }: { throwError: boolean }) => {
     await db.query("accounts").collect();
     if (throwError) {
       throw new Error("bye");
     }
     return "hi";
   },
-);
+});

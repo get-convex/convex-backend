@@ -97,6 +97,7 @@ export const addEmbedding = internalMutation({
 });
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     return await ctx.db.query("movies").order("desc").take(10);
   },

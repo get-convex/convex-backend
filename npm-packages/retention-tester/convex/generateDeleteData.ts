@@ -4,40 +4,46 @@ import { TableNames } from "./_generated/dataModel";
 import { faker } from "@faker-js/faker";
 import { didConvexYield } from "./yield";
 
-export const generateUsers = internalMutation(async ({ db }) => {
-  if (await didConvexYield(db)) {
-    return;
-  }
+export const generateUsers = internalMutation({
+  args: {},
+  handler: async ({ db }) => {
+    if (await didConvexYield(db)) {
+      return;
+    }
 
-  faker.seed();
+    faker.seed();
 
-  for (let i = 0; i < 1000; i++) {
-    await db.insert("users", {
-      name: faker.person.fullName(),
-      userName: faker.internet.userName(),
-    });
-  }
+    for (let i = 0; i < 1000; i++) {
+      await db.insert("users", {
+        name: faker.person.fullName(),
+        userName: faker.internet.userName(),
+      });
+    }
+  },
 });
 
-export const generateMessages = internalMutation(async ({ db }) => {
-  if (await didConvexYield(db)) {
-    return;
-  }
+export const generateMessages = internalMutation({
+  args: {},
+  handler: async ({ db }) => {
+    if (await didConvexYield(db)) {
+      return;
+    }
 
-  faker.seed();
+    faker.seed();
 
-  const users = await db.query("users").take(100);
-  if (users.length === 0) {
-    console.debug("No users, not inserting messages");
-    return;
-  }
+    const users = await db.query("users").take(100);
+    if (users.length === 0) {
+      console.debug("No users, not inserting messages");
+      return;
+    }
 
-  for (let i = 0; i < 1000; i++) {
-    await db.insert("messages", {
-      body: faker.word.words(25),
-      user: users[i % users.length]._id,
-    });
-  }
+    for (let i = 0; i < 1000; i++) {
+      await db.insert("messages", {
+        body: faker.word.words(25),
+        user: users[i % users.length]._id,
+      });
+    }
+  },
 });
 
 type CleanTableArgs = {
@@ -46,8 +52,8 @@ type CleanTableArgs = {
   table: TableNames;
 };
 
-export const cleanTable = internalMutation(
-  async (
+export const cleanTable = internalMutation({
+  handler: async (
     { db, scheduler }: MutationCtx,
     { cursor, timestamp, table }: CleanTableArgs,
   ) => {
@@ -89,4 +95,4 @@ export const cleanTable = internalMutation(
       });
     }
   },
-);
+});

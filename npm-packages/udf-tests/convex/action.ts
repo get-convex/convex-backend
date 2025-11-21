@@ -8,22 +8,32 @@ declare const Convex: {
   jsSyscall: (op: string, args: Record<string, any>) => any;
 };
 
-export const getCloudUrl = action(async () => {
-  return process.env.CONVEX_CLOUD_URL;
+export const getCloudUrl = action({
+  args: {},
+  handler: async () => {
+    return process.env.CONVEX_CLOUD_URL;
+  },
 });
 
-export const getSiteUrl = action(async () => {
-  return process.env.CONVEX_SITE_URL;
+export const getSiteUrl = action({
+  args: {},
+  handler: async () => {
+    return process.env.CONVEX_SITE_URL;
+  },
 });
 
-export const insertObject = action(async ({ runMutation, runQuery }, args) => {
-  await runMutation(api.basic.insertObject, args);
-  const count: number = await runQuery(api.basic.count, {});
-  return count;
+export const insertObject = action({
+  handler: async ({ runMutation, runQuery }, args) => {
+    await runMutation(api.basic.insertObject, args);
+    const count: number = await runQuery(api.basic.count, {});
+    return count;
+  },
 });
 
-export const schedule = action(async ({ scheduler }, args) => {
-  await scheduler.runAfter(0, api.basic.insertObject, args);
+export const schedule = action({
+  handler: async ({ scheduler }, args) => {
+    await scheduler.runAfter(0, api.basic.insertObject, args);
+  },
 });
 
 export const sleep = action({

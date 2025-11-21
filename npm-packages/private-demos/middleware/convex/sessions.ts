@@ -13,10 +13,13 @@ import { withReplacer } from "./lib/withReplacer";
  * Note: if you end up importing code from other modules that use sessions,
  * you'll likely want to move this code to avoid import cycles.
  */
-export const create = mutation(async ({ db }) => {
-  return db.insert("sessions", {
-    // TODO: insert your default values here
-  });
+export const create = mutation({
+  args: {},
+  handler: async ({ db }) => {
+    return db.insert("sessions", {
+      // TODO: insert your default values here
+    });
+  },
 });
 
 export const simpleMutation = mutationWithSession(async ({ db, session }) => {

@@ -6,24 +6,27 @@ function formatMessage(body: string, secondsLeft: number) {
   return `${body} (This message will self-destruct in ${secondsLeft} seconds)`;
 }
 
-export const getMessage = query(
-  async ({ db }, { messageId }: { messageId: Id<"messages"> }) => {
+export const getMessage = query({
+  handler: async ({ db }, { messageId }: { messageId: Id<"messages"> }) => {
     return await db.get(messageId);
   },
-);
+});
 
-export const sendMessage = mutation(
-  async ({ db }, { body, channel }: { body: string; channel: string }) => {
+export const sendMessage = mutation({
+  handler: async (
+    { db },
+    { body, channel }: { body: string; channel: string },
+  ) => {
     const id = await db.insert("messages", {
       text: body,
       channel: channel,
     });
     return id;
   },
-);
+});
 
-export const sendExpiringMessage = mutation(
-  async (
+export const sendExpiringMessage = mutation({
+  handler: async (
     { db, scheduler },
     { body, channel }: { body: string; channel: string },
   ) => {
@@ -38,10 +41,10 @@ export const sendExpiringMessage = mutation(
     });
     return id;
   },
-);
+});
 
-export const update = internalMutation(
-  async (
+export const update = internalMutation({
+  handler: async (
     { db, scheduler },
     {
       messageId,
@@ -64,4 +67,4 @@ export const update = internalMutation(
       await db.delete(messageId);
     }
   },
-);
+});

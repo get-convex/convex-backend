@@ -6,8 +6,11 @@ import { mutationWithTriggers } from "./triggers";
 export const { atomicInsert, atomicPatch, atomicReplace, atomicDelete } =
   atomicMutators("notes");
 
-export const list = query(async (ctx) => {
-  return await ctx.db.query("notes").collect();
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("notes").collect();
+  },
 });
 
 export const onNote = internalMutation({

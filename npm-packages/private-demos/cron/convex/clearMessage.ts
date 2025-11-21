@@ -16,6 +16,7 @@ export const scheduleClearData = mutation({
 });
 
 export const doNothing = mutation({
+  args: {},
   handler: () => {
     // intentional noop.
   },

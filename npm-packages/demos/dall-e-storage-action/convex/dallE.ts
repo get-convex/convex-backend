@@ -4,8 +4,11 @@ import OpenAI from "openai";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-export const send = action(
-  async (ctx, { prompt, author }: { prompt: string; author: string }) => {
+export const send = action({
+  handler: async (
+    ctx,
+    { prompt, author }: { prompt: string; author: string },
+  ) => {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error(
@@ -53,4 +56,4 @@ export const send = action(
     });
     // @snippet end storeImage
   },
-);
+});

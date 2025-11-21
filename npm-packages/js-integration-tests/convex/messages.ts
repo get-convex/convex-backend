@@ -4,25 +4,28 @@ import { mutation, query } from "./_generated/server";
 import { components } from "./_generated/api";
 import { PaginationOptions } from "convex/server";
 
-export const sendMessage = mutation(
-  async ({ db }, { channel, text }: { channel: string; text: string }) => {
+export const sendMessage = mutation({
+  handler: async (
+    { db },
+    { channel, text }: { channel: string; text: string },
+  ) => {
     const message = { channel, text };
     const id = await db.insert("messages", message);
     return await db.get(id);
   },
-);
+});
 
-export const listMessages = query(
-  async ({ db }, { channel }: { channel: string }) => {
+export const listMessages = query({
+  handler: async ({ db }, { channel }: { channel: string }) => {
     return await db
       .query("messages")
       .filter((q) => q.eq(q.field("channel"), channel))
       .collect();
   },
-);
+});
 
-export const paginatedListMessagesByChannel = query(
-  async (
+export const paginatedListMessagesByChannel = query({
+  handler: async (
     { db },
     {
       paginationOpts,
@@ -35,19 +38,25 @@ export const paginatedListMessagesByChannel = query(
       .filter((q) => q.eq(q.field("channel"), channel))
       .paginate(paginationOpts);
   },
-);
+});
 
-export const paginatedListMessagesByCreationTime = query(
-  async ({ db }, { paginationOpts }: { paginationOpts: PaginationOptions }) => {
+export const paginatedListMessagesByCreationTime = query({
+  handler: async (
+    { db },
+    { paginationOpts }: { paginationOpts: PaginationOptions },
+  ) => {
     return await db
       .query("messages")
       .withIndex("by_channel")
       .paginate(paginationOpts);
   },
-);
+});
 
-export const paginatedListMessagesWithExplicitPages = query(
-  async ({ db }, { paginationOpts }: { paginationOpts: PaginationOptions }) => {
+export const paginatedListMessagesWithExplicitPages = query({
+  handler: async (
+    { db },
+    { paginationOpts }: { paginationOpts: PaginationOptions },
+  ) => {
     const results = await db
       .query("messages")
       .withIndex("by_channel")
@@ -60,10 +69,13 @@ export const paginatedListMessagesWithExplicitPages = query(
       })),
     };
   },
-);
+});
 
-export const paginatedListMessagesMaxRows = query(
-  async ({ db }, { paginationOpts }: { paginationOpts: PaginationOptions }) => {
+export const paginatedListMessagesMaxRows = query({
+  handler: async (
+    { db },
+    { paginationOpts }: { paginationOpts: PaginationOptions },
+  ) => {
     const results = await db
       .query("messages")
       .withIndex("by_channel")
@@ -76,10 +88,10 @@ export const paginatedListMessagesMaxRows = query(
       })),
     };
   },
-);
+});
 
-export const listMessagesInRange = query(
-  async (
+export const listMessagesInRange = query({
+  handler: async (
     { db },
     {
       lower,
@@ -103,54 +115,60 @@ export const listMessagesInRange = query(
       )
       .collect();
   },
-);
-
-export const partialRollback = mutation(async (ctx) => {
-  async function sendButFail(message: string) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      await ctx.runMutation(components.component.transact.sendButFail, {
-        message,
-      });
-    } catch {
-      return;
-    }
-    throw new Error("expected error");
-  }
-
-  await sendButFail("hello fren");
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  const latest0 = await ctx.runQuery(
-    components.component.transact.allMessages,
-    {},
-  );
-  if (latest0.length !== 0) {
-    throw new Error("expected empty");
-  }
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  await ctx.runMutation(components.component.transact.sendMessage, {
-    message: "hello buddy",
-  });
-
-  await sendButFail("hello guy");
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  const latest1 = await ctx.runQuery(
-    components.component.transact.allMessages,
-    {},
-  );
-  if (latest1.length !== 1 || latest1[0] !== "hello buddy") {
-    throw new Error("expected 'hello buddy'");
-  }
 });
 
-export const messagesInComponent = query(async (ctx): Promise<string> => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  return await ctx.runQuery(components.component.transact.allMessages, {});
+export const partialRollback = mutation({
+  args: {},
+  handler: async (ctx) => {
+    async function sendButFail(message: string) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        await ctx.runMutation(components.component.transact.sendButFail, {
+          message,
+        });
+      } catch {
+        return;
+      }
+      throw new Error("expected error");
+    }
+
+    await sendButFail("hello fren");
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const latest0 = await ctx.runQuery(
+      components.component.transact.allMessages,
+      {},
+    );
+    if (latest0.length !== 0) {
+      throw new Error("expected empty");
+    }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    await ctx.runMutation(components.component.transact.sendMessage, {
+      message: "hello buddy",
+    });
+
+    await sendButFail("hello guy");
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const latest1 = await ctx.runQuery(
+      components.component.transact.allMessages,
+      {},
+    );
+    if (latest1.length !== 1 || latest1[0] !== "hello buddy") {
+      throw new Error("expected 'hello buddy'");
+    }
+  },
+});
+
+export const messagesInComponent = query({
+  args: {},
+  handler: async (ctx): Promise<string> => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return await ctx.runQuery(components.component.transact.allMessages, {});
+  },
 });

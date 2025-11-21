@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 
 export const store = mutation({
+  args: {},
   handler: async ({ db, auth }) => {
     const identity = await auth.getUserIdentity();
     if (!identity) {

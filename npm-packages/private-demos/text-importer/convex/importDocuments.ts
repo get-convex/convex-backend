@@ -24,6 +24,7 @@ export const importDocuments = mutation({
 });
 
 export const searchRandom = internalMutation({
+  args: {},
   handler: async (ctx) => {
     const random = await _queryRandom(ctx.db);
     if (random !== null) {
@@ -112,6 +113,7 @@ export const populateTableInternal = internalMutation({
 });
 
 export const populateTable = internalMutation({
+  args: {},
   handler: async (ctx) => {
     const startTime = (await ctx.db
       .query("documents")

@@ -1,16 +1,25 @@
 import { mutation, query, action } from "./_generated/server";
 import { compareValues, v } from "convex/values";
 
-export const intQuery = query(async () => {
-  return 1n;
+export const intQuery = query({
+  args: {},
+  handler: async () => {
+    return 1n;
+  },
 });
 
-export const intMutation = mutation(async () => {
-  return 1n;
+export const intMutation = mutation({
+  args: {},
+  handler: async () => {
+    return 1n;
+  },
 });
 
-export const intAction = action(async () => {
-  return 1n;
+export const intAction = action({
+  args: {},
+  handler: async () => {
+    return 1n;
+  },
 });
 
 export const insertObject = mutation({

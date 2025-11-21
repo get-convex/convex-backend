@@ -258,8 +258,11 @@ http.route({
   }),
 });
 
-export const erroringQuery = query(() => {
-  throw new Error("Oh no! Called erroring query");
+export const erroringQuery = query({
+  args: {},
+  handler: () => {
+    throw new Error("Oh no! Called erroring query");
+  },
 });
 
 export default http;

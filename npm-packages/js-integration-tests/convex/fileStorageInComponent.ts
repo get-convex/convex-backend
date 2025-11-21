@@ -4,10 +4,13 @@ import { query, mutation, action } from "./_generated/server";
 import { components } from "./_generated/api";
 import { v } from "convex/values";
 
-export const generateUploadUrl = mutation(async (ctx) => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  return ctx.runMutation(components.component.fileStorage.generateUploadUrl);
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return ctx.runMutation(components.component.fileStorage.generateUploadUrl);
+  },
 });
 
 export const getUrl = query({
@@ -20,6 +23,7 @@ export const getUrl = query({
 });
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore

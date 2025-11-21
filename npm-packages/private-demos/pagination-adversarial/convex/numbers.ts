@@ -2,13 +2,16 @@ import { paginationOptsValidator } from "convex/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-export const count = mutation(async ({ db }) => {
-  const bigNumber =
-    (await db.query("numbers").withIndex("number").order("desc").first())
-      ?.number ?? 0;
-  for (let i = 1; i <= 10; i++) {
-    await db.insert("numbers", { number: bigNumber + i, id: i.toString() });
-  }
+export const count = mutation({
+  args: {},
+  handler: async ({ db }) => {
+    const bigNumber =
+      (await db.query("numbers").withIndex("number").order("desc").first())
+        ?.number ?? 0;
+    for (let i = 1; i <= 10; i++) {
+      await db.insert("numbers", { number: bigNumber + i, id: i.toString() });
+    }
+  },
 });
 
 export const insert = mutation({
@@ -22,6 +25,7 @@ export const insert = mutation({
 });
 
 export const reset = mutation({
+  args: {},
   handler: async (ctx) => {
     const allNumbers = await ctx.db.query("numbers").collect();
     for (const number of allNumbers) {

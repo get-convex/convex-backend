@@ -2006,6 +2006,7 @@ async function testEd25519GenerateKey() {
 }
 
 export const methodNotImplemented = query({
+  args: {},
   handler: async () => {
     await crypto.subtle.wrapKey(
       {} as any,
@@ -2017,12 +2018,14 @@ export const methodNotImplemented = query({
 });
 
 export const generateX25519NotImplemented = query({
+  args: {},
   handler: async () => {
     await crypto.subtle.generateKey("X25519", false, ["deriveBits"]);
   },
 });
 
 export const test = query({
+  args: {},
   handler: async () => {
     return await wrapInTests({
       getRandomValuesInt8Array,
@@ -2069,6 +2072,7 @@ export const test = query({
 });
 
 export const testAction = action({
+  args: {},
   handler: async () => {
     return await wrapInTests({
       // Deno tests (that require randomness)

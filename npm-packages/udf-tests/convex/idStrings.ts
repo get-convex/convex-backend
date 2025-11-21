@@ -9,8 +9,11 @@ import { performOp } from "udf-syscall-ffi";
  * Copied and pasted from dashboard/convex/_system/frontend,
  * so that it can be tested in UDF tests.
  */
-export const getTableMapping = query(async () => {
-  return performOp("getTableMapping");
+export const getTableMapping = query({
+  args: {},
+  handler: async () => {
+    return performOp("getTableMapping");
+  },
 });
 
 export const normalizeId = query({

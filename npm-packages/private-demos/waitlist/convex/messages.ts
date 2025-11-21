@@ -3,6 +3,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import * as Waitlist from "./waitlist";
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     return await ctx.db.query("messages").collect();
   },

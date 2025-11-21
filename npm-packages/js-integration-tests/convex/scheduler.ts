@@ -66,12 +66,14 @@ export const statusInComponent = query({
 });
 
 export const listAllMessagesInParent = query({
+  args: {},
   handler: async (ctx) => {
     return await ctx.db.query("messages").collect();
   },
 });
 
 export const listAllMessagesInComponent = query({
+  args: {},
   handler: async (ctx) => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
@@ -80,6 +82,7 @@ export const listAllMessagesInComponent = query({
 });
 
 export const cancelSelf = mutation({
+  args: {},
   handler: async ({ db, scheduler }) => {
     const allJobs = await db.system.query("_scheduled_functions").collect();
     for (const job of allJobs) {
@@ -91,6 +94,7 @@ export const cancelSelf = mutation({
 });
 
 export const scheduleSelfCanceling = mutation({
+  args: {},
   handler: async ({ scheduler }): Promise<Id<"_scheduled_functions">> => {
     return await scheduler.runAfter(0, api.scheduler.cancelSelf, {});
   },

@@ -113,8 +113,11 @@ export default query(async (): Promise<string> => {
   });
 });
 
-export const withTransfer = query(async () => {
-  const array = new ArrayBuffer(8);
-  const _tranferred = structuredClone(array, { transfer: [array] });
-  return "expected uncatchable error";
+export const withTransfer = query({
+  args: {},
+  handler: async () => {
+    const array = new ArrayBuffer(8);
+    const _tranferred = structuredClone(array, { transfer: [array] });
+    return "expected uncatchable error";
+  },
 });

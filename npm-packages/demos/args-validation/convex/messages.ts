@@ -16,6 +16,7 @@ export const send = mutation({
 // @snippet end mutation
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     return await ctx.db.query("messages").collect();
   },

@@ -25,8 +25,8 @@ export async function paginate<T extends TableNames>(
   }
 }
 
-export const paginateQuery = internalQuery(
-  async <T extends TableNames>(
+export const paginateQuery = internalQuery({
+  handler: async <T extends TableNames>(
     ctx: QueryCtx,
     args: { table: T; cursor: any; numItems: number },
   ) => {
@@ -34,4 +34,4 @@ export const paginateQuery = internalQuery(
       .query(args.table)
       .paginate({ cursor: args.cursor, numItems: args.numItems });
   },
-);
+});

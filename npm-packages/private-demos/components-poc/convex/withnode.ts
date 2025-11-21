@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 
 export const run = action({
+  args: {},
   handler: async (ctx) => {
     const funcHandle = await createFunctionHandle(api.messages.send);
     const message = { body: "hello", author: "me" };

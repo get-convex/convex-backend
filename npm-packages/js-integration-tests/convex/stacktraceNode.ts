@@ -3,8 +3,11 @@ import http from "http";
 
 import { action } from "./_generated/server";
 
-export const simpleStackTrace = action(() => {
-  return outer();
+export const simpleStackTrace = action({
+  args: {},
+  handler: () => {
+    return outer();
+  },
 });
 
 function outer() {
@@ -15,8 +18,11 @@ const inner = () => {
   return new Error().stack;
 };
 
-export const complexStackTrace = action(async () => {
-  return await async1();
+export const complexStackTrace = action({
+  args: {},
+  handler: async () => {
+    return await async1();
+  },
 });
 
 const anonymousFunctions = [
@@ -39,8 +45,11 @@ async function async1() {
   return anonymousFunctions[0](() => a.move());
 }
 
-export const stackTraceUsedByProxyAgents = action(() => {
-  return wontBeInTheStackTrace();
+export const stackTraceUsedByProxyAgents = action({
+  args: {},
+  handler: () => {
+    return wontBeInTheStackTrace();
+  },
 });
 
 async function wontBeInTheStackTrace(): Promise<string> {
@@ -51,6 +60,9 @@ async function wontBeInTheStackTrace(): Promise<string> {
   });
 }
 
-export const errorWithMessage = action(() => {
-  return new Error("custom error message").stack;
+export const errorWithMessage = action({
+  args: {},
+  handler: () => {
+    return new Error("custom error message").stack;
+  },
 });

@@ -17,23 +17,29 @@ export const sleep = action({
   },
 });
 
-export const setTimeoutThrows = action(async () => {
-  const [promise, resolve] = multiPromise(1);
-  try {
-    setTimeout(() => {
-      resolve();
-      throw new Error("THROWN WITHIN setTimeout");
-    });
-    await promise;
-  } catch {
-    throw new Error("This should not be catchable");
-  }
+export const setTimeoutThrows = action({
+  args: {},
+  handler: async () => {
+    const [promise, resolve] = multiPromise(1);
+    try {
+      setTimeout(() => {
+        resolve();
+        throw new Error("THROWN WITHIN setTimeout");
+      });
+      await promise;
+    } catch {
+      throw new Error("This should not be catchable");
+    }
+  },
 });
 
-export const danglingSetTimeout = action(async () => {
-  setTimeout(() => {
-    throw new Error("THROWN WITHIN setTimeout");
-  }, 10000);
+export const danglingSetTimeout = action({
+  args: {},
+  handler: async () => {
+    setTimeout(() => {
+      throw new Error("THROWN WITHIN setTimeout");
+    }, 10000);
+  },
 });
 
 // returns promise that must be resolved n times.

@@ -34,8 +34,11 @@ http.route({
   handler: imported,
 });
 
-export const myQuery = query((_) => {
-  return "hello";
+export const myQuery = query({
+  args: {},
+  handler: (_) => {
+    return "hello";
+  },
 });
 
 export default http;

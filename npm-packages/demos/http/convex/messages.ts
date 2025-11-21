@@ -17,6 +17,7 @@ export const postMessage = httpAction(async (ctx, request) => {
 // @snippet end httpAction
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     return await ctx.db.query("messages").collect();
   },

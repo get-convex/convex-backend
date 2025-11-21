@@ -214,9 +214,12 @@ export default query(async () => {
   });
 });
 
-export const responseAction = action(async () => {
-  return await wrapInTests({
-    responseFormData,
-    responseFormDataFile,
-  });
+export const responseAction = action({
+  args: {},
+  handler: async () => {
+    return await wrapInTests({
+      responseFormData,
+      responseFormDataFile,
+    });
+  },
 });

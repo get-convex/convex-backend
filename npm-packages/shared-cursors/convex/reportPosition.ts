@@ -1,8 +1,8 @@
 import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 
-export const reportContentiously = mutation(
-  async (
+export const reportContentiously = mutation({
+  handler: async (
     { db },
     {
       x,
@@ -23,10 +23,10 @@ export const reportContentiously = mutation(
       return pos._id;
     }
   },
-);
+});
 
-export const report = mutation(
-  async (
+export const report = mutation({
+  handler: async (
     { db },
     {
       x,
@@ -54,4 +54,4 @@ export const report = mutation(
       return pos._id;
     }
   },
-);
+});

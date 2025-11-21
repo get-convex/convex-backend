@@ -45,18 +45,18 @@ export const embedList = internalAction({
   },
 });
 
-export const chunksNeedingEmbedding = internalQuery(
-  async (ctx, { documentId }: { documentId: Id<"documents"> }) => {
+export const chunksNeedingEmbedding = internalQuery({
+  handler: async (ctx, { documentId }: { documentId: Id<"documents"> }) => {
     const chunks = await ctx.db
       .query("chunks")
       .withIndex("byDocumentId", (q) => q.eq("documentId", documentId))
       .collect();
     return chunks.filter((chunk) => chunk.embeddingId === null);
   },
-);
+});
 
-export const addEmbedding = internalMutation(
-  async (
+export const addEmbedding = internalMutation({
+  handler: async (
     ctx,
     { chunkId, embedding }: { chunkId: Id<"chunks">; embedding: number[] },
   ) => {
@@ -66,7 +66,7 @@ export const addEmbedding = internalMutation(
     });
     await ctx.db.patch(chunkId, { embeddingId });
   },
-);
+});
 
 export async function embedTexts(texts: string[]) {
   if (texts.length === 0) return [];

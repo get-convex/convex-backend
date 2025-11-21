@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     const messages = await ctx.db.query("messages").collect();
     return Promise.all(

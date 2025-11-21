@@ -1,6 +1,7 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 
 export const list = query({
+  args: {},
   handler: async (ctx) => {
     return await ctx.db.query("messages").collect();
   },
@@ -14,6 +15,7 @@ export const send = mutation({
 });
 
 export const clearAll = internalMutation({
+  args: {},
   handler: async (ctx) => {
     for (const message of await ctx.db.query("messages").collect()) {
       await ctx.db.delete(message._id);

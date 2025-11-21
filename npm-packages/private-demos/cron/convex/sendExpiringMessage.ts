@@ -24,8 +24,8 @@ export default mutation(
   },
 );
 
-export const update = mutation(
-  async (
+export const update = mutation({
+  handler: async (
     { db, scheduler },
     {
       messageId,
@@ -44,5 +44,5 @@ export const update = mutation(
       await db.delete(messageId);
     }
   },
-);
+});
 // @snippet end self-destructing-message

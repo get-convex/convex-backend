@@ -3,6 +3,7 @@ import { query } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 
 export const list = query({
+  args: {},
   handler: async (ctx): Promise<Doc<"messages">[]> => {
     return await ctx.db.query("messages").collect();
   },

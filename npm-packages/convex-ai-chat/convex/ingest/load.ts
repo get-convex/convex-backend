@@ -37,8 +37,8 @@ export const fetchSingle = internalAction({
   },
 });
 
-export const updateDocument = internalMutation(
-  async (ctx, { url, text }: { url: string; text: string }) => {
+export const updateDocument = internalMutation({
+  handler: async (ctx, { url, text }: { url: string; text: string }) => {
     const latestVersion = await ctx.db
       .query("documents")
       .withIndex("byUrl", (q) => q.eq("url", url))
@@ -62,7 +62,7 @@ export const updateDocument = internalMutation(
       });
     }
   },
-);
+});
 
 function parsePage(text: string) {
   const $ = load(text);

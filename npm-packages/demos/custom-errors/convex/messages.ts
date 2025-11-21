@@ -36,6 +36,7 @@ export const sendMessage = mutation({
 });
 
 export const clearMessages = mutation({
+  args: {},
   handler: async (ctx) => {
     const messages = await ctx.db.query("messages").collect();
     return Promise.all(

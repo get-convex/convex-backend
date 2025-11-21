@@ -31,6 +31,7 @@ async function insertMessageHelper(
   }
 }
 export const insertMessage = mutation({
+  args: {},
   handler: async ({ db }): Promise<void> => {
     await insertMessageHelper(
       db,
@@ -45,6 +46,7 @@ export const insertMessage = mutation({
 });
 
 export const insertMessageWithSearch = mutation({
+  args: {},
   handler: async ({ db }): Promise<void> => {
     await insertMessageHelper(
       db,

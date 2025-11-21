@@ -33,8 +33,11 @@ http.route({
   }),
 });
 
-export const siteUrl = query(() => {
-  return process.env.CONVEX_SITE_URL!;
+export const siteUrl = query({
+  args: {},
+  handler: () => {
+    return process.env.CONVEX_SITE_URL!;
+  },
 });
 
 export default http;

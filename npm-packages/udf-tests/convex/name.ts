@@ -6,11 +6,17 @@ function f() {
 
 export default query(f);
 
-export const g = query(function g() {
-  return 2;
+export const g = query({
+  args: {},
+  handler: function g() {
+    return 2;
+  },
 });
 
-export const h = query(() => 3);
+export const h = query({
+  args: {},
+  handler: () => 3,
+});
 
 export const i = function () {
   return 4;

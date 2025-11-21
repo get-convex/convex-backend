@@ -8,12 +8,18 @@ export async function didConvexYield(db: DatabaseReader) {
   return (await db.query("yield").unique())?.doYouYield ?? false;
 }
 
-export const convexYields = internalMutation(async ({ db }) => {
-  await setConvexYields(db, true);
+export const convexYields = internalMutation({
+  args: {},
+  handler: async ({ db }) => {
+    await setConvexYields(db, true);
+  },
 });
 
-export const convexIsReadyToRumble = internalMutation(async ({ db }) => {
-  await setConvexYields(db, false);
+export const convexIsReadyToRumble = internalMutation({
+  args: {},
+  handler: async ({ db }) => {
+    await setConvexYields(db, false);
+  },
 });
 
 async function setConvexYields(db: DatabaseWriter, isYielding: boolean) {

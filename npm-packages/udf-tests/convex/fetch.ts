@@ -6,8 +6,11 @@ import { assert, expect } from "chai";
 import { action, ActionCtx, query } from "./_generated/server";
 import { api } from "./_generated/api";
 
-export const fromQuery = query(async () => {
-  await fetch("http://localhost:4545/assets/fixture.json");
+export const fromQuery = query({
+  args: {},
+  handler: async () => {
+    await fetch("http://localhost:4545/assets/fixture.json");
+  },
 });
 
 export const checkForAbort = query({
@@ -33,10 +36,13 @@ async function fetchAbortTest(ctx: ActionCtx) {
   await expect(responseFetch).to.be.rejectedWith("AbortError");
 }
 
-export const fetchAbort = action(async (ctx) => {
-  return await wrapInTests({
-    fetchAbortTest: () => fetchAbortTest(ctx),
-  });
+export const fetchAbort = action({
+  args: {},
+  handler: async (ctx) => {
+    return await wrapInTests({
+      fetchAbortTest: () => fetchAbortTest(ctx),
+    });
+  },
 });
 
 export default action(async () => {
@@ -1719,62 +1725,77 @@ async function fetchForbidden() {
   );
 }
 
-export const fetchInParallel = action(async () => {
-  const parallelFetches = [
-    fetch("http://localhost:4546/timeout"),
-    fetch("http://localhost:4546/echo_server", {
-      method: "POST",
-      body: new TextEncoder().encode("hello world"),
-    }),
-  ];
-  const response = await Promise.race(parallelFetches);
-  assert(response.ok, await response.text());
+export const fetchInParallel = action({
+  args: {},
+  handler: async () => {
+    const parallelFetches = [
+      fetch("http://localhost:4546/timeout"),
+      fetch("http://localhost:4546/echo_server", {
+        method: "POST",
+        body: new TextEncoder().encode("hello world"),
+      }),
+    ];
+    const response = await Promise.race(parallelFetches);
+    assert(response.ok, await response.text());
+  },
 });
 
 // Regression test.
-export const fetchBlockedOnTimeouts = action(async () => {
-  const fetchWithTimeout = async () => {
-    setTimeout(
-      () => {
-        // AbortController stuff.
-        // This never runs.
-      },
-      10 * 60 * 1000,
+export const fetchBlockedOnTimeouts = action({
+  args: {},
+  handler: async () => {
+    const fetchWithTimeout = async () => {
+      setTimeout(
+        () => {
+          // AbortController stuff.
+          // This never runs.
+        },
+        10 * 60 * 1000,
+      );
+      await fetch("http://localhost:4546/echo_server", {
+        method: "POST",
+        body: new TextEncoder().encode("hello world"),
+      });
+    };
+    // 10 setTimeouts queued up before the fetches.
+    // When limited parallelism in actions applied to setTimeouts, the setTimeouts
+    // would block the fetches.
+    await Promise.all(
+      Array(10)
+        .fill(0)
+        .map(() => fetchWithTimeout()),
     );
-    await fetch("http://localhost:4546/echo_server", {
+  },
+});
+
+export const danglingFetch = action({
+  args: {},
+  handler: () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    fetch("http://localhost:4546/echo_server");
+  },
+});
+
+export const fetchTimeout = action({
+  args: {},
+  handler: async () => {
+    const request = new Request("http://localhost:4546/timeout");
+    const result = await fetch(request);
+    throw new Error(`fetch should not complete: ${result}`);
+  },
+});
+
+export const fetchUnendingRequest = action({
+  args: {},
+  handler: async () => {
+    const request = new Request("http://localhost:4546/echo_server", {
       method: "POST",
-      body: new TextEncoder().encode("hello world"),
+      body: new ReadableStream(),
     });
-  };
-  // 10 setTimeouts queued up before the fetches.
-  // When limited parallelism in actions applied to setTimeouts, the setTimeouts
-  // would block the fetches.
-  await Promise.all(
-    Array(10)
-      .fill(0)
-      .map(() => fetchWithTimeout()),
-  );
-});
-
-export const danglingFetch = action(() => {
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  fetch("http://localhost:4546/echo_server");
-});
-
-export const fetchTimeout = action(async () => {
-  const request = new Request("http://localhost:4546/timeout");
-  const result = await fetch(request);
-  throw new Error(`fetch should not complete: ${result}`);
-});
-
-export const fetchUnendingRequest = action(async () => {
-  const request = new Request("http://localhost:4546/echo_server", {
-    method: "POST",
-    body: new ReadableStream(),
-  });
-  const response = await fetch(request);
-  await response.text();
-  throw new Error(`fetch should not complete`);
+    const response = await fetch(request);
+    await response.text();
+    throw new Error(`fetch should not complete`);
+  },
 });
 
 // Regression test for https://webtechsurvey.com/response-header/x-olaf

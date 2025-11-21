@@ -21,8 +21,10 @@ crons.interval("clear presence data", { seconds: 5 * 60 }, api.crons.addOne, {
   x: 1,
 });
 
-export const addOne = mutation(async (_: any, { x }: { x: number }) => {
-  return x + 1;
+export const addOne = mutation({
+  handler: async (_: any, { x }: { x: number }) => {
+    return x + 1;
+  },
 });
 
 export default crons;

@@ -6,6 +6,7 @@ import { maskSystemWriter } from "./secretSystemTables";
 
 // Query every system table
 export const queryAll = query({
+  args: {},
   handler: async ({ db }) => {
     await db.system.query("_scheduled_functions").collect();
     await db.system.query("_storage").collect();
@@ -14,6 +15,7 @@ export const queryAll = query({
 
 // List all scheduled jobs
 export const listJobs = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.system.query("_scheduled_functions").collect();
   },
@@ -21,6 +23,7 @@ export const listJobs = query({
 
 // List all messages
 export const listMessages = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.query("messages").collect();
   },
@@ -43,17 +46,20 @@ export const getMessage = query({
 });
 
 export const scheduleJob = mutation({
+  args: {},
   handler: async (ctx) => {
     await ctx.scheduler.runAfter(0, api.systemTables.placeholder);
   },
 });
 
 export const placeholder = mutation({
+  args: {},
   handler: async () => {},
 });
 
 // Can't use db.system.query for a user table
 export const badSystemQuery = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.system
       .query("messages" as "_scheduled_functions")
@@ -63,6 +69,7 @@ export const badSystemQuery = query({
 
 // Can't use db.query for a system table
 export const badUserQuery = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.query("_scheduled_functions" as "messages").collect();
   },
@@ -88,6 +95,7 @@ export const badUserGet = query({
 
 // Can't perform db.insert on system tables
 export const badSystemInsert = mutation({
+  args: {},
   handler: async ({ db }) => {
     const fakeDoc = { name: "anjan" };
     return await db.insert(
@@ -128,6 +136,7 @@ export const badSystemDelete = mutation({
 
 // db.system object doesn't have a .insert() method, this throws at JS runtime
 export const systemInsertJSError = mutation({
+  args: {},
   handler: async ({ db }) => {
     const fakeDoc = { name: "anjan" };
     return await maskSystemWriter(db).insert(
@@ -173,6 +182,7 @@ export const systemDeleteJSError = mutation({
 
 // tests that virtual ids can exist on schemas
 export const setForeignVirtualId = mutation({
+  args: {},
   handler: async (ctx) => {
     const jobId: Id<"_scheduled_functions"> = await ctx.scheduler.runAfter(
       0,

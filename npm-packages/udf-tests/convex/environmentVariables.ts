@@ -2,33 +2,57 @@ import { action, query } from "./_generated/server";
 
 const global = process.env.TEST_NAME;
 
-export const getEnvironmentVariable = query(async () => {
-  return process.env.TEST_NAME;
+export const getEnvironmentVariable = query({
+  args: {},
+  handler: async () => {
+    return process.env.TEST_NAME;
+  },
 });
 
-export const getOtherEnvironmentVariable = query(async () => {
-  return process.env.TEST_NAME_2;
+export const getOtherEnvironmentVariable = query({
+  args: {},
+  handler: async () => {
+    return process.env.TEST_NAME_2;
+  },
 });
 
-export const actionGetEnvironmentVariable = action(async () => {
-  return process.env.TEST_NAME;
+export const actionGetEnvironmentVariable = action({
+  args: {},
+  handler: async () => {
+    return process.env.TEST_NAME;
+  },
 });
 
-export const getGlobalEnvironmentVariable = query(async () => {
-  return global;
+export const getGlobalEnvironmentVariable = query({
+  args: {},
+  handler: async () => {
+    return global;
+  },
 });
 
-export const actionGetGlobalEnvironmentVariable = action(async () => {
-  return global;
+export const actionGetGlobalEnvironmentVariable = action({
+  args: {},
+  handler: async () => {
+    return global;
+  },
 });
 
-export const log = query(async () => {
-  console.log(process.env);
+export const log = query({
+  args: {},
+  handler: async () => {
+    console.log(process.env);
+  },
 });
 
-export const getCloudUrl = query(async () => {
-  return process.env.CONVEX_CLOUD_URL;
+export const getCloudUrl = query({
+  args: {},
+  handler: async () => {
+    return process.env.CONVEX_CLOUD_URL;
+  },
 });
-export const getSiteUrl = query(async () => {
-  return process.env.CONVEX_SITE_URL;
+export const getSiteUrl = query({
+  args: {},
+  handler: async () => {
+    return process.env.CONVEX_SITE_URL;
+  },
 });

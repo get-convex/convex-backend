@@ -3,36 +3,39 @@ import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 import { assert } from "chai";
 
-export const populate = mutation(async ({ db }) => {
-  const vectorDocs = [
-    {
-      vector: [1, 2, 3, 4],
-      filterA: "A",
-      filterB: true,
-      id: "doc1",
-    },
-    {
-      vector: [1, 2, 3, 4],
-      filterA: "B",
-      filterB: true,
-      id: "doc2",
-    },
-    {
-      vector: [1, 2, 3, 4],
-      filterA: "C",
-      filterB: false,
-      id: "doc3",
-    },
-    {
-      vector: [1, 2, 3, 4],
-      filterA: "Z",
-      filterB: true,
-      id: "doc4",
-    },
-  ];
-  for (const vectorDoc of vectorDocs) {
-    await db.insert("vectorTable", vectorDoc);
-  }
+export const populate = mutation({
+  args: {},
+  handler: async ({ db }) => {
+    const vectorDocs = [
+      {
+        vector: [1, 2, 3, 4],
+        filterA: "A",
+        filterB: true,
+        id: "doc1",
+      },
+      {
+        vector: [1, 2, 3, 4],
+        filterA: "B",
+        filterB: true,
+        id: "doc2",
+      },
+      {
+        vector: [1, 2, 3, 4],
+        filterA: "C",
+        filterB: false,
+        id: "doc3",
+      },
+      {
+        vector: [1, 2, 3, 4],
+        filterA: "Z",
+        filterB: true,
+        id: "doc4",
+      },
+    ];
+    for (const vectorDoc of vectorDocs) {
+      await db.insert("vectorTable", vectorDoc);
+    }
+  },
 });
 
 export const getDocuments = query({

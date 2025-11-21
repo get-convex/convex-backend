@@ -82,39 +82,39 @@ export const answer = internalAction({
   },
 });
 
-export const getMessages = internalQuery(
-  async (ctx, { sessionId }: { sessionId: string }) => {
+export const getMessages = internalQuery({
+  handler: async (ctx, { sessionId }: { sessionId: string }) => {
     return await ctx.db
       .query("messages")
       .withIndex("bySessionId", (q) => q.eq("sessionId", sessionId))
       .collect();
   },
-);
+});
 
-export const getChunk = internalQuery(
-  async (ctx, { embeddingId }: { embeddingId: Id<"embeddings"> }) => {
+export const getChunk = internalQuery({
+  handler: async (ctx, { embeddingId }: { embeddingId: Id<"embeddings"> }) => {
     return (await ctx.db
       .query("chunks")
       .withIndex("byEmbeddingId", (q) => q.eq("embeddingId", embeddingId))
       .unique())!;
   },
-);
+});
 
-export const addBotMessage = internalMutation(
-  async (ctx, { sessionId }: { sessionId: string }) => {
+export const addBotMessage = internalMutation({
+  handler: async (ctx, { sessionId }: { sessionId: string }) => {
     return await ctx.db.insert("messages", {
       isViewer: false,
       text: "",
       sessionId,
     });
   },
-);
+});
 
-export const updateBotMessage = internalMutation(
-  async (
+export const updateBotMessage = internalMutation({
+  handler: async (
     ctx,
     { messageId, text }: { messageId: Id<"messages">; text: string },
   ) => {
     await ctx.db.patch(messageId, { text });
   },
-);
+});

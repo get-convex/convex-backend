@@ -22,17 +22,17 @@ import { anyApi, componentsGeneric } from "convex/server";
  */
 export const api: {
   messages: {
-    componentTest: FunctionReference<"action", "public", any, any>;
-    list: FunctionReference<"query", "public", any, any>;
+    componentTest: FunctionReference<"action", "public", {}, any>;
+    list: FunctionReference<"query", "public", {}, any>;
     save: FunctionReference<"action", "public", { message: string }, string>;
     scheduleSendWaitlistMessage: FunctionReference<
       "mutation",
       "public",
-      any,
+      {},
       any
     >;
     send: FunctionReference<"mutation", "public", any, any>;
-    testPartialRollback: FunctionReference<"mutation", "public", any, any>;
+    testPartialRollback: FunctionReference<"mutation", "public", {}, any>;
   };
   staticFunctions: {
     a: FunctionReference<
