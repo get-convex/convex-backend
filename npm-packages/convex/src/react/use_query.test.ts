@@ -86,10 +86,12 @@ describe("useQuery types", () => {
       args: { _arg: "asdf" },
     });
 
+    const userId = undefined as string | undefined;
+
     useQuery({
       query: api.module.args,
-      args: { anyarg: 0 },
-      skip: true,
+      args: { _arg: userId },
+      skip: !userId,
     });
 
     useQuery({

@@ -812,7 +812,7 @@ export type UseQueryOptions<Query extends FunctionReference<"query">> = (
   | (QueryOptions<Query> & { skip?: false })
   | {
       query: Query;
-      args?: NoInfer<unknown>;
+      args?: unknown;
       skip: true;
     }
 ) & {
