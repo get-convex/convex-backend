@@ -808,20 +808,26 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
  *
  * @public
  */
-export type UseQueryOptions<Query extends FunctionReference<"query">> =
-  QueryOptions<Query> & {
-    /**
-     * Whether to throw an error if the query fails.
-     * If false, the error will be returned in the `error` field.
-     * @defaultValue false
-     */
-    throwOnError?: boolean;
-    /**
-     * An initial value to use before the query result is available.
-     * @defaultValue undefined
-     */
-    initialValue?: Query["_returnType"];
-  };
+export type UseQueryOptions<Query extends FunctionReference<"query">> = (
+  | (QueryOptions<Query> & { skip?: false })
+  | {
+      query: Query;
+      args?: unknown;
+      skip: true;
+    }
+) & {
+  /**
+   * Whether to throw an error if the query fails.
+   * If false, the error will be returned in the `error` field.
+   * @defaultValue false
+   */
+  throwOnError?: boolean;
+  /**
+   * An initial value to use before the query result is available.
+   * @defaultValue undefined
+   */
+  initialValue?: Query["_returnType"];
+};
 
 /**
  * Options for the object-based {@link useQuery} overload with a preloaded query.
@@ -941,7 +947,9 @@ export function useQuery<Query extends FunctionReference<"query">>(
         typeof query === "string"
           ? (makeFunctionReference<"query", any, any>(query) as Query)
           : query;
-      argsObject = queryOrOptions.args ?? ({} as Record<string, Value>);
+      if (!queryOrOptions.skip && queryOrOptions.args) {
+        argsObject = queryOrOptions.args;
+      }
       throwOnError = queryOrOptions.throwOnError ?? false;
       initialValue = queryOrOptions.initialValue;
     }
