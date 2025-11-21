@@ -1089,27 +1089,26 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     ) {
         let checkpoint_rate_limiter = new_rate_limiter(rt.clone(), quota);
         let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
-        let mut min_snapshot_ts = RepeatableTimestamp::MIN;
-        let mut is_working = false;
-        min_snapshot_rx.mark_changed();
         loop {
-            if !is_working {
-                min_snapshot_ts = match min_snapshot_rx.changed().await {
-                    Err(err) => {
-                        report_error(&mut err.into()).await;
-                        // Fall back to polling if the channel is closed or falls over. This should
-                        // really never happen.
-                        Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
-                        bounds_reader.lock().min_index_snapshot_ts
-                    },
-                    Ok(()) => *min_snapshot_rx.borrow_and_update(),
-                };
-                is_working = true;
-            }
+            // Note that when retention is caught up, the cursor advances to
+            // min_snapshot_ts.pred()
+            let min_snapshot_ts = match min_snapshot_rx
+                .wait_for(|&min_snapshot_ts| {
+                    cursor.succ_opt().is_some_and(|c1| c1 < *min_snapshot_ts)
+                })
+                .await
+                .map(|ts| *ts)
+            {
+                Ok(ts) => ts,
+                Err(err) => {
+                    report_error(&mut err.into()).await;
+                    // Channel error means we're shutting down.
+                    return;
+                },
+            };
 
             tracing::trace!(
-                "go_delete_indexes: running, is_working: {is_working}, current_bounds: \
-                 {min_snapshot_ts}",
+                "go_delete_indexes: running, current_bounds: {cursor}..{min_snapshot_ts}",
             );
             let span = get_sampled_span("", "delete_indexes", &mut rt.rng());
             let r: anyhow::Result<()> = async {
@@ -1135,7 +1134,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     retention_validator.clone(),
                 )
                 .await?;
-                tracing::trace!("go_delete_indexes: finished running delete");
+                tracing::trace!(
+                    "go_delete_indexes: processed {expired_index_entries_processed:?} rows up to \
+                     {new_cursor}"
+                );
                 let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
@@ -1178,14 +1180,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     );
                 }
 
-                // If we deleted >= the delete batch size, we probably returned
-                // early and have more work to do, so run again immediately.
-                is_working = expired_index_entries_processed >= *RETENTION_DELETE_BATCH;
-                if is_working {
-                    tracing::trace!(
-                        "go_delete: processed {expired_index_entries_processed:?} rows, more to go"
-                    );
-                }
                 Ok(())
             }
             .in_span(span)
@@ -1193,7 +1187,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if let Err(mut err) = r {
                 report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
-                tracing::debug!("go_delete: error, {err:?}, delaying {delay:?}");
+                tracing::debug!("go_delete_indexes: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;
             } else {
                 error_backoff.reset();
@@ -1218,38 +1212,36 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         let mut error_backoff =
             Backoff::new(INITIAL_BACKOFF, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
-        let mut min_document_snapshot_ts = RepeatableTimestamp::MIN;
-        let mut is_working = false;
         let mut interval = tokio::time::interval(*DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        min_document_snapshot_rx.mark_changed();
         loop {
-            if !is_working {
-                min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
-                    Err(err) => {
-                        report_error(&mut err.into()).await;
-                        // Fall back to polling if the channel is closed or falls over. This should
-                        // really never happen.
-                        Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS)
-                            .await;
-                        bounds_reader.lock().min_index_snapshot_ts
-                    },
-                    Ok(()) => *min_document_snapshot_rx.borrow_and_update(),
-                };
-                is_working = true;
-            }
+            // Note that when retention is caught up, the cursor advances to
+            // min_document_snapshot_ts.pred()
+            let min_document_snapshot_ts = match min_document_snapshot_rx
+                .wait_for(|&min_document_snapshot_ts| {
+                    cursor
+                        .succ_opt()
+                        .is_some_and(|c1| c1 < *min_document_snapshot_ts)
+                })
+                .await
+                .map(|ts| *ts)
+            {
+                Ok(ts) => ts,
+                Err(err) => {
+                    report_error(&mut err.into()).await;
+                    // Channel error means we're shutting down.
+                    return;
+                },
+            };
 
             // Rate limit so we don't overload the database
             interval.tick().await;
 
             tracing::trace!(
-                "go_delete_documents: running, is_working: {is_working}, current_bounds: \
-                 {min_document_snapshot_ts}",
+                "go_delete_documents: running, current_bounds: \
+                 {cursor}..{min_document_snapshot_ts}",
             );
             let r: anyhow::Result<()> = try {
-                let _timer = retention_delete_documents_timer();
-                tracing::trace!("go_delete_documents: loaded checkpoint: {cursor:?}");
-
                 // Only delete documents up to (now() -
                 // DOCUMENT_RETENTION_DELAY), even if min_document_snapshot_ts
                 // is ahead of that point.
@@ -1257,6 +1249,15 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     (*min_document_snapshot_ts)
                         .min(rt.generate_timestamp()?.sub(*DOCUMENT_RETENTION_DELAY)?),
                 )?;
+                if cursor >= max_end_cursor {
+                    tracing::info!(
+                        "go_delete_documents: cursor exceeds document retention delay ({cursor} > \
+                         {max_end_cursor}); pausing"
+                    );
+                    tokio::time::sleep(*cursor - *max_end_cursor).await;
+                    continue;
+                }
+                let _timer = retention_delete_documents_timer();
                 let (new_cursor, scanned_documents) = Self::delete_documents(
                     max_end_cursor,
                     persistence.clone(),
@@ -1265,7 +1266,15 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     document_deletion_rate_limiter.clone(),
                 )
                 .await?;
+                if *new_cursor < *cursor {
+                    Err(anyhow::anyhow!(
+                        "document retention cursor went backward from {cursor} to {new_cursor}?"
+                    ))?;
+                }
                 cursor = new_cursor;
+                tracing::trace!(
+                    "go_delete_documents: processed {scanned_documents:?} rows up to {new_cursor}"
+                );
                 max_end_cursor.prior_ts(*new_cursor)?;
 
                 match checkpoint_rate_limiter.check() {
@@ -1286,13 +1295,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                             "go_delete_documents: Skipping checkpointing until: {not_until:?}"
                         );
                     },
-                }
-
-                is_working = new_cursor.succ()? < *min_document_snapshot_ts;
-                if is_working {
-                    tracing::trace!(
-                        "go_delete_documents: processed {scanned_documents:?} rows, more to go"
-                    );
                 }
             };
             if let Err(mut err) = r {
