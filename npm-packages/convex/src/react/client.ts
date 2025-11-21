@@ -32,12 +32,12 @@ import {
   instantiateNoopLogger,
   Logger,
 } from "../browser/logging.js";
-import { ConvexQueryOptions } from "../browser/query_options.js";
 import { LoadMoreOfPaginatedQuery } from "../browser/sync/pagination.js";
 import {
   PaginatedQueryClient,
   ExtendedTransition,
 } from "../browser/sync/paginated_query_client.js";
+import type { QueryOptions } from "../browser/query_options.js";
 import type { Preloaded } from "./hydration.js";
 import { parsePreloaded } from "./preloaded.js";
 
@@ -539,7 +539,7 @@ export class ConvexReactClient {
    * an optional extendSubscriptionFor for how long to subscribe to the query.
    */
   prewarmQuery<Query extends FunctionReference<"query">>(
-    queryOptions: ConvexQueryOptions<Query> & {
+    queryOptions: QueryOptions<Query> & {
       extendSubscriptionFor?: number;
     },
   ) {
