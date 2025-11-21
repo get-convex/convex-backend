@@ -12,7 +12,6 @@ use value::{
 };
 
 use crate::{
-    metrics::log_index_expiration_checked,
     types::Timestamp,
     value::values_to_bytes,
 };
@@ -53,64 +52,6 @@ pub struct IndexEntry {
 
     pub key_suffix: Option<Vec<u8>>,
     pub deleted: bool,
-}
-
-impl IndexEntry {
-    /// Is the row outside of retention policy.
-    /// next_row must be the next index row in (index_id, index_key, ts)
-    /// lexicographic order.
-    pub fn is_expired(
-        &self,
-        min_snapshot_ts: Timestamp,
-        next_row: Option<&IndexEntry>,
-    ) -> anyhow::Result<bool> {
-        if let Some(next_row) = next_row {
-            // Check lexicographic order.
-            anyhow::ensure!(
-                self < next_row,
-                "index entries passed out of order - {self:?} before {next_row:?}"
-            )
-        }
-        let result = if self.ts < min_snapshot_ts {
-            if self.deleted {
-                // Tombstones before min_snapshot_ts are all expired.
-                log_index_expiration_checked(true, "tombstone");
-                true
-            } else {
-                match next_row {
-                    None => {
-                        // Latest for index key because there is no next index row.
-                        false
-                    },
-                    Some(next_row) => {
-                        if self.index_id == next_row.index_id
-                            && self.key_sha256 == next_row.key_sha256
-                        {
-                            if next_row.ts <= min_snapshot_ts {
-                                // If next_row is before or at min_snapshot_ts, then any snapshot
-                                // >= min_snapshot_ts will see next_row or a later revision.
-                                // No accessible snapshot can see `self`.
-                                log_index_expiration_checked(true, "overwritten_before_retention");
-                                true
-                            } else {
-                                log_index_expiration_checked(false, "overwritten_within_retention");
-                                false
-                            }
-                        } else {
-                            // Latest for index key because next has different index key.
-                            log_index_expiration_checked(false, "latest_before_retention");
-                            false
-                        }
-                    },
-                }
-            }
-        } else {
-            // The row is visible at self.ts, so it's not expired.
-            log_index_expiration_checked(false, "within_retention");
-            false
-        };
-        Ok(result)
-    }
 }
 
 /// An encoded IndexKey, with the same ordering.

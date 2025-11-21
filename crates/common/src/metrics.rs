@@ -8,7 +8,6 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    IntoLabel,
     StaticMetricLabel,
     Timer,
 };
@@ -54,22 +53,6 @@ pub fn log_codel_queue_time_since_empty(duration: Duration) {
         &COMMON_CODEL_QUEUE_TIME_SINCE_EMPTY_SECONDS,
         duration.as_secs_f64(),
     )
-}
-
-register_convex_counter!(
-    CHECKED_INDEX_EXPIRATION_DOCUMENTS,
-    "Count of documents checked for index expiration",
-    &["expired", "reason"]
-);
-pub fn log_index_expiration_checked(expired: bool, reason: &'static str) {
-    log_counter_with_labels(
-        &CHECKED_INDEX_EXPIRATION_DOCUMENTS,
-        1,
-        vec![
-            StaticMetricLabel::new("expired", expired.as_label()),
-            StaticMetricLabel::new("reason", reason),
-        ],
-    );
 }
 
 register_convex_counter!(
