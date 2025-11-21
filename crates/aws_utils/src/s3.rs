@@ -28,7 +28,7 @@ static S3_TRASH_FOLDER: &str = ".trash/";
 impl S3Client {
     pub async fn new(enable_retries: bool) -> anyhow::Result<Self> {
         let retry_config = match enable_retries {
-            true => RetryConfig::standard(),
+            true => RetryConfig::standard().with_max_attempts(6),
             false => RetryConfig::disabled(),
         };
         let config = must_s3_config_from_env()
