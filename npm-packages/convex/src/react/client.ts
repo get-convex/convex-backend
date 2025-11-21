@@ -39,7 +39,7 @@ import {
   ExtendedTransition,
 } from "../browser/sync/paginated_query_client.js";
 import type { Preloaded } from "./hydration.js";
-import { parsePreloaded } from "./preloaded_utils.js";
+import { parsePreloaded } from "./preloaded.js";
 
 // When no arguments are passed, extend subscriptions (for APIs that do this by default)
 // for this amount after the subscription would otherwise be dropped.

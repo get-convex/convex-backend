@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "../react/client.js";
 import { FunctionReference } from "../server/api.js";
-import { parsePreloaded } from "./preloaded_utils.js";
+import { parsePreloaded } from "./preloaded.js";
 
 /**
  * The preloaded query payload, which should be passed to a client component
