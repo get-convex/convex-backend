@@ -78,8 +78,6 @@ export {
   type MutationOptions,
   type ConvexReactClientOptions,
   type OptionalRestArgsOrSkip,
-  type UseQueryOptions,
-  type UseQueryPreloadedOptions,
   type UseQueryResult,
   ConvexReactClient,
   useConvex,
