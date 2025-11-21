@@ -808,36 +808,20 @@ export type OptionalRestArgsOrSkip<FuncRef extends FunctionReference<any>> =
  *
  * @public
  */
-export type UseQueryOptions<Query extends FunctionReference<"query">> = {
-  /**
-   * The query function to run.
-   */
-  query: Query;
-  /**
-   * Whether to throw an error if the query fails.
-   * If false, the error will be returned in the `error` field.
-   * @defaultValue false
-   */
-  throwOnError?: boolean;
-  /**
-   * An initial value to use before the query result is available.
-   * @defaultValue undefined
-   */
-  initialValue?: Query["_returnType"];
-} & (FunctionArgs<Query> extends EmptyObject
-  ? {
-      /**
-       * The arguments to the query function.
-       * Optional for queries with no arguments.
-       */
-      args?: FunctionArgs<Query>;
-    }
-  : {
-      /**
-       * The arguments to the query function.
-       */
-      args: FunctionArgs<Query>;
-    });
+export type UseQueryOptions<Query extends FunctionReference<"query">> =
+  QueryOptions<Query> & {
+    /**
+     * Whether to throw an error if the query fails.
+     * If false, the error will be returned in the `error` field.
+     * @defaultValue false
+     */
+    throwOnError?: boolean;
+    /**
+     * An initial value to use before the query result is available.
+     * @defaultValue undefined
+     */
+    initialValue?: Query["_returnType"];
+  };
 
 /**
  * Options for the object-based {@link useQuery} overload with a preloaded query.

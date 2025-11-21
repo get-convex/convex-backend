@@ -73,6 +73,7 @@ describe("useQuery types", () => {
   test("Queries with object options", () => {
     useQuery({
       query: api.module.noArgs,
+      args: {},
     });
 
     useQuery({
