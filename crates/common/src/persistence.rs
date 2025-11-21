@@ -36,7 +36,6 @@ use crate::{
     },
     interval::Interval,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
-    metrics::static_repeatable_ts_timer,
     persistence_helpers::RevisionPair,
     query::Order,
     runtime::Runtime,
@@ -716,15 +715,6 @@ impl RepeatablePersistence {
     }
 }
 
-async fn read_max_repeatable_ts(
-    reader: &dyn PersistenceReader,
-) -> anyhow::Result<Option<Timestamp>> {
-    let value = reader
-        .get_persistence_global(PersistenceGlobalKey::MaxRepeatableTimestamp)
-        .await?;
-    value.map(Timestamp::try_from).transpose()
-}
-
 /// This timestamp is determined to be repeatable by reading max_repeatable_ts
 /// from persistence. It may be lagging a few minutes behind live writes.
 /// It is expected only to be called from background tasks that don't need to
@@ -732,11 +722,13 @@ async fn read_max_repeatable_ts(
 pub async fn new_static_repeatable_recent(
     reader: &dyn PersistenceReader,
 ) -> anyhow::Result<RepeatableTimestamp> {
-    let _timer = static_repeatable_ts_timer(true);
-    match read_max_repeatable_ts(reader).await? {
+    match reader
+        .get_persistence_global(PersistenceGlobalKey::MaxRepeatableTimestamp)
+        .await?
+    {
         None => Ok(RepeatableTimestamp::MIN),
-        Some(ts) => Ok(RepeatableTimestamp::new_validated(
-            ts,
+        Some(value) => Ok(RepeatableTimestamp::new_validated(
+            Timestamp::try_from(value)?,
             RepeatableReason::MaxRepeatableTsPersistence,
         )),
     }

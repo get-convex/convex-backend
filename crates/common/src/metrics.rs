@@ -12,10 +12,7 @@ use metrics::{
     StaticMetricLabel,
     Timer,
 };
-use prometheus::{
-    VMHistogram,
-    VMHistogramVec,
-};
+use prometheus::VMHistogram;
 
 register_convex_counter!(
     COMMON_UNDEFINED_FILTER_TOTAL,
@@ -86,20 +83,6 @@ pub fn log_client_version_unsupported(version: String) {
         1,
         vec![StaticMetricLabel::new("version", version)],
     );
-}
-
-register_convex_histogram!(
-    STATIC_REPEATABLE_TS_SECONDS,
-    "Time taken for a timestamp to be repeatable",
-    &["recent"]
-);
-pub fn static_repeatable_ts_timer(is_recent: bool) -> Timer<VMHistogramVec> {
-    let mut timer = Timer::new_with_labels(&STATIC_REPEATABLE_TS_SECONDS);
-    timer.add_label(StaticMetricLabel::new(
-        "recent",
-        if is_recent { "recent" } else { "at_ts" },
-    ));
-    timer
 }
 
 register_convex_counter!(ERRORS_REPORTED_TOTAL, "Count of errors reported", &["type"]);
