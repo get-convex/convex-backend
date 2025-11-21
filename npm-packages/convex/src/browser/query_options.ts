@@ -22,6 +22,6 @@ export type QueryOptions<Query extends FunctionReference<"query">> = {
 // This helper helps more once we have more inference happening.
 export function convexQueryOptions<Query extends FunctionReference<"query">>(
   options: QueryOptions<Query>,
-) {
+): QueryOptions<Query> {
   return options;
 }

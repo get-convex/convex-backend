@@ -88,6 +88,12 @@ describe("useQuery types", () => {
 
     useQuery({
       query: api.module.args,
+      args: { anyarg: 0 },
+      skip: true,
+    });
+
+    useQuery({
+      query: api.module.args,
       args: { _arg: "asdf" },
       initialValue: "initial value",
     });
