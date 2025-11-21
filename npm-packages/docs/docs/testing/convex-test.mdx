@@ -5,13 +5,24 @@ sidebar_position: 100
 description: "Mock Convex backend for fast automated testing of functions"
 ---
 
+import Demo from "!!raw-loader!@site/../demos/convex-test/convex/posts.test.ts";
+
 The `convex-test` library provides a mock implementation of the Convex backend
 in JavaScript. It enables fast automated testing of the logic in your
 [functions](/functions.mdx).
 
-**Example:** The library includes a
-[test suite](https://github.com/get-convex/convex-test/tree/main/convex) which
-you can browse to see examples of using it.
+## Example
+
+<TSAndJSSnippet
+  title="convex/posts.test.ts"
+  sourceTS={Demo}
+  sourceJS={Demo}
+  highlightPatterns={["t.query", "t.mutation", "convexTest(schema)"]}
+/>
+
+You can see more examples in the
+[test suite](https://github.com/get-convex/convex-test/tree/main/convex) of the
+convex-test library.
 
 ## Get Started
 

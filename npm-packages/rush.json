@@ -327,6 +327,10 @@
       "projectFolder": "demos/typescript"
     },
     {
+      "packageName": "convex-test-demo",
+      "projectFolder": "demos/convex-test"
+    },
+    {
       "packageName": "prewarming-demo",
       "projectFolder": "demos/prewarming"
     },
