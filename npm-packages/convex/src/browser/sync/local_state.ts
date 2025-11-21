@@ -1,3 +1,15 @@
+/**
+ * The local state of the client:
+ * - which queries are subscribed to
+ * - the "Query Set Version," used to produce QuerySetModification messages
+ * - the current auth token and "Identity Version"
+ *
+ * Local state does not include:
+ * - query results (see RemoteQuerySet)
+ * - locally made "optimistic update" modifications to query results (see OptimisticQueryResults)
+ * - any query results at all
+ **/
+
 import { convexToJson, Value } from "../../values/index.js";
 import {
   AddQuery,
@@ -266,7 +278,7 @@ export class LocalSyncState {
     return null;
   }
 
-  queryToken(queryId: QueryId): string | null {
+  queryToken(queryId: QueryId): QueryToken | null {
     return this.queryIdToToken.get(queryId) ?? null;
   }
 

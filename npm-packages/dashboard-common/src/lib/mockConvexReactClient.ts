@@ -69,6 +69,35 @@ class MockConvexReactClient {
     };
   }
 
+  watchPaginatedQuery<Query extends FunctionReference<"query">>(
+    query: Query,
+    args: Query["_args"],
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options: { initialNumItems: number; id: number },
+  ) {
+    return {
+      onUpdate: () => () => ({
+        unsubscribe: () => null,
+      }),
+      localQueryResult: () => {
+        const name = getFunctionName(query);
+        const queryImpl = this.queries && this.queries[name];
+        if (queryImpl) {
+          const paginationResult = queryImpl(args);
+          // Transform PaginationResult to PaginatedQueryResult
+          return {
+            results: paginationResult.page,
+            status: "Exhausted" as const,
+            loadMore: () => false,
+          };
+        }
+        throw new Error(
+          `Unexpected query: ${name}. Try providing a function for this query in the mock client constructor.`,
+        );
+      },
+    };
+  }
+
   mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     ...args: Mutation["_args"]

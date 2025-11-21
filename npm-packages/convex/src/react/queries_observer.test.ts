@@ -171,6 +171,6 @@ test("swapping createWatch recreates subscriptions", async () => {
   expect(createWatch2.mock.calls[0]).toEqual([
     anyApi.myQuery.default,
     {},
-    "query journal",
+    { journal: "query journal" },
   ]);
 });

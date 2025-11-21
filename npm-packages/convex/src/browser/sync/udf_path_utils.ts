@@ -18,13 +18,24 @@ export function canonicalizeUdfPath(udfPath: string): string {
 }
 
 /**
+ * The serialization here is not stable, these strings never make it outside the client.
+ */
+
+/**
  * A string representing the name and arguments of a query.
  *
  * This is used by the {@link BaseConvexClient}.
  *
  * @public
  */
-export type QueryToken = string;
+export type QueryToken = string & { __queryToken: true };
+
+/**
+ * A string representing the name and arguments of a paginated query.
+ *
+ * This is a specialized form of QueryToken used for paginated queries.
+ */
+export type PaginatedQueryToken = QueryToken & { __paginatedQueryToken: true };
 
 export function serializePathAndArgs(
   udfPath: string,
@@ -33,5 +44,26 @@ export function serializePathAndArgs(
   return JSON.stringify({
     udfPath: canonicalizeUdfPath(udfPath),
     args: convexToJson(args),
-  });
+  }) as QueryToken;
+}
+
+export function serializePaginatedPathAndArgs(
+  udfPath: string,
+  args: Record<string, Value>, // args WITHOUT paginationOpts
+  options: { initialNumItems: number; id: number },
+): PaginatedQueryToken {
+  const { initialNumItems, id } = options;
+  const result = JSON.stringify({
+    type: "paginated",
+    udfPath: canonicalizeUdfPath(udfPath),
+    args: convexToJson(args),
+    options: convexToJson({ initialNumItems, id }),
+  }) as PaginatedQueryToken;
+  return result;
+}
+
+export function serializedQueryTokenIsPaginated(
+  token: QueryToken | PaginatedQueryToken,
+): token is PaginatedQueryToken {
+  return JSON.parse(token).type === "paginated";
 }

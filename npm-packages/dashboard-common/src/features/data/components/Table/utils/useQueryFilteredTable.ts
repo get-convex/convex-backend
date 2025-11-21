@@ -8,7 +8,7 @@ import {
   useState,
   useContext,
 } from "react";
-import { usePaginatedQuery, PaginationStatus } from "convex/react";
+import { usePaginatedQuery_experimental, PaginationStatus } from "convex/react";
 import udfs from "@common/udfs";
 import { useCounter, useIdle, usePrevious } from "react-use";
 import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
@@ -43,13 +43,14 @@ export const useQueryFilteredTable = (tableName: string) => {
 
   const [pageSize] = useDataPageSize(selectedNent?.id ?? null, tableName);
 
-  const { results, loadMore, isLoading, status } = usePaginatedQuery(
-    udfs.paginatedTableDocuments.default,
-    isPaused
-      ? "skip"
-      : { table: tableName, filters, componentId: selectedNent?.id ?? null },
-    { initialNumItems: pageSize },
-  );
+  const { results, loadMore, isLoading, status } =
+    usePaginatedQuery_experimental(
+      udfs.paginatedTableDocuments.default,
+      isPaused
+        ? "skip"
+        : { table: tableName, filters, componentId: selectedNent?.id ?? null },
+      { initialNumItems: pageSize },
+    );
 
   const [everHadResults, setEverHadResults] = useState(false);
   if (!everHadResults && status !== "LoadingFirstPage") {

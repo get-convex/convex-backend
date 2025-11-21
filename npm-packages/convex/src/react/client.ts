@@ -1,5 +1,10 @@
 import { BaseConvexClient } from "../browser/index.js";
-import type { OptimisticUpdate, QueryToken } from "../browser/index.js";
+import type {
+  OptimisticUpdate,
+  PaginatedQueryToken,
+  QueryToken,
+  PaginationStatus,
+} from "../browser/index.js";
 import React, { useCallback, useContext, useMemo } from "react";
 import { convexToJson, Value } from "../values/index.js";
 import { QueryJournal } from "../browser/sync/protocol.js";
@@ -28,6 +33,11 @@ import {
   Logger,
 } from "../browser/logging.js";
 import { ConvexQueryOptions } from "../browser/query_options.js";
+import { LoadMoreOfPaginatedQuery } from "../browser/sync/pagination.js";
+import {
+  PaginatedQueryClient,
+  ExtendedTransition,
+} from "../browser/sync/paginated_query_client.js";
 
 // When no arguments are passed, extend subscriptions (for APIs that do this by default)
 // for this amount after the subscription would otherwise be dropped.
@@ -135,6 +145,8 @@ function createAction(
   } as ReactAction<any>;
 }
 
+// Watches should be stateless: in QueriesObserver we create a watch just to get
+// the current value.
 /**
  * A watch on the output of a Convex query function.
  *
@@ -183,6 +195,37 @@ export interface Watch<T> {
 }
 
 /**
+ * A watch on the output of a paginated Convex query function.
+ *
+ * @public
+ */
+export interface PaginatedWatch<T> {
+  /**
+   * Initiate a watch on the output of a paginated query.
+   *
+   * This will subscribe to this query and call
+   * the callback whenever the query result changes.
+   *
+   * @param callback - Function that is called whenever the query result changes.
+   * @returns - A function that disposes of the subscription.
+   */
+  onUpdate(callback: () => void): () => void;
+
+  /**
+   * Get the current result of a paginated query.
+   *
+   * @returns The current results, status, and loadMore function, or `undefined` if not loaded.
+   */
+  localQueryResult():
+    | {
+        results: T[];
+        status: PaginationStatus;
+        loadMore: LoadMoreOfPaginatedQuery;
+      }
+    | undefined;
+}
+
+/**
  * Options for {@link ConvexReactClient.watchQuery}.
  *
  * @public
@@ -196,6 +239,27 @@ export interface WatchQueryOptions {
    * name and arguments, this journal will have no effect.
    */
   journal?: QueryJournal;
+
+  /**
+   * @internal
+   */
+  componentPath?: string;
+}
+
+/**
+ * Options for {@link ConvexReactClient.watchPaginatedQuery}.
+ *
+ * @internal
+ */
+export interface WatchPaginatedQueryOptions {
+  /**
+   * The initial number of items to load.
+   */
+  initialNumItems: number;
+
+  // We may be able to remove this in the future, but to preserve the existing behavior of
+  // usePaginatedQuery() it's still here.
+  id: number;
 
   /**
    * @internal
@@ -235,8 +299,10 @@ export interface ConvexReactClientOptions extends BaseConvexClientOptions {}
 export class ConvexReactClient {
   private address: string;
   private cachedSync?: BaseConvexClient | undefined;
-  private listeners: Map<QueryToken, Set<() => void>>;
+  private cachedPaginatedQueryClient?: PaginatedQueryClient | undefined;
+  private listeners: Map<QueryToken | PaginatedQueryToken, Set<() => void>>;
   private options: ConvexReactClientOptions;
+  // "closed" means this client is done, not just that the underlying WS connection is closed.
   private closed = false;
   private _logger: Logger;
 
@@ -300,15 +366,35 @@ export class ConvexReactClient {
     if (this.cachedSync) {
       return this.cachedSync;
     }
+    // BaseConvexClient and paginated query client are always created together.
     this.cachedSync = new BaseConvexClient(
       this.address,
-      (updatedQueries) => this.transition(updatedQueries),
+      () => {}, // Use the PaginatedQueryClient's transition instead.
       this.options,
     );
     if (this.adminAuth) {
       this.cachedSync.setAdminAuth(this.adminAuth, this.fakeUserIdentity);
     }
+    this.cachedPaginatedQueryClient = new PaginatedQueryClient(
+      this.cachedSync,
+      (transition) => this.handleTransition(transition),
+    );
     return this.cachedSync;
+  }
+
+  /**
+   * Lazily instantiate the `PaginatedQueryClient` so we don't create it
+   * when server-side rendering.
+   *
+   * @internal
+   */
+  get paginatedQueryClient() {
+    // access sync to instantiate the clients
+    this.sync;
+    if (this.cachedPaginatedQueryClient) {
+      return this.cachedPaginatedQueryClient;
+    }
+    throw new Error("Should already be instantiated");
   }
 
   /**
@@ -365,6 +451,8 @@ export class ConvexReactClient {
    * **Most application code should not call this method directly. Instead use
    * the {@link useQuery} hook.**
    *
+   * The act of creating a watch does nothing, a Watch is stateless.
+   *
    * @param query - A {@link server.FunctionReference} for the public query to run.
    * @param args - An arguments object for the query. If this is omitted,
    * the arguments will be `{}`.
@@ -378,6 +466,7 @@ export class ConvexReactClient {
   ): Watch<FunctionReturnType<Query>> {
     const [args, options] = argsAndOptions;
     const name = getFunctionName(query);
+
     return {
       onUpdate: (callback) => {
         const { queryToken, unsubscribe } = this.sync.subscribe(
@@ -457,6 +546,63 @@ export class ConvexReactClient {
     const watch = this.watchQuery(queryOptions.query, queryOptions.args || {});
     const unsubscribe = watch.onUpdate(() => {});
     setTimeout(unsubscribe, extendSubscriptionFor);
+  }
+
+  /**
+   * Construct a new {@link PaginatedWatch} on a Convex paginated query function.
+   *
+   * **Most application code should not call this method directly. Instead use
+   * the {@link usePaginatedQuery} hook.**
+   *
+   * The act of creating a watch does nothing, a Watch is stateless.
+   *
+   * @param query - A {@link server.FunctionReference} for the public query to run.
+   * @param args - An arguments object for the query. If this is omitted,
+   * the arguments will be `{}`.
+   * @param options - A {@link WatchPaginatedQueryOptions} options object for this query.
+   *
+   * @returns The {@link PaginatedWatch} object.
+   *
+   * @internal
+   */
+  watchPaginatedQuery<Query extends FunctionReference<"query">>(
+    query: Query,
+    args: Query["_args"],
+    options: WatchPaginatedQueryOptions,
+  ): PaginatedWatch<FunctionReturnType<Query>> {
+    const name = getFunctionName(query);
+
+    return {
+      onUpdate: (callback) => {
+        const { paginatedQueryToken, unsubscribe } =
+          this.paginatedQueryClient.subscribe(name, args || {}, options);
+
+        const currentListeners = this.listeners.get(paginatedQueryToken);
+        if (currentListeners !== undefined) {
+          currentListeners.add(callback);
+        } else {
+          this.listeners.set(paginatedQueryToken, new Set([callback]));
+        }
+
+        return () => {
+          if (this.closed) {
+            return;
+          }
+
+          const currentListeners = this.listeners.get(paginatedQueryToken)!;
+          currentListeners.delete(callback);
+          if (currentListeners.size === 0) {
+            this.listeners.delete(paginatedQueryToken);
+          }
+          unsubscribe();
+        };
+      },
+
+      localQueryResult: () => {
+        // Use our new paginated query client
+        return this.paginatedQueryClient.localQueryResult(name, args, options);
+      },
+    };
   }
 
   /**
@@ -580,6 +726,9 @@ export class ConvexReactClient {
     this.closed = true;
     // Prevent outstanding React batched updates from invoking listeners.
     this.listeners = new Map();
+    if (this.cachedPaginatedQueryClient) {
+      this.cachedPaginatedQueryClient = undefined;
+    }
     if (this.cachedSync) {
       const sync = this.cachedSync;
       this.cachedSync = undefined;
@@ -587,7 +736,17 @@ export class ConvexReactClient {
     }
   }
 
-  private transition(updatedQueries: QueryToken[]) {
+  /**
+   * Handle transitions from both base client and paginated client.
+   * This ensures all transitions are processed synchronously and in order.
+   */
+  private handleTransition(transition: ExtendedTransition) {
+    const simple = transition.queries.map((q) => q.token);
+    const paginated = transition.paginatedQueries.map((q) => q.token);
+    this.transition([...simple, ...paginated]);
+  }
+
+  private transition(updatedQueries: (QueryToken | PaginatedQueryToken)[]) {
     for (const queryToken of updatedQueries) {
       const callbacks = this.listeners.get(queryToken);
       if (callbacks) {

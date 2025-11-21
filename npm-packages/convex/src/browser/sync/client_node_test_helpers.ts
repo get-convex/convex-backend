@@ -8,8 +8,13 @@ import WebSocket, { WebSocketServer } from "ws";
 export const nodeWebSocket = WebSocket as unknown as typeof window.WebSocket;
 
 import { ClientMessage, WireServerMessage } from "./protocol.js";
-import { QueryToken } from "./udf_path_utils.js";
+import {
+  PaginatedQueryToken,
+  QueryToken,
+  serializedQueryTokenIsPaginated,
+} from "./udf_path_utils.js";
 import { BaseConvexClient } from "./client.js";
+import { PaginatedQueryClient } from "./paginated_query_client.js";
 
 export type InMemoryWebSocketTest = (args: {
   address: string;
@@ -114,7 +119,7 @@ function encodeLong(n: Long) {
 
 /**
  * const q = new UpdateQueue();
- * const client = new Client("http://...", q.onTransition);
+ * const client = new BaseConvexClient(address, queryTokens => { q.onTransition(client)(queryTokens) });
  *
  * await q.updatePromises[3];
  *
@@ -149,7 +154,9 @@ export class UpdateQueue {
    * Useful to use instead of directly awaiting so that the timeout has a line number
    * unlike the default Vite test timeout.
    */
-  async awaitPromiseAtIndexWithTimeout(i: number) {
+  async awaitPromiseAtIndexWithTimeout(
+    i: number,
+  ): Promise<Record<QueryToken | PaginatedQueryToken, any>> {
     if (!this.updatePromises[i]) {
       throw new Error("That promise doesn't exist yet");
     }
@@ -161,16 +168,30 @@ export class UpdateQueue {
     if (result === inBandSignal) {
       throw new Error("Awaiting promise in UpdateQueue");
     }
-    return result;
+    // cast from the updatePromises where this was any, but know it's unknown
+    return result as any;
   }
 
   onTransition =
-    (client: BaseConvexClient) => (updatedQueryTokens: QueryToken[]) => {
+    (client: BaseConvexClient, paginatedClient?: PaginatedQueryClient) =>
+    (updatedQueryTokens: (QueryToken | PaginatedQueryToken)[]) => {
       const update: Record<QueryToken, any> = {};
       for (const queryToken of updatedQueryTokens) {
-        const value = client.localQueryResultByToken(queryToken);
-        update[queryToken] = value;
-        this.allResults[queryToken] = value;
+        if (serializedQueryTokenIsPaginated(queryToken)) {
+          if (!paginatedClient) {
+            throw new Error(
+              "No PaginatedQueryClient provided to look up value for token " +
+                queryToken,
+            );
+          }
+          const value = paginatedClient?.localQueryResultByToken(queryToken);
+          update[queryToken] = value;
+          this.allResults[queryToken] = value;
+        } else {
+          const value = client.localQueryResultByToken(queryToken);
+          update[queryToken] = value;
+          this.allResults[queryToken] = value;
+        }
       }
       this.updateResolves[this.nextIndex](update);
       this.updates.push(update);

@@ -1,4 +1,4 @@
-import { usePaginatedQuery } from "convex/react";
+import { usePaginatedQuery_experimental } from "convex/react";
 import { useContext, useState } from "react";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -30,7 +30,7 @@ export function usePaginatedFileMetadata() {
     },
   };
 
-  const { results, loadMore, status } = usePaginatedQuery(
+  const { results, loadMore, status } = usePaginatedQuery_experimental(
     udfs.fileStorageV2.fileMetadata,
     // If we're paused, don't show the live query.
     isPaused ? "skip" : args,

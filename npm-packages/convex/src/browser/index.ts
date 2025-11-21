@@ -24,6 +24,7 @@ export type {
   ConnectionState,
   AuthTokenFetcher,
 } from "./sync/client.js";
+export type { PaginationStatus } from "./sync/pagination.js";
 export type { ConvexClientOptions } from "./simple_client.js";
 export { ConvexClient } from "./simple_client.js";
 export type {
@@ -31,6 +32,8 @@ export type {
   OptimisticLocalStore,
 } from "./sync/optimistic_updates.js";
 export type { QueryToken } from "./sync/udf_path_utils.js";
+/** @internal */
+export type { PaginatedQueryToken } from "./sync/udf_path_utils.js";
 export { ConvexHttpClient } from "./http_client.js";
 export type { HttpMutationOptions } from "./http_client.js";
 export type { QueryJournal } from "./sync/protocol.js";

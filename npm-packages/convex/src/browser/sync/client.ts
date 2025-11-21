@@ -1,3 +1,12 @@
+/**
+ * BaseConvexClient should not be used directly and does not provide a stable
+ * interface. It is a "Base" client not because it expects to be inherited from
+ * but because other clients are built around it.
+ *
+ * BaseConvexClient is not Convex Function type-aware: it deals
+ * with queries as functions that return Value, not the specific value.
+ * Use a higher-level library to get types.
+ */
 import { version } from "../../index.js";
 import { convexToJson, Value } from "../../values/index.js";
 import {
@@ -579,8 +588,8 @@ export class BaseConvexClient {
         return {
           token,
           modification: {
-            kind: "Updated",
-            result: optimisticResult!.result,
+            kind: "Updated" as const,
+            result: optimisticResult,
           },
         };
       }),
@@ -734,7 +743,7 @@ export class BaseConvexClient {
   }
 
   /**
-   * Whether local query result is available for a toke.
+   * Whether local query result is available for a token.
    *
    * This method does not throw if the result is an error.
    *

@@ -202,10 +202,17 @@ export class OptimisticQueryResults {
   }
 
   /**
+   * "Raw" with respect to errors vs values, but query results still have
+   * optimistic updates applied.
+   *
    * @internal
    */
-  rawQueryResult(queryToken: QueryToken): Query | undefined {
-    return this.queryResults.get(queryToken);
+  rawQueryResult(queryToken: QueryToken): FunctionResult | undefined {
+    const query = this.queryResults.get(queryToken);
+    if (query === undefined) {
+      return undefined;
+    }
+    return query.result;
   }
 
   queryResult(queryToken: QueryToken): Value | undefined {

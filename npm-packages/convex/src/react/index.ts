@@ -61,6 +61,8 @@
  * @module
  */
 export * from "./use_paginated_query.js";
+export { usePaginatedQuery_experimental } from "./use_paginated_query2.js";
+export { usePaginatedQuery } from "./use_paginated_query.js";
 export { useQueries, type RequestForQueries } from "./use_queries.js";
 export type { AuthTokenFetcher } from "../browser/sync/client.js";
 export * from "./auth_helpers.js";

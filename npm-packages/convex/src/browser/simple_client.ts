@@ -3,6 +3,7 @@ import {
   BaseConvexClient,
   BaseConvexClientOptions,
   MutationOptions,
+  PaginatedQueryToken,
   QueryToken,
   UserIdentityAttributes,
 } from "./index.js";
@@ -10,10 +11,17 @@ import {
   FunctionArgs,
   FunctionReference,
   FunctionReturnType,
+  PaginationResult,
 } from "../server/index.js";
 import { getFunctionName } from "../server/api.js";
 import { AuthTokenFetcher } from "./sync/authentication_manager.js";
 import { ConnectionState } from "./sync/client.js";
+import {
+  ExtendedTransition,
+  PaginatedQueryClient,
+} from "./sync/paginated_query_client.js";
+import { PaginatedQueryResult } from "./sync/pagination.js";
+import { serializedQueryTokenIsPaginated } from "./sync/udf_path_utils.js";
 
 // In Node.js builds this points to a bundled WebSocket implementation. If no
 // WebSocket implementation is manually specified or globally available,
@@ -75,6 +83,7 @@ export type Unsubscribe<T> = {
 export class ConvexClient {
   private listeners: Set<QueryInfo>;
   private _client: BaseConvexClient | undefined;
+  private _paginatedClient: PaginatedQueryClient | undefined;
   // A synthetic server event to run callbacks the first time
   private callNewListenersWithCurrentValuesTimer:
     | ReturnType<typeof setTimeout>
@@ -89,6 +98,13 @@ export class ConvexClient {
   }
   get client(): BaseConvexClient {
     if (this._client) return this._client;
+    throw new Error("ConvexClient is disabled");
+  }
+  /**
+   * @internal
+   */
+  get paginatedClient(): PaginatedQueryClient {
+    if (this._paginatedClient) return this._paginatedClient;
     throw new Error("ConvexClient is disabled");
   }
   get disabled(): boolean {
@@ -123,8 +139,12 @@ export class ConvexClient {
     if (!this.disabled) {
       this._client = new BaseConvexClient(
         address,
-        (updatedQueries) => this._transition(updatedQueries),
+        () => {}, // NOP, let the paginated query client do it all
         baseOptions,
+      );
+      this._paginatedClient = new PaginatedQueryClient(
+        this._client,
+        (transition) => this._transition(transition),
       );
     }
     this.listeners = new Set();
@@ -169,18 +189,7 @@ export class ConvexClient {
     onError?: (e: Error) => unknown,
   ): Unsubscribe<Query["_returnType"]> {
     if (this.disabled) {
-      const disabledUnsubscribe = (() => {}) as Unsubscribe<
-        Query["_returnType"]
-      >;
-      const unsubscribeProps: RemoveCallSignature<
-        Unsubscribe<Query["_returnType"]>
-      > = {
-        unsubscribe: disabledUnsubscribe,
-        getCurrentValue: () => undefined,
-        getQueryLogs: () => undefined,
-      };
-      Object.assign(disabledUnsubscribe, unsubscribeProps);
-      return disabledUnsubscribe;
+      return this.createDisabledUnsubscribe<Query["_returnType"]>();
     }
 
     // BaseConvexClient takes care of deduplicating queries subscriptions...
@@ -198,6 +207,7 @@ export class ConvexClient {
       hasEverRun: false,
       query,
       args,
+      paginationOptions: undefined,
     };
     this.listeners.add(queryInfo);
 
@@ -235,15 +245,122 @@ export class ConvexClient {
     return ret;
   }
 
+  /**
+   * Call a callback whenever a new result for a paginated query is received.
+   *
+   * This is an experimental preview: the final API may change.
+   * In particular, caching behavior, page splitting, and required paginated query options
+   * may change.
+   *
+   * @param query - A {@link server.FunctionReference} for the public query to run.
+   * @param args - The arguments to run the query with.
+   * @param options - Options for the paginated query including initialNumItems and id.
+   * @param callback - Function to call when the query result updates.
+   * @param onError - Function to call when the query result updates with an error.
+   *
+   * @return an {@link Unsubscribe} function to stop calling the callback.
+   */
+  onPaginatedUpdate_experimental<Query extends FunctionReference<"query">>(
+    query: Query,
+    args: FunctionArgs<Query>,
+    options: { initialNumItems: number },
+    callback: (result: PaginationResult<FunctionReturnType<Query>>) => unknown,
+    onError?: (e: Error) => unknown,
+  ): Unsubscribe<PaginatedQueryResult<FunctionReturnType<Query>[]>> {
+    if (this.disabled) {
+      return this.createDisabledUnsubscribe<
+        PaginatedQueryResult<FunctionReturnType<Query>>
+      >();
+    }
+
+    const paginationOptions = {
+      initialNumItems: options.initialNumItems,
+      id: -1,
+    };
+
+    const { paginatedQueryToken, unsubscribe } = this.paginatedClient.subscribe(
+      getFunctionName(query),
+      args,
+      // Simple client doesn't use IDs, there's no expectation that these queries remain separate.
+      paginationOptions,
+    );
+
+    const queryInfo: QueryInfo = {
+      queryToken: paginatedQueryToken,
+      callback,
+      onError,
+      unsubscribe,
+      hasEverRun: false,
+      query,
+      args,
+      paginationOptions,
+    };
+    this.listeners.add(queryInfo);
+
+    // If the callback is registered for a query with a result immediately available
+    // schedule a fake transition to call the callback soon instead of waiting for
+    // a new server update (which could take seconds or days).
+    if (
+      !!this.paginatedClient.localQueryResultByToken(paginatedQueryToken) &&
+      this.callNewListenersWithCurrentValuesTimer === undefined
+    ) {
+      this.callNewListenersWithCurrentValuesTimer = setTimeout(
+        () => this.callNewListenersWithCurrentValues(),
+        0,
+      );
+    }
+
+    const unsubscribeProps: RemoveCallSignature<
+      Unsubscribe<PaginatedQueryResult<FunctionReturnType<Query>[]>>
+    > = {
+      unsubscribe: () => {
+        if (this.closed) {
+          // all unsubscribes already ran
+          return;
+        }
+        this.listeners.delete(queryInfo);
+        unsubscribe();
+      },
+      getCurrentValue: () => {
+        const result = this.paginatedClient.localQueryResult(
+          getFunctionName(query),
+          args,
+          paginationOptions,
+        );
+        // cast to apply the specific function type
+        return result as
+          | PaginatedQueryResult<FunctionReturnType<Query>>
+          | undefined;
+      },
+      getQueryLogs: () => [], // Paginated queries don't aggregate their logs
+    };
+    const ret = unsubscribeProps.unsubscribe as Unsubscribe<
+      PaginatedQueryResult<FunctionReturnType<Query>>
+    >;
+    Object.assign(ret, unsubscribeProps);
+    return ret;
+  }
+
   // Run all callbacks that have never been run before if they have a query
   // result available now.
   private callNewListenersWithCurrentValues() {
     this.callNewListenersWithCurrentValuesTimer = undefined;
-    this._transition([], true);
+    this._transition({ queries: [], paginatedQueries: [] }, true);
   }
 
   private queryResultReady(queryToken: QueryToken): boolean {
     return this.client.hasLocalQueryResultByToken(queryToken);
+  }
+
+  private createDisabledUnsubscribe<T>(): Unsubscribe<T> {
+    const disabledUnsubscribe = (() => {}) as Unsubscribe<T>;
+    const unsubscribeProps: RemoveCallSignature<Unsubscribe<T>> = {
+      unsubscribe: disabledUnsubscribe,
+      getCurrentValue: () => undefined,
+      getQueryLogs: () => undefined,
+    };
+    Object.assign(disabledUnsubscribe, unsubscribeProps);
+    return disabledUnsubscribe;
   }
 
   async close() {
@@ -251,6 +368,9 @@ export class ConvexClient {
     // prevent pending updates
     this.listeners.clear();
     this._closed = true;
+    if (this._paginatedClient) {
+      this._paginatedClient = undefined;
+    }
     return this.client.close();
   }
 
@@ -298,22 +418,43 @@ export class ConvexClient {
   /**
    * @internal
    */
-  _transition(updatedQueries: QueryToken[], callNewListeners = false) {
+  _transition(
+    {
+      queries,
+      paginatedQueries,
+    }: Pick<ExtendedTransition, "queries" | "paginatedQueries">,
+    callNewListeners = false,
+  ) {
+    const updatedQueries = [
+      ...queries.map((q) => q.token),
+      ...paginatedQueries.map((q) => q.token),
+    ];
+
     // Deduping subscriptions happens in the BaseConvexClient, so not much to do here.
 
     // Call all callbacks in the order they were registered
     for (const queryInfo of this.listeners) {
       const { callback, queryToken, onError, hasEverRun } = queryInfo;
+      const isPaginatedQuery = serializedQueryTokenIsPaginated(queryToken);
+
+      // What does it mean to have a paginated query result ready? I think it's
+      // always going to fire immediately.
+      const hasResultReady = isPaginatedQuery
+        ? !!this.paginatedClient.localQueryResultByToken(queryToken)
+        : this.client.hasLocalQueryResultByToken(queryToken);
+
       if (
         updatedQueries.includes(queryToken) ||
-        (callNewListeners &&
-          !hasEverRun &&
-          this.client.hasLocalQueryResultByToken(queryToken))
+        (callNewListeners && !hasEverRun && hasResultReady)
       ) {
         queryInfo.hasEverRun = true;
         let newValue;
         try {
-          newValue = this.client.localQueryResultByToken(queryToken);
+          if (isPaginatedQuery) {
+            newValue = this.paginatedClient.localQueryResultByToken(queryToken);
+          } else {
+            newValue = this.client.localQueryResultByToken(queryToken);
+          }
         } catch (error) {
           if (!(error instanceof Error)) throw error;
           if (onError) {
@@ -437,11 +578,13 @@ type QueryInfo = {
   callback: (result: any, meta: unknown) => unknown;
   onError: ((e: Error, meta: unknown) => unknown) | undefined;
   unsubscribe: () => void;
-  queryToken: QueryToken;
+  queryToken: QueryToken | PaginatedQueryToken;
   hasEverRun: boolean;
-  // query and args are just here for debugging, the queryToken is authoritative
+  // query, args and paginationOptions are just here for debugging, the queryToken is authoritative
   query: FunctionReference<"query">;
   args: any;
+  paginationOptions: { initialNumItems: number; id: number } | undefined;
 };
 
+// helps to construct objects with a call signature
 type RemoveCallSignature<T> = Omit<T, never>;

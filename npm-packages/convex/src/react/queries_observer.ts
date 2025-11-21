@@ -1,22 +1,32 @@
 import { convexToJson, Value } from "../values/index.js";
-import { Watch } from "./client.js";
+import { PaginatedWatch, Watch } from "./client.js";
 import { QueryJournal } from "../browser/sync/protocol.js";
 import { FunctionReference, getFunctionName } from "../server/api.js";
+import { RequestForQueries } from "./use_queries.js";
+import { PaginatedQueryResult } from "../browser/sync/pagination.js";
+import { SubscribeToPaginatedQueryOptions } from "../browser/sync/paginated_query_client.js";
 
 type Identifier = string;
 
 type QueryInfo = {
   query: FunctionReference<"query">;
   args: Record<string, Value>;
-  watch: Watch<Value>;
+  watch: Watch<Value> | PaginatedWatch<Value>;
   unsubscribe: () => void;
+  paginationOptions?: SubscribeToPaginatedQueryOptions;
 };
 
-export type CreateWatch = (
-  query: FunctionReference<"query">,
-  args: Record<string, Value>,
-  journal?: QueryJournal,
-) => Watch<Value>;
+export interface CreateWatch {
+  (
+    query: FunctionReference<"query">,
+    args: Record<string, Value>,
+    options: {
+      journal?: QueryJournal;
+      // Just the existence of this option makes this a paginated query
+      paginationOptions?: SubscribeToPaginatedQueryOptions;
+    },
+  ): Watch<Value> | PaginatedWatch<Value>;
+}
 
 /**
  * A class for observing the results of multiple queries at the same time.
@@ -37,29 +47,46 @@ export class QueriesObserver {
   setQueries(
     newQueries: Record<
       Identifier,
-      { query: FunctionReference<"query">; args: Record<string, Value> }
+      {
+        query: FunctionReference<"query">;
+        args: Record<string, Value>;
+        paginationOptions?: SubscribeToPaginatedQueryOptions;
+      }
     >,
   ) {
     // Add the new queries before unsubscribing from the old ones so that
     // the deduping in the `ConvexReactClient` can help if there are duplicates.
     for (const identifier of Object.keys(newQueries)) {
-      const { query, args } = newQueries[identifier];
+      const { query, args, paginationOptions } = newQueries[identifier];
       // Might throw
       getFunctionName(query);
 
       if (this.queries[identifier] === undefined) {
         // No existing query => add it.
-        this.addQuery(identifier, query, args);
+        this.addQuery(
+          identifier,
+          query,
+          args,
+          paginationOptions ? { paginationOptions } : {},
+        );
       } else {
         const existingInfo = this.queries[identifier];
+
         if (
           getFunctionName(query) !== getFunctionName(existingInfo.query) ||
           JSON.stringify(convexToJson(args)) !==
-            JSON.stringify(convexToJson(existingInfo.args))
+            JSON.stringify(convexToJson(existingInfo.args)) ||
+          JSON.stringify(paginationOptions) !==
+            JSON.stringify(existingInfo.paginationOptions)
         ) {
           // Existing query that doesn't match => remove the old and add the new.
           this.removeQuery(identifier);
-          this.addQuery(identifier, query, args);
+          this.addQuery(
+            identifier,
+            query,
+            args,
+            paginationOptions ? { paginationOptions } : {},
+          );
         }
       }
     }
@@ -80,21 +107,31 @@ export class QueriesObserver {
   }
 
   getLocalResults(
-    queries: Record<
+    queries: RequestForQueries,
+  ): Record<
+    Identifier,
+    Value | undefined | Error | PaginatedQueryResult<Value>
+  > {
+    const result: Record<
       Identifier,
-      { query: FunctionReference<"query">; args: Record<string, Value> }
-    >,
-  ): Record<Identifier, Value | undefined | Error> {
-    const result: Record<Identifier, Value | Error | undefined> = {};
+      Value | Error | undefined | PaginatedQueryResult<Value>
+    > = {};
     for (const identifier of Object.keys(queries)) {
       const { query, args } = queries[identifier];
+      const paginationOptions = queries[identifier].paginationOptions;
+
       // Might throw
       getFunctionName(query);
 
       // Note: We're not gonna watch, we could save some allocations
       // by getting a reference to the client directly instead.
-      const watch = this.createWatch(query, args);
-      let value: Value | undefined | Error;
+      const watch = this.createWatch(
+        query,
+        args,
+        paginationOptions ? { paginationOptions } : {},
+      );
+
+      let value: Value | undefined | Error | PaginatedQueryResult<Value>;
       try {
         value = watch.localQueryResult();
       } catch (e) {
@@ -116,10 +153,14 @@ export class QueriesObserver {
     // If we have a new watch, we might be using a new Convex client.
     // Recreate all the watches being careful to preserve the journals.
     for (const identifier of Object.keys(this.queries)) {
-      const { query, args, watch } = this.queries[identifier];
-      const journal = watch.journal();
+      const { query, args, watch, paginationOptions } =
+        this.queries[identifier];
+      const journal = "journal" in watch ? watch.journal() : undefined;
       this.removeQuery(identifier);
-      this.addQuery(identifier, query, args, journal);
+      this.addQuery(identifier, query, args, {
+        ...(journal ? { journal } : []),
+        ...(paginationOptions ? { paginationOptions } : {}),
+      });
     }
   }
 
@@ -134,20 +175,30 @@ export class QueriesObserver {
     identifier: Identifier,
     query: FunctionReference<"query">,
     args: Record<string, Value>,
-    journal?: QueryJournal,
+    {
+      paginationOptions,
+      journal,
+    }: {
+      paginationOptions?: SubscribeToPaginatedQueryOptions;
+      journal?: QueryJournal;
+    },
   ) {
     if (this.queries[identifier] !== undefined) {
       throw new Error(
         `Tried to add a new query with identifier ${identifier} when it already exists.`,
       );
     }
-    const watch = this.createWatch(query, args, journal);
+    const watch = this.createWatch(query, args, {
+      ...(journal ? { journal } : []),
+      ...(paginationOptions ? { paginationOptions } : {}),
+    });
     const unsubscribe = watch.onUpdate(() => this.notifyListeners());
     this.queries[identifier] = {
       query,
       args,
       watch,
       unsubscribe,
+      ...(paginationOptions ? { paginationOptions } : {}),
     };
   }
 

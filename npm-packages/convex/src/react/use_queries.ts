@@ -5,6 +5,7 @@ import { CreateWatch, QueriesObserver } from "./queries_observer.js";
 import { useSubscription } from "./use_subscription.js";
 import { QueryJournal } from "../browser/index.js";
 import { FunctionReference } from "../server/api.js";
+import { SubscribeToPaginatedQueryOptions } from "../browser/sync/paginated_query_client.js";
 
 /**
  * Load a variable number of reactive Convex queries.
@@ -74,9 +75,19 @@ export function useQueries(
     return (
       query: FunctionReference<"query">,
       args: Record<string, Value>,
-      journal?: QueryJournal,
+      {
+        journal,
+        paginationOptions,
+      }: {
+        journal?: QueryJournal;
+        paginationOptions?: SubscribeToPaginatedQueryOptions;
+      },
     ) => {
-      return convex.watchQuery(query, args, journal ? { journal } : {});
+      if (paginationOptions) {
+        return convex.watchPaginatedQuery(query, args, paginationOptions);
+      } else {
+        return convex.watchQuery(query, args, journal ? { journal } : {});
+      }
     };
   }, [convex]);
   return useQueriesHelper(queries, createWatch);
@@ -128,5 +139,7 @@ export type RequestForQueries = Record<
   {
     query: FunctionReference<"query">;
     args: Record<string, Value>;
+    /** @internal */
+    paginationOptions?: SubscribeToPaginatedQueryOptions;
   }
 >;
