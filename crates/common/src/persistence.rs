@@ -575,11 +575,6 @@ pub trait PersistenceReader: Send + Sync + 'static {
     }
 }
 
-pub fn now_ts<RT: Runtime>(max_ts: Timestamp, rt: &RT) -> anyhow::Result<Timestamp> {
-    let ts = cmp::max(rt.generate_timestamp()?, max_ts);
-    Ok(ts)
-}
-
 /// Timestamp that is repeatable because the caller is holding the lease and
 /// no one is writing to persistence. In particular the Committer is not
 /// running. So all future commits will be after the returned
@@ -591,7 +586,7 @@ pub async fn new_idle_repeatable_ts<RT: Runtime>(
 ) -> anyhow::Result<RepeatableTimestamp> {
     let reader = persistence.reader();
     let max_ts = reader.max_ts().await?.unwrap_or(Timestamp::MIN);
-    let now = now_ts(max_ts, rt)?;
+    let now = cmp::max(max_ts, rt.generate_timestamp()?);
     // Enforce that all subsequent commits are > now by writing to MaxRepeatableTs.
     persistence
         .write_persistence_global(PersistenceGlobalKey::MaxRepeatableTimestamp, now.into())

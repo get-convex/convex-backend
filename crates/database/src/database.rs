@@ -953,12 +953,12 @@ impl<RT: Runtime> Database<RT> {
             Self::initialize(&runtime, &mut persistence).await?;
         }
 
-        // Load data into a DatabaseReader, including indexes and shapes.
+        // Load data into a DatabaseSnapshot, including indexes.
         let reader = persistence.reader();
 
-        // Get the latest timestamp to perform the load at.
+        // Since we hold the lease, update the max repeatable timestamp and get
+        // the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
-        let original_max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
 
         let follower_retention_manager = FollowerRetentionManager::new_with_repeatable_ts(
             runtime.clone(),
@@ -976,9 +976,8 @@ impl<RT: Runtime> Database<RT> {
         .await?;
         let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
         anyhow::ensure!(
-            original_max_ts == max_ts,
-            "race while loading DatabaseSnapshot: max ts {original_max_ts} at start, {max_ts} at \
-             end",
+            *snapshot_ts == max_ts,
+            "race while loading DatabaseSnapshot: max ts {snapshot_ts} at start, {max_ts} at end",
         );
         let DatabaseSnapshot {
             runtime: _,

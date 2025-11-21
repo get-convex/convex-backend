@@ -801,7 +801,6 @@ mod tests {
         },
         interval::Interval,
         persistence::{
-            now_ts,
             ConflictStrategy,
             DocumentLogEntry,
             Persistence,
@@ -812,6 +811,7 @@ mod tests {
             CursorPosition,
             Order,
         },
+        runtime::Runtime,
         testing::{
             TestIdGenerator,
             TestPersistence,
@@ -1154,7 +1154,7 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let by_id_fields = vec![];
         let by_name_fields = vec!["name".parse()?];
-        let now0 = now_ts(Timestamp::MIN, &rt)?;
+        let now0 = rt.generate_timestamp()?;
         let ps = Arc::new(TestPersistence::new());
         let persistence_version = ps.reader().version();
         let retention_manager =
