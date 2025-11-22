@@ -11,8 +11,6 @@ pushing them to production.
 In combination with Vercel Preview Deployments or Netlify Deploy Previews, you
 can preview both frontend and backend changes together.
 
-<ProFeatureUpsell feature="Convex preview deployments" verb="require" />
-
 <BetaAdmonition feature="Convex preview deployments" verb="are" />
 
 ## Setup
@@ -27,9 +25,12 @@ See `npx convex deploy --help` for all available options for
 
 ## Limits
 
-Convex preview deployments are automatically cleaned up 14 days after creation,
-or when a new preview deployment with the same name is created. They can also be
-manually deleted from the Convex dashboard.
+Convex preview deployments are automatically cleaned up 5 days (14 days on the
+Professional Convex plan) after creation, or when a new preview deployment with
+the same name is created. They can also be manually deleted from the Convex
+dashboard.
+
+Preview deployments count towards your deployment limit.
 
 When a Convex preview deployment is deleted, the Vercel/Netlify preview link
 will open and show UI, but will be unable to run any Convex functions since it

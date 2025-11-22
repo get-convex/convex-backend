@@ -3,8 +3,6 @@ import { PageContent } from "@common/elements/PageContent";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
-import { LocalDevCallout } from "@common/elements/LocalDevCallout";
-import { Callout } from "@ui/Callout";
 import { DeploymentType } from "@common/features/settings/components/DeploymentUrl";
 import { useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
@@ -592,8 +590,6 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   const team = useCurrentTeam();
   const selectedTeamSlug = team?.slug;
 
-  const arePreviewDeploymentsAvailable =
-    useTeamEntitlements(team?.id)?.projectMaxPreviewDeployments !== 0;
   const projectAccessTokens = useProjectAccessTokens(project.id);
 
   const deployKeyDescription = (
@@ -623,62 +619,33 @@ function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
 
   return (
     <Sheet className="flex flex-col gap-4">
-      {!arePreviewDeploymentsAvailable ? (
-        <>
-          <h3>Preview Deploy Keys</h3>
-          <Callout>
-            <p>
-              <Link
-                passHref
-                href="https://docs.convex.dev/production/hosting/preview-deployments"
-                className="underline"
-                target="_blank"
-              >
-                Preview deployments
-              </Link>
-              {" are only available on the Pro plan. "}
-              <Link
-                href={`/${selectedTeamSlug}/settings/billing`}
-                className="underline"
-              >
-                Upgrade to get access.
-              </Link>
-            </p>
-          </Callout>
-          <LocalDevCallout
-            tipText="Tip: Run this to enable preview deployments locally:"
-            command={`cargo run --bin big-brain-tool -- --dev grant-entitlement --team-entitlement project_max_preview_deployments --team-id ${team?.id} --reason "local" 200 --for-real`}
+      <div className="flex flex-col gap-2">
+        {team && accessToken && createProjectAccessTokenMutation && (
+          <DeploymentAccessTokenList
+            identifier={project.id.toString()}
+            tokenPrefix={`preview:${selectedTeamSlug}:${project.slug}`}
+            accessTokens={projectAccessTokens}
+            kind="project"
+            disabledReason={null}
+            buttonProps={{
+              deploymentType: "preview",
+              disabledReason: null,
+              getAdminKey: async (name: string) =>
+                getAccessTokenBasedDeployKeyForPreview(
+                  project,
+                  team,
+                  `preview:${selectedTeamSlug}:${project.slug}`,
+                  accessToken,
+                  createProjectAccessTokenMutation,
+                  name,
+                ),
+            }}
+            header="Preview Deploy Keys"
+            headingLevel="h3"
+            description={deployKeyDescription}
           />
-        </>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {team && accessToken && createProjectAccessTokenMutation && (
-            <DeploymentAccessTokenList
-              identifier={project.id.toString()}
-              tokenPrefix={`preview:${selectedTeamSlug}:${project.slug}`}
-              accessTokens={projectAccessTokens}
-              kind="project"
-              disabledReason={null}
-              buttonProps={{
-                deploymentType: "preview",
-                disabledReason: null,
-                getAdminKey: async (name: string) =>
-                  getAccessTokenBasedDeployKeyForPreview(
-                    project,
-                    team,
-                    `preview:${selectedTeamSlug}:${project.slug}`,
-                    accessToken,
-                    createProjectAccessTokenMutation,
-                    name,
-                  ),
-              }}
-              header="Preview Deploy Keys"
-              headingLevel="h3"
-              description={deployKeyDescription}
-            />
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </Sheet>
   );
 }

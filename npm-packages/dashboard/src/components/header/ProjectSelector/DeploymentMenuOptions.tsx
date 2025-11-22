@@ -1,5 +1,5 @@
 import { useDefaultDevDeployment } from "api/deployments";
-import { useTeamMembers, useTeamEntitlements } from "api/teams";
+import { useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
 import React, { useRef } from "react";
@@ -28,8 +28,6 @@ export function DeploymentMenuOptions({
 }) {
   const member = useProfile();
   const router = useRouter();
-  const arePreviewDeploymentsAvailable =
-    useTeamEntitlements(team.id)?.projectMaxPreviewDeployments !== 0;
 
   const previews = deployments
     .filter((d) => d.deploymentType === "preview")
@@ -92,13 +90,11 @@ export function DeploymentMenuOptions({
           label={
             <div className="flex flex-col">
               Preview Deployments
-              <NoPreview
-                isDemo={project.isDemo}
-                arePreviewDeploymentsAvailable={arePreviewDeploymentsAvailable}
-              />
+              <div className="text-xs text-content-secondary">
+                Learn how to use preview deployments
+              </div>
             </div>
           }
-          proBadge={!arePreviewDeploymentsAvailable}
           blankTarget={false}
           action="https://docs.convex.dev/production/hosting/preview-deployments"
         />
@@ -340,33 +336,5 @@ function DeploymentOption({
         )}
       </p>
     </Tooltip>
-  );
-}
-
-function NoPreview({
-  isDemo,
-  arePreviewDeploymentsAvailable,
-}: {
-  isDemo: boolean;
-  arePreviewDeploymentsAvailable: boolean;
-}) {
-  if (isDemo) {
-    return (
-      <div className="text-xs text-content-secondary">
-        Create a new project to use preview deployments
-      </div>
-    );
-  }
-  if (arePreviewDeploymentsAvailable) {
-    return (
-      <div className="text-xs text-content-secondary">
-        Learn how to use preview deployments
-      </div>
-    );
-  }
-  return (
-    <div className="text-xs text-content-secondary">
-      Available on the Pro plan
-    </div>
   );
 }

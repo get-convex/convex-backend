@@ -6,7 +6,6 @@ import {
 import classNames from "classnames";
 import { Button } from "@ui/Button";
 import { Tooltip } from "@ui/Tooltip";
-import { useTeamEntitlements } from "api/teams";
 import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
@@ -395,15 +394,7 @@ function useOrderedAndGroupedRows(
   deployments: DeploymentResponse[],
   team: TeamResponse,
 ): DeploymentTypeRow[] {
-  const arePreviewDeploymentsAvailable =
-    useTeamEntitlements(team.id)?.projectMaxPreviewDeployments !== 0;
-  // We should know about all active deployments in a project, including teammate's dev deployments.
-  // When the project exists but we couldn't find the deployment, it means that it is a deactivated deployment.
-  // If preview deployments are enabled, this is probably a preview deployment. But this could also be a dev
-  // deployment for a teammate who left, so this fallback is imperfect.
-  const fallbackDeploymentType: DeploymentType = arePreviewDeploymentsAvailable
-    ? "preview"
-    : "dev";
+  const fallbackDeploymentType: DeploymentType = "preview";
   return useMemo(() => {
     const byFunctionAndDeploymentType = rows.reduce(
       (accumulator, row) => {

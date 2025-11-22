@@ -213,7 +213,6 @@ function ContextMenuItem({
   tip,
   tipSide,
   blankTarget = true,
-  proBadge,
 }: {
   icon?: ReactNode;
   label: ReactNode;
@@ -224,7 +223,6 @@ function ContextMenuItem({
   tip?: ReactNode;
   tipSide?: TooltipSide;
   blankTarget?: boolean;
-  proBadge?: boolean;
 }) {
   const menu = useContext(ContextMenuContext);
   const { itemRef: labelRef, itemText: labelText } = useTextContent();
@@ -290,14 +288,6 @@ function ContextMenuItem({
           value={shortcut}
           className="ml-auto pl-6 text-content-tertiary"
         />
-      )}
-      {proBadge && (
-        <span
-          className="rounded-sm bg-util-accent px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
-          title="Only available on the Pro plan"
-        >
-          Pro
-        </span>
       )}
     </Button>
   );
