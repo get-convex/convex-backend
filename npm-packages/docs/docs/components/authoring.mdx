@@ -1,0 +1,554 @@
+---
+title: "Authoring Components"
+slug: "authoring"
+sidebar_position: 40
+description: "Creating new components"
+---
+
+Building a component lets you package up Convex functions, schemas, and
+persistent state into a reusable module that you or other developers can drop
+into their projects.
+
+Here are some common reasons to build a component:
+
+- Modularizing your code into separate pieces that each own their own data
+- You want to re-use functionality across multiple projects without duplication
+- You solved a problem involving persistent state that you think would be useful
+  to other Convex developers (sharded counter, cache, etc.)
+
+Components are the right thing to build when you not only want to add
+functionality to an application, like a library, but create a "living"
+distributed system that contains workflows and persistent state. They should be
+composable and provide abstractions for developers to add complex functionality
+without needing to understand the underlying implementation.
+
+## Types of Components
+
+There are three types of components, each suited for different use cases:
+
+**Sibling**
+
+- Stored alongside your Convex code in the same repository
+- Best for modularizing your codebase or reusing functionality across multiple
+  projects
+- Quick to set up and iterate on
+
+**NPM Package**
+
+- Distributed as standalone NPM packages
+- Best for sharing solutions to common problems with the broader developer
+  community
+- Examples: [WorkOS](https://github.com/get-convex/workos) and
+  [Polar](https://github.com/get-convex/polar) components
+
+**Hybrid**
+
+- Combine shared NPM package code with local customization
+- Best when you want to provide a solution that developers can adapt to their
+  specific needs
+- Example:
+  [Better Auth](https://convex-better-auth.netlify.app/features/local-install)
+  component
+
+Below, we'll walk through the structure of each type and how to get started
+building one.
+
+### Sibling
+
+These are components that are stored right next to the rest of your Convex code.
+The directory structure might look something like:
+
+```
+├── convex/
+│   ├── _generated/
+│   ├── schema.ts
+│   ├── convex.config.ts
+│   └── functions.ts
+└── fooComponent/
+    ├── _generated/
+    ├── schema.ts
+    ├── convex.config.ts
+    └── functions.ts
+```
+
+To get started follow these steps:
+
+**1. Create a new directory at the same level as your `convex/` folder.**
+
+**2. Add a `convex.config.ts` file inside of the new folder. This new file
+should look something like:**
+
+```ts
+import { defineComponent } from "convex/server";
+
+const component = defineComponent("fooComponent");
+
+export default component;
+```
+
+**3. Add the component to your root directory like this:**
+
+```ts
+import { defineApp } from "convex/server";
+import fooComponent from "../fooComponent/convex.config.js";
+
+const app = defineApp();
+
+app.use(fooComponent);
+
+export default app;
+```
+
+**4. Run `convex dev`. This will generate code for your component.**
+
+**5. Start writing code in your component!**
+
+### NPM Package
+
+Components can be installed from NPM packages. These components expose all the
+relevant entry points to be used in your project:
+
+- `@your/package` for types, classes, and constants used to interact with the
+  component.
+- `@your/package/convex.config.js` for adding the component to the app's
+  `convex/convex.config.ts`
+- `@your/package/_generated/component.js` to expose the `ComponentApi` type,
+  which describes the component's types from the point of view of app it's used
+  in.
+- `@your/package/test` for utilities to use the component with `convex-test`.
+
+To get started follow these steps:
+
+**1. Create a new project from `npm` using the following command:**
+
+```bash
+npm create convex@latest -- --component
+```
+
+**2. Follow the instructions in your terminal and start writing code!**
+
+### Hybrid
+
+Hybrid components are similar to sibling components, but they use some shared
+code from an NPM package. They are used when users want something more custom
+and want to implement some of their own functionality.
+
+## Functions
+
+### Function Access
+
+Understanding how functions can call each other is crucial when working with
+components.
+
+There's a hierarchy of access, where each level can only call its own (public
+and internal) functions as well as public functions exported by its immediate
+children.
+
+In particular, the public internet / React client / etc. cannot call any
+functions on components, even public ones. Similar to internal functions, there
+is an exception for `npx convex run` and running functions in the Convex
+dashboard, which can call any function.
+
+What if you want to call a component's functions from the public internet, or
+from React? The app needs to wrap the component's function in its own function.
+This allows the app to choose to add auth, rate limiting, etc.
+
+```ts
+// in the app's convex/<file>.ts
+export const add = query({
+  args: { value: v.number() },
+  handler: async (ctx, args) => {
+    await counter.add(ctx, args.value);
+  },
+});
+```
+
+### HTTP Actions
+
+A component cannot expose HTTP actions itself because the routes could conflict
+with the main app's routes. Similar to other functions (queries, mutations, and
+actions), a component can define HTTP action handlers which the app can choose
+to mount. There’s an example in the
+[Twilio component](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71).
+All HTTP actions need to be mounted in the main app’s `convex/http.ts` file.
+
+### Function Handles
+
+Sometimes you want the app to call a component and the component should call
+back into the app.
+
+For example, when using the Migrations component, the app defines a function
+that modifies a document, and the component runs this function on every
+document. As another example, an app using the Twilio component gives it a
+function to run whenever the phone number receives a text message.
+
+These features are implemented using function handles.
+
+A function reference is something like api.foo.bar or `internal.foo.bar` or
+`components.counter.foo.bar`. Function references are restricted as described
+above (a component can only use references to its own functions or the public
+functions of its children). If you have a valid function reference, you can turn
+it into something that can be called from anywhere:
+
+```ts
+const handle = await createFunctionHandle(api.foo.bar);
+```
+
+​This handle is a string.
+
+Since it’s a string, you can pass it between functions and even store it in a
+table. You would use `v.string()` in args/schema validators.
+
+When you want to use it, cast it back to FunctionHandle and use it as you would
+use a function reference. Note argument and return value validation still run at
+runtime, so don't worry about losing guarantees.
+
+```ts
+const handle = handleString as FunctionHandle<"mutation">;
+
+const result = await ctx.runMutation(handle, args);
+// or run it asynchronously via the scheduler:
+await ctx.scheduler.runAfter(0, handle, args);
+```
+
+### Pagination
+
+The built-in `.paginate()` doesn't work in components, because of how Convex
+keeps track of reactive pagination. Therefore we recommend you use `paginator`
+from convex-helpers if you need pagination within your component. As a
+particular case, you cannot use the `migrations` component within your own
+component because it uses pagination. We’re working on more helpers to make this
+easier.
+
+If you expose a pagination API that wants to be used with `usePaginatedQuery`,
+in a React context, use the `usePaginatedQuery` from `convex-helpers` instead of
+the default one. It will have a fixed first page size until you hit “load more,”
+at which point the first page will grow if anything before the second page is
+added.
+
+## Building Client APIs
+
+When building a component, you'll want to provide a clean API for app developers
+to interact with your component. Instead of requiring users to directly write
+`ctx.runMutation(components.foo.bar, ...)`, you can wrap these calls in a more
+ergonomic client API.
+
+Client APIs also bridge the gap between your app and component code by allowing
+you to access things like `ctx.auth` and `process.env` before calling into the
+isolated component environment.
+
+This section covers three approaches to building client APIs, which are
+conventions that help provide a consistent experience for users. These aren't
+hard and fast rules—choose the pattern that best fits your component's needs.
+
+### Understanding `ComponentApi`
+
+Before diving into the patterns, it's important to understand how a component's
+API differs from a regular app's `api` object.
+
+When you pass a component reference like `components.foo` to your client code,
+you're working with a `ComponentApi` type. This is exposed by all components via
+`_generated/component.js` and has some key differences from the regular `api`
+object:
+
+- **Only public functions are accessible**: Internal functions are not exposed
+  to the parent app
+- **Functions become internal references**: Your public API functions are turned
+  into references that can be called with `ctx.runQuery`, `ctx.runMutation`,
+  etc. but **not** directly accessible from clients via HTTP or WebSockets.
+- **IDs become strings**: Any `Id<"tableName">` arguments or return values
+  become plain strings in the `ComponentApi`
+
+### Simple Function Wrappers
+
+The simplest approach is to define standalone functions that wrap calls to your
+component. This works well for straightforward operations and utilities.
+
+```tsx
+import type { ComponentApi } from "../component/_generated/component.js";
+
+export async function addToCounter(
+  ctx: Pick<GenericMutationCtx<GenericDataModel>, "runMutation">,
+  component: ComponentApi,
+  value: number,
+) {
+  // You can create function handles, add shared utilities,
+  // or do any processing that needs to run in the app's environment
+  await ctx.runMutation(component.public.add, { value });
+}
+```
+
+Note: we only use `ctx.runMutation`, so we can use `Pick` to select a type that
+only includes that function. This allows users to call it even if their `ctx` is
+not exactly the standard MutationCtx. It also means it can be called from an
+Action, as ActionCtx also includes `ctx.runMutation`. If your function also
+needs auth or storage, you can adjust what you `Pick`.
+
+### Class-Based Clients
+
+For more complex components, a class-based client provides a stateful interface
+that can hold configuration and provide multiple methods.
+
+**Basic class pattern:**
+
+```tsx
+import Foo from "@convex-dev/foo";
+import { components } from "./_generated/server.js";
+
+const foo = new Foo(components.foo);
+```
+
+**With configuration options:**
+
+Classes typically accept the component reference as their first argument, with
+optional configuration as the second:
+
+```tsx
+export class FooClient {
+  private apiKey: string;
+
+  constructor(
+    public component: ComponentApi,
+    options?: {
+      maxShards?: number;
+      FOO_AUTH_KEY?: string;
+    },
+  ) {
+    this.apiKey = options?.FOO_AUTH_KEY ?? process.env.FOO_AUTH_KEY!;
+  }
+
+  async count(ctx: GenericQueryCtx<GenericDataModel>) {
+    return await ctx.runQuery(this.component.public.count, {
+      API_KEY: this.apiKey,
+    });
+  }
+}
+```
+
+**Dynamic instantiation:** Note that clients don't need to be instantiated
+statically. If you need runtime values, you can create instances dynamically:
+
+```tsx
+export const myQuery = query({
+  handler: async (ctx, args) => {
+    const foo = new Foo(components.foo, {
+      apiKey: args.customApiKey,
+    });
+    await foo.bar();
+  },
+});
+```
+
+This is especially useful when working with custom function wrappers:
+
+```tsx
+const myCustomQuery = customQuery(
+  query,
+  customCtx((ctx) => {
+    const foo = new Foo(ctx, components.foo, { optionA: true });
+    return { foo };
+  }),
+);
+
+export const myQuery = myCustomQuery({
+  handler: async (ctx, args) => {
+    await ctx.foo.bar();
+  },
+});
+```
+
+### Re-Mountable API Functions
+
+Sometimes you want to provide ready-made functions that apps can directly
+re-export to their public API. This is useful when you want to give apps the
+ability to expose your component's functionality to React clients or the public
+internet.
+
+Code in your `src/client/index.ts` can export these functions:
+
+```tsx
+// In your component's src/client/index.ts
+export function makeCounterAPI(component: ComponentApi) {
+  return {
+    add: query({
+      args: { value: v.number() },
+      handler: async (ctx, args) => {
+        return await ctx.runQuery(component.public.add, args);
+      },
+    }),
+
+    get: query({
+      args: {},
+      handler: async (ctx) => {
+        return await ctx.runQuery(component.public.get, {});
+      },
+    }),
+  };
+}
+```
+
+Then apps can mount these in their own API:
+
+```tsx
+// In the app's convex/counter.ts
+import { makeCounterAPI } from "@convex-dev/counter";
+import { components } from "./_generated/server.js";
+
+export const { add, get } = makeCounterAPI(components.counter);
+```
+
+This pattern is also useful for components that need to provide functions with
+specific signatures for integration purposes.
+
+Here's a real-world
+[example](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
+from the ProseMirror component that exports ready-made functions.
+
+## Codegen
+
+### Sibling Components
+
+In order to get up-to-date codegen, all you need to do is run
+`npx convex dev --typecheck-components` from your root component. This
+automatically grabs the types from your component and puts them in your
+top-level app.
+
+Note that the component needs to be installed in your app's
+`convex/convex.config.ts`, and the installation must point at the component's
+source (TypeScript files), not compiled `.js` files.
+
+### NPM Components
+
+When using the component authoring
+[template](https://github.com/get-convex/templates/tree/main/template-component)
+for NPM packages, you need to run `npm run dev` to generate code. The template
+automatically handles this, but if you're setting up your own build process,
+you'll need to run the following commands with their own file watchers:
+
+1. **Component codegen**: Generate code for the component itself
+
+   ```bash
+   npx convex codegen --component-dir ./path/to/component
+   ```
+
+2. **Build the package**: Build the NPM package
+
+   ```bash
+   npm run build # Your build command (e.g., tsc, esbuild, etc.)
+   ```
+
+3. **Example app codegen & deploy**: Generate code for and deploy the example
+   app
+   ```bash
+   npx convex dev --typecheck-components
+   ```
+
+**Note on ordering:** The typical workflow is: component codegen → build the
+package → example app codegen & deploy. This is a recommended convention
+followed by the template, but the key requirement is that the component must be
+built and available before the example app tries to import it.
+
+## Environment Variables and Authentication
+
+Components run in isolated JavaScript contexts, which means they don't have
+access to certain app-level resources. Understanding these limitations is
+important when building components.
+
+### The Isolation Model
+
+Each component's function execution gets a separate JavaScript context. This
+means:
+
+- **No environment variables**: Components cannot access `process.env`
+- **No authentication context**: Components cannot access `ctx.auth`
+- **Separate global variables**: Even globals are scoped per component
+
+This isolation is by design: it ensures components are truly modular and don't
+have hidden dependencies on the parent app's environment.
+
+### Bridging the Gap with Client Code
+
+The solution is to pass app-level data through function arguments. Your client
+code in `src/client/` acts as the bridge:
+
+- `src/client/` runs in the **app's environment** and has access to
+  `process.env`, `ctx.auth`, etc.
+- `src/component/` runs in the **component's isolated environment** and only
+  receives what you explicitly pass to it
+
+Your client code can handle passing these implicitly, so component users don't
+have to think about it.
+
+### Example: Environment Variables
+
+Here's a pattern for handling API keys or other environment variables. The
+client stores the value and passes it with each call:
+
+```ts
+class Counter {
+  private apiKey: string;
+
+  constructor(
+    private component: ComponentApi,
+    options?: {
+      API_KEY?: string;
+    },
+  ) {
+    // Client runs in app environment, so it can access process.env
+    this.apiKey = options?.API_KEY ?? process.env.API_KEY!;
+  }
+
+  async count(ctx: RunQueryCtx) {
+    // Pass the API key as an argument to the component
+    return await ctx.runQuery(this.component.public.count, {
+      API_KEY: this.apiKey,
+    });
+  }
+}
+```
+
+This keeps the common case simple (just set the env var) while allowing
+overrides when needed.
+
+### Example: Authentication
+
+Similarly, for authentication, your client can extract the user identity from
+`ctx.auth` and pass it to the component:
+
+```ts
+class Counter {
+  constructor(private component: ComponentApi) {}
+
+  async count(ctx: QueryCtx) {
+    // Client has access to ctx.auth, component does not
+    const identity = await ctx.auth.getUserIdentity();
+
+    return await ctx.runQuery(this.component.public.count, {
+      userId: identity?.subject,
+      // Or pass the full identity if the component needs it
+      auth: identity,
+    });
+  }
+}
+```
+
+Your component's functions should then accept these as explicit arguments:
+
+```ts
+// In your component's src/component/functions.ts
+export const count = query({
+  args: {
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Now the component can use the userId
+    if (!args.userId) {
+      throw new Error("Not authenticated");
+    }
+    // ... rest of logic
+  },
+});
+```
+
+This explicit passing makes it clear what data flows between the app and
+component, making your component easier to understand and test.

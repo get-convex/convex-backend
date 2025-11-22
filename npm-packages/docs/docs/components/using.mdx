@@ -1,7 +1,7 @@
 ---
 title: "Using Components"
-slug: "using-components"
-sidebar_position: 10
+slug: "using"
+sidebar_position: 20
 description: "Using existing components"
 ---
 
@@ -72,6 +72,26 @@ component queries, mutations can also call component mutations, and actions can
 also call component actions. As a result, queries into components are reactive
 by default, and mutations have the same transaction guarantees.
 
+Component functions can be called from your application using the following
+syntax:
+
+```ts
+import { mutation, query } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const abc = query({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.runMutation(components.foo.bar, args);
+  },
+});
+```
+
+This is often abstracted away with functions and methods exposed by the
+component's client library. For instance `ShardedCounter` from
+`@convex-dev/sharded-counter` is initialized with `components.foo`, and its
+methods take in `ctx`.
+
 ## Transactions
 
 Remember that mutation functions in Convex are
@@ -111,8 +131,9 @@ will continue.
 
 ## Dashboard
 
-You can see your component’s data, functions, files, and other info using the
-dropdown in the Dashboard.
+You can see your component’s data, functions, files, logs, and other info using
+the dropdown in the Dashboard. You can also use the dropdown to exclude info
+from certain components.
 
 <p style={{ textAlign: "center" }}>
   <img
@@ -121,3 +142,9 @@ dropdown in the Dashboard.
     width={414}
   />
 </p>
+
+## Log Streams
+
+You can use the `data.function.component_path` field in
+[log streams](/production/integrations/log-streams) to separate log lines based
+on the component they came from.
