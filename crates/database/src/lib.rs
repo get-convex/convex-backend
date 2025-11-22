@@ -175,6 +175,7 @@ pub use self::{
         latest_retention_min_snapshot_ts,
         FollowerRetentionManager,
         LeaderRetentionManager,
+        LeaderRetentionWorkers,
         RetentionType,
     },
     search_index_workers::{

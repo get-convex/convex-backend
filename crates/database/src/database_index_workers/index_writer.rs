@@ -72,7 +72,7 @@ use value::{
 };
 
 use crate::{
-    retention::LeaderRetentionManager,
+    retention::LeaderRetentionWorkers,
     TableIterator,
 };
 
@@ -593,7 +593,7 @@ impl<RT: Runtime> IndexWriter<RT> {
     ) -> anyhow::Result<()> {
         let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
         // TODO(lee) add checkpointing.
-        LeaderRetentionManager::<RT>::delete_all_no_checkpoint(
+        LeaderRetentionWorkers::delete_all_no_checkpoint(
             backfill_begin_ts,
             min_snapshot_ts,
             self.persistence.clone(),

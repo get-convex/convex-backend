@@ -175,7 +175,10 @@ use crate::{
         vector::vector_search_with_retries_timer,
         verify_invariants_timer,
     },
-    retention::LeaderRetentionManager,
+    retention::{
+        LeaderRetentionManager,
+        LeaderRetentionWorkers,
+    },
     schema_registry::SchemaRegistry,
     search_index_bootstrap::SearchIndexBootstrapWorker,
     snapshot_manager::{
@@ -217,7 +220,6 @@ use crate::{
     BootstrapComponentsModel,
     ComponentRegistry,
     ComponentsTable,
-    FollowerRetentionManager,
     SchemasTable,
     TableIterator,
     Transaction,
@@ -274,7 +276,8 @@ pub struct Database<RT: Runtime> {
     pub(crate) runtime: RT,
     reader: Arc<dyn PersistenceReader>,
     write_commits_since_load: Arc<AtomicUsize>,
-    retention_manager: LeaderRetentionManager<RT>,
+    retention_manager: Arc<LeaderRetentionManager<RT>>,
+    retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
     usage_counter: UsageCounter,
@@ -960,18 +963,14 @@ impl<RT: Runtime> Database<RT> {
         // the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
 
-        let follower_retention_manager = FollowerRetentionManager::new_with_repeatable_ts(
-            runtime.clone(),
-            persistence.reader(),
-            snapshot_ts,
-        )
-        .await?;
+        let (retention_manager, retention_worker_seed) =
+            LeaderRetentionManager::new(runtime.clone(), persistence.clone(), snapshot_ts).await?;
 
         let db_snapshot = DatabaseSnapshot::load(
             runtime.clone(),
             reader.clone(),
             snapshot_ts,
-            Arc::new(follower_retention_manager.clone()),
+            retention_manager.clone(),
         )
         .await?;
         let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
@@ -992,16 +991,14 @@ impl<RT: Runtime> Database<RT> {
         let snapshot_manager = SnapshotManager::new(*ts, snapshot);
         let (snapshot_reader, snapshot_writer) = new_split_rw_lock(snapshot_manager);
 
-        let retention_manager = LeaderRetentionManager::new(
-            runtime.clone(),
-            persistence.clone(),
-            bootstrap_metadata.clone(),
-            snapshot_reader.clone(),
-            follower_retention_manager,
-            shutdown.clone(),
-            retention_rate_limiter,
-        )
-        .await?;
+        let retention_workers = retention_worker_seed
+            .start_retention(
+                bootstrap_metadata.clone(),
+                snapshot_reader.clone(),
+                shutdown.clone(),
+                retention_rate_limiter,
+            )
+            .await?;
 
         let persistence_reader = persistence.reader();
         let (log_owner, log_reader, log_writer) = new_write_log(*ts);
@@ -1012,7 +1009,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot_writer,
             persistence,
             runtime.clone(),
-            Arc::new(retention_manager.clone()),
+            retention_manager.clone(),
             shutdown,
         );
         let table_mapping_snapshot_cache =
@@ -1028,6 +1025,7 @@ impl<RT: Runtime> Database<RT> {
             runtime,
             log: log_reader,
             retention_manager,
+            retention_workers,
             snapshot_manager: snapshot_reader,
             reader: persistence_reader.clone(),
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
@@ -1088,13 +1086,13 @@ impl<RT: Runtime> Database<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
-        self.retention_manager.shutdown().await?;
+        self.retention_workers.shutdown().await?;
         tracing::info!("Database shutdown");
         Ok(())
     }
 
     pub fn retention_validator(&self) -> Arc<dyn RetentionValidator> {
-        Arc::new(self.retention_manager.clone())
+        self.retention_manager.clone()
     }
 
     /// Load the set of documents and tombstones in the given table between
@@ -1696,7 +1694,7 @@ impl<RT: Runtime> Database<RT> {
                 RepeatablePersistence::new(
                     self.reader.clone(),
                     repeatable_ts,
-                    Arc::new(self.retention_manager.clone()),
+                    self.retention_manager.clone(),
                 )
                 .read_snapshot(repeatable_ts)?,
             ),
@@ -1719,7 +1717,7 @@ impl<RT: Runtime> Database<RT> {
             count_snapshot,
             self.runtime.clone(),
             usage_tracker,
-            Arc::new(self.retention_manager.clone()),
+            self.retention_manager.clone(),
             self.virtual_system_mapping.clone(),
         );
         Ok(tx)
