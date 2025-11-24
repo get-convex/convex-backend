@@ -106,7 +106,7 @@ pub async fn regenerate_webhook_secret(
     let config = WebhookConfig {
         url: existing_webhook_sink.url,
         format: existing_webhook_sink.format,
-        hmac_secret: Some(hmac_secret),
+        hmac_secret,
     };
     st.application
         .add_log_sink(SinkConfig::Webhook(config))
@@ -136,7 +136,7 @@ pub async fn add_webhook_sink(
 
     let hmac_secret = match existing_webhook_sink {
         Some(SinkConfig::Webhook(WebhookConfig {
-            hmac_secret: Some(existing_secret),
+            hmac_secret: existing_secret,
             ..
         })) => existing_secret,
         _ => generate_webhook_hmac_secret(st.application.runtime()),
@@ -152,7 +152,7 @@ pub async fn add_webhook_sink(
     let config = WebhookConfig {
         url,
         format: args.format,
-        hmac_secret: Some(hmac_secret),
+        hmac_secret,
     };
     st.application
         .add_log_sink(SinkConfig::Webhook(config))

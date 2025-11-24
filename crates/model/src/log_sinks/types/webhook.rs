@@ -15,7 +15,7 @@ pub struct WebhookConfig {
     )]
     pub url: reqwest::Url,
     pub format: WebhookFormat,
-    pub hmac_secret: Option<String>,
+    pub hmac_secret: String,
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -31,7 +31,7 @@ pub enum WebhookFormat {
 pub struct SerializedWebhookConfig {
     pub url: String,
     pub format: WebhookFormat,
-    pub hmac_secret: Option<String>,
+    pub hmac_secret: String,
 }
 
 impl From<WebhookConfig> for SerializedWebhookConfig {
