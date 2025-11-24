@@ -73,6 +73,9 @@ importers:
       ts-morph:
         specifier: ^26.0.0
         version: 26.0.0
+      tsc-alias:
+        specifier: ~1.8.15
+        version: 1.8.16
     devDependencies:
       '@types/node':
         specifier: ^18.17.0

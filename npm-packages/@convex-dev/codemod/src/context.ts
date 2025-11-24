@@ -2,7 +2,7 @@ import ProgressBar from "progress";
 import * as Sentry from "@sentry/node";
 import chalk from "chalk";
 import ora, { Ora } from "ora";
-import { format } from "util";
+import { format } from "node:util";
 import { Node } from "ts-morph";
 import { relative } from "path";
 import { generateCodeframe } from "./util/codeframe";
