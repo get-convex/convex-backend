@@ -21,10 +21,10 @@ program
     new Argument("<transform>", "The codemod to run").choices(["explicit-ids"]),
   )
   .addOption(
-    new Option(
-      "-r, --root <path>",
-      "Root directory path of your project",
-    ).default(process.cwd(), "current directory"),
+    new Option("--root <path>", "Root directory path of your project").default(
+      process.cwd(),
+      "current directory",
+    ),
   )
   .addOption(
     new Option(
