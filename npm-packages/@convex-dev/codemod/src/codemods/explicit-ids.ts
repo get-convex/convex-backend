@@ -21,13 +21,13 @@ export async function explicitIds(
     ctx,
     "[:bar] :percent (:current/:total) Processing :name…",
     {
+      width: 30,
       total: project.getSourceFiles().length,
     },
   );
 
   for (const sourceFile of project.getSourceFiles()) {
     progress.tick({
-      width: 30,
       name: path.relative(root, sourceFile.getFilePath()),
     });
 
@@ -53,6 +53,8 @@ export async function explicitIds(
     deleteResolveTypesTempFile(project, root);
     await allowInterrupt();
   }
+
+  progress.terminate();
 }
 
 function findDbCalls(
