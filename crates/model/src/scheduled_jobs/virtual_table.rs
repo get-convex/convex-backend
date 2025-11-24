@@ -15,6 +15,7 @@ use common::{
         ID_FIELD,
     },
     virtual_system_mapping::{
+        GetDocument,
         VirtualSystemDocMapper,
         VirtualSystemMapping,
     },
@@ -45,6 +46,7 @@ pub struct ScheduledJobsDocMapper;
 impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
     fn system_to_virtual_doc(
         &self,
+        _tx: &mut dyn GetDocument,
         virtual_system_mapping: &VirtualSystemMapping,
         doc: ResolvedDocument,
         table_mapping: &TableMapping,

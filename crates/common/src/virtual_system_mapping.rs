@@ -4,9 +4,9 @@ use std::{
 };
 
 use anyhow::Context;
-use errors::ErrorMetadata;
 use imbl::OrdMap;
 use semver::Version;
+use tonic::async_trait;
 use value::{
     DeveloperDocumentId,
     NamespacedTableMapping,
@@ -28,11 +28,23 @@ use crate::{
 pub trait VirtualSystemDocMapper: Send + Sync {
     fn system_to_virtual_doc(
         &self,
+        tx: &mut dyn GetDocument,
         virtual_system_mapping: &VirtualSystemMapping,
         doc: ResolvedDocument,
         table_mapping: &TableMapping,
         version: Version,
     ) -> anyhow::Result<DeveloperDocument>;
+}
+
+/// This trait is used for dependency injection, exposing get_document
+/// (implemented by `Transaction`) to convert system documents joined across
+/// multiple system tables to virtual documents in `VirtualSystemDocMapper`.
+#[async_trait]
+pub trait GetDocument {
+    async fn get_document(
+        &mut self,
+        id: ResolvedDocumentId,
+    ) -> anyhow::Result<Option<ResolvedDocument>>;
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -50,6 +62,7 @@ pub mod test_virtual_system_mapping {
         },
         version::Version,
         virtual_system_mapping::{
+            GetDocument,
             VirtualSystemDocMapper,
             VirtualSystemMapping,
         },
@@ -58,6 +71,7 @@ pub mod test_virtual_system_mapping {
     impl VirtualSystemDocMapper for NoopDocMapper {
         fn system_to_virtual_doc(
             &self,
+            _tx: &mut dyn GetDocument,
             _virtual_system_mapping: &VirtualSystemMapping,
             doc: ResolvedDocument,
             _table_mapping: &TableMapping,
@@ -74,7 +88,7 @@ pub struct VirtualSystemMapping {
     system_to_virtual: OrdMap<TableName, TableName>,
     virtual_to_system_indexes: OrdMap<IndexName, IndexName>,
     // system_table_name -> (Fn (SystemDoc) -> VirtualDoc)
-    system_to_virtual_doc_mapper: OrdMap<TableName, Arc<dyn VirtualSystemDocMapper>>,
+    pub system_to_virtual_doc_mapper: OrdMap<TableName, Arc<dyn VirtualSystemDocMapper>>,
 }
 
 impl std::fmt::Debug for VirtualSystemMapping {
@@ -166,27 +180,6 @@ impl VirtualSystemMapping {
         system_doc_id: ResolvedDocumentId,
     ) -> anyhow::Result<DeveloperDocumentId> {
         Ok(system_doc_id.developer_id)
-    }
-
-    pub fn system_to_virtual_doc(
-        &self,
-        doc: ResolvedDocument,
-        table_mapping: &TableMapping,
-        version: Option<Version>,
-    ) -> anyhow::Result<DeveloperDocument> {
-        if version.is_none() {
-            return Err(ErrorMetadata::bad_request(
-                "InvalidClientVersion",
-                "Upgrade to NPM version 1.6.1 or above to access system tables",
-            )
-            .into());
-        }
-        let version = version.unwrap();
-        let system_table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
-        let Some(mapper) = self.system_to_virtual_doc_mapper.get(&system_table_name) else {
-            anyhow::bail!("System document cannot be converted to a virtual document")
-        };
-        mapper.system_to_virtual_doc(self, doc, table_mapping, version)
     }
 }
 

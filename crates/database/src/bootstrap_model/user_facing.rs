@@ -414,8 +414,8 @@ pub async fn index_range_batch<RT: Runtime>(
                 Some(version) => page
                     .into_iter()
                     .map(|(key, doc, ts)| {
-                        let doc = VirtualTable::new(tx)
-                            .map_system_doc_to_virtual_doc(doc, version.clone())?;
+                        let doc =
+                            VirtualTable::new(tx).system_to_virtual_doc(doc, version.clone())?;
                         anyhow::Ok((key, doc, ts))
                     })
                     .try_collect()?,
