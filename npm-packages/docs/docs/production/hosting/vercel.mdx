@@ -10,6 +10,41 @@ your backend and your frontend whenever you push your code.
 
 ## Deploying to Vercel
 
+### Using the Vercel Marketplace
+
+<Admonition type="info">
+  Projects deployed with the Vercel marketplace will be a part of their own
+  Convex team. If you already have a Convex team, you may [follow these
+  instructions](/production/hosting/vercel.mdx#connecting-your-convex-project-to-vercel).
+</Admonition>
+
+Convex is available on the
+[Vercel Marketplace](https://vercel.com/marketplace/convex). You may create,
+deploy, and pay for (if using a paid subscription) for your Convex projects
+through Vercel by using the marketplace.
+
+Convex projects created through the Vercel Marketplace will automatically be
+configured to deploy automatically.
+
+Quickly deploy a template project to the Vercel Marketplace:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex&project-name=vercel-with-convex&repository-name=vercel-with-convex&demo-title=Convex%20with%20Vercel&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+### Connecting your Convex project to Vercel
+
+#### Using a template
+
+To start a new project quickly, you may click this button and follow the
+instructions to quickly deploy your Convex project to Vercel.
+
+**Note:** You'll need to create a project on the Convex dashboard to use this
+template.
+
+[![Deploy with
+  Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fget-convex%2Fvercel-marketplace-convex&project-name=vercel-with-convex&repository-name=vercel-with-convex&demo-title=Convex%20with%20Vercel&demo-description=A%20minimal%20template%20showcasing%20using%20Convex%20with%20Vercel&demo-url=https%3A%2F%2Fconvex-vercel-template-demo.previews.convex.dev%2F&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22convex%22%2C%22productSlug%22%3A%22convex%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+#### From scratch
+
 This guide assumes you already have a working React app with Convex. If not
 follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
 
@@ -40,7 +75,7 @@ follow the [Convex React Quickstart](/quickstart/react.mdx) first. Then:
   </Step>
 
   <Step title="Set up the CONVEX_DEPLOY_KEY environment variable">
-    Go to the [Project Settings](https://dashboard.convex.dev/project/settings#deploy-keys) page in the Convex Dashboard. Click the _Generate Production Deploy Key_ button to generate a **Production** deploy key.
+    Go to the [Project Settings](https://dashboard.convex.dev/project/settings#production-deploy-keys) page in the Convex Dashboard. Click the _Generate Production Deploy Key_ button to generate a **Production** deploy key.
     Then click the copy button to copy the key.
 
     In Vercel, click _Environment Variables_.
