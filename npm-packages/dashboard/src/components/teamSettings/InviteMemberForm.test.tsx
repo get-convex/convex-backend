@@ -12,6 +12,9 @@ jest.mock("api/teams", () => {});
 jest.mock("api/projects", () => {});
 jest.mock("api/deployments", () => {});
 jest.mock("api/backups", () => {});
+jest.mock("api/billing", () => ({
+  useTeamOrbSubscription: jest.fn().mockReturnValue({ subscription: null }),
+}));
 
 jest.mock("api/invitations", () => {
   const createInvite = jest.fn();

@@ -7,6 +7,7 @@ import { toast } from "@common/lib/utils";
 
 import { useFormik } from "formik";
 import { useCreateInvite } from "api/invitations";
+import { useTeamOrbSubscription } from "api/billing";
 import {
   TeamResponse,
   CreateInvitationArgs,
@@ -27,6 +28,7 @@ export function InviteMemberForm({
   members,
   hasAdminPermissions,
 }: InviteMemberFormProps) {
+  const { subscription } = useTeamOrbSubscription(team.id);
   const InviteSchema = Yup.object().shape({
     inviteEmail: Yup.string()
       .email("Must be a valid email.")
@@ -69,7 +71,7 @@ export function InviteMemberForm({
     <Sheet className="min-w-fit text-sm">
       <h3 className="mb-4">Invite Member</h3>
       <form onSubmit={formState.handleSubmit} aria-label="Invite team member">
-        <div className="mb-6 flex w-full grow flex-wrap gap-4 sm:flex-nowrap">
+        <div className="mb-4 flex w-full grow flex-wrap gap-4 sm:flex-nowrap">
           <Tooltip
             tip={
               !hasAdminPermissions
@@ -134,6 +136,17 @@ export function InviteMemberForm({
             Send Invite
           </Button>
         </div>
+        {subscription?.plan.seatPrice && (
+          <p className="max-w-prose text-xs text-pretty text-content-secondary">
+            Once a member accepts a team invitation,{" "}
+            <span className="font-semibold">
+              your bill will increase by ${subscription.plan.seatPrice} per
+              month.
+            </span>{" "}
+            There may also be an immediate charged for a prorated amount based
+            on the remaining time in your current billing cycle.
+          </p>
+        )}
       </form>
     </Sheet>
   );
