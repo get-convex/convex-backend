@@ -100,6 +100,7 @@ use common::{
         GenericIndexName,
         IndexId,
         PersistenceVersion,
+        RepeatableReason,
         RepeatableTimestamp,
         Timestamp,
     },
@@ -232,7 +233,7 @@ pub struct LeaderRetentionWorkers {
 pub async fn latest_retention_min_snapshot_ts(
     persistence: &dyn PersistenceReader,
     retention_type: RetentionType,
-) -> anyhow::Result<Timestamp> {
+) -> anyhow::Result<RepeatableTimestamp> {
     let _timer = match retention_type {
         RetentionType::Document => latest_min_document_snapshot_timer(),
         RetentionType::Index => latest_min_snapshot_timer(),
@@ -251,7 +252,14 @@ pub async fn latest_retention_min_snapshot_ts(
         None => Timestamp::MIN,
         _ => anyhow::bail!("invalid retention snapshot {min_snapshot_value:?}"),
     };
-    Ok(min_snapshot_ts)
+    // We have the invariant:
+    //   min_document_snapshot_ts <= min_index_snapshot_ts <= max_repeatable_ts
+    // and the latter ts is repeatable by definition, so min_snapshot_ts is
+    // always repeatable.
+    Ok(RepeatableTimestamp::new_validated(
+        min_snapshot_ts,
+        RepeatableReason::MinSnapshotTsPersistence,
+    ))
 }
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(50);
@@ -1592,16 +1600,23 @@ async fn load_snapshot_bounds(
         latest_retention_min_snapshot_ts(persistence, RetentionType::Index).await?;
     let min_document_snapshot_ts =
         latest_retention_min_snapshot_ts(persistence, RetentionType::Document).await?;
-    if *repeatable_ts < min_index_snapshot_ts {
+    if repeatable_ts < min_index_snapshot_ts {
         anyhow::bail!(snapshot_invalid_error(
             *repeatable_ts,
-            min_index_snapshot_ts,
+            *min_index_snapshot_ts,
             RetentionType::Index
         ));
     }
+    if repeatable_ts < min_document_snapshot_ts {
+        anyhow::bail!(snapshot_invalid_error(
+            *repeatable_ts,
+            *min_document_snapshot_ts,
+            RetentionType::Document
+        ));
+    }
     Ok(SnapshotBounds {
-        min_index_snapshot_ts: repeatable_ts.prior_ts(min_index_snapshot_ts)?,
-        min_document_snapshot_ts: repeatable_ts.prior_ts(min_document_snapshot_ts)?,
+        min_index_snapshot_ts,
+        min_document_snapshot_ts,
     })
 }
 
@@ -1665,22 +1680,18 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
     }
 
     async fn min_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
-        let snapshot_ts = new_static_repeatable_recent(self.persistence.as_ref()).await?;
-        let latest = snapshot_ts.prior_ts(
+        let latest =
             latest_retention_min_snapshot_ts(self.persistence.as_ref(), RetentionType::Index)
-                .await?,
-        )?;
+                .await?;
         let mut snapshot_bounds = self.snapshot_bounds.lock();
         snapshot_bounds.advance_min_snapshot_ts(latest);
         Ok(latest)
     }
 
     async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
-        let snapshot_ts = new_static_repeatable_recent(self.persistence.as_ref()).await?;
-        let latest = snapshot_ts.prior_ts(
+        let latest =
             latest_retention_min_snapshot_ts(self.persistence.as_ref(), RetentionType::Document)
-                .await?,
-        )?;
+                .await?;
         let mut snapshot_bounds = self.snapshot_bounds.lock();
         snapshot_bounds.advance_min_document_snapshot_ts(latest);
         Ok(latest)

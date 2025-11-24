@@ -22,6 +22,9 @@ pub enum RepeatableReason {
     TableSummarySnapshot,
     /// ts <= max_ts from persistence, and no Committer is running
     IdleMaxTs,
+    /// ts <= min_index_snapshot_ts or min_document_snapshot_ts from persistence
+    /// globals
+    MinSnapshotTsPersistence,
     /// ts <= some other RepeatableTimestamp
     InductiveRepeatableTimestamp,
     /// only in tests
