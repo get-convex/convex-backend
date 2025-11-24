@@ -16,6 +16,7 @@
   },
   "scripts": {
     "build": "node version-check.mjs && zshy && tsc-alias -p tsconfig.json",
+    "dev": "zshy && tsc-alias -p tsconfig.json && node ./dist/index.cjs",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",
