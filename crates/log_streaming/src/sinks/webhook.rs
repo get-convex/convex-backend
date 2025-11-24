@@ -3,6 +3,10 @@ use std::{
     sync::Arc,
 };
 
+use aws_lc_rs::hmac::{
+    self,
+    HMAC_SHA256,
+};
 use bytes::Bytes;
 use common::{
     backoff::Backoff,
@@ -23,7 +27,11 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use http::header::CONTENT_TYPE;
+use hex::ToHex;
+use http::{
+    header::CONTENT_TYPE,
+    HeaderValue,
+};
 use model::log_sinks::types::webhook::{
     WebhookConfig,
     WebhookFormat,
@@ -166,9 +174,17 @@ impl<RT: Runtime> WebhookSink<RT> {
         };
         let payload = Bytes::from(payload);
 
-        // Make request in a loop that retries on transient errors
-        let headers = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
+        // Create HMAC-SHA256 signature
+        let s_key = hmac::Key::new(HMAC_SHA256, self.config.hmac_secret.as_ref());
+        let signature: String = hmac::sign(&s_key, &payload).encode_hex();
 
+        let mut headers = HeaderMap::from_iter([(CONTENT_TYPE, APPLICATION_JSON_CONTENT_TYPE)]);
+        headers.append(
+            "x-webhook-signature",
+            HeaderValue::from_str(format!("sha256={signature}").as_str())?,
+        );
+
+        // Make request in a loop that retries on transient errors
         for _ in 0..consts::WEBHOOK_SINK_MAX_REQUEST_ATTEMPTS {
             let response = self
                 .fetch_client
