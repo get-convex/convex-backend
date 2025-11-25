@@ -4,11 +4,13 @@ use convex_fivetran_common::{
         schema_response,
         source_connector_server::SourceConnector,
         test_response,
+        update_response,
         ConfigurationFormRequest,
         ConfigurationFormResponse,
         ConfigurationTest,
         SchemaRequest,
         SchemaResponse,
+        Task,
         TestRequest,
         TestResponse,
         UpdateRequest,
@@ -137,13 +139,17 @@ impl SourceConnector for ConvexConnector {
         let config = match Config::from_parameters(inner.configuration) {
             Ok(config) => config,
             Err(error) => {
-                return Err(Status::internal(error.to_string()));
+                return error_to_task(error);
             },
         };
         log(&format!("update request for {}", config.deploy_url));
 
-        let state = deserialize_state_json(inner.state_json.as_deref().unwrap_or("{}"))
-            .map_err(|error| Status::internal(error.to_string()))?;
+        let state = match deserialize_state_json(inner.state_json.as_deref().unwrap_or("{}")) {
+            Ok(state) => state,
+            Err(error) => {
+                return error_to_task(error);
+            },
+        };
 
         log(&format!(
             "update request for {} at checkpoint {:?}",
@@ -194,6 +200,21 @@ fn deserialize_state_json(state_json: &str) -> anyhow::Result<Option<State>> {
     };
 
     Ok(state)
+}
+
+fn error_to_task(
+    error: anyhow::Error,
+) -> ConnectorResult<<ConvexConnector as SourceConnector>::UpdateStream> {
+    Ok(Response::new(
+        futures::stream::once(async move {
+            Ok(FivetranUpdateResponse {
+                operation: Some(update_response::Operation::Task(Task {
+                    message: error.to_string(),
+                })),
+            })
+        })
+        .boxed(),
+    ))
 }
 
 #[cfg(test)]
