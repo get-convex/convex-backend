@@ -272,6 +272,7 @@ use model::{
         ModuleModel,
     },
     scheduled_jobs::{
+        args::ScheduledJobArgsTable,
         ScheduledJobsTable,
         SchedulerModel,
     },
@@ -2969,6 +2970,9 @@ impl<RT: Runtime> Application<RT> {
         let mut model = TableModel::new(&mut tx);
         model
             .replace_with_empty_table(ScheduledJobsTable, component_id.into())
+            .await?;
+        model
+            .replace_with_empty_table(ScheduledJobArgsTable, component_id.into())
             .await?;
         let component = tx.must_component_path(component_id)?;
         self.commit_with_audit_log_events(
