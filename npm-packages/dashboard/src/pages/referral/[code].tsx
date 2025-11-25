@@ -1,11 +1,11 @@
 import { GetServerSideProps } from "next";
-import { Flourish } from "layouts/LoginLayout";
 import Head from "next/head";
 import { useParams, usePathname } from "next/navigation";
 import Background from "components/login/images/background.svg";
 import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding";
 import { getSession } from "server/workos";
+import { Flourish } from "components/login/Flourish";
 
 /**
  *  This page powers two routes via Next.js rewrites in next.config.js:
