@@ -7,8 +7,12 @@ import { AuthorizedApplications } from "components/AuthorizedApplications";
 import { OauthApps } from "components/teamSettings/OauthApps";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { Tooltip } from "@ui/Tooltip";
-import React from "react";
-import { Tab as HeadlessTab } from "@headlessui/react";
+import React, { Fragment } from "react";
+import {
+  TabGroup as HeadlessTabGroup,
+  TabPanel as HeadlessTabPanel,
+  TabPanels as HeadlessTabPanels,
+} from "@headlessui/react";
 import { Tab } from "@ui/Tab";
 import { useRouter } from "next/router";
 
@@ -63,7 +67,8 @@ export function ApplicationsLayout({ team }: { team: TeamResponse }) {
 
   return (
     <div className="flex min-w-fit flex-col">
-      <HeadlessTab.Group
+      <HeadlessTabGroup
+        as={Fragment}
         selectedIndex={selectedIndex}
         onChange={(index) => {
           const base = `/t/${team.slug}/settings/applications`;
@@ -81,8 +86,8 @@ export function ApplicationsLayout({ team }: { team: TeamResponse }) {
             <Tab>Your OAuth Applications</Tab>
           </div>
         </div>
-        <HeadlessTab.Panels>
-          <HeadlessTab.Panel
+        <HeadlessTabPanels>
+          <HeadlessTabPanel
             className="focus-visible:outline-none"
             tabIndex={-1}
           >
@@ -93,15 +98,15 @@ export function ApplicationsLayout({ team }: { team: TeamResponse }) {
                 await deleteTeamAccessToken({ name: token.name });
               }}
             />
-          </HeadlessTab.Panel>
-          <HeadlessTab.Panel
+          </HeadlessTabPanel>
+          <HeadlessTabPanel
             className="focus-visible:outline-none"
             tabIndex={-1}
           >
             <OauthApps teamId={team.id} />
-          </HeadlessTab.Panel>
-        </HeadlessTab.Panels>
-      </HeadlessTab.Group>
+          </HeadlessTabPanel>
+        </HeadlessTabPanels>
+      </HeadlessTabGroup>
     </div>
   );
 }

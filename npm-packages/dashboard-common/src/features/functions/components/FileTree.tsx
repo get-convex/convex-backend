@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { FolderIcon, FolderOpenIcon } from "@heroicons/react/24/outline";
-import { Disclosure } from "@headlessui/react";
+import { Disclosure, DisclosurePanel } from "@headlessui/react";
 import { FileItem } from "@common/features/functions/components/FileItem";
 import { DirectoryItem } from "@common/features/functions/components/FunctionItem";
 import type { FileOrFolder, Folder } from "@common/lib/functions/types";
@@ -46,13 +46,13 @@ function FolderItem({
             <div className="truncate">{folder.name}</div>
           </DirectoryItem>
           {folder.children !== undefined && (
-            <Disclosure.Panel>
+            <DisclosurePanel>
               <FileTree
                 tree={folder.children}
                 onChangeFunction={onChangeFunction}
                 nestingLevel={nestingLevel + 1}
               />
-            </Disclosure.Panel>
+            </DisclosurePanel>
           )}
         </>
       )}

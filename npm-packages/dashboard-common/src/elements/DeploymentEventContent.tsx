@@ -7,7 +7,11 @@ import {
 } from "@radix-ui/react-icons";
 import { useContext, useMemo } from "react";
 import { Infer } from "convex/values";
-import { Disclosure } from "@headlessui/react";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from "@headlessui/react";
 import {
   authDiff,
   componentDiff,
@@ -283,12 +287,12 @@ function CronElement({ cronDiff }: { cronDiff: Infer<typeof cronDiffType> }) {
         <>
           <div className="flex items-center gap-1.5">
             <span>Updated cron jobs</span>
-            <Disclosure.Button as={Button} inline variant="neutral">
+            <DisclosureButton as={Button} inline variant="neutral">
               {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </Disclosure.Button>
+            </DisclosureButton>
           </div>
 
-          <Disclosure.Panel className="ps-4">{cronElement}</Disclosure.Panel>
+          <DisclosurePanel className="ps-4">{cronElement}</DisclosurePanel>
         </>
       )}
     </Disclosure>
@@ -321,9 +325,9 @@ function SchemaElement(diff: Infer<typeof schemaDiffType>) {
         <>
           <div className="flex items-center gap-1.5">
             <span>Updated the schema</span>
-            <Disclosure.Button as={Button} inline variant="neutral">
+            <DisclosureButton as={Button} inline variant="neutral">
               {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </Disclosure.Button>
+            </DisclosureButton>
           </div>
 
           <Disclosure.Panel className="ps-4">
@@ -368,9 +372,9 @@ function AuthElement({ diff }: { diff: Infer<typeof authDiff> }) {
         <>
           <div className="flex items-center gap-1.5">
             <span>Updated auth providers</span>
-            <Disclosure.Button as={Button} inline variant="neutral">
+            <DisclosureButton as={Button} inline variant="neutral">
               {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-            </Disclosure.Button>
+            </DisclosureButton>
           </div>
 
           <Disclosure.Panel className="ps-4">{authElement}</Disclosure.Panel>

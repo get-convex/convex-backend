@@ -6,8 +6,16 @@ import {
   ChevronUpIcon,
   DotFilledIcon,
 } from "@radix-ui/react-icons";
-import { useCallback, useRef, useState } from "react";
-import { Tab as HeadlessTab, Disclosure } from "@headlessui/react";
+import { Fragment, useCallback, useRef, useState } from "react";
+import {
+  TabList as HeadlessTabList,
+  TabPanels as HeadlessTabPanels,
+  TabPanel as HeadlessTabPanel,
+  TabGroup as HeadlessTabGroup,
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from "@headlessui/react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MAX_LOGS, UdfLog, UdfLogOutput } from "@common/lib/useLogs";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
@@ -216,7 +224,7 @@ function KeyboardShortcutsSection({
         {({ open }) => (
           <>
             <div className="flex items-center justify-between">
-              <Disclosure.Button
+              <DisclosureButton
                 className="flex items-center gap-1 text-xs"
                 onClick={() => setIsOpen(!isOpen)}
               >
@@ -229,10 +237,10 @@ function KeyboardShortcutsSection({
                 ) : (
                   <ChevronDownIcon className="size-3" />
                 )}
-              </Disclosure.Button>
+              </DisclosureButton>
             </div>
 
-            <Disclosure.Panel className="mt-2 scrollbar animate-fadeInFromLoading overflow-x-auto">
+            <DisclosurePanel className="mt-2 scrollbar animate-fadeInFromLoading overflow-x-auto">
               <div className="grid grid-cols-[16.5rem_14rem] gap-x-4 gap-y-1 text-xs text-content-secondary">
                 <div className={shortcutItemClass}>
                   <div className={shortcutKeysClass}>
@@ -353,7 +361,7 @@ function KeyboardShortcutsSection({
                   <span className={shortcutLabelClass}>Close this panel</span>
                 </div>
               </div>
-            </Disclosure.Panel>
+            </DisclosurePanel>
           </>
         )}
       </Disclosure>
@@ -660,42 +668,43 @@ function LogContentLayout({
 
   const renderTabs = (log: UdfLog, className?: string) => (
     <div className={cn("relative flex flex-col", className)}>
-      <HeadlessTab.Group
+      <HeadlessTabGroup
+        as={Fragment}
         selectedIndex={selectedTabIndex}
         onChange={setSelectedTabIndex}
       >
         <div className="sticky top-0 z-10 px-2" ref={tabGroupRef}>
-          <HeadlessTab.List className="flex gap-1 rounded-t-md border bg-background-secondary px-1">
+          <HeadlessTabList className="flex gap-1 rounded-t-md border bg-background-secondary px-1">
             <Tab>Execution</Tab>
             <Tab>Request</Tab>
             <Tab>Functions Called</Tab>
-          </HeadlessTab.List>
+          </HeadlessTabList>
         </div>
 
         <div className="mx-2 h-full min-h-0 overflow-hidden rounded rounded-t-none border border-t-0 bg-background-secondary">
           <div className="scrollbar flex h-full flex-col gap-2 overflow-y-auto">
-            <HeadlessTab.Panels>
-              <HeadlessTab.Panel>
+            <HeadlessTabPanels>
+              <HeadlessTabPanel>
                 <LogMetadata
                   requestId={log.requestId}
                   logs={allUdfLogs}
                   executionId={log.executionId}
                 />
-              </HeadlessTab.Panel>
-              <HeadlessTab.Panel>
+              </HeadlessTabPanel>
+              <HeadlessTabPanel>
                 <LogMetadata
                   requestId={log.requestId}
                   logs={allUdfLogs}
                   executionId={undefined}
                 />
-              </HeadlessTab.Panel>
-              <HeadlessTab.Panel>
+              </HeadlessTabPanel>
+              <HeadlessTabPanel>
                 <FunctionCallTree logs={allUdfLogs} currentLog={log} />
-              </HeadlessTab.Panel>
-            </HeadlessTab.Panels>
+              </HeadlessTabPanel>
+            </HeadlessTabPanels>
           </div>
         </div>
-      </HeadlessTab.Group>
+      </HeadlessTabGroup>
     </div>
   );
 

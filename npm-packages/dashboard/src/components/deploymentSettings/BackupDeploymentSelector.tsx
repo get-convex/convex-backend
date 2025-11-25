@@ -1,4 +1,10 @@
-import { Listbox, Transition } from "@headlessui/react";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOptions,
+  ListboxOption,
+  Transition,
+} from "@headlessui/react";
 import { CaretSortIcon, ChevronLeftIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Loading } from "@ui/Loading";
@@ -7,7 +13,7 @@ import { useDeployments } from "api/deployments";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
 import { cn } from "@ui/cn";
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { DeploymentResponse, TeamResponse } from "generatedApi";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
@@ -111,7 +117,7 @@ export function BackupDeploymentSelector({
         >
           {({ open }) => (
             <>
-              <Listbox.Button
+              <ListboxButton
                 as={Button}
                 ref={(el) =>
                   setReferenceElement(el as HTMLButtonElement | null)
@@ -142,17 +148,15 @@ export function BackupDeploymentSelector({
                     aria-hidden="true"
                   />
                 </span>
-              </Listbox.Button>
+              </ListboxButton>
               {open &&
                 createPortal(
                   <Transition
-                    as={Fragment}
                     leave="transition ease-in duration-100"
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                   >
-                    <Listbox.Options
-                      as="div"
+                    <ListboxOptions
                       ref={(el) =>
                         setPopperElement(el as HTMLDivElement | null)
                       }
@@ -207,13 +211,13 @@ export function BackupDeploymentSelector({
                               ) : (
                                 <ul className="p-0.5">
                                   {projects.map((project) => (
-                                    <Listbox.Option
+                                    <ListboxOption
                                       key={project.id}
                                       value={project.id}
-                                      className={({ active, selected }) =>
+                                      className={({ focus, selected }) =>
                                         cn(
                                           "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                          active && "bg-background-tertiary",
+                                          focus && "bg-background-tertiary",
                                           selected &&
                                             "bg-background-tertiary/60",
                                         )
@@ -223,7 +227,7 @@ export function BackupDeploymentSelector({
                                       <span className="w-full truncate">
                                         {project.name}
                                       </span>
-                                    </Listbox.Option>
+                                    </ListboxOption>
                                   ))}
                                 </ul>
                               )}
@@ -281,14 +285,12 @@ export function BackupDeploymentSelector({
                                         tip={<code>{deployment.name}</code>}
                                         side="right"
                                       >
-                                        <Listbox.Option
-                                          as="div"
+                                        <ListboxOption
                                           value={deployment.id}
-                                          className={({ active, selected }) =>
+                                          className={({ focus, selected }) =>
                                             cn(
                                               "flex w-full cursor-pointer items-center rounded-sm p-2 text-left text-sm text-content-primary hover:bg-background-tertiary",
-                                              active &&
-                                                "bg-background-tertiary",
+                                              focus && "bg-background-tertiary",
                                               selected &&
                                                 "bg-background-tertiary/60",
                                             )
@@ -304,7 +306,7 @@ export function BackupDeploymentSelector({
                                               showProjectName={false}
                                             />
                                           </span>
-                                        </Listbox.Option>
+                                        </ListboxOption>
                                       </Tooltip>
                                     ),
                                   )}
@@ -314,7 +316,7 @@ export function BackupDeploymentSelector({
                           </div>
                         </div>
                       </div>
-                    </Listbox.Options>
+                    </ListboxOptions>
                   </Transition>,
                   document.body,
                 )}

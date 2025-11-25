@@ -1,5 +1,9 @@
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { Disclosure } from "@headlessui/react";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from "@headlessui/react";
 import {
   CaretDownIcon,
   ChevronDownIcon,
@@ -656,19 +660,19 @@ function EventReadAmount({
               <span className="min-w-[4.25rem]">
                 {format(event.totalCount)}
               </span>
-              <Disclosure.Button
-                as={Button}
-                inline
-                variant="neutral"
-                size="xs"
-                tipSide="right"
-                tip="View breakdown"
-                className="-my-1"
-              >
-                {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-              </Disclosure.Button>
+              <Tooltip tip="View breakdown" side="right" asChild>
+                <DisclosureButton
+                  as={Button}
+                  inline
+                  variant="neutral"
+                  size="xs"
+                  className="-my-1"
+                >
+                  {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                </DisclosureButton>
+              </Tooltip>
             </div>
-            <Disclosure.Panel>
+            <DisclosurePanel>
               <ul className="mt-2 flex animate-fadeInFromLoading flex-col gap-1">
                 {event.events.map((e, idx) => (
                   <li
@@ -680,7 +684,7 @@ function EventReadAmount({
                   </li>
                 ))}
               </ul>
-            </Disclosure.Panel>
+            </DisclosurePanel>
           </>
         )}
       </Disclosure>

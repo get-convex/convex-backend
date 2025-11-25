@@ -3,7 +3,14 @@ import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
-import { Combobox } from "@headlessui/react";
+import {
+  Combobox as HeadlessCombobox,
+  ComboboxButton as HeadlessComboboxButton,
+  ComboboxOptions as HeadlessComboboxOptions,
+  ComboboxOption as HeadlessComboboxOption,
+  ComboboxInput as HeadlessComboboxInput,
+  Label,
+} from "@headlessui/react";
 import React, { useRef, useState, useEffect } from "react";
 import classNames from "classnames";
 import { cn } from "@ui/cn";
@@ -117,8 +124,7 @@ export function MultiSelectCombobox({
   };
 
   return (
-    <Combobox
-      as="div"
+    <HeadlessCombobox
       value={selectedArray}
       onChange={(newSelection) => {
         // Check if all options are selected and convert to "all" state
@@ -138,7 +144,7 @@ export function MultiSelectCombobox({
 
         return (
           <>
-            <Combobox.Label
+            <Label
               className={classNames(
                 "flex gap-1 text-sm font-semibold",
                 labelHidden ? "hidden" : "mb-2",
@@ -146,14 +152,14 @@ export function MultiSelectCombobox({
               hidden={labelHidden}
             >
               {label}
-            </Combobox.Label>
+            </Label>
 
             <div className="relative">
               <div
                 ref={setReferenceElement}
                 className={cn("relative flex items-center")}
               >
-                <Combobox.Button
+                <HeadlessComboboxButton
                   className={classNames(
                     "flex gap-2 w-full justify-between",
                     "truncate relative rounded-md py-1.5 px-1.5 text-left text-sm text-content-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-background-secondary",
@@ -169,7 +175,7 @@ export function MultiSelectCombobox({
                       open && "rotate-180",
                     )}
                   />
-                </Combobox.Button>
+                </HeadlessComboboxButton>
               </div>
 
               {open &&
@@ -183,7 +189,8 @@ export function MultiSelectCombobox({
                     {...attributes.popper}
                     className="z-50"
                   >
-                    <Combobox.Options
+                    <HeadlessComboboxOptions
+                      modal={false}
                       static
                       className="scrollbar max-h-60 w-fit max-w-80 min-w-full overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm focus:outline-hidden"
                     >
@@ -191,9 +198,10 @@ export function MultiSelectCombobox({
                         {!disableSearch && (
                           <div className="sticky top-0 left-0 z-20 flex w-full items-center gap-1 border-b bg-background-secondary px-2 pt-1">
                             <MagnifyingGlassIcon className="h-4 w-4 text-content-secondary" />
-                            <Combobox.Input
+                            <HeadlessComboboxInput
                               onChange={(event) => setQuery(event.target.value)}
                               value={query}
+                              autoFocus
                               placeholder={`Search ${unitPlural}...`}
                               className={classNames(
                                 "placeholder:text-content-tertiary relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
@@ -237,7 +245,7 @@ export function MultiSelectCombobox({
                           </div>
                         )}
                       </div>
-                    </Combobox.Options>
+                    </HeadlessComboboxOptions>
                   </div>,
                   document.body,
                 )}
@@ -245,7 +253,7 @@ export function MultiSelectCombobox({
           </>
         );
       }}
-    </Combobox>
+    </HeadlessCombobox>
   );
 }
 
@@ -261,12 +269,12 @@ function ComboboxOption({
   const onlyRefs = useRef(null);
   const isHoveringOnly = useHoverDirty(onlyRefs);
   return (
-    <Combobox.Option
+    <HeadlessComboboxOption
       value={value}
-      className={({ active }) =>
+      className={({ focus }) =>
         classNames(
           "w-fit min-w-full flex gap-1 cursor-pointer select-none p-2 text-content-primary group",
-          active && "bg-background-tertiary",
+          focus && "bg-background-tertiary",
         )
       }
       disabled={isHoveringOnly}
@@ -299,6 +307,6 @@ function ComboboxOption({
           </span>
         </>
       )}
-    </Combobox.Option>
+    </HeadlessComboboxOption>
   );
 }

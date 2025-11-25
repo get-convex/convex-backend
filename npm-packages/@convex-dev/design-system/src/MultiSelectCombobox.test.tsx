@@ -41,7 +41,7 @@ describe("MultiSelectCombobox", () => {
 
     it("renders with hidden label when labelHidden is true", () => {
       const setSelectedOptions = jest.fn();
-      const { container } = render(
+      render(
         <MultiSelectCombobox
           {...defaultProps}
           selectedOptions={[]}
@@ -50,8 +50,7 @@ describe("MultiSelectCombobox", () => {
         />,
       );
 
-      const label = container.querySelector("label");
-      expect(label).toHaveClass("hidden");
+      expect(screen.getByText("Select Items")).toHaveAttribute("hidden");
     });
 
     it("displays correct count when no items selected", () => {
@@ -364,7 +363,7 @@ describe("MultiSelectCombobox", () => {
         expect(screen.getByText("Apple")).toBeInTheDocument();
       });
 
-      const appleOption = screen.getByText("Apple").closest("li");
+      const appleOption = screen.getByText("Apple").closest("div");
       expect(appleOption).toBeInTheDocument();
 
       const onlyButtons = screen.getAllByText("only");
@@ -472,7 +471,7 @@ describe("MultiSelectCombobox", () => {
       });
 
       const searchInput = screen.getByPlaceholderText("Search items...");
-      await user.type(searchInput, "Option 1 ");
+      await user.type(searchInput, "Option 1");
 
       await waitFor(() => {
         expect(screen.getByText("Option 1")).toBeInTheDocument();

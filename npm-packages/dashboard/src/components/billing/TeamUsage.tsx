@@ -26,6 +26,7 @@ import {
 import { TeamResponse, ProjectDetails } from "generatedApi";
 import {
   forwardRef,
+  Fragment,
   ReactNode,
   useEffect,
   useMemo,
@@ -39,7 +40,7 @@ import { useProjects } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
-import { Tab } from "@headlessui/react";
+import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 import classNames from "classnames";
 import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
@@ -613,18 +614,22 @@ function DatabaseUsage({
   }, [router.events]);
 
   return (
-    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+    <TabGroup
+      as={Fragment}
+      selectedIndex={selectedTab}
+      onChange={setSelectedTab}
+    >
       <TeamUsageSection
         ref={ref}
         header={
           <>
             <h3>Database</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <Tab.List className="flex gap-2">
+              <TabList className="flex gap-2">
                 <UsageTab>Storage</UsageTab>
                 <UsageTab>Bandwidth</UsageTab>
                 <UsageTab>Document Count</UsageTab>
-              </Tab.List>
+              </TabList>
               <GroupBySelector
                 value={viewMode}
                 onChange={setViewMode}
@@ -634,8 +639,8 @@ function DatabaseUsage({
           </>
         }
       >
-        <Tab.Panels className="px-4">
-          <Tab.Panel>
+        <TabPanels className="px-4">
+          <TabPanel>
             {databaseStorageByProjectError ? (
               <UsageDataError entity="Database storage" />
             ) : (
@@ -679,8 +684,8 @@ function DatabaseUsage({
                 )}
               </>
             )}
-          </Tab.Panel>
-          <Tab.Panel>
+          </TabPanel>
+          <TabPanel>
             {databaseBandwidthByProjectError ? (
               <UsageDataError entity="Database bandwidth" />
             ) : (
@@ -723,8 +728,8 @@ function DatabaseUsage({
                 )}
               </>
             )}
-          </Tab.Panel>
-          <Tab.Panel>
+          </TabPanel>
+          <TabPanel>
             {documentsCountByProjectError ? (
               <UsageDataError entity="Document count" />
             ) : viewMode === "byType" ? (
@@ -747,10 +752,10 @@ function DatabaseUsage({
                 setSelectedDate={setSelectedDate}
               />
             )}
-          </Tab.Panel>
-        </Tab.Panels>
+          </TabPanel>
+        </TabPanels>
       </TeamUsageSection>
-    </Tab.Group>
+    </TabGroup>
   );
 }
 
@@ -1074,17 +1079,21 @@ function FilesUsage({
   }, [router.events]);
 
   return (
-    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+    <TabGroup
+      as={Fragment}
+      selectedIndex={selectedTab}
+      onChange={setSelectedTab}
+    >
       <TeamUsageSection
         ref={ref}
         header={
           <>
             <h3>Files</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <Tab.List className="flex gap-2">
+              <TabList className="flex gap-2">
                 <UsageTab>Storage</UsageTab>
                 <UsageTab>Bandwidth</UsageTab>
-              </Tab.List>
+              </TabList>
               <GroupBySelector
                 value={viewMode}
                 onChange={setViewMode}
@@ -1094,8 +1103,8 @@ function FilesUsage({
           </>
         }
       >
-        <Tab.Panels className="px-4">
-          <Tab.Panel>
+        <TabPanels className="px-4">
+          <TabPanel>
             {fileStorageByProjectError ? (
               <UsageDataError entity="File storage" />
             ) : (
@@ -1139,8 +1148,8 @@ function FilesUsage({
                 )}
               </>
             )}
-          </Tab.Panel>
-          <Tab.Panel>
+          </TabPanel>
+          <TabPanel>
             {filesBandwidthByProjectError ? (
               <UsageDataError entity="File bandwidth" />
             ) : (
@@ -1183,10 +1192,10 @@ function FilesUsage({
                 )}
               </>
             )}
-          </Tab.Panel>
-        </Tab.Panels>
+          </TabPanel>
+        </TabPanels>
       </TeamUsageSection>
-    </Tab.Group>
+    </TabGroup>
   );
 }
 function VectorUsage({
@@ -1276,17 +1285,21 @@ function VectorUsage({
   }, [router.events]);
 
   return (
-    <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
+    <TabGroup
+      as={Fragment}
+      selectedIndex={selectedTab}
+      onChange={setSelectedTab}
+    >
       <TeamUsageSection
         ref={ref}
         header={
           <>
             <h3>Vector Indexes</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <Tab.List className="flex gap-2">
+              <TabList className="flex gap-2">
                 <UsageTab>Storage</UsageTab>
                 <UsageTab>Bandwidth</UsageTab>
-              </Tab.List>
+              </TabList>
               <GroupBySelector
                 value={viewMode}
                 onChange={setViewMode}
@@ -1296,8 +1309,8 @@ function VectorUsage({
           </>
         }
       >
-        <Tab.Panels className="px-4">
-          <Tab.Panel>
+        <TabPanels className="px-4">
+          <TabPanel>
             {vectorStorageByProjectError ? (
               <UsageDataError entity="Vector storage" />
             ) : (
@@ -1337,8 +1350,8 @@ function VectorUsage({
                 )}
               </>
             )}
-          </Tab.Panel>
-          <Tab.Panel>
+          </TabPanel>
+          <TabPanel>
             {vectorBandwidthByProjectError ? (
               <UsageDataError entity="Vector bandwidth" />
             ) : (
@@ -1381,10 +1394,10 @@ function VectorUsage({
                 )}
               </>
             )}
-          </Tab.Panel>
-        </Tab.Panels>
+          </TabPanel>
+        </TabPanels>
       </TeamUsageSection>
-    </Tab.Group>
+    </TabGroup>
   );
 }
 

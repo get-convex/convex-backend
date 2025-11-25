@@ -1,6 +1,11 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { Shape } from "shapes";
-import { Tab as HeadlessTab } from "@headlessui/react";
+import {
+  TabList as HeadlessTabList,
+  TabPanel as HeadlessTabPanel,
+  TabPanels as HeadlessTabPanels,
+  TabGroup as HeadlessTabGroup,
+} from "@headlessui/react";
 import { Tab } from "@ui/Tab";
 import { ConvexSchemaFilePath } from "@common/features/data/components/ConvexSchemaFilePath";
 import {
@@ -46,8 +51,8 @@ export function ShowSchema({
   const noSavedSchema = !activeSchema && !inProgressSchema;
   return (
     <div className="max-w-full">
-      <HeadlessTab.Group>
-        <HeadlessTab.List className="flex gap-1">
+      <HeadlessTabGroup as={Fragment}>
+        <HeadlessTabList className="flex gap-1">
           <Tab
             disabled={noSavedSchema}
             tip={
@@ -59,9 +64,9 @@ export function ShowSchema({
             Saved
           </Tab>
           <Tab>Generated</Tab>
-        </HeadlessTab.List>
-        <HeadlessTab.Panels className="p-3">
-          <HeadlessTab.Panel>
+        </HeadlessTabList>
+        <HeadlessTabPanels className="p-3">
+          <HeadlessTabPanel>
             {activeSchema && (
               <>
                 <p className="mb-2">
@@ -119,8 +124,8 @@ export function ShowSchema({
                   )}
               </div>
             )}
-          </HeadlessTab.Panel>
-          <HeadlessTab.Panel>
+          </HeadlessTabPanel>
+          <HeadlessTabPanel>
             <GenerateSchema
               shapes={shapes}
               hadError={hasShapeError}
@@ -129,9 +134,9 @@ export function ShowSchema({
               codeTransformation={codeTransformation}
               showLearnMoreLink={showLearnMoreLink}
             />
-          </HeadlessTab.Panel>
-        </HeadlessTab.Panels>
-      </HeadlessTab.Group>
+          </HeadlessTabPanel>
+        </HeadlessTabPanels>
+      </HeadlessTabGroup>
     </div>
   );
 }

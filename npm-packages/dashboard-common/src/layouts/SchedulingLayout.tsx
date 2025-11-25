@@ -1,7 +1,8 @@
-import { Tab as HeadlessTab } from "@headlessui/react";
+import { TabGroup as HeadlessTabGroup } from "@headlessui/react";
 import { useRouter } from "next/router";
 import { NentSwitcher } from "@common/elements/NentSwitcher";
 import { Tab } from "@ui/Tab";
+import { Fragment } from "react";
 
 export function SchedulingLayout({ children }: { children: React.ReactNode }) {
   const { pathname, query } = useRouter();
@@ -20,7 +21,8 @@ export function SchedulingLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <div className="mb-4 flex gap-2 border-b bg-background-secondary px-4 pt-2">
-        <HeadlessTab.Group
+        <HeadlessTabGroup
+          as={Fragment}
           selectedIndex={currentPage.startsWith("functions") ? 0 : 1}
         >
           <Tab
@@ -39,7 +41,7 @@ export function SchedulingLayout({ children }: { children: React.ReactNode }) {
           >
             Cron Jobs
           </Tab>
-        </HeadlessTab.Group>
+        </HeadlessTabGroup>
       </div>
       <div className="mx-6 mb-4 grow">{children}</div>
     </div>

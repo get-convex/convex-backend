@@ -14,7 +14,7 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.6",
     "@ffmpeg/util": "^0.12.1",
-    "@headlessui/react": "1.7.19",
+    "@headlessui/react": "^2.2.9",
     "@types/snowflake-sdk": "^1.6.13",
     "convex": "workspace:*",
     "node-fetch": "^2.6.1",

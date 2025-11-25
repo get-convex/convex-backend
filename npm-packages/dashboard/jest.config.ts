@@ -16,8 +16,11 @@ const customJestConfig = {
     "^@ui/(.*)$": "<rootDir>/../@convex-dev/design-system/src/$1",
     "lodash-es": "<rootDir>/../dashboard/node_modules/lodash",
   },
-  // Add roots for both packages to run all tests
-  roots: ["<rootDir>", "<rootDir>/../dashboard-common"],
+  roots: [
+    "<rootDir>",
+    "<rootDir>/../dashboard-common",
+    "<rootDir>/../@convex-dev/design-system",
+  ],
 };
 
 const config = createJestConfig(customJestConfig);

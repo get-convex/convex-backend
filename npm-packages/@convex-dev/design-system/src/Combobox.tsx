@@ -1,12 +1,20 @@
+import { omit, isEqual } from "lodash-es";
 import { useState, useEffect } from "react";
-import { Combobox as HeadlessCombobox } from "@headlessui/react";
+import {
+  Combobox as HeadlessCombobox,
+  ComboboxButton as HeadlessComboboxButton,
+  ComboboxInput as HeadlessComboboxInput,
+  ComboboxOption as HeadlessComboboxOption,
+  ComboboxOptions as HeadlessComboboxOptions,
+  Label,
+} from "@headlessui/react";
 import { ChevronDownIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
-import { isEqual } from "lodash-es";
 import fuzzy from "fuzzy";
 import { Button, ButtonProps } from "@ui/Button";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
+import { Tooltip } from "./Tooltip";
 
 const { test } = fuzzy;
 
@@ -156,65 +164,84 @@ export function Combobox<T>({
 
         return (
           <>
-            <HeadlessCombobox.Label
+            <Label
               hidden={labelHidden}
               className="text-left text-sm text-content-primary"
             >
               {label}
-            </HeadlessCombobox.Label>
+            </Label>
             <div className={cn("relative", className)}>
               <div
                 ref={setReferenceElement}
                 className={cn("relative flex w-60 items-center", buttonClasses)}
               >
-                <HeadlessCombobox.Button
-                  as={Button}
-                  variant="unstyled"
-                  data-testid={`combobox-button-${label}`}
-                  className={cn(
-                    "group flex w-full items-center gap-1",
-                    "relative truncate rounded-md text-left text-content-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background-secondary",
-                    "border bg-background-secondary text-sm focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-hidden",
-                    "hover:bg-background-tertiary",
-                    "cursor-pointer",
-                    open && "z-10 border-border-selected",
-                    size === "sm" && "px-1.5 py-1 text-xs",
-                    size === "md" && "p-1.5",
-                    innerButtonClasses,
-                  )}
-                  {...buttonProps}
+                <Tooltip
+                  tip={buttonProps?.tip}
+                  side={buttonProps?.tipSide}
+                  disableHoverableContent={
+                    buttonProps?.tipDisableHoverableContent
+                  }
+                  asChild
                 >
-                  {icon}
-                  <div className="truncate">
-                    {!!Option && !!selectedOptionData ? (
-                      <Option
-                        inButton
-                        label={selectedOptionData.label}
-                        value={selectedOptionData.value}
-                        disabled={selectedOptionData.disabled}
-                      />
-                    ) : (
-                      selectedOptionData?.label || (
-                        <span className="text-content-tertiary">
-                          {selectedOption && unknownLabel(selectedOption)}
-                        </span>
+                  <HeadlessComboboxButton
+                    as={Button}
+                    variant="unstyled"
+                    data-testid={`combobox-button-${label}`}
+                    className={cn(
+                      "group flex w-full items-center gap-1",
+                      "relative truncate rounded-md text-left text-content-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background-secondary",
+                      "border bg-background-secondary text-sm focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-hidden",
+                      "hover:bg-background-tertiary",
+                      "cursor-pointer",
+                      open && "z-10 border-border-selected",
+                      size === "sm" && "px-1.5 py-1 text-xs",
+                      size === "md" && "p-1.5",
+                      innerButtonClasses,
+                    )}
+                    {
+                      // <HeadlessComboboxButton as={Button} tip="…" /> causes a state update loop since Headless UI 2.0
+                      // (presumably because Headless UI and the tooltip both want to update the ref).
+                      // To circumvent this issue, we place the <Tooltip /> component as a parent of <HeadlessComboboxButton />
+                      ...omit(
+                        buttonProps,
+                        "tip",
+                        "tipSide",
+                        "tipDisableHoverableContent",
                       )
-                    )}
-                    {!selectedOptionData && (
-                      <span className="text-content-tertiary">
-                        {placeholder}
-                      </span>
-                    )}
-                  </div>
-                  {size === "md" && (
-                    <ChevronDownIcon
-                      className={cn(
-                        "ml-auto size-4 text-content-primary transition-all",
-                        open && "rotate-180",
+                    }
+                  >
+                    {icon}
+                    <div className="truncate">
+                      {!!Option && !!selectedOptionData ? (
+                        <Option
+                          inButton
+                          label={selectedOptionData.label}
+                          value={selectedOptionData.value}
+                          disabled={selectedOptionData.disabled}
+                        />
+                      ) : (
+                        selectedOptionData?.label || (
+                          <span className="text-content-tertiary">
+                            {selectedOption && unknownLabel(selectedOption)}
+                          </span>
+                        )
                       )}
-                    />
-                  )}
-                </HeadlessCombobox.Button>
+                      {!selectedOptionData && (
+                        <span className="text-content-tertiary">
+                          {placeholder}
+                        </span>
+                      )}
+                    </div>
+                    {size === "md" && (
+                      <ChevronDownIcon
+                        className={cn(
+                          "ml-auto size-4 text-content-primary transition-all",
+                          open && "rotate-180",
+                        )}
+                      />
+                    )}
+                  </HeadlessComboboxButton>
+                </Tooltip>
               </div>
               {open &&
                 createPortal(
@@ -227,7 +254,8 @@ export function Combobox<T>({
                     {...attributes.popper}
                     className="z-50"
                   >
-                    <HeadlessCombobox.Options
+                    <HeadlessComboboxOptions
+                      modal={false}
                       static
                       className={cn(
                         "mt-1 scrollbar max-h-[14.75rem] overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow-sm",
@@ -243,7 +271,7 @@ export function Combobox<T>({
                         {!disableSearch && (
                           <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3 pt-1">
                             <MagnifyingGlassIcon className="text-content-secondary" />
-                            <HeadlessCombobox.Input
+                            <HeadlessComboboxInput
                               onChange={(event) => setQuery(event.target.value)}
                               value={query}
                               autoFocus
@@ -256,14 +284,14 @@ export function Combobox<T>({
                           </div>
                         )}
                         {displayedOptions.map((option, idx) => (
-                          <HeadlessCombobox.Option
+                          <HeadlessComboboxOption
                             key={idx}
                             value={option.value}
                             disabled={option.disabled}
-                            className={({ active }) =>
+                            className={({ focus }) =>
                               cn(
                                 "relative w-fit min-w-full cursor-pointer px-3 py-1.5 text-content-primary select-none",
-                                active && "bg-background-tertiary",
+                                focus && "bg-background-tertiary",
                                 option.disabled &&
                                   "cursor-not-allowed text-content-secondary opacity-75",
                               )
@@ -287,7 +315,7 @@ export function Combobox<T>({
                                 )}
                               </span>
                             )}
-                          </HeadlessCombobox.Option>
+                          </HeadlessComboboxOption>
                         ))}
 
                         {hasMoreThanMaxOptions && (
@@ -301,16 +329,16 @@ export function Combobox<T>({
                         {allowCustomValue &&
                           query.length > 0 &&
                           !filtered.some((x) => x.value === query) && (
-                            <HeadlessCombobox.Option
+                            <HeadlessComboboxOption
                               value={query}
-                              className={({ active }) =>
+                              className={({ focus }) =>
                                 `text-content-primary relative cursor-pointer w-60 select-none py-1 px-3 text-xs ${
-                                  active ? "bg-background-tertiary" : ""
+                                  focus ? "bg-background-tertiary" : ""
                                 }`
                               }
                             >
                               Unknown option: "{query}"
-                            </HeadlessCombobox.Option>
+                            </HeadlessComboboxOption>
                           )}
 
                         {filtered.length === 0 && !allowCustomValue && (
@@ -319,7 +347,7 @@ export function Combobox<T>({
                           </div>
                         )}
                       </div>
-                    </HeadlessCombobox.Options>
+                    </HeadlessComboboxOptions>
                   </div>,
                   document.body,
                 )}

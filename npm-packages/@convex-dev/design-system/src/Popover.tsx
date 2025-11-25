@@ -1,6 +1,11 @@
 import React, { MutableRefObject, useEffect, useState } from "react";
 import { PopperChildrenProps, usePopper } from "react-popper";
-import { Popover as HeadlessPopover, Portal } from "@headlessui/react";
+import {
+  Popover as HeadlessPopover,
+  PopoverPanel as HeadlessPopoverPanel,
+  PopoverButton as HeadlessPopoverButton,
+  Portal,
+} from "@headlessui/react";
 import classNames from "classnames";
 
 // Copied from HeadlessUI Types
@@ -41,7 +46,7 @@ export function Popover({
 }: PopoverProps) {
   const [referenceElement, setReferenceElement] =
     useState<HTMLButtonElement | null>(null);
-  const [popperElement, setPopperElement] = useState<HTMLDivElement | null>();
+  const [popperElement, setPopperElement] = useState<HTMLElement | null>();
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
     placement,
     modifiers: [
@@ -62,7 +67,7 @@ export function Popover({
     <HeadlessPopover>
       {({ open }) => {
         const panel = (
-          <HeadlessPopover.Panel
+          <HeadlessPopoverPanel
             ref={setPopperElement}
             style={styles.popper}
             {...attributes.popper}
@@ -74,17 +79,17 @@ export function Popover({
             )}
           >
             {children}
-          </HeadlessPopover.Panel>
+          </HeadlessPopoverPanel>
         );
         return (
           <>
-            <HeadlessPopover.Button
+            <HeadlessPopoverButton
               ref={setReferenceElement}
               as="div"
               className={open ? openButtonClassName : ""}
             >
               {button as any /* TODO(react-18-upgrade) */}
-            </HeadlessPopover.Button>
+            </HeadlessPopoverButton>
             {portal ? <Portal>{panel}</Portal> : panel}
           </>
         );

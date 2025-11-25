@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import { usePopper } from "react-popper";
 import { Transition } from "@headlessui/react";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
@@ -45,7 +44,6 @@ export function CopiedPopper({
   return (
     <Transition
       show={show}
-      as={Fragment}
       enter="transition-opacity ease-in-out duration-100"
       enterFrom="opacity-0"
       enterTo="opacity-100"

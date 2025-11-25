@@ -84,11 +84,6 @@ describe("DataCell", () => {
       project: "myProject",
       deploymentName: "myDeployment",
     };
-    global.ResizeObserver = jest.fn().mockImplementation(() => ({
-      observe: jest.fn(),
-      unobserve: jest.fn(),
-      disconnect: jest.fn(),
-    }));
     user = userEvent.setup();
   });
 

@@ -21,7 +21,11 @@ import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { snapshotImportFormat } from "system-udfs/convex/tableDefs/snapshotImport";
 import { Infer } from "convex/values";
 import { useCancelImport, useConfirmImport } from "hooks/deploymentApi";
-import { Disclosure } from "@headlessui/react";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from "@headlessui/react";
 import { useState } from "react";
 import { PuzzlePieceIcon } from "@common/elements/icons";
 
@@ -333,26 +337,26 @@ export function ImportState({
                 prefix="Started "
                 date={new Date(snapshotImport._creationTime)}
               />
-              <Disclosure.Button
-                as={Button}
-                inline
-                variant="neutral"
-                size="xs"
-                tipSide="left"
-                tip="View entry metadata"
-              >
-                {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-              </Disclosure.Button>
+              <Tooltip side="left" tip="View entry metadata" asChild>
+                <DisclosureButton
+                  as={Button}
+                  inline
+                  variant="neutral"
+                  size="xs"
+                >
+                  {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                </DisclosureButton>
+              </Tooltip>
             </div>
           </div>
-          <Disclosure.Panel>
+          <DisclosurePanel>
             <div className="mt-2 flex flex-col gap-2">
               <ImportStateBody snapshotImport={snapshotImport} />
               <ImportSummary
                 snapshotImportCheckpoints={snapshotImport.checkpoints}
               />
             </div>
-          </Disclosure.Panel>
+          </DisclosurePanel>
         </>
       )}
     </Disclosure>

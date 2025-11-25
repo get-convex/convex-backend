@@ -14,7 +14,11 @@ import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
 import { EmptySection } from "@common/elements/EmptySection";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { Tab } from "@ui/Tab";
-import { Tab as HeadlessTab } from "@headlessui/react";
+import {
+  TabGroup as HeadlessTabGroup,
+  TabPanel as HeadlessTabPanel,
+  TabPanels as HeadlessTabPanels,
+} from "@headlessui/react";
 import { useNents } from "@common/lib/useNents";
 import { Sheet } from "@ui/Sheet";
 import { FunctionLogs } from "./FunctionLogs";
@@ -56,11 +60,10 @@ function Functions() {
   } else {
     content = (
       <div className="flex h-full min-w-0 grow flex-col overflow-hidden">
-        <HeadlessTab.Group
+        <HeadlessTabGroup
           selectedIndex={selectedTabIndex}
           onChange={setSelectedTabIndex}
           className="flex min-h-0 grow flex-col"
-          as="div"
         >
           <div className="sticky top-0 z-10 scrollbar min-h-fit overflow-x-auto bg-background-secondary">
             <div className="flex-none px-6 pt-4">
@@ -73,24 +76,24 @@ function Functions() {
             </div>
           </div>
 
-          <HeadlessTab.Panels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow overflow-x-auto p-6">
-            <HeadlessTab.Panel className="grow">
+          <HeadlessTabPanels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow overflow-x-auto p-6">
+            <HeadlessTabPanel className="grow">
               <PerformanceGraphs />
-            </HeadlessTab.Panel>
+            </HeadlessTabPanel>
 
-            <HeadlessTab.Panel className="grow">
+            <HeadlessTabPanel className="grow">
               <FileEditor moduleFunction={currentOpenFunction} />
-            </HeadlessTab.Panel>
+            </HeadlessTabPanel>
 
-            <HeadlessTab.Panel className="flex min-h-0 min-w-0 grow">
+            <HeadlessTabPanel className="flex min-h-0 min-w-0 grow">
               <FunctionLogs
                 key={currentOpenFunction.displayName}
                 currentOpenFunction={currentOpenFunction}
                 selectedNent={selectedNent || undefined}
               />
-            </HeadlessTab.Panel>
-          </HeadlessTab.Panels>
-        </HeadlessTab.Group>
+            </HeadlessTabPanel>
+          </HeadlessTabPanels>
+        </HeadlessTabGroup>
       </div>
     );
   }

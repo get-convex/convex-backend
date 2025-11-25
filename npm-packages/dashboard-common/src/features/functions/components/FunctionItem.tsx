@@ -2,7 +2,7 @@ import React, { useContext } from "react";
 import { LockClosedIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { cn } from "@ui/cn";
-import { Disclosure } from "@headlessui/react";
+import { DisclosureButton } from "@headlessui/react";
 import { ModuleFunction } from "@common/lib/functions/types";
 import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
 import { useCurrentGloballyOpenFunction } from "@common/features/functionRunner/lib/functionRunner";
@@ -124,9 +124,9 @@ export function DirectoryItem({
     }
 
     return (
-      <Disclosure.Button className={className} onClick={onClick}>
+      <DisclosureButton className={className} onClick={onClick}>
         {buttonChildren}
-      </Disclosure.Button>
+      </DisclosureButton>
     );
   }
 

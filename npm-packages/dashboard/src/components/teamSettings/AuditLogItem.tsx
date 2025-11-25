@@ -1,4 +1,8 @@
-import { Disclosure } from "@headlessui/react";
+import {
+  Disclosure,
+  DisclosurePanel,
+  DisclosureButton,
+} from "@headlessui/react";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -71,19 +75,19 @@ export function AuditLogItem({
             </span>
             <span className="ml-auto flex gap-1">
               <TimestampDistance date={new Date(entry.createTime)} />
-              <Disclosure.Button
-                as={Button}
-                inline
-                variant="neutral"
-                size="xs"
-                tipSide="left"
-                tip="View entry metadata"
-              >
-                {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-              </Disclosure.Button>
+              <Tooltip tip="View entry metadata" side="left" asChild>
+                <DisclosureButton
+                  as={Button}
+                  inline
+                  variant="neutral"
+                  size="xs"
+                >
+                  {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                </DisclosureButton>
+              </Tooltip>
             </span>
           </div>
-          <Disclosure.Panel>
+          <DisclosurePanel>
             <ReadonlyCode
               height={{
                 type: "content",
@@ -95,7 +99,7 @@ export function AuditLogItem({
               ).slice(1, -1)}
               path={`${entry.createTime}`}
             />
-          </Disclosure.Panel>
+          </DisclosurePanel>
         </div>
       )}
     </Disclosure>

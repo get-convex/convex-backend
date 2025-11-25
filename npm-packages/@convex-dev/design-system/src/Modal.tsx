@@ -1,5 +1,12 @@
-import React, { Fragment, ReactNode, useState } from "react";
-import { Dialog, Transition } from "@headlessui/react";
+import React, { ReactNode, useCallback, useState } from "react";
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  Transition,
+  TransitionChild,
+  Description,
+} from "@headlessui/react";
 import classNames from "classnames";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 
@@ -19,20 +26,22 @@ export function Modal({
   size = "sm",
 }: ModalProps) {
   const [open, setOpen] = useState(true);
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setOpen(false);
-  };
+  }, [setOpen]);
+
   return (
-    <Transition.Root as={Fragment} appear afterLeave={onClose} show={open}>
+    <Transition show={open} appear afterLeave={onClose}>
       <Dialog
+        static
         as="div"
         data-testid="modal"
         className="fixed inset-0 z-40 overflow-hidden"
+        open // Real openness status is controlled by Transition above
         onClose={handleClose}
       >
         <div className="flex sm:min-h-screen sm:items-center sm:justify-center sm:px-4">
-          <Transition.Child
-            as={Fragment}
+          <TransitionChild
             enter="ease-out duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -40,11 +49,13 @@ export function Modal({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Dialog.Overlay className="fixed inset-0 bg-black/50 transition-opacity" />
-          </Transition.Child>
+            <div
+              className="fixed inset-0 bg-black/50 transition-opacity"
+              data-testid="modal-overlay"
+            />
+          </TransitionChild>
 
-          <Transition.Child
-            as={Fragment}
+          <TransitionChild
             enter="ease-out duration-300"
             enterFrom="opacity-0 translate-y-12"
             enterTo="opacity-100 translate-y-0"
@@ -52,7 +63,7 @@ export function Modal({
             leaveFrom="opacity-100 translate-y-0"
             leaveTo="opacity-0 translate-y-12"
           >
-            <div
+            <DialogPanel
               className={classNames(
                 "inline-block bg-background-secondary rounded-xl",
                 "text-content-primary",
@@ -72,10 +83,10 @@ export function Modal({
               <div className="p-6 pb-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <Dialog.Title as="h4">{title}</Dialog.Title>
-                    <Dialog.Description className="mt-1 text-sm">
+                    <DialogTitle as="h4">{title}</DialogTitle>
+                    <Description className="mt-1 text-sm">
                       {description}
-                    </Dialog.Description>
+                    </Description>
                   </div>
                   <ClosePanelButton onClose={handleClose} />
                 </div>
@@ -85,10 +96,10 @@ export function Modal({
               <div className="mx-6 mb-12 max-h-[80dvh] overflow-y-auto sm:mb-6">
                 {children}
               </div>
-            </div>
-          </Transition.Child>
+            </DialogPanel>
+          </TransitionChild>
         </div>
       </Dialog>
-    </Transition.Root>
+    </Transition>
   );
 }

@@ -1,10 +1,17 @@
-import { Fragment, ReactNode, useState } from "react";
-import { Menu as HeadlessMenu, Portal } from "@headlessui/react";
+import { omit } from "lodash-es";
+import { ReactNode, useState } from "react";
+import {
+  Menu as HeadlessMenu,
+  MenuButton as HeadlessMenuButton,
+  MenuItems as HeadlessMenuItems,
+  MenuItem as HeadlessMenuItem,
+  Portal,
+} from "@headlessui/react";
 import { PopperChildrenProps, usePopper } from "react-popper";
 import classNames from "classnames";
 import { Button, ButtonProps } from "@ui/Button";
 import { Key, KeyboardShortcut } from "@ui/KeyboardShortcut";
-import { TooltipSide } from "@ui/Tooltip";
+import { Tooltip, TooltipSide } from "@ui/Tooltip";
 
 export type MenuProps = {
   children: React.ReactElement | (React.ReactElement | null)[];
@@ -21,7 +28,7 @@ export function Menu({
 }: MenuProps) {
   const [referenceElement, setReferenceElement] =
     useState<HTMLButtonElement | null>(null);
-  const [popperElement, setPopperElement] = useState<HTMLDivElement | null>();
+  const [popperElement, setPopperElement] = useState<HTMLElement | null>();
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
     placement,
     modifiers: offset
@@ -38,22 +45,38 @@ export function Menu({
     <HeadlessMenu>
       {({ open }) => (
         <>
-          <HeadlessMenu.Button
-            ref={setReferenceElement}
-            as={Fragment}
-            data-testid="open-menu"
+          <Tooltip
+            tip={buttonProps?.tip}
+            side={buttonProps?.tipSide}
+            disableHoverableContent={buttonProps?.tipDisableHoverableContent}
           >
-            <Button {...buttonProps} focused={open} />
-          </HeadlessMenu.Button>
+            <HeadlessMenuButton
+              ref={setReferenceElement}
+              as={Button}
+              data-testid="open-menu"
+              {
+                // <HeadlessMenuButton as={Button} tip="…" /> causes a state update loop since Headless UI 2.0
+                // (presumably because Headless UI and the tooltip both want to update the ref).
+                // To circumvent this issue, we place the <Tooltip /> component as a parent of <HeadlessMenuButton />
+                ...omit(
+                  buttonProps,
+                  "tip",
+                  "tipSide",
+                  "tipDisableHoverableContent",
+                )
+              }
+              focused={open}
+            />
+          </Tooltip>
           <Portal>
-            <HeadlessMenu.Items
+            <HeadlessMenuItems
               ref={setPopperElement}
               style={styles.popper}
               {...attributes.popper}
               className="z-50 flex max-h-[20rem] flex-col gap-1 overflow-auto rounded-lg border bg-background-secondary py-2 text-sm whitespace-nowrap shadow-md"
             >
               {children}
-            </HeadlessMenu.Items>
+            </HeadlessMenuItems>
           </Portal>
         </>
       )}
@@ -90,8 +113,8 @@ export function MenuItem({
   const actionProp = href ? { href } : { onClick: action };
 
   return (
-    <HeadlessMenu.Item>
-      {({ active }) => (
+    <HeadlessMenuItem>
+      {({ focus }) => (
         <Button
           tip={tip}
           tipSide={tipSide}
@@ -101,7 +124,7 @@ export function MenuItem({
             disabled
               ? "cursor-not-allowed fill-content-tertiary text-content-tertiary"
               : "hover:bg-background-tertiary",
-            active && "bg-background-primary",
+            focus && "bg-background-primary",
             !disabled && variant === "danger"
               ? "text-content-errorSecondary"
               : "text-content-primary",
@@ -118,7 +141,7 @@ export function MenuItem({
           )}
         </Button>
       )}
-    </HeadlessMenu.Item>
+    </HeadlessMenuItem>
   );
 }
 
@@ -137,8 +160,8 @@ export function MenuLink({
   target?: "_blank";
 }>) {
   return (
-    <HeadlessMenu.Item disabled={disabled}>
-      {({ active, close }) => (
+    <HeadlessMenuItem disabled={disabled}>
+      {({ focus, close }) => (
         <a
           href={href}
           target={target}
@@ -149,7 +172,7 @@ export function MenuLink({
             disabled &&
               "cursor-not-allowed fill-content-secondary bg-background-tertiary text-content-secondary",
 
-            active || selected
+            focus || selected
               ? "bg-background-primary"
               : "hover:bg-background-tertiary",
           )}
@@ -163,6 +186,6 @@ export function MenuLink({
           )}
         </a>
       )}
-    </HeadlessMenu.Item>
+    </HeadlessMenuItem>
   );
 }

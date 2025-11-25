@@ -1,4 +1,4 @@
-import { Disclosure } from "@headlessui/react";
+import { Disclosure, DisclosurePanel } from "@headlessui/react";
 import { CodeIcon } from "@radix-ui/react-icons";
 import type { File } from "@common/lib/functions/types";
 import {
@@ -40,7 +40,7 @@ export function FileItem({
                 <CodeIcon className="size-4 shrink-0 text-content-tertiary" />
                 <div className="truncate">{file.name}</div>
               </DirectoryItem>
-              <Disclosure.Panel className="flex flex-col">
+              <DisclosurePanel className="flex flex-col">
                 {file.functions.map((f) => (
                   <FunctionItem
                     key={f.name}
@@ -49,7 +49,7 @@ export function FileItem({
                     nestingLevel={nestingLevel + 1}
                   />
                 ))}
-              </Disclosure.Panel>
+              </DisclosurePanel>
             </>
           )}
         </Disclosure>

@@ -10,7 +10,11 @@ import { Tooltip } from "@ui/Tooltip";
 import { msFormat, formatBytes } from "@common/lib/format";
 import { UsageStats } from "system-udfs/convex/_system/frontend/common";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
-import { Disclosure } from "@headlessui/react";
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+} from "@headlessui/react";
 import { Spinner } from "@ui/Spinner";
 
 type RequestUsageStats = UsageStats & {
@@ -199,7 +203,7 @@ function ResourcesUsed({
         {({ open }) => (
           <>
             <div className="flex items-center justify-between">
-              <Disclosure.Button className="flex items-center gap-1 text-xs">
+              <DisclosureButton className="flex items-center gap-1 text-xs">
                 <PieChartIcon className="size-3 text-content-secondary" />
                 <h6 className="font-semibold text-content-secondary">
                   Resources Used
@@ -209,10 +213,10 @@ function ResourcesUsed({
                 ) : (
                   <ChevronDownIcon className="size-3" />
                 )}
-              </Disclosure.Button>
+              </DisclosureButton>
             </div>
 
-            <Disclosure.Panel className="mt-2 animate-fadeInFromLoading">
+            <DisclosurePanel className="mt-2 animate-fadeInFromLoading">
               {isInProgress && <Running />}
 
               {isInProgress && isExecutionView ? (
@@ -319,7 +323,7 @@ function ResourcesUsed({
                   )}
                 </ul>
               )}
-            </Disclosure.Panel>
+            </DisclosurePanel>
           </>
         )}
       </Disclosure>
