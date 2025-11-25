@@ -881,14 +881,14 @@ static PREV_REV_CHUNK_QUERIES: LazyLock<HashMap<(usize, bool), String>> = LazyLo
                 let select = if multitenant {
                     r#"
 SELECT id, ts, table_id, json_value, deleted, prev_ts, ? as query_ts
-FROM @db_name.documents FORCE INDEX FOR ORDER BY (documents_by_table_and_id)
+FROM @db_name.documents FORCE INDEX (documents_by_table_and_id)
 WHERE table_id = ? AND id = ? and ts < ? AND instance_name = ?
 ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
 "#
                 } else {
                     r#"
 SELECT id, ts, table_id, json_value, deleted, prev_ts, ? as query_ts
-FROM @db_name.documents FORCE INDEX FOR ORDER BY (documents_by_table_and_id)
+FROM @db_name.documents FORCE INDEX (documents_by_table_and_id)
 WHERE table_id = ? AND id = ? and ts < ?
 ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
 "#
