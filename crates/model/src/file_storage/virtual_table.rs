@@ -3,6 +3,7 @@ use std::{
     sync::LazyLock,
 };
 
+use async_trait::async_trait;
 use common::{
     document::{
         DeveloperDocument,
@@ -42,8 +43,9 @@ static MIN_NPM_VERSION_FILE_STORAGE_V2: LazyLock<Version> =
 
 pub struct FileStorageDocMapper;
 
+#[async_trait]
 impl VirtualSystemDocMapper for FileStorageDocMapper {
-    fn system_to_virtual_doc(
+    async fn system_to_virtual_doc(
         &self,
         _tx: &mut dyn GetDocument,
         virtual_system_mapping: &VirtualSystemMapping,

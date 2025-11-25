@@ -4,6 +4,7 @@ use std::{
     sync::LazyLock,
 };
 
+use async_trait::async_trait;
 use common::{
     document::{
         timestamp_to_ms,
@@ -43,8 +44,9 @@ static MIN_NPM_VERSION_SCHEDULED_JOBS_V1: LazyLock<Version> =
 
 pub struct ScheduledJobsDocMapper;
 
+#[async_trait]
 impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
-    fn system_to_virtual_doc(
+    async fn system_to_virtual_doc(
         &self,
         _tx: &mut dyn GetDocument,
         virtual_system_mapping: &VirtualSystemMapping,

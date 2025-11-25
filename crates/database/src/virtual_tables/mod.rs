@@ -62,14 +62,14 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         let result = self.tx.get_inner(id_, system_table_name).await?;
         match result {
             Some((doc, ts)) => {
-                let doc = self.system_to_virtual_doc(doc, version)?;
+                let doc = self.system_to_virtual_doc(doc, version).await?;
                 Ok(Some((doc, ts)))
             },
             None => Ok(None),
         }
     }
 
-    pub fn system_to_virtual_doc(
+    pub async fn system_to_virtual_doc(
         &mut self,
         doc: ResolvedDocument,
         version: Option<Version>,
@@ -91,12 +91,14 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         else {
             anyhow::bail!("System document cannot be converted to a virtual document")
         };
-        mapper.system_to_virtual_doc(
-            self.tx,
-            &virtual_system_mapping,
-            doc,
-            &table_mapping,
-            version,
-        )
+        mapper
+            .system_to_virtual_doc(
+                self.tx,
+                &virtual_system_mapping,
+                doc,
+                &table_mapping,
+                version,
+            )
+            .await
     }
 }

@@ -4,9 +4,9 @@ use std::{
 };
 
 use anyhow::Context;
+use async_trait::async_trait;
 use imbl::OrdMap;
 use semver::Version;
-use tonic::async_trait;
 use value::{
     DeveloperDocumentId,
     NamespacedTableMapping,
@@ -25,8 +25,9 @@ use crate::{
     types::IndexName,
 };
 
+#[async_trait]
 pub trait VirtualSystemDocMapper: Send + Sync {
-    fn system_to_virtual_doc(
+    async fn system_to_virtual_doc(
         &self,
         tx: &mut dyn GetDocument,
         virtual_system_mapping: &VirtualSystemMapping,
@@ -52,6 +53,7 @@ pub struct NoopDocMapper;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_virtual_system_mapping {
+    use async_trait::async_trait;
     use value::TableMapping;
 
     use super::NoopDocMapper;
@@ -68,8 +70,9 @@ pub mod test_virtual_system_mapping {
         },
     };
 
+    #[async_trait]
     impl VirtualSystemDocMapper for NoopDocMapper {
-        fn system_to_virtual_doc(
+        async fn system_to_virtual_doc(
             &self,
             _tx: &mut dyn GetDocument,
             _virtual_system_mapping: &VirtualSystemMapping,

@@ -409,26 +409,29 @@ pub async fn index_range_batch<RT: Runtime>(
 
     for (&batch_key, fetch_result) in fetch_requests.keys().zip(fetch_results) {
         let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
-        let result = fetch_result.and_then(|IndexRangeResponse { page, cursor }| {
+        let result = try {
+            let IndexRangeResponse { page, cursor } = fetch_result?;
             let developer_results = match virtual_table_version {
-                Some(version) => page
-                    .into_iter()
-                    .map(|(key, doc, ts)| {
-                        let doc =
-                            VirtualTable::new(tx).system_to_virtual_doc(doc, version.clone())?;
-                        anyhow::Ok((key, doc, ts))
-                    })
-                    .try_collect()?,
+                Some(version) => {
+                    let mut converted_documents = vec![];
+                    for (key, doc, ts) in page {
+                        let doc = VirtualTable::new(tx)
+                            .system_to_virtual_doc(doc, version.clone())
+                            .await?;
+                        converted_documents.push((key, doc, ts));
+                    }
+                    converted_documents
+                },
                 None => page
                     .into_iter()
                     .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
                     .collect(),
             };
-            anyhow::Ok(DeveloperIndexRangeResponse {
+            DeveloperIndexRangeResponse {
                 page: developer_results,
                 cursor,
-            })
-        });
+            }
+        };
         results.insert(batch_key, result);
     }
     assert_eq!(results.len(), batch_size);
