@@ -1,23 +1,24 @@
 use std::{
-    collections::BTreeMap,
     fmt::Formatter,
     str::FromStr,
 };
 
-use common::{
-    obj,
-    types::ObjectKey,
-};
+use common::types::ObjectKey;
 use errors::ErrorMetadata;
 use humansize::{
     FormatSize,
     BINARY,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use serde_bytes::ByteBuf;
 use value::{
+    codegen_convex_serialization,
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
-    ConvexObject,
     ConvexValue,
 };
 
@@ -67,7 +68,15 @@ pub struct SourcePackage {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub struct PackageSize {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "0..=i64::MAX as usize")
+    )]
     pub zipped_size_bytes: usize,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "0..=i64::MAX as usize")
+    )]
     pub unzipped_size_bytes: usize,
 }
 
@@ -128,20 +137,19 @@ impl PackageSize {
     }
 }
 
-impl TryFrom<ConvexObject> for PackageSize {
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedPackageSize {
+    zipped_size_bytes: i64,
+    unzipped_size_bytes: i64,
+}
+
+impl TryFrom<SerializedPackageSize> for PackageSize {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-
-        let zipped_size_bytes: usize = match fields.remove("zippedSizeBytes") {
-            Some(ConvexValue::Int64(i)) => i as usize,
-            _ => anyhow::bail!("Missing or invalid 'zippedSize' in {fields:?}"),
-        };
-        let unzipped_size_bytes: usize = match fields.remove("unzippedSizeBytes") {
-            Some(ConvexValue::Int64(i)) => i as usize,
-            _ => anyhow::bail!("Missing or invalid 'unzippedSizeBytes' in {fields:?}"),
-        };
+    fn try_from(value: SerializedPackageSize) -> Result<Self, Self::Error> {
+        let zipped_size_bytes: usize = value.zipped_size_bytes.try_into()?;
+        let unzipped_size_bytes: usize = value.unzipped_size_bytes.try_into()?;
         Ok(PackageSize {
             zipped_size_bytes,
             unzipped_size_bytes,
@@ -149,16 +157,18 @@ impl TryFrom<ConvexObject> for PackageSize {
     }
 }
 
-impl TryFrom<PackageSize> for ConvexObject {
+impl TryFrom<PackageSize> for SerializedPackageSize {
     type Error = anyhow::Error;
 
     fn try_from(value: PackageSize) -> Result<Self, Self::Error> {
-        obj!(
-            "zippedSizeBytes" => ConvexValue::Int64(value.zipped_size_bytes as i64),
-            "unzippedSizeBytes" => ConvexValue::Int64(value.unzipped_size_bytes as i64),
-        )
+        Ok(SerializedPackageSize {
+            zipped_size_bytes: value.zipped_size_bytes.try_into()?,
+            unzipped_size_bytes: value.unzipped_size_bytes.try_into()?,
+        })
     }
 }
+
+codegen_convex_serialization!(PackageSize, SerializedPackageSize);
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, Copy, PartialOrd, Ord, Hash)]
@@ -198,87 +208,49 @@ impl From<SourcePackageId> for DeveloperDocumentId {
     }
 }
 
-impl TryFrom<ConvexValue> for NodeVersion {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        if let ConvexValue::String(s) = value {
-            s.parse()
-        } else {
-            Err(anyhow::anyhow!("Value is not a string"))
-        }
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedSourcePackage {
+    storage_key: String,
+    sha256: ByteBuf,
+    external_package_id: Option<String>,
+    package_size: Option<SerializedPackageSize>,
+    node_version: Option<String>,
 }
 
-impl TryFrom<NodeVersion> for ConvexValue {
+impl TryFrom<SourcePackage> for SerializedSourcePackage {
     type Error = anyhow::Error;
 
-    fn try_from(value: NodeVersion) -> Result<Self, Self::Error> {
-        match value {
-            NodeVersion::V18x => Ok(ConvexValue::String("18".try_into()?)),
-            NodeVersion::V20x => Ok(ConvexValue::String("20".try_into()?)),
-            NodeVersion::V22x => Ok(ConvexValue::String("22".try_into()?)),
-        }
+    fn try_from(value: SourcePackage) -> anyhow::Result<Self> {
+        Ok(SerializedSourcePackage {
+            storage_key: value.storage_key.into(),
+            sha256: ByteBuf::from(value.sha256.to_vec()),
+            external_package_id: value
+                .external_deps_package_id
+                .map(|id| DeveloperDocumentId::from(id).encode()),
+            package_size: Some(value.package_size.try_into()?),
+            node_version: value.node_version.map(String::from),
+        })
     }
 }
-
-impl TryFrom<SourcePackage> for ConvexObject {
+impl TryFrom<SerializedSourcePackage> for SourcePackage {
     type Error = anyhow::Error;
 
-    fn try_from(
-        SourcePackage {
-            storage_key,
-            sha256,
-            external_deps_package_id,
-            package_size,
-            node_version,
-        }: SourcePackage,
-    ) -> Result<Self, Self::Error> {
-        let storage_key: String = storage_key.into();
-        obj!(
-            "storageKey" => storage_key,
-            "sha256" => sha256,
-            "externalPackageId" => external_deps_package_id
-                .map(ConvexValue::try_from)
-                .transpose()?
-                .unwrap_or(ConvexValue::Null),
-            "packageSize" => ConvexValue::Object(package_size.try_into()?),
-            "nodeVersion" => node_version
-                .map(ConvexValue::try_from)
-                .transpose()?
-                .unwrap_or(ConvexValue::Null),
-        )
-    }
-}
-
-impl TryFrom<ConvexObject> for SourcePackage {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut object_fields: BTreeMap<_, _> = value.into();
-        let storage_key = match object_fields.remove("storageKey") {
-            Some(ConvexValue::String(key)) => String::from(key).try_into()?,
-            _ => anyhow::bail!("Missing 'storageKey' in {object_fields:?}"),
+    fn try_from(value: SerializedSourcePackage) -> Result<Self, Self::Error> {
+        let storage_key = value.storage_key.try_into()?;
+        let sha256 = value.sha256.into_vec().try_into()?;
+        let external_package_id = match value.external_package_id {
+            None => None,
+            Some(s) => Some(DeveloperDocumentId::decode(&s)?.into()),
         };
-        let sha256 = match object_fields.remove("sha256") {
-            Some(sha256) => sha256.try_into()?,
-            _ => anyhow::bail!("Missing 'sha256' in {object_fields:?}"),
-        };
-        let external_package_id = match object_fields.remove("externalPackageId") {
-            Some(ConvexValue::Null) | None => None,
-            Some(ConvexValue::String(s)) => Some(DeveloperDocumentId::decode(&s)?.into()),
-            _ => anyhow::bail!("Invalid 'externalPackageId' in {object_fields:?}"),
-        };
-        let package_size: PackageSize = match object_fields.remove("packageSize") {
-            Some(ConvexValue::Object(o)) => o.try_into()?,
+        let package_size: PackageSize = match value.package_size {
+            Some(o) => o.try_into()?,
             // Just use default for old source packages
             None => PackageSize::default(),
-            _ => anyhow::bail!("Invalid 'packageSize' in {object_fields:?}"),
         };
-        let node_version = match object_fields.remove("nodeVersion") {
-            Some(ConvexValue::Null) | None => None,
-            Some(ConvexValue::String(s)) => Some(s.parse()?),
-            _ => anyhow::bail!("Invalid 'nodeVersion' in {object_fields:?}"),
+        let node_version = match value.node_version {
+            None => None,
+            Some(s) => Some(s.parse()?),
         };
         Ok(Self {
             storage_key,
@@ -290,14 +262,24 @@ impl TryFrom<ConvexObject> for SourcePackage {
     }
 }
 
+codegen_convex_serialization!(SourcePackage, SerializedSourcePackage);
+
 #[cfg(test)]
 mod tests {
     use cmd_util::env::env_config;
     use common::testing::assert_roundtrips;
     use proptest::prelude::*;
-    use value::ConvexObject;
+    use value::{
+        sha256::Sha256Digest,
+        ConvexObject,
+        DeveloperDocumentId,
+    };
 
     use super::SourcePackage;
+    use crate::{
+        external_packages::types::ExternalDepsPackageId,
+        source_packages::types::PackageSize,
+    };
 
     proptest! {
         #![proptest_config(
@@ -307,5 +289,33 @@ mod tests {
         fn test_source_package_roundtrip(v in any::<SourcePackage>()) {
             assert_roundtrips::<SourcePackage, ConvexObject>(v);
         }
+    }
+
+    #[test]
+    fn test_frozen_source_package() {
+        let value = value::json_deserialize(r#"{
+            "externalPackageId":"k423gp2tq6nsw6ngwhkw72c3z17fkb5t",
+            "packageSize":{"unzippedSizeBytes":{"$integer":"SEUHAAAAAAA="},"zippedSizeBytes":{"$integer":"QZgBAAAAAAA="}},
+            "sha256":{"$bytes":"7WWCt6Y52N/xQ2e7Tidc6ZPAx6KAUosaxVcVcq5dbWk="},
+            "storageKey":"fcf904d2-566c-41fc-a899-870b6a66b274"
+        }"#).unwrap();
+        let parsed = SourcePackage::try_from(value).unwrap();
+        assert_eq!(
+            parsed,
+            SourcePackage {
+                storage_key: "fcf904d2-566c-41fc-a899-870b6a66b274".try_into().unwrap(),
+                sha256: Sha256Digest::from(*b"\xed\x65\x82\xb7\xa6\x39\xd8\xdf\xf1\x43\x67\xbb\x4e\x27\x5c\xe9\x93\xc0\xc7\xa2\x80\x52\x8b\x1a\xc5\x57\x15\x72\xae\x5d\x6d\x69"),
+                external_deps_package_id: Some(ExternalDepsPackageId::from(
+                    "k423gp2tq6nsw6ngwhkw72c3z17fkb5t"
+                        .parse::<DeveloperDocumentId>()
+                        .unwrap()
+                )),
+                package_size: PackageSize {
+                    zipped_size_bytes: 104513,
+                    unzipped_size_bytes: 476488,
+                },
+                node_version: None,
+            }
+        );
     }
 }
