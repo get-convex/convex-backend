@@ -12,14 +12,14 @@ export const componentQuery = query({
 });
 
 export const componentMutation = mutation({
-  args: CACHE_BREAKER_ARGS,
+  args: {},
   handler: async (ctx) => {
     return await ctx.runMutation(components.counterComponent.public.increment);
   },
 });
 
 export const componentAction = action({
-  args: CACHE_BREAKER_ARGS,
+  args: {},
   handler: async (ctx) => {
     const count = Math.floor(Math.random() * 4) + 1;
     await ctx.runAction(components.counterComponent.public.reset, { count });
