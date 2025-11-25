@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/codemod",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Automatic codemods to help you migrate your codebase to newer versions of Convex",
   "type": "module",
   "main": "./dist/index.cjs",
