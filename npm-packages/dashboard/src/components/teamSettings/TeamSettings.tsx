@@ -11,7 +11,7 @@ import { TeamResponse } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import startCase from "lodash/startCase";
 import { OpenInVercel } from "components/OpenInVercel";
 import { TeamForm } from "./TeamForm";
@@ -23,8 +23,15 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
   const teamMembers = useTeamMembers(team.id);
   const projects = useProjects(team.id);
   const [showDeleteTeamModal, setShowDeleteTeamModal] = useState(false);
-  const deleteTeam = useDeleteTeam(team.id);
   const { subscription } = useTeamOrbSubscription(team.id);
+
+  const deleteTeam = useDeleteTeam(team.id);
+  const deleteTeamAndRedirect = useCallback(async () => {
+    await deleteTeam();
+    // Completely reload the page to avoid race conditions
+    window.location.href = "/";
+  }, [deleteTeam]);
+
   return (
     <>
       <h2>Team Settings</h2>
@@ -93,7 +100,7 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
         {showDeleteTeamModal && (
           <ConfirmationDialog
             onClose={() => setShowDeleteTeamModal(false)}
-            onConfirm={deleteTeam}
+            onConfirm={deleteTeamAndRedirect}
             validationText={team.slug}
             confirmText="Delete"
             dialogTitle="Delete Team"
