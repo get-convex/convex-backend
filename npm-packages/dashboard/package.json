@@ -62,7 +62,7 @@
     "shx": "~0.3.4",
     "cmdk": "~1.1.1",
     "react-hotkeys-hook": "~4.4.0",
-    "@workos-inc/authkit-nextjs": "~2.5.0",
+    "@workos-inc/authkit-nextjs": "~2.11.1",
     "@workos-inc/node": "~7.69.0"
   },
   "devDependencies": {
