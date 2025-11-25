@@ -1,4 +1,4 @@
-import { usePaginatedQuery_experimental } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { useEffect, useContext } from "react";
@@ -123,7 +123,7 @@ export function usePaginatedDeploymentEvents(
   }[],
   initialNumItems = 10,
 ) {
-  const { results, ...rest } = usePaginatedQuery_experimental(
+  const { results, ...rest } = usePaginatedQuery(
     udfs.paginatedDeploymentEvents.default,
     filters ? { filters } : "skip",
     {

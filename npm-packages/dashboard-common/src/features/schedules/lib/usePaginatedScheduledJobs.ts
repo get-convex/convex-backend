@@ -1,4 +1,4 @@
-import { usePaginatedQuery_experimental } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { useContext } from "react";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -21,7 +21,7 @@ export function usePaginatedScheduledJobs(udfPath: string | undefined) {
     componentId: useNents().selectedNent?.id ?? null,
   };
 
-  const { results, loadMore, status } = usePaginatedQuery_experimental(
+  const { results, loadMore, status } = usePaginatedQuery(
     udfs.paginatedScheduledJobs.default,
     // If we're paused, don't show the live query.
     isPaused ? "skip" : args,
