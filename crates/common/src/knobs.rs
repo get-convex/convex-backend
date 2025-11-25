@@ -507,7 +507,7 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
 pub static DOCUMENT_RETENTION_RATE_LIMIT: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "DOCUMENT_RETENTION_RATE_LIMIT",
-        NonZeroU32::new(128).unwrap(),
+        NonZeroU32::new(256).unwrap(),
     )
 });
 
