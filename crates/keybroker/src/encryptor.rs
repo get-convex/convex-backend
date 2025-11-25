@@ -71,13 +71,10 @@ impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
         Ok(Self { derived_key })
     }
 
-    // TODO: do not send instance secrets to funrun, only derived keys
-    #[allow(unused)]
     pub fn derived_key(&self) -> [u8; KEY_LEN] {
         self.derived_key
     }
 
-    #[allow(unused)]
     pub fn from_derived_key(derived_key: [u8; KEY_LEN]) -> Self {
         Self { derived_key }
     }
