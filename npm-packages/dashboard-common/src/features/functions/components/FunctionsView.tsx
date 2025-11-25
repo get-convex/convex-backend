@@ -55,7 +55,7 @@ function Functions() {
     );
   } else {
     content = (
-      <div className="flex h-full max-w-[110rem] min-w-0 grow flex-col overflow-hidden">
+      <div className="flex h-full min-w-0 grow flex-col overflow-hidden">
         <HeadlessTab.Group
           selectedIndex={selectedTabIndex}
           onChange={setSelectedTabIndex}
@@ -73,7 +73,7 @@ function Functions() {
             </div>
           </div>
 
-          <HeadlessTab.Panels className="scrollbar flex w-full min-w-0 grow overflow-x-auto p-6">
+          <HeadlessTab.Panels className="scrollbar flex w-full max-w-[110rem] min-w-0 grow overflow-x-auto p-6">
             <HeadlessTab.Panel className="grow">
               <PerformanceGraphs />
             </HeadlessTab.Panel>
