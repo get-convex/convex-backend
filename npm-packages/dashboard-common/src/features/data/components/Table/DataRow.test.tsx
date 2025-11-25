@@ -126,45 +126,242 @@ describe("DataRow", () => {
   const X = true;
   const _ = false;
 
-  it("should select multiple rows at once", async () => {
-    //          0  1  2  3  4  5  6  7  8  9
-    createRows([_, _, _, X, _, _, _, _, _, _]);
-    await shiftToggleRow(7);
-    expectRows([_, _, _, X, X, X, X, X, _, _]);
+  describe("selection", () => {
+    it("should select multiple rows at once", async () => {
+      //          0  1  2  3  4  5  6  7  8  9
+      createRows([_, _, _, X, _, _, _, _, _, _]);
+      await shiftToggleRow(7);
+      expectRows([_, _, _, X, X, X, X, X, _, _]);
+    });
+
+    it("should unselect multiple rows", async () => {
+      //          0  1  2  3  4  5  6  7  8  9
+      createRows([_, _, _, X, X, X, X, X, _, _]);
+      await shiftToggleRow(4);
+      expectRows([_, _, _, X, _, _, _, _, _, _]);
+    });
+
+    it("should select from the start when nothing is selected", async () => {
+      //          0  1  2  3  4  5  6  7  8  9
+      createRows([_, _, _, _, _, _, _, _, _, _]);
+      await shiftToggleRow(4);
+      expectRows([X, X, X, X, X, _, _, _, _, _]);
+    });
+
+    it("should select from the group above when it exists", async () => {
+      //          0  1  2  3  4  5  6  7  8  9
+      createRows([X, X, _, _, _, _, X, X, X, _]);
+      await shiftToggleRow(4);
+      expectRows([X, X, X, X, X, _, X, X, X, _]);
+    });
+
+    it("should select from the group below when no group exists above", async () => {
+      //          0  1  2  3  4  5  6  7  8  9
+      createRows([_, _, _, _, _, _, X, X, X, _]);
+      await shiftToggleRow(4);
+      expectRows([_, _, _, _, X, X, X, X, X, _]);
+    });
+
+    it("should batch deselect correctly when multiple groups exist", async () => {
+      //          0  1  2  3  4  5  6  7  8  9
+      createRows([X, X, _, X, X, X, _, X, X, _]);
+      await shiftToggleRow(4);
+      expectRows([X, X, _, X, _, _, _, X, X, _]);
+    });
   });
 
-  it("should unselect multiple rows", async () => {
-    //          0  1  2  3  4  5  6  7  8  9
-    createRows([_, _, _, X, X, X, X, X, _, _]);
-    await shiftToggleRow(4);
-    expectRows([_, _, _, X, _, _, _, _, _, _]);
-  });
+  describe("hidden _id column", () => {
+    // Helper component to wrap hooks properly
+    function TestRowWithHiddenId({
+      data,
+      fields,
+      patchDocument,
+      onOpenContextMenu,
+      isRowSelected,
+      toggleIsRowSelected,
+    }: {
+      data: GenericDocument[];
+      fields: string[];
+      patchDocument: any;
+      onOpenContextMenu: any;
+      isRowSelected: (id: string) => boolean;
+      toggleIsRowSelected: (id: string) => void;
+    }) {
+      // Only include specified fields in columns, potentially hiding _id
+      const columns = useDataColumns({
+        tableName: "test",
+        localStorageKey: "_disabled_",
+        fields,
+        data,
+      });
 
-  it("should select from the start when nothing is selected", async () => {
-    //          0  1  2  3  4  5  6  7  8  9
-    createRows([_, _, _, _, _, _, _, _, _, _]);
-    await shiftToggleRow(4);
-    expectRows([X, X, X, X, X, _, _, _, _, _]);
-  });
+      const { rows, prepareRow } = useTable(
+        { columns, data },
+        useResizeColumns,
+      );
 
-  it("should select from the group above when it exists", async () => {
-    //          0  1  2  3  4  5  6  7  8  9
-    createRows([X, X, _, _, _, _, X, X, X, _]);
-    await shiftToggleRow(4);
-    expectRows([X, X, X, X, X, _, X, X, X, _]);
-  });
+      const connectedDeployment = useMemo(
+        () => ({ deployment, isDisconnected: false }),
+        [],
+      );
 
-  it("should select from the group below when no group exists above", async () => {
-    //          0  1  2  3  4  5  6  7  8  9
-    createRows([_, _, _, _, _, _, X, X, X, _]);
-    await shiftToggleRow(4);
-    expectRows([_, _, _, _, X, X, X, X, X, _]);
-  });
+      return (
+        <ConnectedDeploymentContext.Provider value={connectedDeployment}>
+          <DataRow
+            index={0}
+            style={{}}
+            data={{
+              areEditsAuthorized: true,
+              isRowSelected,
+              isSelectionAllNonExhaustive: false,
+              resizingColumn: undefined,
+              onAuthorizeEdits: () => {},
+              patchDocument,
+              prepareRow,
+              rows,
+              tableName: "test",
+              toggleIsRowSelected,
+              onOpenContextMenu,
+              onCloseContextMenu: () => {},
+              contextMenuColumn: null,
+              contextMenuRow: null,
+              canManageTable: true,
+              activeSchema: null,
+              onEditDocument: () => {},
+            }}
+          />
+        </ConnectedDeploymentContext.Provider>
+      );
+    }
 
-  it("should batch deselect correctly when multiple groups exist", async () => {
-    //          0  1  2  3  4  5  6  7  8  9
-    createRows([X, X, _, X, X, X, _, X, X, _]);
-    await shiftToggleRow(4);
-    expectRows([X, X, _, X, _, _, _, X, X, _]);
+    it("should access _id from row.original when _id column is hidden", () => {
+      const patchDocument = jest.fn();
+      const onOpenContextMenu = jest.fn();
+
+      const data: GenericDocument[] = [
+        { _id: "test-id-1", name: "John", age: 30 },
+        { _id: "test-id-2", name: "Jane", age: 25 },
+      ];
+
+      const { container } = render(
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ConvexProvider client={mockClient}>
+            <TestRowWithHiddenId
+              data={data}
+              fields={["name", "age"]}
+              patchDocument={patchDocument}
+              onOpenContextMenu={onOpenContextMenu}
+              isRowSelected={() => false}
+              toggleIsRowSelected={() => {}}
+            />
+          </ConvexProvider>
+        </DeploymentInfoContext.Provider>,
+      );
+
+      // Verify the row renders without errors
+      expect(container.querySelector(".DataRow")).toBeInTheDocument();
+
+      // Verify that we can see the name and age values
+      expect(container).toHaveTextContent("John");
+      expect(container).toHaveTextContent("30");
+    });
+
+    it("should correctly identify rows by _id when _id column is hidden", () => {
+      const isRowSelected = jest.fn(() => false);
+      const toggleIsRowSelected = jest.fn();
+
+      const data: GenericDocument[] = [
+        { _id: "test-id-1", name: "John", age: 30 },
+        { _id: "test-id-2", name: "Jane", age: 25 },
+      ];
+
+      render(
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ConvexProvider client={mockClient}>
+            <TestRowWithHiddenId
+              data={data}
+              fields={["name", "age"]}
+              patchDocument={async () => undefined}
+              onOpenContextMenu={() => {}}
+              isRowSelected={isRowSelected}
+              toggleIsRowSelected={toggleIsRowSelected}
+            />
+          </ConvexProvider>
+        </DeploymentInfoContext.Provider>,
+      );
+
+      // Verify isRowSelected was called with the correct _id
+      expect(isRowSelected).toHaveBeenCalledWith("test-id-1");
+    });
+
+    it("should open context menu with correct _id when _id column is hidden", async () => {
+      const onOpenContextMenu = jest.fn();
+
+      const data: GenericDocument[] = [
+        { _id: "test-id-1", name: "John", age: 30 },
+      ];
+
+      const { container } = render(
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ConvexProvider client={mockClient}>
+            <TestRowWithHiddenId
+              data={data}
+              fields={["name", "age"]}
+              patchDocument={async () => undefined}
+              onOpenContextMenu={onOpenContextMenu}
+              isRowSelected={() => false}
+              toggleIsRowSelected={() => {}}
+            />
+          </ConvexProvider>
+        </DeploymentInfoContext.Provider>,
+      );
+
+      // Find and right-click the checkbox
+      const checkbox = container.querySelector('input[type="checkbox"]');
+      expect(checkbox).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.pointer({
+        target: checkbox!.parentElement!,
+        keys: "[MouseRight]",
+      });
+
+      // Verify onOpenContextMenu was called with correct _id
+      expect(onOpenContextMenu).toHaveBeenCalledWith(
+        expect.any(Object),
+        "test-id-1",
+        null,
+      );
+    });
+
+    it("should handle recently created row highlighting when _id column is hidden", () => {
+      const data: GenericDocument[] = [
+        {
+          _id: "test-id-1",
+          _creationTime: Date.now() - 500, // Created 500ms ago
+          name: "John",
+          age: 30,
+        },
+      ];
+
+      const { container } = render(
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ConvexProvider client={mockClient}>
+            <TestRowWithHiddenId
+              data={data}
+              fields={["name", "age"]}
+              patchDocument={async () => undefined}
+              onOpenContextMenu={() => {}}
+              isRowSelected={() => false}
+              toggleIsRowSelected={() => {}}
+            />
+          </ConvexProvider>
+        </DeploymentInfoContext.Provider>,
+      );
+
+      // Verify the row renders with the highlight animation
+      const row = container.querySelector(".DataRow");
+      expect(row).toHaveClass("animate-highlight");
+    });
   });
 });

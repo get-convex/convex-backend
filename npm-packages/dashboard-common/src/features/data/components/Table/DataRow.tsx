@@ -1,4 +1,4 @@
-import { Value } from "convex/values";
+import { Value, GenericId } from "convex/values";
 import { GenericDocument } from "convex/server";
 import React, {
   CSSProperties,
@@ -125,20 +125,25 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
     contextMenuRow,
   } = data;
 
-  const row: Row = rows[index];
+  const row: Row<GenericDocument> = rows[index];
   const previousRow = usePrevious(row);
   const previousRows = usePrevious(rows);
 
   const didNumberOfRowsChange = previousRows?.length !== rows.length;
 
-  const { _id } = row.values;
-  const previousRowId = previousRow?.values._id;
+  const _id = row.original._id as GenericId<string>;
+  const previousRowId = previousRow?.original._id as
+    | GenericId<string>
+    | undefined;
 
   const [didJustCreate, setDidJustCreate] = useState(false);
   useEffect(() => {
     // The entire row should be highlighted if the row was recently created and
     // not already rendered.
-    if (!previousRowId && Date.now() - row.values._creationTime < 1000) {
+    if (
+      !previousRowId &&
+      Date.now() - (row.original._creationTime as number) < 1000
+    ) {
       setDidJustCreate(true);
       // To reset the animatation, reset the state after one second.
       setTimeout(() => setDidJustCreate(false), 1000);
@@ -156,7 +161,7 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
     [onOpenContextMenu, _id],
   );
   useContextMenuTrigger(checkboxRef, contextMenuCallback, onCloseContextMenu);
-  const document = useMemo(() => omit(row.values, "*select"), [row.values]);
+  const document = useMemo(() => omit(row.original, "*select"), [row.original]);
 
   const editDocument = useCallback(() => {
     canManageTable && onEditDocument(document);
