@@ -86,7 +86,8 @@ export function TeamForm({
               placeholder="Enter a slug for your team"
               onChange={formState.handleChange}
               value={formState.values.slug}
-              Icon={CopyIcon}
+              // We hide the button when the tooltip is visible to avoid nesting buttons
+              Icon={hasAdminPermissions ? CopyIcon : undefined}
               action={() => copyToClipboard(formState.values.slug)}
               id="slug"
               error={formState.errors.slug}
