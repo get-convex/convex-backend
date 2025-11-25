@@ -43,6 +43,7 @@ export function Tooltip({
             "focus-visible:outline-0 cursor-default",
             className,
           )}
+          type="button" // don’t make the tooltip trigger submit forms
         >
           {children}
         </RadixTooltip.Trigger>
