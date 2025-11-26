@@ -135,13 +135,13 @@ function ProjectSelectorPanel({
       {team && (
         <div className="flex max-h-[calc(100vh-3.625rem)] w-[12rem] flex-col py-2 sm:h-fit sm:w-[21.5rem]">
           <div className="my-0.5 flex w-full items-center justify-between gap-2 px-0.5">
-            <h5 className="flex h-full items-center gap-1 truncate">
+            <h5 className="mb-1 flex h-fit items-center gap-1 truncate">
               {switchingTeams ? (
                 <div className="px-1.5 py-2 text-sm">Select Team</div>
               ) : (
                 <Button
                   variant="unstyled"
-                  className="mx-1.5 mb-1 flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-1 hover:bg-background-tertiary"
+                  className="mx-1.5 flex cursor-pointer items-center gap-1 rounded-full border px-1.5 py-1 hover:bg-background-tertiary"
                   onClick={() => setSwitchingTeams(true)}
                   tip="Select team"
                   tipSide="right"
