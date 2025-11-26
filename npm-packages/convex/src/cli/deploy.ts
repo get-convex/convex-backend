@@ -44,7 +44,7 @@ export const deploy = new Command("deploy")
   .addOption(
     new Option(
       "--preview-create <name>",
-      "The name to associate with this deployment if deploying to a newly created preview deployment. Defaults to the current Git branch name in Vercel, Netlify and GitHub CI. This is ignored if deploying to a production deployment.",
+      "The name to associate with this deployment if deploying to a newly created preview deployment. Defaults to the current Git branch name in Vercel, Netlify and GitHub CI. This parameter can only be used with a preview deploy key (when used with another type of key, the command will return an error).",
     ).conflicts("preview-name"),
   )
   .addOption(
@@ -147,6 +147,22 @@ Same format as .env.local or .env files, and overrides them.`,
         },
       );
     } else {
+      if (cmdOptions.previewCreate !== undefined) {
+        const source =
+          deploymentSelection.kind === "deploymentWithinProject" &&
+          deploymentSelection.targetProject.kind === "deploymentName"
+            ? `at ${chalk.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.targetProject.deploymentName}/settings#preview-deploy-keys`)}`
+            : deploymentSelection.kind === "existingDeployment" &&
+                deploymentSelection.deploymentToActOn.deploymentFields !== null
+              ? `at ${chalk.blue.underline(`https://dashboard.convex.dev/dp/${deploymentSelection.deploymentToActOn.deploymentFields.deploymentName}/settings#preview-deploy-keys`)}`
+              : "on the dashboard";
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Preview deployments can only be created with preview deploy keys. Generate a preview deploy key ${source} and set the ${chalk.bold(`CONVEX_DEPLOY_KEY`)} environment variable with it.`,
+        });
+      }
+
       await deployToExistingDeployment(ctx, {
         ...cmdOptions,
         allowDeletingLargeIndexes:

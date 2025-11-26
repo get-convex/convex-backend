@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+- The `--preview-create` parameter for `npx convex deploy` will now error if
+  used with a deploy key that is not a preview deploy key. Previously, the flag
+  would be ignored in this situation, and `npx convex deploy` would deploy
+  to the production deployment. If you were depending on this behavior, make
+  sure to remove the `--preview-create` flag when deploying to production.
+
+## 1.29.2
 
 ## 1.29.2
 
