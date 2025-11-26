@@ -71,7 +71,74 @@ logs via POST requests to any URL you configure. The only parameter required to
 set up this stream is the desired webhook URL.
 
 A request to this webhook contains as its body a JSON array of events in the
-schema defined below.
+schema defined below. The request body is signed using HMAC-SHA256 and encoded
+as a lowercase hex string, and the resulting signature is included in the
+`x-webhook-signature` HTTP header. The HMAC secret is visible in the dashboard
+upon configuring the webhook.
+
+To verify the authenticity of a webhook request, sign and encode the request
+body using the HMAC secret and
+[compare the result in constant time](https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html)
+(for instance using
+[`SubtleCrypto.verify()`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/verify)
+in JavaScript) with the signature included in the request header. Note that the
+signature is prefixed with `sha256=`.
+
+For additional security, consider validating that the `timestamp` field of the
+log event body falls within an acceptable time range to prevent replay attacks.
+
+```typescript
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.post("/webhook", async (c) => {
+  const payload = await c.req.json();
+  const log = payload[0];
+
+  // If using JSONL, parse the first line:
+  // const payload = await c.req.text();
+  // const log = JSON.parse(payload.split("\n")[0]);
+
+  // Validate that the timestamp of the first log is within 5 minutes
+  if (log.timestamp < Date.now() - 5 * 60 * 1000) {
+    c.status(403);
+    return c.text("Request expired");
+  }
+
+  const signature = c.req.header("x-webhook-signature");
+  if (!signature) {
+    c.status(401);
+    return c.text("Unauthorized");
+  }
+
+  const hmacSecret = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(process.env.WEBHOOK_SECRET!),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const hashPayload = await c.req.arrayBuffer();
+
+  // Use constant-time comparison to verify the payload
+  const isValid = await crypto.subtle.verify(
+    "HMAC",
+    hmacSecret,
+    Uint8Array.fromHex(signature.replace("sha256=", "")),
+    hashPayload,
+  );
+
+  if (isValid) {
+    return c.text("Success");
+  }
+
+  c.status(401);
+  return c.text("Unauthorized");
+});
+
+export default app;
+```
 
 ## Log event schema
 
