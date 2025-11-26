@@ -106,6 +106,7 @@ These limits apply to each `query` or `mutation` function.
 | Data read                  | 16 MiB | Data not returned due to a `filter` counts as scanned     |
 | Data written               | 16 MiB |
 | Documents scanned          | 32,000 | Documents not returned due to a `filter` count as scanned |
+| Index ranges read          | 4,096  | The number of calls to `db.get` and `db.query`.           |
 | Documents written          | 16,000 |
 | Function return value size | 16 MiB |
 

@@ -161,19 +161,8 @@ See [Application Errors](/functions/error-handling/application-errors.mdx).
 
 To ensure uptime and guarantee performance, Convex will catch queries and
 mutations that try to read or write too much data. These limits are enforced at
-the level of a single query or mutation function execution. The limits are:
-
-Queries and mutations error out when:
-
-- More than 16384 documents are scanned
-- More than 8MiB worth of data is scanned
-- More than 4096 queries calls to `db.get` or `db.query` are made
-- The function spends more than 1 second executing JavaScript
-
-In addition, mutations error out when:
-
-- More than 8192 documents are written
-- More than 8MiB worth of data is written
+the level of a single query or mutation function execution. The exact limits are
+listed in [Limits](/production/state/limits.mdx#transactions).
 
 Documents are "scanned" by the database to figure out which documents should be
 returned from `db.query`. So for example `db.query("table").take(5).collect()`
@@ -181,8 +170,9 @@ will only need to scan 5 documents, but `db.query("table").filter(...).first()`
 might scan up to as many documents as there are in `"table"`, to find the first
 one that matches the given filter.
 
-Number of calls to `db.get` and `db.query` has a limit to prevent a single query
-from subscribing to too many index ranges.
+The number of calls to `db.get` and `db.query` has a limit to prevent a single
+query from subscribing to too many index ranges, or a mutation from reading from
+too many ranges that could cause conflicts.
 
 In general, if you're running into these limits frequently, we recommend
 [indexing your queries](/database/reading-data/indexes/indexes.md) to reduce the
