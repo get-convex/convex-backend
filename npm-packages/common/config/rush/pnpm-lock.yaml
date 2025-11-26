@@ -1229,8 +1229,8 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
       vercel:
-        specifier: ^46.0.0
-        version: 46.1.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+        specifier: ^48.0.0
+        version: 48.10.3(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)(typescript@5.9.3)
       webpack:
         specifier: ^5.99.9
         version: 5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15))
@@ -4878,7 +4878,7 @@ importers:
     dependencies:
       '@clerk/tanstack-start':
         specifier: ^0.11.5
-        version: 0.11.5(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(svix@1.81.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 0.11.5(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(svix@1.81.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       '@convex-dev/react-query':
         specifier: workspace:*
         version: link:../../@convex-dev/react-query
@@ -4893,7 +4893,7 @@ importers:
         version: 1.130.17(@tanstack/react-query@5.90.8(react@18.3.1))(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.135.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-start':
         specifier: 1.120.11
-        version: 1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)
+        version: 1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)
       '@tanstack/router-devtools':
         specifier: ^1.120.11
         version: 1.135.2(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.135.2)(@types/node@22.19.1)(csstype@3.1.3)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -4914,7 +4914,7 @@ importers:
         version: 2.6.0
       vinxi:
         specifier: ^0.5.6
-        version: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+        version: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
     devDependencies:
       '@types/node':
         specifier: ^22.5.4
@@ -9054,6 +9054,13 @@ packages:
   '@oslojs/jwt@0.2.0':
     resolution: {integrity: sha512-bLE7BtHrURedCn4Mco3ma9L4Y1GR2SMBuIvjWr7rmQ4/W/4Jy70TIAgZ+0nIlk0xHz1vNP8x8DCns45Sb2XRbg==}
 
+  '@oxc-project/runtime@0.82.3':
+    resolution: {integrity: sha512-LNh5GlJvYHAnMurO+EyA8jJwN1rki7l3PSHuosDh2I7h00T6/u9rCkUjg/SvPmT1CZzvhuW0y+gf7jcqUy/Usg==}
+    engines: {node: '>=6.9.0'}
+
+  '@oxc-project/types@0.82.3':
+    resolution: {integrity: sha512-6nCUxBnGX0c6qfZW5MaF6/fmu5dHJDMiMPaioKHKs5mi5+8/FHQ7WGjgQIz1zxpmceMYfdIXkOaLYE+ejbuOtA==}
+
   '@oxc-resolver/binding-android-arm-eabi@11.13.2':
     resolution: {integrity: sha512-vWd1NEaclg/t2DtEmYzRRBNQOueMI8tixw/fSNZ9XETXLRJiAjQMYpYeflQdRASloGze6ZelHE/wIBNt4S+pkw==}
     cpu: [arm]
@@ -9688,8 +9695,81 @@ packages:
     resolution: {integrity: sha512-vDbaOzF7yT2Qs4vO6XV1MHcJv+3dgR1sT+l3B8xxOVhUC336prMvqrvsLL/9Dnw2xr6Qhz4J0dmS0llNAbnUmQ==}
     engines: {node: '>=14.0.0'}
 
+  '@rolldown/binding-android-arm64@1.0.0-beta.35':
+    resolution: {integrity: sha512-zVTg0544Ib1ldJSWwjy8URWYHlLFJ98rLnj+2FIj5fRs4KqGKP4VgH/pVUbXNGxeLFjItie6NSK1Un7nJixneQ==}
+    cpu: [arm64]
+    os: [android]
+
+  '@rolldown/binding-darwin-arm64@1.0.0-beta.35':
+    resolution: {integrity: sha512-WPy0qx22CABTKDldEExfpYHWHulRoPo+m/YpyxP+6ODUPTQexWl8Wp12fn1CVP0xi0rOBj7ugs6+kKMAJW56wQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@rolldown/binding-darwin-x64@1.0.0-beta.35':
+    resolution: {integrity: sha512-3k1TabJafF/GgNubXMkfp93d5p30SfIMOmQ5gm1tFwO+baMxxVPwDs3FDvSl+feCWwXxBA+bzemgkaDlInmp1Q==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@rolldown/binding-freebsd-x64@1.0.0-beta.35':
+    resolution: {integrity: sha512-GAiapN5YyIocnBVNEiOxMfWO9NqIeEKKWohj1sPLGc61P+9N1meXOOCiAPbLU+adXq0grtbYySid+Or7f2q+Mg==}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.35':
+    resolution: {integrity: sha512-okPKKIE73qkUMvq7dxDyzD0VIysdV4AirHqjf8tGTjuNoddUAl3WAtMYbuZCEKJwUyI67UINKO1peFVlYEb+8w==}
+    cpu: [arm]
+    os: [linux]
+
+  '@rolldown/binding-linux-arm64-gnu@1.0.0-beta.35':
+    resolution: {integrity: sha512-Nky8Q2cxyKVkEETntrvcmlzNir5khQbDfX3PflHPbZY7XVZalllRqw7+MW5vn+jTsk5BfKVeLsvrF4344IU55g==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@rolldown/binding-linux-arm64-musl@1.0.0-beta.35':
+    resolution: {integrity: sha512-8aHpWVSfZl3Dy2VNFG9ywmlCPAJx45g0z+qdOeqmYceY7PBAT4QGzii9ig1hPb1pY8K45TXH44UzQwr2fx352Q==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@rolldown/binding-linux-x64-gnu@1.0.0-beta.35':
+    resolution: {integrity: sha512-1r1Ac/vTcm1q4kRiX/NB6qtorF95PhjdCxKH3Z5pb+bWMDZnmcz18fzFlT/3C6Qpj/ZqUF+EUrG4QEDXtVXGgg==}
+    cpu: [x64]
+    os: [linux]
+
+  '@rolldown/binding-linux-x64-musl@1.0.0-beta.35':
+    resolution: {integrity: sha512-AFl1LnuhUBDfX2j+cE6DlVGROv4qG7GCPDhR1kJqi2+OuXGDkeEjqRvRQOFErhKz1ckkP/YakvN7JheLJ2PKHQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@rolldown/binding-openharmony-arm64@1.0.0-beta.35':
+    resolution: {integrity: sha512-Tuwb8vPs+TVJlHhyLik+nwln/burvIgaPDgg6wjNZ23F1ttjZi0w0rQSZfAgsX4jaUbylwCETXQmTp3w6vcJMw==}
+    cpu: [arm64]
+    os: [openharmony]
+
+  '@rolldown/binding-wasm32-wasi@1.0.0-beta.35':
+    resolution: {integrity: sha512-rG0OozgqNUYcpu50MpICMlJflexRVtQfjlN9QYf6hoel46VvY0FbKGwBKoeUp2K5D4i8lV04DpEMfTZlzRjeiA==}
+    engines: {node: '>=14.0.0'}
+    cpu: [wasm32]
+
+  '@rolldown/binding-win32-arm64-msvc@1.0.0-beta.35':
+    resolution: {integrity: sha512-WeOfAZrycFo9+ZqTDp3YDCAOLolymtKGwImrr9n+OW0lpwI2UKyKXbAwGXRhydAYbfrNmuqWyfyoAnLh3X9Hjg==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@rolldown/binding-win32-ia32-msvc@1.0.0-beta.35':
+    resolution: {integrity: sha512-XkLT7ikKGiUDvLh7qtJHRukbyyP1BIrD1xb7A+w4PjIiOKeOH8NqZ+PBaO4plT7JJnLxx+j9g/3B7iylR1nTFQ==}
+    cpu: [ia32]
+    os: [win32]
+
+  '@rolldown/binding-win32-x64-msvc@1.0.0-beta.35':
+    resolution: {integrity: sha512-rftASFKVzjbcQHTCYHaBIDrnQFzbeV50tm4hVugG3tPjd435RHZC2pbeGV5IPdKEqyJSuurM/GfbV3kLQ3LY/A==}
+    cpu: [x64]
+    os: [win32]
+
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
+
+  '@rolldown/pluginutils@1.0.0-beta.35':
+    resolution: {integrity: sha512-slYrCpoxJUqzFDDNlvrOYRazQUNRvWPjXA17dAOISY3rDMxX6k8K4cj2H+hEYMHF81HO3uNd5rHVigAWRM5dSg==}
 
   '@rolldown/pluginutils@1.0.0-beta.40':
     resolution: {integrity: sha512-s3GeJKSQOwBlzdUrj4ISjJj5SfSh+aqn0wjOar4Bx95iV1ETI7F6S/5hLcfAxZ9kXDcyrAkxPlqmd1ZITttf+w==}
@@ -11866,24 +11946,37 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@vercel/backends@0.0.8':
+    resolution: {integrity: sha512-knjz9CFa67V6bJLHZFMqdHMRGZQEz/6rrtwCTsIugiG/tmr7VJe31UTS2WhoOEio20gp9Dcl/nta0ZxdinYOFQ==}
+
   '@vercel/blob@1.0.2':
     resolution: {integrity: sha512-Im/KeFH4oPx7UsM+QiteimnE07bIUD7JK6CBafI9Z0jRFogaialTBMiZj8EKk/30ctUYsrpIIyP9iIY1YxWnUQ==}
     engines: {node: '>=16.14'}
 
-  '@vercel/build-utils@11.0.2':
-    resolution: {integrity: sha512-Y48OT9IsvAFU21LJ3m5SbrXpQaD++h4v4nQoQjCUDZORxXzPf3doVQfrQBBIX45xoSkfq/Fuq0VNF0yRbJw/aA==}
-
   '@vercel/build-utils@13.0.1':
     resolution: {integrity: sha512-RVWYBhVAwoJsuRRq/93OnKVaYEdPlceYnz5f3daRQvrhmjoYRup3y/uy+/SQ5W9I+c0kWdsbogkJ5oBkaWWMOQ==}
 
-  '@vercel/detect-agent@0.2.0':
-    resolution: {integrity: sha512-qf10Q2UwlbJAcWVqQGkyp9OlLBn9Aj2VVE0M4mTDe0gpB7Fo8qycTJLccDbHeyLrWnT6Q12sVy9ZYHas7B+rwg==}
+  '@vercel/cervel@0.0.4':
+    resolution: {integrity: sha512-Jk58wDex0lt2RUkSDVHEtszKZNWwHjonAKUNciSD5F30h3JQceP8CAgBa7ZeCNYrmsYPL2bc8sdM0E16ePy4tg==}
+    hasBin: true
+    peerDependencies:
+      typescript: ^4.0.0 || ^5.0.0
+
+  '@vercel/detect-agent@1.0.0':
+    resolution: {integrity: sha512-AIPgNkmtFcDgPCl+xvTT1ga90OL7OTX2RKM4zu0PMpwBthPfN2DpdHy10n3bh8K+CA22GDU0/ncjzprZsrk0sw==}
+    engines: {node: '>=14'}
+
+  '@vercel/elysia@0.1.4':
+    resolution: {integrity: sha512-SekuhuK8+EmcMi+ghevSWLIQfjquzipdYVdkYddfifGa5t/fdbzeTh2RQNaDNvjAUcX/E54PLhgRhGSF/OE4Rg==}
 
   '@vercel/error-utils@2.0.3':
     resolution: {integrity: sha512-CqC01WZxbLUxoiVdh9B/poPbNpY9U+tO1N9oWHwTl5YAZxcqXmmWJ8KNMFItJCUUWdY3J3xv8LvAuQv2KZ5YdQ==}
 
-  '@vercel/express@0.0.10':
-    resolution: {integrity: sha512-t2rVsyCeh+ayu2gMno16UNF4xmX/FDTzfREVd1v6sEfzY80qAS9qvKWSuFKfV3VjAiqlSnWBpiw4gU6Mu0gNQg==}
+  '@vercel/express@0.1.8':
+    resolution: {integrity: sha512-iQ0jzh83zyNIkCsPbU1QywRtoN5Y3vafdkuEp/EXosaXVUyWUuwhuT0iQ+i3e+bUGxad3ErOHszeU2dJiFiYzQ==}
+
+  '@vercel/fastify@0.1.7':
+    resolution: {integrity: sha512-3s3Noioc6kkDWXvNk71QzO0GArgUC7wOPcg4JTbGYUHtEieht/I0O0zcGcWyKxQuzt6U2nvEgntkvKjyxTkiqQ==}
 
   '@vercel/fun@1.1.6':
     resolution: {integrity: sha512-xDiM+bD0fSZyzcjsAua3D+guXclvHOSTzr03UcZEQwYzIjwWjLduT7bl2gAaeNIe7fASAIZd0P00clcj0On4rQ==}
@@ -11892,20 +11985,26 @@ packages:
   '@vercel/gatsby-plugin-vercel-analytics@1.0.11':
     resolution: {integrity: sha512-iTEA0vY6RBPuEzkwUTVzSHDATo1aF6bdLLspI68mQ/BTbi5UQEGjpjyzdKOVcSYApDtFU6M6vypZ1t4vIEnHvw==}
 
-  '@vercel/gatsby-plugin-vercel-builder@2.0.93':
-    resolution: {integrity: sha512-Vh1Dt+Wa3DUtyc1ety3XG//jRST9M01WiF1W1taAW2k+SfKEjAbTJWoRblj97ah5Boz+uqSBIBg2ULZvNf+xzw==}
+  '@vercel/gatsby-plugin-vercel-builder@2.0.105':
+    resolution: {integrity: sha512-osIn+BzTTbRmDj3zzhTdTkRi4H0g1u5vl7ME4bc11ACjpguxe+dPYOhtzvq/EgFRCLots55ZVqJH1OnxM5XyNA==}
 
   '@vercel/go@3.2.3':
     resolution: {integrity: sha512-PErgHlV7cf8hyPq31aRsL4xm5t4rCSO6vN5AQLlAGSy3ctdgqG7sI6hq/CAKo3CfgIhVHUwNYapFJgGJB/s4OA==}
 
-  '@vercel/hono@0.0.18':
-    resolution: {integrity: sha512-Ie6JOW/uzWvlxg3OH0itSlzetAcWqqVYrhuHnzAJi2/9InusEmWE104rOj/5D3yyvJ9aXInPj3KoUldDVwJ81Q==}
+  '@vercel/h3@0.1.13':
+    resolution: {integrity: sha512-tNSpUfitmnjygnDXsdZ6rmii/oYhx2pYevkE+iNr9MnzJWM8GQilH140BmQbWWGx/DbNQzdwolCnK18hiG+O0g==}
 
-  '@vercel/hydrogen@1.2.4':
-    resolution: {integrity: sha512-eb16oesfgHuBlXxe+WqI+rMdP4QpeHXLJh9ropFy+StkWC2F0ZFKegutEpvJCRg0FHttRnn9uMzMmzJ2F4xKkg==}
+  '@vercel/hono@0.2.7':
+    resolution: {integrity: sha512-0PjGXJBFGcb08vMshXZtnPqPjmbS5WUIqBkXzNFblWMNOAkBabPknew5QVTWddmnCVdpF6IK21G9UZOe5eyaBw==}
 
-  '@vercel/next@4.12.3':
-    resolution: {integrity: sha512-Ukvf5Q1DpuQJmUjImTU2i90/iVCxRHGp51FC48Qdw62hh31SV1kBIzarm8VOb1UFFDdARqFsBlib9lx9vuJ+Dw==}
+  '@vercel/hydrogen@1.3.2':
+    resolution: {integrity: sha512-jI83xL0BnTo7XH5F0mDz7wwaio2oVnpzrj/NmT+5XXVozqdYFegY68HF7BQbzMsgZhZ6H1RwKCS1qb28C2RYuw==}
+
+  '@vercel/introspection@0.0.2':
+    resolution: {integrity: sha512-PcTrmmF31mYYMoY9EntZpBBexPqHy927VdA1XIqXCyjvmQV28Q+3kS/WaTQny9IppNs8itOHwg9/N4I9phcbJw==}
+
+  '@vercel/next@4.15.3':
+    resolution: {integrity: sha512-YRN6QL7WLNHMqWn+a3MdQ1/kK7NbM9lylgFFwoVVzKiC0WhTpahWUQo8iWgSbnhdYl9z8ruF4QLyYJillIXmhw==}
 
   '@vercel/nft@0.30.1':
     resolution: {integrity: sha512-2mgJZv4AYBFkD/nJ4QmiX5Ymxi+AisPLPcS/KPXVqniyQNqKXX+wjieAbDXQP3HcogfEbpHoRMs49Cd4pfkk8g==}
@@ -11917,9 +12016,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@vercel/node@5.3.17':
-    resolution: {integrity: sha512-quNnXO1XuMMid9MXJKPDtpwiNZUFrJgTvdcUu+AXRZg99rOw9N5pk+M0rM4+0FwVXVCIlXzjfKelEOXC8SxGQw==}
-
   '@vercel/node@5.5.6':
     resolution: {integrity: sha512-U8x9Bh70vX74fAE+3G6+M3QdWyTe1gLUzDxG3s2P2SvYRkvtpCkCO2K8UCeceyA7uGH9+XB9nU6PZy08UK+17w==}
 
@@ -11927,20 +12023,20 @@ packages:
     resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
     engines: {node: '>= 20'}
 
-  '@vercel/python@5.0.0':
-    resolution: {integrity: sha512-JHpYKQ8d478REzmF7NcJTJcncFziJhVOwzan8wW4F1RJOHGDBTPkATAgi4CPQIijToRamPCkgeECzNOvLUDR+w==}
+  '@vercel/python@6.0.5':
+    resolution: {integrity: sha512-c1rrkkYn+eOw8boPTjh6f2T+RPzdKRfYjcCd4Pu3yn6i9j3dlu6kaJT2SCPHCRdhJyAKVL0jGJ313itVG/CFgQ==}
 
-  '@vercel/redwood@2.3.6':
-    resolution: {integrity: sha512-Rm9xECWNIJOwtPsZ1/XcgyJj95KM7cWwNHYPMw8dzFAnLQGyapGe/YHEjxV6POI2RF8R0nFmU1t+45XBweYJJA==}
+  '@vercel/redwood@2.4.2':
+    resolution: {integrity: sha512-6j7mHHf/B/JH8N7mpyuH06fz8aItY2FiTZuYbKxmd/ScfQj6YF7TGJo65muY5+vnAEvc65vESEiJmt3Vc7cfyw==}
 
-  '@vercel/remix-builder@5.4.12':
-    resolution: {integrity: sha512-25HHNUpIu3TfuZnphDDX7yG+4QugbxDq0bB8d1KCeOWsKH+z0Zscg7rchs3Pqy6kdhV/US6zH+YAogtwMvdDMg==}
+  '@vercel/remix-builder@5.5.2':
+    resolution: {integrity: sha512-+F2ugrKRAkl+NCHfUm/hygZylonucosyiuvf1LSRYNSPZKpnzs+JWpCa9UoeOr0KFD+pTeJ3vJppFvV8XZx9NQ==}
 
-  '@vercel/ruby@2.2.1':
-    resolution: {integrity: sha512-DsmTCggOa/Uvt/9JkafXx9U+Bz5eNIb6Bs422EOQo2zKwcxW88ITSh8mM5m0dQ0+B4k02X/moVim6iFa4sjazg==}
+  '@vercel/ruby@2.2.2':
+    resolution: {integrity: sha512-PgO3kVPPmYw914BQpgi2/NQSgaXe4xoLLdNhYuI7tJxwfZzVfYizNvhjREyoOvn96LeuB4gNS5P7nbeJjHqb/w==}
 
-  '@vercel/static-build@2.7.20':
-    resolution: {integrity: sha512-2Ggjk0fsVG2LgFjDmunIA6i9/UEaVxcinJblkR8aHeKecVL4ibqXhluiyXygAobfpRiYJlU9gXgS2veieB57sw==}
+  '@vercel/static-build@2.8.6':
+    resolution: {integrity: sha512-mQEeOH1CttfRAKfQ7Z1YlHZjsnln6EiMf1MeUQdsyNeoge4rKebrDq4rwrBv+qGeVqssW74p8tFc7ajy1DkJqQ==}
 
   '@vercel/static-config@3.1.2':
     resolution: {integrity: sha512-2d+TXr6K30w86a+WbMbGm2W91O0UzO5VeemZYBBUJbCjk/5FLLGIi8aV6RS2+WmaRvtcqNTn2pUA7nCOK3bGcQ==}
@@ -15136,6 +15232,10 @@ packages:
   evp_bytestokey@1.0.3:
     resolution: {integrity: sha512-/f2Go4TognH/KvCISP7OUsHn85hT9nUkxxA9BEWxFn+Oj9o8ZNLm/40hdlgSLyuOimsrTKLUMEorQexp/aPQeA==}
 
+  execa@3.2.0:
+    resolution: {integrity: sha512-kJJfVbI/lZE1PZYDI5VPxp8zXPO9rtxOkhpZ0jMKha56AI9y2gGVC6bkukStQf0ka5Rh15BA5m7cCCH4jmHqkw==}
+    engines: {node: ^8.12.0 || >=9.7.0}
+
   execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
     engines: {node: '>=10'}
@@ -16253,6 +16353,10 @@ packages:
 
   httpxy@0.1.7:
     resolution: {integrity: sha512-pXNx8gnANKAndgga5ahefxc++tJvNL87CXoRwxn1cJE2ZkWEojF3tNfQIEhZX/vfpt+wzeAzpUI4qkediX1MLQ==}
+
+  human-signals@1.1.1:
+    resolution: {integrity: sha512-SEQu7vl8KjNL2eoGBLF3+wAjpsNfA9XMlXAYj/3EdaNfAlxKthD1xjEQfGOUhllCGGJVNY34bRr6lPINhNjyZw==}
+    engines: {node: '>=8.12.0'}
 
   human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
@@ -18957,6 +19061,10 @@ packages:
     resolution: {integrity: sha512-LICb2p9CB7FS+0eR1oqWnHhp0FljGLZCWBE9aix0Uye9W8LTQPwMTYVGWQWIw9RdQiDg4+epXQODwIYJtSJaow==}
     engines: {node: '>=4'}
 
+  p-finally@2.0.1:
+    resolution: {integrity: sha512-vpm09aKwq6H9phqRQzecoDpD8TmVyGw70qmWlyq5onxY7tqyTTFVvxMykxQSQKILBSFlbXpypIw2T1Ml7+DDtw==}
+    engines: {node: '>=8'}
+
   p-limit@2.3.0:
     resolution: {integrity: sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==}
     engines: {node: '>=6'}
@@ -20770,6 +20878,10 @@ packages:
     resolution: {integrity: sha512-5Di9UC0+8h1L6ZD2d7awM7E/T4uA1fJRlx6zk/NvdCCVEoAnFqvHmCuNeIKoCeIixBX/q8uM+6ycDvF8woqosA==}
     engines: {node: '>= 0.8'}
 
+  rolldown@1.0.0-beta.35:
+    resolution: {integrity: sha512-gJATyqcsJe0Cs8RMFO8XgFjfTc0lK1jcSvirDQDSIfsJE+vt53QH/Ob+OBSJsXb98YtZXHfP/bHpELpPwCprow==}
+    hasBin: true
+
   rollup-plugin-visualizer@6.0.5:
     resolution: {integrity: sha512-9+HlNgKCVbJDs8tVtjQ43US12eqaiHyyiLMdBwQ7vSZPiHMysGNo2E88TAp1si5wx8NAoYriI2A5kuKfIakmJg==}
     engines: {node: '>=18'}
@@ -21329,6 +21441,11 @@ packages:
 
   srvx@0.8.16:
     resolution: {integrity: sha512-hmcGW4CgroeSmzgF1Ihwgl+Ths0JqAJ7HwjP2X7e3JzY7u4IydLMcdnlqGQiQGUswz+PO9oh/KtCpOISIvs9QQ==}
+    engines: {node: '>=20.16.0'}
+    hasBin: true
+
+  srvx@0.8.9:
+    resolution: {integrity: sha512-wYc3VLZHRzwYrWJhkEqkhLb31TI0SOkfYZDkUhXdp3NoCnNS0FqajiQszZZjfow/VYEuc6Q5sZh9nM6kPy2NBQ==}
     engines: {node: '>=20.16.0'}
     hasBin: true
 
@@ -22146,6 +22263,11 @@ packages:
     peerDependencies:
       typescript: '>=2.8.0 || >= 3.2.0-dev || >= 3.3.0-dev || >= 3.4.0-dev || >= 3.5.0-dev || >= 3.6.0-dev || >= 3.6.0-beta || >= 3.7.0-dev || >= 3.7.0-beta'
 
+  tsx@4.19.2:
+    resolution: {integrity: sha512-pOUl6Vo2LUq/bSa8S5q7b91cgNSjctn9ugq/+Mvow99qW6x/UZYwzxy/3NmqoT66eHYfCVvFvACC58UBPFf28g==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
+
   tsx@4.20.6:
     resolution: {integrity: sha512-ytQKuwgmrrkDTFP4LjR0ToE2nqgy886GpvRSpU0JAnrdBYppuY5rLkRUYPU1yCryb24SsKBTL/hlDQAEFVwtZg==}
     engines: {node: '>=18.0.0'}
@@ -22690,8 +22812,8 @@ packages:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
 
-  vercel@46.1.1:
-    resolution: {integrity: sha512-nYkT8KFK9M/GlYn7eTSOF3bEFXD+SCLctCTPbGxX/xi2dU+mg6/RFgA7/2w89zhUUxQdB9LlvgKWoIbPTlWrwA==}
+  vercel@48.10.3:
+    resolution: {integrity: sha512-aT8usdP3pqUs2ubV3vPZTT/GpV7FIvEypofa6LceSAC04Ou8heCAx4pKVgMfzWK1vjX6WbAvcRBDX6zrqDcIWg==}
     engines: {node: '>= 18'}
     hasBin: true
 
@@ -26006,18 +26128,18 @@ snapshots:
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
 
-  '@clerk/tanstack-start@0.11.5(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(svix@1.81.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)':
+  '@clerk/tanstack-start@0.11.5(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/react-start@1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(svix@1.81.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)':
     dependencies:
       '@clerk/backend': 1.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(svix@1.81.0)
       '@clerk/clerk-react': 5.55.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/shared': 3.34.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/types': 4.100.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router': 1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/react-start': 1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)
+      '@tanstack/react-start': 1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
-      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -29100,6 +29222,10 @@ snapshots:
     dependencies:
       '@oslojs/encoding': 0.4.1
 
+  '@oxc-project/runtime@0.82.3': {}
+
+  '@oxc-project/types@0.82.3': {}
+
   '@oxc-resolver/binding-android-arm-eabi@11.13.2':
     optional: true
 
@@ -29664,7 +29790,53 @@ snapshots:
 
   '@remix-run/router@1.23.1': {}
 
+  '@rolldown/binding-android-arm64@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-darwin-arm64@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-darwin-x64@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-freebsd-x64@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-linux-arm-gnueabihf@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-linux-arm64-gnu@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-linux-arm64-musl@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-linux-x64-gnu@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-linux-x64-musl@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-openharmony-arm64@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-wasm32-wasi@1.0.0-beta.35':
+    dependencies:
+      '@napi-rs/wasm-runtime': 1.0.7
+    optional: true
+
+  '@rolldown/binding-win32-arm64-msvc@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-win32-ia32-msvc@1.0.0-beta.35':
+    optional: true
+
+  '@rolldown/binding-win32-x64-msvc@1.0.0-beta.35':
+    optional: true
+
   '@rolldown/pluginutils@1.0.0-beta.27': {}
+
+  '@rolldown/pluginutils@1.0.0-beta.35': {}
 
   '@rolldown/pluginutils@1.0.0-beta.40': {}
 
@@ -31465,9 +31637,9 @@ snapshots:
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
 
-  '@tanstack/react-start-config@1.120.20(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)':
+  '@tanstack/react-start-config@1.120.20(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)':
     dependencies:
-      '@tanstack/react-start-plugin': 1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(@vitejs/plugin-react@4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)))(aws4fetch@1.0.20)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)
+      '@tanstack/react-start-plugin': 1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(@vitejs/plugin-react@4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)))(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)
       '@tanstack/router-core': 1.135.2
       '@tanstack/router-generator': 1.135.2
       '@tanstack/router-plugin': 1.135.2(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)
@@ -31475,11 +31647,11 @@ snapshots:
       '@tanstack/start-server-functions-handler': 1.120.19
       '@vitejs/plugin-react': 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       import-meta-resolve: 4.2.0
-      nitropack: 2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)
+      nitropack: 2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)
       ofetch: 1.5.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       vite: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       zod: 3.25.76
     transitivePeerDependencies:
@@ -31532,9 +31704,9 @@ snapshots:
       - xml2js
       - yaml
 
-  '@tanstack/react-start-plugin@1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(@vitejs/plugin-react@4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)))(aws4fetch@1.0.20)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)':
+  '@tanstack/react-start-plugin@1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(@vitejs/plugin-react@4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)))(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)':
     dependencies:
-      '@tanstack/start-plugin-core': 1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)
+      '@tanstack/start-plugin-core': 1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)
       '@vitejs/plugin-react': 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       pathe: 2.0.3
       vite: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -31574,11 +31746,11 @@ snapshots:
       - webpack
       - xml2js
 
-  '@tanstack/react-start-router-manifest@1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)':
+  '@tanstack/react-start-router-manifest@1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)':
     dependencies:
       '@tanstack/router-core': 1.135.2
       tiny-invariant: 1.3.3
-      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -31636,13 +31808,13 @@ snapshots:
     transitivePeerDependencies:
       - crossws
 
-  '@tanstack/react-start@1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)':
+  '@tanstack/react-start@1.120.11(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)':
     dependencies:
       '@tanstack/react-start-client': 1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/react-start-config': 1.120.20(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)
-      '@tanstack/react-start-router-manifest': 1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      '@tanstack/react-start-config': 1.120.20(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)(yaml@2.8.1)
+      '@tanstack/react-start-router-manifest': 1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       '@tanstack/react-start-server': 1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@tanstack/start-api-routes': 1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      '@tanstack/start-api-routes': 1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
       '@tanstack/start-server-functions-client': 1.131.50(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       '@tanstack/start-server-functions-handler': 1.120.19
       '@tanstack/start-server-functions-server': 1.131.2(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
@@ -32088,11 +32260,11 @@ snapshots:
       - supports-color
       - vite
 
-  '@tanstack/start-api-routes@1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)':
+  '@tanstack/start-api-routes@1.120.19(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)':
     dependencies:
       '@tanstack/router-core': 1.135.2
       '@tanstack/start-server-core': 1.135.2
-      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+      vinxi: 0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -32155,7 +32327,7 @@ snapshots:
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
 
-  '@tanstack/start-plugin-core@1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)':
+  '@tanstack/start-plugin-core@1.131.50(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@tanstack/react-router@1.135.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))(webpack@5.102.1)':
     dependencies:
       '@babel/code-frame': 7.26.2
       '@babel/core': 7.28.5
@@ -32171,7 +32343,7 @@ snapshots:
       babel-dead-code-elimination: 1.0.10
       cheerio: 1.1.2
       h3: 1.13.0
-      nitropack: 2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)
+      nitropack: 2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)
       pathe: 2.0.3
       ufo: 1.6.1
       vite: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -33654,6 +33826,20 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
+  '@vercel/backends@0.0.8(rollup@2.79.2)(typescript@5.9.3)':
+    dependencies:
+      '@vercel/cervel': 0.0.4(typescript@5.9.3)
+      '@vercel/introspection': 0.0.2
+      '@vercel/nft': 0.30.1(rollup@2.79.2)
+      '@vercel/static-config': 3.1.2
+      fs-extra: 11.1.0
+      rolldown: 1.0.0-beta.35
+    transitivePeerDependencies:
+      - encoding
+      - rollup
+      - supports-color
+      - typescript
+
   '@vercel/blob@1.0.2':
     dependencies:
       async-retry: 1.3.3
@@ -33662,19 +33848,54 @@ snapshots:
       throttleit: 2.1.0
       undici: 5.29.0
 
-  '@vercel/build-utils@11.0.2': {}
-
   '@vercel/build-utils@13.0.1': {}
 
-  '@vercel/detect-agent@0.2.0': {}
+  '@vercel/cervel@0.0.4(typescript@5.9.3)':
+    dependencies:
+      execa: 3.2.0
+      rolldown: 1.0.0-beta.35
+      srvx: 0.8.9
+      tsx: 4.19.2
+      typescript: 5.9.3
+
+  '@vercel/detect-agent@1.0.0': {}
+
+  '@vercel/elysia@0.1.4(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
+    dependencies:
+      '@vercel/node': 5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/static-config': 3.1.2
+    transitivePeerDependencies:
+      - '@swc/core'
+      - '@swc/wasm'
+      - encoding
+      - rollup
+      - supports-color
 
   '@vercel/error-utils@2.0.3': {}
 
-  '@vercel/express@0.0.10(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
+  '@vercel/express@0.1.8(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)(typescript@5.9.3)':
     dependencies:
-      '@vercel/node': 5.3.17(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/cervel': 0.0.4(typescript@5.9.3)
+      '@vercel/nft': 0.30.1(rollup@2.79.2)
+      '@vercel/node': 5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
       '@vercel/static-config': 3.1.2
+      fs-extra: 11.1.0
+      path-to-regexp: 8.3.0
+      rolldown: 1.0.0-beta.35
       ts-morph: 12.0.0
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - '@swc/core'
+      - '@swc/wasm'
+      - encoding
+      - rollup
+      - supports-color
+      - typescript
+
+  '@vercel/fastify@0.1.7(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
+    dependencies:
+      '@vercel/node': 5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/static-config': 3.1.2
     transitivePeerDependencies:
       - '@swc/core'
       - '@swc/wasm'
@@ -33710,21 +33931,20 @@ snapshots:
     dependencies:
       web-vitals: 0.2.4
 
-  '@vercel/gatsby-plugin-vercel-builder@2.0.93':
+  '@vercel/gatsby-plugin-vercel-builder@2.0.105':
     dependencies:
       '@sinclair/typebox': 0.25.24
-      '@vercel/build-utils': 11.0.2
+      '@vercel/build-utils': 13.0.1
       esbuild: 0.25.0
       etag: 1.8.1
       fs-extra: 11.1.0
 
   '@vercel/go@3.2.3': {}
 
-  '@vercel/hono@0.0.18(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
+  '@vercel/h3@0.1.13(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
     dependencies:
-      '@vercel/node': 5.3.17(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/node': 5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
       '@vercel/static-config': 3.1.2
-      ts-morph: 12.0.0
     transitivePeerDependencies:
       - '@swc/core'
       - '@swc/wasm'
@@ -33732,12 +33952,34 @@ snapshots:
       - rollup
       - supports-color
 
-  '@vercel/hydrogen@1.2.4':
+  '@vercel/hono@0.2.7(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
+    dependencies:
+      '@vercel/nft': 0.30.1(rollup@2.79.2)
+      '@vercel/node': 5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/static-config': 3.1.2
+      fs-extra: 11.1.0
+      path-to-regexp: 8.3.0
+      rolldown: 1.0.0-beta.35
+      ts-morph: 12.0.0
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - '@swc/core'
+      - '@swc/wasm'
+      - encoding
+      - rollup
+      - supports-color
+
+  '@vercel/hydrogen@1.3.2':
     dependencies:
       '@vercel/static-config': 3.1.2
       ts-morph: 12.0.0
 
-  '@vercel/next@4.12.3(rollup@2.79.2)':
+  '@vercel/introspection@0.0.2':
+    dependencies:
+      path-to-regexp: 8.3.0
+      zod: 3.22.4
+
+  '@vercel/next@4.15.3(rollup@2.79.2)':
     dependencies:
       '@vercel/nft': 0.30.1(rollup@2.79.2)
     transitivePeerDependencies:
@@ -33802,13 +34044,13 @@ snapshots:
       - rollup
       - supports-color
 
-  '@vercel/node@5.3.17(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
+  '@vercel/node@5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)':
     dependencies:
       '@edge-runtime/node-utils': 2.3.0
       '@edge-runtime/primitives': 4.1.0
       '@edge-runtime/vm': 3.2.0
       '@types/node': 16.18.11
-      '@vercel/build-utils': 11.0.2
+      '@vercel/build-utils': 13.0.1
       '@vercel/error-utils': 2.0.3
       '@vercel/nft': 0.30.1(rollup@2.79.2)
       '@vercel/static-config': 3.1.2
@@ -33818,12 +34060,14 @@ snapshots:
       es-module-lexer: 1.4.1
       esbuild: 0.25.0
       etag: 1.8.1
+      mime-types: 2.1.35
       node-fetch: 2.6.9
       path-to-regexp: 6.3.0
       path-to-regexp-updated: path-to-regexp@6.3.0
       ts-morph: 12.0.0
       ts-node: 10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@16.18.11)(typescript@4.9.5)
       typescript: 4.9.5
+      typescript5: typescript@5.9.3
       undici: 5.29.0
     transitivePeerDependencies:
       - '@swc/core'
@@ -33866,9 +34110,9 @@ snapshots:
 
   '@vercel/oidc@3.0.3': {}
 
-  '@vercel/python@5.0.0': {}
+  '@vercel/python@6.0.5': {}
 
-  '@vercel/redwood@2.3.6(rollup@2.79.2)':
+  '@vercel/redwood@2.4.2(rollup@2.79.2)':
     dependencies:
       '@vercel/nft': 0.30.1(rollup@2.79.2)
       '@vercel/static-config': 3.1.2
@@ -33879,7 +34123,7 @@ snapshots:
       - rollup
       - supports-color
 
-  '@vercel/remix-builder@5.4.12(rollup@2.79.2)':
+  '@vercel/remix-builder@5.5.2(rollup@2.79.2)':
     dependencies:
       '@vercel/error-utils': 2.0.3
       '@vercel/nft': 0.30.1(rollup@2.79.2)
@@ -33892,12 +34136,12 @@ snapshots:
       - rollup
       - supports-color
 
-  '@vercel/ruby@2.2.1': {}
+  '@vercel/ruby@2.2.2': {}
 
-  '@vercel/static-build@2.7.20':
+  '@vercel/static-build@2.8.6':
     dependencies:
       '@vercel/gatsby-plugin-vercel-analytics': 1.0.11
-      '@vercel/gatsby-plugin-vercel-builder': 2.0.93
+      '@vercel/gatsby-plugin-vercel-builder': 2.0.105
       '@vercel/static-config': 3.1.2
       ts-morph: 12.0.0
 
@@ -38556,6 +38800,19 @@ snapshots:
       md5.js: 1.3.5
       safe-buffer: 5.2.1
 
+  execa@3.2.0:
+    dependencies:
+      cross-spawn: 7.0.6
+      get-stream: 5.2.0
+      human-signals: 1.1.1
+      is-stream: 2.0.1
+      merge-stream: 2.0.0
+      npm-run-path: 4.0.1
+      onetime: 5.1.2
+      p-finally: 2.0.1
+      signal-exit: 3.0.7
+      strip-final-newline: 2.0.0
+
   execa@5.1.1:
     dependencies:
       cross-spawn: 7.0.6
@@ -40173,6 +40430,8 @@ snapshots:
       - supports-color
 
   httpxy@0.1.7: {}
+
+  human-signals@1.1.1: {}
 
   human-signals@2.1.0: {}
 
@@ -43809,7 +44068,7 @@ snapshots:
 
   nice-try@1.0.5: {}
 
-  nitropack@2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20):
+  nitropack@2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.4.0
       '@rollup/plugin-alias': 5.1.1(rollup@4.53.2)
@@ -43862,7 +44121,7 @@ snapshots:
       pretty-bytes: 7.1.0
       radix3: 1.1.2
       rollup: 4.53.2
-      rollup-plugin-visualizer: 6.0.5(rollup@4.53.2)
+      rollup-plugin-visualizer: 6.0.5(rolldown@1.0.0-beta.35)(rollup@4.53.2)
       scule: 1.3.0
       semver: 7.7.3
       serve-placeholder: 2.0.2
@@ -44469,6 +44728,8 @@ snapshots:
   p-cancelable@3.0.0: {}
 
   p-finally@1.0.0: {}
+
+  p-finally@2.0.1: {}
 
   p-limit@2.3.0:
     dependencies:
@@ -46503,13 +46764,36 @@ snapshots:
       hash-base: 3.1.2
       inherits: 2.0.4
 
-  rollup-plugin-visualizer@6.0.5(rollup@4.53.2):
+  rolldown@1.0.0-beta.35:
+    dependencies:
+      '@oxc-project/runtime': 0.82.3
+      '@oxc-project/types': 0.82.3
+      '@rolldown/pluginutils': 1.0.0-beta.35
+      ansis: 4.2.0
+    optionalDependencies:
+      '@rolldown/binding-android-arm64': 1.0.0-beta.35
+      '@rolldown/binding-darwin-arm64': 1.0.0-beta.35
+      '@rolldown/binding-darwin-x64': 1.0.0-beta.35
+      '@rolldown/binding-freebsd-x64': 1.0.0-beta.35
+      '@rolldown/binding-linux-arm-gnueabihf': 1.0.0-beta.35
+      '@rolldown/binding-linux-arm64-gnu': 1.0.0-beta.35
+      '@rolldown/binding-linux-arm64-musl': 1.0.0-beta.35
+      '@rolldown/binding-linux-x64-gnu': 1.0.0-beta.35
+      '@rolldown/binding-linux-x64-musl': 1.0.0-beta.35
+      '@rolldown/binding-openharmony-arm64': 1.0.0-beta.35
+      '@rolldown/binding-wasm32-wasi': 1.0.0-beta.35
+      '@rolldown/binding-win32-arm64-msvc': 1.0.0-beta.35
+      '@rolldown/binding-win32-ia32-msvc': 1.0.0-beta.35
+      '@rolldown/binding-win32-x64-msvc': 1.0.0-beta.35
+
+  rollup-plugin-visualizer@6.0.5(rolldown@1.0.0-beta.35)(rollup@4.53.2):
     dependencies:
       open: 8.4.2
       picomatch: 4.0.3
       source-map: 0.7.6
       yargs: 17.7.2
     optionalDependencies:
+      rolldown: 1.0.0-beta.35
       rollup: 4.53.2
 
   rollup@2.79.2:
@@ -47243,6 +47527,10 @@ snapshots:
   srcset@4.0.0: {}
 
   srvx@0.8.16: {}
+
+  srvx@0.8.9:
+    dependencies:
+      cookie-es: 2.0.0
 
   sshpk@1.18.0:
     dependencies:
@@ -48300,6 +48588,13 @@ snapshots:
       tslib: 1.14.1
       typescript: 5.9.3
 
+  tsx@4.19.2:
+    dependencies:
+      esbuild: 0.25.0
+      get-tsconfig: 4.13.0
+    optionalDependencies:
+      fsevents: 2.3.3
+
   tsx@4.20.6:
     dependencies:
       esbuild: 0.25.4
@@ -48877,23 +49172,27 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vercel@46.1.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2):
+  vercel@48.10.3(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)(typescript@5.9.3):
     dependencies:
+      '@vercel/backends': 0.0.8(rollup@2.79.2)(typescript@5.9.3)
       '@vercel/blob': 1.0.2
-      '@vercel/build-utils': 11.0.2
-      '@vercel/detect-agent': 0.2.0
-      '@vercel/express': 0.0.10(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/build-utils': 13.0.1
+      '@vercel/detect-agent': 1.0.0
+      '@vercel/elysia': 0.1.4(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/express': 0.1.8(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)(typescript@5.9.3)
+      '@vercel/fastify': 0.1.7(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
       '@vercel/fun': 1.1.6
       '@vercel/go': 3.2.3
-      '@vercel/hono': 0.0.18(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
-      '@vercel/hydrogen': 1.2.4
-      '@vercel/next': 4.12.3(rollup@2.79.2)
-      '@vercel/node': 5.3.17(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
-      '@vercel/python': 5.0.0
-      '@vercel/redwood': 2.3.6(rollup@2.79.2)
-      '@vercel/remix-builder': 5.4.12(rollup@2.79.2)
-      '@vercel/ruby': 2.2.1
-      '@vercel/static-build': 2.7.20
+      '@vercel/h3': 0.1.13(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/hono': 0.2.7(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/hydrogen': 1.3.2
+      '@vercel/next': 4.15.3(rollup@2.79.2)
+      '@vercel/node': 5.5.6(@swc/core@1.10.4(@swc/helpers@0.5.15))(rollup@2.79.2)
+      '@vercel/python': 6.0.5
+      '@vercel/redwood': 2.4.2(rollup@2.79.2)
+      '@vercel/remix-builder': 5.5.2(rollup@2.79.2)
+      '@vercel/ruby': 2.2.2
+      '@vercel/static-build': 2.8.6
       chokidar: 4.0.0
       jose: 5.9.6
     transitivePeerDependencies:
@@ -48902,6 +49201,7 @@ snapshots:
       - encoding
       - rollup
       - supports-color
+      - typescript
 
   verdaccio-audit@13.0.0-next-8.24:
     dependencies:
@@ -49030,7 +49330,7 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  vinxi@0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1):
+  vinxi@0.5.8(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@types/node@22.19.1)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(db0@0.3.4)(ioredis@5.8.2)(jiti@2.6.1)(lightningcss@1.30.2)(rolldown@1.0.0-beta.35)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
       '@babel/core': 7.28.5
       '@babel/plugin-syntax-jsx': 7.27.1(@babel/core@7.28.5)
@@ -49051,7 +49351,7 @@ snapshots:
       hookable: 5.5.3
       http-proxy: 1.18.1
       micromatch: 4.0.8
-      nitropack: 2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)
+      nitropack: 2.12.9(@azure/identity@4.13.0)(@azure/storage-blob@12.26.0)(@vercel/blob@1.0.2)(aws4fetch@1.0.20)(rolldown@1.0.0-beta.35)
       node-fetch-native: 1.6.7
       path-to-regexp: 6.3.0
       pathe: 1.1.2

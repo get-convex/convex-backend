@@ -113,7 +113,7 @@
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",
-    "vercel": "^46.0.0",
+    "vercel": "^48.0.0",
     "webpack": "^5.99.9",
     "@testing-library/dom": "~10.4.0",
     "openapi-typescript": "~7.8.0",
