@@ -4,10 +4,12 @@ import { api } from "@/convex/_generated/api";
 import { preloadQuery, preloadedQueryResult } from "convex/nextjs";
 
 export default async function VoteOptionPage({
-  params: { option },
+  params,
 }: {
-  params: { option: string };
+  params: Promise<{ option: string }>;
 }) {
+  const { option } = await params;
+
   const counterName = option;
   const preloadedCounter = await preloadQuery(api.counter.get, {
     counterName,
