@@ -103,7 +103,7 @@ export function UserMenu() {
         </>
       ) : null}
       <hr className="mx-4" />
-      <MenuLink href="/api/auth/logout">
+      <MenuLink href="/api/auth/logout?returnTo=/api/auth/login">
         <div className="flex w-full items-center justify-between">
           Log Out
           <ExitIcon className="text-content-secondary" />

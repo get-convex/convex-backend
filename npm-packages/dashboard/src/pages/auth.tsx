@@ -26,7 +26,7 @@ function Auth() {
         <UIProvider>
           <Button
             variant="neutral"
-            href="/api/auth/logout"
+            href="/api/auth/logout?returnTo=/api/auth/login"
             className={classNames("mt-4 ml-auto")}
           >
             Log Out

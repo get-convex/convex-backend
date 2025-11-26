@@ -141,7 +141,7 @@ function withSWRFallback(Page: NextPage) {
               </Callout>
               <UIProvider>
                 <Button
-                  href="/api/auth/logout"
+                  href="/api/auth/logout?returnTo=/api/auth/login"
                   variant="neutral"
                   className="ml-auto w-fit"
                 >

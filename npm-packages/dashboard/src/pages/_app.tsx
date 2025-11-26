@@ -142,7 +142,7 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                       </span>
                       <Button
                         className="ml-auto w-fit"
-                        href="/api/auth/logout"
+                        href="/api/auth/logout?returnTo=/api/auth/login"
                         icon={<ExitIcon />}
                       >
                         Log Out

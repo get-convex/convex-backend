@@ -19,6 +19,7 @@ import { Tooltip } from "@ui/Tooltip";
 import {
   QuestionMarkCircledIcon,
   ExclamationTriangleIcon,
+  ExternalLinkIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import { useProfileEmails } from "api/profile";
@@ -527,6 +528,7 @@ function ManageDomainsButton({
       loading={loading}
       onClick={onClick}
       disabled={disabled}
+      icon={<ExternalLinkIcon />}
     >
       Manage domains
     </Button>
@@ -553,6 +555,7 @@ function ManageSSOConfigurationButton({
       onClick={onClick}
       disabled={disabled}
       tip={tooltip}
+      icon={<ExternalLinkIcon />}
     >
       Manage SSO configuration
     </Button>
@@ -579,6 +582,7 @@ function CertificateRenewalButton({
       onClick={onClick}
       disabled={disabled}
       tip={tooltip}
+      icon={<ExternalLinkIcon />}
     >
       Renew Certificate
     </Button>

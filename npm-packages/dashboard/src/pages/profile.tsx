@@ -89,7 +89,8 @@ function Profile() {
                         document.cookie = "";
                         window.localStorage.clear();
                         await deleteAccount();
-                        window.location.href = "/api/auth/logout";
+                        window.location.href =
+                          "/api/auth/logout?returnTo=/api/auth/login";
                       } catch (e: any) {
                         setDeleteAccountError(e.message);
                         throw e;
