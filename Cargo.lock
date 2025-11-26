@@ -481,6 +481,7 @@ dependencies = [
  "common",
  "convex_sync_types",
  "data-url",
+ "derive_more",
  "errors",
  "futures",
  "http 1.3.1",
@@ -493,7 +494,9 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "tuple_struct",
  "url",
+ "utoipa",
 ]
 
 [[package]]

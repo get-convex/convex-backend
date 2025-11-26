@@ -45,6 +45,9 @@ use serde::{
     Serialize,
 };
 use sync_types::AuthenticationToken;
+use tuple_struct::tuple_struct_string;
+
+tuple_struct_string!(WorkOSOrgID);
 
 pub mod access_token_auth;
 pub mod application_auth;
@@ -497,6 +500,8 @@ pub struct WorkOSClaims {
     vercel: Option<VercelClaims>,
 
     sso_team_id: Option<String>,
+
+    org_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -542,6 +547,7 @@ pub struct ConsoleAccessToken {
     name: Option<String>,
     vercel: Option<VercelClaims>,
     sso_team_id: Option<TeamId>,
+    workos_org_id: Option<WorkOSOrgID>,
 }
 
 impl ConsoleAccessToken {
@@ -553,6 +559,7 @@ impl ConsoleAccessToken {
             name: None,
             vercel: None,
             sso_team_id: None,
+            workos_org_id: None,
         }
     }
 
@@ -562,6 +569,10 @@ impl ConsoleAccessToken {
 
     pub fn sub(&self) -> &str {
         &self.sub
+    }
+
+    pub fn workos_org_id(&self) -> Option<&WorkOSOrgID> {
+        self.workos_org_id.as_ref()
     }
 }
 
@@ -604,6 +615,7 @@ pub struct AuthenticatedLogin {
     sub: String,
     user_info: Option<UserInfo>,
     sso_team_id: Option<TeamId>,
+    workos_org_id: Option<WorkOSOrgID>,
 }
 
 impl AuthenticatedLogin {
@@ -613,6 +625,7 @@ impl AuthenticatedLogin {
             sub: token.sub,
             user_info,
             sso_team_id: token.sso_team_id,
+            workos_org_id: token.workos_org_id,
         }
     }
 
@@ -634,6 +647,10 @@ impl AuthenticatedLogin {
 
     pub fn sso_team_id(&self) -> Option<TeamId> {
         self.sso_team_id
+    }
+
+    pub fn workos_org_id(&self) -> Option<&WorkOSOrgID> {
+        self.workos_org_id.as_ref()
     }
 }
 
@@ -775,16 +792,19 @@ where
         None => anyhow::bail!("Missing subject claim"),
     };
 
+    let sso_team_id = claims
+        .private
+        .sso_team_id
+        .as_ref()
+        .map(|id| id.parse().map(TeamId))
+        .transpose()?;
+
     Ok(ConsoleAccessToken {
         email: claims.private.email.clone(),
         sub,
         vercel: claims.private.vercel.clone(),
-        sso_team_id: claims
-            .private
-            .sso_team_id
-            .as_ref()
-            .map(|id| id.parse().map(TeamId))
-            .transpose()?,
+        sso_team_id,
+        workos_org_id: claims.private.org_id.clone().map(WorkOSOrgID),
         name: full_name,
     })
 }
@@ -1039,6 +1059,7 @@ mod tests {
                     last_name: Some("User".to_string()),
                     vercel: None,
                     sso_team_id: None,
+                    org_id: None,
                 },
             ),
             &*TEST_SIGNING_KEY,
@@ -1092,6 +1113,7 @@ mod tests {
                     last_name: Some("User2".to_string()),
                     vercel: None,
                     sso_team_id: None,
+                    org_id: None,
                 },
             ),
             &*TEST_SIGNING_KEY,
