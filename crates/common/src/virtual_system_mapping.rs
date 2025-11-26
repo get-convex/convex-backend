@@ -41,7 +41,7 @@ pub trait VirtualSystemDocMapper: Send + Sync {
 /// (implemented by `Transaction`) to convert system documents joined across
 /// multiple system tables to virtual documents in `VirtualSystemDocMapper`.
 #[async_trait]
-pub trait GetDocument {
+pub trait GetDocument: Send + Sync {
     async fn get_document(
         &mut self,
         id: ResolvedDocumentId,

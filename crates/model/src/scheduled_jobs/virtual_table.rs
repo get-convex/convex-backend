@@ -4,6 +4,7 @@ use std::{
     sync::LazyLock,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     document::{
@@ -28,15 +29,23 @@ use value::{
     ConvexObject,
     ConvexValue,
     FieldName,
+    ResolvedDocumentId,
     TableMapping,
 };
 
 use super::{
     types::{
-        ScheduledJob,
+        ScheduledJobMetadata,
         ScheduledJobState,
     },
     SCHEDULED_JOBS_TABLE,
+};
+use crate::scheduled_jobs::{
+    args::SCHEDULED_JOBS_ARGS_TABLE,
+    types::{
+        args_from_bytes,
+        ScheduledJobArgs,
+    },
 };
 
 static MIN_NPM_VERSION_SCHEDULED_JOBS_V1: LazyLock<Version> =
@@ -48,7 +57,7 @@ pub struct ScheduledJobsDocMapper;
 impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
     async fn system_to_virtual_doc(
         &self,
-        _tx: &mut dyn GetDocument,
+        tx: &mut dyn GetDocument,
         virtual_system_mapping: &VirtualSystemMapping,
         doc: ResolvedDocument,
         table_mapping: &TableMapping,
@@ -63,16 +72,33 @@ impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
             anyhow::bail!("System document cannot be converted to a virtual document")
         }
 
-        let job: ParsedDocument<ScheduledJob> = (&doc).parse()?;
-        let job: ScheduledJob = job.into_value();
-        let udf_args = job.udf_args()?;
+        let job_metadata: ParsedDocument<ScheduledJobMetadata> = (&doc).parse()?;
+        let namespace = table_mapping.tablet_namespace(job_metadata.id().tablet_id)?;
+        let job_metadata_id = job_metadata.id();
+        let job_metadata: ScheduledJobMetadata = job_metadata.into_value();
+        let args_bytes = if let Some(args_id) = job_metadata.args_id {
+            let scheduled_job_args_tablet = table_mapping.namespace(namespace).name_to_tablet()(
+                SCHEDULED_JOBS_ARGS_TABLE.clone(),
+            )?;
+            let args_doc: ParsedDocument<ScheduledJobArgs> = tx
+                .get_document(ResolvedDocumentId::new(scheduled_job_args_tablet, args_id))
+                .await?
+                .with_context(|| format!("Missing scheduled job args with id {args_id}"))?
+                .parse()?;
+            args_doc.into_value().args
+        } else {
+            job_metadata
+                .udf_args_bytes
+                .with_context(|| format!("Missing udf args bytes for job {job_metadata_id}"))?
+        };
+        let args = args_from_bytes(args_bytes)?;
         let public_job = PublicScheduledJob {
             // TODO(ENG-6920) include component (job.path.component) in virtual table.
-            name: job.path.udf_path,
-            args: udf_args,
-            state: job.state,
-            scheduled_time: timestamp_to_ms(job.original_scheduled_ts)?,
-            completed_time: match job.completed_ts {
+            name: job_metadata.path.udf_path,
+            args,
+            state: job_metadata.state,
+            scheduled_time: timestamp_to_ms(job_metadata.original_scheduled_ts)?,
+            completed_time: match job_metadata.completed_ts {
                 Some(ts) => Some(timestamp_to_ms(ts)?),
                 None => None,
             },

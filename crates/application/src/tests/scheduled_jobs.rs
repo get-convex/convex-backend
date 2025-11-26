@@ -169,7 +169,7 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
     let (_job_id, mut model) = create_scheduled_job(&rt, &mut tx, path.clone()).await?;
     let jobs = model.list().await?;
     assert_eq!(jobs.len(), 1);
-    let (job_id, job) = jobs[0].clone().into_id_and_value();
+    let job = jobs[0].clone();
 
     // Cancel the scheduled job
     model.cancel_all(Some(path), 1, None, None).await?;
@@ -180,7 +180,7 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
     // execute after the job was created but before it was canceled. We should
     // handle the race condition gracefully.
     application
-        .test_one_off_scheduled_job_executor_run(job, job_id)
+        .test_one_off_scheduled_job_executor_run(job)
         .await?;
     Ok(())
 }

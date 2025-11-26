@@ -24,6 +24,7 @@ use common::{
     },
     components::ComponentId,
     db_schema,
+    document::ParsedDocument,
     http::fetch::StaticFetchClient,
     knobs::{
         ACTION_USER_TIMEOUT,
@@ -89,7 +90,10 @@ use model::{
         ExportsModel,
     },
     initialize_application_system_tables,
-    scheduled_jobs::types::ScheduledJob,
+    scheduled_jobs::{
+        types::ScheduledJobMetadata,
+        SchedulerModel,
+    },
     udf_config::types::UdfConfig,
     virtual_system_mapping,
 };
@@ -154,8 +158,7 @@ pub trait ApplicationTestExt<RT: Runtime> {
     ) -> anyhow::Result<Application<RT>>;
     async fn test_one_off_scheduled_job_executor_run(
         &self,
-        job: ScheduledJob,
-        job_id: ResolvedDocumentId,
+        job: ParsedDocument<ScheduledJobMetadata>,
     ) -> anyhow::Result<()>;
     /// Load the modules from npm-packages/udf-tests
     async fn load_udf_tests_modules(&self) -> anyhow::Result<()>;
@@ -300,8 +303,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
     async fn test_one_off_scheduled_job_executor_run(
         &self,
-        job: ScheduledJob,
-        job_id: ResolvedDocumentId,
+        metadata: ParsedDocument<ScheduledJobMetadata>,
     ) -> anyhow::Result<()> {
         let test_executor = ScheduledJobContext::new(
             self.runtime.clone(),
@@ -309,7 +311,14 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             self.runner.clone(),
             self.function_log.clone(),
         );
-        test_executor.execute_job(job, job_id).await;
+        let mut tx = self.begin(Identity::system()).await?;
+        let namespace = tx
+            .table_mapping()
+            .tablet_namespace(metadata.id().tablet_id)?;
+        let metadata_id = metadata.id();
+        let mut model = SchedulerModel::new(&mut tx, namespace);
+        let job = model.scheduled_job_from_metadata(metadata).await?;
+        test_executor.execute_job(job, metadata_id).await;
         Ok(())
     }
 
