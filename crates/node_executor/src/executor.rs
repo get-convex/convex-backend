@@ -20,8 +20,10 @@ use common::{
     execution_context::ExecutionContext,
     knobs::NODE_ANALYZE_MAX_RETRIES,
     log_lines::{
+        run_function_and_collect_log_lines,
         LogLine,
         LogLineStructured,
+        LogLines,
     },
     runtime::Runtime,
     sha256::Sha256Digest,
@@ -38,6 +40,7 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::{
+    FutureExt,
     Stream,
     StreamExt,
 };
@@ -366,14 +369,23 @@ impl<RT: Runtime> Actions<RT> {
         result
     }
 
-    async fn invoke_analyze(&self, request: AnalyzeRequest) -> anyhow::Result<InvokeResponse> {
+    async fn invoke_analyze(
+        &self,
+        request: AnalyzeRequest,
+    ) -> anyhow::Result<(InvokeResponse, LogLines)> {
         let mut backoff = Backoff::new(NODE_ANALYZE_INITIAL_BACKOFF, NODE_ANALYZE_MAX_BACKOFF);
         let mut retries = 0;
         loop {
-            let (log_line_sender, _log_line_receiver) = mpsc::unbounded_channel();
+            let (log_line_sender, log_line_receiver) = mpsc::unbounded_channel();
             let request = ExecutorRequest::Analyze(request.clone());
-            match self.executor.invoke(request, log_line_sender).await {
-                Ok(response) => return Ok(response),
+            let (response, log_lines) = run_function_and_collect_log_lines(
+                self.executor.invoke(request, log_line_sender).boxed(),
+                log_line_receiver,
+                |_| {},
+            )
+            .await;
+            match response {
+                Ok(response) => return Ok((response, log_lines)),
                 Err(e) => {
                     if retries >= *NODE_ANALYZE_MAX_RETRIES || e.is_deterministic_user_error() {
                         return Err(e);
@@ -395,10 +407,13 @@ impl<RT: Runtime> Actions<RT> {
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let timer = node_executor("analyze");
 
-        let InvokeResponse {
-            response,
-            aws_request_id,
-        } = self.invoke_analyze(request).await?;
+        let (
+            InvokeResponse {
+                response,
+                aws_request_id,
+            },
+            log_lines,
+        ) = self.invoke_analyze(request).await?;
         let response: AnalyzeResponse = serde_json::from_value(response.clone()).map_err(|e| {
             anyhow::anyhow!(
                 "Failed to deserialize analyze response: {}. Response: {}",
@@ -417,7 +432,7 @@ impl<RT: Runtime> Actions<RT> {
             AnalyzeResponse::Success { modules } => modules,
             AnalyzeResponse::Error { message, frames } => {
                 let error = construct_js_error(message, "".to_string(), None, frames, source_maps)?;
-                return Ok(Err(error));
+                return Ok(Err(append_logs_to_error(error, log_lines)));
             },
         };
         let mut result = BTreeMap::new();
@@ -1006,4 +1021,92 @@ pub async fn handle_node_executor_stream(
         .pop()
         .ok_or_else(|| anyhow::anyhow!("Received no result from node executor response"))?;
     Ok(Ok(payload))
+}
+
+fn append_logs_to_error(mut error: JsError, log_lines: LogLines) -> JsError {
+    if log_lines.is_empty() {
+        return error;
+    }
+
+    let len = log_lines.len();
+    let logs_text = log_lines
+        .into_iter()
+        // Keep only the last 100 log entries
+        .skip(len.saturating_sub(100))
+        .flat_map(|l| l.to_pretty_strings())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    error.message = format!("{}\n\n{}", error.message, logs_text);
+    error
+}
+
+#[cfg(test)]
+mod tests {
+    use common::{
+        errors::JsError,
+        log_lines::{
+            LogLevel,
+            LogLine,
+            LogLines,
+        },
+        runtime::UnixTimestamp,
+    };
+
+    use crate::executor::append_logs_to_error;
+
+    #[test]
+    fn test_append_logs_to_error() {
+        let error = JsError::from_message("Original error".to_string());
+        let log_lines = LogLines::from(vec![
+            LogLine::new_developer_log_line(
+                LogLevel::Info,
+                vec!["Log 1".to_string()],
+                UnixTimestamp::from_millis(1000),
+            ),
+            LogLine::new_developer_log_line(
+                LogLevel::Error,
+                vec!["Log 2".to_string()],
+                UnixTimestamp::from_millis(1001),
+            ),
+        ]);
+
+        let error = append_logs_to_error(error, log_lines);
+
+        assert!(error.message.contains("Original error"));
+        assert!(error.message.contains("[INFO] Log 1"));
+        assert!(error.message.contains("[ERROR] Log 2"));
+    }
+
+    #[test]
+    fn test_append_logs_to_error_empty() {
+        let error = JsError::from_message("Original error".to_string());
+        let log_lines = LogLines::from(Vec::new());
+
+        let error = append_logs_to_error(error, log_lines);
+
+        assert_eq!(error.message, "Original error");
+    }
+
+    #[test]
+    fn test_append_logs_to_error_truncation() {
+        let error = JsError::from_message("Original error".to_string());
+        let mut logs = Vec::new();
+        for i in 0..110 {
+            logs.push(LogLine::new_developer_log_line(
+                LogLevel::Info,
+                vec![format!("Log {}", i)],
+                UnixTimestamp::from_millis(1000 + i as u64),
+            ));
+        }
+        let log_lines = LogLines::from(logs);
+
+        let error = append_logs_to_error(error, log_lines);
+
+        assert!(error.message.contains("Original error"));
+        assert!(!error.message.contains("Log 0")); // Should be truncated
+        assert!(error.message.contains("Log 10")); // Should be present (last 100 start from index 10)
+        assert!(error.message.contains("Log 109")); // Last log should be
+                                                    // present
+    }
 }
