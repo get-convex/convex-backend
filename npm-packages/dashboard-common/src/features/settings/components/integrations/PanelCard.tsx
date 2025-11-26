@@ -15,7 +15,7 @@ import {
   LOG_STREAMS_DESCRIPTION,
   AUTHENTICATION_DESCRIPTION,
 } from "@common/lib/integrationHelpers";
-import { useState, ReactNode, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { IntegrationTitle } from "./IntegrationTitle";
 import { IntegrationOverflowMenu } from "./IntegrationOverflowMenu";
 import { IntegrationStatus } from "./IntegrationStatus";
@@ -70,27 +70,17 @@ export function PanelCard({
   );
   const { logo } = integrationToLogo(integration.kind);
 
-  const [modalState, setModalState] = useState<{
-    showing: boolean;
-    content?: ReactNode;
-  }>({
-    showing: false,
-    content: undefined,
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const closeModal = useCallback(() => {
-    setModalState({
-      showing: false,
-      content: undefined,
-    });
-  }, [setModalState]);
-  () => {};
+    setIsModalOpen(false);
+  }, []);
 
   return (
     <div className={classes}>
       {integration.kind === "workos" && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {modalState.content}
+          {isModalOpen && renderModal(integration, closeModal)}
           <IntegrationTitle
             logo={logo}
             integrationKind={integration.kind}
@@ -100,12 +90,7 @@ export function PanelCard({
             <WorkOSIntegrationStatus integration={integration} />
             <WorkOSIntegrationOverflowMenu
               integration={integration}
-              onConfigure={() =>
-                setModalState({
-                  showing: true,
-                  content: renderModal(integration, closeModal),
-                })
-              }
+              onConfigure={() => setIsModalOpen(true)}
             />
           </div>
         </div>
@@ -140,7 +125,7 @@ export function PanelCard({
         integration.kind === "datadog" ||
         integration.kind === "webhook") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {modalState.content}
+          {isModalOpen && renderModal(integration, closeModal)}
           <IntegrationTitle
             logo={logo}
             integrationKind={integration.kind}
@@ -153,12 +138,7 @@ export function PanelCard({
             ) : (
               <IntegrationOverflowMenu
                 integration={integration}
-                onConfigure={() =>
-                  setModalState({
-                    showing: true,
-                    content: renderModal(integration, closeModal),
-                  })
-                }
+                onConfigure={() => setIsModalOpen(true)}
               />
             )}
           </div>

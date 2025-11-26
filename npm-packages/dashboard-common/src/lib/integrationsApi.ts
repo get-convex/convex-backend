@@ -165,3 +165,35 @@ export function useDeleteIntegration(): (
     }
   };
 }
+
+export function useRegenerateWebhookSecret(): () => Promise<void> {
+  const deploymentUrl = useDeploymentUrl();
+  const adminKey = useAdminKey();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
+
+  return async () => {
+    await regenerateWebhookSecret(deploymentUrl, adminKey, reportHttpError);
+  };
+}
+
+async function regenerateWebhookSecret(
+  deploymentUrl: string,
+  adminKey: string,
+  reportHttpError: DeploymentInfo["reportHttpError"],
+): Promise<void> {
+  const res = await fetch(
+    `${deploymentUrl}/api/logs/regenerate_webhook_secret`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Convex ${adminKey}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+  if (res.status !== 200) {
+    const err = await res.json();
+    reportHttpError("POST", res.url, err);
+    toast("error", err.message);
+  }
+}

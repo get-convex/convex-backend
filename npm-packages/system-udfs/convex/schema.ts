@@ -206,6 +206,7 @@ export const webhookConfig = v.object({
   type: v.literal("webhook"),
   url: v.string(),
   format: v.union(v.literal("json"), v.literal("jsonl")),
+  hmacSecret: v.string(),
 });
 
 export const axiomConfig = v.object({
