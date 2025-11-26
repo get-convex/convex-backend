@@ -386,7 +386,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         } else {
             format!(
                 "New table `{table}`{in_component} has IDs that conflict with existing table \
-                 `{existing_table}`"
+                 `{existing_table}`. To delete all existing tables, import with `npx convex \
+                 import --replace-all`."
             )
         };
         ErrorMetadata::bad_request("TableConflict", msg)
