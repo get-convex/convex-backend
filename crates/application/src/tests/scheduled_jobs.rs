@@ -21,6 +21,7 @@ use common::{
 };
 use database::{
     BootstrapComponentsModel,
+    SystemMetadataModel,
     TableModel,
     Transaction,
 };
@@ -32,8 +33,14 @@ use model::{
         BackendStateModel,
     },
     scheduled_jobs::{
-        types::ScheduledJobState,
+        types::{
+            args_to_bytes,
+            ScheduledJobAttempts,
+            ScheduledJobMetadata,
+            ScheduledJobState,
+        },
         SchedulerModel,
+        SCHEDULED_JOBS_TABLE,
     },
 };
 use runtime::testing::TestRuntime;
@@ -66,6 +73,50 @@ fn insert_object_path() -> CanonicalizedComponentFunctionPath {
         component: ComponentPath::test_user(),
         udf_path: CanonicalizedUdfPath::from_str("basic:insertObject").unwrap(),
     }
+}
+
+/// Create a scheduled job in the old format with arguments inline in the
+/// document instead of args_id pointing to arguments in the
+/// `_scheduled_job_args_table`. We are not migrating docs from this old format,
+/// so we need to be sure the scheduler code always works with inline arguments.
+async fn create_scheduled_job_with_inline_args<'a>(
+    rt: &'a TestRuntime,
+    tx: &'a mut Transaction<TestRuntime>,
+    path: CanonicalizedComponentFunctionPath,
+) -> anyhow::Result<ResolvedDocumentId> {
+    let mut map = serde_json::Map::new();
+    map.insert(
+        "key".to_string(),
+        serde_json::Value::String("value".to_string()),
+    );
+    let (_, component) =
+        BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
+    let mut model = SystemMetadataModel::new(tx, component.into());
+    let original_scheduled_ts = rt.unix_timestamp().as_system_time().try_into()?;
+    let udf_path = &path.udf_path.clone();
+    let job_id = model
+        .insert_metadata(
+            &SCHEDULED_JOBS_TABLE,
+            ScheduledJobMetadata {
+                path,
+                udf_args_bytes: Some(args_to_bytes(parse_udf_args(
+                    udf_path,
+                    vec![JsonValue::Object(map)],
+                )?)?),
+                args_id: None,
+                state: ScheduledJobState::Pending,
+                next_ts: Some(original_scheduled_ts),
+                completed_ts: None,
+                original_scheduled_ts,
+                attempts: ScheduledJobAttempts::default(),
+            }
+            .try_into()?,
+        )
+        .await?;
+    let mut model = SchedulerModel::new(tx, component.into());
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Pending);
+    Ok(job_id)
 }
 
 async fn create_scheduled_job<'a>(
@@ -113,6 +164,39 @@ async fn test_scheduled_jobs_success(
 
     let mut tx = application.begin(Identity::system()).await?;
     let (job_id, _model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
+    assert!(
+        TableModel::new(&mut tx)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
+            .await?
+    );
+
+    application.commit_test(tx).await?;
+
+    wait_for_scheduled_job_execution(hold_guard).await;
+    tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Success);
+    assert!(
+        !TableModel::new(&mut tx)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
+            .await?
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_scheduled_jobs_with_inline_args_success(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+
+    let hold_guard = pause_controller.hold(SCHEDULED_JOB_EXECUTED);
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let job_id = create_scheduled_job_with_inline_args(&rt, &mut tx, insert_object_path()).await?;
     assert!(
         TableModel::new(&mut tx)
             .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)

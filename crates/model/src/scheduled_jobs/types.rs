@@ -99,7 +99,7 @@ pub struct ScheduledJobMetadata {
     pub attempts: ScheduledJobAttempts,
 }
 
-fn args_to_bytes(args: ConvexArray) -> anyhow::Result<ByteBuf> {
+pub fn args_to_bytes(args: ConvexArray) -> anyhow::Result<ByteBuf> {
     let args_bytes = args.json_serialize()?.into_bytes();
     Ok(ByteBuf::from(args_bytes))
 }
