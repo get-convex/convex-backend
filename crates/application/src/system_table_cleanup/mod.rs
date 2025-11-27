@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     sync::Arc,
     time::Duration,
 };
@@ -67,7 +68,14 @@ use metrics::{
 };
 use model::{
     exports::ExportsModel,
+    modules::ModuleModel,
     session_requests::SESSION_REQUESTS_TABLE,
+    source_packages::{
+        types::SourcePackageId,
+        SourcePackagesTable,
+    },
+    SystemIndex,
+    SystemTable,
 };
 use rand::Rng;
 use storage::Storage;
@@ -131,6 +139,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             self.cleanup_hidden_tables().await?;
             self.cleanup_orphaned_table_namespaces().await?;
             self.cleanup_expired_exports().await?;
+            self.cleanup_unused_source_packages().await?;
 
             // _session_requests are used to make mutations idempotent.
             // We can delete them after they are old enough that the client that
@@ -431,6 +440,46 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             .await?;
         if num_deleted > 0 {
             tracing::info!("Deleted {num_deleted} expired snapshots");
+        }
+        Ok(())
+    }
+
+    async fn cleanup_unused_source_packages(&self) -> anyhow::Result<()> {
+        let mut tx = self.database.begin(Identity::system()).await?;
+        let mut num_deleted = 0;
+        'deletes: for namespace in tx
+            .table_mapping()
+            .namespaces_for_name(SourcePackagesTable::table_name())
+        {
+            let mut source_package_ids: BTreeSet<SourcePackageId> = BTreeSet::new();
+            for module in ModuleModel::new(&mut tx)
+                .get_all_metadata(namespace.into())
+                .await?
+            {
+                source_package_ids.insert(module.source_package_id);
+            }
+            for source_package in tx
+                .query_system(namespace, &SystemIndex::<SourcePackagesTable>::by_id())?
+                .all()
+                .await?
+            {
+                let id = SourcePackageId::from(source_package.id().developer_id);
+                if !source_package_ids.contains(&id) {
+                    SystemMetadataModel::new(&mut tx, namespace)
+                        .delete(source_package.id())
+                        .await?;
+                    num_deleted += 1;
+                    if num_deleted >= 1000 {
+                        break 'deletes;
+                    }
+                }
+            }
+        }
+        if num_deleted > 0 {
+            self.database
+                .commit_with_write_source(tx, "cleanup_unused_source_packages")
+                .await?;
+            tracing::info!("Deleted {num_deleted} unreferenced SourcePackages");
         }
         Ok(())
     }
