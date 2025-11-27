@@ -47,7 +47,6 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  swcMinify: true,
   transpilePackages: [],
   reactStrictMode: true,
   async rewrites() {

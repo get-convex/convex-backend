@@ -68,7 +68,6 @@ const optionsForBuild = {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  swcMinify: true,
   transpilePackages: [],
   reactStrictMode: true,
   ...(process.env.BUILD_TYPE === "export" ? optionsForExport : optionsForBuild),
