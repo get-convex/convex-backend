@@ -12,6 +12,7 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     document::ResolvedDocument,
+    errors::DatabaseTimeoutError,
     index::{
         IndexKey,
         IndexKeyBytes,
@@ -584,8 +585,11 @@ impl<RT: Runtime> TableIteratorInner<RT> {
             );
             let documents_in_page: Vec<_> = match stream.take(self.page_size).try_collect().await {
                 Ok(docs) => docs,
-                Err(e) if attempt < *TABLE_ITERATOR_MAX_RETRIES && e.is_out_of_retention() => {
-                    tracing::warn!("TableIterator hit out-of-retention error {e}, retrying...");
+                Err(e)
+                    if attempt < *TABLE_ITERATOR_MAX_RETRIES
+                        && (e.is_out_of_retention() || e.is::<DatabaseTimeoutError>()) =>
+                {
+                    tracing::warn!("TableIterator hit retriable error {e}, retrying...");
                     continue;
                 },
                 Err(e) => return Err(e),

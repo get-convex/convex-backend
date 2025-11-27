@@ -129,6 +129,21 @@ use crate::{
     },
 };
 
+/// Checks if an error is the Vitess "message too large" error that occurs
+/// when query results exceed 64MiB.
+fn is_message_too_large_error(error: &anyhow::Error) -> Option<&mysql_async::ServerError> {
+    error
+        .chain()
+        .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
+        .filter(|db_err| {
+            db_err.state == "HY000"
+                && db_err.code == 1105
+                && db_err
+                    .message
+                    .contains("trying to send message larger than max")
+        })
+}
+
 #[derive(Clone, Debug)]
 pub struct MySqlInstanceName {
     raw: String,
@@ -749,16 +764,7 @@ impl<RT: Runtime> MySqlReader<RT> {
             params.push((page_size as i64).into());
             let stream_result = match client.query_stream(query, params, page_size as usize).await {
                 Ok(stream) => Ok(stream),
-                Err(ref e)
-                    if let Some(db_err) = e
-                        .chain()
-                        .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
-                        && db_err.state == "HY000"
-                        && db_err.code == 1105
-                        && db_err
-                            .message
-                            .contains("trying to send message larger than max") =>
-                {
+                Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
                     if page_size == 1 {
                         anyhow::bail!(
                             "Failed to load documents with minimum page size `1`: {}",
@@ -924,16 +930,7 @@ impl<RT: Runtime> MySqlReader<RT> {
                     .await
                 {
                     Ok(stream) => Ok(stream),
-                    Err(ref e)
-                        if let Some(db_err) = e
-                            .chain()
-                            .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
-                            && db_err.state == "HY000"
-                            && db_err.code == 1105
-                            && db_err
-                                .message
-                                .contains("trying to send message larger than max") =>
-                    {
+                    Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
                         if batch_size == 1 {
                             anyhow::bail!(
                                 "Failed to load index rows with minimum page size `1`: {}",
@@ -1223,10 +1220,6 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
     ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
         let timer = metrics::previous_revisions_of_documents_timer(self.read_pool.cluster_name());
 
-        let mut client = self
-            .read_pool
-            .acquire("previous_revisions_of_documents", &self.db_name)
-            .await?;
         let ids: Vec<_> = ids.into_iter().collect();
 
         let mut result = BTreeMap::new();
@@ -1234,7 +1227,27 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         let multitenant = self.multitenant;
         let instance_name: mysql_async::Value = (&self.instance_name.raw).into();
 
-        for chunk in smart_chunks(&ids) {
+        // Track remaining items to process and fallback chunk size
+        let mut remaining: &[DocumentPrevTsQuery] = &ids;
+        let mut fallback_chunk_size: Option<usize> = None;
+
+        while !remaining.is_empty() {
+            // Avoid holding connections across yield points, to limit lifetime
+            // and improve fairness.
+            let mut client = self
+                .read_pool
+                .acquire("previous_revisions_of_documents", &self.db_name)
+                .await?;
+
+            // Determine chunk - either use smart_chunks or fallback size
+            let chunk = if let Some(max_size) = fallback_chunk_size {
+                let len = remaining.len().min(max_size);
+                &remaining[..len]
+            } else {
+                // Use first chunk from smart_chunks
+                smart_chunks(remaining).next().unwrap()
+            };
+
             let mut params = Vec::with_capacity(
                 chunk.len() * (sql::EXACT_REV_CHUNK_PARAMS + multitenant as usize),
             );
@@ -1253,13 +1266,42 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 // deduplicate, so create a map from DB results back to queries
                 id_ts_to_query.entry((id, prev_ts)).or_default().push(*q);
             }
-            let result_stream = client
+            let result_stream = match client
                 .query_stream(
                     sql::exact_rev_chunk(chunk.len(), multitenant),
                     params,
                     chunk.len(),
                 )
-                .await?;
+                .await
+            {
+                Ok(stream) => Ok(stream),
+                Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
+                    let current_size = fallback_chunk_size.unwrap_or(chunk.len());
+                    if current_size == 1 {
+                        anyhow::bail!(
+                            "Failed to load previous revisions of documents with minimum chunk \
+                             size `1`: {}",
+                            db_err.message,
+                        );
+                    }
+                    if current_size <= *MYSQL_FALLBACK_PAGE_SIZE as usize {
+                        tracing::warn!(
+                            "Falling back to chunk size `1` due to repeated server error: {}",
+                            db_err.message
+                        );
+                        fallback_chunk_size = Some(1);
+                    } else {
+                        tracing::warn!(
+                            "Falling back to chunk size `{}` due to server error: {}",
+                            *MYSQL_FALLBACK_PAGE_SIZE,
+                            db_err.message
+                        );
+                        fallback_chunk_size = Some(*MYSQL_FALLBACK_PAGE_SIZE as usize);
+                    }
+                    continue;
+                },
+                Err(e) => Err(e),
+            }?;
             pin_mut!(result_stream);
             while let Some(row) = result_stream.try_next().await? {
                 let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(&row)?;
@@ -1278,6 +1320,9 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                     anyhow::ensure!(result.insert(q, entry).is_none());
                 }
             }
+
+            // Advance past the processed chunk
+            remaining = &remaining[chunk.len()..];
         }
 
         if let Some(min_ts) = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min() {
@@ -1298,10 +1343,6 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let timer = metrics::prev_revisions_timer(self.read_pool.cluster_name());
 
-        let mut client = self
-            .read_pool
-            .acquire("previous_revisions", &self.db_name)
-            .await?;
         let ids: Vec<_> = ids.into_iter().collect();
 
         let mut result = BTreeMap::new();
@@ -1312,7 +1353,27 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         let multitenant = self.multitenant;
         let instance_name: mysql_async::Value = (&self.instance_name.raw).into();
 
-        for chunk in smart_chunks(&ids) {
+        // Track remaining items to process and fallback chunk size
+        let mut remaining: &[(InternalDocumentId, Timestamp)] = &ids;
+        let mut fallback_chunk_size: Option<usize> = None;
+
+        while !remaining.is_empty() {
+            // Avoid holding connections across yield points, to limit lifetime
+            // and improve fairness.
+            let mut client = self
+                .read_pool
+                .acquire("previous_revisions", &self.db_name)
+                .await?;
+
+            // Determine chunk - either use smart_chunks or fallback size
+            let chunk = if let Some(max_size) = fallback_chunk_size {
+                let len = remaining.len().min(max_size);
+                &remaining[..len]
+            } else {
+                // Use first chunk from smart_chunks
+                smart_chunks(remaining).next().unwrap()
+            };
+
             let mut params = Vec::with_capacity(
                 chunk.len() * (sql::PREV_REV_CHUNK_PARAMS + multitenant as usize),
             );
@@ -1326,17 +1387,48 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 }
                 min_ts = cmp::min(*ts, min_ts);
             }
-            let result_stream = client
+            let result_stream = match client
                 .query_stream(
                     sql::prev_rev_chunk(chunk.len(), multitenant),
                     params,
                     chunk.len(),
                 )
-                .await?;
+                .await
+            {
+                Ok(stream) => Ok(stream),
+                Err(ref e) if let Some(db_err) = is_message_too_large_error(e) => {
+                    let current_size = fallback_chunk_size.unwrap_or(chunk.len());
+                    if current_size == 1 {
+                        anyhow::bail!(
+                            "Failed to load previous revisions with minimum chunk size `1`: {}",
+                            db_err.message,
+                        );
+                    }
+                    if current_size <= *MYSQL_FALLBACK_PAGE_SIZE as usize {
+                        tracing::warn!(
+                            "Falling back to chunk size `1` due to repeated server error: {}",
+                            db_err.message
+                        );
+                        fallback_chunk_size = Some(1);
+                    } else {
+                        tracing::warn!(
+                            "Falling back to chunk size `{}` due to server error: {}",
+                            *MYSQL_FALLBACK_PAGE_SIZE,
+                            db_err.message
+                        );
+                        fallback_chunk_size = Some(*MYSQL_FALLBACK_PAGE_SIZE as usize);
+                    }
+                    continue;
+                },
+                Err(e) => Err(e),
+            }?;
             pin_mut!(result_stream);
-            while let Some(result) = result_stream.try_next().await? {
-                results.push(result);
+            while let Some(row) = result_stream.try_next().await? {
+                results.push(row);
             }
+
+            // Advance past the processed chunk
+            remaining = &remaining[chunk.len()..];
         }
         for row in results.into_iter() {
             let ts: i64 = row.get_opt(6).context("row[6]")??;

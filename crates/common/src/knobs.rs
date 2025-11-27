@@ -185,7 +185,8 @@ pub static DEFAULT_DOCUMENTS_PAGE_SIZE: LazyLock<u32> =
 pub static DOCUMENTS_IN_MEMORY: LazyLock<usize> =
     LazyLock::new(|| env_config("DOCUMENTS_IN_MEMORY", 512));
 
-/// Number of times to retry on out-of-retention errors in TableIterator
+/// Number of times to retry on retriable errors (out-of-retention, database
+/// timeout) in TableIterator
 pub static TABLE_ITERATOR_MAX_RETRIES: LazyLock<u32> =
     LazyLock::new(|| env_config("TABLE_ITERATOR_MAX_RETRIES", 1));
 
