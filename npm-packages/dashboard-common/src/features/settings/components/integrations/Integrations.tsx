@@ -45,7 +45,6 @@ export function Integrations({
   const streamingExportEntitlementGranted =
     entitlements?.streamingExportEnabled;
 
-  // Sort the configured and unconfigured integrations in the order specified by LOG_INTEGRATIONS
   const configuredIntegrationsMap = Object.fromEntries(
     integrations.map((integration) => [integration.config.type, integration]),
   );
@@ -58,13 +57,7 @@ export function Integrations({
         existing: existing ?? null,
       } as LogIntegration;
     },
-  ).sort((a: LogIntegration, b: LogIntegration) => {
-    // Show configured integrations first
-    if (a.existing !== null && b.existing === null) {
-      return -1;
-    }
-    return 0;
-  });
+  );
 
   const authIntegrations: AuthIntegration[] = workosIntegrationEnabled
     ? [
@@ -83,12 +76,6 @@ export function Integrations({
         kind,
         existing: existing ?? null,
       } as ExceptionReportingIntegration;
-    }).sort((a, b) => {
-      // Show configured integrations first
-      if (a.existing !== null && b.existing === null) {
-        return -1;
-      }
-      return 0;
     });
 
   const devCallouts = [];
@@ -118,6 +105,21 @@ export function Integrations({
   const streamingExportIntegrationUnavailableReason =
     !streamingExportEntitlementGranted ? "MissingEntitlement" : null;
 
+  // Show configured integrations first
+  const allIntegrations = [
+    ...authIntegrations,
+    ...exceptionReportingIntegrations,
+    ...logIntegrations,
+  ].sort((a, b) => {
+    if (a.existing !== null && b.existing === null) {
+      return -1;
+    }
+    if (a.existing === null && b.existing !== null) {
+      return 1;
+    }
+    return 0;
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <Sheet className="flex flex-col gap-4">
@@ -137,21 +139,14 @@ export function Integrations({
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          {[
-            ...authIntegrations,
-            ...exceptionReportingIntegrations,
-            ...logIntegrations,
-          ]
-            .sort((a, b) =>
-              a.existing !== null && b.existing === null ? -1 : 0,
-            )
-            .map((i) => (
-              <PanelCard
-                integration={i}
-                unavailableReason={logIntegrationUnvaliableReason}
-                teamSlug={team?.slug}
-              />
-            ))}
+          {allIntegrations.map((i) => (
+            <PanelCard
+              key={i.kind}
+              integration={i}
+              unavailableReason={logIntegrationUnvaliableReason}
+              teamSlug={team?.slug}
+            />
+          ))}
           {EXPORT_INTEGRATIONS.map((i) => (
             <PanelCard
               integration={{ kind: i }}
