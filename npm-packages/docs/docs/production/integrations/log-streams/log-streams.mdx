@@ -71,13 +71,18 @@ logs via POST requests to any URL you configure. The only parameter required to
 set up this stream is the desired webhook URL.
 
 A request to this webhook contains as its body a JSON array of events in the
-schema defined below. The request body is signed using HMAC-SHA256 and encoded
-as a lowercase hex string, and the resulting signature is included in the
+schema defined below.
+
+## Securing webhook log streams
+
+Webhook log stream requests include a signature so you can verify that a request
+is legitimate. The request body is signed using HMAC-SHA256 and encoded as a
+lowercase hex string, and the resulting signature is included in the
 `x-webhook-signature` HTTP header. The HMAC secret is visible in the dashboard
 upon configuring the webhook.
 
-To verify the authenticity of a webhook request, sign and encode the request
-body using the HMAC secret and
+To verify the authenticity of a request, sign and encode the request body using
+the HMAC secret and
 [compare the result in constant time](https://www.chosenplaintext.ca/articles/beginners-guide-constant-time-cryptography.html)
 (for instance using
 [`SubtleCrypto.verify()`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/verify)
