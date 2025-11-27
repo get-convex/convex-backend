@@ -41,7 +41,7 @@ import {
 import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
 import path from "path";
 import { projectDashboardUrl } from "./lib/dashboard.js";
-import { doCodegen, doCodegenForNewProject } from "./lib/codegen.js";
+import { doInitialCodegen } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 import {
   promptOptions,
@@ -587,7 +587,7 @@ async function selectNewProject(
     );
   }
 
-  await doCodegenForNewProject(ctx);
+  await doInitialCodegen(ctx, { init: true });
   return { teamSlug, projectSlug, devDeployment };
 }
 
@@ -641,13 +641,8 @@ async function selectExistingProject(
   });
 
   showSpinner(`Reinitializing project ${projectSlug}...\n`);
-
-  const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
-
-  const functionsPath = functionsDir(configName(), existingProjectConfig);
-
-  await doCodegen(ctx, functionsPath, "disable");
-
+  // TODO: Do we need to do codegen for existing projects? (-Ian)
+  await doInitialCodegen(ctx, { init: false });
   logFinishedStep(`Reinitialized project ${chalk.bold(projectSlug)}`);
   return { teamSlug, projectSlug, devDeployment };
 }

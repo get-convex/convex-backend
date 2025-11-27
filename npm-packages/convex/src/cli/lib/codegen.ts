@@ -63,11 +63,16 @@ export type CodegenOptions = {
   codegenOnlyThisComponent?: string | undefined;
 };
 
-export async function doCodegenForNewProject(ctx: Context) {
+export async function doInitialCodegen(
+  ctx: Context,
+  options: { init: boolean },
+) {
   const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
   const configPath = await configFilepath(ctx);
   const functionsPath = functionsDir(configPath, existingProjectConfig);
-  await doInitCodegen(ctx, functionsPath, true);
+  if (options.init) {
+    await doInitCodegen(ctx, functionsPath, true);
+  }
 
   const componentDir = isComponentDirectory(ctx, functionsPath, true);
   if (componentDir.kind === "err") {
