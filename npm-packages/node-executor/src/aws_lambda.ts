@@ -1,5 +1,5 @@
 import { Context } from "aws-lambda";
-import { invoke } from "./executor";
+import { invoke, ogProcessExit } from "./executor";
 import { logDebug, setDebugLogging } from "./log";
 import { populatePrebuildPackages } from "./source_package";
 import { Writable } from "node:stream";
@@ -47,7 +47,7 @@ export const handler = awslambda.streamifyResponse(
       logDebug(
         `analyze or build_deps has run ${numInvocations} times, restarting node process`,
       );
-      process.exit(0);
+      ogProcessExit(0);
     }
   },
 );

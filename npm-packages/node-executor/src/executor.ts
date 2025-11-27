@@ -96,9 +96,11 @@ export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
   return createHash("md5").update(JSON.stringify(envs)).digest("hex");
 }
 
+export const ogProcessExit = process.exit;
+
 function unhandledRejectionHandler(
   responseStream: Writable,
-  event: "unhandledRejection" | "uncaughtException",
+  event: "unhandledRejection" | "uncaughtException" | "process.exit",
   e: unknown,
 ) {
   // Respond with a user error.
@@ -124,7 +126,7 @@ function unhandledRejectionHandler(
   // Use `.end()` to make sure that no other finish message makes it into the
   // stream, then exit the process to prevent any ongoing async work from
   // leaking into the next invocation.
-  responseStream.on("finish", () => process.exit(1));
+  responseStream.on("finish", () => ogProcessExit(1));
   responseStream.end(json);
 }
 
@@ -140,6 +142,17 @@ export async function invoke(
   process.on("uncaughtException", (e: unknown) =>
     unhandledRejectionHandler(responseStream, "uncaughtException", e),
   );
+  process.exit = function processExit(code?: number): never {
+    unhandledRejectionHandler(
+      responseStream,
+      "process.exit",
+      new Error(
+        `process.exit() called ${code === undefined ? "with no exit code" : `with exit code ${code}`}`,
+      ),
+    );
+    throw new Error("unreachable (unhandledRejectionHandler never returns)");
+  };
+
   const start = performance.now();
   numInvocations += 1;
   logDebug(`Environment numInvocations=${numInvocations}`);

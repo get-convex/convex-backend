@@ -49,6 +49,11 @@ export const logAndThrowError = actionGeneric(async () => {
   throw new Error("Oh, no!");
 });
 
+export const logAndProcessExit = actionGeneric(async () => {
+  console.log("About to do something...");
+  process.exit(42);
+});
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

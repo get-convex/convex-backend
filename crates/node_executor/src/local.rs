@@ -682,6 +682,55 @@ mod tests {
     }
 
     #[convex_macro::prod_rt_test]
+    async fn test_process_exit(rt: ProdRuntime) -> anyhow::Result<()> {
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt).await;
+        let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
+        let source_maps = TEST_SOURCE
+            .clone()
+            .into_iter()
+            .map(|m| {
+                (
+                    m.path.canonicalize(),
+                    m.source_map.expect("Missing source map"),
+                )
+            })
+            .collect();
+        let source_maps_callback = async { Ok(source_maps) };
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
+            "node_actions.js:logAndProcessExit".parse()?,
+            array![],
+            VERSION.clone(),
+        );
+        let (response, log_lines) = execute(
+            &actions,
+            execute_request(path_and_args, source_package),
+            source_maps_callback,
+        )
+        .await?;
+
+        let error = response.result.unwrap_err();
+        assert_eq!(
+            &error.message,
+            "Uncaught process.exit: process.exit() called with exit code 42"
+        );
+        let frames = &error.frames.as_ref().unwrap().0;
+        assert_eq!(frames.len(), 1);
+        assert_eq!(
+            frames[0].file_name.as_ref().map(|s| &s[..]),
+            Some("../convex/node_actions.ts")
+        );
+        assert_eq!(
+            log_lines
+                .into_iter()
+                .map(|l| l.to_pretty_string_test_only())
+                .collect::<Vec<_>>(),
+            vec!["[LOG] 'About to do something...'".to_owned()]
+        );
+        Ok(())
+    }
+
+    #[convex_macro::prod_rt_test]
     async fn test_args_too_large(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt).await;
