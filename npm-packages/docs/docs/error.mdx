@@ -2,6 +2,8 @@
 description: "Understand specific errors thrown by Convex"
 ---
 
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
 # Errors and Warnings
 
 This page explains specific errors thrown by Convex.
@@ -98,3 +100,28 @@ To fix this issue:
 - Learn more about [optimistic concurrency control](/database/advanced/occ.md).
 - See this [Stack post](https://stack.convex.dev/waitlist) for an example of
   designing an app to avoid mutation conflicts.
+
+### Related Components
+
+<ComponentCardList
+  items={[
+    {
+      title: "Workpool",
+      description:
+        "Workpool give critical tasks priority by organizing async operations into separate, customizable queues.",
+      href: "https://www.convex.dev/components/workpool",
+    },
+    {
+      title: "Sharded Counter",
+      description:
+        "High-throughput counter enables denormalized counts without write conflicts by spreading writes over multiple documents.",
+      href: "https://www.convex.dev/components/sharded-counter",
+    },
+    {
+      title: "Action Cache",
+      description:
+        "Cache frequently run actions. By leveraging the `force` parameter to keep the cache populated, you can ensure that the cache is always up to date and avoid data races.",
+      href: "https://www.convex.dev/components/action-cache",
+    },
+  ]}
+/>

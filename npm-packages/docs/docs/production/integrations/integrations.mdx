@@ -4,6 +4,8 @@ description: "Integrate Convex with third party services"
 sidebar_position: 1
 ---
 
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
 Convex integrates with a variety of supported third party tools for log
 streaming and exception reporting.
 
@@ -35,3 +37,45 @@ integration will stop running within a few seconds.
 
 Please reach out with any questions, comments, or suggestions
 [on Discord](https://convex.dev/community).
+
+## Integration Components
+
+Beyond integrations for logs and exceptions, [Convex Components](/components)
+make it easier to work with third party services. See the full list of
+components on the [Convex Components Directory](https://convex.dev/components).
+
+<ComponentCardList
+  items={[
+    {
+      title: "Cloudflare R2",
+      description: "Store and serve files in Cloudflare's R2 storage.",
+      href: "https://www.convex.dev/components/cloudflare-r2",
+    },
+    {
+      title: "Collaborative Text Editor",
+      description:
+        "Real-time collaborative text editing using BlockNote or Tiptap.",
+      href: "https://www.convex.dev/components/prosemirror-sync",
+    },
+    {
+      title: "Expo Push Notifications",
+      description: "Send mobile push notifications using Expo.",
+      href: "https://www.convex.dev/components/push-notifications",
+    },
+    {
+      title: "Twilio SMS",
+      description: "Send and receive SMS messages using Twilio's API.",
+      href: "https://www.convex.dev/components/twilio",
+    },
+    {
+      title: "LaunchDarkly Feature Flags",
+      description: "Sync feature flags with backend, backed by LaunchDarkly.",
+      href: "https://www.convex.dev/components/launchdarkly",
+    },
+    {
+      title: "Polar",
+      description: "Add subscriptions and billing with Polar.",
+      href: "https://www.convex.dev/components/polar",
+    },
+  ]}
+/>

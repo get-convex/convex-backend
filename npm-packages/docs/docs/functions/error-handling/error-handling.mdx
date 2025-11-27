@@ -4,6 +4,8 @@ sidebar_position: 70
 description: "Handle errors in Convex queries, mutations, and actions"
 ---
 
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
 There are four reasons why your Convex [queries](/functions/query-functions.mdx)
 and [mutations](/functions/mutation-functions.mdx) may hit errors:
 
@@ -187,3 +189,22 @@ For information on other limits, see [here](/production/state/limits.mdx).
 
 See [Debugging](/functions/debugging.mdx) and specifically
 [Finding relevant logs by Request ID](/functions/debugging.mdx#finding-relevant-logs-by-request-id).
+
+## Related Components
+
+<ComponentCardList
+  items={[
+    {
+      title: "Workpool",
+      description:
+        "Workpool give critical tasks priority by organizing async operations into separate, customizable queues. Supports retries and parallelism limits.",
+      href: "https://www.convex.dev/components/workpool",
+    },
+    {
+      title: "Workflow",
+      description:
+        "Simplify programming long running code flows. Workflows execute durably with configurable retries and delays.",
+      href: "https://www.convex.dev/components/workflow",
+    },
+  ]}
+/>

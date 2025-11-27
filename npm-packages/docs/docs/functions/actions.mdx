@@ -4,6 +4,7 @@ sidebar_position: 30
 description: "Call third-party services and external APIs from Convex"
 ---
 
+import { ComponentCardList } from "@site/src/components/ComponentCard";
 import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/actionsConstructor.ts";
 import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsArgsWithValidation.ts";
 import Context from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContext.ts";
@@ -305,3 +306,28 @@ database access.
 Caveats: Separate runQuery / runMutation calls are valid when intentionally
 trying to process more data than fits in a single transaction (e.g. running a
 migration, doing a live aggregate).
+
+## Related Components
+
+<ComponentCardList
+  items={[
+    {
+      title: "Action Cache",
+      description:
+        "Cache expensive or frequently run actions. Allows configurable cache duration and forcing updates.",
+      href: "https://www.convex.dev/components/action-cache",
+    },
+    {
+      title: "Workpool",
+      description:
+        "Workpool give critical tasks priority by organizing async operations into separate, customizable queues. Supports retries and parallelism limits.",
+      href: "https://www.convex.dev/components/workpool",
+    },
+    {
+      title: "Workflow",
+      description:
+        "Similar to Actions, Workflows can call queries, mutations, and actions. However, they are durable functions that can suspend, survive server crashes, specify retries for action calls, and more.",
+      href: "https://www.convex.dev/components/workflow",
+    },
+  ]}
+/>
