@@ -65,6 +65,8 @@ function HmacSecretDisplay({
         </div>
         <p className="text-sm text-content-secondary">
           Use this secret to verify webhook signatures.{" "}
+          {!initialShowSecret &&
+            "Regenerating the secret will immediately invalidate the old secret. "}
           <a
             href="https://docs.convex.dev/production/integrations/log-streams/#webhook"
             target="_blank"
@@ -156,7 +158,14 @@ export function WebhookConfigurationForm({
         <>
           <HmacSecretDisplay hmacSecret={existingIntegration?.hmacSecret} />
           <div>
-            <Button type="button" onClick={regenerateWebhookSecret}>
+            <Button
+              type="button"
+              onClick={async () => {
+                await regenerateWebhookSecret();
+                toast("success", "Regenerated webhook secret.");
+              }}
+              variant="neutral"
+            >
               Regenerate secret
             </Button>
           </div>
