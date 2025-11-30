@@ -107,13 +107,16 @@ const nextConfig = {
       };
     }
 
-    if (!isServer && process.env.NEXT_PUBLIC_LOAD_MONACO_INTERNALLY === "true") {
-      const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+    if (
+      !isServer &&
+      process.env.NEXT_PUBLIC_LOAD_MONACO_INTERNALLY === "true"
+    ) {
+      const MonacoWebpackPlugin = require("monaco-editor-webpack-plugin");
       config.plugins.push(
         new MonacoWebpackPlugin({
-          languages: ['json', 'typescript', 'javascript'],
-          filename: 'static/[name].worker.js',
-        })
+          languages: ["json", "typescript", "javascript"],
+          filename: "static/[name].worker.js",
+        }),
       );
     }
 
