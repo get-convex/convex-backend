@@ -76,7 +76,7 @@ impl ConvexConnector {
             response: Some(schema_response::Response::WithSchema(
                 generate_fivetran_schema(tables_by_component),
             )),
-            selection_not_supported: Some(true),
+            selection_not_supported: Some(false),
         })
     }
 }
@@ -91,8 +91,8 @@ impl SourceConnector for ConvexConnector {
     ) -> ConnectorResult<ConfigurationFormResponse> {
         log("configuration form request");
         Ok(Response::new(ConfigurationFormResponse {
-            schema_selection_supported: false,
-            table_selection_supported: false,
+            schema_selection_supported: true,
+            table_selection_supported: true,
             fields: Config::fivetran_fields(),
             tests: vec![ConfigurationTest {
                 name: "connection".to_string(),
