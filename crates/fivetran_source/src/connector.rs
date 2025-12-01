@@ -192,7 +192,7 @@ fn deserialize_state_json(state_json: &str) -> anyhow::Result<Option<State>> {
             "This Fivetran connection was created with an old version of the Convex connector. To \
              continue syncing, a full historical resync is required. To perform a historical \
              re-sync: In Fivetran, go to your connection page. Select the Setup tab. Click \
-             'Re-sync all historical data'. In the confirmation pop-up window, click 'Re-sync \
+             'Resync all historical data'. In the confirmation pop-up window, click 'Re-sync \
              Connection'."
         );
 
