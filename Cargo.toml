@@ -122,7 +122,7 @@ enum-iterator = "2.1.0"
 event-listener = "5.3.1"
 fastrace = { git = "https://github.com/get-convex/fastrace", rev = "c9e5e5d8c3abf317f605eb845fe769915304d39a", version = "0.7", features = [ "enable" ] }
 fastrand = "2.3.0"
-flate2 = { version = "1", features = [ "zlib-ng" ] }
+flate2 = { version = "1.1", features = [ "zlib-rs" ] }
 flexbuffers = "25"
 float_next_after = "1.0.0"
 fnv = "1.0.7"
