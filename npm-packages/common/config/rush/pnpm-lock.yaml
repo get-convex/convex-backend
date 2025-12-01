@@ -5209,6 +5209,64 @@ importers:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
 
+  ../../private-demos/uses-ents:
+    dependencies:
+      '@popperjs/core':
+        specifier: ~2.11.6
+        version: 2.11.8
+      bootstrap:
+        specifier: ^5.0.2
+        version: 5.3.8(@popperjs/core@2.11.8)
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+      convex-ents:
+        specifier: ^0.16.0
+        version: 0.16.0(convex@..+convex)
+      convex-helpers:
+        specifier: ^0.1.105
+        version: 0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.10.5)(react@18.3.1)(typescript@5.0.4)(zod@4.1.12)
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.0.0
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@convex-dev/eslint-plugin':
+        specifier: workspace:*
+        version: link:../../@convex-dev/eslint-plugin
+      '@eslint/js':
+        specifier: ~9.34.0
+        version: 9.34.0
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.130
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.26
+      '@types/react-dom':
+        specifier: ^18.0.0
+        version: 18.3.7(@types/react@18.3.26)
+      '@vitejs/plugin-react':
+        specifier: ^4.2.1
+        version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
+      eslint:
+        specifier: ^9.37.0
+        version: 9.39.1(jiti@2.6.1)
+      shx:
+        specifier: ~0.3.4
+        version: 0.3.4
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+      typescript-eslint:
+        specifier: ~8.38.0
+        version: 8.38.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
+      vite:
+        specifier: ^6.4.1
+        version: 6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
+
   ../../private-demos/vector-importer:
     dependencies:
       convex:
@@ -13647,6 +13705,11 @@ packages:
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
+
+  convex-ents@0.16.0:
+    resolution: {integrity: sha512-+dKVIcuGgocdxl+fQAbE4DZo6bUt+8ec/PI+G8wIIpMGL91hoK33ww04xgiggDZizuwHiryJTA4XtaJBTJcU9w==}
+    peerDependencies:
+      convex: ^1.27.0
 
   convex-helpers@0.1.105:
     resolution: {integrity: sha512-B6EUQsBpLFcXpa1g/9Zsc7EaFHdaeMlPLCa/snSD+4hRBFMWKJjT589dZ/0Z40taBOQWC2tb81ciTNr4ctJb2w==}
@@ -36150,6 +36213,10 @@ snapshots:
   convert-source-map@1.9.0: {}
 
   convert-source-map@2.0.0: {}
+
+  convex-ents@0.16.0(convex@..+convex):
+    dependencies:
+      convex: link:../../convex
 
   convex-helpers@0.1.105(@standard-schema/spec@1.0.0)(convex@..+convex)(hono@4.10.5)(react@18.3.1)(typescript@5.0.4)(zod@3.25.76):
     dependencies:

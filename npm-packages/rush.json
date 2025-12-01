@@ -391,6 +391,10 @@
       "projectFolder": "private-demos/components-ts-alias"
     },
     {
+      "packageName": "uses-ents",
+      "projectFolder": "private-demos/uses-ents"
+    },
+    {
       "packageName": "@convex-dev/ratelimiter",
       "projectFolder": "components/ratelimiter"
     },
