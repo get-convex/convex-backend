@@ -1617,3 +1617,19 @@ a.video-card h2 {
   letter-spacing: normal;
   max-height: 2.4em;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-slideToTop {
+    animation: slideToTop 0.15s ease-in-out;
+  }
+}
+
+@keyframes slideToTop {
+  from {
+    transform: translateY(80%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+  }
+}
