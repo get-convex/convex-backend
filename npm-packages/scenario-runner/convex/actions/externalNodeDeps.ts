@@ -2,6 +2,8 @@
 import { load } from "langchain/load";
 import { Tiktoken } from "tiktoken/lite";
 import { action } from "../_generated/server";
+import { v } from "convex/values";
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const gpt2_base = require("tiktoken/encoders/gpt2.json");
 
@@ -10,7 +12,10 @@ const gpt2_base = require("tiktoken/encoders/gpt2.json");
 load;
 
 export const encode = action({
-  handler: (_, { str }: { str: string }): number[] => {
+  args: {
+    str: v.string(),
+  },
+  handler: (_, { str }): number[] => {
     const enc = new Tiktoken(
       gpt2_base.bpe_ranks,
       gpt2_base.special_tokens,
