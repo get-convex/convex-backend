@@ -145,7 +145,7 @@ hyper = "1.3.1"
 hyper-util = { version = "0.1.5", features = [ "server-graceful", "tokio" ] }
 imbl = "5.0.0"
 itertools = "0.14"
-jemalloc_pprof = "0.6"
+jemalloc_pprof = "0.8"
 jsonschema = "0.30"
 levenshtein_automata = "0.2.1"
 libc = "0.2"
