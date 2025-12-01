@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context } from "../../bundler/context.js";
 import {
   logFailure,
@@ -28,10 +28,10 @@ export async function envSetInDeployment(
   const formatted = /\s/.test(value) ? `"${value}"` : value;
   if (options?.secret) {
     logFinishedStep(
-      `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${deployment.deploymentNotice}`,
+      `Successfully set ${chalkStderr.bold(name)} to ${chalkStderr.bold(formatted)}${deployment.deploymentNotice}`,
     );
   } else {
-    logFinishedStep(`Successfully set ${chalk.bold(name)}`);
+    logFinishedStep(`Successfully set ${chalkStderr.bold(name)}`);
   }
 }
 
@@ -110,7 +110,7 @@ export async function envRemoveInDeployment(
 ) {
   await callUpdateEnvironmentVariables(ctx, deployment, [{ name }]);
   logFinishedStep(
-    `Successfully unset ${chalk.bold(name)}${deployment.deploymentNotice}`,
+    `Successfully unset ${chalkStderr.bold(name)}${deployment.deploymentNotice}`,
   );
 }
 

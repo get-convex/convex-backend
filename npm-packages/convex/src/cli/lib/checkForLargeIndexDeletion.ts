@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context } from "../../bundler/context.js";
 import {
   changeSpinner,
@@ -100,7 +100,7 @@ export async function checkForLargeIndexDeletion({
     return;
   }
 
-  logMessage(`⚠️  This code push will ${chalk.bold("delete")} the following ${deletedIndexesWithDocumentsCount.length === 1 ? "index" : "indexes"}
+  logMessage(`⚠️  This code push will ${chalkStderr.bold("delete")} the following ${deletedIndexesWithDocumentsCount.length === 1 ? "index" : "indexes"}
 from your production deployment (${options.url}):
 
 ${deletedIndexesWithDocumentsCount
@@ -131,8 +131,8 @@ to be backfilled again if you want to restore it later.
       exitCode: 1,
       errorType: "fatal",
       printedMessage: `To confirm the push:
-• run the deploy command in an ${chalk.bold("interactive terminal")}
-• or run the deploy command with the ${chalk.bold("--allow-deleting-large-indexes")} flag`,
+• run the deploy command in an ${chalkStderr.bold("interactive terminal")}
+• or run the deploy command with the ${chalkStderr.bold("--allow-deleting-large-indexes")} flag`,
     });
   }
 
@@ -168,17 +168,17 @@ function formatDeletedIndex({
 }) {
   const componentNameFormatted =
     componentDefinitionPath !== ""
-      ? `${chalk.gray(componentDefinitionPath)}:`
+      ? `${chalkStderr.gray(componentDefinitionPath)}:`
       : "";
 
   const documentsCountFormatted =
     documentsCount >= minDocumentsForWarning
-      ? `  ${chalk.yellowBright(`⚠️  ${documentsCount.toLocaleString()} documents`)}`
+      ? `  ${chalkStderr.yellowBright(`⚠️  ${documentsCount.toLocaleString()} documents`)}`
       : `  ${documentsCount.toLocaleString()} ${documentsCount === 1 ? "document" : "documents"}`;
 
   const replacedBy = indexDiff.added_indexes.find((i) => i.name === index.name);
   const replacedByFormatted = replacedBy
-    ? `\n   ${chalk.green("→ replaced by:")} ${formatIndex(replacedBy)}`
+    ? `\n   ${chalkStderr.green("→ replaced by:")} ${formatIndex(replacedBy)}`
     : "";
 
   return (

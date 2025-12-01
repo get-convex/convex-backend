@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context } from "../../bundler/context.js";
 import { logWarning } from "../../bundler/log.js";
 import { teamDashboardUrl } from "./dashboard.js";
@@ -10,10 +10,10 @@ async function warn(
   options: { title: string; subtitle: string; teamSlug: string },
 ) {
   const { title, subtitle, teamSlug } = options;
-  logWarning(chalk.bold.yellow(title));
-  logWarning(chalk.yellow(subtitle));
+  logWarning(chalkStderr.bold.yellow(title));
+  logWarning(chalkStderr.yellow(subtitle));
   logWarning(
-    chalk.yellow(`Visit ${teamDashboardUrl(teamSlug)} to learn more.`),
+    chalkStderr.yellow(`Visit ${teamDashboardUrl(teamSlug)} to learn more.`),
   );
 }
 

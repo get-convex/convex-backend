@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import os from "os";
 import path from "path";
 import { rootDirectory } from "./utils.js";
@@ -39,7 +39,7 @@ export function readGlobalConfig(ctx: Context): GlobalConfig | null {
   } catch (err) {
     // Print an error and act as if the file does not exist.
     logError(
-      chalk.red(
+      chalkStderr.red(
         `Failed to parse global config in ${configPath} with error ${
           err as any
         }.`,
@@ -66,7 +66,7 @@ export async function modifyGlobalConfig(ctx: Context, config: GlobalConfig) {
       schema.parse(storedConfig);
     } catch (err) {
       logError(
-        chalk.red(
+        chalkStderr.red(
           `Failed to parse global config in ${configPath} with error ${
             err as any
           }.`,
@@ -91,7 +91,7 @@ async function overrwriteGlobalConfig(ctx: Context, config: GlobalConfig) {
       exitCode: 1,
       errorType: "invalid filesystem data",
       errForSentry: err,
-      printedMessage: chalk.red(
+      printedMessage: chalkStderr.red(
         `Failed to write auth config to ${path} with error: ${err as any}`,
       ),
     });

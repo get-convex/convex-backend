@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import path from "path";
 import { Context } from "../../bundler/context.js";
 import { logError, logFailure, showSpinner } from "../../bundler/log.js";
@@ -46,7 +46,9 @@ export async function typeCheckFunctionsInMode(
       ) {
         logSpecificError?.();
         logError(
-          chalk.gray("To ignore failing typecheck, use `--typecheck=disable`."),
+          chalkStderr.gray(
+            "To ignore failing typecheck, use `--typecheck=disable`.",
+          ),
         );
         try {
           const result = await runOnError?.();
@@ -95,7 +97,7 @@ async function runTsc(
   if (!ctx.fs.exists(tscPath)) {
     return handleResult("cantTypeCheck", () => {
       logError(
-        chalk.gray("No TypeScript binary found, so skipping typecheck."),
+        chalkStderr.gray("No TypeScript binary found, so skipping typecheck."),
       );
     });
   }
@@ -114,7 +116,7 @@ async function runTsc(
   // Print this warning after any logs from running `tsc`
   if (hasOlderTypeScriptVersion) {
     logError(
-      chalk.yellow(
+      chalkStderr.yellow(
         "Convex works best with TypeScript version 4.8.4 or newer -- npm i --save-dev typescript@latest to update.",
       ),
     );
@@ -140,7 +142,7 @@ async function runTscInner(
     return handleResult("typecheckFailed", () => {
       logFailure(`TypeScript typecheck timed out.`);
       if (result.error) {
-        logError(chalk.red(`${result.error.toString()}`));
+        logError(chalkStderr.red(`${result.error.toString()}`));
       }
     });
   }

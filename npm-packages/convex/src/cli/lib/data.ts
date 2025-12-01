@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context } from "../../bundler/context.js";
 import { logError, logOutput, logWarning } from "../../bundler/log.js";
 import { Base64 } from "../../values/index.js";
@@ -130,7 +130,7 @@ async function listDocuments(
     );
     if (data.length > options.limit) {
       logWarning(
-        chalk.yellow(
+        chalkStderr.yellow(
           `Showing the ${options.limit} ${
             options.order === "desc" ? "most recently" : "oldest"
           } created document${
@@ -198,7 +198,7 @@ function logDocumentsTable(_ctx: Context, rows: Record<string, string>[]) {
   }
   if (didTruncate) {
     logWarning(
-      chalk.yellow(
+      chalkStderr.yellow(
         "Lines were truncated to fit the terminal width. Pipe the command to see " +
           "the full output, such as:\n  `npx convex data tableName | less -S`",
       ),

@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { oneoffContext } from "../bundler/context.js";
 import {
@@ -39,7 +39,7 @@ export const convexImport = new Command("import")
     );
 
     const deploymentNotice = options.prod
-      ? ` in your ${chalk.bold("prod")} deployment`
+      ? ` in your ${chalkStderr.bold("prod")} deployment`
       : "";
 
     await importIntoDeployment(ctx, filePath, {

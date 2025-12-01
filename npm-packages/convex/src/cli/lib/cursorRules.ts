@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/node";
 import { downloadLatestCursorRules } from "./versionApi.js";
 import path from "path";
 import { hashSha256 } from "./utils/hash.js";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 // In the CLI, we usually want to use the filesystem functions from `Context`
 // so that we can detect file changes when watching. However, in this case
 // we don’t need to watch the file, and we want to perform filesystem operations
@@ -34,7 +34,7 @@ export async function autoUpdateCursorRules(expectedRulesHash: string | null) {
       const rulesPath = getRulesPath();
       await fs.writeFile(rulesPath, rules, "utf8");
       logMessage(
-        `${chalk.green(`✔`)} Automatically updated the Convex Cursor rules to the latest version.`,
+        `${chalkStderr.green(`✔`)} Automatically updated the Convex Cursor rules to the latest version.`,
       );
     } catch (error) {
       Sentry.captureException(error);

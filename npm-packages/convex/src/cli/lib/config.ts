@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import equal from "deep-equal";
 import { EOL } from "os";
 import path from "path";
@@ -296,12 +296,12 @@ export async function parseProjectConfig(
                   ? `\`${issue.path.join(".")}\``
                   : "`convex.json`";
               logMessage(
-                chalk.yellow(
+                chalkStderr.yellow(
                   `Warning: Unknown ${newUnknownKeys.length === 1 ? "property" : "properties"} in ${fullPath}: ${newUnknownKeys.map((k) => `\`${k}\``).join(", ")}`,
                 ),
               );
               logMessage(
-                chalk.gray(
+                chalkStderr.gray(
                   "  These properties will be preserved but are not recognized by this version of Convex.",
                 ),
               );
@@ -391,7 +391,7 @@ export async function configFilepath(ctx: Context): Promise<string> {
   const preferredLocationExists = ctx.fs.exists(preferredLocation);
   const wrongLocationExists = ctx.fs.exists(wrongLocation);
   if (preferredLocationExists && wrongLocationExists) {
-    const message = `${chalk.red(`Error: both ${preferredLocation} and ${wrongLocation} files exist!`)}\nConsolidate these and remove ${wrongLocation}.`;
+    const message = `${chalkStderr.red(`Error: both ${preferredLocation} and ${wrongLocation} files exist!`)}\nConsolidate these and remove ${wrongLocation}.`;
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
@@ -450,15 +450,15 @@ export async function readProjectConfig(ctx: Context): Promise<{
     );
   } catch (err) {
     if (err instanceof ParseError || err instanceof SyntaxError) {
-      logError(chalk.red(`Error: Parsing "${configPath}" failed`));
-      logMessage(chalk.gray(err.toString()));
+      logError(chalkStderr.red(`Error: Parsing "${configPath}" failed`));
+      logMessage(chalkStderr.gray(err.toString()));
     } else {
       logFailure(
         `Error: Unable to read project config file "${configPath}"\n` +
           "  Are you running this command from the root directory of a Convex project? If so, run `npx convex dev` first.",
       );
       if (err instanceof Error) {
-        logError(chalk.red(err.message));
+        logError(chalkStderr.red(err.message));
       }
     }
     return await ctx.crash({
@@ -489,7 +489,7 @@ export async function enforceDeprecatedConfigField(
     exitCode: 1,
     errorType: "invalid filesystem data",
     errForSentry: err,
-    printedMessage: `Error: Parsing convex.json failed:\n${chalk.gray(err.toString())}`,
+    printedMessage: `Error: Parsing convex.json failed:\n${chalkStderr.gray(err.toString())}`,
   });
 }
 
@@ -680,7 +680,7 @@ export async function upgradeOldAuthInfoToAuthConfig(
   };`,
       );
       logMessage(
-        chalk.yellowBright(
+        chalkStderr.yellowBright(
           `Moved auth config from config.json to \`${authConfigRelativePath}\``,
         ),
       );
@@ -717,7 +717,7 @@ export async function writeProjectConfig(
   } else if (deleteIfAllDefault && ctx.fs.exists(configPath)) {
     ctx.fs.unlink(configPath);
     logMessage(
-      chalk.yellowBright(
+      chalkStderr.yellowBright(
         `Deleted ${configPath} since it completely matched defaults`,
       ),
     );
@@ -1184,7 +1184,7 @@ export async function handlePushConfigError(
     }
 
     const envVarMessage =
-      `Environment variable ${chalk.bold(
+      `Environment variable ${chalkStderr.bold(
         variableName,
       )} is used in auth config file but ` + `its value was not set.`;
     let setEnvVarInstructions =
@@ -1198,7 +1198,7 @@ export async function handlePushConfigError(
         deploymentName,
         `/settings/environment-variables${variableQuery}`,
       );
-      setEnvVarInstructions = `Go to:\n\n    ${chalk.bold(
+      setEnvVarInstructions = `Go to:\n\n    ${chalkStderr.bold(
         dashboardUrl,
       )}\n\n  to set it up. `;
     }
@@ -1219,7 +1219,7 @@ export async function handlePushConfigError(
       exitCode: 1,
       errorType: "transient",
       errForSentry: error,
-      printedMessage: chalk.yellow(message),
+      printedMessage: chalkStderr.yellow(message),
     });
   }
 

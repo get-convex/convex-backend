@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { functionsDir, ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { Command } from "@commander-js/extra-typings";
 import { readConfig } from "./lib/config.js";
@@ -31,7 +31,7 @@ export const typecheck = new Command("typecheck")
       async (typecheckResult, logSpecificError, runOnError) => {
         logSpecificError?.();
         if (typecheckResult === "typecheckFailed") {
-          logMessage(chalk.gray("Typecheck failed"));
+          logMessage(chalkStderr.gray("Typecheck failed"));
           try {
             await runOnError?.();
             // If runOnError doesn't throw then it worked the second time.
@@ -46,7 +46,7 @@ export const typecheck = new Command("typecheck")
           });
         } else if (typecheckResult === "cantTypeCheck") {
           logMessage(
-            chalk.gray("Unable to typecheck; is TypeScript installed?"),
+            chalkStderr.gray("Unable to typecheck; is TypeScript installed?"),
           );
           return await ctx.crash({
             exitCode: 1,

@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { Context, oneoffContext } from "../bundler/context.js";
 import {
   DeploymentSelectionOptions,
@@ -61,7 +61,7 @@ async function selectEnvDeployment(
   );
   const deploymentNotice =
     deploymentFields !== null
-      ? ` (on ${chalk.bold(deploymentFields.deploymentType)} deployment ${chalk.bold(deploymentFields.deploymentName)})`
+      ? ` (on ${chalkStderr.bold(deploymentFields.deploymentType)} deployment ${chalkStderr.bold(deploymentFields.deploymentName)})`
       : "";
   return {
     ctx,

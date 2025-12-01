@@ -2,7 +2,7 @@
 // error messages.
 /* eslint-disable no-restricted-imports */
 /* eslint-disable no-restricted-syntax */
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import stdFs, { Dirent, Mode, ReadStream, Stats } from "fs";
 import * as fsPromises from "fs/promises";
 import os from "os";
@@ -36,21 +36,21 @@ function warnCrossFilesystem(dstPath: string) {
     // It's hard for these to use `logMessage` without creating a circular dependency, so just log directly.
     // eslint-disable-next-line no-console
     console.warn(
-      chalk.yellow(
+      chalkStderr.yellow(
         `Temporary directory '${tmpDirRoot}' and project directory '${dstDir}' are on different filesystems.`,
       ),
     );
     // eslint-disable-next-line no-console
     console.warn(
-      chalk.gray(
-        `  If you're running into errors with other tools watching the project directory, override the temporary directory location with the ${chalk.bold(
+      chalkStderr.gray(
+        `  If you're running into errors with other tools watching the project directory, override the temporary directory location with the ${chalkStderr.bold(
           tmpDirOverrideVar,
         )} environment variable.`,
       ),
     );
     // eslint-disable-next-line no-console
     console.warn(
-      chalk.gray(
+      chalkStderr.gray(
         `  Be sure to pick a temporary directory that's on the same filesystem as your project.`,
       ),
     );

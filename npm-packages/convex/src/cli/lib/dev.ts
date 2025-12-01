@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { OneoffCtx } from "../../bundler/context.js";
 import {
   logError,
@@ -195,7 +195,7 @@ export async function watchAndPush(
         numFailures += 1;
         if (e.errorType === "transient") {
           logWarning(
-            chalk.yellow(
+            chalkStderr.yellow(
               `Failed due to network error, retrying in ${formatDuration(
                 delay,
               )}...`,

@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import open from "open";
 import { Context, oneoffContext } from "../bundler/context.js";
 import { logMessage } from "../bundler/log.js";
@@ -49,8 +49,8 @@ async function openDocs(ctx: Context, toOpen: boolean, cookie?: string) {
   }
   if (toOpen) {
     await open(docsUrl);
-    logMessage(chalk.green("Docs have launched! Check your browser."));
+    logMessage(chalkStderr.green("Docs have launched! Check your browser."));
   } else {
-    logMessage(chalk.green(`Find Convex docs here: ${docsUrl}`));
+    logMessage(chalkStderr.green(`Find Convex docs here: ${docsUrl}`));
   }
 }

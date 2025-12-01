@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import {
   formatSize,
   waitUntilCalled,
@@ -51,7 +51,7 @@ export async function importIntoDeployment(
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
-      printedMessage: `Error: Path ${chalk.bold(filePath)} does not exist.`,
+      printedMessage: `Error: Path ${chalkStderr.bold(filePath)} does not exist.`,
     });
   }
 
@@ -111,10 +111,12 @@ export async function importIntoDeployment(
     mode,
     format,
   };
-  const tableNotice = tableName ? ` to table "${chalk.bold(tableName)}"` : "";
+  const tableNotice = tableName
+    ? ` to table "${chalkStderr.bold(tableName)}"`
+    : "";
   const onFailure = async () => {
     logFailure(
-      `Importing data from "${chalk.bold(
+      `Importing data from "${chalkStderr.bold(
         filePath,
       )}"${tableNotice}${options.deploymentNotice} failed`,
     );
@@ -157,9 +159,9 @@ export async function importIntoDeployment(
         return await ctx.crash({
           exitCode: 1,
           errorType: "fatal",
-          printedMessage: `Importing data from "${chalk.bold(
+          printedMessage: `Importing data from "${chalkStderr.bold(
             filePath,
-          )}"${tableNotice}${options.deploymentNotice} failed\n\n${chalk.red(snapshotImportState.error_message)}`,
+          )}"${tableNotice}${options.deploymentNotice} failed\n\n${chalkStderr.red(snapshotImportState.error_message)}`,
         });
       case "waiting_for_confirmation": {
         // Clear spinner state so we can log and prompt without clobbering lines.
@@ -177,7 +179,7 @@ export async function importIntoDeployment(
           deploymentUrl: options.deploymentUrl,
           onError: async () => {
             logFailure(
-              `Importing data from "${chalk.bold(
+              `Importing data from "${chalkStderr.bold(
                 filePath,
               )}"${tableNotice}${options.deploymentNotice} failed`,
             );
@@ -354,7 +356,7 @@ async function determineFormat(
     );
     if (format !== null && fileExtension !== formatToExtension[format]) {
       logWarning(
-        chalk.yellow(
+        chalkStderr.yellow(
           `Warning: Extension of file ${filePath} (${fileExtension}) does not match specified format: ${format} (${formatToExtension[format]}).`,
         ),
       );

@@ -1,4 +1,4 @@
-import chalk from "chalk";
+import { chalkStderr } from "chalk";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { DeveloperIndexConfig } from "./deployApi/finishPush.js";
 
@@ -47,17 +47,19 @@ export function addProgressLinkIfSlow(
 
 export function formatIndex(index: DeveloperIndexConfig) {
   const [tableName, indexName] = index.name.split(".");
-  return `${tableName}.${chalk.bold(indexName)} ${chalk.gray(formatIndexFields(index))}${index.staged ? chalk.blue("  (staged)") : ""}`;
+  return `${tableName}.${chalkStderr.bold(indexName)} ${chalkStderr.gray(formatIndexFields(index))}${index.staged ? chalkStderr.blue("  (staged)") : ""}`;
 }
 
 function formatIndexFields(index: DeveloperIndexConfig) {
   switch (index.type) {
     case "database":
-      return "  " + index.fields.map((f) => chalk.underline(f)).join(", ");
+      return (
+        "  " + index.fields.map((f) => chalkStderr.underline(f)).join(", ")
+      );
     case "search":
-      return `${chalk.cyan("(text)")}   ${chalk.underline(index.searchField)}${formatFilterFields(index.filterFields)}`;
+      return `${chalkStderr.cyan("(text)")}   ${chalkStderr.underline(index.searchField)}${formatFilterFields(index.filterFields)}`;
     case "vector":
-      return `${chalk.cyan("(vector)")}   ${chalk.underline(index.vectorField)} (${index.dimensions} dimensions)${formatFilterFields(index.filterFields)}`;
+      return `${chalkStderr.cyan("(vector)")}   ${chalkStderr.underline(index.vectorField)} (${index.dimensions} dimensions)${formatFilterFields(index.filterFields)}`;
     default:
       index satisfies never;
       return "";
@@ -68,5 +70,5 @@ function formatFilterFields(filterFields: string[]) {
   if (filterFields.length === 0) {
     return "";
   }
-  return `, filter${filterFields.length === 1 ? "" : "s"} on ${filterFields.map((f) => chalk.underline(f)).join(", ")}`;
+  return `, filter${filterFields.length === 1 ? "" : "s"} on ${filterFields.map((f) => chalkStderr.underline(f)).join(", ")}`;
 }
