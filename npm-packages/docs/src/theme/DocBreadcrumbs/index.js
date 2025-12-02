@@ -103,7 +103,7 @@ export default function DocBreadcrumbs() {
     breadcrumbs.length >= 2;
 
   return showBreadcrumbs ? (
-    <div className="flex items-baseline gap-x-4 justify-between flex-wrap mb-3">
+    <div className="flex items-center gap-x-4 justify-between flex-wrap mb-3">
       <DocBreadcrumbsInner />
       <CopyAsMarkdown />
     </div>
