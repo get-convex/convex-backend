@@ -13,7 +13,7 @@ implementing everything from scratch.
 If you've worked with modern web development, you've likely encountered similar
 ideas in different forms. Components draw inspiration from frontend components,
 third-party APIs, and service-oriented architectures. The key difference is that
-Convex components run within your backend, giving you the composability combined
+Convex components run within your backend, giving you composability combined
 with the persistence and reliability of backend services.
 
 The following diagram shows how data and function access works in the component
@@ -68,6 +68,9 @@ guarantees.
   also allows component authors to easily reason about state changes without
   races, and trust that a thrown exception will always roll back the Component's
   sub-transaction. [Read more](/components/using.mdx#transactions).
+
+Isolation is important because it protects the component's tables from getting
+mutated by the app and creates a separation of concerns.
 
 ### Encapsulation
 

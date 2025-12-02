@@ -155,13 +155,40 @@ This allows the app to choose to add auth, rate limiting, etc.
 
 ```ts
 // in the app's convex/<file>.ts
-export const add = query({
+export const add = mutation({
   args: { value: v.number() },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await counter.add(ctx, args.value);
   },
 });
 ```
+
+### Validation
+
+All public component functions should have argument and return validators.
+Otherwise, the argument and return values will be typed as `any`. Below is an
+example of using validators.
+
+```ts
+import schema from "./schema";
+
+const messageDoc = schema.tables.messages.validator.extend({
+  _id: v.id("messages),
+  _creationTime: v.number(),
+});
+
+export const getLatestMessage = query({
+  args: {},
+  returns: v.nullable(messageDoc),
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc).first();
+  },
+});
+```
+
+Find out more information about function validation
+[here](/functions/validation.mdx).
 
 ### HTTP Actions
 
@@ -211,6 +238,10 @@ const result = await ctx.runMutation(handle, args);
 await ctx.scheduler.runAfter(0, handle, args);
 ```
 
+[Here](https://github.com/get-convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
+is an example of using function handles in the
+[Workpool](https://www.convex.dev/components/workpool) component.
+
 ### Pagination
 
 The built-in `.paginate()` doesn't work in components, because of how Convex
@@ -225,6 +256,10 @@ in a React context, use the `usePaginatedQuery` from `convex-helpers` instead of
 the default one. It will have a fixed first page size until you hit “load more,”
 at which point the first page will grow if anything before the second page is
 added.
+
+[Here](https://github.com/get-convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
+is an example of pagination in the [RAG](https://www.convex.dev/components/rag)
+component.
 
 ## Building Client APIs
 
@@ -402,7 +437,9 @@ specific signatures for integration purposes.
 
 Here's a real-world
 [example](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
-from the ProseMirror component that exports ready-made functions.
+from the
+[ProseMirror component](https://www.convex.dev/components/prosemirror-sync) that
+exports ready-made functions.
 
 ## Codegen
 
