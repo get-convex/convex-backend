@@ -5,7 +5,7 @@ sidebar_position: 40
 description: "Creating new components"
 ---
 
-Building a component lets you package up Convex functions, schemas, and
+Building a Convex Component lets you package up Convex functions, schemas, and
 persistent state into a reusable module that you or other developers can drop
 into their projects.
 
@@ -221,7 +221,7 @@ it into something that can be called from anywhere:
 const handle = await createFunctionHandle(api.foo.bar);
 ```
 
-​This handle is a string.
+This handle is a string.
 
 Since it’s a string, you can pass it between functions and even store it in a
 table. You would use `v.string()` in args/schema validators.

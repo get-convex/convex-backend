@@ -24,7 +24,7 @@ const ComponentIcon = () => (
         strokeLinejoin="round"
       />
     </svg>
-    <span className="component-card-label">Convex component</span>
+    <span className="component-card-label">Convex Component</span>
   </div>
 );
 

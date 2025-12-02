@@ -5,7 +5,7 @@ sidebar_position: 10
 description: "Understanding components"
 ---
 
-Convex components are self-contained backend modules that bundle functions,
+Convex Components are self-contained backend modules that bundle functions,
 schemas, and data together. They let you add complex functionality to your
 app—like authentication, rate limiting, or document collaboration—without
 implementing everything from scratch.
@@ -13,7 +13,7 @@ implementing everything from scratch.
 If you've worked with modern web development, you've likely encountered similar
 ideas in different forms. Components draw inspiration from frontend components,
 third-party APIs, and service-oriented architectures. The key difference is that
-Convex components run within your backend, giving you composability combined
+Convex Components run within your backend, giving you composability combined
 with the persistence and reliability of backend services.
 
 The following diagram shows how data and function access works in the component
@@ -53,24 +53,23 @@ Similar to regular npm libraries, Convex Components include functions, type
 safety, and are called from your code. However, they also provide extra
 guarantees.
 
-- Similar to a third-party API, components can't read data for which you don't
-  provide access. This includes database tables, file storage, environment
-  variables, scheduled functions, etc.
-- Similar to service-oriented architecture, functions in components are run in
-  an isolated environment, so writes to global variables and patches system
-  behavior aren't shared between components.
-- Similar to a monolith architecture, data changes commit transactionally across
-  calls to components, without having to reason about complicated distributed
-  commit protocols or data inconsistencies. You'll never have a component commit
-  data but have the calling code roll back.
+- Similar to an external service, code inside a component can't read data that
+  is not explicitly provided to it. This includes database tables, file storage,
+  environment variables, scheduled functions, etc. Conversely, the component's
+  data cannot be directly mutated by the main app, allowing full separation of
+  concerns.
+- Similar to a service-oriented architecture, functions in components are run in
+  an isolated environment, so writes to global variables and patches to system
+  behavior are not shared between components.
+- Similar to a monolithic architecture, data changes commit transactionally
+  across calls to components, without having to reason about complicated
+  distributed commit protocols or data inconsistencies. You'll never have a
+  component commit data but have the calling code roll back.
 - In addition, each mutation call to a component is a sub-transaction isolated
-  from other calls, allowing you to safely catch errors thrown by components. It
-  also allows component authors to easily reason about state changes without
-  races, and trust that a thrown exception will always roll back the Component's
-  sub-transaction. [Read more](/components/using.mdx#transactions).
-
-Isolation is important because it protects the component's tables from getting
-mutated by the app and creates a separation of concerns.
+  from other calls, allowing you to safely catch errors thrown by components.
+  This also allows component authors to easily reason about state changes
+  without races, and trust that a thrown exception will always roll back the
+  component's sub-transaction. [Read more](/components/using.mdx#transactions).
 
 ### Encapsulation
 
