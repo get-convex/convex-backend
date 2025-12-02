@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.30.0
 
 - The `--preview-create` parameter for `npx convex deploy` will now error if
   used with a deploy key that is not a preview deploy key. Previously, the flag
@@ -8,7 +8,15 @@
   the production deployment. If you were depending on this behavior, make sure
   to remove the `--preview-create` flag when deploying to production.
 
-## 1.29.2
+## 1.29.3
+
+- Revert ApiFromModules type changes introduced in 1.29.0 which sometimes caused
+  type mismatches due to `FunctionReference` sometimes missing properties.
+
+- Don't warn when `"$schema"` is present in convex.json.
+
+- Replace ProxyAgent with EnvHttpProxyAgent in the CLI so the `NO_PROXY`
+  environment variable is respected.
 
 ## 1.29.2
 
@@ -16,6 +24,11 @@
   confirmation before deleting large indexes. This change is helpful for
   avoiding situations where an index is accidentally deleted and backfilling it
   takes a long time.
+
+## 1.29.1
+
+- Support for special error and no-op values of `CONVEX_DEPLOY_KEY` environment
+  variable used by the Convex Vercel integration.
 
 ## 1.29.0
 
