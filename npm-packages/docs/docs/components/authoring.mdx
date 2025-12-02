@@ -589,3 +589,86 @@ export const count = query({
 
 This explicit passing makes it clear what data flows between the app and
 component, making your component easier to understand and test.
+
+## Testing
+
+### Testing implementations
+
+To test components, you can use the
+[`convex-test` library](/testing/convex-test.mdx). The main difference is that
+you must provide the schema and modules to the test instance.
+
+```ts title="component/some.test.ts"
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema.ts";
+const modules = import.meta.glob("./**/*.ts");
+
+export function initConvexTest() {
+  const t = convexTest(schema, modules);
+  return t;
+}
+
+test("Test something with a local component", async () => {
+  const t = initConvexTest();
+  // Test like you would normally.
+  await t.run(async (ctx) => {
+    await ctx.db.insert("myComponentTable", { name: "test" });
+  });
+});
+```
+
+If your component has child components, see the
+[Testing components](/components/using.mdx#testing-components) section in the
+Using Components documentation.
+
+### Testing the API and client code
+
+To test the functions that are exported from the component to run in the app's
+environment, you can follow the same approach as in
+[Using Components](/components/using.mdx#testing-components) and test it from an
+app that uses the component.
+
+The template component includes an example app in part for this purpose: to
+exercise the component's bundled code as it will be used by apps installing it.
+
+### Exporting test helpers
+
+Most components export testing helpers to make it easy to register the component
+with the test instance. Here is an example from the
+[template component’s `/test` entrypoint](https://github.com/get-convex/templates/blob/main/template-component/src/test.ts):
+
+```ts
+/// <reference types="vite/client" />
+import type { TestConvex } from "convex-test";
+import type { GenericSchema, SchemaDefinition } from "convex/server";
+import schema from "./component/schema.js";
+const modules = import.meta.glob("./component/**/*.ts");
+
+/**
+ * Register the component with the test convex instance.
+ * @param t - The test convex instance, e.g. from calling `convexTest`.
+ * @param name - The name of the component, as registered in convex.config.ts.
+ */
+export function register(
+  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
+  name: string = "sampleComponent",
+) {
+  t.registerComponent(name, schema, modules);
+}
+export default { register, schema, modules };
+```
+
+For NPM packages, this is exposed as `@your/package/test` in the package's
+`package.json`:
+
+```json
+{
+  ...
+  "exports": {
+    ...
+    "./test": "./src/test.ts",
+    ...
+  }
+}
+```

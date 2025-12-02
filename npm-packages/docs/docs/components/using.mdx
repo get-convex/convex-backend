@@ -153,6 +153,69 @@ from certain components.
   />
 </p>
 
+## Testing components
+
+When writing tests with [`convex-test`](/testing/convex-test.mdx), that use
+components, you must register the component with the test instance. This tells
+it what schema to validate and where to find the component source code. Most
+components export convenient helper functions on `/test` to make this easy:
+
+```ts title="convex/some.test.ts"
+import agentTest from "@convex-dev/agent/test";
+import { expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { components } from "./_generated/api";
+import { createThread } from "@convex-dev/agent";
+
+// Define this once, often in a shared test helper file.
+export function initConvexTest() {
+  const t = convexTest();
+  // highlight-next-line
+  agentTest.register(t);
+  return t;
+}
+
+test("Agent createThread", async () => {
+  const t = initConvexTest();
+
+  const threadId = await t.run(async (ctx) => {
+    // Calling functions that use ctx and components.agent
+    return await createThread(ctx, components.agent, {
+      title: "Hello, world!",
+    });
+  });
+  // Calling functions directly on the component's API
+  const thread = await t.query(components.agent.threads.getThread, {
+    threadId,
+  });
+  expect(thread).toMatchObject({
+    title: "Hello, world!",
+  });
+});
+```
+
+If you need to register the component yourself, you can do so by passing the
+component's schema and modules to the test instance.
+
+```ts title="convex/manual.test.ts"
+/// <reference types="vite/client" />
+import { test } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./path/to/component/schema.ts";
+const modules = import.meta.glob("./path/to/component/**/*.ts");
+
+test("Test something with a local component", async () => {
+  const t = convexTest();
+  t.registerComponent("componentName", schema, modules);
+
+  await t.run(async (ctx) => {
+    await ctx.runQuery(components.componentName.someQuery, {
+      arg: "value",
+    });
+  });
+});
+```
+
 ## Log Streams
 
 You can use the `data.function.component_path` field in
