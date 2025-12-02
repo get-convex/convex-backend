@@ -86,6 +86,7 @@ use common::{
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         ENABLE_INDEX_BACKFILL,
+        ENV_VAR_LIMIT,
         MAX_JOBS_CANCEL_BATCH,
         MAX_USER_MODULES,
     },
@@ -132,7 +133,6 @@ use common::{
         Timestamp,
         UdfIdentifier,
         UdfType,
-        ENV_VAR_LIMIT,
     },
     RequestId,
 };
@@ -1595,10 +1595,7 @@ impl<RT: Runtime> Application<RT> {
 
         let all_env_vars = model.get_all().await?;
 
-        anyhow::ensure!(
-            all_env_vars.len() as u64 <= (ENV_VAR_LIMIT as u64),
-            env_var_limit_met(),
-        );
+        anyhow::ensure!(all_env_vars.len() <= *ENV_VAR_LIMIT, env_var_limit_met(),);
 
         Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await?;
 
@@ -1612,8 +1609,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<Vec<DeploymentAuditLogEvent>> {
         let all_env_vars = EnvironmentVariablesModel::new(tx).get_all().await?;
         anyhow::ensure!(
-            environment_variables.len() as u64 + all_env_vars.len() as u64
-                <= (ENV_VAR_LIMIT as u64),
+            environment_variables.len() + all_env_vars.len() <= *ENV_VAR_LIMIT,
             env_var_limit_met(),
         );
         for environment_variable in environment_variables.clone() {

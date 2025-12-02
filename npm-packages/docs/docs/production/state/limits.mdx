@@ -116,7 +116,7 @@ Applied per-deployment.
 
 |                     |               |
 | ------------------- | ------------- |
-| Number of variables | 100           |
+| Number of variables | 1000          |
 | Maximum name length | 40 characters |
 | Maximum value size  | 8 KiB         |
 

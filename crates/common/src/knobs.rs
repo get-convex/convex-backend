@@ -1502,3 +1502,6 @@ pub static INDEX_BACKFILL_CONCURRENCY: LazyLock<usize> =
 /// getting auth metadata right now.
 pub static HTTP_CACHE_SIZE: LazyLock<u64> =
     LazyLock::new(|| env_config("HTTP_CACHE_SIZE", 16 * 1024 * 1024));
+
+/// Maximum number of environment variables that can be stored.
+pub static ENV_VAR_LIMIT: LazyLock<usize> = LazyLock::new(|| env_config("ENV_VAR_LIMIT", 1000));

@@ -107,7 +107,7 @@ async fn test_env_var_limit_create(rt: TestRuntime) -> anyhow::Result<()> {
     application.load_udf_tests_modules().await?;
 
     let value: EnvVarValue = "value".parse()?;
-    let env_vars_full: Vec<EnvironmentVariable> = (1..=100)
+    let env_vars_full: Vec<EnvironmentVariable> = (1..=1000)
         .collect::<Vec<i32>>()
         .iter()
         .map(|i| -> anyhow::Result<EnvironmentVariable> {
@@ -144,7 +144,7 @@ async fn test_env_var_limit_update(rt: TestRuntime) -> anyhow::Result<()> {
     application.load_udf_tests_modules().await?;
 
     let value: EnvVarValue = "value".parse()?;
-    let env_vars_full: Vec<EnvironmentVariable> = (1..=100)
+    let env_vars_full: Vec<EnvironmentVariable> = (1..=1000)
         .collect::<Vec<i32>>()
         .iter()
         .map(|i| -> anyhow::Result<EnvironmentVariable> {
