@@ -24,7 +24,7 @@
     "openapi-typescript-helpers": "~0.0.15",
     "dashboard": "workspace:*",
     "tsx": "^4.19.4",
-    "zshy": "0.4.1"
+    "zshy": "0.6.0"
   },
   "dependencies": {
     "openapi-fetch": "~0.14.0"

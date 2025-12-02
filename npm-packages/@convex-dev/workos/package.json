@@ -20,7 +20,7 @@
     "@types/react-dom": "^18.0.0",
     "convex": "workspace:*",
     "vitest": "^3.2.4",
-    "zshy": "0.4.1"
+    "zshy": "0.6.0"
   },
   "peerDependencies": {
     "convex": "^1.30.0",

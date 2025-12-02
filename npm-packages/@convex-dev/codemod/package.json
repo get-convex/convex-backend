@@ -28,7 +28,7 @@
     "@types/semver": "^7.3.13",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4",
-    "zshy": "0.4.1"
+    "zshy": "0.6.0"
   },
   "dependencies": {
     "@babel/code-frame": "^7.27.1",
