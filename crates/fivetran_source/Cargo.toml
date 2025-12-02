@@ -55,7 +55,6 @@ pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 rand = { workspace = true }
-schemars = { version = "0.8" }
 uuid = { workspace = true }
 
 [lints]
