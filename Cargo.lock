@@ -1310,7 +1310,7 @@ source = "git+https://github.com/get-convex/biscuit?rev=05bdaab2f43d144aedc9ef2d
 dependencies = [
  "chrono",
  "data-encoding",
- "num-bigint 0.4.5",
+ "num-bigint 0.4.6",
  "num-traits",
  "once_cell",
  "ring",
@@ -5999,7 +5999,7 @@ checksum = "deb6d9ff4094f6d58d3f892fc558e60048476213dd17dcf904b62202e9029da6"
 dependencies = [
  "darling",
  "heck",
- "num-bigint 0.4.5",
+ "num-bigint 0.4.6",
  "proc-macro-crate 3.1.0",
  "proc-macro-error2",
  "proc-macro2",
@@ -6055,7 +6055,7 @@ dependencies = [
  "flate2",
  "getrandom 0.3.1",
  "mysql-common-derive",
- "num-bigint 0.4.5",
+ "num-bigint 0.4.6",
  "num-traits",
  "regex",
  "saturating",
@@ -6190,7 +6190,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35bd024e8b2ff75562e5f34e7f4905839deb4b22955ef5e73d2fea1b9813cb23"
 dependencies = [
- "num-bigint 0.4.5",
+ "num-bigint 0.4.6",
  "num-complex",
  "num-integer",
  "num-iter",
@@ -6211,9 +6211,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c165a9ab64cf766f73521c0dd2cfdff64f488b8f0b3e621face3462d3db536d7"
+checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -6295,7 +6295,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f83d14da390562dca69fc84082e73e548e1ad308d24accdedd2720017cb37824"
 dependencies = [
- "num-bigint 0.4.5",
+ "num-bigint 0.4.6",
  "num-integer",
  "num-traits",
 ]
@@ -8596,7 +8596,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1683de6d6a1436ad708b17f56081b31f3944eb4539dbc1e755eab832852364c"
 dependencies = [
  "deno_error",
- "num-bigint 0.4.5",
+ "num-bigint 0.4.6",
  "serde",
  "smallvec",
  "thiserror 2.0.11",
