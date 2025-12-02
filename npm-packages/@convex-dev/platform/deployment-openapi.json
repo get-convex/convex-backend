@@ -110,7 +110,21 @@
           "200": {
             "description": ""
           }
-        }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     },
     "/get_canonical_urls": {
@@ -129,7 +143,21 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "Deploy Key": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          },
+          {
+            "OAuth Project Token": []
+          }
+        ]
       }
     }
   },

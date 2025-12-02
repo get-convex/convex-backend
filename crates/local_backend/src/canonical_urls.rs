@@ -57,6 +57,12 @@ pub struct UpdateCanonicalUrlRequest {
     path = "/update_canonical_url",
     request_body = UpdateCanonicalUrlRequest,
     responses((status = 200)),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
+    ),
 )]
 pub async fn update_canonical_url(
     State(st): State<LocalAppState>,
@@ -111,6 +117,12 @@ pub struct GetCanonicalUrlsResponse {
     path = "/get_canonical_urls",
     responses(
         (status = 200, body = GetCanonicalUrlsResponse)
+    ),
+    security(
+        ("Deploy Key" = []),
+        ("OAuth Team Token" = []),
+        ("Team Token" = []),
+        ("OAuth Project Token" = []),
     ),
 )]
 pub async fn get_canonical_urls(
