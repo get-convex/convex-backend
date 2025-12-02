@@ -16,6 +16,12 @@ http.route({
 
     // Step 2: Save the storage ID to the database via a mutation
     const author = new URL(request.url).searchParams.get("author");
+    if (author === null) {
+      return new Response("Author is required", {
+        status: 400,
+      });
+    }
+
     await ctx.runMutation(api.messages.sendImage, { storageId, author });
 
     // Step 3: Return a response with the correct CORS headers

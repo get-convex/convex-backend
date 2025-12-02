@@ -1,4 +1,5 @@
 import { query, internalMutation, mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 export const list = query({
   args: {},
@@ -14,6 +15,11 @@ export const list = query({
 });
 
 export const sendDallEMessage = internalMutation({
+  args: {
+    body: v.string(),
+    author: v.string(),
+    prompt: v.string(),
+  },
   handler: async (ctx, { body, author, prompt }) => {
     const message = { body, author, format: "dall-e", prompt };
     await ctx.db.insert("messages", message);
@@ -21,6 +27,10 @@ export const sendDallEMessage = internalMutation({
 });
 
 export const send = mutation({
+  args: {
+    body: v.string(),
+    author: v.string(),
+  },
   handler: async (ctx, { body, author }) => {
     const message = { body, author, format: "text" };
     await ctx.db.insert("messages", message);

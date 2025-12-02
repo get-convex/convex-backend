@@ -8,6 +8,7 @@
  * - Check that the user is allowed to be in a given room.
  */
 import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 const LIST_LIMIT = 20;
 
@@ -22,6 +23,11 @@ const LIST_LIMIT = 20;
  * @param user - The user associated with the presence data.
  */
 export const update = mutation({
+  args: {
+    room: v.string(),
+    user: v.string(),
+    data: v.any(),
+  },
   handler: async (ctx, { room, user, data }) => {
     const existing = await ctx.db
       .query("presence")
@@ -48,6 +54,10 @@ export const update = mutation({
  * @param user - The user associated with the presence data.
  */
 export const heartbeat = mutation({
+  args: {
+    room: v.string(),
+    user: v.string(),
+  },
   handler: async (ctx, { room, user }) => {
     const existing = await ctx.db
       .query("presence")
@@ -68,6 +78,9 @@ export const heartbeat = mutation({
  * the most recent N.
  */
 export const list = query({
+  args: {
+    room: v.string(),
+  },
   handler: async (ctx, { room }) => {
     const presence = await ctx.db
       .query("presence")

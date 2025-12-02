@@ -10,6 +10,10 @@ export const list = query({
 });
 
 export const send = mutation({
+  args: {
+    body: v.string(),
+    author: v.string(),
+  },
   handler: async (ctx, { body, author }) => {
     const message = { body, author };
     await ctx.db.insert("messages", message);

@@ -1,6 +1,7 @@
 import { Doc } from "../../../component/_generated/dataModel";
 import { query, action, mutation } from "./_generated/server";
 import { components } from "./_generated/api";
+import { v } from "convex/values";
 
 export const list = query({
   args: {},
@@ -15,10 +16,11 @@ export const list = query({
 });
 
 export const insert = mutation({
-  handler: async (
-    ctx,
-    { channel, text }: { channel: string; text: string },
-  ) => {
+  args: {
+    channel: v.string(),
+    text: v.string(),
+  },
+  handler: async (ctx, { channel, text }) => {
     await ctx.runMutation(components.component.messages.insertMessage, {
       channel,
       text,

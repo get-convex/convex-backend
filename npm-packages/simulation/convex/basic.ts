@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
 
 export const count = query({
   args: {},
@@ -12,6 +13,7 @@ export const count = query({
 });
 
 export const insertObject = mutation({
+  args: v.any(),
   handler: async ({ db }, obj) => {
     const id = await db.insert("objects", obj);
     return await db.get(id);

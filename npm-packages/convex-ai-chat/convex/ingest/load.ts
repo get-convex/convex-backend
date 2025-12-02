@@ -38,7 +38,11 @@ export const fetchSingle = internalAction({
 });
 
 export const updateDocument = internalMutation({
-  handler: async (ctx, { url, text }: { url: string; text: string }) => {
+  args: {
+    url: v.string(),
+    text: v.string(),
+  },
+  handler: async (ctx, { url, text }) => {
     const latestVersion = await ctx.db
       .query("documents")
       .withIndex("byUrl", (q) => q.eq("url", url))

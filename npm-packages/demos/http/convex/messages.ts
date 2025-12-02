@@ -1,6 +1,7 @@
 // @snippet start httpAction
 import { ActionCtx, httpAction, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { v } from "convex/values";
 
 export const postMessage = httpAction(async (ctx, request) => {
   const { author, body } = await request.json();
@@ -24,6 +25,10 @@ export const list = query({
 });
 
 export const send = mutation({
+  args: {
+    body: v.string(),
+    author: v.string(),
+  },
   handler: async (ctx, { body, author }) => {
     const message = { body, author };
     await ctx.db.insert("messages", message);

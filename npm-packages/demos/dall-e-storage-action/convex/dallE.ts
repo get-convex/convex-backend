@@ -3,12 +3,14 @@
 import OpenAI from "openai";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { v } from "convex/values";
 
 export const send = action({
-  handler: async (
-    ctx,
-    { prompt, author }: { prompt: string; author: string },
-  ) => {
+  args: {
+    prompt: v.string(),
+    author: v.string(),
+  },
+  handler: async (ctx, { prompt, author }) => {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error(

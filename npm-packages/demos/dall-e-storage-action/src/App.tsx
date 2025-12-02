@@ -25,7 +25,7 @@ export default function App() {
         setSending(false);
       }
     } else {
-      await sendMessage({ body: newMessageText, author: name, format: "text" });
+      await sendMessage({ body: newMessageText, author: name });
     }
     setNewMessageText("");
   }
