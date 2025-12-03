@@ -2363,8 +2363,6 @@ export interface components {
             periodicBackupsEnabled: boolean;
             /** Format: int64 */
             previewDeploymentRetentionDays: number;
-            /** Format: int64 */
-            projectMaxPreviewDeployments: number;
             ssoEnabled: boolean;
             streamingExportEnabled: boolean;
             /** Format: int64 */

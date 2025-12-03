@@ -38,7 +38,6 @@ export const Primary: Story = {
       periodicBackupsEnabled: true,
       maxCloudBackups: 50,
       maxProjects: 10,
-      projectMaxPreviewDeployments: 10,
       maxChefTokens: 8500000,
       ssoEnabled: false,
       auditLogRetentionDays: 90,

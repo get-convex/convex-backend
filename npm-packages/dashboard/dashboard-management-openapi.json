@@ -5464,7 +5464,6 @@
           "teamMaxFileBandwidth",
           "logStreamingEnabled",
           "streamingExportEnabled",
-          "projectMaxPreviewDeployments",
           "teamMaxVectorStorage",
           "teamMaxVectorBandwidth",
           "customDomainsEnabled",
@@ -5521,11 +5520,6 @@
             "type": "boolean"
           },
           "previewDeploymentRetentionDays": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          },
-          "projectMaxPreviewDeployments": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
