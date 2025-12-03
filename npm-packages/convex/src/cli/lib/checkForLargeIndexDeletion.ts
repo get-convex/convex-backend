@@ -139,7 +139,7 @@ to be backfilled again if you want to restore it later.
   stopSpinner();
   if (
     !(await promptYesNo(ctx, {
-      message: `Delete these ${deletedIndexesWithDocumentsCount.length === 1 ? "index" : "indexes"}?`,
+      message: `Delete ${deletedIndexesWithDocumentsCount.length === 1 ? "this index" : "these indexes"}?`,
       default: false,
     }))
   ) {
