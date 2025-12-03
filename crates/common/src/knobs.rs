@@ -525,7 +525,7 @@ pub static DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS: LazyLock<usize> =
 
 /// Chunk size for SQL queries deleting documents from Deleting tables.
 pub static DELETE_TABLET_CHUNK_SIZE: LazyLock<u16> =
-    LazyLock::new(|| env_config("DELETE_TABLET_CHUNK_SIZE", 128));
+    LazyLock::new(|| env_config("DELETE_TABLET_CHUNK_SIZE", 256));
 
 /// Size at which a search index will be queued for snapshotting.
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =

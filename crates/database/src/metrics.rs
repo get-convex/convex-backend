@@ -628,6 +628,18 @@ pub fn log_retention_documents_deleted(deleted_rows: usize) {
 }
 
 register_convex_counter!(
+    RETENTION_DOCUMENTS_DELETED_FROM_DELETED_TABLETS_TOTAL,
+    "The total number of documents deleted from tablets deleted outside the document retention \
+     window."
+);
+pub fn log_deleted_tablet_documents_deleted(rows_deleted: usize) {
+    log_counter(
+        &RETENTION_DOCUMENTS_DELETED_FROM_DELETED_TABLETS_TOTAL,
+        rows_deleted as u64,
+    )
+}
+
+register_convex_counter!(
     RETENTION_TS_ADVANCED_TOTAL,
     "Number of times that min_snapshot timestamp was advanced",
     &["type"]

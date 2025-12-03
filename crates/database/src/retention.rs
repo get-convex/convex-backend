@@ -22,13 +22,19 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     backoff::Backoff,
-    bootstrap_model::index::{
-        database_index::{
-            DatabaseIndexState,
-            IndexedFields,
+    bootstrap_model::{
+        index::{
+            database_index::{
+                DatabaseIndexState,
+                IndexedFields,
+            },
+            IndexConfig,
+            IndexMetadata,
         },
-        IndexConfig,
-        IndexMetadata,
+        tables::{
+            TableMetadata,
+            TableState,
+        },
     },
     document::{
         ParseDocument,
@@ -48,6 +54,7 @@ use common::{
     interval::Interval,
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
+        DELETE_TABLET_CHUNK_SIZE,
         DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS,
         DOCUMENT_RETENTION_DELAY,
         DOCUMENT_RETENTION_DELETE_CHUNK,
@@ -132,7 +139,10 @@ use tokio::{
     },
     time::MissedTickBehavior,
 };
-use value::InternalDocumentId;
+use value::{
+    InternalDocumentId,
+    InternalId,
+};
 
 use crate::{
     metrics::{
@@ -140,6 +150,7 @@ use crate::{
         index_retention_delete_timer,
         latest_min_document_snapshot_timer,
         latest_min_snapshot_timer,
+        log_deleted_tablet_documents_deleted,
         log_document_retention_cursor_age,
         log_document_retention_cursor_lag,
         log_document_retention_no_cursor,
@@ -159,6 +170,7 @@ use crate::{
     },
     snapshot_manager::SnapshotManager,
     BootstrapMetadata,
+    Snapshot,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -339,6 +351,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
             }
             indexes
         };
+
         let mut index_cursor = min_index_snapshot_ts;
         // Also update the set of indexes up to the current timestamp before document
         // retention starts moving.
@@ -353,7 +366,8 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
         )
         .await?;
 
-        let (send_min_snapshot, receive_min_snapshot) = watch::channel(min_index_snapshot_ts);
+        let (send_min_index_snapshot, receive_min_index_snapshot) =
+            watch::channel(min_index_snapshot_ts);
         let (send_min_document_snapshot, receive_min_document_snapshot) =
             watch::channel(min_document_snapshot_ts);
         let advance_min_snapshot_handle = rt.spawn(
@@ -363,7 +377,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 self.retention_manager.checkpoint_reader.clone(),
                 rt.clone(),
                 self.persistence.clone(),
-                send_min_snapshot,
+                send_min_index_snapshot,
                 send_min_document_snapshot,
                 snapshot_reader.clone(),
                 lease_lost_shutdown.clone(),
@@ -388,7 +402,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 index_table_id,
                 index_cursor,
                 self.retention_manager.clone(),
-                receive_min_snapshot,
+                receive_min_index_snapshot,
                 self.checkpoint_writer,
                 snapshot_reader.clone(),
                 index_deletion_cursor,
@@ -408,12 +422,28 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 self.retention_manager.bounds_reader.clone(),
                 rt.clone(),
                 self.persistence.clone(),
-                receive_min_document_snapshot,
+                receive_min_document_snapshot.clone(),
                 self.document_checkpoint_writer,
                 snapshot_reader.clone(),
                 retention_rate_limiter.clone(),
                 document_deletion_cursor,
                 checkpoint_quota,
+            ),
+        );
+
+        let snapshot = snapshot_reader.lock().latest_snapshot();
+        let tablets_to_delete =
+            LeaderRetentionWorkers::tablets_to_delete(snapshot, bootstrap_metadata.tables_by_id)?;
+
+        let tablet_deletion_handle = rt.spawn(
+            "retention_tablet_deletion",
+            LeaderRetentionWorkers::go_delete_table_documents(
+                self.retention_manager.bounds_reader.clone(),
+                rt.clone(),
+                self.persistence.clone(),
+                receive_min_document_snapshot,
+                retention_rate_limiter.clone(),
+                tablets_to_delete,
             ),
         );
         Ok(LeaderRetentionWorkers {
@@ -422,6 +452,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 // receivers before the senders
                 index_deletion_handle,
                 document_deletion_handle,
+                tablet_deletion_handle,
                 advance_min_snapshot_handle,
             ])),
         })
@@ -435,6 +466,26 @@ impl LeaderRetentionWorkers {
             shutdown_and_join(handle).await?;
         }
         Ok(())
+    }
+
+    /// Returns a list of tablets in `Deleting` state and the timestamp at which
+    /// they were marked `Deleting`
+    fn tablets_to_delete(
+        snapshot: Snapshot,
+        tables_by_id: InternalId,
+    ) -> anyhow::Result<BTreeMap<TabletId, Timestamp>> {
+        let range_docs = snapshot
+            .in_memory_indexes
+            .range(tables_by_id, &Interval::all(), Order::Asc)?
+            .context("Expected to find `_tables.by_id` in in-memory index")?;
+        let mut tables = BTreeMap::new();
+        for (_, ts, doc) in range_docs {
+            let table_metadata = doc.force::<TableMetadata>()?;
+            if matches!(table_metadata.state, TableState::Deleting) {
+                tables.insert(TabletId(table_metadata.id().internal_id()), ts);
+            }
+        }
+        Ok(tables)
     }
 
     /// Returns the timestamp which we would like to use as min_snapshot_ts.
@@ -1231,6 +1282,124 @@ impl LeaderRetentionWorkers {
         }
     }
 
+    /// Delete documents in tablets that were deleted outside the document
+    /// retention window, prior to min_document_snapshot_ts.
+    /// Returns remaining tablets that need to be deleted after
+    /// `min_document_snapshot_ts` moves forward.
+    async fn delete_documents_in_tablets<RT: Runtime>(
+        tablets_to_delete: &BTreeMap<TabletId, Timestamp>,
+        document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
+        min_document_snapshot_ts: RepeatableTimestamp,
+        persistence: Arc<dyn Persistence>,
+        rt: &RT,
+    ) -> anyhow::Result<BTreeMap<TabletId, Timestamp>> {
+        let mut skipped_tablets = BTreeMap::new();
+        for (tablet_id, ts) in tablets_to_delete {
+            // N.B. We must skip deleted tablets that are still within the retention period.
+            if *ts >= *min_document_snapshot_ts {
+                skipped_tablets.insert(*tablet_id, *ts);
+                continue;
+            }
+            tracing::info!(
+                "go_delete_table_documents: Deleting documents in tablet {tablet_id} deleted at \
+                 timestamp {ts}"
+            );
+            let mut chunk_len = *DELETE_TABLET_CHUNK_SIZE as u32;
+            loop {
+                match document_deletion_rate_limiter.check_n(chunk_len.try_into().unwrap()) {
+                    Ok(Ok(())) => {
+                        let rows_deleted = persistence
+                            .delete_tablet_documents(*tablet_id, *DELETE_TABLET_CHUNK_SIZE as usize)
+                            .await?;
+                        tracing::debug!(
+                            "go_delete_table_documents: Deleted {rows_deleted} documents in \
+                             tablet {tablet_id}"
+                        );
+                        log_deleted_tablet_documents_deleted(rows_deleted);
+                        if rows_deleted == 0 {
+                            tracing::debug!(
+                                "go_delete_table_documents: Finished deleting documents in tablet \
+                                 {tablet_id}"
+                            );
+                            break;
+                        }
+                    },
+                    Ok(Err(not_until)) => {
+                        let wait_time = Jitter::up_to(Duration::from_secs(1))
+                            + not_until.wait_time_from(rt.monotonic_now().into());
+                        rt.wait(wait_time).await;
+                        continue;
+                    },
+                    Err(InsufficientCapacity(n)) => {
+                        tracing::warn!(
+                            "Retention rate limiter quota is insufficient for chunks of {} \
+                             documents (current quota: {n}/sec), rate limit will be exceeded",
+                            chunk_len
+                        );
+                        chunk_len = n;
+                        continue;
+                    },
+                }
+            }
+        }
+        Ok(skipped_tablets)
+    }
+
+    async fn go_delete_table_documents<RT: Runtime>(
+        bounds_reader: Reader<SnapshotBounds>,
+        rt: RT,
+        persistence: Arc<dyn Persistence>,
+        mut min_document_snapshot_rx: Receiver<RepeatableTimestamp>,
+        document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
+        mut tablets_to_delete: BTreeMap<TabletId, Timestamp>,
+    ) {
+        let mut error_backoff =
+            Backoff::new(INITIAL_BACKOFF, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
+        min_document_snapshot_rx.mark_changed();
+        // Note that in theory, we should rerun our query for `tablets_to_delete` if
+        // `min_document_snapshot_ts` passes the ts that we
+        // previously ran the query at, but this is unlikely to matter in practice
+        // because `min_document_snapshot_ts` starts out weeks behind and we restart
+        // conductors more frequently than that gap. The worst that happens from
+        // not requerying `tablets_to_delete` is that we retain deleted tablets
+        // a little bit longer than necessary.
+        while !tablets_to_delete.is_empty() {
+            let min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
+                Err(err) => {
+                    report_error(&mut err.into()).await;
+                    // Fall back to polling if the channel is closed or falls over. This should
+                    // really never happen.
+                    Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
+                    bounds_reader.lock().min_document_snapshot_ts
+                },
+                Ok(()) => *min_document_snapshot_rx.borrow(),
+            };
+            match Self::delete_documents_in_tablets(
+                &tablets_to_delete,
+                document_deletion_rate_limiter.clone(),
+                min_document_snapshot_ts,
+                persistence.clone(),
+                &rt,
+            )
+            .await
+            {
+                Ok(skipped_tablets) => {
+                    tablets_to_delete = skipped_tablets;
+                    error_backoff.reset();
+                },
+                Err(mut err) => {
+                    report_error(&mut err).await;
+                    let delay = error_backoff.fail(&mut rt.rng());
+                    tracing::debug!(
+                        "go_delete_table_documents: error, {err:?}, delaying {delay:?}"
+                    );
+                    rt.wait(delay).await;
+                },
+            };
+        }
+        tracing::info!("No tablets left to delete");
+    }
+
     async fn go_delete_documents<RT: Runtime>(
         bounds_reader: Reader<SnapshotBounds>,
         rt: RT,
@@ -1734,7 +1903,10 @@ mod tests {
             RepeatablePersistence,
         },
         query::Order,
-        runtime::testing::TestRuntime,
+        runtime::{
+            new_unlimited_rate_limiter,
+            testing::TestRuntime,
+        },
         testing::{
             persistence_test_suite::doc,
             TestIdGenerator,
@@ -1761,12 +1933,19 @@ mod tests {
         stream,
         TryStreamExt,
     };
+    use itertools::Itertools;
     use maplit::btreemap;
+    use value::assert_obj;
 
     use super::LeaderRetentionWorkers;
-    use crate::retention::{
-        snapshot_invalid_error,
-        RetentionType,
+    use crate::{
+        retention::{
+            snapshot_invalid_error,
+            RetentionType,
+        },
+        test_helpers::DbFixtures,
+        TableModel,
+        TestFacingModel,
     };
 
     #[convex_macro::test_runtime]
@@ -2089,6 +2268,81 @@ mod tests {
             ]
         );
 
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_delete_documents_in_deleted_tablets(rt: TestRuntime) -> anyhow::Result<()> {
+        // Write documents to a table
+        let p = Arc::new(TestPersistence::new());
+        let mut id_generator = TestIdGenerator::new();
+        let table: TableName = str::parse("table")?;
+        let id1 = id_generator.user_generate(&table);
+        let documents = [doc(id1, 1, Some(1), None)?, doc(id1, 2, Some(2), Some(1))?];
+        p.write(&documents, &[], ConflictStrategy::Error).await?;
+
+        let min_document_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(2));
+        // Nothing should be deleted for tablets deleted at or after
+        // min_document_snapshot_ts
+        let tablets_to_delete = &btreemap! {id1.tablet_id => *min_document_snapshot_ts};
+        let skipped_tablets = LeaderRetentionWorkers::delete_documents_in_tablets(
+            tablets_to_delete,
+            Arc::new(new_unlimited_rate_limiter(rt.clone())),
+            min_document_snapshot_ts,
+            p.clone(),
+            &rt,
+        )
+        .await?;
+        assert_eq!(&skipped_tablets, tablets_to_delete);
+        let tablets_to_delete = &btreemap! {id1.tablet_id => Timestamp::must(3)};
+        let skipped_tablets = LeaderRetentionWorkers::delete_documents_in_tablets(
+            tablets_to_delete,
+            Arc::new(new_unlimited_rate_limiter(rt.clone())),
+            min_document_snapshot_ts,
+            p.clone(),
+            &rt,
+        )
+        .await?;
+        assert_eq!(&skipped_tablets, tablets_to_delete);
+        let reader = p.reader();
+        let stream = reader.load_all_documents();
+        let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
+        assert_eq!(results, documents,);
+
+        // All documents should be deleted for tablets deleted before
+        // min_document_snapshot_ts
+        let skipped_tablets = LeaderRetentionWorkers::delete_documents_in_tablets(
+            &btreemap! {id1.tablet_id => Timestamp::must(1)},
+            Arc::new(new_unlimited_rate_limiter(rt.clone())),
+            min_document_snapshot_ts,
+            p.clone(),
+            &rt,
+        )
+        .await?;
+        assert!(skipped_tablets.is_empty());
+        let stream = reader.load_all_documents();
+        let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
+        assert_eq!(results, vec![],);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_tables_to_delete(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+        let mut tx = db.begin_system().await?;
+        let table_name: TableName = "table".parse()?;
+        let id = TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("value" => 1))
+            .await?;
+        db.commit(tx).await?;
+        let mut tx = db.begin_system().await?;
+        TableModel::new(&mut tx).delete_table(id.tablet_id).await?;
+        db.commit(tx).await?;
+
+        let tables_by_id = db.bootstrap_metadata.tables_by_id;
+        let snapshot = db.latest_snapshot()?;
+        let tablets_to_delete = LeaderRetentionWorkers::tablets_to_delete(snapshot, tables_by_id)?;
+        assert_eq!(tablets_to_delete.keys().collect_vec(), vec![&id.tablet_id]);
         Ok(())
     }
 }
