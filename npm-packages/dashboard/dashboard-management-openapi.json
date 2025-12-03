@@ -490,20 +490,36 @@
           {
             "name": "team_id",
             "in": "path",
-            "description": "",
+            "description": "Team ID",
             "required": true
           },
           {
             "name": "cursor",
             "in": "query",
-            "description": "Cursor for pagination (optional)",
-            "required": true
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "limit",
             "in": "query",
-            "description": "Maximum number of projects to return (optional, defaults to 100)",
-            "required": true
+            "description": "Maximum number of projects to return (defaults to 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query to filter projects by name or slug (case-insensitive)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

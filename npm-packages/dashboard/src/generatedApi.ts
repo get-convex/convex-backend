@@ -3157,14 +3157,17 @@ export interface operations {
     };
     get_projects_for_team: {
         parameters: {
-            query: {
-                /** @description Cursor for pagination (optional) */
-                cursor: string;
-                /** @description Maximum number of projects to return (optional, defaults to 100) */
-                limit: string;
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Maximum number of projects to return (defaults to 100) */
+                limit?: number;
+                /** @description Search query to filter projects by name or slug (case-insensitive) */
+                q?: string;
             };
             header?: never;
             path: {
+                /** @description Team ID */
                 team_id: string;
             };
             cookie?: never;
