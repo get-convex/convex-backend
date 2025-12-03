@@ -220,6 +220,7 @@ export const axiomConfig = v.object({
     }),
   ),
   version: v.optional(v.union(v.literal("1"), v.literal("2"))),
+  ingestUrl: v.optional(v.string()),
 });
 
 export const sentryConfig = v.object({

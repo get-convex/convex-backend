@@ -12,6 +12,13 @@ use serde::{
     Serialize,
 };
 
+/// Valid Axiom ingest base URLs for different regions
+pub const VALID_AXIOM_INGEST_URLS: &[&str] = &[
+    "https://api.axiom.co",
+    "https://us-east-1.aws.edge.axiom.co",
+    "https://eu-central-1.aws.edge.axiom.co",
+];
+
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct AxiomConfig {
@@ -19,6 +26,7 @@ pub struct AxiomConfig {
     pub dataset_name: String,
     pub attributes: Vec<AxiomAttribute>,
     pub version: LogEventFormatVersion,
+    pub ingest_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -28,6 +36,7 @@ pub struct SerializedAxiomConfig {
     pub dataset_name: String,
     pub attributes: Vec<SerializedAxiomAttribute>,
     pub version: Option<String>,
+    pub ingest_url: Option<String>,
 }
 
 impl From<AxiomConfig> for SerializedAxiomConfig {
@@ -41,6 +50,7 @@ impl From<AxiomConfig> for SerializedAxiomConfig {
                 .map(SerializedAxiomAttribute::from)
                 .collect(),
             version: Some(value.version.to_string()),
+            ingest_url: value.ingest_url,
         }
     }
 }
@@ -62,6 +72,7 @@ impl TryFrom<SerializedAxiomConfig> for AxiomConfig {
                 .map(|v| LogEventFormatVersion::from_str(v.as_str()))
                 .transpose()?
                 .unwrap_or(LogEventFormatVersion::V1),
+            ingest_url: value.ingest_url,
         })
     }
 }

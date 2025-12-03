@@ -17,6 +17,7 @@ use model::log_sinks::types::{
     axiom::{
         AxiomAttribute,
         AxiomConfig,
+        VALID_AXIOM_INGEST_URLS,
     },
     datadog::{
         DatadogConfig,
@@ -168,12 +169,26 @@ pub struct AxiomSinkPostArgs {
     dataset_name: String,
     attributes: Vec<AxiomAttribute>,
     version: Option<String>,
+    ingest_url: Option<String>,
 }
 
 impl TryFrom<AxiomSinkPostArgs> for AxiomConfig {
     type Error = anyhow::Error;
 
     fn try_from(value: AxiomSinkPostArgs) -> Result<Self, Self::Error> {
+        // Validate ingest_url if provided
+        if let Some(ref url) = value.ingest_url
+            && !VALID_AXIOM_INGEST_URLS.contains(&url.as_str())
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidAxiomIngestUrl",
+                format!(
+                    "Invalid Axiom ingest URL: {url}. Must be one of: {}",
+                    VALID_AXIOM_INGEST_URLS.join(", ")
+                ),
+            ));
+        }
+
         Ok(Self {
             api_key: value.api_key.into(),
             dataset_name: value.dataset_name,
@@ -185,6 +200,7 @@ impl TryFrom<AxiomSinkPostArgs> for AxiomConfig {
                 ))?,
                 None => LogEventFormatVersion::V1,
             },
+            ingest_url: value.ingest_url,
         })
     }
 }
@@ -250,13 +266,19 @@ pub async fn delete_log_sink(
 
 #[cfg(test)]
 mod tests {
-    use model::log_sinks::types::datadog::{
-        DatadogConfig,
-        DatadogSiteLocation,
+    use model::log_sinks::types::{
+        axiom::AxiomConfig,
+        datadog::{
+            DatadogConfig,
+            DatadogSiteLocation,
+        },
     };
     use serde_json::json;
 
-    use crate::log_sinks::DatadogSinkPostArgs;
+    use crate::log_sinks::{
+        AxiomSinkPostArgs,
+        DatadogSinkPostArgs,
+    };
 
     #[test]
     fn datadog_config_deserialize() -> anyhow::Result<()> {
@@ -299,5 +321,87 @@ mod tests {
         assert_eq!(config.dd_api_key, "test_key".to_string().into());
         assert!(config.dd_tags.is_empty());
         Ok(())
+    }
+
+    #[test]
+    fn axiom_config_valid_ingest_urls() -> anyhow::Result<()> {
+        // Test with no ingest_url (default)
+        let json = json!({
+            "apiKey": "test_key",
+            "datasetName": "test_dataset",
+            "attributes": [],
+        });
+        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(post_args)?;
+        assert!(config.ingest_url.is_none());
+
+        // Test with default URL
+        let json = json!({
+            "apiKey": "test_key",
+            "datasetName": "test_dataset",
+            "attributes": [],
+            "ingestUrl": "https://api.axiom.co",
+        });
+        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(post_args)?;
+        assert_eq!(config.ingest_url, Some("https://api.axiom.co".to_string()));
+
+        // Test with US East 1
+        let json = json!({
+            "apiKey": "test_key",
+            "datasetName": "test_dataset",
+            "attributes": [],
+            "ingestUrl": "https://us-east-1.aws.edge.axiom.co",
+        });
+        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(post_args)?;
+        assert_eq!(
+            config.ingest_url,
+            Some("https://us-east-1.aws.edge.axiom.co".to_string())
+        );
+
+        // Test with EU Central 1
+        let json = json!({
+            "apiKey": "test_key",
+            "datasetName": "test_dataset",
+            "attributes": [],
+            "ingestUrl": "https://eu-central-1.aws.edge.axiom.co",
+        });
+        let post_args: AxiomSinkPostArgs = serde_json::from_value(json)?;
+        let config = AxiomConfig::try_from(post_args)?;
+        assert_eq!(
+            config.ingest_url,
+            Some("https://eu-central-1.aws.edge.axiom.co".to_string())
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn axiom_config_invalid_ingest_url() {
+        // Test with invalid URL
+        let json = json!({
+            "apiKey": "test_key",
+            "datasetName": "test_dataset",
+            "attributes": [],
+            "ingestUrl": "https://invalid.axiom.co",
+        });
+        let post_args: AxiomSinkPostArgs = serde_json::from_value(json).unwrap();
+        let result = AxiomConfig::try_from(post_args);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Invalid Axiom ingest URL"));
+        assert!(err.to_string().contains("https://invalid.axiom.co"));
+
+        // Test with completely wrong URL
+        let json = json!({
+            "apiKey": "test_key",
+            "datasetName": "test_dataset",
+            "attributes": [],
+            "ingestUrl": "https://example.com",
+        });
+        let post_args: AxiomSinkPostArgs = serde_json::from_value(json).unwrap();
+        let result = AxiomConfig::try_from(post_args);
+        assert!(result.is_err());
     }
 }

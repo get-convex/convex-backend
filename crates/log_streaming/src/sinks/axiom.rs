@@ -104,14 +104,25 @@ impl<RT: Runtime> AxiomSink<RT> {
         tracing::info!("Starting AxiomSink");
         let (tx, rx) = mpsc::channel(consts::AXIOM_SINK_EVENTS_BUFFER_SIZE);
 
+        let base_url = config
+            .ingest_url
+            .as_deref()
+            .unwrap_or("https://api.axiom.co");
+        let is_default_url = base_url == "https://api.axiom.co";
+        let axiom_url = if is_default_url {
+            format!(
+                "{}/v1/datasets/{:}/ingest",
+                base_url,
+                config.dataset_name.clone()
+            )
+        } else {
+            format!("{}/v1/ingest/{:}", base_url, config.dataset_name.clone())
+        };
+
         let mut sink = Self {
             runtime: runtime.clone(),
             deployment_metadata,
-            axiom_url: format!(
-                "https://api.axiom.co/v1/datasets/{:}/ingest",
-                config.dataset_name.clone()
-            )
-            .parse()?,
+            axiom_url: axiom_url.parse()?,
             api_key: config.api_key.into_value(),
             attributes: config
                 .attributes
@@ -325,6 +336,7 @@ mod tests {
                 value: "rakeeb".to_string(),
             }],
             version: LogEventFormatVersion::default(),
+            ingest_url: None,
         };
 
         let topic_buffer: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
@@ -419,6 +431,7 @@ mod tests {
                 value: "rakeeb".to_string(),
             }],
             version: LogEventFormatVersion::default(),
+            ingest_url: None,
         };
 
         // Register handler
