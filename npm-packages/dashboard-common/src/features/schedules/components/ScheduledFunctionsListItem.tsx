@@ -81,9 +81,9 @@ function JobItemImpl({
     throw new Error("Could not find timestamp to run scheduled job at");
   }
   const date = new Date(Number(nextTs / BigInt(1000000))).toLocaleString();
-  const udfArgsParsed: JSONValue[] = JSON.parse(
-    Buffer.from(udfArgs).toString("utf8"),
-  );
+  const udfArgsParsed: JSONValue[] = udfArgs
+    ? JSON.parse(Buffer.from(udfArgs).toString("utf8"))
+    : null;
   if (_id === null) {
     throw new Error("Scheduled job id is null");
   }
@@ -147,7 +147,9 @@ function JobItemImpl({
               variant: "neutral",
             }}
           >
-            <MenuItem action={() => setShowArgs(true)}>View Arguments</MenuItem>
+            <MenuItem action={() => setShowArgs(true)} disabled={!udfArgs}>
+              View Arguments
+            </MenuItem>
             <MenuItem
               action={() => setShowDeleteModal(true)}
               disabled={currentlyRunning || !canCancelJobs}
