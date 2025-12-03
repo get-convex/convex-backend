@@ -379,7 +379,6 @@ impl<
         }
     }
 
-    #[fastrace::trace]
     fn get_sync(
         &self,
         key: &Key,
@@ -428,6 +427,7 @@ impl<
         }
     }
 
+    #[fastrace::trace]
     async fn wait_for_value(
         key: &Key,
         mut receiver: async_broadcast::Receiver<BuildValueResult<Value>>,
