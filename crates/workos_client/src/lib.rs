@@ -33,6 +33,7 @@ pub fn map_workos_identities_to_subjects(
                     "GithubOAuth" => "github",
                     "GoogleOAuth" => "google-oauth2",
                     "VercelOAuth" => "vercel",
+                    "VercelMarketplaceOAuth" => "vercel",
                     _ => anyhow::bail!("Unsupported provider: {}", identity.provider),
                 };
 

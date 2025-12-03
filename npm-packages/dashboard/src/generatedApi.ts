@@ -2539,13 +2539,15 @@ export interface components {
         WorkOSTeamHealthResponse: {
             id: string;
             name: string;
-            productionState?: string | null;
+            teamStatus: components["schemas"]["WorkOSTeamStatus"];
         };
         WorkOSTeamIntegrationResponse: {
             /** @description List of WorkOS environments for deployments */
             environments: components["schemas"]["WorkOSEnvironmentInfo"][];
             teamAssociation?: null | components["schemas"]["WorkOSTeamAssociation"];
         };
+        /** @enum {string} */
+        WorkOSTeamStatus: "active" | "inactive";
     };
     responses: never;
     parameters: never;
@@ -2701,6 +2703,7 @@ export type WorkOsEnvironmentInfo = components['schemas']['WorkOSEnvironmentInfo
 export type WorkOsTeamAssociation = components['schemas']['WorkOSTeamAssociation'];
 export type WorkOsTeamHealthResponse = components['schemas']['WorkOSTeamHealthResponse'];
 export type WorkOsTeamIntegrationResponse = components['schemas']['WorkOSTeamIntegrationResponse'];
+export type WorkOsTeamStatus = components['schemas']['WorkOSTeamStatus'];
 export type $defs = Record<string, never>;
 export interface operations {
     list_profile_emails: {
