@@ -492,6 +492,18 @@
             "in": "path",
             "description": "",
             "required": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination (optional)",
+            "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of projects to return (optional, defaults to 100)",
+            "required": true
           }
         ],
         "responses": {
@@ -500,10 +512,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ProjectDetails"
-                  }
+                  "$ref": "#/components/schemas/ProjectsResponse"
                 }
               }
             }
@@ -4798,6 +4807,41 @@
           }
         }
       },
+      "PaginatedProjectsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetails"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
+          }
+        }
+      },
+      "PaginationMetadata": {
+        "type": "object",
+        "required": [
+          "hasMore"
+        ],
+        "properties": {
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "PaymentMethodResponse": {
         "type": "object",
         "required": [
@@ -5038,6 +5082,19 @@
       },
       "ProjectSlug": {
         "type": "string"
+      },
+      "ProjectsResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedProjectsResponse"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetails"
+            }
+          }
+        ]
       },
       "ProposedTeamName": {
         "type": "string"

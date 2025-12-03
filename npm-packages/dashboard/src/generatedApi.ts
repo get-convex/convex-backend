@@ -2160,6 +2160,14 @@ export interface components {
             plan: components["schemas"]["PlanResponse"];
             status: string;
         };
+        PaginatedProjectsResponse: {
+            items: components["schemas"]["ProjectDetails"][];
+            pagination: components["schemas"]["PaginationMetadata"];
+        };
+        PaginationMetadata: {
+            hasMore: boolean;
+            nextCursor?: string | null;
+        };
         PaymentMethodResponse: {
             display: string;
             kind: string;
@@ -2225,6 +2233,7 @@ export interface components {
             role?: null | components["schemas"]["ProjectRole"];
         };
         ProjectSlug: string;
+        ProjectsResponse: components["schemas"]["PaginatedProjectsResponse"] | components["schemas"]["ProjectDetails"][];
         ProposedTeamName: string;
         ProvisionDeploymentDashboardArgs: {
             deploymentType: components["schemas"]["DeploymentType"];
@@ -2576,6 +2585,8 @@ export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
 export type OptInToAccept = components['schemas']['OptInToAccept'];
 export type OrbSubscriptionResponse = components['schemas']['OrbSubscriptionResponse'];
+export type PaginatedProjectsResponse = components['schemas']['PaginatedProjectsResponse'];
+export type PaginationMetadata = components['schemas']['PaginationMetadata'];
 export type PaymentMethodResponse = components['schemas']['PaymentMethodResponse'];
 export type PeriodicBackupConfig = components['schemas']['PeriodicBackupConfig'];
 export type PlanResponse = components['schemas']['PlanResponse'];
@@ -2590,6 +2601,7 @@ export type ProjectName = components['schemas']['ProjectName'];
 export type ProjectRole = components['schemas']['ProjectRole'];
 export type ProjectRoleUpdateArg = components['schemas']['ProjectRoleUpdateArg'];
 export type ProjectSlug = components['schemas']['ProjectSlug'];
+export type ProjectsResponse = components['schemas']['ProjectsResponse'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
 export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
@@ -3101,7 +3113,12 @@ export interface operations {
     };
     get_projects_for_team: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Cursor for pagination (optional) */
+                cursor: string;
+                /** @description Maximum number of projects to return (optional, defaults to 100) */
+                limit: string;
+            };
             header?: never;
             path: {
                 team_id: string;
@@ -3115,7 +3132,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectDetails"][];
+                    "application/json": components["schemas"]["ProjectsResponse"];
                 };
             };
         };

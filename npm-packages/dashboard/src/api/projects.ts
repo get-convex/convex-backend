@@ -35,6 +35,10 @@ export function useProjects(
     // If initial data has been loaded via SSR, we don't need to load projects.
     swrOptions: { refreshInterval, revalidateOnMount: !initialData },
   });
+
+  if (data !== undefined && !Array.isArray(data)) {
+    throw new Error("Expected array of projects");
+  }
   return data;
 }
 
