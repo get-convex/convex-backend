@@ -79,6 +79,13 @@ fn format_workos_error(operation: &str, status: http::StatusCode, response_body:
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum WorkOSProductionState {
+    Active,
+    Inactive,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct WorkOSTeamResponse {
     /// always "team"
@@ -86,6 +93,8 @@ pub struct WorkOSTeamResponse {
     /// like "team_01K58C005DSAQCZSX84FFWMT5G"
     pub id: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub production_state: Option<WorkOSProductionState>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -239,10 +248,16 @@ pub trait WorkOSPlatformClient: Send + Sync {
         admin_email: &str,
         team_name: &str,
     ) -> anyhow::Result<WorkOSTeamResponse>;
+    async fn get_team(&self, workos_team_id: &str) -> anyhow::Result<WorkOSTeamResponse>;
     async fn create_environment(
         &self,
         workos_team_id: &str,
         environment_name: &str,
+    ) -> anyhow::Result<WorkOSEnvironmentResponse>;
+    async fn get_environment(
+        &self,
+        workos_team_id: &str,
+        environment_id: &str,
     ) -> anyhow::Result<WorkOSEnvironmentResponse>;
     async fn create_api_key(
         &self,
@@ -584,6 +599,10 @@ where
         .await
     }
 
+    async fn get_team(&self, workos_team_id: &str) -> anyhow::Result<WorkOSTeamResponse> {
+        get_workos_team(&self.platform_api_key, workos_team_id, &*self.http_client).await
+    }
+
     async fn create_environment(
         &self,
         workos_team_id: &str,
@@ -593,6 +612,20 @@ where
             &self.platform_api_key,
             workos_team_id,
             environment_name,
+            &*self.http_client,
+        )
+        .await
+    }
+
+    async fn get_environment(
+        &self,
+        workos_team_id: &str,
+        environment_id: &str,
+    ) -> anyhow::Result<WorkOSEnvironmentResponse> {
+        get_workos_environment(
+            &self.platform_api_key,
+            workos_team_id,
+            environment_id,
             &*self.http_client,
         )
         .await
@@ -640,6 +673,18 @@ impl WorkOSPlatformClient for MockWorkOSPlatformClient {
             object: "team".to_string(),
             id: "team_mock123".to_string(),
             name: team_name.to_string(),
+            production_state: Some(WorkOSProductionState::Active),
+            created_at: "2024-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2024-01-01T00:00:00.000Z".to_string(),
+        })
+    }
+
+    async fn get_team(&self, workos_team_id: &str) -> anyhow::Result<WorkOSTeamResponse> {
+        Ok(WorkOSTeamResponse {
+            object: "team".to_string(),
+            id: workos_team_id.to_string(),
+            name: "Mock Team".to_string(),
+            production_state: Some(WorkOSProductionState::Active),
             created_at: "2024-01-01T00:00:00.000Z".to_string(),
             updated_at: "2024-01-01T00:00:00.000Z".to_string(),
         })
@@ -654,6 +699,19 @@ impl WorkOSPlatformClient for MockWorkOSPlatformClient {
             object: "environment".to_string(),
             id: "env_mock123".to_string(),
             name: environment_name.to_string(),
+            client_id: "client_mock123".to_string(),
+        })
+    }
+
+    async fn get_environment(
+        &self,
+        _workos_team_id: &str,
+        environment_id: &str,
+    ) -> anyhow::Result<WorkOSEnvironmentResponse> {
+        Ok(WorkOSEnvironmentResponse {
+            object: "environment".to_string(),
+            id: environment_id.to_string(),
+            name: "Mock Environment".to_string(),
             client_id: "client_mock123".to_string(),
         })
     }
@@ -920,6 +978,51 @@ where
     Ok(team)
 }
 
+pub async fn get_workos_team<F, E>(
+    api_key: &str,
+    workos_team_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<WorkOSTeamResponse>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!("https://api.workos.com/platform/teams/{workos_team_id}");
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not get WorkOS team: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error("get team", status, &response_body));
+    }
+
+    let response_body = response.into_body();
+    let team: WorkOSTeamResponse = serde_json::from_slice(&response_body).with_context(|| {
+        format!(
+            "Invalid WorkOS team response: {}",
+            String::from_utf8_lossy(&response_body)
+        )
+    })?;
+
+    Ok(team)
+}
+
 pub async fn create_workos_environment<F, E>(
     api_key: &str,
     workos_team_id: &str,
@@ -964,6 +1067,59 @@ where
         let response_body = response.into_body();
         anyhow::bail!(format_workos_error(
             "create environment",
+            status,
+            &response_body
+        ));
+    }
+
+    let response_body = response.into_body();
+    let environment: WorkOSEnvironmentResponse = serde_json::from_slice(&response_body)
+        .with_context(|| {
+            format!(
+                "Invalid WorkOS environment response: {}",
+                String::from_utf8_lossy(&response_body)
+            )
+        })?;
+
+    Ok(environment)
+}
+
+pub async fn get_workos_environment<F, E>(
+    api_key: &str,
+    workos_team_id: &str,
+    environment_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<WorkOSEnvironmentResponse>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!(
+        "https://api.workos.com/platform/teams/{workos_team_id}/environments/{environment_id}"
+    );
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::GET)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .body(vec![])?;
+
+    let response = timeout(WORKOS_API_TIMEOUT, http_client(request))
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "WorkOS API call timed out after {}s",
+                WORKOS_API_TIMEOUT.as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Could not get WorkOS environment: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(format_workos_error(
+            "get environment",
             status,
             &response_body
         ));

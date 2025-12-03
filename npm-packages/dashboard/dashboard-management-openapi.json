@@ -2887,6 +2887,61 @@
         }
       }
     },
+    "/deployments/{deployment_name}/workos_environment_health": {
+      "get": {
+        "description": "Check if the WorkOS environment associated with this deployment is still accessible",
+        "operationId": "get_workos_environment_health",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Deployment name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOSEnvironmentHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/workos_team_health": {
+      "get": {
+        "description": "Check if the WorkOS team associated with this Convex team is still accessible",
+        "operationId": "get_workos_team_health",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Convex team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOSTeamHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workos/provision_associated_workos_team": {
       "post": {
         "description": "Provision a WorkOS team for a Convex team",
@@ -6036,6 +6091,25 @@
           }
         }
       },
+      "WorkOSEnvironmentHealthResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "clientId"
+        ],
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "WorkOSEnvironmentInfo": {
         "type": "object",
         "required": [
@@ -6088,6 +6162,25 @@
           }
         }
       },
+      "WorkOSTeamHealthResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "teamStatus"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "teamStatus": {
+            "$ref": "#/components/schemas/WorkOSTeamStatus"
+          }
+        }
+      },
       "WorkOSTeamIntegrationResponse": {
         "type": "object",
         "required": [
@@ -6113,6 +6206,13 @@
             ]
           }
         }
+      },
+      "WorkOSTeamStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "inactive"
+        ]
       }
     }
   }

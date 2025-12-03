@@ -1644,6 +1644,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}/workos_environment_health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Check if the WorkOS environment associated with this deployment is still accessible */
+        get: operations["get_workos_environment_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/workos_team_health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Check if the WorkOS team associated with this Convex team is still accessible */
+        get: operations["get_workos_team_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workos/provision_associated_workos_team": {
         parameters: {
             query?: never;
@@ -2484,6 +2518,11 @@ export interface components {
             workosTeamId: string;
             workosTeamName: string;
         };
+        WorkOSEnvironmentHealthResponse: {
+            clientId: string;
+            id: string;
+            name: string;
+        };
         WorkOSEnvironmentInfo: {
             deploymentName: string;
             workosClientId: string;
@@ -2496,6 +2535,11 @@ export interface components {
             creatorName?: string | null;
             workosTeamId: string;
             workosTeamName: string;
+        };
+        WorkOSTeamHealthResponse: {
+            id: string;
+            name: string;
+            productionState?: string | null;
         };
         WorkOSTeamIntegrationResponse: {
             /** @description List of WorkOS environments for deployments */
@@ -2652,8 +2696,10 @@ export type ValidateReferralCodeResult = components['schemas']['ValidateReferral
 export type Value = components['schemas']['Value'];
 export type VanityDomainResponse = components['schemas']['VanityDomainResponse'];
 export type WorkOsAssociatedTeam = components['schemas']['WorkOSAssociatedTeam'];
+export type WorkOsEnvironmentHealthResponse = components['schemas']['WorkOSEnvironmentHealthResponse'];
 export type WorkOsEnvironmentInfo = components['schemas']['WorkOSEnvironmentInfo'];
 export type WorkOsTeamAssociation = components['schemas']['WorkOSTeamAssociation'];
+export type WorkOsTeamHealthResponse = components['schemas']['WorkOSTeamHealthResponse'];
 export type WorkOsTeamIntegrationResponse = components['schemas']['WorkOSTeamIntegrationResponse'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -4943,6 +4989,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkOSTeamIntegrationResponse"];
+                };
+            };
+        };
+    };
+    get_workos_environment_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOSEnvironmentHealthResponse"];
+                };
+            };
+        };
+    };
+    get_workos_team_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Convex team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkOSTeamHealthResponse"];
                 };
             };
         };

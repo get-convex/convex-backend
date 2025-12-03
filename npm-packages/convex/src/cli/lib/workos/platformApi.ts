@@ -123,3 +123,57 @@ export async function createAssociatedWorkosTeam(
     return await logAndHandleFetchError(ctx, error);
   }
 }
+
+export type WorkOSTeamStatus = "Active" | "Inactive";
+
+/**
+ * Check if the WorkOS team associated with a Convex team is still accessible.
+ * Returns null if the team is not provisioned or cannot be accessed.
+ */
+export async function getWorkosTeamHealth(
+  ctx: Context,
+  teamId: number,
+): Promise<{
+  id: string;
+  name: string;
+  teamStatus: WorkOSTeamStatus;
+} | null> {
+  try {
+    return await bigBrainAPIMaybeThrows({
+      ctx,
+      method: "GET",
+      url: `teams/${teamId}/workos_team_health`,
+    });
+  } catch (error: any) {
+    if (error?.serverErrorData?.code === "WorkOSTeamNotProvisioned") {
+      return null;
+    }
+    return await logAndHandleFetchError(ctx, error);
+  }
+}
+
+/**
+ * Check if the WorkOS environment associated with a deployment is still accessible.
+ * Returns null if the environment is not provisioned or cannot be accessed.
+ */
+export async function getWorkosEnvironmentHealth(
+  ctx: Context,
+  deploymentName: string,
+): Promise<{
+  id: string;
+  name: string;
+  clientId: string;
+} | null> {
+  try {
+    return await bigBrainAPIMaybeThrows({
+      ctx,
+      method: "GET",
+      url: `deployments/${deploymentName}/workos_environment_health`,
+    });
+  } catch (error: any) {
+    if (error?.serverErrorData?.code === "WorkOSEnvironmentNotProvisioned") {
+      return null;
+    }
+    return await logAndHandleFetchError(ctx, error);
+  }
+}

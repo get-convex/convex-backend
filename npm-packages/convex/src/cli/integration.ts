@@ -7,7 +7,7 @@ import { chalkStderr } from "chalk";
 import {
   DeploymentSelectionOptions,
   deploymentSelectionWithinProjectFromOptions,
-  getTeamAndProjectSlugForDeployment,
+  fetchTeamAndProject,
   loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
@@ -16,7 +16,8 @@ import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { ensureWorkosEnvironmentProvisioned } from "./lib/workos/workos.js";
 import {
   getCandidateEmailsForWorkIntegration,
-  getDeploymentCanProvisionWorkOSEnvironments,
+  getWorkosEnvironmentHealth,
+  getWorkosTeamHealth,
 } from "./lib/workos/platformApi.js";
 import { logMessage } from "../bundler/log.js";
 
@@ -60,34 +61,45 @@ async function selectEnvDeployment(
 }
 
 const workosTeamStatus = new Command("status")
-  .summary("Status of associated WorkOS team")
+  .summary("Status of associated WorkOS team and environment")
+  .addDeploymentSelectionOptions(actionDescription("Check WorkOS status for"))
   .action(async (_options, cmd) => {
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
 
-    const { hasAssociatedWorkosTeam } =
-      await getDeploymentCanProvisionWorkOSEnvironments(
-        ctx,
-        deployment.deploymentName,
-      );
+    const info = await fetchTeamAndProject(ctx, deployment.deploymentName);
 
-    const info = await getTeamAndProjectSlugForDeployment(ctx, {
-      deploymentName: deployment.deploymentName,
-    });
-
-    const { availableEmails } = await getCandidateEmailsForWorkIntegration(ctx);
-
-    if (!hasAssociatedWorkosTeam) {
+    // Check team status
+    const teamHealth = await getWorkosTeamHealth(ctx, info.teamId);
+    if (!teamHealth) {
+      logMessage(`WorkOS team: Not provisioned`);
+      const { availableEmails } =
+        await getCandidateEmailsForWorkIntegration(ctx);
+      if (availableEmails.length > 0) {
+        logMessage(
+          `  Verified emails that can provision: ${availableEmails.join(", ")}`,
+        );
+      }
+    } else if (teamHealth.teamStatus === "Inactive") {
       logMessage(
-        `Convex team ${info?.teamSlug} does not have an associated WorkOS team.`,
+        `WorkOS team: ${teamHealth.name} (no credit card added on workos.com, so production auth environments cannot be created)`,
       );
-      logMessage(
-        `Verified emails that mighe be able to add one: ${availableEmails.join(" ")}`,
-      );
-      return;
+    } else {
+      logMessage(`WorkOS team: ${teamHealth.name}`);
     }
 
-    logMessage(`Convex team ${info?.teamSlug} has an associated WorkOS team.`);
+    // Check environment status
+    const envHealth = await getWorkosEnvironmentHealth(
+      ctx,
+      deployment.deploymentName,
+    );
+    if (!envHealth) {
+      logMessage(`WorkOS environment: Not provisioned`);
+    } else {
+      logMessage(`WorkOS environment: ${envHealth.name}`);
+      const workosUrl = `https://dashboard.workos.com/${envHealth.id}/authentication`;
+      logMessage(`${workosUrl}`);
+    }
   });
 
 const workosProvisionEnvironment = new Command("provision-environment")
