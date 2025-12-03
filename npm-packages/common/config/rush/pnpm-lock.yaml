@@ -27,6 +27,7 @@ overrides:
   trim@<0.0.3: ^0.0.3
   undici@5.28.4: ^5.28.8
   undici@6.21.0: ^6.21.1
+  validator@13.15.15: ^13.15.22
   vinxi@0.5.3: ^0.5.6
   vite@5.4.14: ^5.4.19
   vite@6.1.4: ^6.1.6
@@ -22760,8 +22761,8 @@ packages:
   validate.io-number@1.0.3:
     resolution: {integrity: sha512-kRAyotcbNaSYoDnXvb4MHg/0a1egJdLwS6oJ38TJY7aw9n93Fl/3blIXdyYvPOp55CNxywooG/3BcrwNrBpcSg==}
 
-  validator@13.15.15:
-    resolution: {integrity: sha512-BgWVbCI72aIQy937xbawcs+hrVaN/CZ2UwutgaJ36hGqRrLNM+f5LUT/YPRbo8IV/ASeFzXszezV+y2+rq3l8A==}
+  validator@13.15.23:
+    resolution: {integrity: sha512-4yoz1kEWqUjzi5zsPbAS/903QXSYp0UOtHsPpp7p9rHAw/W+dkInskAE386Fat3oKRROwO98d9ZB0G4cObgUyw==}
     engines: {node: '>= 0.10'}
 
   value-equal@1.0.1:
@@ -34170,7 +34171,7 @@ snapshots:
       '@verdaccio/core': 8.0.0-next-8.24
       debug: 4.4.3(supports-color@10.0.0)
       lodash: 4.17.21
-      validator: 13.15.15
+      validator: 13.15.23
     transitivePeerDependencies:
       - supports-color
 
@@ -48985,7 +48986,7 @@ snapshots:
 
   validate.io-number@1.0.3: {}
 
-  validator@13.15.15: {}
+  validator@13.15.23: {}
 
   value-equal@1.0.1: {}
 
