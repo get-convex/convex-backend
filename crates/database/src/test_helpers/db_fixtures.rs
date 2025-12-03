@@ -84,6 +84,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             None => Arc::new(LocalDirStorage::new(rt.clone())?),
         };
         let test_usage_logger = TestUsageEventLogger::new();
+        let (deleted_tablet_sender, _deleted_tablet_receiver) = tokio::sync::mpsc::channel(100);
         let db = Database::load(
             tp.clone(),
             rt.clone(),
@@ -92,6 +93,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             virtual_system_mapping,
             Arc::new(test_usage_logger.clone()),
             Arc::new(new_unlimited_rate_limiter(rt.clone())),
+            deleted_tablet_sender,
         )
         .await?;
         db.set_search_storage(search_storage.clone());

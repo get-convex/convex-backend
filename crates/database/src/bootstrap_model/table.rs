@@ -263,6 +263,20 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(table_metadata.number)
     }
 
+    /// This method should only be called after all documents in the tablet have
+    /// been deleted by retention
+    pub async fn hard_delete_tablet_document(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
+        let doc = self.get_table_metadata(tablet_id).await?;
+        anyhow::ensure!(
+            doc.state == TableState::Deleting,
+            "Cannot delete a tablet that is not in deleting state"
+        );
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            .delete(doc.id())
+            .await?;
+        Ok(())
+    }
+
     pub async fn get_table_metadata(
         &mut self,
         tablet_id: TabletId,
@@ -605,6 +619,7 @@ mod tests {
     use must_let::must_let;
     use runtime::testing::TestRuntime;
     use value::{
+        assert_obj,
         TableName,
         TableNamespace,
     };
@@ -614,6 +629,7 @@ mod tests {
         test_helpers::new_tx,
         SchemaModel,
         TableModel,
+        TestFacingModel,
         Transaction,
     };
 
@@ -838,6 +854,38 @@ mod tests {
         let (schema_id, _state) = schema_model.submit_pending(schema).await?;
         schema_model.mark_validated(schema_id).await?;
         schema_model.mark_active(schema_id).await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_hard_delete_tablet_document(rt: TestRuntime) -> anyhow::Result<()> {
+        let mut tx = new_tx(rt).await?;
+        let table_name: TableName = "table".parse()?;
+        let id = TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("hello" => "world"))
+            .await?;
+        let mut model = TableModel::new(&mut tx);
+        model
+            .delete_active_table(TableNamespace::Global, table_name)
+            .await?;
+        model.hard_delete_tablet_document(id.tablet_id).await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_hard_delete_tablet_document_fails_if_not_deleting(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let mut tx = new_tx(rt).await?;
+        let table_name: TableName = "table".parse()?;
+        let id = TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("hello" => "world"))
+            .await?;
+        let mut model = TableModel::new(&mut tx);
+        model
+            .hard_delete_tablet_document(id.tablet_id)
+            .await
+            .unwrap_err();
         Ok(())
     }
 }

@@ -138,7 +138,10 @@ use search::{
 use short_future::ShortBoxFuture;
 use storage::Storage;
 use sync_types::backoff::Backoff;
-use tokio::task;
+use tokio::{
+    sync::mpsc,
+    task,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -952,6 +955,7 @@ impl<RT: Runtime> Database<RT> {
         virtual_system_mapping: VirtualSystemMapping,
         usage_events: Arc<dyn UsageEventLogger>,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
+        deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<Self> {
         let _load_database_timer = metrics::load_database_timer();
 
@@ -1002,6 +1006,7 @@ impl<RT: Runtime> Database<RT> {
                 snapshot_reader.clone(),
                 shutdown.clone(),
                 retention_rate_limiter,
+                deleted_tablet_sender,
             )
             .await?;
 

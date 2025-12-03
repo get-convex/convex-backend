@@ -371,6 +371,7 @@ use value::{
     Namespace,
     ResolvedDocumentId,
     TableNamespace,
+    TabletId,
 };
 use vector::{
     PublicVectorSearchQueryResult,
@@ -694,6 +695,7 @@ impl<RT: Runtime> Application<RT> {
         local_log_sink: Option<String>,
         lease_lost_shutdown: ShutdownSignal,
         export_provider: Arc<dyn ExportProvider<RT>>,
+        deleted_tablet_receiver: tokio::sync::mpsc::Receiver<TabletId>,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
@@ -746,6 +748,7 @@ impl<RT: Runtime> Application<RT> {
             runtime.clone(),
             database.clone(),
             application_storage.exports_storage.clone(),
+            deleted_tablet_receiver,
         );
         let system_table_cleanup_worker = Arc::new(Mutex::new(
             runtime.spawn("system_table_cleanup_worker", system_table_cleanup_worker),

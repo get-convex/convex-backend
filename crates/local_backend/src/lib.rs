@@ -149,6 +149,7 @@ pub async fn make_app(
     let searcher: Arc<dyn Searcher> = in_process_searcher.clone();
     // TODO(CX-6572) Separate `SegmentMetadataFetcher` from `SearcherImpl`
     let segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher> = in_process_searcher;
+    let (deleted_tablet_sender, deleted_tablet_receiver) = tokio::sync::mpsc::channel(100);
     let database = Database::load(
         persistence.clone(),
         runtime.clone(),
@@ -160,6 +161,7 @@ pub async fn make_app(
             runtime.clone(),
             Quota::per_second(*DOCUMENT_RETENTION_RATE_LIMIT),
         )),
+        deleted_tablet_sender,
     )
     .await?;
     initialize_application_system_tables(&database).await?;
@@ -239,6 +241,7 @@ pub async fn make_app(
         config.local_log_sink.clone(),
         preempt_tx.clone(),
         Arc::new(InProcessExportProvider),
+        deleted_tablet_receiver,
     )
     .await?;
 

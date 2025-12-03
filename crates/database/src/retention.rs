@@ -132,10 +132,13 @@ use governor::{
 use parking_lot::Mutex;
 use rand::Rng;
 use tokio::{
-    sync::watch::{
-        self,
-        Receiver,
-        Sender,
+    sync::{
+        mpsc,
+        watch::{
+            self,
+            Receiver,
+            Sender,
+        },
     },
     time::MissedTickBehavior,
 };
@@ -323,6 +326,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
         snapshot_reader: Reader<SnapshotManager>,
         lease_lost_shutdown: ShutdownSignal,
         retention_rate_limiter: Arc<RateLimiter<RT>>,
+        deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<LeaderRetentionWorkers> {
         let rt = &self.retention_manager.rt;
         let reader = self.persistence.reader();
@@ -444,6 +448,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 receive_min_document_snapshot,
                 retention_rate_limiter.clone(),
                 tablets_to_delete,
+                deleted_tablet_sender,
             ),
         );
         Ok(LeaderRetentionWorkers {
@@ -1292,6 +1297,7 @@ impl LeaderRetentionWorkers {
         min_document_snapshot_ts: RepeatableTimestamp,
         persistence: Arc<dyn Persistence>,
         rt: &RT,
+        deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) -> anyhow::Result<BTreeMap<TabletId, Timestamp>> {
         let mut skipped_tablets = BTreeMap::new();
         for (tablet_id, ts) in tablets_to_delete {
@@ -1317,6 +1323,7 @@ impl LeaderRetentionWorkers {
                         );
                         log_deleted_tablet_documents_deleted(rows_deleted);
                         if rows_deleted == 0 {
+                            deleted_tablet_sender.send(*tablet_id).await?;
                             tracing::debug!(
                                 "go_delete_table_documents: Finished deleting documents in tablet \
                                  {tablet_id}"
@@ -1352,6 +1359,7 @@ impl LeaderRetentionWorkers {
         mut min_document_snapshot_rx: Receiver<RepeatableTimestamp>,
         document_deletion_rate_limiter: Arc<RateLimiter<RT>>,
         mut tablets_to_delete: BTreeMap<TabletId, Timestamp>,
+        deleted_tablet_sender: mpsc::Sender<TabletId>,
     ) {
         let mut error_backoff =
             Backoff::new(INITIAL_BACKOFF, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
@@ -1380,6 +1388,7 @@ impl LeaderRetentionWorkers {
                 min_document_snapshot_ts,
                 persistence.clone(),
                 &rt,
+                deleted_tablet_sender.clone(),
             )
             .await
             {
@@ -1935,6 +1944,7 @@ mod tests {
     };
     use itertools::Itertools;
     use maplit::btreemap;
+    use tokio::sync::mpsc;
     use value::assert_obj;
 
     use super::LeaderRetentionWorkers;
@@ -2282,6 +2292,7 @@ mod tests {
         p.write(&documents, &[], ConflictStrategy::Error).await?;
 
         let min_document_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(2));
+        let (deleted_tablet_sender, mut deleted_tablet_receiver) = mpsc::channel(1);
         // Nothing should be deleted for tablets deleted at or after
         // min_document_snapshot_ts
         let tablets_to_delete = &btreemap! {id1.tablet_id => *min_document_snapshot_ts};
@@ -2291,6 +2302,7 @@ mod tests {
             min_document_snapshot_ts,
             p.clone(),
             &rt,
+            deleted_tablet_sender.clone(),
         )
         .await?;
         assert_eq!(&skipped_tablets, tablets_to_delete);
@@ -2301,6 +2313,7 @@ mod tests {
             min_document_snapshot_ts,
             p.clone(),
             &rt,
+            deleted_tablet_sender.clone(),
         )
         .await?;
         assert_eq!(&skipped_tablets, tablets_to_delete);
@@ -2308,6 +2321,7 @@ mod tests {
         let stream = reader.load_all_documents();
         let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
         assert_eq!(results, documents,);
+        assert!(deleted_tablet_receiver.is_empty());
 
         // All documents should be deleted for tablets deleted before
         // min_document_snapshot_ts
@@ -2317,12 +2331,15 @@ mod tests {
             min_document_snapshot_ts,
             p.clone(),
             &rt,
+            deleted_tablet_sender,
         )
         .await?;
         assert!(skipped_tablets.is_empty());
         let stream = reader.load_all_documents();
         let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
         assert_eq!(results, vec![],);
+        let tablet = deleted_tablet_receiver.recv().await.unwrap();
+        assert_eq!(tablet, id1.tablet_id);
         Ok(())
     }
 

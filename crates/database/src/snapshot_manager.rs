@@ -163,12 +163,11 @@ impl TableSummaries {
             namespace: _,
             table_id_and_number,
             table_name: _,
-            state: _,
             mode,
         }) = table_update
         {
             match mode {
-                TableUpdateMode::Create => {
+                TableUpdateMode::Create(_) => {
                     assert!(self
                         .tables
                         .insert(table_id_and_number.tablet_id, TableSummary::empty())
@@ -177,6 +176,13 @@ impl TableSummaries {
                 TableUpdateMode::Activate => {},
                 TableUpdateMode::Drop => {
                     self.tables.remove(&table_id_and_number.tablet_id);
+                },
+                TableUpdateMode::HardDelete => {
+                    assert!(
+                        self.tables.remove(&table_id_and_number.tablet_id).is_none(),
+                        "Hard-deleted tablet found in table summaries, but it should have already \
+                         been removed when it was marked Deleting"
+                    );
                 },
             }
         }

@@ -1,6 +1,8 @@
 //! Database metadata. Currently this metadata is just used to store the shape
 //! and size for each table.
 
+use std::assert_matches::assert_matches;
+
 use common::{
     bootstrap_model::tables::{
         TableMetadata,
@@ -109,13 +111,23 @@ impl TableRegistry {
                         namespace: metadata.namespace,
                         table_id_and_number: table_id_and_code,
                         table_name: metadata.name,
-                        state: metadata.state,
-                        mode: TableUpdateMode::Create,
+                        mode: TableUpdateMode::Create(metadata.state),
                     })
                 },
-                (Some(_), None) => {
-                    anyhow::bail!("_tables delete not allowed, set state to Deleting instead");
+                (Some(old_value), None) => {
+                    let metadata = TableMetadata::try_from(old_value.clone())?;
+                    let table_id_and_number = TabletIdAndTableNumber {
+                        tablet_id,
+                        table_number: metadata.number,
+                    };
+                    Some(TableUpdate {
+                        namespace: metadata.namespace,
+                        table_id_and_number,
+                        table_name: metadata.name,
+                        mode: TableUpdateMode::HardDelete,
+                    })
                 },
+
                 // Table edits, which can delete tables.
                 (Some(old_value), Some(new_value)) => {
                     let new_metadata = TableMetadata::try_from(new_value.clone())?;
@@ -151,7 +163,6 @@ impl TableRegistry {
                             namespace: old_metadata.namespace,
                             table_id_and_number: old_table_id_and_number,
                             table_name: old_metadata.name,
-                            state: new_metadata.state,
                             mode: TableUpdateMode::Drop,
                         })
                     } else if matches!(old_metadata.state, TableState::Hidden)
@@ -162,7 +173,6 @@ impl TableRegistry {
                             namespace: old_metadata.namespace,
                             table_id_and_number: old_table_id_and_number,
                             table_name: old_metadata.name,
-                            state: new_metadata.state,
                             mode: TableUpdateMode::Activate,
                         })
                     } else {
@@ -251,22 +261,25 @@ pub(crate) struct TableUpdate {
     pub namespace: TableNamespace,
     pub table_id_and_number: TabletIdAndTableNumber,
     pub table_name: TableName,
-    pub state: TableState,
     pub mode: TableUpdateMode,
 }
 
 impl TableUpdate {
     fn activates(&self) -> bool {
         matches!(self.mode, TableUpdateMode::Activate)
-            || (matches!(self.mode, TableUpdateMode::Create)
-                && matches!(self.state, TableState::Active))
+            || matches!(self.mode, TableUpdateMode::Create(TableState::Active))
     }
 }
 
 pub(crate) enum TableUpdateMode {
-    Create,
+    /// Inserting a new document into `_tables` in `Active` or `Hidden` state.
+    Create(TableState),
+    /// Marking a table as `Active`.
     Activate,
+    /// Marking a table as `Deleting`.
     Drop,
+    /// Removing a `_tables` document.
+    HardDelete,
 }
 
 pub(crate) struct Update<'a> {
@@ -289,28 +302,42 @@ impl Update<'_> {
                 namespace,
                 table_id_and_number,
                 table_name,
-                state,
                 mode,
             } = table_update;
             match mode {
-                TableUpdateMode::Activate => {},
-                TableUpdateMode::Create => {
+                TableUpdateMode::Activate => {
+                    self.metadata
+                        .tablet_states
+                        .insert(table_id_and_number.tablet_id, TableState::Active);
+                },
+                TableUpdateMode::Create(state) => {
                     self.metadata.table_mapping.insert_tablet(
                         table_id_and_number.tablet_id,
                         *namespace,
                         table_id_and_number.table_number,
                         table_name.clone(),
                     );
+                    self.metadata
+                        .tablet_states
+                        .insert(table_id_and_number.tablet_id, *state);
                 },
                 TableUpdateMode::Drop => {
                     self.metadata
                         .table_mapping
                         .remove(table_id_and_number.tablet_id);
+                    self.metadata
+                        .tablet_states
+                        .insert(table_id_and_number.tablet_id, TableState::Deleting);
                 },
-            }
-            self.metadata
-                .tablet_states
-                .insert(table_id_and_number.tablet_id, *state);
+                TableUpdateMode::HardDelete => {
+                    let state = self
+                        .metadata
+                        .tablet_states
+                        .remove(&table_id_and_number.tablet_id);
+                    assert_matches!(state, Some(TableState::Deleting));
+                    return self.table_update;
+                },
+            };
         }
         self.table_update
     }
