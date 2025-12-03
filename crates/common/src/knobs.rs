@@ -1468,6 +1468,12 @@ pub static LIST_SNAPSHOT_MAX_AGE_SECS: LazyLock<Duration> = LazyLock::new(|| {
 pub static SUBSCRIPTIONS_WORKER_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SUBSCRIPTIONS_WORKER_QUEUE_SIZE", 10000));
 
+/// The number of SubscriptionManager instances to run per SubscriptionsWorker.
+/// Incoming subscription requests are randomly sharded across these managers
+/// to distribute load and avoid overloading a single manager.
+pub static NUM_SUBSCRIPTION_MANAGERS: LazyLock<usize> =
+    LazyLock::new(|| env_config("NUM_SUBSCRIPTION_MANAGERS", 1));
+
 /// Time to wait before scheduling update queries in the sync worker after a
 /// search query fails because indexes are bootstrapping.
 pub static SEARCH_INDEXES_UNAVAILABLE_RETRY_DELAY: LazyLock<Duration> =

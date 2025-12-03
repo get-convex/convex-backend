@@ -380,42 +380,6 @@ impl LogOwner {
             inner: self.inner.clone(),
         }
     }
-
-    pub fn max_ts(&self) -> Timestamp {
-        let snapshot = { self.inner.lock().log.clone() };
-        snapshot.max_ts()
-    }
-
-    pub fn refresh_token(
-        &self,
-        token: Token,
-        ts: Timestamp,
-    ) -> anyhow::Result<Result<Token, Option<Timestamp>>> {
-        let snapshot = { self.inner.lock().log.clone() };
-        block_in_place(|| snapshot.refresh_token(token, ts))
-    }
-
-    /// Blocks until the log has advanced past the given timestamp.
-    pub async fn wait_for_higher_ts(&mut self, target_ts: Timestamp) -> Timestamp {
-        let fut = self.inner.lock().wait_for_higher_ts(target_ts);
-        fut.await;
-        let result = self.inner.lock().log.max_ts();
-        assert!(result > target_ts);
-        result
-    }
-
-    pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
-    where
-        for<'a> F: FnMut(Timestamp, IterWrites<'a>),
-    {
-        let snapshot = { self.inner.lock().log.clone() };
-        block_in_place(|| {
-            for (ts, writes, _) in snapshot.iter(from, to)? {
-                f(*ts, writes);
-            }
-            Ok(())
-        })
-    }
 }
 
 #[derive(Clone)]
@@ -454,6 +418,33 @@ impl LogReader {
         block_in_place(|| {
             let max_ts = snapshot.max_ts();
             snapshot.refresh_token(token, max_ts)
+        })
+    }
+
+    pub fn max_ts(&self) -> Timestamp {
+        let snapshot = { self.inner.lock().log.clone() };
+        snapshot.max_ts()
+    }
+
+    /// Blocks until the log has advanced past the given timestamp.
+    pub async fn wait_for_higher_ts(&self, target_ts: Timestamp) -> Timestamp {
+        let fut = self.inner.lock().wait_for_higher_ts(target_ts);
+        fut.await;
+        let result = self.inner.lock().log.max_ts();
+        assert!(result > target_ts);
+        result
+    }
+
+    pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
+    where
+        for<'a> F: FnMut(Timestamp, IterWrites<'a>),
+    {
+        let snapshot = { self.inner.lock().log.clone() };
+        block_in_place(|| {
+            for (ts, writes, _) in snapshot.iter(from, to)? {
+                f(*ts, writes);
+            }
+            Ok(())
         })
     }
 }
