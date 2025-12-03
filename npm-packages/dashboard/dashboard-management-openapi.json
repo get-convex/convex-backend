@@ -511,6 +511,43 @@
         }
       }
     },
+    "/teams/{team_id}/projects/{project_slug}": {
+      "get": {
+        "operationId": "get_project_by_slug",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "project_slug",
+            "in": "path",
+            "description": "Project slug",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ProjectSlug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/usage/team_usage_state": {
       "get": {
         "operationId": "get_team_usage_state",
