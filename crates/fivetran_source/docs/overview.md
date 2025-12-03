@@ -8,7 +8,7 @@ description: Documentation and setup guide for the Convex connector for Fivetran
 
 [Convex](https://convex.dev) is a full-stack TypeScript development platform. Replace your database, server functions, and glue code.
 
-> NOTE: This connector is [partner-built](/docs/partner-built-program). For any questions related to Convex connector and its documentation, refer to Convex's support team. For details on SLA, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state). 
+> NOTE: This connector is [partner-built](/docs/partner-built-program). For any questions related to Convex connector and its documentation, refer to Convex's support team. For details on SLA, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state).
 
 ----
 
@@ -95,3 +95,9 @@ Fivetran adds the following column to every table in your destination:
 - `_fivetran_deleted` (BOOLEAN) indicates if the column was deleted in the source.
 
 Fivetran adds these columns to give you insight into the state of your data and the progress of your data syncs. For more information about these columns, see [our System Columns and Tables documentation](/docs/core-concepts/system-columns-and-tables).
+
+### Excluding source data
+
+If you don’t want to sync all the data from your Convex database, you can exclude Convex components, tables, and fields from your syncs on your Fivetran dashboard. To do so, go to your connection details page and uncheck the objects you would like to omit from syncing. For more information, see our [Data Blocking](/docs/using-fivetran/features/data-blocking-column-hashing) documentation.
+
+> IMPORTANT: If you modify your source data inclusion settings after data has already been synced, the existing data will not be modified retroactively. If you need to apply the new settings to the existing data, [trigger a historical re-sync](/docs/connectors/troubleshooting/trigger-historical-re-syncs).
