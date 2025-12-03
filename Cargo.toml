@@ -327,5 +327,13 @@ codegen-units = 16
 opt-level = 3
 codegen-units = 16
 
+[profile.dev.package.zlib-rs]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.crc32fast]
+opt-level = 3
+codegen-units = 16
+
 [profile.release.package.segment]
 overflow-checks = false
