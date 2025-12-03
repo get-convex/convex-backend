@@ -41,12 +41,6 @@ following higher-level [components](/components.mdx) for durable functions.
       href: "https://www.convex.dev/components/workflow",
     },
     {
-      title: "Action Retrier",
-      description:
-        "Add reliability to an unreliable external service. Retry idempotent calls a set number of times.",
-      href: "https://www.convex.dev/components/retrier",
-    },
-    {
       title: "Crons",
       description:
         "Use cronspec to run functions on a repeated schedule at runtime.",
