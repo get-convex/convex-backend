@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use anyhow::Context;
 use common::{
@@ -793,7 +796,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 fn tree_diff_children<'a>(
     existing_components_by_parent: &'a BTreeMap<
         Option<(DeveloperDocumentId, ComponentName)>,
-        ParsedDocument<ComponentMetadata>,
+        Arc<ParsedDocument<ComponentMetadata>>,
     >,
     new_node: Option<&'a CheckedComponent>,
     internal_id: DeveloperDocumentId,
@@ -839,7 +842,7 @@ fn tree_diff_children<'a>(
 
 struct TreeDiffChild<'a> {
     name: ComponentName,
-    existing: Option<&'a ParsedDocument<ComponentMetadata>>,
+    existing: Option<&'a Arc<ParsedDocument<ComponentMetadata>>>,
     new: Option<&'a CheckedComponent>,
 }
 

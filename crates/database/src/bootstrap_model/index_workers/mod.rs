@@ -1,19 +1,16 @@
 use std::{
     cmp::max,
     str::FromStr,
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
 };
 
 use common::{
     document::{
         ParseDocument,
         ParsedDocument,
-    },
-    query::{
-        IndexRange,
-        IndexRangeExpression,
-        Order,
-        Query,
     },
     runtime::Runtime,
     types::IndexId,
@@ -25,7 +22,6 @@ use serde::{
 use sync_types::Timestamp;
 use value::{
     codegen_convex_serialization,
-    ConvexValue,
     FieldPath,
     InternalId,
     TableName,
@@ -37,7 +33,6 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
-    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -59,7 +54,7 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
         let metadata = self.get_metadata(index_id).await?;
 
         let fast_forward_ts = metadata
-            .map(|meta| *meta.into_value().index_metadata.mut_fast_forward_ts())
+            .map(|meta| meta.index_metadata.fast_forward_ts())
             .unwrap_or_default();
         Ok(max(snapshot_ts, fast_forward_ts))
     }
@@ -93,21 +88,12 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
     pub async fn get_metadata(
         &mut self,
         id: IndexId,
-    ) -> anyhow::Result<Option<ParsedDocument<IndexWorkerMetadataRecord>>> {
-        let range = vec![IndexRangeExpression::Eq(
-            INDEX_DOC_ID_FIELD.clone(),
-            ConvexValue::String(id.to_string().try_into()?).into(),
-        )];
-        let query = Query::index_range(IndexRange {
-            index_name: INDEX_DOC_ID_INDEX.name(),
-            range,
-            order: Order::Asc,
-        });
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        let result = query_stream.next(self.tx, None).await?;
-        result
-            .map(ParseDocument::<IndexWorkerMetadataRecord>::parse)
-            .transpose()
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexWorkerMetadataRecord>>>> {
+        self.tx
+            .query_system(TableNamespace::Global, &INDEX_DOC_ID_INDEX)?
+            .eq(&[String::from(id).as_str()])?
+            .unique()
+            .await
     }
 
     async fn get_or_create_metadata(
@@ -117,7 +103,7 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
     ) -> anyhow::Result<ParsedDocument<IndexWorkerMetadataRecord>> {
         let existing_doc = self.get_metadata(id).await?;
         if let Some(doc) = existing_doc {
-            return Ok(doc);
+            return Ok(Arc::unwrap_or_clone(doc));
         }
         self.create_metadata(IndexWorkerMetadataRecord {
             index_id: id,
@@ -168,10 +154,10 @@ impl SystemTable for IndexWorkerMetadataTable {
 /// Metadata that impacts how the index is queried belongs in the actual index
 /// metadata. This must be used only within the index worker as an
 /// implementation detail of how the index is built.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(
     any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+    derive(proptest_derive::Arbitrary, PartialEq)
 )]
 pub struct IndexWorkerMetadataRecord {
     index_id: InternalId,
@@ -211,10 +197,10 @@ impl TryFrom<SerializedIndexWorkerMetadataRecord> for IndexWorkerMetadataRecord 
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(
     any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+    derive(proptest_derive::Arbitrary, PartialEq)
 )]
 pub enum IndexWorkerMetadata {
     TextSearch(IndexWorkerBatchMetadata),
@@ -224,6 +210,14 @@ pub enum IndexWorkerMetadata {
 impl IndexWorkerMetadata {
     pub fn mut_fast_forward_ts(&mut self) -> &mut Timestamp {
         &mut match self {
+            IndexWorkerMetadata::TextSearch(meta) => meta,
+            IndexWorkerMetadata::VectorSearch(meta) => meta,
+        }
+        .fast_forward_ts
+    }
+
+    pub fn fast_forward_ts(&self) -> Timestamp {
+        match self {
             IndexWorkerMetadata::TextSearch(meta) => meta,
             IndexWorkerMetadata::VectorSearch(meta) => meta,
         }
@@ -269,10 +263,10 @@ impl TryFrom<SerializedIndexWorkerMetadata> for IndexWorkerMetadata {
 /// batches on an ongoing basis.
 ///
 /// For now this is vector and text search.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(
     any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+    derive(proptest_derive::Arbitrary, PartialEq)
 )]
 pub struct IndexWorkerBatchMetadata {
     fast_forward_ts: Timestamp,
