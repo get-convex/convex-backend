@@ -51,6 +51,7 @@ use common::{
         HttpResponseError,
         NoopRouteMapper,
     },
+    sentry::set_sentry_tags,
 };
 use event_receiver::Event;
 use futures::{
@@ -440,6 +441,9 @@ fn main() -> Result<(), MainError> {
     });
     if sentry.is_enabled() {
         tracing::info!("Sentry is enabled! Check the load-generator project for errors: https://sentry.io/organizations/convex-dev/projects/load-generator/?project=6505624");
+        sentry::configure_scope(|scope| {
+            set_sentry_tags(scope);
+        });
     } else {
         tracing::info!("Sentry is not enabled.")
     }

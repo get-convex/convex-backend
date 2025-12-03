@@ -63,6 +63,7 @@ pub mod query_journal;
 pub mod retriable_stream;
 pub mod runtime;
 pub mod schemas;
+pub mod sentry;
 pub mod sha256;
 pub mod shapes;
 pub mod shutdown;
