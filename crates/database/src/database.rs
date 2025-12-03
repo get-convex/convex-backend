@@ -809,7 +809,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     /// But for tools like `db-info` or `db-verifier`, we want the table
     /// summaries to be loaded (and can't rely on TableSummaryWorker +
     /// committer in these services).
+    #[fastrace::trace]
     pub async fn load_table_summaries(&mut self) -> anyhow::Result<()> {
+        if self.snapshot.table_summaries.is_some() {
+            return Ok(());
+        }
+
         tracing::info!("Bootstrapping table summaries...");
         let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap(
             self.runtime.clone(),
