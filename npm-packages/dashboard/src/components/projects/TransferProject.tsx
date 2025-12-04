@@ -1,12 +1,7 @@
 import { useBBMutation } from "api/api";
 import { useProfile } from "api/profile";
-import { useCurrentProject, useProjects } from "api/projects";
-import {
-  useTeams,
-  useCurrentTeam,
-  useTeamMembers,
-  useTeamEntitlements,
-} from "api/teams";
+import { useCurrentProject } from "api/projects";
+import { useTeams, useCurrentTeam, useTeamMembers } from "api/teams";
 import { Sheet } from "@ui/Sheet";
 import { Combobox } from "@ui/Combobox";
 import { Button } from "@ui/Button";
@@ -50,33 +45,19 @@ export function TransferProject() {
     destinationTeamMembers?.find((member) => member.id === me?.id)?.role ===
     "admin";
 
-  const entitlements = useTeamEntitlements(destinationTeamId ?? undefined);
-  const maxProjects = entitlements?.maxProjects ?? 0;
-  const destinationTeamProjects = useProjects(
-    destinationTeamId ?? undefined,
-  )?.filter((p) => !p.isDemo);
-
-  const overProjectLimit =
-    destinationTeamProjects && destinationTeamProjects.length >= maxProjects;
-
   const loading = destinationTeamId
-    ? !originTeamMembers ||
-      !destinationTeamMembers ||
-      !entitlements ||
-      !destinationTeamProjects
+    ? !originTeamMembers || !destinationTeamMembers
     : false;
   const canTransfer = isAdminOfOldTeam && isAdminOfNewTeam;
 
   const [showConfirmation, setShowConfirmation] = useState(false);
   const validationError = !destinationTeamId
     ? undefined
-    : overProjectLimit
-      ? `${destinationTeam?.name} has reached it's project limit of ${maxProjects}.`
-      : teams && teams.length === 1
-        ? "You must be a member of another team to transfer a project."
-        : !canTransfer
-          ? `You must be an admin of ${originTeam?.name} and ${destinationTeam?.name} to transfer this project to ${destinationTeam?.name}.`
-          : undefined;
+    : teams && teams.length === 1
+      ? "You must be a member of another team to transfer a project."
+      : !canTransfer
+        ? `You must be an admin of ${originTeam?.name} and ${destinationTeam?.name} to transfer this project to ${destinationTeam?.name}.`
+        : undefined;
   const router = useRouter();
 
   return (
@@ -127,7 +108,6 @@ export function TransferProject() {
         disabled={
           loading ||
           !destinationTeamId ||
-          overProjectLimit ||
           !canTransfer ||
           (teams && teams.length === 1)
         }
