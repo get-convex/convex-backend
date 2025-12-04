@@ -177,3 +177,49 @@ export async function getWorkosEnvironmentHealth(
     return await logAndHandleFetchError(ctx, error);
   }
 }
+
+export async function disconnectWorkOSTeam(
+  ctx: Context,
+  teamId: number,
+): Promise<
+  | {
+      success: true;
+      workosTeamId: string;
+      workosTeamName: string;
+    }
+  | {
+      success: false;
+      error: "not_associated" | "other";
+      message: string;
+    }
+> {
+  try {
+    const result = await bigBrainAPIMaybeThrows({
+      ctx,
+      method: "POST",
+      url: "workos/disconnect_workos_team",
+      data: JSON.stringify({ teamId }),
+    });
+    return {
+      success: true,
+      ...result,
+    };
+  } catch (error) {
+    const data: ErrorData | undefined =
+      error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
+    if (data?.code === "WorkOSTeamNotAssociated") {
+      return {
+        success: false,
+        error: "not_associated",
+        message: data?.message || "No WorkOS team is associated",
+      };
+    }
+    return {
+      success: false,
+      error: "other",
+      message:
+        data?.message ||
+        (error instanceof Error ? error.message : String(error)),
+    };
+  }
+}

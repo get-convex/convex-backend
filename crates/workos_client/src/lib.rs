@@ -1066,6 +1066,25 @@ where
     if !response.status().is_success() {
         let status = response.status();
         let response_body = response.into_body();
+
+        if status == http::StatusCode::FORBIDDEN {
+            if let Ok(error_response) =
+                serde_json::from_slice::<WorkOSErrorResponse>(&response_body)
+                && error_response.code == Some("platform_not_authorized".to_string())
+            {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "WorkOSPlatformNotAuthorized",
+                    format!("Convex is not authorized to create environments for this WorkOS team, {url}. See https://docs.convex.dev/auth/authkit/troubleshooting#platform-not-authorized for more information.")
+                ));
+            }
+
+            anyhow::bail!(format_workos_error(
+                "create environment (forbidden) with unexpected error response code",
+                status,
+                &response_body
+            ));
+        }
+
         anyhow::bail!(format_workos_error(
             "create environment",
             status,

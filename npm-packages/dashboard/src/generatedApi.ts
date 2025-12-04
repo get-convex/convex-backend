@@ -1578,6 +1578,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workos/disconnect_workos_team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Disconnect a WorkOS team from a Convex team. This is a destructive action that will prevent new WorkOS environments from being provisioned, though existing environments will continue to work. */
+        post: operations["disconnect_workos_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workos/available_workos_team_emails": {
         parameters: {
             query?: never;
@@ -1806,7 +1823,7 @@ export interface components {
             referralCode: components["schemas"]["ReferralCode"];
         };
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "enableSSO" | "disableSSO" | "updateSSO";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "changeSubscriptionPlan" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit" | "applyReferralCode" | "createOAuthApplication" | "updateOAuthApplication" | "deleteOAuthApplication" | "verifyOAuthApplication" | "generateOAuthClientSecret" | "createWorkosTeam" | "createWorkosEnvironment" | "retrieveWorkosEnvironmentCredentials" | "disconnectWorkosTeam" | "enableSSO" | "disableSSO" | "updateSSO";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -2009,6 +2026,14 @@ export interface components {
             workosTeam?: null | components["schemas"]["WorkOSAssociatedTeam"];
         };
         DeviceName: string;
+        DisconnectWorkOSTeamRequest: {
+            /** @description Convex team ID to disconnect from WorkOS */
+            teamId: components["schemas"]["TeamId"];
+        };
+        DisconnectWorkOSTeamResponse: {
+            workosTeamId: string;
+            workosTeamName: string;
+        };
         DiscordAccount: {
             details?: null | components["schemas"]["DiscordAccountDetails"];
             id: string;
@@ -2594,6 +2619,8 @@ export type DeploymentType = components['schemas']['DeploymentType'];
 export type DeploymentWorkOsEnvironmentInfo = components['schemas']['DeploymentWorkOSEnvironmentInfo'];
 export type DeploymentWorkOsEnvironmentResponse = components['schemas']['DeploymentWorkOSEnvironmentResponse'];
 export type DeviceName = components['schemas']['DeviceName'];
+export type DisconnectWorkOsTeamRequest = components['schemas']['DisconnectWorkOSTeamRequest'];
+export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWorkOSTeamResponse'];
 export type DiscordAccount = components['schemas']['DiscordAccount'];
 export type DiscordAccountDetails = components['schemas']['DiscordAccountDetails'];
 export type DiscordAccountsResponse = components['schemas']['DiscordAccountsResponse'];
@@ -4913,6 +4940,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    disconnect_workos_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisconnectWorkOSTeamRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisconnectWorkOSTeamResponse"];
+                };
             };
         };
     };

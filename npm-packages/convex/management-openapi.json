@@ -58,6 +58,34 @@
         }
       }
     },
+    "/workos/disconnect_workos_team": {
+      "post": {
+        "description": "Disconnect a WorkOS team from a Convex team. This is a destructive action that will prevent new WorkOS environments from being provisioned, though existing environments will continue to work.",
+        "operationId": "disconnect_workos_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisconnectWorkOSTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisconnectWorkOSTeamResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/workos/available_workos_team_emails": {
       "get": {
         "description": "Get candidate email addresses to be WorkOS admins.",
@@ -265,6 +293,33 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "DisconnectWorkOSTeamRequest": {
+        "type": "object",
+        "required": [
+          "teamId"
+        ],
+        "properties": {
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId",
+            "description": "Convex team ID to disconnect from WorkOS"
+          }
+        }
+      },
+      "DisconnectWorkOSTeamResponse": {
+        "type": "object",
+        "required": [
+          "workosTeamId",
+          "workosTeamName"
+        ],
+        "properties": {
+          "workosTeamId": {
+            "type": "string"
+          },
+          "workosTeamName": {
+            "type": "string"
           }
         }
       },

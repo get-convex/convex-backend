@@ -563,6 +563,9 @@ function EntryAction({
     case "retrieveWorkosEnvironmentCredentials": {
       return <span>retrieve WorkOS Environment credentials</span>;
     }
+    case "disconnectWorkosTeam": {
+      return <span>disconnected a WorkOS team</span>;
+    }
     case "enableSSO": {
       return <span>enabled SSO</span>;
     }

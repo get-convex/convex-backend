@@ -8,18 +8,25 @@ import {
   DeploymentSelectionOptions,
   deploymentSelectionWithinProjectFromOptions,
   fetchTeamAndProject,
+  getTeamAndProjectSlugForDeployment,
   loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
-import { ensureWorkosEnvironmentProvisioned } from "./lib/workos/workos.js";
 import {
+  ensureWorkosEnvironmentProvisioned,
+  provisionWorkosTeamInteractive,
+} from "./lib/workos/workos.js";
+import {
+  disconnectWorkOSTeam,
   getCandidateEmailsForWorkIntegration,
+  getDeploymentCanProvisionWorkOSEnvironments,
   getWorkosEnvironmentHealth,
   getWorkosTeamHealth,
 } from "./lib/workos/platformApi.js";
-import { logMessage } from "../bundler/log.js";
+import { logFinishedStep, logMessage } from "../bundler/log.js";
+import { promptYesNo } from "./lib/utils/prompts.js";
 
 async function selectEnvDeployment(
   options: DeploymentSelectionOptions,
@@ -140,11 +147,155 @@ const workosProvisionEnvironment = new Command("provision-environment")
       });
     }
   });
+const workosProvisionTeam = new Command("provision-team")
+  .summary("Provision a WorkOS team for this Convex team")
+  .description(
+    "Create a WorkOS team and associate it with this Convex team. " +
+      "This enables automatic provisioning of WorkOS environments for deployments on this team.",
+  )
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .addDeploymentSelectionOptions(actionDescription("Provision WorkOS team for"))
+  .action(async (_options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const { ctx, deployment } = await selectEnvDeployment(options);
+
+    // Check if there's already an associated WorkOS team
+    const { hasAssociatedWorkosTeam, teamId } =
+      await getDeploymentCanProvisionWorkOSEnvironments(
+        ctx,
+        deployment.deploymentName,
+      );
+
+    if (hasAssociatedWorkosTeam) {
+      logMessage(
+        chalkStderr.yellow(
+          "This Convex team already has an associated WorkOS team.",
+        ),
+      );
+      logMessage(
+        chalkStderr.dim(
+          "Use 'npx convex integration workos status' to view details.",
+        ),
+      );
+      return;
+    }
+
+    // Use the shared provisioning flow
+    const result = await provisionWorkosTeamInteractive(
+      ctx,
+      deployment.deploymentName,
+      teamId,
+    );
+
+    if (!result.success) {
+      logMessage(chalkStderr.gray("Cancelled."));
+      return;
+    }
+
+    // Success!
+    logMessage(
+      chalkStderr.green(
+        `\n✓ Successfully created WorkOS team "${result.workosTeamName}" (${result.workosTeamId})`,
+      ),
+    );
+    logMessage(
+      chalkStderr.dim(
+        "You can now provision WorkOS environments for deployments on this team.",
+      ),
+    );
+  });
+
+const workosDisconnectTeam = new Command("disconnect-team")
+  .summary("Disconnect WorkOS team from Convex team")
+  .description(
+    "Remove the associated WorkOS team from this Convex team. " +
+      "This is a destructive action that will prevent new WorkOS environments from being provisioned. " +
+      "Existing environments will continue to work with their current API keys.",
+  )
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .addDeploymentSelectionOptions(
+    actionDescription("Disconnect WorkOS team for"),
+  )
+  .action(async (_options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const { ctx, deployment } = await selectEnvDeployment(options);
+
+    // Check if there's an associated WorkOS team
+    const { hasAssociatedWorkosTeam, teamId } =
+      await getDeploymentCanProvisionWorkOSEnvironments(
+        ctx,
+        deployment.deploymentName,
+      );
+
+    if (!hasAssociatedWorkosTeam) {
+      logMessage(
+        chalkStderr.yellow(
+          "This Convex team does not have an associated WorkOS team.",
+        ),
+      );
+      return;
+    }
+
+    const info = await getTeamAndProjectSlugForDeployment(ctx, {
+      deploymentName: deployment.deploymentName,
+    });
+
+    logMessage(
+      chalkStderr.yellow(
+        `Warning: This will disconnect the WorkOS team from Convex team "${info?.teamSlug}".`,
+      ),
+    );
+    logMessage(
+      "AuthKit environments provisioned for Convex deployments on this team will no longer use this WorkOS team to provision environments.",
+    );
+    logMessage(
+      chalkStderr.dim(
+        "Existing WorkOS environments will continue to work with their current API keys.",
+      ),
+    );
+
+    const confirmed = await promptYesNo(ctx, {
+      message: "Are you sure you want to disconnect this WorkOS team?",
+      default: false,
+    });
+
+    if (!confirmed) {
+      logMessage(chalkStderr.gray("Cancelled."));
+      return;
+    }
+
+    const result = await disconnectWorkOSTeam(ctx, teamId);
+
+    if (!result.success) {
+      if (result.error === "not_associated") {
+        logMessage(
+          chalkStderr.yellow(
+            "This Convex team does not have an associated WorkOS team.",
+          ),
+        );
+        return;
+      }
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Failed to disconnect WorkOS team: ${result.message}`,
+      });
+    }
+
+    logFinishedStep(
+      `Successfully disconnected WorkOS team "${result.workosTeamName}" (${result.workosTeamId})`,
+    );
+  });
+
 const workos = new Command("workos")
   .summary("WorkOS integration commands")
   .description("Manage WorkOS team provisioning and environment setup")
   .addCommand(workosProvisionEnvironment)
-  .addCommand(workosTeamStatus);
+  .addCommand(workosTeamStatus)
+  .addCommand(workosProvisionTeam)
+  .addCommand(workosDisconnectTeam);
 
 export const integration = new Command("integration")
   .summary("Integration commands")
