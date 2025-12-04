@@ -80,6 +80,12 @@ function findDbCalls(
 
       const dbType = propertyAccess.getExpression().getType();
 
+      // Don't assume that `any` is a DatabaseReader/DatabaseWriter.
+      // This avoids false positives for methods like `str.replace` where `str` is `any`.
+      if (dbType.isAny()) {
+        return false;
+      }
+
       const isDbCall =
         (dbType.isAssignableTo(anyDatabaseReader) && methodName === "get") ||
         dbType.isAssignableTo(anyDatabaseWriter);
