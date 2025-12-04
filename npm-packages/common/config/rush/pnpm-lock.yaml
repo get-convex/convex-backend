@@ -4469,8 +4469,8 @@ importers:
         specifier: ^19.2.1
         version: 19.2.1(react@19.2.1)
       valibot:
-        specifier: ~1.1.0
-        version: 1.1.0(typescript@5.6.3)
+        specifier: ~1.2.0
+        version: 1.2.0(typescript@5.6.3)
     devDependencies:
       '@types/react':
         specifier: ^18
@@ -22735,8 +22735,8 @@ packages:
     resolution: {integrity: sha512-kiGUalWN+rgBJ/1OHZsBtU4rXZOfj/7rKQxULKlIzwzQSvMJUUNgPwJEEh7gU6xEVxC0ahoOBvN2YI8GH6FNgA==}
     engines: {node: '>=10.12.0'}
 
-  valibot@1.1.0:
-    resolution: {integrity: sha512-Nk8lX30Qhu+9txPYTwM0cFlWLdPFsFr6LblzqIySfbZph9+BFsAHsNvHOymEviUepeIW6KFHzpX8TKhbptBXXw==}
+  valibot@1.2.0:
+    resolution: {integrity: sha512-mm1rxUsmOxzrwnX5arGS+U4T25RdvpPjPN4yR0u9pUBov9+zGVtO84tif1eY4r6zWxVxu3KzIyknJy3rxfRZZg==}
     peerDependencies:
       typescript: '>=5'
     peerDependenciesMeta:
@@ -48962,7 +48962,7 @@ snapshots:
       '@types/istanbul-lib-coverage': 2.0.6
       convert-source-map: 2.0.0
 
-  valibot@1.1.0(typescript@5.6.3):
+  valibot@1.2.0(typescript@5.6.3):
     optionalDependencies:
       typescript: 5.6.3
 
