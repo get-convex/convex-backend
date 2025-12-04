@@ -2,7 +2,6 @@ import { ProjectDetails, TeamResponse } from "generatedApi";
 
 import classNames from "classnames";
 import React, { useState } from "react";
-import { useProjects } from "api/projects";
 import { Button } from "@ui/Button";
 import { CaretSortIcon, GearIcon, ResetIcon } from "@radix-ui/react-icons";
 import { Avatar } from "elements/Avatar";
@@ -30,8 +29,6 @@ export function ProjectSelector({
   onCreateProjectClick: (team: TeamResponse) => void;
 }) {
   const team = teams?.find((t) => t.slug === selectedTeamSlug) ?? null;
-
-  const projectsForCurrentTeam = useProjects(team?.id);
 
   const { width } = useWindowSize();
 
@@ -105,7 +102,6 @@ export function ProjectSelector({
           onCreateTeamClick={onCreateTeamClick}
           onCreateProjectClick={onCreateProjectClick}
           team={team}
-          projectsForCurrentTeam={projectsForCurrentTeam}
         />
       )}
     </Popover>
@@ -118,14 +114,12 @@ function ProjectSelectorPanel({
   onCreateProjectClick,
   close,
   team,
-  projectsForCurrentTeam,
 }: {
   teams?: TeamResponse[];
   onCreateTeamClick: () => void;
   onCreateProjectClick: (team: TeamResponse) => void;
   close: () => void;
   team: TeamResponse | null;
-  projectsForCurrentTeam: ProjectDetails[] | undefined;
 }) {
   const [switchingTeams, setSwitchingTeams] = useState(false);
 
@@ -193,7 +187,6 @@ function ProjectSelectorPanel({
             ) : (
               <ProjectMenuOptions
                 onCreateProjectClick={onCreateProjectClick}
-                projectsForCurrentTeam={projectsForCurrentTeam}
                 team={team}
                 close={close}
               />

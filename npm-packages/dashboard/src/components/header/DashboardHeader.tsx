@@ -6,7 +6,7 @@ import { NavBar } from "components/header/NavBar/NavBar";
 import { CreateTeamModal } from "components/header/CreateTeamModal";
 import { logEvent } from "convex-analytics";
 import { useTeams } from "api/teams";
-import { useProjects } from "api/projects";
+import { useProjectBySlug } from "api/projects";
 import {
   useRememberLastViewedProject,
   useRememberLastViewedTeam,
@@ -53,16 +53,13 @@ function DashboardHeaderWhenLoggedIn() {
   const projectSlug = router?.query.project as string;
   const { teams, selectedTeamSlug } = useTeams();
   const team = teams?.find((t) => t.slug === selectedTeamSlug);
-  const projects = useProjects(team?.id);
-
-  const selectedProject =
-    projects && projects.find((project) => project.slug === projectSlug);
+  const selectedProject = useProjectBySlug(team?.id, projectSlug);
 
   useEffect(() => {
-    if (projects && projectSlug && !selectedProject) {
+    if (projectSlug && selectedProject === null) {
       void router.push("/404");
     }
-  }, [projects, selectedProject, projectSlug, router]);
+  }, [selectedProject, projectSlug, router]);
 
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
 
@@ -74,7 +71,7 @@ function DashboardHeaderWhenLoggedIn() {
   const projectSelector = (
     <ProjectSelector
       teams={teams}
-      selectedProject={selectedProject}
+      selectedProject={selectedProject ?? undefined}
       selectedTeamSlug={selectedTeamSlug}
       onCreateTeamClick={() => {
         logEvent("view create team modal");

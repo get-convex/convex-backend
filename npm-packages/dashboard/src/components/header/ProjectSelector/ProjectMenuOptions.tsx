@@ -1,25 +1,24 @@
 import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
-import { useCurrentProject } from "api/projects";
+import { Spinner } from "@ui/Spinner";
+import { useCurrentProject, useInfiniteProjects } from "api/projects";
 import { useState, useMemo, useRef } from "react";
 import { TeamResponse, ProjectDetails } from "generatedApi";
 import classNames from "classnames";
 import { SelectorItem } from "elements/SelectorItem";
 import { useDeploymentUris } from "hooks/useDeploymentUris";
 import { useLastViewedDeploymentForProject } from "hooks/useLastViewed";
-import { InfiniteScrollList } from "dashboard-common/src/elements/InfiniteScrollList";
+import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
 import { OpenInVercel } from "components/OpenInVercel";
 import startCase from "lodash/startCase";
 
 const PROJECT_SELECTOR_ITEM_SIZE = 44;
 
 export function ProjectMenuOptions({
-  projectsForCurrentTeam,
   team,
   onCreateProjectClick,
   close,
 }: {
-  projectsForCurrentTeam?: ProjectDetails[];
   team: TeamResponse;
   onCreateProjectClick: (team: TeamResponse) => void;
   close(): void;
@@ -27,46 +26,80 @@ export function ProjectMenuOptions({
   const currentProject = useCurrentProject();
   const [projectQuery, setProjectQuery] = useState("");
 
-  const items = useMemo(() => {
-    if (!projectsForCurrentTeam) return [];
+  const {
+    projects: projectsForCurrentTeam,
+    isLoading,
+    hasMore,
+    loadMore,
+    debouncedQuery,
+    pageSize,
+  } = useInfiniteProjects(team.id, projectQuery);
 
-    const matchingProjects = projectsForCurrentTeam
-      .filter((p) => p.name?.toLowerCase().includes(projectQuery.toLowerCase()))
-      .reverse();
+  const items = useMemo(() => {
+    if (!projectsForCurrentTeam || projectsForCurrentTeam.length === 0)
+      return [];
 
     const result = [];
 
-    if (
-      currentProject?.name.toLowerCase().includes(projectQuery.toLowerCase())
-    ) {
-      result.push({ ...currentProject, _isCurrent: true });
+    // Check if current project is in the results
+    const currentProjectInResults = projectsForCurrentTeam.find(
+      (p) => p.slug === currentProject?.slug,
+    );
+
+    if (currentProjectInResults) {
+      result.push({ ...currentProjectInResults, _isCurrent: true });
     }
 
+    // Add all other projects
     result.push(
-      ...matchingProjects.filter((p) => p.slug !== currentProject?.slug),
+      ...projectsForCurrentTeam.filter((p) => p.slug !== currentProject?.slug),
     );
 
     return result;
-  }, [projectsForCurrentTeam, projectQuery, currentProject]);
+  }, [projectsForCurrentTeam, currentProject?.slug]);
+
+  const itemData = useMemo(
+    () => ({
+      items,
+      team,
+      close,
+    }),
+    [items, team, close],
+  );
+
+  const itemKey = useMemo(
+    () => (idx: number, data: typeof itemData) =>
+      data.items[idx]?.id?.toString() || `loading-${idx}`,
+    [],
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
       <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3">
-        <MagnifyingGlassIcon className="text-content-secondary" />
-        <input
-          autoFocus
-          onChange={(e) => {
-            setProjectQuery(e.target.value);
-          }}
-          value={projectQuery}
-          className={classNames(
-            "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-            "focus:outline-hidden bg-background-secondary font-normal",
-          )}
-          placeholder="Search projects..."
-        />
+        {isLoading && debouncedQuery === projectQuery ? (
+          <div className="animate-fadeInFromLoading">
+            <Spinner className="size-3" />
+          </div>
+        ) : (
+          <MagnifyingGlassIcon className="animate-fadeInFromLoading text-content-secondary" />
+        )}
+
+        <div className="relative flex w-full items-center">
+          <input
+            autoFocus
+            onChange={(e) => {
+              setProjectQuery(e.target.value);
+            }}
+            value={projectQuery}
+            className={classNames(
+              "placeholder:text-content-tertiary truncate relative w-full py-1.5 text-left text-xs text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+              "focus:outline-hidden bg-background-secondary font-normal",
+            )}
+            placeholder="Search projects..."
+          />
+        </div>
       </div>
       <label
         className="px-2 pt-1 text-xs font-semibold text-content-secondary"
@@ -74,31 +107,38 @@ export function ProjectMenuOptions({
       >
         Projects
       </label>
-      <div
-        id="project-menu-options"
-        className="w-full"
-        style={{
-          height: Math.min(items.length * PROJECT_SELECTOR_ITEM_SIZE, 22 * 16),
-        }}
-        role="menu"
-      >
-        <InfiniteScrollList
-          outerRef={scrollRef}
-          items={items}
-          totalNumItems={items.length}
-          itemSize={PROJECT_SELECTOR_ITEM_SIZE}
-          itemData={{
-            items,
-            team,
-            close,
+      {items.length === 0 && !isLoading && debouncedQuery.trim() ? (
+        <div className="flex w-full animate-fadeInFromLoading items-center justify-center py-4 text-xs text-content-secondary">
+          No projects match your search.
+        </div>
+      ) : (
+        <div
+          id="project-menu-options"
+          className="w-full"
+          style={{
+            height: Math.min(
+              items.length * PROJECT_SELECTOR_ITEM_SIZE,
+              22 * 16,
+            ),
           }}
-          RowOrLoading={ProjectSelectorListItem}
-          overscanCount={25}
-          itemKey={(idx, data) =>
-            data.items[idx]?.id?.toString() || `loading-${idx}`
-          }
-        />
-      </div>
+          role="menu"
+        >
+          <InfiniteScrollList
+            outerRef={scrollRef}
+            items={items}
+            totalNumItems={hasMore ? items.length + 1 : items.length}
+            itemSize={PROJECT_SELECTOR_ITEM_SIZE}
+            itemData={itemData}
+            RowOrLoading={ProjectSelectorListItem}
+            overscanCount={25}
+            loadMoreThreshold={1}
+            loadMore={loadMore}
+            pageSize={pageSize}
+            itemKey={itemKey}
+          />
+        </div>
+      )}
+
       <div className="flex w-full gap-2 p-2">
         <Button
           inline
@@ -139,6 +179,12 @@ function ProjectSelectorListItem({
 }) {
   const { items, team, close } = data;
   const project = items[index];
+
+  // Handle loading state or missing project
+  if (!project) {
+    return <div style={style} />;
+  }
+
   // _isCurrent is only set for the current project
   const selected = Boolean(project._isCurrent);
   return (

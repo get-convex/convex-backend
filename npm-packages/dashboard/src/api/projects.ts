@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { SWRConfiguration } from "swr";
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import {
   PaginatedProjectsResponse,
   ProjectDetails,
@@ -192,15 +192,17 @@ export function useInfiniteProjects(teamId: number, searchQuery: string = "") {
 
   const hasMore = data?.[data.length - 1]?.pagination.hasMore ?? false;
 
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoading) {
+      void setSize((prevSize) => prevSize + 1);
+    }
+  }, [hasMore, isLoading, setSize]);
+
   return {
     projects,
     isLoading,
     hasMore,
-    loadMore: () => {
-      if (hasMore && !isLoading) {
-        void setSize((prevSize) => prevSize + 1);
-      }
-    },
+    loadMore,
     debouncedQuery,
     pageSize,
   };
