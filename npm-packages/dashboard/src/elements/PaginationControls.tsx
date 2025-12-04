@@ -2,24 +2,97 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DoubleArrowLeftIcon,
-  DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
+import { Combobox, Option } from "@ui/Combobox";
 import { cn } from "@ui/cn";
 
-interface PaginationControlsProps {
+interface OffsetPaginationControlsProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   className?: string;
+  pageSize?: never;
+  onPageSizeChange?: never;
 }
 
-export function PaginationControls({
+interface CursorPaginationControlsProps {
+  currentPage: number;
+  hasMore: boolean;
+  pageSize: number;
+  onPageSizeChange: (pageSize: number) => void;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  canGoPrevious: boolean;
+  className?: string;
+  showPageSize?: boolean;
+}
+
+interface CursorPaginationControlsPropsWithDiscriminator
+  extends CursorPaginationControlsProps {
+  isCursorBasedPagination: true;
+}
+
+type PaginationControlsProps =
+  | OffsetPaginationControlsProps
+  | CursorPaginationControlsPropsWithDiscriminator;
+
+const PAGE_SIZE_OPTIONS: Option<number>[] = [
+  { label: "5", value: 5 },
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+];
+
+export function PaginationControls(props: PaginationControlsProps) {
+  const { isCursorBasedPagination } = props as {
+    isCursorBasedPagination?: boolean;
+  };
+  if (isCursorBasedPagination) {
+    const {
+      currentPage,
+      hasMore,
+      pageSize,
+      onPageSizeChange,
+      onPreviousPage,
+      onNextPage,
+      canGoPrevious,
+      className,
+      showPageSize,
+    } = props as CursorPaginationControlsPropsWithDiscriminator;
+    return (
+      <CursorPaginationControls
+        currentPage={currentPage}
+        hasMore={hasMore}
+        pageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+        onPreviousPage={onPreviousPage}
+        onNextPage={onNextPage}
+        canGoPrevious={canGoPrevious}
+        className={className}
+        showPageSize={showPageSize}
+      />
+    );
+  }
+  const offsetProps = props as OffsetPaginationControlsProps;
+  const { currentPage, totalPages, onPageChange, className } = offsetProps;
+  return (
+    <OffsetPaginationControls
+      currentPage={currentPage}
+      totalPages={totalPages}
+      onPageChange={onPageChange}
+      className={className}
+    />
+  );
+}
+
+function OffsetPaginationControls({
   currentPage,
   totalPages,
   onPageChange,
   className = "",
-}: PaginationControlsProps) {
+}: OffsetPaginationControlsProps) {
   if (totalPages <= 1) {
     return null;
   }
@@ -34,6 +107,7 @@ export function PaginationControls({
         icon={<DoubleArrowLeftIcon />}
         onClick={() => onPageChange(1)}
         disabled={currentPage === 1}
+        aria-label="Go to first page"
       />
 
       {/* Previous page button */}
@@ -44,6 +118,7 @@ export function PaginationControls({
         icon={<ChevronLeftIcon />}
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
+        aria-label="Go to previous page"
       />
 
       {/* Page indicator */}
@@ -59,6 +134,7 @@ export function PaginationControls({
         icon={<ChevronRightIcon />}
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
+        aria-label="Go to next page"
       />
 
       {/* Last page button */}
@@ -66,9 +142,79 @@ export function PaginationControls({
         variant="neutral"
         inline
         size="sm"
-        icon={<DoubleArrowRightIcon />}
+        icon={<ChevronRightIcon />}
         onClick={() => onPageChange(totalPages)}
         disabled={currentPage === totalPages}
+        aria-label="Go to last page"
+      />
+    </div>
+  );
+}
+
+function CursorPaginationControls({
+  currentPage,
+  hasMore,
+  pageSize,
+  onPageSizeChange,
+  onPreviousPage,
+  onNextPage,
+  canGoPrevious,
+  className = "",
+  showPageSize = true,
+}: CursorPaginationControlsProps) {
+  return (
+    <div className={cn("flex items-center justify-center gap-2", className)}>
+      {/* Page size selector - only show if showPageSize is true */}
+      {showPageSize && (
+        <div className="flex items-center gap-1">
+          <span className="text-sm text-content-secondary tabular-nums">
+            Showing{" "}
+          </span>
+          <Combobox
+            label="Page size"
+            labelHidden
+            options={PAGE_SIZE_OPTIONS}
+            selectedOption={pageSize}
+            setSelectedOption={(newValue) => {
+              if (newValue) {
+                onPageSizeChange(newValue);
+              }
+            }}
+            disableSearch
+            buttonClasses="w-fit"
+            optionsWidth="fit"
+          />
+          <span className="text-sm text-content-secondary tabular-nums">
+            projects per page
+          </span>
+        </div>
+      )}
+
+      {/* Previous page button */}
+      <Button
+        variant="neutral"
+        inline
+        size="sm"
+        icon={<ChevronLeftIcon />}
+        onClick={onPreviousPage}
+        disabled={!canGoPrevious}
+        aria-label="Go to previous page"
+      />
+
+      {/* Page indicator */}
+      <span className="text-sm text-content-secondary tabular-nums">
+        Page {currentPage.toLocaleString()}
+      </span>
+
+      {/* Next page button */}
+      <Button
+        variant="neutral"
+        inline
+        size="sm"
+        icon={<ChevronRightIcon />}
+        onClick={onNextPage}
+        disabled={!hasMore}
+        aria-label="Go to next page"
       />
     </div>
   );

@@ -321,7 +321,7 @@ export function Combobox<T>({
                         {hasMoreThanMaxOptions && (
                           <div className="relative w-fit min-w-full cursor-default px-3 py-1.5 text-content-tertiary select-none">
                             Too many options to display, use the searchbar to
-                            filter.
+                            refine this list.
                           </div>
                         )}
 
