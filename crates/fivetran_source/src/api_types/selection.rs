@@ -156,7 +156,7 @@ impl From<SelectionArg> for Selection {
 /// The name of the Fivetran schema that we use for the Convex tables in the
 /// root component (i.e. the “database name” users see for the Convex root
 /// component)
-pub const DEFAULT_FIVETRAN_SCHEMA_NAME: &str = "convex";
+pub const DEFAULT_FIVETRAN_SCHEMA_NAME: &str = "app";
 
 impl TryFrom<Option<FivetranRootSelection>> for Selection {
     type Error = anyhow::Error;
@@ -457,7 +457,7 @@ mod tests_selection_fivetran_conversion {
     fn test_can_convert_from_fivetran_selection_with_schema() {
         let fivetran_selection = FivetranSelection::WithSchema(FivetranSelectionWithSchema {
             schemas: vec![FivetranSchemaSelection {
-                schema_name: "convex".to_string(),
+                schema_name: "app".to_string(),
                 included: true,
                 tables: vec![FivetranTableSelection {
                     table_name: "users".to_string(),
@@ -521,11 +521,11 @@ mod tests_selection_fivetran_conversion {
     #[test]
     fn test_convex_component_in_fivetran_maps_to_empty_string() {
         // Fivetran doesn’t support empty schema names, so the root component ("" in
-        // Convex) is called "convex" in Fivetran
+        // Convex) is called "app" in Fivetran
 
         let fivetran_selection = FivetranSelectionWithSchema {
             schemas: vec![FivetranSchemaSelection {
-                schema_name: "convex".to_string(),
+                schema_name: "app".to_string(),
                 included: true,
                 tables: vec![],
                 include_new_tables: true,

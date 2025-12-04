@@ -378,7 +378,7 @@ mod tests {
             fields: BTreeMap::new(),
             ts: 0,
         };
-        assert_eq!(snapshot_value.fivetran_schema_name(), "convex");
+        assert_eq!(snapshot_value.fivetran_schema_name(), "app");
     }
 
     #[test]

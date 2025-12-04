@@ -469,7 +469,7 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
         destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap()
             .len()
     );
@@ -484,7 +484,7 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
         destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap()
             .get("table1")
             .unwrap()
@@ -495,7 +495,7 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
         destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap()
             .get("table1")
             .unwrap()
@@ -510,7 +510,7 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
         destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap()
             .get("table1")
             .unwrap()
@@ -636,11 +636,11 @@ async fn test_sync_with_multiple_pages() -> anyhow::Result<()> {
         // assert the destination has 30 documents
         assert_eq!(destination.checkpointed_data.tables_by_component.len(), 1);
         assert_eq!(
-            destination.checkpointed_data.tables_by_component["convex"].len(),
+            destination.checkpointed_data.tables_by_component["app"].len(),
             1
         );
         assert_eq!(
-            destination.checkpointed_data.tables_by_component["convex"]["table"].len(),
+            destination.checkpointed_data.tables_by_component["app"]["table"].len(),
             document_count
         );
     }
@@ -897,7 +897,7 @@ async fn sync_with_partial_table_selection() -> anyhow::Result<()> {
     let destination_data = destination
         .checkpointed_data
         .tables_by_component
-        .get("convex") // root component’s name in Fivetran
+        .get("app") // root component’s name in Fivetran
         .expect("No data for the root component?");
     assert!(destination_data.contains_key("included_table"));
     assert!(!destination_data.contains_key("excluded_table"));
@@ -947,7 +947,7 @@ async fn sync_with_partial_component_selection() -> anyhow::Result<()> {
         !destination
             .checkpointed_data
             .tables_by_component
-            .contains_key("convex") // root component’s name in Fivetran
+            .contains_key("app") // root component’s name in Fivetran
     );
     let destination_data = destination
         .checkpointed_data
@@ -1006,7 +1006,7 @@ mod selection_changes_tests {
         let initial_root_component_data = destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap();
         assert!(initial_root_component_data.contains_key("table1"));
         assert!(!initial_root_component_data.contains_key("table2"));
@@ -1025,7 +1025,7 @@ mod selection_changes_tests {
         let after_root_component_data = destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap();
         assert!(after_root_component_data.contains_key("table1"));
         assert!(!after_root_component_data.contains_key("table2"));
@@ -1060,7 +1060,7 @@ mod selection_changes_tests {
         let initial_root_component_data = destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap();
         assert!(initial_root_component_data.contains_key("table1"));
         assert!(initial_root_component_data.contains_key("table2"));
@@ -1089,7 +1089,7 @@ mod selection_changes_tests {
         let after_root_component_data = destination
             .checkpointed_data
             .tables_by_component
-            .get("convex")
+            .get("app")
             .unwrap();
         assert!(after_root_component_data.contains_key("table1"));
         assert!(after_root_component_data.contains_key("table2"));
