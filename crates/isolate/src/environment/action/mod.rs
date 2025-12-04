@@ -335,9 +335,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let udf_path = &component_function_path.udf_path;
 
         let heap_stats = self.heap_stats.clone();
-        // See Isolate::with_context for an explanation of this setup code. We can't use
-        // that method directly since we want an `await` below, and passing in a
-        // generic async closure to `Isolate` is currently difficult.
         let (handle, state) = isolate.start_request(client_id.into(), self).await?;
         if let Some(tx) = function_started {
             _ = tx.send(());
@@ -663,10 +660,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ) -> anyhow::Result<ActionOutcome> {
         let start_unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
-
-        // See Isolate::with_context for an explanation of this setup code. We can't use
-        // that method directly since we want an `await` below, and passing in a
-        // generic async closure to `Isolate` is currently difficult.
 
         let (handle, state) = isolate.start_request(client_id.into(), self).await?;
         if let Some(tx) = function_started {
