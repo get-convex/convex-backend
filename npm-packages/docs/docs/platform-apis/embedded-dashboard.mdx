@@ -19,11 +19,18 @@ received. The default login page will be shown until credentials are received,
 so we recommend adding a delay before displaying the rendered iframe to avoid
 flashing a login screen.
 
-<Admonition type="caution" title="This will share your credentials client-side">
-  When using `postMessage` to authenticate with the embedded dashboard, your
-  deployment key will be shared with the end-user. Only do this when sharing
-  credentials with the user is safe, such as with an [OAuth
-  Application](/platform-apis/oauth-applications).
+<Admonition
+  type="caution"
+  title="This will share the credentials of the deployment client-side"
+>
+  When using `postMessage` to authenticate with the embedded dashboard, the
+  deployment key will be shared with the end-user. This means that the user gets
+  full control of the deployment. Do this only when sharing credentials with the
+  user is safe, such as with an [OAuth
+  Application](/platform-apis/oauth-applications) (for Convex deployments that
+  are in the Convex account of the end user), or deploy keys [created with the
+  Management API](/management-api/create-deploy-key) (if the Convex deployment
+  is in a Convex account that the end user doesn’t control).
 </Admonition>
 
 Required information for `postMessage`:
@@ -41,7 +48,9 @@ Optional configuration:
 - `visiblePages`: An array of page keys to show in the sidebar. If not provided,
   all pages are shown. If an empty array is provided, the sidebar will be
   hidden. Available page keys: `"health"`, `"data"`, `"functions"`, `"files"`,
-  `"schedules"`, `"logs"`, `"history"`, `"settings"`.
+  `"schedules"`, `"logs"`, `"history"`, `"settings"`. Please note that this only
+  changes the user interface on the client side, and does not strictly prevent
+  the user from accessing the functionality exposed by the pages.
 
 Here's an example of the Convex dashboard embedded in a React application:
 
