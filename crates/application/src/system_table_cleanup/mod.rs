@@ -92,6 +92,8 @@ use value::{
     TabletId,
 };
 
+use crate::system_table_cleanup::metrics::log_tablet_hard_deleted;
+
 mod metrics;
 
 static MAX_ORPHANED_TABLE_NAMESPACE_AGE: Duration = Duration::from_days(2);
@@ -194,6 +196,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                     database
                         .commit_with_write_source(tx, "cleanup_deleted_tablets")
                         .await?;
+                    log_tablet_hard_deleted();
                     error_backoff.reset();
                 }
                 Ok(())
