@@ -265,7 +265,8 @@ function ProjectGrid({
           !showAsList && "lg:grid-cols-2 xl:grid-cols-3",
         )}
       >
-        {projects.map((p: ProjectDetails) => (
+        {/* TODO(ari): We currently SSR all projects, which is being deprecated, and without this .slice(..) we would temporarily flash all projects before rendering just the first page */}
+        {projects.slice(0, pageSize).map((p: ProjectDetails) => (
           <ProjectCard key={p.id} project={p} />
         ))}
       </div>
