@@ -2,19 +2,16 @@ import { Sheet } from "@ui/Sheet";
 import {
   AuditLogEventResponse,
   MemberResponse,
-  ProjectDetails,
   TeamResponse,
 } from "generatedApi";
 import { AuditLogItem } from "./AuditLogItem";
 
 export function AuditLogContent({
   team,
-  projects,
   members,
   entries,
 }: {
   team: TeamResponse;
-  projects: ProjectDetails[];
   members: MemberResponse[];
   entries: AuditLogEventResponse[];
 }) {
@@ -30,7 +27,6 @@ export function AuditLogContent({
         entries.map((entry) => (
           <AuditLogItem
             team={team}
-            projects={projects}
             entry={entry}
             key={entry.createTime}
             memberId={entryMemberId(entry)}

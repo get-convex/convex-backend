@@ -107,7 +107,6 @@ export function MemberProjectRolesModal({
               <ProjectRoleItem
                 key={project.id}
                 project={project}
-                projects={projects}
                 team={team}
                 originalProjectRoles={originalProjectRoles}
                 newProjectRoles={newProjectRoles}
@@ -160,14 +159,12 @@ export function MemberProjectRolesModal({
 
 function ProjectRoleItem({
   project,
-  projects,
   team,
   originalProjectRoles,
   newProjectRoles,
   setNewProjectRoles,
 }: {
   project: ProjectDetails;
-  projects: ProjectDetails[];
   team: TeamResponse;
   originalProjectRoles: number[];
   newProjectRoles: number[];
@@ -195,12 +192,7 @@ function ProjectRoleItem({
           }}
         />
       </Tooltip>
-      <ProjectLink
-        metadata={{}}
-        projects={projects}
-        projectId={project.id}
-        team={team}
-      />
+      <ProjectLink metadata={{}} projectId={project.id} team={team} />
       <div className="ml-auto rounded-sm p-1 text-xs">
         {originalProjectRoles.includes(project.id) &&
           !newProjectRoles.includes(project.id) && (
