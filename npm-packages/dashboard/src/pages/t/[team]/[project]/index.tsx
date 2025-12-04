@@ -1,6 +1,6 @@
 import { useDeployments } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
-import { useProjects } from "api/projects";
+import { useCurrentProject } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
 import { Loading } from "@ui/Loading";
@@ -12,11 +12,7 @@ export { getServerSideProps } from "lib/ssr";
 export default withAuthenticatedPage(function RedirectToDeployment() {
   const router = useRouter();
   const currentTeam = useCurrentTeam();
-  const projectSlug =
-    typeof router.query.project === "string" ? router.query.project : undefined;
-  const projects = useProjects(currentTeam?.id);
-  const currentProject =
-    projects?.find((project) => project.slug === projectSlug) ?? undefined;
+  const currentProject = useCurrentProject();
   const { deployments } = useDeployments(currentProject?.id);
   const member = useProfile();
   const prodDeployment = deployments?.find((d) => d.deploymentType === "prod");
