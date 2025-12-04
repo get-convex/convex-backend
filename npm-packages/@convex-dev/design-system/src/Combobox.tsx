@@ -15,10 +15,12 @@ import { Button, ButtonProps } from "@ui/Button";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 import { Tooltip } from "./Tooltip";
+import { Spinner } from "./Spinner";
 
 const { test } = fuzzy;
 
-const MAX_DISPLAYED_OPTIONS = 100;
+// Raising this value above 100 may break pagination in the Convex dashboard.
+export const MAX_DISPLAYED_OPTIONS = 100;
 
 export type Option<T> = { label: string; value: T; disabled?: boolean };
 
@@ -41,14 +43,18 @@ export function Combobox<T>({
   unknownLabel = () => "Unknown option",
   labelHidden = true,
   processFilterOption = (option: string) => option,
+  onFilterChange,
   placeholder = "Select an option",
   size = "md",
   icon,
+  isLoadingOptions = false,
 }: {
   label: React.ReactNode;
   labelHidden?: boolean;
+  isLoadingOptions?: boolean;
   className?: string;
   optionsHeader?: React.ReactNode;
+  onFilterChange?: (filter: string) => void;
   options: Readonly<Option<T>[]>;
   placeholder?: string;
   searchPlaceholder?: string;
@@ -120,8 +126,9 @@ export function Combobox<T>({
     return undefined; // auto width for "fit"
   };
 
+  // If onFilterChange is defined, it indicates the creator of the Combobox will handle filtering options.
   const filtered =
-    query === ""
+    query === "" || onFilterChange !== undefined
       ? options
       : options.filter((option) =>
           test(query, processFilterOption(option.label)),
@@ -138,10 +145,11 @@ export function Combobox<T>({
 
   // Update popper position when dropdown opens
   useEffect(() => {
-    if (isOpen && update) {
-      void update();
+    if (isOpen) {
+      update && void update();
+      onFilterChange && void onFilterChange("");
     }
-  }, [isOpen, update]);
+  }, [isOpen, update, onFilterChange]);
 
   return (
     <HeadlessCombobox
@@ -270,9 +278,18 @@ export function Combobox<T>({
                       <div className="min-w-fit">
                         {!disableSearch && (
                           <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3 pt-1">
-                            <MagnifyingGlassIcon className="text-content-secondary" />
+                            {isLoadingOptions ? (
+                              <div className="animate-fadeInFromLoading">
+                                <Spinner className="size-3" />
+                              </div>
+                            ) : (
+                              <MagnifyingGlassIcon className="animate-fadeInFromLoading text-content-secondary" />
+                            )}
                             <HeadlessComboboxInput
-                              onChange={(event) => setQuery(event.target.value)}
+                              onChange={(event) => {
+                                setQuery(event.target.value);
+                                onFilterChange?.(event.target.value);
+                              }}
                               value={query}
                               autoFocus
                               className={cn(
@@ -320,15 +337,18 @@ export function Combobox<T>({
 
                         {hasMoreThanMaxOptions && (
                           <div className="relative w-fit min-w-full cursor-default px-3 py-1.5 text-content-tertiary select-none">
-                            Too many options to display, use the searchbar to
+                            Too many options to display, use the search bar to
                             refine this list.
                           </div>
                         )}
 
                         {/* Allow users to type a custom value */}
                         {allowCustomValue &&
+                          !isLoadingOptions &&
                           query.length > 0 &&
-                          !filtered.some((x) => x.value === query) && (
+                          !filtered.some(
+                            (x) => x.value === query || x.label === query,
+                          ) && (
                             <HeadlessComboboxOption
                               value={query}
                               className={({ focus }) =>
@@ -344,6 +364,11 @@ export function Combobox<T>({
                         {filtered.length === 0 && !allowCustomValue && (
                           <div className="overflow-hidden py-1 pl-4 text-ellipsis text-content-primary">
                             No options matching "{query}".
+                          </div>
+                        )}
+                        {filtered.length === 0 && isLoadingOptions && (
+                          <div className="m-4 overflow-hidden text-content-primary">
+                            Loading options...
                           </div>
                         )}
                       </div>

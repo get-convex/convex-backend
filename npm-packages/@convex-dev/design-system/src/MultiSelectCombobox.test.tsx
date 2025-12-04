@@ -413,7 +413,7 @@ describe("MultiSelectCombobox", () => {
       await waitFor(() => {
         expect(
           screen.getByText(
-            /Too many items to display, use the searchbar to filter items/,
+            /Too many items to display, use the search bar to refine this list/,
           ),
         ).toBeInTheDocument();
       });

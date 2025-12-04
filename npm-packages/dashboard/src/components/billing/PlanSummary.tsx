@@ -260,7 +260,7 @@ function PlanSummaryError() {
 
 function PlanSummaryLoading() {
   return (
-    <div className="flex h-56 items-center justify-center p-4">
+    <div className="flex h-[25rem] items-center justify-center p-4">
       <div className="flex items-center justify-center">
         <Spinner className="size-12" />
       </div>

@@ -55,6 +55,7 @@ export function usePaginatedProjects(
   options: {
     cursor?: string;
     q?: string;
+    limitOverride?: number;
   },
   refreshInterval?: SWRConfiguration["refreshInterval"],
 ): (PaginatedProjectsResponse & { isLoading: boolean }) | undefined {
@@ -64,7 +65,7 @@ export function usePaginatedProjects(
     () =>
       ({
         cursor: options.cursor,
-        limit: pageSize,
+        limit: options.limitOverride || pageSize,
         q: options.q,
       }) satisfies operations["get_projects_for_team"]["parameters"]["query"],
     [options, pageSize],

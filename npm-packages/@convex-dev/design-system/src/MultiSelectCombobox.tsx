@@ -240,8 +240,8 @@ export function MultiSelectCombobox({
 
                         {hasMoreThanMax && (
                           <div className="w-fit min-w-full cursor-default px-2 py-1.5 text-content-tertiary select-none">
-                            Too many items to display, use the searchbar to
-                            filter {unitPlural}.
+                            Too many items to display, use the search bar to
+                            refine this list.
                           </div>
                         )}
                       </div>

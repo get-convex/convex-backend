@@ -23,7 +23,7 @@ import {
   DailyPerTagMetrics,
   DailyPerTagMetricsByProject,
 } from "hooks/usageMetrics";
-import { TeamResponse, ProjectDetails } from "generatedApi";
+import { TeamResponse } from "generatedApi";
 import {
   forwardRef,
   Fragment,
@@ -36,7 +36,7 @@ import {
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
-import { useProjects } from "api/projects";
+import { useProjectById, useProjectBySlug } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
@@ -88,11 +88,8 @@ const FUNCTION_BREAKDOWN_TABS = [
 ];
 
 export function TeamUsage({ team }: { team: TeamResponse }) {
-  const projects = useProjects(team.id);
   const { query } = useRouter();
-  const project = query.projectSlug
-    ? projects?.find((p) => p.slug === query.projectSlug)
-    : null;
+  const project = useProjectBySlug(team.id, query.projectSlug as string);
   const projectId = project?.id ?? null;
 
   const componentPrefix = (query.componentPrefix ?? null) as string | null;
@@ -167,97 +164,95 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
         )}
       </div>
 
-      {currentBillingPeriod !== undefined &&
-        shownBillingPeriod !== null &&
-        projects && (
-          <>
-            <TeamUsageToolbar
-              {...{
-                shownBillingPeriod,
-                setSelectedBillingPeriod,
-                currentBillingPeriod,
-                projects,
-                projectId,
-              }}
+      {currentBillingPeriod !== undefined && shownBillingPeriod !== null && (
+        <>
+          <TeamUsageToolbar
+            {...{
+              shownBillingPeriod,
+              setSelectedBillingPeriod,
+              currentBillingPeriod,
+              teamId: team.id,
+              projectId,
+            }}
+          />
+
+          <div className="flex flex-col gap-6">
+            <PlanSummary
+              hasFilter={projectId !== null || !!componentPrefix}
+              chefTokenUsage={chefTokenUsage}
+              teamSummary={teamSummary}
+              entitlements={entitlements}
+              hasSubscription={hasSubscription}
+              showEntitlements={showEntitlements}
+              error={teamSummaryError}
             />
 
-            <div className="flex flex-col gap-6">
-              <PlanSummary
-                hasFilter={projectId !== null || !!componentPrefix}
-                chefTokenUsage={chefTokenUsage}
-                teamSummary={teamSummary}
-                entitlements={entitlements}
-                hasSubscription={hasSubscription}
-                showEntitlements={showEntitlements}
-                error={teamSummaryError}
-              />
+            <FunctionCallsUsage
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              functionCalls={teamSummary?.functionCalls}
+              functionCallsEntitlement={entitlements?.teamMaxFunctionCalls}
+              showEntitlements={showEntitlements}
+            />
 
-              <FunctionCallsUsage
-                team={team}
-                dateRange={dateRange}
-                projectId={projectId}
-                componentPrefix={componentPrefix}
-                functionCalls={teamSummary?.functionCalls}
-                functionCallsEntitlement={entitlements?.teamMaxFunctionCalls}
-                showEntitlements={showEntitlements}
-              />
+            <ActionComputeUsage
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              actionCompute={teamSummary?.actionCompute}
+              actionComputeEntitlement={entitlements?.teamMaxActionCompute}
+              showEntitlements={showEntitlements}
+            />
 
-              <ActionComputeUsage
-                team={team}
-                dateRange={dateRange}
-                projectId={projectId}
-                componentPrefix={componentPrefix}
-                actionCompute={teamSummary?.actionCompute}
-                actionComputeEntitlement={entitlements?.teamMaxActionCompute}
-                showEntitlements={showEntitlements}
-              />
+            <DatabaseUsage
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              storage={teamSummary?.databaseStorage}
+              storageEntitlement={entitlements?.teamMaxDatabaseStorage}
+              bandwidth={teamSummary?.databaseBandwidth}
+              bandwidthEntitlement={entitlements?.teamMaxDatabaseBandwidth}
+              showEntitlements={showEntitlements}
+            />
 
-              <DatabaseUsage
-                team={team}
-                dateRange={dateRange}
-                projectId={projectId}
-                componentPrefix={componentPrefix}
-                storage={teamSummary?.databaseStorage}
-                storageEntitlement={entitlements?.teamMaxDatabaseStorage}
-                bandwidth={teamSummary?.databaseBandwidth}
-                bandwidthEntitlement={entitlements?.teamMaxDatabaseBandwidth}
-                showEntitlements={showEntitlements}
-              />
+            <FilesUsage
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              storage={teamSummary?.fileStorage}
+              storageEntitlement={entitlements?.teamMaxFileStorage}
+              bandwidth={teamSummary?.fileBandwidth}
+              bandwidthEntitlement={entitlements?.teamMaxFileBandwidth}
+              showEntitlements={showEntitlements}
+            />
 
-              <FilesUsage
-                team={team}
-                dateRange={dateRange}
-                projectId={projectId}
-                componentPrefix={componentPrefix}
-                storage={teamSummary?.fileStorage}
-                storageEntitlement={entitlements?.teamMaxFileStorage}
-                bandwidth={teamSummary?.fileBandwidth}
-                bandwidthEntitlement={entitlements?.teamMaxFileBandwidth}
-                showEntitlements={showEntitlements}
-              />
+            <VectorUsage
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              storage={teamSummary?.vectorStorage}
+              storageEntitlement={entitlements?.teamMaxVectorStorage}
+              bandwidth={teamSummary?.vectorBandwidth}
+              bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
+              showEntitlements={showEntitlements}
+            />
 
-              <VectorUsage
-                team={team}
-                dateRange={dateRange}
-                projectId={projectId}
-                componentPrefix={componentPrefix}
-                storage={teamSummary?.vectorStorage}
-                storageEntitlement={entitlements?.teamMaxVectorStorage}
-                bandwidth={teamSummary?.vectorBandwidth}
-                bandwidthEntitlement={entitlements?.teamMaxVectorBandwidth}
-                showEntitlements={showEntitlements}
-              />
-
-              <FunctionBreakdownSection
-                team={team}
-                dateRange={dateRange}
-                projectId={projectId}
-                componentPrefix={componentPrefix}
-                shownBillingPeriod={shownBillingPeriod}
-              />
-            </div>
-          </>
-        )}
+            <FunctionBreakdownSection
+              team={team}
+              dateRange={dateRange}
+              projectId={projectId}
+              componentPrefix={componentPrefix}
+              shownBillingPeriod={shownBillingPeriod}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -275,8 +270,6 @@ function FunctionBreakdownSection({
   componentPrefix: string | null;
   shownBillingPeriod: Period;
 }) {
-  const projects = useProjects(team.id);
-
   const { data: metricsByFunction, error: metricsByFunctionError } =
     useUsageTeamMetricsByFunction(
       team.id,
@@ -287,7 +280,7 @@ function FunctionBreakdownSection({
 
   const [functionBreakdownTabIndex, setFunctionBreakdownTabIndex] = useState(0);
   const metric = FUNCTION_BREAKDOWN_TABS[functionBreakdownTabIndex];
-  const usageByProject = useUsageByProject(metricsByFunction, projects, metric);
+  const usageByProject = useUsageByProject(metricsByFunction, metric);
 
   const {
     visibleItems: visibleProjects,
@@ -342,7 +335,7 @@ function FunctionBreakdownSection({
       <div className="px-4">
         {metricsByFunctionError ? (
           <UsageDataError entity="Functions breakdown" />
-        ) : !metricsByFunction || !projects ? (
+        ) : !metricsByFunction ? (
           <ChartLoading />
         ) : functionBreakdownTabIndex === 0 ||
           isFunctionBreakdownBandwidthAvailable ? (
@@ -364,18 +357,17 @@ function FunctionBreakdownSection({
 
 type UsageInProject = {
   key: string;
-  project: ProjectDetails | null;
+  projectId: number;
   rows: AggregatedFunctionMetrics[];
   total: number;
 };
 
 function useUsageByProject(
   callsByDeployment: AggregatedFunctionMetrics[] | undefined,
-  projects: ProjectDetails[] | undefined,
   metric: FunctionBreakdownMetric,
 ): UsageInProject[] | undefined {
   return useMemo(() => {
-    if (callsByDeployment === undefined || projects === undefined) {
+    if (callsByDeployment === undefined) {
       return undefined;
     }
 
@@ -384,14 +376,14 @@ function useUsageByProject(
       .map(
         ([projectId, rows]): UsageInProject => ({
           key: projectId,
-          project: projects.find((p) => p.id === rows[0].projectId) ?? null,
+          projectId: rows[0].projectId,
           rows,
           total: sumBy(rows, metric.getTotal),
         }),
       )
       .filter((project) => project.total > 0) // Ignore projects with no data for this metric
       .sort((a, b) => b.total - a.total);
-  }, [projects, callsByDeployment, metric]);
+  }, [callsByDeployment, metric]);
 }
 
 function ChartLoading() {
@@ -430,10 +422,10 @@ function FunctionUsageBreakdown({
 
   return (
     <div className="scrollbar animate-fadeInFromLoading overflow-y-auto">
-      {usageByProject.map(({ key, project, rows, total }) => (
+      {usageByProject.map(({ key, projectId, rows, total }) => (
         <FunctionUsageBreakdownByProject
           key={key}
-          project={project}
+          projectId={projectId}
           metric={metric}
           rows={rows}
           projectTotal={total}
@@ -461,28 +453,33 @@ function FunctionUsageBreakdown({
 }
 
 function FunctionUsageBreakdownByProject({
-  project,
+  projectId,
   metric,
   rows,
   maxValue,
   team,
   projectTotal,
 }: {
-  project: ProjectDetails | null;
+  projectId: number;
   metric: FunctionBreakdownMetric;
   rows: AggregatedFunctionMetrics[];
   team: TeamResponse;
   maxValue: number;
   projectTotal: number;
 }) {
-  const { deployments } = useDeployments(project?.id);
+  const project = useProjectById(projectId);
+  const { deployments } = useDeployments(projectId);
   const member = useProfile();
-  const isLoadingDeployments = project && !deployments;
+  const isLoadingDeployments = !deployments;
 
   return (
     <div className="mb-4">
       <p className="flex align-baseline">
-        <ProjectLink project={project} team={team} memberId={member?.id} />
+        <ProjectLink
+          project={project ?? null}
+          team={team}
+          memberId={member?.id}
+        />
         <span className="flex-1 px-4 py-2 text-right tabular-nums">
           {formatQuantity(projectTotal, metric.quantityType)}
         </span>
@@ -491,7 +488,7 @@ function FunctionUsageBreakdownByProject({
       {isLoadingDeployments && <ChartLoading />}
       {!isLoadingDeployments && (
         <TeamUsageByFunctionChart
-          project={project}
+          project={project ?? null}
           deployments={deployments ?? []}
           metric={metric}
           rows={rows}
@@ -538,8 +535,6 @@ function DatabaseUsage({
   bandwidthEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const projects = useProjects(team.id);
-
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_database",
     "byType",
@@ -676,7 +671,6 @@ function DatabaseUsage({
                     rows={databaseStorageByProject}
                     entity="documents"
                     quantityType="storage"
-                    projects={projects}
                     team={team}
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
@@ -720,7 +714,6 @@ function DatabaseUsage({
                     rows={databaseBandwidthByProject}
                     entity="documents"
                     quantityType="storage"
-                    projects={projects}
                     team={team}
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
@@ -746,7 +739,6 @@ function DatabaseUsage({
               <UsageByProjectChart
                 rows={documentsCountByProject}
                 entity="documents"
-                projects={projects}
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -776,8 +768,6 @@ function FunctionCallsUsage({
   functionCallsEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const projects = useProjects(team.id);
-
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_functionCalls",
     "byType",
@@ -863,7 +853,6 @@ function FunctionCallsUsage({
               <UsageByProjectChart
                 rows={callsByTagByProject}
                 entity="calls"
-                projects={projects}
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -893,8 +882,6 @@ function ActionComputeUsage({
   actionComputeEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const projects = useProjects(team.id);
-
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_actionCompute",
     "byType",
@@ -985,7 +972,6 @@ function ActionComputeUsage({
                 rows={actionComputeDailyByProject}
                 entity="action calls"
                 quantityType="actionCompute"
-                projects={projects}
                 team={team}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
@@ -1019,8 +1005,6 @@ function FilesUsage({
   bandwidth?: number;
   bandwidthEntitlement?: number | null;
 }) {
-  const projects = useProjects(team.id);
-
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_files",
     "byType",
@@ -1140,7 +1124,6 @@ function FilesUsage({
                     rows={fileStorageByProject}
                     entity="files"
                     quantityType="storage"
-                    projects={projects}
                     team={team}
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
@@ -1184,7 +1167,6 @@ function FilesUsage({
                     rows={filesBandwidthByProject}
                     entity="files"
                     quantityType="storage"
-                    projects={projects}
                     team={team}
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
@@ -1219,8 +1201,6 @@ function VectorUsage({
   bandwidthEntitlement?: number | null;
   showEntitlements: boolean;
 }) {
-  const projects = useProjects(team.id);
-
   const [storedViewMode, setViewMode] = useGlobalLocalStorage<GroupBy>(
     "usageViewMode_vector",
     "byType",
@@ -1342,7 +1322,6 @@ function VectorUsage({
                     rows={vectorStorageByProject}
                     entity="vectors"
                     quantityType="storage"
-                    projects={projects}
                     team={team}
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
@@ -1386,7 +1365,6 @@ function VectorUsage({
                     rows={vectorBandwidthByProject}
                     entity="vectors"
                     quantityType="storage"
-                    projects={projects}
                     team={team}
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
