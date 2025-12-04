@@ -55,14 +55,18 @@ impl TryFrom<SerializedSentryConfig> for SentryConfig {
     type Error = anyhow::Error;
 
     fn try_from(value: SerializedSentryConfig) -> Result<Self, Self::Error> {
+        let version = match value.version {
+            Some(v) => ExceptionFormatVersion::from_str(&v)?,
+            // Treat missing version as V1
+            None => ExceptionFormatVersion::V1,
+        };
+        if version == ExceptionFormatVersion::V1 {
+            tracing::info!("Instance is on exception format version 1 (sentry)")
+        }
         Ok(Self {
             dsn: value.dsn.parse::<Dsn>()?.into(),
             tags: value.tags,
-            version: match value.version {
-                Some(v) => ExceptionFormatVersion::from_str(&v)?,
-                // Treat missing version as V1
-                None => ExceptionFormatVersion::V1,
-            },
+            version,
         })
     }
 }

@@ -59,6 +59,14 @@ impl TryFrom<SerializedAxiomConfig> for AxiomConfig {
     type Error = anyhow::Error;
 
     fn try_from(value: SerializedAxiomConfig) -> Result<Self, Self::Error> {
+        let version = value
+            .version
+            .map(|v| LogEventFormatVersion::from_str(v.as_str()))
+            .transpose()?
+            .unwrap_or(LogEventFormatVersion::V1);
+        if version == LogEventFormatVersion::V1 {
+            tracing::info!("Instance is on log event format version 1 (axiom)")
+        }
         Ok(Self {
             api_key: PII(value.api_key),
             dataset_name: value.dataset_name,
@@ -67,11 +75,7 @@ impl TryFrom<SerializedAxiomConfig> for AxiomConfig {
                 .into_iter()
                 .map(AxiomAttribute::from)
                 .collect(),
-            version: value
-                .version
-                .map(|v| LogEventFormatVersion::from_str(v.as_str()))
-                .transpose()?
-                .unwrap_or(LogEventFormatVersion::V1),
+            version,
             ingest_url: value.ingest_url,
         })
     }
