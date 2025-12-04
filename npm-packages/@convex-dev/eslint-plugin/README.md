@@ -20,6 +20,3 @@ and some TypeScript parser configuration could occur here.
 
 Adding a eslint-config package only matters for ESLint 8, in ESLint 9 there's no
 need for a separate package.
-
-There are currently no rules that require TypeScript but these will be used in
-the future.
