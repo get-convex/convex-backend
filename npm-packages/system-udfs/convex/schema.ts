@@ -407,11 +407,15 @@ export default defineSchema({
       v.object({ type: v.literal("pending") }),
       v.object({ type: v.literal("inProgress") }),
     ),
-    udfArgs: v.bytes(),
+    udfArgs: v.nullable(v.bytes()),
+    argsId: v.nullable(v.id("_scheduled_job_args")),
     component: v.optional(v.string()),
   })
     .index("by_udf_path_and_next_event_ts", ["udfPath", "nextTs"])
     .index("by_next_ts", ["nextTs"]),
+  _scheduled_job_args: defineTable({
+    args: v.bytes(),
+  }),
   _cron_jobs: defineTable({
     name: v.string(),
     cronSpec: analyzedCronSpec,
