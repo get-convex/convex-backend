@@ -179,7 +179,7 @@ export function DeployKeysForDeployment() {
             getAdminKey: (name: string) =>
               getAccessTokenBasedDeployKey(
                 deployment,
-                project,
+                project ?? undefined,
                 team,
                 `${getAdminKeyPrefix(deployment)}:${deployment.name}`,
                 accessToken,
