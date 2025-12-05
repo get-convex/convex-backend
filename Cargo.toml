@@ -191,7 +191,7 @@ rand_distr = "0.5"
 rc-zip = { version = "5", features = [ "deflate", "deflate64", "zstd" ] }
 ref-cast = "1.0.20"
 regex = "1"
-reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }
+reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-alpn", "native-tls-vendored" ] }
 reqwest-middleware = "0.4.1"
 rsa = "0.9.6"
 rusqlite = { version = "0.32", features = [ "bundled" ] }
