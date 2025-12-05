@@ -131,23 +131,20 @@ const getProps: GetServerSideProps<{
     }
 
     if (shouldRedirectToProjectPage && project !== undefined) {
-      return redirectToProjectPage(
+      return await redirectToProjectPage(
         resolvedUrl,
         res,
         project as string,
-        teams,
-        projects,
+        token.accessToken,
       );
     }
 
     if (shouldRedirectToDeploymentPage && deploymentName !== undefined) {
-      return redirectToDeploymentPage(
+      return await redirectToDeploymentPage(
         resolvedUrl,
         res,
         deploymentName as string,
-        teams,
-        projects,
-        deployments,
+        token.accessToken,
       );
     }
 
@@ -155,13 +152,11 @@ const getProps: GetServerSideProps<{
       shouldRedirectToProjectPageFromDeployment &&
       deploymentName !== undefined
     ) {
-      return redirectToProjectPageFromDeploymentName(
+      return await redirectToProjectPageFromDeploymentName(
         resolvedUrl,
         res,
         deploymentName as string,
-        teams,
-        projects,
-        deployments,
+        token.accessToken,
       );
     }
 
@@ -232,94 +227,144 @@ export const getServerSideProps = withPageAuthRequired({
   getServerSideProps: getProps,
 });
 
-function redirectToProjectPage(
+async function redirectToProjectPage(
   resolvedUrl: string,
   res: GetServerSidePropsContext["res"],
   projectSlug: string,
-  teams: TeamResponse[],
-  projects: ProjectDetails[],
+  accessToken: string,
 ) {
-  const project = projects.find((p: ProjectDetails) => p.slug === projectSlug);
-  const owningTeam = teams.find((t: TeamResponse) => t.id === project?.teamId);
+  try {
+    // Fetch all teams to find which team owns this project
+    const teamsResp = await retryingFetch(
+      `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/teams`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
 
-  if (owningTeam === undefined || project === undefined) {
+    if (!teamsResp.ok) {
+      return pageNotFound(res);
+    }
+
+    const teams: TeamResponse[] = await teamsResp.json();
+
+    // Try each team to find the project
+    let project: ProjectDetails | undefined;
+    let owningTeam: TeamResponse | undefined;
+
+    for (const team of teams) {
+      try {
+        const projectResp = await retryingFetch(
+          `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard/teams/${team.id}/projects/${projectSlug}`,
+          {
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        if (projectResp.ok) {
+          project = await projectResp.json();
+          owningTeam = team;
+          break;
+        }
+      } catch (error) {
+        // Continue to next team
+        continue;
+      }
+    }
+
+    if (owningTeam === undefined || project === undefined) {
+      return pageNotFound(res);
+    }
+
+    const remainingPath = resolvedUrl.slice(`/p/${projectSlug}`.length);
+    return {
+      redirect: {
+        permanent: false,
+        destination: `/t/${owningTeam.slug}/${project.slug}${remainingPath}`,
+      },
+    };
+  } catch (error) {
+    console.error("Error redirecting to project page", error);
     return pageNotFound(res);
   }
-  const remainingPath = resolvedUrl.slice(`/p/${projectSlug}`.length);
-  return {
-    redirect: {
-      permanent: false,
-      destination: `/t/${owningTeam.slug}/${project.slug}${remainingPath}`,
-    },
-  };
 }
 
-function redirectToDeploymentPage(
+async function redirectToDeploymentPage(
   resolvedUrl: string,
   res: GetServerSidePropsContext["res"],
   deploymentName: string,
-  teams: TeamResponse[],
-  projects: ProjectDetails[],
-  deployments: DeploymentResponse[],
+  accessToken: string,
 ) {
-  const deployment = deployments.find(
-    (d: DeploymentResponse) => d.name === deploymentName,
-  );
+  try {
+    // Fetch team and project info for the deployment in a single call
+    const teamAndProjectResp = await retryingFetch(
+      `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/deployment/${deploymentName}/team_and_project`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
 
-  const owningProject = projects.find(
-    (p: ProjectDetails) => p.id === deployment?.projectId,
-  );
-  const owningTeam = teams.find(
-    (t: TeamResponse) => t.id === owningProject?.teamId,
-  );
-  if (
-    owningTeam === undefined ||
-    owningProject === undefined ||
-    deployment === undefined
-  ) {
+    if (!teamAndProjectResp.ok) {
+      return pageNotFound(res);
+    }
+
+    const { team, project }: { team: string; project: string } =
+      await teamAndProjectResp.json();
+
+    const remainingPath = resolvedUrl.slice(`/d/${deploymentName}`.length);
+    return {
+      redirect: {
+        permanent: false,
+        destination: `/t/${team}/${project}/${deploymentName}${remainingPath}`,
+      },
+    };
+  } catch (error) {
+    console.error("Error redirecting to deployment page", error);
     return pageNotFound(res);
   }
-  const remainingPath = resolvedUrl.slice(`/d/${deploymentName}`.length);
-  return {
-    redirect: {
-      permanent: false,
-      destination: `/t/${owningTeam.slug}/${owningProject.slug}/${deploymentName}${remainingPath}`,
-    },
-  };
 }
 
-function redirectToProjectPageFromDeploymentName(
+async function redirectToProjectPageFromDeploymentName(
   resolvedUrl: string,
   res: GetServerSidePropsContext["res"],
   deploymentName: string,
-  teams: TeamResponse[],
-  projects: ProjectDetails[],
-  deployments: DeploymentResponse[],
+  accessToken: string,
 ) {
-  const deployment = deployments.find(
-    (d: DeploymentResponse) => d.name === deploymentName,
-  );
+  try {
+    // Fetch team and project info for the deployment in a single call
+    const teamAndProjectResp = await retryingFetch(
+      `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/deployment/${deploymentName}/team_and_project`,
+      {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
 
-  const owningProject = projects.find(
-    (p: ProjectDetails) => p.id === deployment?.projectId,
-  );
-  const owningTeam = teams.find(
-    (t: TeamResponse) => t.id === owningProject?.teamId,
-  );
-  if (
-    owningTeam === undefined ||
-    owningProject === undefined ||
-    deployment === undefined
-  ) {
+    if (!teamAndProjectResp.ok) {
+      return pageNotFound(res);
+    }
+
+    const { team, project }: { team: string; project: string } =
+      await teamAndProjectResp.json();
+
+    const remainingPath = resolvedUrl.slice(`/dp/${deploymentName}`.length);
+    return {
+      redirect: {
+        permanent: false,
+        destination: `/t/${team}/${project}${remainingPath}`,
+      },
+    };
+  } catch (error) {
+    console.error("Error redirecting to project page from deployment", error);
     return pageNotFound(res);
   }
-  const remainingPath = resolvedUrl.slice(`/dp/${deploymentName}`.length);
-  return {
-    redirect: {
-      permanent: false,
-      destination: `/t/${owningTeam.slug}/${owningProject.slug}${remainingPath}`,
-    },
-  };
 }
 
 function pageNotFound(res: GetServerSidePropsContext["res"]) {
@@ -336,11 +381,19 @@ export const retryingFetch = fetchRetryFactory(fetch, {
     const randomSum = delay * 0.2 * Math.random();
     return delay + randomSum;
   },
-  retryOn(_attempt: number, error: Error | null, _response: Response | null) {
+  retryOn(_attempt: number, error: Error | null, response: Response | null) {
+    // Don't retry on client errors (4xx)
+    if (response && response.status >= 400 && response.status < 500) {
+      return false;
+    }
     // Retry on network errors.
     if (error) {
       // TODO filter out all SSL errors
       // https://github.com/nodejs/node/blob/8a41d9b636be86350cd32847c3f89d327c4f6ff7/src/crypto/crypto_common.cc#L218-L245
+      return true;
+    }
+    // Retry on 5xx server errors
+    if (response && response.status >= 500) {
       return true;
     }
     return false;

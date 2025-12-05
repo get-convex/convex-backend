@@ -265,7 +265,7 @@ function ProjectGrid({
           !showAsList && "lg:grid-cols-2 xl:grid-cols-3",
         )}
       >
-        {/* TODO(ari): We currently SSR all projects, which is being deprecated, and without this .slice(..) we would temporarily flash all projects before rendering just the first page */}
+        {/* In case the page returned more items than requested, slice the result down to the page size. This only happens for the first page of SSRed data. */}
         {projects.slice(0, pageSize).map((p: ProjectDetails) => (
           <ProjectCard key={p.id} project={p} />
         ))}
