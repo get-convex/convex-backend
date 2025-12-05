@@ -1941,6 +1941,7 @@ dependencies = [
  "metrics",
  "mime",
  "must-let",
+ "native-tls",
  "openidconnect",
  "packed_value",
  "parking_lot",

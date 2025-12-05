@@ -158,6 +158,7 @@ moka = { version = "0.12", features = [ "future", "sync" ] }
 multer = "3.1.0"
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
 mysql_async = { git = "https://github.com/goffrie/mysql_async", rev = "90ff86d613d8c466baa4da7b0c49c148bc14a019", default-features = false, features = [ "default-rustls" ] }
+native-tls = { version = "0.2", features = [ "alpn", "vendored" ] }
 num_cpus = "1.16.0"
 oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
