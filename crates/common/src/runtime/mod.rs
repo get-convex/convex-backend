@@ -584,32 +584,6 @@ pub struct TimeoutError {
     duration: Duration,
 }
 
-pub struct MutexWithTimeout<T: Send> {
-    timeout: Duration,
-    mutex: tokio::sync::Mutex<T>,
-}
-
-impl<T: Send> MutexWithTimeout<T> {
-    pub fn new(timeout: Duration, value: T) -> Self {
-        Self {
-            timeout,
-            mutex: tokio::sync::Mutex::new(value),
-        }
-    }
-
-    pub async fn acquire_lock_with_timeout(
-        &self,
-    ) -> anyhow::Result<tokio::sync::MutexGuard<'_, T>> {
-        let acquire_lock = async { Ok(self.mutex.lock().await) };
-        select_biased! {
-            result = acquire_lock.fuse() => result,
-            _ = tokio::time::sleep(self.timeout).fuse() => {
-                anyhow::bail!(TimeoutError{description: "acquire_lock", duration: self.timeout});
-            },
-        }
-    }
-}
-
 /// Binds the current tracing & sentry contexts to the provided future.
 pub fn propagate_tracing<F: Future>(
     f: F,

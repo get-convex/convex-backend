@@ -208,10 +208,7 @@ impl RngCore for TestRng {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::{
-        JoinError,
-        MutexWithTimeout,
-    };
+    use crate::runtime::JoinError;
 
     #[test]
     fn test_runtime2() -> anyhow::Result<()> {
@@ -230,15 +227,6 @@ mod tests {
                 panic!("Expected JoinError::Canceled");
             };
         });
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_mutex_with_timeout() -> anyhow::Result<()> {
-        let mutex = MutexWithTimeout::new(Duration::from_secs(1), ());
-        let _lock = mutex.acquire_lock_with_timeout().await?;
-        // Trying to acquire lock while the lock is already held should timeout
-        assert!(mutex.acquire_lock_with_timeout().await.is_err());
         Ok(())
     }
 }
