@@ -74,7 +74,7 @@ class ContextImpl implements Context {
   private printSuccessStep(isDryRun: boolean) {
     const warningText =
       this.warnings.length > 0
-        ? ` Emitted ${chalk.bold(this.warnings.length)} warnings.`
+        ? ` Emitted ${chalk.bold(this.warnings.length)} ${this.warnings.length === 1 ? "warning" : "warnings"}.`
         : "";
 
     if (Object.keys(this.changes).length === 0) {
