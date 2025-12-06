@@ -266,14 +266,16 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     /// This method should only be called after all documents in the tablet have
     /// been deleted by retention
     pub async fn hard_delete_tablet_document(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
-        let doc = self.get_table_metadata(tablet_id).await?;
-        anyhow::ensure!(
-            doc.state == TableState::Deleting,
-            "Cannot delete a tablet that is not in deleting state"
-        );
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
-            .delete(doc.id())
-            .await?;
+        if self.tx.table_mapping().tablet_id_exists(tablet_id) {
+            let doc = self.get_table_metadata(tablet_id).await?;
+            anyhow::ensure!(
+                doc.state == TableState::Deleting,
+                "Cannot delete a tablet that is not in deleting state"
+            );
+            SystemMetadataModel::new(self.tx, TableNamespace::Global)
+                .delete(doc.id())
+                .await?;
+        }
         Ok(())
     }
 
@@ -868,6 +870,9 @@ mod tests {
         model
             .delete_active_table(TableNamespace::Global, table_name)
             .await?;
+        model.hard_delete_tablet_document(id.tablet_id).await?;
+
+        // Test idempotency
         model.hard_delete_tablet_document(id.tablet_id).await?;
         Ok(())
     }
