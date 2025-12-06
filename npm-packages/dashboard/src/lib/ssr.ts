@@ -121,11 +121,7 @@ const getProps: GetServerSideProps<{
       }[];
     } = await resp.json();
     const { team, project, deploymentName } = query;
-    if (
-      (team && !teams.find((t: TeamResponse) => t.slug === team.toString())) ||
-      (project &&
-        !projects.find((p: ProjectDetails) => p.slug === project.toString()))
-    ) {
+    if (team && !teams.find((t: TeamResponse) => t.slug === team.toString())) {
       // You're looking for a page that doesn't exist!
       return pageNotFound(res);
     }
@@ -288,7 +284,6 @@ async function redirectToProjectPage(
       },
     };
   } catch (error) {
-    console.error("Error redirecting to project page", error);
     return pageNotFound(res);
   }
 }
