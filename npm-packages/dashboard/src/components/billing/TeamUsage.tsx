@@ -132,16 +132,21 @@ export function TeamUsage({ team }: { team: TeamResponse }) {
 
   const hasOrbSubscription = useHasSubscription(team?.id);
 
+  // Business plans don't have included usage, so treat them like there's no subscription
+  const isBusinessPlan = subscription?.plan.planType === "CONVEX_BUSINESS";
+
   const hasSubscription =
     (!shownBillingPeriod ||
       shownBillingPeriod.type === "currentBillingPeriod") &&
     (hasOrbSubscription || hasOrbSubscription === undefined) &&
-    projectId === null;
+    projectId === null &&
+    !isBusinessPlan;
 
   const showEntitlements =
     (!shownBillingPeriod ||
       shownBillingPeriod.type === "currentBillingPeriod") &&
-    projectId === null;
+    projectId === null &&
+    !isBusinessPlan;
 
   return (
     <div className="[--team-usage-toolbar-height:--spacing(32)] md:[--team-usage-toolbar-height:--spacing(28)] lg:[--team-usage-toolbar-height:--spacing(20)]">

@@ -44,8 +44,11 @@ export function OrbSelfServePlan({
   };
 
   const isDowngrade =
-    orbSub?.plan.planType === "CONVEX_PROFESSIONAL" &&
-    plan.planType === "CONVEX_STARTER_PLUS";
+    (orbSub?.plan.planType === "CONVEX_PROFESSIONAL" &&
+      plan.planType === "CONVEX_STARTER_PLUS") ||
+    (orbSub?.plan.planType === "CONVEX_BUSINESS" &&
+      (plan.planType === "CONVEX_STARTER_PLUS" ||
+        plan.planType === "CONVEX_PROFESSIONAL"));
 
   const changePlan = useChangeSubscription(team.id);
 
