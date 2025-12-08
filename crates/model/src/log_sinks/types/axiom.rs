@@ -11,6 +11,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 
 /// Valid Axiom ingest base URLs for different regions
 pub const VALID_AXIOM_INGEST_URLS: &[&str] = &[
@@ -87,7 +88,7 @@ impl fmt::Display for AxiomConfig {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, ToSchema)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct AxiomAttribute {
     pub key: String,

@@ -404,7 +404,7 @@ pub mod cron_jobs;
 pub mod deploy_config;
 mod exports;
 pub mod function_log;
-mod log_streaming;
+pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
 mod module_cache;

@@ -13,6 +13,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 use value::FieldName;
 
 #[cfg(any(test, feature = "testing"))]
@@ -77,7 +78,7 @@ impl fmt::Display for SentryConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ExceptionFormatVersion {
     V1,

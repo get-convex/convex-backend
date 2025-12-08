@@ -11,9 +11,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use utoipa::ToSchema;
 
 /// The Datadog deployment locations, used to construct URLs
-#[derive(Deserialize, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy, ToSchema)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum DatadogSiteLocation {
     US1,

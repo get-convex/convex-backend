@@ -84,6 +84,7 @@ sentry = { workspace = true }
 sentry-tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { workspace = true }
 sqlite = { workspace = true }
 storage = { workspace = true }
 sync = { workspace = true }

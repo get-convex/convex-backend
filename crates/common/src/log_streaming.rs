@@ -16,6 +16,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use tonic::async_trait;
+use utoipa::ToSchema;
 use value::heap_size::HeapSize;
 
 use crate::{
@@ -176,7 +177,7 @@ pub enum StructuredLogEvent {
     // },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum LogEventFormatVersion {
     V1,
