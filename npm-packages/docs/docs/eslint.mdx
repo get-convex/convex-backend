@@ -110,6 +110,7 @@ const nextConfig: NextConfig = {
 | --------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: |
 | [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br/>Prefer object syntax for registered functions |     ✅      |      🔧      |
 | [`@convex-dev/require-argument-validators`](#require-argument-validators)<br/>Require argument validators for Convex functions          |     ✅      |      🔧      |
+| [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br/>Require explicit table names in database operations                         |     ✅      |      🔧      |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 
 ### no-old-registered-function-syntax
@@ -200,6 +201,50 @@ export default defineConfig([
     },
   },
 ]);
+```
+
+### explicit-table-ids
+
+Require explicit table names in database operations.
+
+Starting from version 1.31.0 of the `convex` npm package, we recommend including
+the table name as the first argument to database operations (`db.get`,
+`db.replace`, `db.patch`, `db.delete`).
+
+This approach is more secure because it prevents vulnerabilities when an ID from
+one table is incorrectly typed as belonging to another table. The implicit
+syntax (where table names are inferred from the ID) will be deprecated in the
+future to give developers more control over ID generation. For both these
+reasons, we recommend developers to migrate to the new format.
+
+This rule helps migrate code from the old implicit format to the new explicit
+format. It uses TypeScript type information to automatically infer the table
+name from the `Id<"tableName">` type and provides automatic fixes.
+
+```ts
+const messageId: Id<"messages"> = "123" as Id<"messages">;
+
+// ✅ Allowed by this rule:
+const message = await ctx.db.get("messages", messageId);
+await ctx.db.patch("messages", messageId, { text: "updated" });
+await ctx.db.replace("messages", messageId, {
+  text: "replaced",
+  author: "Alice",
+});
+await ctx.db.delete("messages", messageId);
+
+// ❌ Not allowed by this rule:
+const message = await ctx.db.get(messageId);
+await ctx.db.patch(messageId, { text: "updated" });
+await ctx.db.replace(messageId, { text: "replaced", author: "Alice" });
+await ctx.db.delete(messageId);
+```
+
+Note that if you’re not using ESLint, you can alternatively use the
+`@convex-dev/codemod` CLI tool to automatically migrate to the new format:
+
+```bash
+npx @convex-dev/codemod@latest explicit-ids
 ```
 
 ### import-wrong-runtime
