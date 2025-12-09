@@ -1023,11 +1023,11 @@ impl<RT: Runtime> Database<RT> {
             shutdown,
         );
         let table_mapping_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 10, 2, "table_mapping_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");
         let by_id_indexes_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 10, 2, "by_id_indexes_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, "by_id_indexes_snapshot");
         let component_paths_snapshot_cache =
-            AsyncLru::new(runtime.clone(), 10, 2, "component_paths_snapshot");
+            AsyncLru::new(runtime.clone(), 20, 2, "component_paths_snapshot");
         let list_snapshot_table_iterator_cache = Arc::new(Mutex::new(None));
         let database = Self {
             committer,
@@ -1998,9 +1998,11 @@ impl<RT: Runtime> Database<RT> {
             },
             None => self.now_ts_for_reads(),
         };
-        let table_mapping = self.snapshot_table_mapping(snapshot).await?;
-        let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
-        let component_paths = self.snapshot_component_paths(snapshot).await?;
+        let (table_mapping, by_id_indexes, component_paths) = tokio::try_join!(
+            self.snapshot_table_mapping(snapshot),
+            self.snapshot_by_id_indexes(snapshot),
+            self.snapshot_component_paths(snapshot)
+        )?;
         let tablet_ids: BTreeSet<_> = table_mapping
             .iter()
             .map(|(tablet_id, ..)| tablet_id)
