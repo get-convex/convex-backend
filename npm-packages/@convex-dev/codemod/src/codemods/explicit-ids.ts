@@ -10,7 +10,7 @@ import {
   Type,
 } from "ts-morph";
 
-export const CONVEX_VERSION_RANGE = ">=1.99.0";
+export const CONVEX_VERSION_RANGE = ">=1.31.0";
 
 export async function explicitIds(
   ctx: Context,
