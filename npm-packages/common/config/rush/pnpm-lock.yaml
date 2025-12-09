@@ -3398,6 +3398,9 @@ importers:
 
   ../../lint:
     devDependencies:
+      '@convex-dev/eslint-plugin':
+        specifier: workspace:*
+        version: link:../@convex-dev/eslint-plugin
       '@eslint/compat':
         specifier: ~1.3.0
         version: 1.3.2(eslint@9.39.1(jiti@2.6.1))

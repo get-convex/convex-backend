@@ -5,6 +5,7 @@ import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import reactHooks from "eslint-plugin-react-hooks";
 import react from "eslint-plugin-react";
 import jest from "eslint-plugin-jest";
+import convexPlugin from "@convex-dev/eslint-plugin";
 
 import { fixupPluginRules } from "@eslint/compat";
 
@@ -130,6 +131,22 @@ export default defineConfig([
       },
     }),
   ),
+  {
+    files: ["**/convex/**/*.{js,ts}"],
+    ignores: [
+      // Some tests rely on using the old Convex function syntax, so we disable
+      // the linter on test files
+      "js-integration-tests/**",
+      "udf-tests/**",
+
+      // TODO(nicolas) Lint Postalservice too
+      "postalservice/**",
+    ],
+    plugins: {
+      "@convex-dev": convexPlugin,
+    },
+    rules: convexPlugin.configs.recommended[0].rules,
+  },
   globalIgnores([
     "**/.next/**",
     "**/.nuxt/**",
