@@ -32,7 +32,9 @@ export function SupportWidget() {
   const [openState, setOpenState] = useSupportFormOpen();
 
   const canSubmitTicket =
-    subscription && subscription.plan.planType === "CONVEX_PROFESSIONAL";
+    subscription &&
+    (subscription.plan.planType === "CONVEX_PROFESSIONAL" ||
+      subscription.plan.planType === "CONVEX_BUSINESS");
   if (openState === false || !user) {
     return null;
   }
