@@ -806,7 +806,7 @@ SELECT I2.index_id, I2.key_prefix, I2.key_sha256, I2.key_suffix, I2.ts, I2.delet
 ) I2
 LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
 ON
-{doc_join_instance_cond}D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id
+{doc_join_instance_cond}D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id AND NOT I2.deleted
 -- Ensure deterministic final ordering across pages after the join
 ORDER BY I2.key_prefix {order_str}, I2.key_sha256 {order_str}
 "#
