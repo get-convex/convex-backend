@@ -464,7 +464,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
     /// 2. at the snapshot, it had a key higher than what we've walked so far
     /// 3. it was modified after the snapshot but before we walked its key
     /// range.
-    #[fastrace::trace]
+    #[fastrace::trace(properties = {"start_ts": "{start_ts}", "end_ts": "{end_ts}"})]
     async fn fetch_skipped_keys(
         &self,
         tablet_id: TabletId,
