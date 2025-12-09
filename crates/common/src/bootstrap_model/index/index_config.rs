@@ -27,6 +27,7 @@ use super::{
         VectorIndexState,
     },
 };
+use crate::bootstrap_model::index::text_index::TextIndexSnapshotData;
 
 /// Configuration that depends on the type of index.
 ///
@@ -156,12 +157,21 @@ impl IndexConfig {
     /// on other index types will panic.
     pub fn estimate_pricing_size_bytes(&self) -> anyhow::Result<u64> {
         match self {
-            IndexConfig::Database { .. } | IndexConfig::Text { .. } => {
-                // TODO(sam): We should support this for all index types in the future. Right
-                // now search indexes are free and we estimate the size of
-                // database indexes. Both of those could instead track usage in their metadata,
-                // similar to vector indexes.
-                anyhow::bail!("Only supported for vector indexes!")
+            IndexConfig::Database { .. } => {
+                // TODO: We should support this for all index types in the future. Right
+                // now we estimate the size of database indexes. This could instead track usage
+                // in their metadata, similar to vector indexes.
+                anyhow::bail!("Not supported for database indexes!")
+            },
+            IndexConfig::Text { on_disk_state, .. } => match on_disk_state {
+                TextIndexState::Backfilling(_) | TextIndexState::Backfilled { .. } => Ok(0),
+                TextIndexState::SnapshottedAt(snapshot) => match &snapshot.data {
+                    TextIndexSnapshotData::MultiSegment(segments) => Ok(segments
+                        .iter()
+                        .map(|segment| segment.size_bytes_total)
+                        .sum()),
+                    TextIndexSnapshotData::Unknown(_) => Ok(0),
+                },
             },
             IndexConfig::Vector {
                 on_disk_state,

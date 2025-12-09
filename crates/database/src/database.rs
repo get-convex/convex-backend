@@ -600,6 +600,46 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         Ok(vector_index_storage)
     }
 
+    #[fastrace::trace]
+    pub fn get_text_index_storage(
+        &self,
+        identity: &Identity,
+    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), u64>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("get_text_index_storage"));
+        }
+        let table_mapping = &self.snapshot.table_registry.table_mapping();
+        let index_registry = &self.snapshot.index_registry;
+        let mut text_index_storage = BTreeMap::new();
+        for index in index_registry.all_text_indexes().into_iter() {
+            let (_, value) = index.into_id_and_value();
+            let tablet_id = *value.name.table();
+            let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
+            let component_id = ComponentId::from(table_namespace);
+            let table_name = table_mapping.tablet_name(tablet_id)?;
+            let size = value.config.estimate_pricing_size_bytes()?;
+            if let Some(component_path) = self
+                .snapshot
+                .component_registry
+                .get_component_path(component_id, &mut TransactionReadSet::new())
+            {
+                text_index_storage
+                    .entry((component_path, table_name))
+                    .and_modify(|sum| *sum += size)
+                    .or_insert(size);
+            } else {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push
+                anyhow::ensure!(
+                    size == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has non-zero text index size {size}",
+                );
+            }
+        }
+        Ok(text_index_storage)
+    }
+
     /// Counts the number of documents in each table, including system tables.
     #[fastrace::trace]
     pub fn get_document_counts(

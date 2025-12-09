@@ -147,6 +147,9 @@ pub enum UsageEvent {
     CurrentVectorStorage {
         tables: Vec<TableVectorStorage>,
     },
+    CurrentTextStorage {
+        tables: Vec<TableTextStorage>,
+    },
     CurrentDatabaseStorage {
         tables: Vec<TableDatabaseStorage>,
         system_tables: Vec<TableDatabaseStorage>,
@@ -186,6 +189,14 @@ pub struct TableDatabaseStorage {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TableVectorStorage {
+    pub component_path: Option<String>,
+    pub table_name: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct TableTextStorage {
     pub component_path: Option<String>,
     pub table_name: String,
     pub size: u64,

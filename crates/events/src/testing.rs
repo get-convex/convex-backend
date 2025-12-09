@@ -162,6 +162,7 @@ impl UsageCounterState {
                     .or_default() += egress;
             },
             UsageEvent::CurrentVectorStorage { tables: _ } => todo!(),
+            UsageEvent::CurrentTextStorage { tables: _ } => todo!(),
             UsageEvent::CurrentDatabaseStorage {
                 tables: _,
                 system_tables: _,

@@ -42,10 +42,17 @@ use vector::VectorSearch;
 
 use crate::{
     test_helpers::DbFixtures,
-    tests::vector_test_utils::{
-        add_document_vec_array,
-        IndexData,
-        VectorFixtures,
+    tests::{
+        text_test_utils::{
+            add_document,
+            IndexData as TextIndexData,
+            TextFixtures,
+        },
+        vector_test_utils::{
+            add_document_vec_array,
+            IndexData,
+            VectorFixtures,
+        },
     },
     IndexModel,
     ResolvedQuery,
@@ -279,6 +286,49 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
             .unwrap()
             > 0
     );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn text_fields_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()> {
+    let fixtures = TextFixtures::new(rt).await?;
+    let TextIndexData { index_name, .. } = fixtures.enabled_text_index().await?;
+
+    // Use a user transaction, not a system transaction
+    let tx_usage = FunctionUsageTracker::new();
+    let mut tx = fixtures
+        .db
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
+        .await?;
+    add_document(&mut tx, index_name.table(), "test").await?;
+    fixtures.db.commit(tx).await?;
+    fixtures
+        .db
+        .usage_counter()
+        .track_call(
+            test_udf_identifier(),
+            ExecutionId::new(),
+            RequestId::new(),
+            CallType::Mutation {
+                occ_info: None,
+                duration: Duration::ZERO,
+                memory_in_mb: 0,
+            },
+            true,
+            tx_usage.gather_user_stats(),
+        )
+        .await;
+
+    fixtures.new_live_text_flusher().step().await?;
+
+    let storage = fixtures
+        .db
+        .latest_database_snapshot()?
+        .get_text_index_storage(&Identity::system())?;
+
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).cloned();
+    assert_eq!(value, Some(2658_u64));
     Ok(())
 }
 
