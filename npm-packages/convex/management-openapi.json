@@ -331,6 +331,12 @@
         "properties": {
           "deploymentName": {
             "type": "string"
+          },
+          "environmentName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

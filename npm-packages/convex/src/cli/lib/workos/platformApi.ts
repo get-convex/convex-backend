@@ -6,6 +6,7 @@ import {
   logAndHandleFetchError,
   ThrowingFetchError,
 } from "../utils/utils.js";
+import { components } from "../../generatedApi.js";
 
 /**
  * Verified emails for a user that aren't known to be an admin email for
@@ -13,10 +14,10 @@ import {
  */
 export async function getCandidateEmailsForWorkIntegration(
   ctx: Context,
-): Promise<{
-  availableEmails: string[];
-}> {
-  return bigBrainAPI<{ availableEmails: string[] }>({
+): Promise<components["schemas"]["AvailableWorkOSTeamEmailsResponse"]> {
+  return bigBrainAPI<
+    components["schemas"]["AvailableWorkOSTeamEmailsResponse"]
+  >({
     ctx,
     method: "GET",
     url: "workos/available_workos_team_emails",
@@ -26,32 +27,26 @@ export async function getCandidateEmailsForWorkIntegration(
 export async function getDeploymentCanProvisionWorkOSEnvironments(
   ctx: Context,
   deploymentName: string,
-): Promise<{
-  teamId: number;
-  hasAssociatedWorkosTeam: boolean;
-  disabled?: boolean;
-}> {
-  return bigBrainAPI({
+): Promise<components["schemas"]["HasAssociatedWorkOSTeamResponse"]> {
+  const request: components["schemas"]["HasAssociatedWorkOSTeamRequest"] = {
+    deploymentName,
+  };
+  return bigBrainAPI<components["schemas"]["HasAssociatedWorkOSTeamResponse"]>({
     ctx,
     method: "POST",
     url: "workos/has_associated_workos_team",
-    data: { deploymentName },
+    data: request,
   });
 }
 
 export async function createEnvironmentAndAPIKey(
   ctx: Context,
   deploymentName: string,
+  environmentName?: string,
 ): Promise<
   | {
       success: true;
-      data: {
-        environmentId: string;
-        environmentName: string;
-        clientId: string;
-        apiKey: string;
-        newlyProvisioned: boolean;
-      };
+      data: components["schemas"]["ProvisionEnvironmentResponse"];
     }
   | {
       success: false;
@@ -60,11 +55,17 @@ export async function createEnvironmentAndAPIKey(
     }
 > {
   try {
-    const data = await bigBrainAPI({
+    const request: components["schemas"]["GetOrProvisionEnvironmentRequest"] = {
+      deploymentName,
+      environmentName: environmentName ?? null,
+    };
+    const data = await bigBrainAPI<
+      components["schemas"]["ProvisionEnvironmentResponse"]
+    >({
       ctx,
       method: "POST",
       url: "workos/get_or_provision_workos_environment",
-      data: { deploymentName },
+      data: request,
     });
     return {
       success: true,
@@ -103,13 +104,20 @@ export async function createAssociatedWorkosTeam(
     }
 > {
   try {
-    const result = await bigBrainAPIMaybeThrows({
+    const request: components["schemas"]["ProvisionWorkOSTeamRequest"] = {
+      teamId,
+      email,
+    };
+    const result = (await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
       url: "workos/provision_associated_workos_team",
-      data: JSON.stringify({ teamId, email }),
-    });
-    return result;
+      data: JSON.stringify(request),
+    })) as components["schemas"]["ProvisionWorkOSTeamResponse"];
+    return {
+      result: "success",
+      ...result,
+    };
   } catch (error) {
     const data: ErrorData | undefined =
       error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
@@ -124,8 +132,6 @@ export async function createAssociatedWorkosTeam(
   }
 }
 
-export type WorkOSTeamStatus = "Active" | "Inactive";
-
 /**
  * Check if the WorkOS team associated with a Convex team is still accessible.
  * Returns null if the team is not provisioned or cannot be accessed.
@@ -133,17 +139,13 @@ export type WorkOSTeamStatus = "Active" | "Inactive";
 export async function getWorkosTeamHealth(
   ctx: Context,
   teamId: number,
-): Promise<{
-  id: string;
-  name: string;
-  teamStatus: WorkOSTeamStatus;
-} | null> {
+): Promise<components["schemas"]["WorkOSTeamHealthResponse"] | null> {
   try {
-    return await bigBrainAPIMaybeThrows({
+    return (await bigBrainAPIMaybeThrows({
       ctx,
       method: "GET",
       url: `teams/${teamId}/workos_team_health`,
-    });
+    })) as components["schemas"]["WorkOSTeamHealthResponse"];
   } catch (error: any) {
     if (error?.serverErrorData?.code === "WorkOSTeamNotProvisioned") {
       return null;
@@ -159,17 +161,13 @@ export async function getWorkosTeamHealth(
 export async function getWorkosEnvironmentHealth(
   ctx: Context,
   deploymentName: string,
-): Promise<{
-  id: string;
-  name: string;
-  clientId: string;
-} | null> {
+): Promise<components["schemas"]["WorkOSEnvironmentHealthResponse"] | null> {
   try {
-    return await bigBrainAPIMaybeThrows({
+    return (await bigBrainAPIMaybeThrows({
       ctx,
       method: "GET",
       url: `deployments/${deploymentName}/workos_environment_health`,
-    });
+    })) as components["schemas"]["WorkOSEnvironmentHealthResponse"];
   } catch (error: any) {
     if (error?.serverErrorData?.code === "WorkOSEnvironmentNotProvisioned") {
       return null;
@@ -194,12 +192,15 @@ export async function disconnectWorkOSTeam(
     }
 > {
   try {
-    const result = await bigBrainAPIMaybeThrows({
+    const request: components["schemas"]["DisconnectWorkOSTeamRequest"] = {
+      teamId,
+    };
+    const result = (await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
       url: "workos/disconnect_workos_team",
-      data: JSON.stringify({ teamId }),
-    });
+      data: JSON.stringify(request),
+    })) as components["schemas"]["DisconnectWorkOSTeamResponse"];
     return {
       success: true,
       ...result,

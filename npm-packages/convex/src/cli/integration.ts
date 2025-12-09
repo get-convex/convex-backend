@@ -87,7 +87,7 @@ const workosTeamStatus = new Command("status")
           `  Verified emails that can provision: ${availableEmails.join(", ")}`,
         );
       }
-    } else if (teamHealth.teamStatus === "Inactive") {
+    } else if (teamHealth.teamStatus === "inactive") {
       logMessage(
         `WorkOS team: ${teamHealth.name} (no credit card added on workos.com, so production auth environments cannot be created)`,
       );
@@ -119,6 +119,10 @@ const workosProvisionEnvironment = new Command("provision-environment")
   .addDeploymentSelectionOptions(
     actionDescription("Provision WorkOS environment for"),
   )
+  .option(
+    "--name <name>",
+    "Custom name for the WorkOS environment (if not provided, uses deployment name)",
+  )
   .action(async (_options, cmd) => {
     const options = cmd.optsWithGlobals();
     const { ctx, deployment } = await selectEnvDeployment(options);
@@ -126,6 +130,8 @@ const workosProvisionEnvironment = new Command("provision-environment")
       ctx,
       "integration workos provision-environment",
     );
+
+    const environmentName = options.name as string | undefined;
 
     try {
       await ensureWorkosEnvironmentProvisioned(
@@ -136,6 +142,7 @@ const workosProvisionEnvironment = new Command("provision-environment")
           offerToAssociateWorkOSTeam: true,
           autoProvisionIfWorkOSTeamAssociated: true,
           autoConfigureAuthkitConfig: true,
+          ...(environmentName !== undefined && { environmentName }),
         },
       );
     } catch (error) {

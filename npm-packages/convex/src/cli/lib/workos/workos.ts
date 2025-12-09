@@ -50,6 +50,7 @@ export async function ensureWorkosEnvironmentProvisioned(
     offerToAssociateWorkOSTeam: boolean;
     autoProvisionIfWorkOSTeamAssociated: boolean;
     autoConfigureAuthkitConfig: boolean;
+    environmentName?: string;
   },
 ): Promise<"ready" | "choseNotToAssociatedTeam"> {
   if (!options.autoConfigureAuthkitConfig) {
@@ -78,11 +79,15 @@ export async function ensureWorkosEnvironmentProvisioned(
   }
 
   // We need to provision an environment. Let's figure out if we can:
-  const { hasAssociatedWorkosTeam, teamId, disabled } =
-    await getDeploymentCanProvisionWorkOSEnvironments(ctx, deploymentName);
+  const response = await getDeploymentCanProvisionWorkOSEnvironments(
+    ctx,
+    deploymentName,
+  );
+  const { hasAssociatedWorkosTeam, teamId } = response;
 
   // In case this this becomes a legacy flow that no longer works.
-  if (disabled) {
+  // @ts-expect-error - disabled is a legacy field that may not be present
+  if (response.disabled) {
     return "choseNotToAssociatedTeam";
   }
   if (!hasAssociatedWorkosTeam) {
@@ -103,6 +108,7 @@ export async function ensureWorkosEnvironmentProvisioned(
   const environmentResult = await createEnvironmentAndAPIKey(
     ctx,
     deploymentName,
+    options.environmentName,
   );
 
   if (!environmentResult.success) {
@@ -212,7 +218,7 @@ Alternately, choose no and set WORKOS_CLIENT_ID for an existing WorkOS environme
               ? "\nCreate a new WorkOS team with this email address?"
               : "\nTo use another email address visit https://dashboard.convex.dev/profile to add and verify, then choose 'refresh'",
         choices: [
-          ...availableEmails.map((email) => ({
+          ...availableEmails.map((email: string) => ({
             name: `${email}${alreadyTried.has(email) ? ` (can't create, a WorkOS team already exists with this email)` : ""}`,
             value: email,
           })),
