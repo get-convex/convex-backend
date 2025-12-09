@@ -19,8 +19,6 @@ interface BaseDatabaseReader<DataModel extends GenericDataModel> {
    * @param table - The name of the table to fetch the document from.
    * @param id - The {@link values.GenericId} of the document to fetch from the database.
    * @returns - The {@link GenericDocument} of the document at the given {@link values.GenericId}, or `null` if it no longer exists.
-   *
-   * @internal
    */
   get<TableName extends TableNamesInDataModel<DataModel>>(
     table: NonUnion<TableName>,
@@ -185,8 +183,6 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * @param id - The {@link values.GenericId} of the document to patch.
    * @param value - The partial {@link GenericDocument} to merge into the specified document. If this new value
    * specifies system fields like `_id`, they must match the document's existing field values.
-   *
-   * @internal
    */
   patch<TableName extends TableNamesInDataModel<DataModel>>(
     table: NonUnion<TableName>,
@@ -217,8 +213,6 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    * @param id - The {@link values.GenericId} of the document to replace.
    * @param value - The new {@link GenericDocument} for the document. This value can omit the system fields,
    * and the database will fill them in.
-   *
-   * @internal
    */
   replace<TableName extends TableNamesInDataModel<DataModel>>(
     table: NonUnion<TableName>,
@@ -243,8 +237,6 @@ export interface GenericDatabaseWriter<DataModel extends GenericDataModel>
    *
    * @param table - The name of the table the document is in.
    * @param id - The {@link values.GenericId} of the document to remove.
-   *
-   * @internal
    */
   delete<TableName extends TableNamesInDataModel<DataModel>>(
     table: NonUnion<TableName>,
