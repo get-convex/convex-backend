@@ -24,7 +24,13 @@ import { useRouter } from "next/router";
 import omit from "lodash/omit";
 import { useDataPageSize } from "./Table/utils/useQueryFilteredTable";
 
-export function DataView() {
+export function DataView({
+  onTableCreated,
+  onDocumentsAdded,
+}: {
+  onTableCreated?: () => void;
+  onDocumentsAdded?: (count: number) => void;
+}) {
   const { useCurrentDeployment, ErrorBoundary } = useContext(
     DeploymentInfoContext,
   );
@@ -136,6 +142,7 @@ export function DataView() {
               <DataSidebar
                 tableData={tableMetadata}
                 showSchema={showSchemaProps}
+                onTableCreated={onTableCreated}
               />
             }
             resizeHandleTitle="Tables"
@@ -165,6 +172,7 @@ export function DataView() {
                           tableMetadata.tables.get(tableMetadata.name) ?? null
                         }
                         activeSchema={activeSchema}
+                        onDocumentsAdded={onDocumentsAdded}
                       />
                     </ErrorBoundary>
                   )}

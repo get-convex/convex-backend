@@ -13,6 +13,7 @@ import udfs from "@common/udfs";
 import { useState } from "react";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
 import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider";
+import { usePostHog } from "hooks/usePostHog";
 
 export function DeleteProjectModal({
   onClose,
@@ -25,6 +26,7 @@ export function DeleteProjectModal({
   team: TeamResponse;
   project: ProjectDetails;
 }) {
+  const { capture } = usePostHog();
   const deleteProject = useDeleteProject(
     team.id,
     project.id,
@@ -34,6 +36,7 @@ export function DeleteProjectModal({
   const handleDelete = async () => {
     onDelete && onDelete();
     await deleteProject();
+    capture("deleted_projects");
     onClose();
   };
   const { deployments } = useDeployments(project.id);

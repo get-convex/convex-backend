@@ -15,7 +15,11 @@ import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 
-export function DeploymentEnvironmentVariables() {
+export function DeploymentEnvironmentVariables({
+  onEnvironmentVariablesAdded,
+}: {
+  onEnvironmentVariablesAdded?: (count: number) => void;
+}) {
   const { useCurrentDeployment, useHasProjectAdminPermissions, projectsURI } =
     useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
@@ -124,6 +128,7 @@ export function DeploymentEnvironmentVariables() {
           setInitialValues([]);
         }}
         initialFormValues={initialValues}
+        onEnvironmentVariablesAdded={onEnvironmentVariablesAdded}
       />
       {renderEnvironmentVariableDiffCallout()}
     </Sheet>

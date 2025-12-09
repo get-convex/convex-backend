@@ -65,11 +65,13 @@ export function DataContent({
   shape,
   componentId,
   activeSchema,
+  onDocumentsAdded,
 }: {
   tableName: string;
   componentId: string | null;
   shape: Shape | null;
   activeSchema: SchemaJson | null;
+  onDocumentsAdded?: (count: number) => void;
 }) {
   const { filters, applyFiltersWithHistory, hasFilters } = useTableFilters(
     tableName,
@@ -232,6 +234,7 @@ export function DataContent({
       clearSelectedRows,
       loadMore: loadNextPage,
       tableName,
+      onDocumentsAdded,
     });
 
   const allRowsSelected =

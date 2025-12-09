@@ -9,6 +9,7 @@ import { TeamResponse, CreateProjectResponse } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCreateProject } from "api/projects";
 import { cn } from "@ui/cn";
+import { usePostHog } from "hooks/usePostHog";
 
 export function useCreateProjectModal(): [
   ReactElement | null,
@@ -74,6 +75,7 @@ export function CreateProjectForm({
   onSuccess: (project: CreateProjectResponse) => void;
 }) {
   const createProject = useCreateProject(team.id);
+  const { capture } = usePostHog();
   const formState = useFormik({
     initialValues: {
       projectName: "",
@@ -87,6 +89,7 @@ export function CreateProjectForm({
         team: team.slug,
         deploymentType: "dev",
       });
+      capture("created_project");
       onSuccess(project);
       onClose();
     },

@@ -49,6 +49,7 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
   updateEnvironmentVariables,
   initialFormValues,
   hasAdminPermissions,
+  onEnvironmentVariablesAdded,
 }: {
   environmentVariables: Array<T> | undefined;
   initialFormValues?: Array<BaseEnvironmentVariable>;
@@ -58,6 +59,7 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
     deletions: T[],
   ) => Promise<void>;
   hasAdminPermissions: boolean;
+  onEnvironmentVariablesAdded?: (count: number) => void;
 }) {
   return (
     <Formik
@@ -75,7 +77,10 @@ export function EnvironmentVariables<T extends BaseEnvironmentVariable>({
           values.editedVars,
           values.deletedVars,
         );
-
+        const createdCount = values.newVars.length;
+        if (createdCount > 0) {
+          onEnvironmentVariablesAdded?.(createdCount);
+        }
         helpers.resetForm({});
       }}
       validate={(values) => {
