@@ -14,10 +14,7 @@ use std::{
         LazyLock,
         OnceLock,
     },
-    time::{
-        Duration,
-        Instant,
-    },
+    time::Duration,
 };
 
 use anyhow::{
@@ -58,6 +55,7 @@ use common::{
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         LIST_SNAPSHOT_MAX_AGE_SECS,
+        SNAPSHOT_LIST_TIME_LIMIT,
     },
     persistence::{
         new_idle_repeatable_ts,
@@ -141,6 +139,7 @@ use sync_types::backoff::Backoff;
 use tokio::{
     sync::mpsc,
     task,
+    time::Instant,
 };
 use usage_tracking::{
     FunctionUsageStats,
@@ -2108,6 +2107,7 @@ impl<RT: Runtime> Database<RT> {
         // documents accumulated in (ts, id) order to return.
         let mut documents = vec![];
         let mut rows_read = 0;
+        let start_time = Instant::now();
         while let Some(LatestDocument { ts, value: doc, .. }) = document_stream.try_next().await? {
             rows_read += 1;
             let id = doc.id();
@@ -2128,7 +2128,10 @@ impl<RT: Runtime> Database<RT> {
                 table_name,
                 column_filter.filter_document(doc.to_developer())?,
             ));
-            if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
+            if rows_read >= rows_read_limit
+                || documents.len() >= rows_returned_limit
+                || start_time.elapsed() > *SNAPSHOT_LIST_TIME_LIMIT
+            {
                 new_cursor = Some(id);
                 break;
             }

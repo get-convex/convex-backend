@@ -129,6 +129,10 @@ pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
 pub static SNAPSHOT_LIST_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SNAPSHOT_LIST_LIMIT", 1024));
 
+/// Max duration we will spend calculating a single page.
+pub static SNAPSHOT_LIST_TIME_LIMIT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SNAPSHOT_LIST_TIME_LIMIT_SECONDS", 60)));
+
 /// The size of the log manager's event receive buffer.
 pub static LOG_MANAGER_EVENT_RECV_BUFFER_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("LOG_MANAGER_EVENT_RECV_BUFFER_SIZE", 4096));
