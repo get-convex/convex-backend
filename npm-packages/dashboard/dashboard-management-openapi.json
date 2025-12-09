@@ -5539,6 +5539,13 @@
               }
             ]
           },
+          "expirationTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "lastUsedTime": {
             "type": [
               "integer",

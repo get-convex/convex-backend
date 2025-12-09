@@ -2394,6 +2394,8 @@ export interface components {
             creationTime: number;
             creator?: null | components["schemas"]["MemberId"];
             /** Format: int64 */
+            expirationTime?: number | null;
+            /** Format: int64 */
             lastUsedTime?: number | null;
             name: components["schemas"]["DeviceName"];
             permissions?: string[] | null;
