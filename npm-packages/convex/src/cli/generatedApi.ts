@@ -121,6 +121,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/workos_invitation_eligible_emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get emails eligible for WorkOS team invitation (all verified emails except those that are admin of a different WorkOS team) */
+        get: operations["get_workos_invitation_eligible_emails"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/workos_team_health": {
         parameters: {
             query?: never;
@@ -132,6 +149,23 @@ export interface paths {
         get: operations["get_workos_team_health"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workos/invite_team_member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Invite a member to the WorkOS team associated with a Convex team */
+        post: operations["invite_workos_team_member"];
         delete?: never;
         options?: never;
         head?: never;
@@ -208,6 +242,23 @@ export interface components {
             adminName?: string | null;
             hasAssociatedWorkosTeam: boolean;
             teamId: components["schemas"]["TeamId"];
+        };
+        InvitationEligibleEmailsResponse: {
+            /** @description The admin email used to create this team's WorkOS account (always
+             *     eligible for re-invitation) */
+            adminEmail?: string | null;
+            eligibleEmails: string[];
+        };
+        InviteWorkOSTeamMemberRequest: {
+            /** @description Email address to invite to the WorkOS team,
+             *     must be a verified email address associated with the user's account */
+            email: string;
+            /** @description Convex team ID that has an associated WorkOS team */
+            teamId: components["schemas"]["TeamId"];
+        };
+        InviteWorkOSTeamMemberResponse: {
+            email: string;
+            roleSlug: string;
         };
         /** @enum {string} */
         ManagedBy: "vercel";
@@ -289,6 +340,9 @@ export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWork
 export type GetOrProvisionEnvironmentRequest = components['schemas']['GetOrProvisionEnvironmentRequest'];
 export type HasAssociatedWorkOsTeamRequest = components['schemas']['HasAssociatedWorkOSTeamRequest'];
 export type HasAssociatedWorkOsTeamResponse = components['schemas']['HasAssociatedWorkOSTeamResponse'];
+export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
+export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOSTeamMemberRequest'];
+export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOSTeamMemberResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
@@ -458,6 +512,25 @@ export interface operations {
             };
         };
     };
+    get_workos_invitation_eligible_emails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationEligibleEmailsResponse"];
+                };
+            };
+        };
+    };
     get_workos_team_health: {
         parameters: {
             query?: never;
@@ -476,6 +549,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkOSTeamHealthResponse"];
+                };
+            };
+        };
+    };
+    invite_workos_team_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteWorkOSTeamMemberRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteWorkOSTeamMemberResponse"];
                 };
             };
         };

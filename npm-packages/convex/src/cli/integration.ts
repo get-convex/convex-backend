@@ -22,11 +22,13 @@ import {
   disconnectWorkOSTeam,
   getCandidateEmailsForWorkIntegration,
   getDeploymentCanProvisionWorkOSEnvironments,
+  getInvitationEligibleEmails,
   getWorkosEnvironmentHealth,
   getWorkosTeamHealth,
+  inviteToWorkosTeam,
 } from "./lib/workos/platformApi.js";
 import { logFinishedStep, logMessage } from "../bundler/log.js";
-import { promptYesNo } from "./lib/utils/prompts.js";
+import { promptOptions, promptYesNo } from "./lib/utils/prompts.js";
 
 async function selectEnvDeployment(
   options: DeploymentSelectionOptions,
@@ -154,6 +156,7 @@ const workosProvisionEnvironment = new Command("provision-environment")
       });
     }
   });
+
 const workosProvisionTeam = new Command("provision-team")
   .summary("Provision a WorkOS team for this Convex team")
   .description(
@@ -296,13 +299,96 @@ const workosDisconnectTeam = new Command("disconnect-team")
     );
   });
 
+const workosInvite = new Command("invite")
+  .summary("Invite yourself to the WorkOS team")
+  .description(
+    "Send an invitation to join the WorkOS team associated with your Convex team",
+  )
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .addDeploymentSelectionOptions(
+    actionDescription("Invite yourself to WorkOS team for"),
+  )
+  .action(async (_options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const { ctx, deployment } = await selectEnvDeployment(options);
+
+    // Get team info first
+    const info = await fetchTeamAndProject(ctx, deployment.deploymentName);
+
+    // Get emails eligible for invitation (all verified emails except those that are admin of a different team)
+    const { eligibleEmails, adminEmail } = await getInvitationEligibleEmails(
+      ctx,
+      info.teamId,
+    );
+
+    // Combine eligible emails with admin email (admin email is always an option for re-invitation)
+    const allInvitableEmails = [...eligibleEmails];
+    if (adminEmail && !allInvitableEmails.includes(adminEmail)) {
+      allInvitableEmails.push(adminEmail);
+    }
+
+    if (allInvitableEmails.length === 0) {
+      logMessage(
+        "You don't have any verified emails available for invitation.",
+      );
+      logMessage(
+        "This could be because all your verified emails are already admin of other WorkOS teams.",
+      );
+      return;
+    }
+
+    // Let user select which email to use
+    const emailToInvite = await promptOptions(ctx, {
+      message: "Which email would you like to invite to the WorkOS team?",
+      choices: allInvitableEmails.map((email) => ({
+        name: email + (email === adminEmail ? " (admin email)" : ""),
+        value: email,
+      })),
+      default: allInvitableEmails[0],
+    });
+
+    // Confirm before sending
+    const confirmed = await promptYesNo(ctx, {
+      message: `Send invitation to ${emailToInvite}?`,
+      default: true,
+    });
+
+    if (!confirmed) {
+      logMessage("Invitation cancelled.");
+      return;
+    }
+
+    logMessage(`Sending invitation to ${emailToInvite}...`);
+
+    const result = await inviteToWorkosTeam(ctx, info.teamId, emailToInvite);
+
+    if (result.result === "success") {
+      logMessage(
+        `✓ Successfully sent invitation to ${result.email} with role ${result.roleSlug}`,
+      );
+      logMessage(
+        "Check your email for the invitation link to join the WorkOS team.",
+      );
+    } else if (result.result === "teamNotProvisioned") {
+      logMessage(
+        `✗ ${result.message}. Run 'npx convex integration workos provision-environment' first.`,
+      );
+    } else if (result.result === "alreadyInWorkspace") {
+      logMessage(
+        `✗ ${result.message}. This usually means the email is already used in another WorkOS workspace.`,
+      );
+    }
+  });
+
 const workos = new Command("workos")
   .summary("WorkOS integration commands")
   .description("Manage WorkOS team provisioning and environment setup")
   .addCommand(workosProvisionEnvironment)
   .addCommand(workosTeamStatus)
   .addCommand(workosProvisionTeam)
-  .addCommand(workosDisconnectTeam);
+  .addCommand(workosDisconnectTeam)
+  .addCommand(workosInvite);
 
 export const integration = new Command("integration")
   .summary("Integration commands")

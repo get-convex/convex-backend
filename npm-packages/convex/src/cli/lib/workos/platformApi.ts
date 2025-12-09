@@ -24,6 +24,20 @@ export async function getCandidateEmailsForWorkIntegration(
   });
 }
 
+export async function getInvitationEligibleEmails(
+  ctx: Context,
+  teamId: number,
+): Promise<{
+  eligibleEmails: string[];
+  adminEmail?: string;
+}> {
+  return bigBrainAPI<{ eligibleEmails: string[]; adminEmail?: string }>({
+    ctx,
+    method: "GET",
+    url: `teams/${teamId}/workos_invitation_eligible_emails`,
+  });
+}
+
 export async function getDeploymentCanProvisionWorkOSEnvironments(
   ctx: Context,
   deploymentName: string,
@@ -222,5 +236,53 @@ export async function disconnectWorkOSTeam(
         data?.message ||
         (error instanceof Error ? error.message : String(error)),
     };
+  }
+}
+
+export async function inviteToWorkosTeam(
+  ctx: Context,
+  teamId: number,
+  email: string,
+): Promise<
+  | {
+      result: "success";
+      email: string;
+      roleSlug: string;
+    }
+  | {
+      result: "teamNotProvisioned";
+      message: string;
+    }
+  | {
+      result: "alreadyInWorkspace";
+      message: string;
+    }
+> {
+  try {
+    const result = await bigBrainAPIMaybeThrows({
+      ctx,
+      method: "POST",
+      url: "workos/invite_team_member",
+      data: JSON.stringify({ teamId, email }),
+    });
+    return { result: "success", ...result };
+  } catch (error) {
+    const data: ErrorData | undefined =
+      error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
+    if (data?.code === "WorkOSTeamNotProvisioned") {
+      return {
+        result: "teamNotProvisioned",
+        message: data?.message || "This team doesn't have a WorkOS team yet",
+      };
+    }
+    if (data?.code === "WorkosUserAlreadyInWorkspace") {
+      return {
+        result: "alreadyInWorkspace",
+        message:
+          data?.message ||
+          "This email is already a member of another WorkOS workspace",
+      };
+    }
+    return await logAndHandleFetchError(ctx, error);
   }
 }

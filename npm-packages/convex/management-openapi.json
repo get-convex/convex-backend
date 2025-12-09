@@ -190,6 +190,24 @@
         }
       }
     },
+    "/teams/{team_id}/workos_invitation_eligible_emails": {
+      "get": {
+        "description": "Get emails eligible for WorkOS team invitation (all verified emails except those that are admin of a different WorkOS team)",
+        "operationId": "get_workos_invitation_eligible_emails",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationEligibleEmailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/workos_team_health": {
       "get": {
         "description": "Check if the WorkOS team associated with this Convex team is still accessible",
@@ -209,6 +227,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkOSTeamHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workos/invite_team_member": {
+      "post": {
+        "description": "Invite a member to the WorkOS team associated with a Convex team",
+        "operationId": "invite_workos_team_member",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteWorkOSTeamMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteWorkOSTeamMemberResponse"
                 }
               }
             }
@@ -384,6 +430,59 @@
           },
           "teamId": {
             "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "InvitationEligibleEmailsResponse": {
+        "type": "object",
+        "required": [
+          "eligibleEmails"
+        ],
+        "properties": {
+          "adminEmail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The admin email used to create this team's WorkOS account (always\neligible for re-invitation)"
+          },
+          "eligibleEmails": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InviteWorkOSTeamMemberRequest": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address to invite to the WorkOS team,\nmust be a verified email address associated with the user's account"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId",
+            "description": "Convex team ID that has an associated WorkOS team"
+          }
+        }
+      },
+      "InviteWorkOSTeamMemberResponse": {
+        "type": "object",
+        "required": [
+          "email",
+          "roleSlug"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "roleSlug": {
+            "type": "string"
           }
         }
       },
