@@ -89,6 +89,14 @@ function hash(
 export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
   /** queryClient can also be set later by calling .connect(ReactqueryClient) */
   queryClient?: QueryClient;
+  /** A custom fetch implementation to use for all HTTP requests made on the server.
+   *
+   * Take care to avoid bundling this `fetch` implementation on the client
+   * if you can help it. In TanStack Start you can use createServerOnlyFn
+   * for this, see
+   * https://tanstack.com/start/latest/docs/framework/react/guide/environment-functions#envonly-functions
+   */
+  serverFetch?: typeof globalThis.fetch | undefined;
   /**
    * opt out of consistent queries, resulting in (for now) faster SSR at the
    * cost of potential inconsistency between queries
@@ -174,7 +182,9 @@ export class ConvexQueryClient {
       );
     }
     if (isServer) {
-      this.serverHttpClient = new ConvexHttpClient(this.convexClient.url);
+      this.serverHttpClient = new ConvexHttpClient(this.convexClient.url, {
+        fetch: options.serverFetch,
+      });
     }
   }
   /** Complete initialization of ConvexQueryClient by connecting a TanStack QueryClient */
