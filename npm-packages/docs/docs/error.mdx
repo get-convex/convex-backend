@@ -26,8 +26,8 @@ A mutation `updateCounter` always updates the same document:
 export const updateCounter = mutation({
   args: {},
   handler: async (ctx) => {
-    const doc = await ctx.db.get(process.env.COUNTER_ID);
-    await ctx.db.patch(doc._id, { value: doc.value + 1 });
+    const doc = await ctx.db.get("counts", process.env.COUNTER_ID);
+    await ctx.db.patch("counts", doc._id, { value: doc.value + 1 });
   },
 });
 ```
@@ -58,7 +58,7 @@ export const writeCount = mutation({
   },
   handler: async (ctx, args) => {
     const tasks = await ctx.db.query("tasks").collect();
-    await ctx.db.patch(args.target, { value: tasks });
+    await ctx.db.patch("tasks", args.target, { value: tasks });
   },
 });
 

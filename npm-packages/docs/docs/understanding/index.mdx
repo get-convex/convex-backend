@@ -81,7 +81,7 @@ export const setTaskCompleted = mutation({
   args: { taskId: v.id("tasks"), completed: v.boolean() },
   handler: async (ctx, { taskId, completed }) => {
     // Update the database using TypeScript
-    await ctx.db.patch(taskId, { completed });
+    await ctx.db.patch("tasks", taskId, { completed });
   },
 });
 ```

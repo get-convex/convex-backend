@@ -105,7 +105,7 @@ export const removeUserImage = mutation({
       return;
       // highlight-next-line
     }
-    ctx.db.patch(userId, { imageId: undefined, image: undefined });
+    ctx.db.patch("users", userId, { imageId: undefined, image: undefined });
   },
 });
 ```
