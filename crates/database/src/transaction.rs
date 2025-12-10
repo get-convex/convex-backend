@@ -898,7 +898,7 @@ impl<RT: Runtime> Transaction<RT> {
         let index_name = TabletIndexName::by_id(id.tablet_id);
         let printable_index_name = IndexName::by_id(table_name.clone());
         let index_key = IndexKey::new(vec![], id.into());
-        let interval = Interval::prefix(index_key.to_bytes().into());
+        let interval = Interval::singleton(index_key.to_bytes().into());
         let range_request = RangeRequest {
             index_name: index_name.clone(),
             printable_index_name,

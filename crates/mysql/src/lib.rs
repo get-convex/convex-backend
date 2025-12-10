@@ -53,7 +53,10 @@ use common::{
         SplitKey,
         MAX_INDEX_KEY_PREFIX_LEN,
     },
-    interval::Interval,
+    interval::{
+        BinaryKey,
+        Interval,
+    },
     knobs::{
         MYSQL_FALLBACK_PAGE_SIZE,
         MYSQL_MAX_QUERY_BATCH_SIZE,
@@ -127,6 +130,7 @@ use crate::{
         log_prev_revisions_row_read,
         QueryIndexStats,
     },
+    sql::index_point_query,
 };
 
 /// Checks if an error is the Vitess "message too large" error that occurs
@@ -846,6 +850,19 @@ impl<RT: Runtime> MySqlReader<RT> {
         size_hint: usize,
         retention_validator: Arc<dyn RetentionValidator>,
     ) {
+        if let Some(key) = interval.is_singleton()
+            && key.len() <= MAX_INDEX_KEY_PREFIX_LEN
+        {
+            // Fast path for looking up a single value
+            if let Some(doc) = self
+                .index_point_query(index_id, key, read_timestamp, retention_validator)
+                .await?
+            {
+                anyhow::ensure!(doc.value.id().tablet_id == tablet_id);
+                yield (IndexKeyBytes(key.to_vec()), doc);
+            }
+            return Ok(());
+        }
         let scan = self._index_scan_inner(
             index_id,
             read_timestamp,
@@ -1078,6 +1095,64 @@ impl<RT: Runtime> MySqlReader<RT> {
                 batch_size = (batch_size * 2).min(*MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE as u32);
             }
         }
+    }
+
+    async fn index_point_query(
+        &self,
+        index_id: IndexId,
+        key: &BinaryKey,
+        read_timestamp: Timestamp,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<Option<LatestDocument>> {
+        let mut client = self
+            .read_pool
+            .acquire("index_lookup", &self.db_name)
+            .await?;
+        let key_prefix = key.to_vec();
+        anyhow::ensure!(key_prefix.len() <= MAX_INDEX_KEY_PREFIX_LEN);
+        let key_sha256 = Sha256::hash(key);
+        let execute_timer =
+            metrics::query_index_point_sql_execute_timer(self.read_pool.cluster_name());
+        let mut params: Vec<mysql_async::Value> = vec![
+            internal_id_param(index_id).into(),
+            key_prefix.into(),
+            key_sha256.to_vec().into(),
+            i64::from(read_timestamp).into(),
+        ];
+        if self.multitenant {
+            params.push(self.instance_name.to_string().into());
+        }
+        let maybe_row = client
+            .query_optional(index_point_query(self.multitenant), params)
+            .await?;
+        execute_timer.finish();
+
+        let retention_validate_timer =
+            metrics::retention_validate_timer(self.read_pool.cluster_name());
+        retention_validator
+            .validate_snapshot(read_timestamp)
+            .await?;
+        retention_validate_timer.finish();
+
+        let Some(row) = maybe_row else {
+            return Ok(None);
+        };
+        let ts = Timestamp::try_from(row.get_opt::<i64, _>(0).context("row[0]")??)?;
+        let tablet_id = TabletId(bytes_col(&row, 1)?.try_into()?);
+        let json_value = maybe_bytes_col(&row, 2)?
+            .ok_or_else(|| anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts))?;
+        let prev_ts: Option<i64> = row.get_opt(3).context("row[3]")??;
+        let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
+        let json_value: JsonValue = serde_json::from_slice(json_value)?;
+        anyhow::ensure!(
+            json_value != JsonValue::Null,
+            "Index reference to deleted document {:?} {:?}",
+            key,
+            ts
+        );
+        let value: ConvexValue = json_value.try_into()?;
+        let value = ResolvedDocument::from_database(tablet_id, value)?;
+        Ok(Some(LatestDocument { ts, value, prev_ts }))
     }
 
     fn _index_cursor_params(cursor: Option<&IndexEntry>) -> Vec<mysql_async::Value> {

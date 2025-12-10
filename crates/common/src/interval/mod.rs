@@ -153,6 +153,27 @@ impl Interval {
             CursorPosition::End => (self.clone(), Interval::empty()),
         }
     }
+
+    /// Returns an interval that contains `value` and nothing else.
+    pub fn singleton(value: BinaryKey) -> Self {
+        let end = End::included(&value);
+        Self {
+            start: StartIncluded(value),
+            end,
+        }
+    }
+
+    /// If this interval contains only a single value, returns that value.
+    pub fn is_singleton(&self) -> Option<&BinaryKey> {
+        // check if `self.end` is exactly `self.start + [0]`
+        if let End::Excluded(end) = &self.end
+            && end.strip_prefix(&*self.start.0) == Some(&[0])
+        {
+            Some(&self.start.0)
+        } else {
+            None
+        }
+    }
 }
 
 impl RangeBounds<[u8]> for &Interval {

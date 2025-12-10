@@ -827,6 +827,41 @@ pub fn index_queries(multitenant: bool) -> &'static HashMap<(BoundType, BoundTyp
     &INDEX_QUERIES[multitenant as usize]
 }
 
+pub fn index_point_query(multitenant: bool) -> &'static str {
+    tableify!(
+        multitenant,
+        formatcp!(
+            r#"
+SELECT I.ts, I.table_id, D.json_value, D.prev_ts FROM
+(
+    SELECT {instance_col}ts, deleted, table_id, document_id
+    FROM @db_name.indexes
+    FORCE INDEX (PRIMARY)
+    WHERE index_id = ? AND key_prefix = ? AND key_sha256 = ? AND ts <= ?
+    {instance_cond}
+    ORDER BY ts DESC
+    LIMIT 1
+) I
+LEFT JOIN @db_name.documents D FORCE INDEX FOR JOIN (PRIMARY)
+ON
+{instance_join}D.ts = I.ts AND D.table_id = I.table_id AND D.id = I.document_id
+WHERE I.deleted = false
+"#,
+            instance_col = if multitenant { "instance_name, " } else { "" },
+            instance_cond = if multitenant {
+                "AND instance_name = ?"
+            } else {
+                ""
+            },
+            instance_join = if multitenant {
+                "D.instance_name = I.instance_name AND "
+            } else {
+                ""
+            }
+        )
+    )
+}
+
 // Multitenant variants of the index queries. Filters by instance_name and
 // ensures joins include instance_name so rows from other tenants cannot match.
 // (Removed) separate multitenant map; we now use INDEX_QUERIES[bool] with a

@@ -64,6 +64,7 @@ use crate::{
         Persistence,
         PersistenceGlobalKey,
         PersistenceIndexEntry,
+        PersistenceReader,
         TimestampRange,
     },
     persistence_helpers::{
@@ -73,6 +74,7 @@ use crate::{
     query::Order,
     testing::{
         self,
+        assert_contains,
         test_id_generator::TestIdGenerator,
     },
     types::{
@@ -1275,12 +1277,13 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let doc_id = id_generator.user_generate(&table);
     let document = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => 20))?;
+    let index_key = document
+        .index_key(&index_fields, p.reader().version())
+        .to_bytes();
     let index_update = PersistenceIndexEntry {
         ts,
         index_id,
-        key: document
-            .index_key(&index_fields, p.reader().version())
-            .to_bytes(),
+        key: index_key.clone(),
         value: Some(document.id_with_table_id()),
     };
 
@@ -1305,6 +1308,21 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
     assert!(results[0].is_err());
     assert!(format!("{:?}", results[0].as_ref().unwrap_err()).contains("Dangling index reference"));
 
+    let singleton_result: Result<Vec<_>, _> = p
+        .reader()
+        .index_scan(
+            index_id,
+            tablet_id,
+            ts,
+            &Interval::singleton(index_key.into()),
+            Order::Asc,
+            1,
+            Arc::new(NoopRetentionValidator),
+        )
+        .try_collect()
+        .await;
+    assert_contains(&singleton_result.unwrap_err(), "Dangling index reference");
+
     Ok(())
 }
 
@@ -1322,12 +1340,13 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let doc_id = id_generator.user_generate(&table);
     let document = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => 20))?;
+    let index_key = document
+        .index_key(&index_fields, p.reader().version())
+        .to_bytes();
     let index_update = PersistenceIndexEntry {
         ts,
         index_id,
-        key: document
-            .index_key(&index_fields, p.reader().version())
-            .to_bytes(),
+        key: index_key.clone(),
         value: Some(document.id_with_table_id()),
     };
 
@@ -1361,6 +1380,24 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
     assert!(results[0].is_err());
     assert!(format!("{:?}", results[0].as_ref().unwrap_err())
         .contains("Index reference to deleted document"));
+
+    let singleton_result: Result<Vec<_>, _> = p
+        .reader()
+        .index_scan(
+            index_id,
+            tablet_id,
+            ts,
+            &Interval::singleton(index_key.into()),
+            Order::Asc,
+            1,
+            Arc::new(NoopRetentionValidator),
+        )
+        .try_collect()
+        .await;
+    assert_contains(
+        &singleton_result.unwrap_err(),
+        "Index reference to deleted document",
+    );
 
     Ok(())
 }
@@ -1725,6 +1762,34 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
         .collect();
     assert_eq!(results, vec![(id3, 5), (id4, 6), (id5, 7), (id1, 3)]);
 
+    let point_query =
+        |reader: Arc<dyn PersistenceReader>, id: ResolvedDocumentId, ts: Timestamp| async move {
+            let key = IndexKey::new(vec![], id.into());
+            let mut point_result = reader
+                .index_scan(
+                    by_id_index_id,
+                    tablet_id,
+                    ts,
+                    &Interval::singleton(key.to_bytes().into()),
+                    Order::Asc,
+                    1,
+                    Arc::new(NoopRetentionValidator),
+                )
+                .try_collect::<Vec<_>>()
+                .await?;
+            assert!(point_result.len() <= 1);
+            anyhow::Ok(point_result.pop())
+        };
+
+    for id in [id1, id3, id4, id5] {
+        assert!(point_query(reader.clone(), id, Timestamp::must(8))
+            .await?
+            .is_some());
+    }
+    assert!(point_query(reader.clone(), id2, Timestamp::must(8))
+        .await?
+        .is_none());
+
     // Old versions of documents at snapshot ts=2 are not visible.
     let stream = reader.index_scan(
         by_val_index_id,
@@ -1750,6 +1815,12 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
         }])
         .await?;
     assert_eq!(deleted, 0);
+
+    for id in [id1, id2, id3, id4, id5] {
+        assert!(point_query(reader.clone(), id, Timestamp::must(2))
+            .await?
+            .is_none());
+    }
 
     Ok(())
 }
