@@ -35,7 +35,7 @@ export type JSONValue =
  * Convex documents are uniquely identified by their `Id`, which is accessible
  * on the `_id` field. To learn more, see [Document IDs](https://docs.convex.dev/database/document-ids).
  *
- * Documents can be loaded using `db.get(id)` in query and mutation functions.
+ * Documents can be loaded using `db.get(tableName, id)` in query and mutation functions.
  *
  * IDs are base 32 encoded strings which are URL safe.
  *
