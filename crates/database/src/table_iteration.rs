@@ -47,6 +47,7 @@ use common::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::{
+    future::Either,
     pin_mut,
     stream,
     Stream,
@@ -266,6 +267,26 @@ impl<RT: Runtime> MultiTableIterator<RT> {
         while let Some((_, rev)) = stream.try_next().await? {
             yield rev;
         }
+    }
+
+    /// Wrapper for `stream_documents_in_table` that takes `self` by value, and
+    /// yields it back when the stream is finished. This is helpful because the
+    /// resulting stream is `'static`.
+    #[try_stream(ok = Either<LatestDocument, Self>, error = anyhow::Error)]
+    pub async fn into_stream_documents_in_table(
+        mut self,
+        tablet_id: TabletId,
+        by_id: IndexId,
+        cursor: Option<ResolvedDocumentId>,
+    ) {
+        {
+            let stream = self.stream_documents_in_table(tablet_id, by_id, cursor);
+            pin_mut!(stream);
+            while let Some(rev) = stream.try_next().await? {
+                yield Either::Left(rev);
+            }
+        }
+        yield Either::Right(self);
     }
 
     /// Algorithm overview:

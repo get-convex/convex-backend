@@ -57,6 +57,7 @@ use common::{
         LIST_SNAPSHOT_MAX_AGE_SECS,
         SNAPSHOT_LIST_TIME_LIMIT,
     },
+    pause::Fault,
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
@@ -109,6 +110,7 @@ use errors::{
 };
 use events::usage::UsageEventLogger;
 use futures::{
+    future::Either,
     pin_mut,
     stream::BoxStream,
     FutureExt,
@@ -222,6 +224,7 @@ use crate::{
     BootstrapComponentsModel,
     ComponentRegistry,
     ComponentsTable,
+    MultiTableIterator,
     SchemasTable,
     TableIterator,
     Transaction,
@@ -294,7 +297,7 @@ pub struct Database<RT: Runtime> {
         Mutex<
             Option<(
                 ListSnapshotTableIteratorCacheEntry,
-                BoxStream<'static, anyhow::Result<LatestDocument>>,
+                BoxStream<'static, anyhow::Result<Either<LatestDocument, MultiTableIterator<RT>>>>,
             )>,
         >,
     >,
@@ -303,7 +306,7 @@ pub struct Database<RT: Runtime> {
 #[derive(PartialEq, Eq)]
 struct ListSnapshotTableIteratorCacheEntry {
     snapshot: Timestamp,
-    tablet_id: TabletId,
+    tablet_ids: Vec<TabletId>,
     by_id: IndexId,
     cursor: Option<ResolvedDocumentId>,
 }
@@ -2042,7 +2045,7 @@ impl<RT: Runtime> Database<RT> {
             self.snapshot_by_id_indexes(snapshot),
             self.snapshot_component_paths(snapshot)
         )?;
-        let tablet_ids: BTreeSet<_> = table_mapping
+        let mut tablet_ids: Vec<_> = table_mapping
             .iter()
             .map(|(tablet_id, ..)| tablet_id)
             .filter_map(|tablet_id| {
@@ -2066,9 +2069,9 @@ impl<RT: Runtime> Database<RT> {
                 }
             })
             .try_collect()?;
-        let mut tablet_ids = tablet_ids.into_iter();
-        let tablet_id = match tablet_ids.next() {
-            Some(first_table) => first_table,
+        tablet_ids.sort_unstable();
+        let tablet_id = match tablet_ids.first() {
+            Some(first_table) => *first_table,
             None => {
                 return Ok(SnapshotPage {
                     documents: vec![],
@@ -2082,35 +2085,67 @@ impl<RT: Runtime> Database<RT> {
             .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id index for {tablet_id:?} missing"))?;
         let mut document_stream = {
-            let mut cached = self.list_snapshot_table_iterator_cache.lock();
             let expected_cache_key = ListSnapshotTableIteratorCacheEntry {
                 snapshot: *snapshot,
-                tablet_id,
+                tablet_ids: tablet_ids.clone(),
                 by_id,
                 cursor,
             };
-            if let Some((cache_key, _ds)) = &*cached
-                && *cache_key == expected_cache_key
+            if let Some((_key, ds)) = self
+                .list_snapshot_table_iterator_cache
+                .lock()
+                .take_if(|(cache_key, _)| *cache_key == expected_cache_key)
             {
-                let (_, ds) = cached.take().unwrap();
                 ds
             } else {
-                let table_iterator = self.table_iterator(snapshot, 100);
+                if let Fault::Error(e) = self
+                    .runtime
+                    .pause_client()
+                    .wait("list_snapshot_new_iterator")
+                    .await
+                {
+                    return Err(e);
+                }
+                let table_iterator = self.table_iterator(snapshot, 100).multi(tablet_ids.clone());
                 table_iterator
-                    .stream_documents_in_table(tablet_id, by_id, cursor)
+                    .into_stream_documents_in_table(tablet_id, by_id, cursor)
                     .boxed()
             }
         };
 
-        // new_cursor is set once, when we know the final internal_id.
-        let mut new_cursor = None;
+        enum PageResult<RT: Runtime> {
+            /// Continue iterating the same table. `document_stream` can return
+            /// more values.
+            ContinueTable {
+                new_cursor: ResolvedDocumentId,
+                document_stream: BoxStream<
+                    'static,
+                    anyhow::Result<Either<LatestDocument, MultiTableIterator<RT>>>,
+                >,
+            },
+            /// `tablet_id` is done, and `document_stream` has returned the
+            /// MultiTableIterator. There may or may not be more
+            /// tables.
+            TableDone(MultiTableIterator<RT>),
+        }
         // documents accumulated in (ts, id) order to return.
         let mut documents = vec![];
         let mut rows_read = 0;
         let start_time = Instant::now();
-        while let Some(LatestDocument { ts, value: doc, .. }) = document_stream.try_next().await? {
+        let page_result = loop {
+            let LatestDocument { ts, value: doc, .. } =
+                match document_stream.try_next().await?.context(
+                    "into_stream_documents_in_table stream ended without returning the iterator",
+                )? {
+                    Either::Left(rev) => rev,
+                    Either::Right(iterator) => {
+                        drop(document_stream);
+                        break PageResult::TableDone(iterator);
+                    },
+                };
             rows_read += 1;
             let id = doc.id();
+            anyhow::ensure!(id.tablet_id == tablet_id);
             let table_name = table_mapping.tablet_name(id.tablet_id)?;
             let namespace = table_mapping.tablet_namespace(id.tablet_id)?;
             let component_id = ComponentId::from(namespace);
@@ -2132,34 +2167,65 @@ impl<RT: Runtime> Database<RT> {
                 || documents.len() >= rows_returned_limit
                 || start_time.elapsed() > *SNAPSHOT_LIST_TIME_LIMIT
             {
-                new_cursor = Some(id);
-                break;
+                break PageResult::ContinueTable {
+                    new_cursor: id,
+                    document_stream,
+                };
             }
-        }
-        let new_cursor = match new_cursor {
-            Some(new_cursor) => Some(new_cursor),
-            None => match tablet_ids.next() {
-                Some(next_tablet_id) => {
+        };
+        let (new_cursor, next_cache_kv) = match page_result {
+            PageResult::ContinueTable {
+                new_cursor,
+                document_stream,
+            } => (
+                Some(new_cursor),
+                Some((
+                    ListSnapshotTableIteratorCacheEntry {
+                        snapshot: *snapshot,
+                        tablet_ids,
+                        by_id,
+                        cursor: Some(new_cursor),
+                    },
+                    document_stream,
+                )),
+            ),
+            PageResult::TableDone(table_iterator) => match tablet_ids.get(1) {
+                Some(&next_tablet_id) => {
                     // TODO(lee) just use DeveloperDocumentId::min() once we no longer
                     // need to be rollback-safe.
                     let next_table_number = table_mapping.tablet_number(next_tablet_id)?;
-                    Some(ResolvedDocumentId::new(
+                    let next_by_id = *by_id_indexes.get(&next_tablet_id).ok_or_else(|| {
+                        anyhow::anyhow!("by_id index for {next_tablet_id:?} missing")
+                    })?;
+                    let next_cursor = ResolvedDocumentId::new(
                         next_tablet_id,
                         DeveloperDocumentId::new(next_table_number, InternalId::MIN),
-                    ))
+                    );
+                    let next_document_stream = table_iterator
+                        .into_stream_documents_in_table(
+                            next_tablet_id,
+                            next_by_id,
+                            Some(next_cursor),
+                        )
+                        .boxed();
+                    (
+                        Some(next_cursor),
+                        Some((
+                            ListSnapshotTableIteratorCacheEntry {
+                                snapshot: *snapshot,
+                                tablet_ids: tablet_ids[1..].to_vec(),
+                                by_id: next_by_id,
+                                cursor: Some(next_cursor),
+                            },
+                            next_document_stream,
+                        )),
+                    )
                 },
-                None => None,
+                None => (None, None),
             },
         };
-        if let Some(new_cursor) = new_cursor {
-            let new_cache_key = ListSnapshotTableIteratorCacheEntry {
-                snapshot: *snapshot,
-                tablet_id,
-                by_id,
-                cursor: Some(new_cursor),
-            };
-            *self.list_snapshot_table_iterator_cache.lock() =
-                Some((new_cache_key, document_stream));
+        if let Some(kv) = next_cache_kv {
+            *self.list_snapshot_table_iterator_cache.lock() = Some(kv);
         }
         let has_more = new_cursor.is_some();
         metrics::log_list_snapshot_page_documents(documents.len());
