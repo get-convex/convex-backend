@@ -400,8 +400,8 @@ importers:
         specifier: ^10.0.0
         version: 10.1.8(eslint@9.39.1(jiti@2.6.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1763,8 +1763,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1806,8 +1806,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1871,8 +1871,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1911,8 +1911,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1954,8 +1954,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1994,8 +1994,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2034,8 +2034,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2074,8 +2074,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2127,8 +2127,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2188,8 +2188,8 @@ importers:
         specifier: ^15.5.4
         version: 15.5.6(eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       postcss:
         specifier: ^8.4.19
         version: 8.5.6
@@ -2258,8 +2258,8 @@ importers:
         specifier: ~13.4.16
         version: 13.4.19(eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2323,8 +2323,8 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2351,8 +2351,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       vite:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -2376,8 +2376,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       vite:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -2413,8 +2413,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2468,8 +2468,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2508,8 +2508,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2548,8 +2548,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2588,8 +2588,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2631,8 +2631,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2674,8 +2674,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2717,8 +2717,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2760,8 +2760,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2803,8 +2803,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2846,8 +2846,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2889,8 +2889,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2929,8 +2929,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2972,8 +2972,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3015,8 +3015,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3064,8 +3064,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3104,8 +3104,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3150,8 +3150,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3780,8 +3780,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3989,8 +3989,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4023,8 +4023,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4082,8 +4082,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       vite:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -4135,8 +4135,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       vite:
         specifier: ^6.4.1
         version: 6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -4184,8 +4184,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4349,8 +4349,8 @@ importers:
         specifier: ^15.5.4
         version: 15.5.6(eslint-plugin-import-x@4.16.1(@typescript-eslint/utils@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))(typescript@5.0.4)
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       postcss:
         specifier: ^8.4.19
         version: 8.5.6
@@ -4443,8 +4443,8 @@ importers:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.6.1)
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       postcss:
         specifier: ^8.4.19
         version: 8.5.6
@@ -4520,8 +4520,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5031,8 +5031,8 @@ importers:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.6.1)
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -5109,8 +5109,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5131,8 +5131,8 @@ importers:
         specifier: ^18.17.0
         version: 18.19.130
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
@@ -5168,8 +5168,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5208,8 +5208,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: 5.0.4
         version: 5.0.4
@@ -5319,8 +5319,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5359,8 +5359,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -5417,8 +5417,8 @@ importers:
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.1(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1))
       npm-run-all2:
-        specifier: ^7.0.0
-        version: 7.0.2
+        specifier: ^8.0.0
+        version: 8.0.4
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -18759,9 +18759,9 @@ packages:
     resolution: {integrity: sha512-TZKxPvItzai9kN9H/TkmCtx/ZN/hvr3vUycjlfmH0ootY9yFBzNOpiXAdIn1Iteqsvk4lQn6B5PTrt+n6h8k/w==}
     engines: {node: ^18.17.0 || >=20.5.0}
 
-  npm-run-all2@7.0.2:
-    resolution: {integrity: sha512-7tXR+r9hzRNOPNTvXegM+QzCuMjzUIIq66VDunL6j60O4RrExx32XUhlrS7UK4VcdGw5/Wxzb3kfNcFix9JKDA==}
-    engines: {node: ^18.17.0 || >=20.5.0, npm: '>= 9'}
+  npm-run-all2@8.0.4:
+    resolution: {integrity: sha512-wdbB5My48XKp2ZfJUlhnLVihzeuA1hgBnqB2J9ahV77wLS+/YAJAlN8I+X3DIFIPZ3m5L7nplmlbhNiFDmXRDA==}
+    engines: {node: ^20.5.0 || >=22.0.0, npm: '>= 10'}
     hasBin: true
 
   npm-run-all@4.1.5:
@@ -44180,12 +44180,12 @@ snapshots:
 
   npm-normalize-package-bin@4.0.0: {}
 
-  npm-run-all2@7.0.2:
+  npm-run-all2@8.0.4:
     dependencies:
       ansi-styles: 6.2.3
       cross-spawn: 7.0.6
       memorystream: 0.3.1
-      minimatch: 9.0.5
+      picomatch: 4.0.3
       pidtree: 0.6.0
       read-package-json-fast: 4.0.0
       shell-quote: 1.8.3

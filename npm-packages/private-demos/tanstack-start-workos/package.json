@@ -48,7 +48,7 @@
     "concurrently": "~8.2.2",
     "dotenv": "^16.4.7",
     "eslint": "^9.37.0",
-    "npm-run-all2": "^7.0.0",
+    "npm-run-all2": "^8.0.0",
     "prettier": "3.6.2",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",

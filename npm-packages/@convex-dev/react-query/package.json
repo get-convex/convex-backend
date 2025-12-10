@@ -58,7 +58,7 @@
     "convex-helpers": "^0.1.105",
     "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.0.0",
-    "npm-run-all2": "^7.0.0",
+    "npm-run-all2": "^8.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "tshy": "^3.0.0",

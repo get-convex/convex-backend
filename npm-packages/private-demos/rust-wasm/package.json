@@ -19,6 +19,6 @@
     "@vitejs/plugin-react": "5.0.3",
     "typescript": "~5.0.3",
     "vite": "^7.1.11",
-    "npm-run-all2": "^7.0.0"
+    "npm-run-all2": "^8.0.0"
   }
 }
