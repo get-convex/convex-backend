@@ -19,10 +19,7 @@ use axum::{
 };
 use bytes::Bytes;
 use errors::ErrorMetadata;
-use fastrace::{
-    future::FutureExt as _,
-    Span,
-};
+use fastrace::Span;
 use futures::TryFutureExt as _;
 use http::HeaderMap;
 use serde::{
@@ -91,9 +88,26 @@ where
 
 pub struct Json<T>(pub T);
 
+async fn buffer_body<S: Send + Sync>(req: Request, state: &S) -> anyhow::Result<Bytes> {
+    let span = Span::enter_with_local_parent("buffering_body");
+    let bytes = Bytes::from_request(req, state)
+        .await
+        .map_err(|e| anyhow::anyhow!(ErrorMetadata::bad_request("BadJsonBody", e.body_text())))?;
+    if let Some(duration) = span.elapsed() {
+        span.add_property(|| ("num_bytes", bytes.len().to_string()));
+        span.add_property(|| {
+            (
+                "megabytes_per_sec",
+                format!("{:.3}", bytes.len() as f64 / (duration.as_secs_f64() * 1e6)),
+            )
+        });
+    }
+    Ok(bytes)
+}
+
 /// Fork of axum::Json that uses HttpResponseError instead of JsonRejection to
 /// make sure we get propper logging / error reporting and integrates with our
-/// tracing framework.
+/// tracing framework. Note that we also implement OptionalFromRequest below!
 impl<S, T> FromRequest<S> for Json<T>
 where
     T: DeserializeOwned,
@@ -109,12 +123,7 @@ where
             ));
             return Err(err.into());
         }
-        let bytes = Bytes::from_request(req, state)
-            .in_span(Span::enter_with_local_parent("buffering_body"))
-            .await
-            .map_err(|e| {
-                anyhow::anyhow!(ErrorMetadata::bad_request("BadJsonBody", e.body_text()))
-            })?;
+        let bytes = buffer_body(req, state).await?;
 
         let t = {
             let _span = Span::enter_with_local_parent("parse_json");
@@ -140,13 +149,7 @@ where
         if !json_content_type(req.headers()) {
             return Ok(None);
         }
-        let bytes = Bytes::from_request(req, state)
-            .in_span(Span::enter_with_local_parent("buffering_body"))
-            .await
-            .map_err(|e| {
-                anyhow::anyhow!(ErrorMetadata::bad_request("BadJsonBody", e.body_text()))
-            })?;
-
+        let bytes = buffer_body(req, state).await?;
         let t = {
             let _span = Span::enter_with_local_parent("parse_json");
             #[allow(clippy::disallowed_types)]
