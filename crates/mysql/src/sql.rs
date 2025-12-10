@@ -77,10 +77,10 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
             r#"
         CREATE TABLE IF NOT EXISTS @db_name.documents (
             {instance_col_def}
-            id VARBINARY(32) NOT NULL,
+            id BINARY(16) NOT NULL,
             ts BIGINT NOT NULL,
 
-            table_id VARBINARY(32) NOT NULL,
+            table_id BINARY(16) NOT NULL,
 
             json_value LONGBLOB NOT NULL,
             deleted BOOLEAN DEFAULT false,
@@ -94,7 +94,7 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
         CREATE TABLE IF NOT EXISTS @db_name.indexes (
             {instance_col_def}
             /* ids should be serialized as bytes but we keep it compatible with documents */
-            index_id VARBINARY(32) NOT NULL,
+            index_id BINARY(16) NOT NULL,
             ts BIGINT NOT NULL,
 
             /*
@@ -113,8 +113,8 @@ pub const fn init_sql(multitenant: bool) -> &'static str {
 
             deleted BOOLEAN,
             /* table_id and document_id should be populated iff deleted is false. */
-            table_id VARBINARY(32) NULL,
-            document_id VARBINARY(32) NULL,
+            table_id BINARY(16) NULL,
+            document_id BINARY(16) NULL,
 
             PRIMARY KEY ({instance_col} index_id, key_prefix, key_sha256, ts)
         ) ROW_FORMAT=DYNAMIC;
