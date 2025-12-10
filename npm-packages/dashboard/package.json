@@ -86,7 +86,7 @@
     "@types/testing-library__jest-dom": "~5.14.5",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
-    "babel-loader": "^8.2.5",
+    "babel-loader": "^10.0.0",
     "chalk": "5",
     "cors-anywhere": "~0.4.4",
     "dotenv": "^16.4.7",

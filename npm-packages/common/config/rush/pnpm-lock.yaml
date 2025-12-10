@@ -1141,8 +1141,8 @@ importers:
         specifier: ^6.7.4
         version: 6.21.0(eslint@8.57.1)(typescript@5.9.3)
       babel-loader:
-        specifier: ^8.2.5
-        version: 8.4.1(@babel/core@7.28.5)(webpack@5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+        specifier: ^10.0.0
+        version: 10.0.0(@babel/core@7.28.5)(webpack@5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       chalk:
         specifier: '5'
         version: 5.6.2
@@ -12809,12 +12809,12 @@ packages:
     peerDependencies:
       '@babel/core': ^7.11.0 || ^8.0.0-0
 
-  babel-loader@8.4.1:
-    resolution: {integrity: sha512-nXzRChX+Z1GoE6yWavBQg6jDslyFF3SDjl2paADuoQtQW10JqShJt62R6eJQ5m/pjJFDT8xgKIWSP85OY8eXeA==}
-    engines: {node: '>= 8.9'}
+  babel-loader@10.0.0:
+    resolution: {integrity: sha512-z8jt+EdS61AMw22nSfoNJAZ0vrtmhPRVi6ghL3rCeRZI8cdNYFiV5xeV3HbE7rlZZNmGH8BVccwWt8/ED0QOHA==}
+    engines: {node: ^18.20.0 || ^20.10.0 || >=22.0.0}
     peerDependencies:
-      '@babel/core': ^7.0.0
-      webpack: '>=2'
+      '@babel/core': ^7.12.0
+      webpack: '>=5.61.0'
 
   babel-loader@9.2.1:
     resolution: {integrity: sha512-fqe8naHt46e0yIdkjUZYqddSXfej3AHajX+CSO5X7oy0EmPc6o5Xh+RClNoHjnieWz9AW4kZxW9yyFMhVB1QLA==}
@@ -20981,10 +20981,6 @@ packages:
 
   schema-dts@1.1.5:
     resolution: {integrity: sha512-RJr9EaCmsLzBX2NDiO5Z3ux2BVosNZN5jo0gWgsyKvxKIUL5R3swNvoorulAeL9kLB0iTSX7V6aokhla2m7xbg==}
-
-  schema-utils@2.7.1:
-    resolution: {integrity: sha512-SHiNtMOUGWBQJwzISiVYKu82GiV4QYGePp3odlY1tuKO7gPtphAT5R/py0fA6xtbgLL/RvtJZnU9b8s0F1q0Xg==}
-    engines: {node: '>= 8.9.0'}
 
   schema-utils@3.3.0:
     resolution: {integrity: sha512-pN/yOAvcC+5rQ5nERGuwrjLlYvLTbCibnZ1I7B1LaiAz9BRBlE9GMgE/eqV30P7aJQUf7Ddimy/RsbYO/GrVGg==}
@@ -35056,13 +35052,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  babel-loader@8.4.1(@babel/core@7.28.5)(webpack@5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15))):
+  babel-loader@10.0.0(@babel/core@7.28.5)(webpack@5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15))):
     dependencies:
       '@babel/core': 7.28.5
-      find-cache-dir: 3.3.2
-      loader-utils: 2.0.4
-      make-dir: 3.1.0
-      schema-utils: 2.7.1
+      find-up: 5.0.0
       webpack: 5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15))
 
   babel-loader@9.2.1(@babel/core@7.28.5(supports-color@10.2.2))(webpack@5.102.1(@swc/core@1.10.4(@swc/helpers@0.5.15))):
@@ -46727,12 +46720,6 @@ snapshots:
   scheduler@0.27.0: {}
 
   schema-dts@1.1.5: {}
-
-  schema-utils@2.7.1:
-    dependencies:
-      '@types/json-schema': 7.0.15
-      ajv: 6.12.6
-      ajv-keywords: 3.5.2(ajv@6.12.6)
 
   schema-utils@3.3.0:
     dependencies:
