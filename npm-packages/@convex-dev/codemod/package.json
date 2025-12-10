@@ -39,7 +39,7 @@
     "ora": "^8.1.1",
     "progress": "~2.0.3",
     "semver": "^7.6.0",
-    "ts-morph": "^26.0.0",
+    "ts-morph": "^27.0.0",
     "tsc-alias": "~1.8.15"
   },
   "engines": {
