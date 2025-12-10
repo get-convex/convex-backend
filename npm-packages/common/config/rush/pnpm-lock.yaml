@@ -1405,8 +1405,8 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
       zod-error:
-        specifier: 1.5.0
-        version: 1.5.0
+        specifier: 2.0.0
+        version: 2.0.0(zod@3.25.76)
     devDependencies:
       '@jest/types':
         specifier: ^29.6.0
@@ -23489,8 +23489,10 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
-  zod-error@1.5.0:
-    resolution: {integrity: sha512-zzopKZ/skI9iXpqCEPj+iLCKl9b88E43ehcU+sbRoHuwGd9F1IDVGQ70TyO6kmfiRL1g4IXkjsXK+g1gLYl4WQ==}
+  zod-error@2.0.0:
+    resolution: {integrity: sha512-ivSoPm7h5SEGG8GUvQ7YTwrnEx36qNmUIU5hSIGcqcdl7+ZFoTrYXAdQEs3KP/rkihrrR9REEdOeGU+fWdMoNw==}
+    peerDependencies:
+      zod: ^4.0.0
 
   zod-to-json-schema@3.24.6:
     resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
@@ -50414,7 +50416,7 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod-error@1.5.0:
+  zod-error@2.0.0(zod@3.25.76):
     dependencies:
       zod: 3.25.76
 

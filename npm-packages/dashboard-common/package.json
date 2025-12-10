@@ -68,7 +68,7 @@
     "tailwind-variants": "^1.0.0",
     "yup": "~0.32.11",
     "zod": "^3.24.0",
-    "zod-error": "1.5.0"
+    "zod-error": "2.0.0"
   },
   "devDependencies": {
     "@jest/types": "^29.6.0",
