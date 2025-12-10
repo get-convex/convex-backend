@@ -65,7 +65,7 @@
     "system-udfs": "workspace:*",
     "supports-color": "10.0.0",
     "tailwind-merge": "^3.3.1",
-    "tailwind-variants": "^1.0.0",
+    "tailwind-variants": "^3.0.0",
     "yup": "~0.32.11",
     "zod": "^3.24.0",
     "zod-error": "2.0.0"

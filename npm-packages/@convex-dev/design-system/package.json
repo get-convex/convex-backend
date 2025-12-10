@@ -31,7 +31,7 @@
     "react-popper": "^2.3.0",
     "react-use": "~17.6.0",
     "tailwind-merge": "^3.3.1",
-    "tailwind-variants": "^1.0.0",
+    "tailwind-variants": "^3.0.0",
     "lodash-es": "~4.17.21"
   },
   "devDependencies": {
