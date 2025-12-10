@@ -6,7 +6,7 @@ export const getTask = query({
     taskId: v.id("tasks"),
   },
   handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
+    const task = await ctx.db.get("tasks", args.taskId);
     // ...
   },
 });

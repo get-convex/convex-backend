@@ -66,7 +66,7 @@ export const listMessages_OMIT_1 = query({
   },
   handler: async (ctx, { conversationId }) => {
     const user = await ctx.runQuery(api.users.getCurrentUser);
-    const conversation = await ctx.db.get(conversationId);
+    const conversation = await ctx.db.get("conversations", conversationId);
     if (conversation === null || !conversation.members.includes(user._id)) {
       throw new Error("Unauthorized");
     }
@@ -116,7 +116,7 @@ export async function ensureHasAccess(
   { conversationId }: { conversationId: Id<"conversations"> },
 ) {
   const user = await Users.getCurrentUser(ctx);
-  const conversation = await ctx.db.get(conversationId);
+  const conversation = await ctx.db.get("conversations", conversationId);
   if (conversation === null || !conversation.members.includes(user._id)) {
     throw new Error("Unauthorized");
   }
@@ -140,7 +140,7 @@ export async function addSummary_OMIT_1(
   }: { conversationId: Id<"conversations">; summary: string },
 ) {
   await ensureHasAccess(ctx, { conversationId });
-  await ctx.db.patch(conversationId, { summary });
+  await ctx.db.patch("conversations", conversationId, { summary });
 }
 
 export async function generateSummary(

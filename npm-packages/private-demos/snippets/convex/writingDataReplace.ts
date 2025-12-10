@@ -5,12 +5,12 @@ export const replaceTask = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
     const { id } = args;
-    console.log(await ctx.db.get(id));
+    console.log(await ctx.db.get("tasks", id));
     // { text: "foo", _id: ... }
 
     // Replace the whole document
-    await ctx.db.replace(id, { invalid: true });
-    console.log(await ctx.db.get(id));
+    await ctx.db.replace("tasks", id, { invalid: true });
+    console.log(await ctx.db.get("tasks", id));
     // { invalid: true, _id: ... }
   },
 });
