@@ -2138,8 +2138,9 @@ impl<RT: Runtime> Database<RT> {
                     "into_stream_documents_in_table stream ended without returning the iterator",
                 )? {
                     Either::Left(rev) => rev,
-                    Either::Right(iterator) => {
+                    Either::Right(mut iterator) => {
                         drop(document_stream);
+                        iterator.unregister_table(tablet_id)?;
                         break PageResult::TableDone(iterator);
                     },
                 };
