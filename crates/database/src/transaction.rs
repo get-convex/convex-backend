@@ -1231,6 +1231,11 @@ impl FinalTransaction {
             let index = base_snapshot
                 .index_registry
                 .enabled_index_by_index_id(&index_id)
+                .or_else(|| {
+                    base_snapshot
+                        .index_registry
+                        .pending_index_by_index_id(&index_id)
+                })
                 .cloned()
                 .with_context(|| anyhow::anyhow!("failed to find index id {index_id}"))?
                 .name();

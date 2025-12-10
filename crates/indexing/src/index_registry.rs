@@ -518,6 +518,12 @@ impl IndexRegistry {
             .find(|index| *index_id == index.id)
     }
 
+    pub fn pending_index_by_index_id(&self, index_id: &InternalId) -> Option<&Index> {
+        self.pending_indexes
+            .values()
+            .find(|index| *index_id == index.id)
+    }
+
     pub fn all_indexes(&self) -> impl Iterator<Item = &ParsedDocument<TabletIndexMetadata>> {
         self.enabled_indexes
             .values()
