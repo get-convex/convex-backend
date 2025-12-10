@@ -12,29 +12,28 @@ use std::{
 use prost::Message;
 use tonic_build::FileDescriptorSet;
 
-cfg_if::cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        const PROTOC_BINARY_NAME: &str = "protoc-macos-universal";
-    } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
-        const PROTOC_BINARY_NAME: &str = "protoc-linux-aarch64";
-    } else if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
-        const PROTOC_BINARY_NAME: &str = "protoc-linux-x86_64";
-    } else if #[cfg(all(target_os = "windows"))] {
-        // works on arm too
-        const PROTOC_BINARY_NAME: &str = "protoc-windows-x86_64";
-    } else {
-        panic!("no protoc binary available for this architecture");
-    }
-}
-
 pub fn set_protoc_path() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("protoc");
     let include_path = std::fs::canonicalize(root.join("include"))
         .expect("Failed to canonicalize protoc include path");
     unsafe { std::env::set_var("PROTOC_INCLUDE", include_path) };
-    let binary_path = std::fs::canonicalize(root.join(PROTOC_BINARY_NAME))
-        .expect("Failed to canonicalize protoc path");
-    unsafe { std::env::set_var("PROTOC", binary_path) };
+    if std::env::var_os("PROTOC").is_none() {
+        let protoc_binary_name = if cfg!(target_os = "macos") {
+            "protoc-macos-universal"
+        } else if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+            "protoc-linux-aarch64"
+        } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+            "protoc-linux-x86_64"
+        } else if cfg!(all(target_os = "windows")) {
+            // works on arm too
+            "protoc-windows-x86_64"
+        } else {
+            panic!("no protoc binary available for this architecture");
+        };
+        let binary_path = std::fs::canonicalize(root.join(protoc_binary_name))
+            .expect("Failed to canonicalize protoc path");
+        unsafe { std::env::set_var("PROTOC", binary_path) };
+    }
 }
 
 fn find_packages(proto_dir: &Path) -> Result<Vec<String>> {
