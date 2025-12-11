@@ -19,7 +19,7 @@ const recommendedRules = {
   "@convex-dev/import-wrong-runtime": "off",
   "@convex-dev/no-old-registered-function-syntax": "error",
   "@convex-dev/require-args-validator": "error",
-  "@convex-dev/explicit-table-ids": "off",
+  "@convex-dev/explicit-table-ids": "error",
 } satisfies {
   [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
 };

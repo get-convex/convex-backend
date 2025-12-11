@@ -65,6 +65,8 @@ export const queryMessagesById = query({
     id: v.union(v.id("messages"), v.id("messages_with_search")),
   },
   handler: async ({ db }, { id }) => {
+    // TODO(nicolas)
+    // eslint-disable-next-line @convex-dev/explicit-table-ids
     return await db.get(id satisfies Id<MessagesTable>);
   },
 });

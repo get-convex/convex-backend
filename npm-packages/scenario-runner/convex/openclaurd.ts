@@ -14,7 +14,7 @@ export const deleteOpenclaurd = mutation({
     if (!toDelete) {
       return;
     }
-    await ctx.db.delete(toDelete._id);
+    await ctx.db.delete("openclaurd", toDelete._id);
   },
 });
 
@@ -87,6 +87,6 @@ export const queryOpenclaurdById = query({
     id: v.id("openclaurd"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("openclaurd", args.id);
   },
 });
