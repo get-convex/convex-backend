@@ -765,8 +765,8 @@ importers:
         specifier: ~2.2.3
         version: 2.2.3
       knip:
-        specifier: ~5.63.0
-        version: 5.63.1(@types/node@18.19.130)(typescript@5.0.4)
+        specifier: ~5.68.0
+        version: 5.68.0(@types/node@18.19.130)(typescript@5.0.4)
       napi-wasm:
         specifier: 1.1.3
         version: 1.1.3
@@ -17503,13 +17503,13 @@ packages:
     resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
     engines: {node: '>= 8'}
 
-  knip@5.63.1:
-    resolution: {integrity: sha512-wSznedUAzcU4o9e0O2WPqDnP7Jttu8cesq/R23eregRY8QYQ9NLJ3aGt9fadJfRzPBoU4tRyutwVQu6chhGDlA==}
+  knip@5.68.0:
+    resolution: {integrity: sha512-YFTu0uy/0x3UhNhlKGsFSwDXkdw+1ZKobrkPL5rbPJtmHnZrGOFI1yjTAi/emicy06zvLYhmW51jPKvwZETgQA==}
     engines: {node: '>=18.18.0'}
     hasBin: true
     peerDependencies:
       '@types/node': '>=18'
-      typescript: '>=5.0.4'
+      typescript: '>=5.0.4 <7'
 
   knitwork@1.2.0:
     resolution: {integrity: sha512-xYSH7AvuQ6nXkq42x0v5S8/Iry+cfulBz/DJQzhIyESdLD7425jXsPy4vn5cCXU+HhRN2kVw51Vd1K6/By4BQg==}
@@ -23500,12 +23500,6 @@ packages:
     resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
     peerDependencies:
       zod: ^3.24.1
-
-  zod-validation-error@3.5.4:
-    resolution: {integrity: sha512-+hEiRIiPobgyuFlEojnqjJnhFvg4r/i3cqgcm67eehZf/WBaK3g6cD02YU9mtdVxZjv8CzCA9n/Rhrs3yAAvAw==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      zod: ^3.24.4
 
   zod@3.22.4:
     resolution: {integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==}
@@ -42381,7 +42375,7 @@ snapshots:
 
   klona@2.0.6: {}
 
-  knip@5.63.1(@types/node@18.19.130)(typescript@5.0.4):
+  knip@5.68.0(@types/node@18.19.130)(typescript@5.0.4):
     dependencies:
       '@nodelib/fs.walk': 1.2.8
       '@types/node': 18.19.130
@@ -42396,8 +42390,7 @@ snapshots:
       smol-toml: 1.4.2
       strip-json-comments: 5.0.2
       typescript: 5.0.4
-      zod: 3.25.76
-      zod-validation-error: 3.5.4(zod@3.25.76)
+      zod: 4.1.12
 
   knitwork@1.2.0: {}
 
@@ -50446,10 +50439,6 @@ snapshots:
       zod: 3.25.76
 
   zod-to-json-schema@3.24.6(zod@3.25.76):
-    dependencies:
-      zod: 3.25.76
-
-  zod-validation-error@3.5.4(zod@3.25.76):
     dependencies:
       zod: 3.25.76
 
