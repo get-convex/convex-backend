@@ -33,9 +33,11 @@ const sentryValidationSchema = Yup.object().shape({
 export function SentryConfigurationForm({
   onClose,
   existingConfig,
+  onAddedIntegration,
 }: {
   onClose: () => void;
   existingConfig: Infer<typeof sentryConfig> | null;
+  onAddedIntegration?: () => void;
 }) {
   const createSentryIntegration = useCreateSentryIntegration();
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
@@ -58,6 +60,7 @@ export function SentryConfigurationForm({
         values.tags ? JSON.parse(values.tags) : undefined,
         values.version,
       );
+      onAddedIntegration?.();
       onClose();
     },
     validationSchema: sentryValidationSchema,

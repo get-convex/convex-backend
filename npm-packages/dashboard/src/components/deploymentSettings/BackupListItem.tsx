@@ -42,6 +42,7 @@ import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupIdentifier } from "elements/BackupIdentifier";
 import { cn } from "@ui/cn";
 import { getDeploymentLabel } from "elements/DeploymentDisplay";
+import { usePostHog } from "hooks/usePostHog";
 
 export function BackupListItem({
   backup,
@@ -710,11 +711,13 @@ export function BackupNowButton({
   const [showModal, setShowModal] = useState(false);
   const [includeStorage, setIncludeStorage] = useState(false);
   const includeStorageCheckboxId = useId();
+  const { capture } = usePostHog();
 
   const doBackup = async () => {
     setIsOngoing(true);
     try {
       await requestBackup({ includeStorage });
+      capture("created_backup", { includedStorage: includeStorage });
     } finally {
       setIsOngoing(false);
     }

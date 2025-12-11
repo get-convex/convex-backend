@@ -23,7 +23,11 @@ const PAUSE_EXPLANATION: string[] = [
   "Cron jobs will be skipped.",
 ];
 
-export function PauseDeployment() {
+export function PauseDeployment({
+  onPausedDeployment,
+}: {
+  onPausedDeployment?: () => void;
+}) {
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
   const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
     DeploymentInfoContext,
@@ -46,7 +50,13 @@ export function PauseDeployment() {
     }
   }, [deploymentState]);
   async function toggle() {
-    await changeDeploymentState(paused ? "running" : "paused");
+    const nextState = paused ? "running" : "paused";
+    await changeDeploymentState(nextState);
+
+    // Only fire the callback when we pause a running deployment.
+    if (!paused && nextState === "paused") {
+      onPausedDeployment?.();
+    }
   }
   function changeVerb(isPaused: boolean) {
     return isPaused ? "Resume" : "Pause";

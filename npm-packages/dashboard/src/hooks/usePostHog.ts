@@ -14,6 +14,22 @@ export type PostHogEventMap = {
   uploaded_files: {
     count: number;
   };
+  ran_custom_query: never;
+  copied_query_result: never;
+  upgraded_to_pro: never;
+  added_integration: {
+    kind: string;
+  };
+  paused_deployment: never;
+  generated_deploy_key: {
+    type: string;
+  };
+  deleted_deploy_key: {
+    type: string;
+  };
+  created_backup: {
+    includedStorage: boolean;
+  };
 };
 
 export type PostHogEvent = keyof PostHogEventMap;

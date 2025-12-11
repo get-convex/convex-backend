@@ -88,11 +88,15 @@ export function GlobalFunctionTester({
   setIsVertical,
   isExpanded,
   setIsExpanded,
+  onRanCustomQuery,
+  onCopiedQueryResult,
 }: {
   isVertical: boolean;
   setIsVertical: (v: boolean) => void;
   isExpanded: boolean;
   setIsExpanded: (v: boolean) => void;
+  onRanCustomQuery?: () => void;
+  onCopiedQueryResult?: () => void;
 }) {
   const isShowing = useIsGlobalRunnerShown();
   const hideGlobalRunner = useHideGlobalRunner();
@@ -149,6 +153,7 @@ export function GlobalFunctionTester({
     argsValidator,
     runHistoryItem,
     setRunHistoryItem,
+    onCopiedQueryResult,
   });
   const { queryEditor, customQueryResult, runCustomQueryButton } =
     useFunctionEditor(
@@ -156,6 +161,7 @@ export function GlobalFunctionTester({
       selectedItem?.componentId ?? null,
       runHistoryItem,
       setRunHistoryItem,
+      onRanCustomQuery,
     );
 
   const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
@@ -423,6 +429,7 @@ export function useFunctionTester({
   impersonation = true,
   runHistoryItem,
   setRunHistoryItem,
+  onCopiedQueryResult,
 }: {
   moduleFunction: ModuleFunction | null;
   initialArgs?: Record<string, Value>;
@@ -430,6 +437,7 @@ export function useFunctionTester({
   impersonation?: boolean;
   runHistoryItem?: RunHistoryItem;
   setRunHistoryItem?: (item?: RunHistoryItem) => void;
+  onCopiedQueryResult?: () => void;
 }) {
   const [parameters, setParameters] = useState<Record<string, Value>>(
     initialArgs || {},
@@ -565,6 +573,7 @@ export function useFunctionTester({
     componentId: moduleFunction?.componentId || null,
     args: parameters,
     runHistoryItem,
+    onCopiedQueryResult,
   });
 
   const queryResult = moduleFunction &&
@@ -575,6 +584,7 @@ export function useFunctionTester({
         module={moduleFunction}
         parameters={parameters}
         reactClient={reactClient}
+        onCopiedQueryResult={onCopiedQueryResult}
       />
     );
 

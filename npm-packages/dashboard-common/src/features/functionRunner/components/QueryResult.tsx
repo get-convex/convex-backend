@@ -19,11 +19,13 @@ export function QueryResult({
   parameters,
   reactClient,
   paused,
+  onCopiedQueryResult,
 }: {
   reactClient: ConvexReactClient;
   module: FunctionTypes.ModuleFunction;
   parameters: DefaultFunctionArgs;
   paused: boolean;
+  onCopiedQueryResult?: () => void;
 }) {
   if (module.udfType !== "Query") {
     throw new Error("Invalid udf type");
@@ -74,6 +76,7 @@ export function QueryResult({
         }
         requestFilter={null}
         startCursor={0}
+        onCopiedQueryResult={onCopiedQueryResult}
       />
     </div>
   );

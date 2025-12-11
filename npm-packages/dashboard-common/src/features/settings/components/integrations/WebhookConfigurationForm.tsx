@@ -84,9 +84,11 @@ function HmacSecretDisplay({
 export function WebhookConfigurationForm({
   onClose,
   existingIntegration,
+  onAddedIntegration,
 }: {
   onClose: () => void;
   existingIntegration: Infer<typeof webhookConfig> | null;
+  onAddedIntegration?: () => void;
 }) {
   const createWebhookIntegration = useCreateWebhookIntegration();
   const regenerateWebhookSecret = useRegenerateWebhookSecret();
@@ -103,6 +105,7 @@ export function WebhookConfigurationForm({
     },
     onSubmit: async (values) => {
       await createWebhookIntegration(values.url, values.format);
+      onAddedIntegration?.();
 
       // If this is a new integration, wait for the secret to be generated
       if (isNewIntegration) {

@@ -31,9 +31,11 @@ const datadogValidationSchema = Yup.object().shape({
 export function DatadogConfigurationForm({
   existingConfig,
   onClose,
+  onAddedIntegration,
 }: {
   onClose: () => void;
   existingConfig: Infer<typeof datadogConfig> | null;
+  onAddedIntegration?: () => void;
 }) {
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
 
@@ -66,6 +68,7 @@ export function DatadogConfigurationForm({
         values.service,
         values.version,
       );
+      onAddedIntegration?.();
       onClose();
     },
     validationSchema: datadogValidationSchema,

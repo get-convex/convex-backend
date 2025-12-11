@@ -23,11 +23,13 @@ export function Integrations({
   entitlements,
   integrations,
   workosData,
+  onAddedIntegration,
 }: {
   team: ReturnType<DeploymentInfo["useCurrentTeam"]>;
   entitlements: ReturnType<DeploymentInfo["useTeamEntitlements"]>;
   integrations: Doc<"_log_sinks">[];
   workosData: ReturnType<DeploymentInfo["useDeploymentWorkOSEnvironment"]>;
+  onAddedIntegration?: (kind: string) => void;
 }) {
   const {
     useCurrentDeployment,
@@ -145,6 +147,7 @@ export function Integrations({
               integration={i}
               unavailableReason={logIntegrationUnvaliableReason}
               teamSlug={team?.slug}
+              onAddedIntegration={onAddedIntegration}
             />
           ))}
           {EXPORT_INTEGRATIONS.map((i) => (
@@ -152,6 +155,7 @@ export function Integrations({
               integration={{ kind: i }}
               unavailableReason={streamingExportIntegrationUnavailableReason}
               teamSlug={team?.slug}
+              onAddedIntegration={onAddedIntegration}
             />
           ))}
         </div>

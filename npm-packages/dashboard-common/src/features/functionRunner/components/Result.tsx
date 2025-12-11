@@ -20,6 +20,7 @@ function ResultImpl({
   queryStatus,
   requestFilter,
   startCursor,
+  onCopiedQueryResult,
 }: {
   result?: FunctionResult;
   // If the request is in flight.
@@ -33,6 +34,7 @@ function ResultImpl({
   queryStatus?: React.ReactNode;
   requestFilter: RequestFilter | null;
   startCursor: number;
+  onCopiedQueryResult?: () => void;
 }) {
   const {
     loading: isFormattingCode,
@@ -92,6 +94,7 @@ function ResultImpl({
             className="h-4 p-0"
             tip="Copy Result Value"
             disabled={loading || result === undefined}
+            onCopied={onCopiedQueryResult}
           />
         )}
       </div>

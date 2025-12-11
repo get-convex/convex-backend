@@ -176,6 +176,7 @@ export function useFunctionEditor(
   componentId: ComponentId,
   runHistoryItem: RunHistoryItem | undefined,
   setRunHistoryItem: (item: RunHistoryItem) => void,
+  onRanCustomQuery?: () => void,
 ) {
   const { resolvedTheme: currentTheme } = useTheme();
   const prefersDark = currentTheme === "dark";
@@ -418,7 +419,10 @@ export function useFunctionEditor(
     ),
     runCustomQueryButton: (
       <Button
-        onClick={onSave}
+        onClick={() => {
+          void onSave();
+          onRanCustomQuery?.();
+        }}
         size="sm"
         className={classNames("items-center justify-center", "w-full")}
         loading={isInFlight}

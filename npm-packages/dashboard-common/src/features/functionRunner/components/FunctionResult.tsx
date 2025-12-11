@@ -27,6 +27,7 @@ export function useFunctionResult({
   componentId,
   args,
   runHistoryItem,
+  onCopiedQueryResult,
 }: {
   udfType?: "Mutation" | "Action" | "Query" | "HttpAction";
   onSubmit(): {
@@ -38,6 +39,7 @@ export function useFunctionResult({
   componentId: ComponentId;
   args: Record<string, Value>;
   runHistoryItem?: RunHistoryItem;
+  onCopiedQueryResult?: () => void;
 }) {
   const { appendRunHistory } = useRunHistory(
     functionIdentifier || "",
@@ -205,6 +207,7 @@ export function useFunctionResult({
         lastRequestTiming={lastRequestTiming}
         requestFilter={requestFilter}
         startCursor={startCursor}
+        onCopiedQueryResult={onCopiedQueryResult}
       />
     ),
     runFunction,

@@ -36,6 +36,7 @@ export type PanelCardProps = {
     | { kind: ExportIntegrationType };
   unavailableReason: IntegrationUnavailableReason | null;
   teamSlug?: string;
+  onAddedIntegration?: (kind: string) => void;
 };
 
 function ProBadge({ teamSlug }: { teamSlug?: string }) {
@@ -61,6 +62,7 @@ export function PanelCard({
   integration,
   unavailableReason,
   teamSlug,
+  onAddedIntegration,
 }: PanelCardProps) {
   const classes = classNames(
     "py-3 px-4",
@@ -125,7 +127,8 @@ export function PanelCard({
         integration.kind === "datadog" ||
         integration.kind === "webhook") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {isModalOpen && renderModal(integration, closeModal)}
+          {isModalOpen &&
+            renderModal(integration, closeModal, onAddedIntegration)}
           <IntegrationTitle
             logo={logo}
             integrationKind={integration.kind}
@@ -164,7 +167,14 @@ function exportSetupLink(kind: ExportIntegrationType): string {
 function renderModal(
   integration: LogIntegration | ExceptionReportingIntegration | AuthIntegration,
   closeModal: () => void,
+  onAddedIntegration?: (kind: string) => void,
 ) {
+  // If we have a callback and this is a new integration, pass it to the form.
+  const addedIntegrationProp =
+    onAddedIntegration && integration.existing === null
+      ? { onAddedIntegration: () => onAddedIntegration(integration.kind) }
+      : {};
+
   switch (integration.kind) {
     case "datadog": {
       return (
@@ -176,6 +186,7 @@ function renderModal(
           <DatadogConfigurationForm
             existingConfig={integration.existing?.config ?? null}
             onClose={closeModal}
+            {...addedIntegrationProp}
           />
         </LogIntegrationModal>
       );
@@ -190,6 +201,7 @@ function renderModal(
           <AxiomConfigurationForm
             existingConfig={integration.existing?.config ?? null}
             onClose={closeModal}
+            {...addedIntegrationProp}
           />
         </LogIntegrationModal>
       );
@@ -203,6 +215,7 @@ function renderModal(
           <WebhookConfigurationForm
             onClose={closeModal}
             existingIntegration={integration.existing?.config ?? null}
+            {...addedIntegrationProp}
           />
         </LogIntegrationModal>
       );
@@ -218,6 +231,7 @@ function renderModal(
             <SentryConfigurationForm
               existingConfig={integration.existing?.config ?? null}
               onClose={closeModal}
+              {...addedIntegrationProp}
             />
           </div>
         </Modal>

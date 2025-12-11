@@ -6,7 +6,11 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useContext } from "react";
 import { LoadingTransition } from "@ui/Loading";
 
-export function IntegrationsView() {
+export function IntegrationsView({
+  onAddedIntegration,
+}: {
+  onAddedIntegration?: (kind: string) => void;
+}) {
   const {
     useCurrentTeam,
     useTeamEntitlements,
@@ -28,6 +32,7 @@ export function IntegrationsView() {
             entitlements={entitlements}
             integrations={integrations}
             workosData={workosData}
+            onAddedIntegration={onAddedIntegration}
           />
         )}
       </LoadingTransition>

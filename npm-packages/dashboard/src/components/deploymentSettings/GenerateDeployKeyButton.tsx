@@ -8,6 +8,7 @@ import { useState } from "react";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import startCase from "lodash/startCase";
+import { usePostHog } from "hooks/usePostHog";
 
 export type DeployKeyGenerationDisabledReason =
   | "CannotManageProd"
@@ -36,6 +37,7 @@ export function GenerateDeployKeyWithNameButton({
 }: GenerateDeployKeyWithNameButtonProps) {
   const [name, setName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { capture } = usePostHog();
 
   return (
     <>
@@ -59,6 +61,9 @@ export function GenerateDeployKeyWithNameButton({
                   }
                   onCreateAccessToken && onCreateAccessToken(result.adminKey);
                   setName(null);
+                  capture("generated_deploy_key", {
+                    type: deploymentType,
+                  });
                 } finally {
                   setIsLoading(false);
                 }

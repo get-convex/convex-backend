@@ -10,6 +10,7 @@ import * as Yup from "yup";
 import { Address, PlanResponse, TeamResponse } from "generatedApi";
 import Link from "next/link";
 import { PriceSummary } from "components/billing/PriceSummary";
+import { usePostHog } from "hooks/usePostHog";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import { useStripePaymentSetup } from "../../hooks/useStripe";
@@ -65,6 +66,7 @@ export function UpgradePlanContentContainer({
   isChef: boolean;
 }) {
   const createSubscription = useCreateSubscription(team.id);
+  const { capture } = usePostHog();
 
   const formState = useFormik<UpgradeFormState>({
     initialValues: {
@@ -94,6 +96,9 @@ export function UpgradePlanContentContainer({
         email: v.email,
         ...spendingLimitValueToCents(v),
       });
+      if (plan.planType === "CONVEX_PROFESSIONAL") {
+        capture("upgraded_to_pro");
+      }
       onUpgradeComplete();
     },
   });

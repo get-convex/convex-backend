@@ -6,6 +6,7 @@ import { useCurrentProject } from "api/projects";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+import { usePostHog } from "hooks/usePostHog";
 import {
   useGlobalLDContext,
   useLDContextWithDeployment,
@@ -46,6 +47,8 @@ function CurrentDeploymentDashboardLayoutWhenLoggedIn({
   const auditLogsEnabled =
     entitlements && entitlements.auditLogRetentionDays !== 0;
 
+  const { capture } = usePostHog();
+
   useEffect(() => {
     if (
       !isLoading &&
@@ -61,7 +64,11 @@ function CurrentDeploymentDashboardLayoutWhenLoggedIn({
     <WaitForDeploymentApi>
       <GoogleAnalytics />
       <LaunchDarklyWithDeployment>
-        <CommonDeploymentDashboardLayout auditLogsEnabled={auditLogsEnabled}>
+        <CommonDeploymentDashboardLayout
+          auditLogsEnabled={auditLogsEnabled}
+          onRanCustomQuery={() => capture("ran_custom_query")}
+          onCopiedQueryResult={() => capture("copied_query_result")}
+        >
           {children}
         </CommonDeploymentDashboardLayout>
       </LaunchDarklyWithDeployment>

@@ -34,9 +34,11 @@ type Unpacked<T> = T extends (infer U)[] ? U : never;
 export function AxiomConfigurationForm({
   onClose,
   existingConfig,
+  onAddedIntegration,
 }: {
   onClose: () => void;
   existingConfig: Infer<typeof axiomConfig> | null;
+  onAddedIntegration?: () => void;
 }) {
   const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
   const createAxiomIntegration = useCreateAxiomIntegration();
@@ -63,6 +65,7 @@ export function AxiomConfigurationForm({
         values.version,
         values.ingestUrl,
       );
+      onAddedIntegration?.();
       onClose();
     },
     validationSchema: axiomValidationSchema,
