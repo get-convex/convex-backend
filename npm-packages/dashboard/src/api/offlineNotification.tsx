@@ -30,7 +30,7 @@ export const createOfflineToastContent = () => (
  * @param error Optional error to capture in Sentry
  */
 export const showOfflineToast = (error?: Error) => {
-  toast("error", createOfflineToastContent(), OFFLINE_TOAST_ID);
+  toast("error", createOfflineToastContent(), OFFLINE_TOAST_ID, false);
 
   // Log the error to Sentry if provided
   if (error) {
