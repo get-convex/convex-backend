@@ -27,7 +27,7 @@
     "zshy": "0.6.0"
   },
   "dependencies": {
-    "openapi-fetch": "~0.14.0"
+    "openapi-fetch": "~0.15.0"
   },
   "zshy": "./src/index.ts",
   "files": [
