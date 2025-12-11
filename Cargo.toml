@@ -201,8 +201,8 @@ rustls-native-certs = { version = "0.8" }
 rustls-pki-types = { version = "1" }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 semver = { version = "1", features = [ "serde" ] }
-sentry = { version = "0.37", features = [ "anyhow", "tower", "tower-http" ] }
-sentry-tracing = "0.37"
+sentry = { version = "0.46", features = [ "anyhow", "tower", "tower-http" ] }
+sentry-tracing = "0.46"
 serde = { version = "1", features = [ "derive" ] }
 serde_bytes = "0.11.14"
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth" ] }
