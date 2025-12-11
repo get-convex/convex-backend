@@ -67,6 +67,8 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
+    pub text_index_read_bytes: u64,
+    pub text_index_write_bytes: u64,
     pub memory_used_mb: u64,
     pub return_bytes: Option<u64>,
 }
@@ -974,6 +976,8 @@ mod tests {
                         storage_write_bytes: 0,
                         vector_index_read_bytes: 0,
                         vector_index_write_bytes: 0,
+                        text_index_read_bytes: 0,
+                        text_index_write_bytes: 0,
                         memory_used_mb: 0,
                         return_bytes: Some(64),
                     },

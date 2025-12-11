@@ -84,8 +84,8 @@ mod tests {
             add_document_vec_array,
             assert_backfilled,
             backfilling_vector_index_with_doc,
-            IndexData,
             VectorFixtures,
+            VectorIndexData,
         },
         vector_index_worker::fast_forward::VectorFastForward,
         Database,
@@ -110,7 +110,7 @@ mod tests {
         let mut last_fast_forward_info: Option<LastFastForwardInfo> = None;
         let database = fixtures.db.clone();
 
-        let IndexData {
+        let VectorIndexData {
             index_id,
             index_name,
             resolved_index_name,

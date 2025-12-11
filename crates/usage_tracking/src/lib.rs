@@ -456,6 +456,16 @@ impl UsageCounter {
                 egress: egress_size,
             });
         }
+        for ((component_path, table_name), ingress_size) in stats.text_ingress_size {
+            usage_metrics.push(UsageEvent::TextBandwidth {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                ingress: ingress_size,
+                egress: 0,
+            });
+        }
     }
 }
 
@@ -684,14 +694,10 @@ impl FunctionUsageTracker {
             .mutate_entry_or_default((component_path, table_name), |count| *count += egress_rows);
     }
 
-    // Tracks the vector ingress surcharge and database usage for documents
+    // Tracks the vector ingress surcharge for documents
     // that have one or more vectors in a vector index.
     //
-    // If the document does not have a vector in a vector index, call
-    // `track_database_ingress_size` instead of this method.
-    //
-    // Vector bandwidth is a surcharge on vector related bandwidth usage. As a
-    // result it counts against both bandwidth ingress and vector ingress.
+    // Vector bandwidth is a surcharge on vector related bandwidth usage.
     // Ingress is a bit trickier than egress because vector ingress needs to be
     // updated whenever the mutated document is in a vector index. To be in a
     // vector index the document must both be in a table with a vector index and
@@ -707,15 +713,8 @@ impl FunctionUsageTracker {
             return;
         }
 
-        // Note that vector search counts as both database and vector bandwidth
-        // per the comment above.
         let mut state = self.state.lock();
         let key = (component_path, table_name);
-        state
-            .database_ingress_size
-            .mutate_entry_or_default(key.clone(), |count| {
-                *count += ingress_size;
-            });
         state
             .vector_ingress_size
             .mutate_entry_or_default(key, |count| {
@@ -757,6 +756,41 @@ impl FunctionUsageTracker {
         state
             .vector_egress_size
             .mutate_entry_or_default(key, |count| *count += egress_size);
+    }
+
+    pub fn track_text_ingress_size(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        ingress_size: u64,
+        skip_logging: bool,
+    ) {
+        if skip_logging {
+            return;
+        }
+
+        let mut state = self.state.lock();
+        state
+            .text_ingress_size
+            .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
+    }
+
+    pub fn track_text_egress_size(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        egress_size: u64,
+        skip_logging: bool,
+    ) {
+        if skip_logging {
+            return;
+        }
+
+        // TODO(jordan): decide if we also need to track database egress
+        let mut state = self.state.lock();
+        state
+            .text_egress_size
+            .mutate_entry_or_default((component_path, table_name), |count| *count += egress_size);
     }
 }
 
@@ -833,6 +867,8 @@ pub struct FunctionUsageStats {
     pub database_egress_rows: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub text_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub text_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
 }
 
 impl FunctionUsageStats {
@@ -845,6 +881,8 @@ impl FunctionUsageStats {
             storage_write_bytes: self.storage_ingress_size.values().sum(),
             vector_index_read_bytes: self.vector_egress_size.values().sum(),
             vector_index_write_bytes: self.vector_ingress_size.values().sum(),
+            text_index_read_bytes: self.text_egress_size.values().sum(),
+            text_index_write_bytes: self.text_ingress_size.values().sum(),
         }
     }
 
@@ -955,6 +993,18 @@ mod usage_arbitrary {
                     0..=4,
                 )
                 .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
             );
             strategies
                 .prop_map(
@@ -968,6 +1018,8 @@ mod usage_arbitrary {
                         database_egress_rows,
                         vector_ingress_size,
                         vector_egress_size,
+                        text_ingress_size,
+                        text_egress_size,
                     )| FunctionUsageStats {
                         storage_calls,
                         storage_ingress_size,
@@ -978,6 +1030,8 @@ mod usage_arbitrary {
                         database_egress_rows,
                         vector_ingress_size,
                         vector_egress_size,
+                        text_ingress_size,
+                        text_egress_size,
                     },
                 )
                 .boxed()
@@ -1055,6 +1109,8 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             database_egress_rows: to_by_tag_count(stats.database_egress_rows.into_iter()),
             vector_ingress_size: to_by_tag_count(stats.vector_ingress_size.into_iter()),
             vector_egress_size: to_by_tag_count(stats.vector_egress_size.into_iter()),
+            text_ingress_size: to_by_tag_count(stats.text_ingress_size.into_iter()),
+            text_egress_size: to_by_tag_count(stats.text_egress_size.into_iter()),
         }
     }
 }
@@ -1074,6 +1130,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let database_egress_rows = from_by_tag_count(stats.database_egress_rows)?.collect();
         let vector_ingress_size = from_by_tag_count(stats.vector_ingress_size)?.collect();
         let vector_egress_size = from_by_tag_count(stats.vector_egress_size)?.collect();
+        let text_ingress_size = from_by_tag_count(stats.text_ingress_size)?.collect();
+        let text_egress_size = from_by_tag_count(stats.text_egress_size)?.collect();
 
         Ok(FunctionUsageStats {
             storage_calls,
@@ -1085,6 +1143,8 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             database_egress_size,
             vector_ingress_size,
             vector_egress_size,
+            text_ingress_size,
+            text_egress_size,
         })
     }
 }
@@ -1100,6 +1160,8 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
+    pub text_index_read_bytes: u64,
+    pub text_index_write_bytes: u64,
 }
 
 #[cfg(test)]

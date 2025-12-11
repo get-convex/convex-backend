@@ -142,6 +142,14 @@ pub enum UsageEvent {
         ingress: u64,
         egress: u64,
     },
+    TextBandwidth {
+        id: String,
+        component_path: Option<String>,
+        udf_id: String,
+        table_name: String,
+        ingress: u64,
+        egress: u64,
+    },
 
     // Current* events record the current storage state as of a time, they're not incremental
     // deltas. So a new Current* value should replace the previous value. If a tables Vec is

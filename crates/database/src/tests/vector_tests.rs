@@ -81,8 +81,8 @@ use crate::{
         DbFixturesArgs,
     },
     tests::vector_test_utils::{
-        IndexData,
         VectorFixtures,
+        VectorIndexData,
     },
     vector_index_worker::{
         compactor::compact_vector_indexes_in_test,
@@ -974,7 +974,7 @@ proptest! {
 async fn test_multi_segment_search_obeys_sorted_order(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt.clone()).await?;
 
-    let IndexData {
+    let VectorIndexData {
         index_name,
         resolved_index_name,
         ..

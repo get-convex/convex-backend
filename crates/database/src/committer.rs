@@ -93,6 +93,7 @@ use itertools::Itertools;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use rand::Rng;
+use search::TextIndexWriteSize;
 use tokio::sync::{
     mpsc::{
         self,
@@ -757,7 +758,7 @@ impl<RT: Runtime> Committer<RT> {
             .latest_snapshot()
             .unwrap_or_else(|| self.snapshot_manager.read().latest_snapshot());
         for &document_update in ordered_updates.iter() {
-            let (updates, doc_in_vector_index) =
+            let (updates, doc_in_vector_index, text_index_write_size) =
                 latest_pending_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
             document_writes.push(ValidatedDocumentWrite {
@@ -765,6 +766,7 @@ impl<RT: Runtime> Committer<RT> {
                 id: document_update.id.into(),
                 write: document_update.new_document.clone(),
                 doc_in_vector_index,
+                text_index_write_size,
                 prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
             });
         }
@@ -1039,6 +1041,7 @@ impl<RT: Runtime> Committer<RT> {
             let ValidatedDocumentWrite {
                 write: document,
                 doc_in_vector_index,
+                text_index_write_size,
                 ..
             } = validated_write;
             if let Some(document) = document {
@@ -1054,28 +1057,35 @@ impl<RT: Runtime> Committer<RT> {
                     .unwrap_or(ComponentPath::root());
                 if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Database bandwidth for document writes
-                    if *doc_in_vector_index == DocInVectorIndex::Absent {
-                        usage_tracker.track_database_ingress_size(
+                    usage_tracker.track_database_ingress_size(
+                        component_path.clone().clone(),
+                        table_name.to_string(),
+                        document_write_size as u64,
+                        table_name.is_system(),
+                    );
+                    usage_tracker.track_database_ingress_size_v2(
+                        component_path.clone(),
+                        virtual_system_mapping
+                            .system_to_virtual_table(&table_name)
+                            .unwrap_or(&table_name)
+                            .to_string(),
+                        document_write_size as u64,
+                        table_name.is_system()
+                            && !virtual_system_mapping.has_virtual_table(&table_name),
+                    );
+                    if *doc_in_vector_index == DocInVectorIndex::Present {
+                        usage_tracker.track_vector_ingress_size(
                             component_path.clone(),
                             table_name.to_string(),
                             document_write_size as u64,
                             table_name.is_system(),
                         );
-                        usage_tracker.track_database_ingress_size_v2(
-                            component_path,
-                            virtual_system_mapping
-                                .system_to_virtual_table(&table_name)
-                                .unwrap_or(&table_name)
-                                .to_string(),
-                            document_write_size as u64,
-                            table_name.is_system()
-                                && !virtual_system_mapping.has_virtual_table(&table_name),
-                        );
-                    } else {
-                        usage_tracker.track_vector_ingress_size(
+                    }
+                    if text_index_write_size.0 > 0 {
+                        usage_tracker.track_text_ingress_size(
                             component_path,
                             table_name.to_string(),
-                            document_write_size as u64,
+                            text_index_write_size.0,
                             table_name.is_system(),
                         );
                     }
@@ -1118,6 +1128,7 @@ struct ValidatedDocumentWrite {
     id: InternalDocumentId,
     write: Option<ResolvedDocument>,
     doc_in_vector_index: DocInVectorIndex,
+    text_index_write_size: TextIndexWriteSize,
     prev_ts: Option<Timestamp>,
 }
 

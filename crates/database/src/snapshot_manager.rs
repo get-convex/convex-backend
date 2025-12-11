@@ -31,7 +31,10 @@ use indexing::{
     backend_in_memory_indexes::BackendInMemoryIndexes,
     index_registry::IndexRegistry,
 };
-use search::TextIndexManager;
+use search::{
+    TextIndexManager,
+    TextIndexWriteSize,
+};
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -220,7 +223,11 @@ impl Snapshot {
         &mut self,
         document_update: &impl DocumentUpdateRef,
         commit_ts: Timestamp,
-    ) -> anyhow::Result<(Vec<DatabaseIndexUpdate>, DocInVectorIndex)> {
+    ) -> anyhow::Result<(
+        Vec<DatabaseIndexUpdate>,
+        DocInVectorIndex,
+        TextIndexWriteSize,
+    )> {
         block_in_place(|| {
             let removal = document_update.old_document();
             let insertion = document_update.new_document();
@@ -268,7 +275,8 @@ impl Snapshot {
                 insertion.cloned(),
             );
 
-            self.text_indexes
+            let text_index_write_size = self
+                .text_indexes
                 .update(
                     &self.index_registry,
                     removal,
@@ -286,7 +294,11 @@ impl Snapshot {
                     WriteTimestamp::Committed(commit_ts),
                 )
                 .context("Vector index update failed")?;
-            Ok((in_memory_index_updates, doc_in_vector_index))
+            Ok((
+                in_memory_index_updates,
+                doc_in_vector_index,
+                text_index_write_size,
+            ))
         })
     }
 

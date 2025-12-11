@@ -53,6 +53,7 @@ use crate::{
     QueryResults,
     Searcher,
     TantivySearchIndexSchema,
+    TextIndexWriteSize,
 };
 
 #[derive(Clone)]
@@ -300,12 +301,13 @@ impl TextIndexManager {
         deletion: Option<&ResolvedDocument>,
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<TextIndexWriteSize> {
+        let mut write_size = TextIndexWriteSize(0);
         let TextIndexManagerState::Ready(ref mut indexes) = self.indexes else {
-            return Ok(());
+            return Ok(write_size);
         };
         let Some(id) = deletion.as_ref().or(insertion.as_ref()).map(|d| d.id()) else {
-            return Ok(());
+            return Ok(write_size);
         };
         let timer = metrics::index_manager_update_timer();
 
@@ -527,10 +529,13 @@ impl TextIndexManager {
             index
                 .memory_index_mut()
                 .update(id.internal_id(), ts, old_value, new_terms)?;
+            if let Some(insertion) = insertion {
+                write_size.0 += tantivy_schema.estimate_size(insertion);
+            }
         }
 
         timer.finish();
-        Ok(())
+        Ok(write_size)
     }
 
     pub fn total_in_memory_size(&self) -> usize {
