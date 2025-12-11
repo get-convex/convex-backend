@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/eslint-plugin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@typescript-eslint/utils": "~8.38.0"
+  },
+  "peerDependencies": {
+    "convex": "^1.31.0"
   },
   "devDependencies": {
     "@eslint/js": "~9.34.0",
