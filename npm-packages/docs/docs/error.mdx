@@ -125,3 +125,79 @@ To fix this issue:
     },
   ]}
 />
+
+## Undefined validator \{#undefined-validator}
+
+This error occurs when a validator passed to a Convex function definition or
+schema is `undefined`. This most commonly happens due to circular imports (also
+known as import cycles) in TypeScript.
+
+### Example
+
+You have two files that import from each other:
+
+```ts title="convex/validators.ts"
+import { v } from "convex/values";
+import { someUtility } from "./functions";
+
+export const myValidator = v.object({
+  name: v.string(),
+});
+
+// Uses someUtility somewhere...
+```
+
+```ts title="convex/functions.ts"
+import { mutation } from "./_generated/server";
+// Both functions.ts and validators.ts import from each other.
+import { myValidator } from "./validators";
+
+export function someUtility() {
+  // ...
+}
+
+export const myMutation = mutation({
+  args: {
+    data: myValidator, // <-- May be undefined due to import cycle
+  },
+  handler: async (ctx, args) => {
+    // ...
+  },
+});
+```
+
+When `functions.ts` is loaded, it imports from `validators.ts`, which in turn
+tries to import from `functions.ts`. Since `functions.ts` hasn't finished the
+`import` statement yet, `myValidator` is still `undefined`, causing the
+`mutation` builder to throw an error.
+
+Note: the value may be defined at runtime if you try to log it. This is only a
+quirk of TypeScript’s import time behavior.
+
+### Cycles involving `schema.ts`
+
+A common way to accidentally introduce this kind of cycle is through your
+`schema.ts` file. Larger apps often define validators or whole tables in other
+files and import them into `schema.ts`.
+
+If these files import from `schema.ts` or depend on files that do, you have a
+cycle.
+
+```text
+schema.ts → validators.ts → someFile.ts → schema.ts
+```
+
+To break the cycle, define validators in "pure" files that have minimal
+dependencies, and import them into the places they are needed.
+
+### Investigate circular imports
+
+If you suspect a circular import but aren't sure where it is, tools like
+[madge](https://github.com/pahen/madge) can help you visualize your import graph
+and list cycles:
+
+```bash
+npx madge convex/ --extensions ts --exclude api.d.ts --circular
+```
+
+We exclude `api.d.ts` here because type-only imports are generally safe.

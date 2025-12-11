@@ -152,7 +152,9 @@ type FunctionDefinition =
 function strictReplacer(key: string, value: any) {
   if (value === undefined) {
     throw new Error(
-      `Cannot serialize validator value \`undefined\` for ${key}`,
+      `A validator is undefined for field "${key}". ` +
+        `This is often caused by circular imports. ` +
+        `See https://docs.convex.dev/error#undefined-validator for details.`,
     );
   }
   return value;
