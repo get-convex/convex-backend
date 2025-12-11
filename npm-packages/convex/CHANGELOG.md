@@ -1,6 +1,6 @@
 # Changelog
 
-## Upcoming (1.30.0)
+## 1.31.0
 
 - `db.get`, `db.patch`, `db.replace`, and `db.delete` now accept a table name as
   the first argument (e.g. `db.get("messages", messageId)` instead of
