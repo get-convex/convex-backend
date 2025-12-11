@@ -14,7 +14,7 @@
 	"devDependencies": {
 		"@convex-dev/eslint-plugin": "^1.0.0",
 		"@eslint/eslintrc": "^3",
-		"@eslint/js": "~9.34.0",
+		"@eslint/js": "~9.39.0",
 		"@sveltejs/adapter-auto": "^6.0.0",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",

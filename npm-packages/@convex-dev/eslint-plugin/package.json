@@ -20,7 +20,7 @@
     "convex": "^1.31.0"
   },
   "devDependencies": {
-    "@eslint/js": "~9.34.0",
+    "@eslint/js": "~9.39.0",
     "@types/eslint": "~9.6.1",
     "@types/node": "^18.17.0",
     "@typescript-eslint/rule-tester": "~8.38.0",

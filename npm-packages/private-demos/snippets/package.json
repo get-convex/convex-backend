@@ -16,7 +16,7 @@
     "@clerk/clerk-react": "^5.20.0",
     "@eslint/compat": "~1.4.0",
     "@eslint/eslintrc": "^3",
-    "@eslint/js": "~9.34.0",
+    "@eslint/js": "~9.39.0",
     "@faker-js/faker": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

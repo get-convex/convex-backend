@@ -28,7 +28,7 @@
     "@convex-dev/eslint-plugin": "workspace:*",
     "@eslint/compat": "~1.4.0",
     "@eslint/eslintrc": "~3.3.0",
-    "@eslint/js": "~9.34.0",
+    "@eslint/js": "~9.39.0",
     "@types/object-inspect": "^1.8.1",
     "@types/lodash": "~4.17.0",
     "@types/node": "^18.17.0",
