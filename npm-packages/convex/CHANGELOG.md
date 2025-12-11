@@ -10,7 +10,7 @@
   [`@convex-dev/explicit-table-ids`](https://docs.convex.dev/eslint#explicit-table-ids)
   or our standalone codemod tool
   (`npx @convex-dev/codemod@latest explicit-ids`).
-  [**Learn more on news.convex.dev**](https://news.convex.dev)
+  [**Learn more on news.convex.dev**](https://news.convex.dev/db-table-name/)
 
 ## 1.30.0
 
