@@ -36,7 +36,7 @@
     "@docusaurus/theme-common": "~3.9.1",
     "heroicons": "^2.0.16",
     "react-dropdown": "~1.11.0",
-    "algoliasearch": "~4.24.0",
+    "algoliasearch": "~4.25.0",
     "react-markdown": "~10.1.0",
     "@types/react": "^18.0.0",
     "tailwindcss": "^4.1.11",
