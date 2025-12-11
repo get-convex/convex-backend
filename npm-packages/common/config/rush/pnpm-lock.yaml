@@ -5389,8 +5389,8 @@ importers:
         specifier: ~10.2.2
         version: 10.2.2
       verdaccio-memory:
-        specifier: ~10.3.2
-        version: 10.3.2
+        specifier: ~10.4.0
+        version: 10.4.1
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/debug@4.1.12)(@types/node@18.19.130)(happy-dom@20.0.10)(jiti@2.6.1)(jsdom@26.1.0(bufferutil@4.0.9))(lightningcss@1.30.2)(sass@1.94.0)(terser@5.44.1)(tsx@4.20.6)(yaml@2.8.1)
@@ -22783,9 +22783,9 @@ packages:
     resolution: {integrity: sha512-nZ+V/szt3lXQRIyqvOpJlW0MceLM3tUyTGwqy4y0uwq7w9KGD/VqytnCpiQbkjVmmfScimXwRW7PHjHyRXLCVw==}
     engines: {node: '>=18'}
 
-  verdaccio-memory@10.3.2:
-    resolution: {integrity: sha512-NsUPy3W31uMjm8+6+RYznhtThZjj1PYFLOULqG4zrg8ePYj45z9Ievso/IQD+iqXA5P8vz2TKzT4oTyHlXPe/w==}
-    engines: {node: '>=8'}
+  verdaccio-memory@10.4.1:
+    resolution: {integrity: sha512-RhcgDQ2BMW7sj1U2oDmRhBUdCVa/FYtqN8vzKoUhFx1mH7vwJk4zkE7iSIPG2f6B/mR/ar0QIu063acRT6bF6g==}
+    engines: {node: '>=18'}
 
   verdaccio@6.2.1:
     resolution: {integrity: sha512-b7EjPyVKvO/7J2BtLaybQqDd8dh4uUsuQL1zQMVLsw3aYqBsHCAOa6T1zb6gpCg68cNUHluw7IjLs2hha72TZA==}
@@ -49138,9 +49138,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  verdaccio-memory@10.3.2:
+  verdaccio-memory@10.4.1:
     dependencies:
-      '@verdaccio/commons-api': 10.2.0
+      '@verdaccio/core': 8.0.0-next-8.21
       '@verdaccio/streams': 10.2.1
       memory-fs: 0.5.0
 
