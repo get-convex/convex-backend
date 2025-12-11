@@ -1,5 +1,17 @@
 # Changelog
 
+## Upcoming (1.30.0)
+
+- `db.get`, `db.patch`, `db.replace`, and `db.delete` now accept a table name as
+  the first argument (e.g. `db.get("messages", messageId)` instead of
+  `db.get(messageId)`). This new syntax is more ergonomic, safer, and will allow
+  developers to customize IDs in the future. We recommend that all developers
+  migrate to the new syntax, using the ESLint rule
+  [`@convex-dev/explicit-table-ids`](https://docs.convex.dev/eslint#explicit-table-ids)
+  or our standalone codemod tool
+  (`npx @convex-dev/codemod@latest explicit-ids`).
+  [**Learn more on news.convex.dev**](https://news.convex.dev)
+
 ## 1.30.0
 
 - The `--preview-create` parameter for `npx convex deploy` will now error if
