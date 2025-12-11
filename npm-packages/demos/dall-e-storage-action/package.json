@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "openai": "^4.6.0",
+    "openai": "^6.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "prettier": "3.6.2"

@@ -40,7 +40,7 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
     "langchain": "^0.3.0",
-    "openai": "^4.6.0",
+    "openai": "^6.0.0",
     "modern-async": "^2.0.0",
     "prettier": "3.6.2",
     "@langchain/core": "^0.3.78"
