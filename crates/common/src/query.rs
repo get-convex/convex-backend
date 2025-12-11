@@ -285,11 +285,25 @@ impl IndexRange {
             },
         };
         let end = match end {
-            Bound::Unbounded => End::after_prefix(&BinaryKey::from(values_to_bytes(&prefix))),
+            Bound::Unbounded => {
+                let key = BinaryKey::from(values_to_bytes(&prefix));
+                if prefix.len() == indexed_fields.iter_with_id().count() {
+                    // Special case: if all fields including the implicit _id field are specified,
+                    // we can use a tighter bound
+                    End::included(&key)
+                } else {
+                    End::after_prefix(&key)
+                }
+            },
             Bound::Included(value) => {
                 let mut bound = prefix;
                 bound.push(value.0);
-                End::after_prefix(&BinaryKey::from(values_to_bytes(&bound)))
+                let key = BinaryKey::from(values_to_bytes(&bound));
+                if bound.len() == indexed_fields.iter_with_id().count() {
+                    End::included(&key)
+                } else {
+                    End::after_prefix(&key)
+                }
             },
             Bound::Excluded(value) => {
                 let mut bound = prefix;
@@ -1426,7 +1440,17 @@ mod tests {
                 vec![IndexRangeExpression::Eq("_id".parse()?, maybe_val!("foo"))],
                 IndexedFields::by_id()
             )?,
-            Interval::prefix(b"\x10foo\x00".to_vec().into())
+            Interval::singleton(b"\x10foo\x00".to_vec().into())
+        );
+        assert_eq!(
+            compile(
+                vec![
+                    IndexRangeExpression::Gte("_id".parse()?, maybe_val!("foo")),
+                    IndexRangeExpression::Lte("_id".parse()?, maybe_val!("foo")),
+                ],
+                IndexedFields::by_id(),
+            )?,
+            Interval::singleton(b"\x10foo\x00".to_vec().into()),
         );
         assert_eq!(
             compile(
@@ -1450,6 +1474,16 @@ mod tests {
             Interval {
                 start: StartIncluded(b"\x01\x02".to_vec().into()),
                 end: End::Excluded(b"\x02".to_vec().into()),
+            },
+        );
+        assert_eq!(
+            compile(
+                vec![IndexRangeExpression::Lte("_id".parse()?, maybe_val!("foo"))],
+                IndexedFields::by_id()
+            )?,
+            Interval {
+                start: StartIncluded(b"".to_vec().into()),
+                end: End::Excluded(b"\x10foo\x00\x00".to_vec().into()),
             },
         );
         // Input order doesn't matter
