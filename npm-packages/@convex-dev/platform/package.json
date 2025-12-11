@@ -22,7 +22,6 @@
     "typescript": "^5.9.2",
     "openapi-typescript": "~7.8.0",
     "openapi-typescript-helpers": "~0.0.15",
-    "dashboard": "workspace:*",
     "tsx": "^4.19.4",
     "zshy": "0.6.0"
   },

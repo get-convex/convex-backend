@@ -333,9 +333,6 @@ importers:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.130
-      dashboard:
-        specifier: workspace:*
-        version: link:../../dashboard
       openapi-typescript:
         specifier: ~7.8.0
         version: 7.8.0(typescript@5.9.3)
