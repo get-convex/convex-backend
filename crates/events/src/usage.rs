@@ -121,6 +121,8 @@ pub enum UsageEvent {
         udf_id: String,
         table_name: String,
         ingress: u64,
+        // Includes ingress for tables that have virtual tables
+        ingress_v2: u64,
         egress: u64,
         egress_rows: u64,
     },

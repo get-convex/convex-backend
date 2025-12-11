@@ -1063,6 +1063,7 @@ impl<RT: Runtime> Database<RT> {
             runtime.clone(),
             retention_manager.clone(),
             shutdown,
+            virtual_system_mapping.clone(),
         );
         let table_mapping_snapshot_cache =
             AsyncLru::new(runtime.clone(), 20, 2, "table_mapping_snapshot");

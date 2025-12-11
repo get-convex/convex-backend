@@ -73,6 +73,7 @@ use common::{
         Timestamp,
         WriteTimestamp,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
 use fastrace::prelude::*;
@@ -192,6 +193,7 @@ pub struct Committer<RT: Runtime> {
     persistence_writes: FuturesOrdered<BoxFuture<'static, anyhow::Result<PersistenceWrite>>>,
 
     retention_validator: Arc<dyn RetentionValidator>,
+    virtual_system_mapping: VirtualSystemMapping,
 }
 
 impl<RT: Runtime> Committer<RT> {
@@ -202,6 +204,7 @@ impl<RT: Runtime> Committer<RT> {
         runtime: RT,
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
+        virtual_system_mapping: VirtualSystemMapping,
     ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new(persistence_reader.version());
@@ -216,6 +219,7 @@ impl<RT: Runtime> Committer<RT> {
             last_assigned_ts: Timestamp::MIN,
             persistence_writes: FuturesOrdered::new(),
             retention_validator: retention_validator.clone(),
+            virtual_system_mapping,
         };
         let handle = runtime.spawn("committer", async move {
             if let Err(err) = committer.go(rx).await {
@@ -910,6 +914,7 @@ impl<RT: Runtime> Committer<RT> {
         let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
         let pause_client = self.runtime.pause_client();
         let rt = self.runtime.clone();
+        let virtual_system_mapping = self.virtual_system_mapping.clone();
         Some(
             async move {
                 Self::track_commit(
@@ -918,6 +923,7 @@ impl<RT: Runtime> Committer<RT> {
                     &document_writes,
                     &table_mapping,
                     &component_registry,
+                    &virtual_system_mapping,
                 );
 
                 let mut backoff = Backoff::new(
@@ -989,6 +995,7 @@ impl<RT: Runtime> Committer<RT> {
         document_writes: &Vec<ValidatedDocumentWrite>,
         table_mapping: &TableMapping,
         component_registry: &ComponentRegistry,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) {
         for (_, index_write) in index_writes {
             if let DatabaseIndexValue::NonClustered(doc) = index_write.value {
@@ -1005,12 +1012,25 @@ impl<RT: Runtime> Committer<RT> {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress_size(
-                        component_path,
+                        component_path.clone(),
                         table_name.to_string(),
                         index_write.key.size() as u64,
                         // Exclude indexes on system tables or reserved system indexes on user
                         // tables
                         table_name.is_system() || index_write.is_system_index,
+                    );
+                    usage_tracker.track_database_ingress_size_v2(
+                        component_path,
+                        virtual_system_mapping
+                            .system_to_virtual_table(&table_name)
+                            .unwrap_or(&table_name)
+                            .to_string(),
+                        index_write.key.size() as u64,
+                        // Exclude indexes on system tables that are not virtual tables or reserved
+                        // system indexes on user tables
+                        (table_name.is_system()
+                            && !virtual_system_mapping.has_virtual_table(&table_name))
+                            || index_write.is_system_index,
                     );
                 }
             }
@@ -1036,10 +1056,20 @@ impl<RT: Runtime> Committer<RT> {
                     // Database bandwidth for document writes
                     if *doc_in_vector_index == DocInVectorIndex::Absent {
                         usage_tracker.track_database_ingress_size(
-                            component_path,
+                            component_path.clone(),
                             table_name.to_string(),
                             document_write_size as u64,
                             table_name.is_system(),
+                        );
+                        usage_tracker.track_database_ingress_size_v2(
+                            component_path,
+                            virtual_system_mapping
+                                .system_to_virtual_table(&table_name)
+                                .unwrap_or(&table_name)
+                                .to_string(),
+                            document_write_size as u64,
+                            table_name.is_system()
+                                && !virtual_system_mapping.has_virtual_table(&table_name),
                         );
                     } else {
                         usage_tracker.track_vector_ingress_size(

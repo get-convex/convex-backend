@@ -349,6 +349,20 @@ impl UsageCounter {
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: ingress_size,
+                ingress_v2: 0,
+                egress: 0,
+                egress_rows: 0,
+            });
+        }
+        for ((component_path, table_name), ingress_size) in stats.database_ingress_size_v2 {
+            usage_metrics.push(UsageEvent::DatabaseBandwidth {
+                id: execution_id.to_string(),
+                request_id: request_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                table_name,
+                ingress: 0,
+                ingress_v2: ingress_size,
                 egress: 0,
                 egress_rows: 0,
             });
@@ -365,6 +379,7 @@ impl UsageCounter {
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: 0,
+                ingress_v2: 0,
                 egress: egress_size,
                 egress_rows: *rows,
             });
@@ -618,6 +633,23 @@ impl FunctionUsageTracker {
             .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
     }
 
+    pub fn track_database_ingress_size_v2(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        ingress_size: u64,
+        skip_logging: bool,
+    ) {
+        if skip_logging {
+            return;
+        }
+
+        let mut state = self.state.lock();
+        state
+            .database_ingress_size_v2
+            .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
+    }
+
     pub fn track_database_egress_size(
         &self,
         component_path: ComponentPath,
@@ -795,6 +827,8 @@ pub struct FunctionUsageStats {
     pub storage_ingress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
     pub storage_egress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
     pub database_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    /// Includes ingress for tables that have virtual tables
+    pub database_ingress_size_v2: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub database_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub database_egress_rows: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
@@ -832,6 +866,10 @@ impl FunctionUsageStats {
         // Merge "by table" bandwidth other.
         for (key, ingress_size) in other.database_ingress_size {
             self.database_ingress_size
+                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
+        }
+        for (key, ingress_size) in other.database_ingress_size_v2 {
+            self.database_ingress_size_v2
                 .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
         }
         for (key, egress_size) in other.database_egress_size {
@@ -911,6 +949,12 @@ mod usage_arbitrary {
                     0..=4,
                 )
                 .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
             );
             strategies
                 .prop_map(
@@ -919,6 +963,7 @@ mod usage_arbitrary {
                         storage_ingress_size,
                         storage_egress_size,
                         database_ingress_size,
+                        database_ingress_size_v2,
                         database_egress_size,
                         database_egress_rows,
                         vector_ingress_size,
@@ -928,6 +973,7 @@ mod usage_arbitrary {
                         storage_ingress_size,
                         storage_egress_size,
                         database_ingress_size,
+                        database_ingress_size_v2,
                         database_egress_size,
                         database_egress_rows,
                         vector_ingress_size,
@@ -1004,6 +1050,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
                 stats.storage_egress_size.into_iter(),
             ),
             database_ingress_size: to_by_tag_count(stats.database_ingress_size.into_iter()),
+            database_ingress_size_v2: to_by_tag_count(stats.database_ingress_size_v2.into_iter()),
             database_egress_size: to_by_tag_count(stats.database_egress_size.into_iter()),
             database_egress_rows: to_by_tag_count(stats.database_egress_rows.into_iter()),
             vector_ingress_size: to_by_tag_count(stats.vector_ingress_size.into_iter()),
@@ -1022,6 +1069,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let storage_egress_size =
             from_by_component_tag_count(stats.storage_egress_size_by_component)?.collect();
         let database_ingress_size = from_by_tag_count(stats.database_ingress_size)?.collect();
+        let database_ingress_size_v2 = from_by_tag_count(stats.database_ingress_size_v2)?.collect();
         let database_egress_size = from_by_tag_count(stats.database_egress_size)?.collect();
         let database_egress_rows = from_by_tag_count(stats.database_egress_rows)?.collect();
         let vector_ingress_size = from_by_tag_count(stats.vector_ingress_size)?.collect();
@@ -1032,6 +1080,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             storage_ingress_size,
             storage_egress_size,
             database_ingress_size,
+            database_ingress_size_v2,
             database_egress_rows,
             database_egress_size,
             vector_ingress_size,

@@ -81,6 +81,8 @@ use crate::{
 };
 
 pub mod args;
+#[cfg(test)]
+mod tests;
 pub mod types;
 pub mod virtual_table;
 
