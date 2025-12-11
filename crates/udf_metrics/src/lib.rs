@@ -213,13 +213,22 @@ impl MetricStore {
         self.add(MetricType::Gauge, metric_name, ts, value)
     }
 
-    fn add(
+    /// Add a sample to a gauge metric, but only update if the new value is
+    /// greater than the existing value in the bucket (tracking maximum).
+    pub fn add_gauge_max(
         &mut self,
-        metric_type: MetricType,
         metric_name: &str,
         ts: SystemTime,
         value: f32,
     ) -> Result<(), UdfMetricsError> {
+        self.add_gauge_with_op(metric_name, ts, value, |existing| existing.max(value))
+    }
+
+    /// Validate timestamp and compute the bucket index.
+    fn validate_and_get_bucket_index(
+        &self,
+        ts: SystemTime,
+    ) -> Result<BucketIndex, UdfMetricsError> {
         let Ok(since_base) = ts.duration_since(self.base_ts) else {
             return Err(UdfMetricsError::SamplePrecedesBaseTimestamp {
                 ts,
@@ -235,8 +244,17 @@ impl MetricStore {
                 cutoff: self.bucket_start(*max_bucket_index),
             });
         }
+        Ok(bucket_index)
+    }
 
-        let metric_key = match self.metrics_by_name.entry(metric_name.to_string()) {
+    /// Get or create a metric key, validating that the metric type matches
+    /// if the metric already exists.
+    fn get_or_create_metric(
+        &mut self,
+        metric_name: &str,
+        metric_type: MetricType,
+    ) -> Result<MetricKey, UdfMetricsError> {
+        match self.metrics_by_name.entry(metric_name.to_string()) {
             hashmap::Entry::Occupied(entry) => {
                 let metric = self
                     .metrics
@@ -248,7 +266,7 @@ impl MetricStore {
                         expected_type: metric.metric_type,
                     });
                 }
-                *entry.get()
+                Ok(*entry.get())
             },
             hashmap::Entry::Vacant(entry) => {
                 let metric = Metric {
@@ -257,9 +275,56 @@ impl MetricStore {
                 };
                 let metric_key = self.metrics.alloc(metric);
                 entry.insert(metric_key);
-                metric_key
+                Ok(metric_key)
+            },
+        }
+    }
+
+    fn add_gauge_with_op(
+        &mut self,
+        metric_name: &str,
+        ts: SystemTime,
+        value: f32,
+        op: impl FnOnce(f32) -> f32,
+    ) -> Result<(), UdfMetricsError> {
+        let bucket_index = self.validate_and_get_bucket_index(ts)?;
+        let metric_key = self.get_or_create_metric(metric_name, MetricType::Gauge)?;
+
+        let inserted = match self.bucket_by_metric.entry((metric_key, bucket_index)) {
+            ordmap::Entry::Occupied(bucket_key) => {
+                let bucket = self
+                    .gauge_buckets
+                    .get_mut(*bucket_key.get())
+                    .context("Invalid bucket key")?;
+                bucket.value = op(bucket.value);
+                false
+            },
+            ordmap::Entry::Vacant(entry) => {
+                let new_bucket = GaugeBucket::new(bucket_index, value);
+                let new_bucket_key = self.gauge_buckets.alloc(new_bucket);
+                entry.insert(new_bucket_key);
+                self.bucket_by_start
+                    .insert((bucket_index, metric_key), new_bucket_key);
+                true
             },
         };
+
+        if inserted {
+            self.prune_buckets()?;
+        }
+
+        Ok(())
+    }
+
+    fn add(
+        &mut self,
+        metric_type: MetricType,
+        metric_name: &str,
+        ts: SystemTime,
+        value: f32,
+    ) -> Result<(), UdfMetricsError> {
+        let bucket_index = self.validate_and_get_bucket_index(ts)?;
+        let metric_key = self.get_or_create_metric(metric_name, metric_type)?;
 
         let inserted = match self.bucket_by_metric.entry((metric_key, bucket_index)) {
             // Try to log into the desired bucket if it exists.
@@ -991,6 +1056,39 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].value, 2.0);
         assert_eq!(result[1].value, 5.0);
+
+        store.consistency_check()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_and_query_gauge_max() -> anyhow::Result<()> {
+        let mut store = new_store(2);
+
+        let t0 = store.base_ts;
+        let t1 = store.base_ts + Duration::from_secs(60); // next bucket
+
+        // Add values to the same bucket - should keep the max
+        store.add_gauge_max("peak_connections", t0, 5.0)?;
+        store.add_gauge_max("peak_connections", t0, 10.0)?; // higher, should update
+        store.add_gauge_max("peak_connections", t0, 3.0)?; // lower, should not update
+
+        // Query first bucket - should have the max value (10.0)
+        let result = store.query_gauge("peak_connections", t0..(t0 + Duration::from_secs(1)))?;
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].value, 10.0);
+
+        // Add values to second bucket
+        store.add_gauge_max("peak_connections", t1, 7.0)?;
+        store.add_gauge_max("peak_connections", t1, 12.0)?; // higher, should update
+        store.add_gauge_max("peak_connections", t1, 8.0)?; // lower, should not update
+
+        // Query both buckets
+        let result = store.query_gauge("peak_connections", t0..(t1 + Duration::from_secs(120)))?;
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].value, 10.0); // max from first bucket
+        assert_eq!(result[1].value, 12.0); // max from second bucket
 
         store.consistency_check()?;
 
