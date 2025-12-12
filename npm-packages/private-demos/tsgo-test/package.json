@@ -1,0 +1,13 @@
+{
+  "name": "tsgo-test",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tsgo --noEmit -p convex/tsconfig.json"
+  },
+  "dependencies": {
+    "convex": "workspace:*"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "~7.0.0-dev.20251205.1"
+  }
+}
